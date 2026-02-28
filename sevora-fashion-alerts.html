@@ -3,921 +3,459 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sevora — Daily Fashion Intelligence</title>
-/* Find these lines and replace */
-font-family: 'Playfair Display', serif;  →  font-family: Georgia, serif;
-font-family: 'DM Sans', sans-serif;      →  font-family: system-ui, sans-serif;
-font-family: 'DM Mono', monospace;       →  font-family: monospace;
-  <style>
+<title>Sevora — Fashion Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Jost:wght@300;400;500&family=Courier+Prime&display=swap" rel="stylesheet">
+<style>
   :root {
-    --ink: #0d0d0d;
-    --cream: #f5f0e8;
-    --warm: #e8dfc8;
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #181818;
     --gold: #c9a84c;
-    --gold-light: #e8c96a;
-    --blush: #d4a5a5;
-    --sage: #8fa89b;
-    --coal: #1a1a1a;
-    --muted: #6b6560;
-    --card-bg: #faf7f2;
-    --border: rgba(201,168,76,0.2);
+    --gold2: #e8c96a;
+    --cream: #f0e8d8;
+    --muted: #666;
+    --border: rgba(201,168,76,0.15);
+    --runway: #c9a84c;
+    --trend: #7a9e8a;
+    --stylist: #b88a8a;
+    --tech: #7a8eb8;
   }
 
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    background: var(--cream);
-    color: var(--ink);
-    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--cream);
+    font-family: 'Jost', sans-serif;
     font-weight: 300;
     min-height: 100vh;
-    overflow-x: hidden;
   }
 
-  /* Grain overlay */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-    pointer-events: none;
-    z-index: 999;
-    opacity: 0.6;
-  }
-
-  /* HEADER */
   header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-end;
-    padding: 2.5rem 3rem 1.5rem;
+    align-items: center;
+    padding: 1.8rem 2.5rem;
     border-bottom: 1px solid var(--border);
     position: sticky;
     top: 0;
-    background: var(--cream);
+    background: rgba(10,10,10,0.95);
+    backdrop-filter: blur(12px);
     z-index: 100;
-    backdrop-filter: blur(10px);
   }
 
-  .logo {
-    display: flex;
-    flex-direction: column;
-  }
+  .brand { display: flex; align-items: baseline; gap: 0.8rem; }
 
-  .logo-name {
-    font-family: 'Playfair Display', serif;
-    font-size: 1.8rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    color: var(--ink);
-  }
-
-  .logo-sub {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.62rem;
-    letter-spacing: 0.25em;
+  .brand-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.6rem;
+    font-weight: 600;
     color: var(--gold);
-    text-transform: uppercase;
-    margin-top: 2px;
+    letter-spacing: 0.05em;
   }
 
-  .header-right {
-    display: flex;
-    align-items: center;
-    gap: 2rem;
-  }
-
-  .date-display {
-    text-align: right;
-  }
-
-  .date-today {
-    font-family: 'Playfair Display', serif;
-    font-size: 1rem;
-    color: var(--ink);
-  }
-
-  .date-sub {
-    font-family: 'DM Mono', monospace;
+  .brand-tag {
+    font-family: 'Courier Prime', monospace;
     font-size: 0.6rem;
-    letter-spacing: 0.2em;
+    letter-spacing: 0.25em;
     color: var(--muted);
     text-transform: uppercase;
   }
 
-  .refresh-btn {
-    background: var(--ink);
-    color: var(--cream);
-    border: none;
-    padding: 0.6rem 1.4rem;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.65rem;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: all 0.3s ease;
+  .header-right { display: flex; align-items: center; gap: 1rem; }
+
+  #dateTag {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.62rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
   }
 
-  .refresh-btn:hover {
+  .fetch-btn {
     background: var(--gold);
-    color: var(--ink);
-    transform: translateY(-1px);
-  }
-
-  /* HERO TICKER */
-  .ticker-wrap {
-    background: var(--ink);
-    overflow: hidden;
-    padding: 0.6rem 0;
-    position: relative;
-  }
-
-  .ticker {
-    display: flex;
-    gap: 0;
-    white-space: nowrap;
-    animation: ticker 35s linear infinite;
-  }
-
-  .ticker-item {
-    font-family: 'DM Mono', monospace;
+    color: #0a0a0a;
+    border: none;
+    padding: 0.55rem 1.4rem;
+    font-family: 'Courier Prime', monospace;
     font-size: 0.65rem;
     letter-spacing: 0.15em;
-    color: var(--gold);
+    text-transform: uppercase;
+    cursor: pointer;
+    font-weight: 700;
+    transition: all 0.2s;
+  }
+
+  .fetch-btn:hover { background: var(--gold2); transform: translateY(-1px); }
+  .fetch-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .filters {
+    display: flex;
     padding: 0 2.5rem;
-    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
   }
 
-  .ticker-item::before {
-    content: '◆  ';
-    color: var(--blush);
-    opacity: 0.6;
-  }
-
-  @keyframes ticker {
-    from { transform: translateX(0); }
-    to { transform: translateX(-50%); }
-  }
-
-  /* MAIN LAYOUT */
-  main {
-    padding: 2.5rem 3rem;
-    max-width: 1400px;
-    margin: 0 auto;
-  }
-
-  /* SECTION HEADERS */
-  .section-label {
-    font-family: 'DM Mono', monospace;
+  .ftab {
+    padding: 0.9rem 1.4rem;
+    font-family: 'Courier Prime', monospace;
     font-size: 0.6rem;
-    letter-spacing: 0.3em;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
-    color: var(--gold);
-    margin-bottom: 1.2rem;
+    color: var(--muted);
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+
+  .ftab:hover { color: var(--cream); }
+  .ftab.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+  main { padding: 2rem 2.5rem; max-width: 1200px; margin: 0 auto; }
+
+  .status-bar {
     display: flex;
     align-items: center;
-    gap: 0.8rem;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    padding: 0.8rem 1.2rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    color: var(--muted);
   }
 
-  .section-label::after {
-    content: '';
-    flex: 1;
-    height: 1px;
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+  .status-dot.live { background: #4caf50; box-shadow: 0 0 6px #4caf50; animation: pulse 2s infinite; }
+  .status-dot.loading { background: var(--gold); box-shadow: 0 0 6px var(--gold); animation: pulse 0.8s infinite; }
+  .status-dot.error { background: #e07070; }
+
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  /* SKELETON */
+  .skeleton-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1px; background: var(--border); }
+  .skeleton-card { background: var(--surface); padding: 1.8rem; }
+  .skel { background: var(--surface2); border-radius: 2px; animation: shimmer 1.5s infinite; margin-bottom: 0.6rem; }
+  .skel-tag { height: 10px; width: 80px; }
+  .skel-title { height: 18px; width: 90%; }
+  .skel-title2 { height: 18px; width: 65%; }
+  .skel-body { height: 10px; width: 100%; }
+  .skel-body2 { height: 10px; width: 80%; }
+  .skel-body3 { height: 10px; width: 55%; margin-bottom: 1.5rem; }
+  .skel-link { height: 10px; width: 120px; }
+
+  @keyframes shimmer { 0%,100% { opacity: 0.3; } 50% { opacity: 0.6; } }
+
+  /* NEWS GRID */
+  .news-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1px;
     background: var(--border);
   }
 
-  /* FILTER TABS */
-  .filters {
+  .news-card {
+    background: var(--surface);
+    padding: 1.8rem;
+    transition: background 0.2s;
     display: flex;
-    gap: 0.5rem;
-    margin-bottom: 2.5rem;
-    flex-wrap: wrap;
+    flex-direction: column;
+    animation: fadeIn 0.5s ease both;
   }
 
-  .filter-tab {
-    padding: 0.45rem 1.2rem;
-    border: 1px solid var(--border);
-    background: transparent;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.62rem;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    cursor: pointer;
-    color: var(--muted);
-    transition: all 0.25s ease;
-  }
+  .news-card:hover { background: var(--surface2); }
 
-  .filter-tab:hover, .filter-tab.active {
-    background: var(--ink);
-    color: var(--cream);
-    border-color: var(--ink);
-  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
-  .filter-tab.active {
-    position: relative;
-  }
-
-  .filter-tab[data-cat="runway"].active { background: #3d2b1f; border-color: #3d2b1f; }
-  .filter-tab[data-cat="trend"].active { background: #1f2b3d; border-color: #1f2b3d; }
-  .filter-tab[data-cat="stylist"].active { background: #2b3d1f; border-color: #2b3d1f; }
-  .filter-tab[data-cat="tech"].active { background: #3d1f2b; border-color: #3d1f2b; }
-
-  /* CARDS GRID */
-  .cards-grid {
-    display: grid;
-    grid-template-columns: 2fr 1fr 1fr;
-    grid-template-rows: auto;
-    gap: 1.2rem;
-    margin-bottom: 2.5rem;
-  }
-
-  .card {
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    padding: 1.6rem;
-    position: relative;
-    overflow: hidden;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    animation: fadeUp 0.6s ease both;
-    cursor: pointer;
-  }
-
-  .card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 40px rgba(0,0,0,0.08);
-  }
-
-  .card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 3px;
-  }
-
-  .card[data-cat="runway"]::before { background: linear-gradient(90deg, #c9a84c, #8b6914); }
-  .card[data-cat="trend"]::before { background: linear-gradient(90deg, #8fa89b, #4a7064); }
-  .card[data-cat="stylist"]::before { background: linear-gradient(90deg, #d4a5a5, #a06060); }
-  .card[data-cat="tech"]::before { background: linear-gradient(90deg, #a5b4d4, #5060a0); }
-
-  .card.featured {
-    grid-column: 1;
-    grid-row: 1 / 3;
-  }
-
-  .card-cat {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.58rem;
+  .news-cat {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.55rem;
     letter-spacing: 0.25em;
     text-transform: uppercase;
-    margin-bottom: 0.8rem;
+    margin-bottom: 0.9rem;
     display: flex;
     align-items: center;
     gap: 0.5rem;
   }
 
-  .card[data-cat="runway"] .card-cat { color: var(--gold); }
-  .card[data-cat="trend"] .card-cat { color: var(--sage); }
-  .card[data-cat="stylist"] .card-cat { color: var(--blush); }
-  .card[data-cat="tech"] .card-cat { color: #a5b4d4; }
+  .cat-pip { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+  .cat-runway .cat-pip, .cat-runway { background: var(--runway); color: var(--runway); }
+  .cat-trend .cat-pip, .cat-trend { background: var(--trend); color: var(--trend); }
+  .cat-stylist .cat-pip, .cat-stylist { background: var(--stylist); color: var(--stylist); }
+  .cat-tech .cat-pip, .cat-tech { background: var(--tech); color: var(--tech); }
+  .cat-pip { background: currentColor; }
 
-  .cat-dot {
-    width: 5px; height: 5px;
-    border-radius: 50%;
-    display: inline-block;
-  }
-
-  .card[data-cat="runway"] .cat-dot { background: var(--gold); }
-  .card[data-cat="trend"] .cat-dot { background: var(--sage); }
-  .card[data-cat="stylist"] .cat-dot { background: var(--blush); }
-  .card[data-cat="tech"] .cat-dot { background: #a5b4d4; }
-
-  .card-title {
-    font-family: 'Playfair Display', serif;
-    font-size: 1.05rem;
+  .news-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.2rem;
     line-height: 1.4;
-    margin-bottom: 0.7rem;
-    color: var(--ink);
+    color: var(--cream);
+    margin-bottom: 0.8rem;
+    flex-grow: 0;
   }
 
-  .card.featured .card-title {
-    font-size: 1.6rem;
-    line-height: 1.3;
-    margin-bottom: 1rem;
-  }
-
-  .card-body {
+  .news-summary {
     font-size: 0.82rem;
-    line-height: 1.65;
-    color: var(--muted);
-    margin-bottom: 1.2rem;
+    line-height: 1.7;
+    color: #999;
+    margin-bottom: 1.4rem;
+    flex-grow: 1;
   }
 
-  .card.featured .card-body {
-    font-size: 0.9rem;
-  }
-
-  .card-meta {
+  .news-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.58rem;
-    letter-spacing: 0.1em;
-    color: var(--muted);
     padding-top: 1rem;
     border-top: 1px solid var(--border);
+    gap: 0.5rem;
   }
 
-  .card-source {
-    text-transform: uppercase;
-    letter-spacing: 0.15em;
-  }
-
-  .card-badge {
-    padding: 0.2rem 0.6rem;
-    font-size: 0.55rem;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    background: var(--ink);
-    color: var(--cream);
-  }
-
-  .card.featured .card-visual {
-    width: 100%;
-    height: 160px;
-    background: linear-gradient(135deg, var(--warm) 0%, var(--gold) 50%, #8b5e3c 100%);
-    margin-bottom: 1.2rem;
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .card-visual-pattern {
-    position: absolute;
-    inset: 0;
-    background-image: repeating-linear-gradient(
-      45deg,
-      transparent,
-      transparent 10px,
-      rgba(255,255,255,0.08) 10px,
-      rgba(255,255,255,0.08) 20px
-    );
-  }
-
-  .card-visual-text {
-    font-family: 'Playfair Display', serif;
-    font-size: 3rem;
-    color: rgba(255,255,255,0.15);
-    font-style: italic;
-    z-index: 1;
-    letter-spacing: 0.1em;
-  }
-
-  /* TREND METER */
-  .trend-meter {
-    margin: 0.6rem 0 0.3rem;
-  }
-
-  .trend-label {
-    display: flex;
-    justify-content: space-between;
-    font-family: 'DM Mono', monospace;
+  .news-source {
+    font-family: 'Courier Prime', monospace;
     font-size: 0.58rem;
+    letter-spacing: 0.1em;
     color: var(--muted);
-    margin-bottom: 0.3rem;
-  }
-
-  .trend-bar {
-    height: 3px;
-    background: var(--warm);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-
-  .trend-fill {
-    height: 100%;
-    border-radius: 2px;
-    transition: width 1.5s cubic-bezier(0.25, 1, 0.5, 1);
-  }
-
-  /* STATS ROW */
-  .stats-row {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1rem;
-    margin-bottom: 2.5rem;
-  }
-
-  .stat-card {
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    padding: 1.4rem;
-    text-align: center;
-    animation: fadeUp 0.6s ease both;
-  }
-
-  .stat-number {
-    font-family: 'Playfair Display', serif;
-    font-size: 2.2rem;
-    font-weight: 700;
-    color: var(--ink);
-    line-height: 1;
-    margin-bottom: 0.3rem;
-  }
-
-  .stat-label {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.58rem;
-    letter-spacing: 0.2em;
     text-transform: uppercase;
-    color: var(--muted);
   }
 
-  .stat-change {
-    font-family: 'DM Mono', monospace;
+  .news-link {
+    font-family: 'Courier Prime', monospace;
     font-size: 0.6rem;
-    color: var(--sage);
-    margin-top: 0.3rem;
-  }
-
-  /* TREND SIGNALS */
-  .trend-signals {
-    display: grid;
-    grid-template-columns: 1.5fr 1fr;
-    gap: 1.2rem;
-    margin-bottom: 2.5rem;
-  }
-
-  .signals-panel {
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    padding: 1.6rem;
-    animation: fadeUp 0.6s ease 0.2s both;
-  }
-
-  .signal-item {
-    display: flex;
-    gap: 1rem;
-    padding: 0.9rem 0;
-    border-bottom: 1px solid var(--border);
-    align-items: flex-start;
-    transition: background 0.2s;
-    cursor: pointer;
-  }
-
-  .signal-item:last-child { border-bottom: none; }
-  .signal-item:hover { margin: 0 -1.6rem; padding-left: 1.6rem; padding-right: 1.6rem; background: var(--warm); }
-
-  .signal-rank {
-    font-family: 'Playfair Display', serif;
-    font-size: 1.4rem;
-    font-style: italic;
-    color: var(--border);
-    width: 28px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s;
+    padding-bottom: 1px;
+    white-space: nowrap;
     flex-shrink: 0;
-    line-height: 1.2;
   }
 
-  .signal-content { flex: 1; }
+  .news-link:hover { border-bottom-color: var(--gold); }
 
-  .signal-name {
-    font-size: 0.88rem;
-    font-weight: 500;
-    color: var(--ink);
-    margin-bottom: 0.2rem;
-  }
+  .empty-state { text-align: center; padding: 5rem 2rem; }
+  .empty-icon { font-family: 'Cormorant Garamond', serif; font-size: 4rem; font-style: italic; color: #222; margin-bottom: 1rem; }
+  .empty-title { font-family: 'Cormorant Garamond', serif; font-size: 1.4rem; color: var(--cream); margin-bottom: 0.5rem; }
+  .empty-sub { font-size: 0.82rem; color: var(--muted); margin-bottom: 2rem; }
 
-  .signal-desc {
-    font-size: 0.75rem;
-    color: var(--muted);
-    line-height: 1.5;
-  }
-
-  .signal-heat {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.6rem;
-    color: var(--gold);
-    letter-spacing: 0.1em;
-    flex-shrink: 0;
-    margin-top: 2px;
-  }
-
-  /* SOURCES PANEL */
-  .sources-panel {
-    background: var(--ink);
-    padding: 1.6rem;
-    color: var(--cream);
-    animation: fadeUp 0.6s ease 0.3s both;
-  }
-
-  .sources-panel .section-label {
-    color: var(--gold);
-  }
-
-  .source-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.8rem 0;
-    border-bottom: 1px solid rgba(255,255,255,0.07);
-  }
-
-  .source-item:last-child { border-bottom: none; }
-
-  .source-name {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.7rem;
-    letter-spacing: 0.1em;
-    color: var(--cream);
-  }
-
-  .source-count {
-    font-family: 'Playfair Display', serif;
-    font-size: 1.1rem;
-    color: var(--gold);
-  }
-
-  .source-new {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.55rem;
-    background: var(--gold);
-    color: var(--ink);
-    padding: 0.15rem 0.4rem;
-    margin-left: 0.5rem;
-  }
-
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(16px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .hidden { display: none !important; }
-
-  /* FOOTER */
   footer {
     text-align: center;
-    padding: 1.5rem 3rem;
+    padding: 2rem;
     border-top: 1px solid var(--border);
-    font-family: 'DM Mono', monospace;
+    font-family: 'Courier Prime', monospace;
     font-size: 0.58rem;
     letter-spacing: 0.2em;
     color: var(--muted);
     text-transform: uppercase;
+    margin-top: 3rem;
   }
 
-  /* NOTIFICATION TOAST */
-  .toast {
-    position: fixed;
-    bottom: 2rem;
-    right: 2rem;
-    background: var(--ink);
-    color: var(--cream);
-    padding: 1rem 1.5rem;
-    border-left: 3px solid var(--gold);
-    font-family: 'DM Mono', monospace;
-    font-size: 0.65rem;
-    letter-spacing: 0.1em;
-    z-index: 1000;
-    transform: translateX(120%);
-    transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-    max-width: 280px;
-  }
+  footer a { color: var(--gold); text-decoration: none; }
 
-  .toast.show { transform: translateX(0); }
-
-  .toast-title {
-    color: var(--gold);
-    text-transform: uppercase;
-    letter-spacing: 0.2em;
-    margin-bottom: 0.3rem;
-    font-size: 0.6rem;
-  }
-
-  @media (max-width: 900px) {
-    header, main { padding: 1.5rem; }
-    .cards-grid { grid-template-columns: 1fr 1fr; }
-    .card.featured { grid-column: 1 / -1; grid-row: auto; }
-    .stats-row { grid-template-columns: repeat(2, 1fr); }
-    .trend-signals { grid-template-columns: 1fr; }
+  @media (max-width: 600px) {
+    header, main { padding: 1.2rem; }
+    .filters { padding: 0 1.2rem; }
+    .news-grid, .skeleton-grid { grid-template-columns: 1fr; }
+    .brand-tag { display: none; }
   }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="logo">
-    <span class="logo-name">Sevora</span>
-    <span class="logo-sub">Daily Fashion Intelligence</span>
+  <div class="brand">
+    <span class="brand-name">Sevora</span>
+    <span class="brand-tag">Fashion Intelligence</span>
   </div>
   <div class="header-right">
-    <div class="date-display">
-      <div class="date-today" id="dateDisplay"></div>
-      <div class="date-sub">Morning Digest</div>
-    </div>
-    <button class="refresh-btn" onclick="refreshAlerts()">↻ Refresh</button>
+    <span id="dateTag"></span>
+    <button class="fetch-btn" id="fetchBtn" onclick="fetchNews()">↻ Fetch Latest</button>
   </div>
 </header>
 
-<div class="ticker-wrap">
-  <div class="ticker" id="ticker">
-    <span class="ticker-item">Milan FW: Prada goes sculptural with oversized silhouettes</span>
-    <span class="ticker-item">Trend signal: Quiet luxury continues to dominate search volume +38%</span>
-    <span class="ticker-item">Reformation launches stylist collaboration portal</span>
-    <span class="ticker-item">AI styling tools see 200% surge in B2B adoption</span>
-    <span class="ticker-item">Bottega Veneta drops unexpected earthy palette for SS26</span>
-    <span class="ticker-item">Mango acquires tech startup for virtual try-on</span>
-    <span class="ticker-item">Pinterest Predicts: Coastal grandmother aesthetic evolving into "Maritime Luxe"</span>
-    <span class="ticker-item">WGSN names "Biome" as macro trend for 2026</span>
-    <span class="ticker-item">Milan FW: Prada goes sculptural with oversized silhouettes</span>
-    <span class="ticker-item">Trend signal: Quiet luxury continues to dominate search volume +38%</span>
-    <span class="ticker-item">Reformation launches stylist collaboration portal</span>
-    <span class="ticker-item">AI styling tools see 200% surge in B2B adoption</span>
-    <span class="ticker-item">Bottega Veneta drops unexpected earthy palette for SS26</span>
-    <span class="ticker-item">Mango acquires tech startup for virtual try-on</span>
-    <span class="ticker-item">Pinterest Predicts: Coastal grandmother aesthetic evolving into "Maritime Luxe"</span>
-    <span class="ticker-item">WGSN names "Biome" as macro trend for 2026</span>
-  </div>
+<div class="filters">
+  <button class="ftab active" onclick="setFilter('all', this)">All</button>
+  <button class="ftab" onclick="setFilter('runway', this)">Runway & FW</button>
+  <button class="ftab" onclick="setFilter('trend', this)">Trend Forecasting</button>
+  <button class="ftab" onclick="setFilter('stylist', this)">Stylist News</button>
+  <button class="ftab" onclick="setFilter('tech', this)">Fashion Tech</button>
 </div>
 
 <main>
-
-  <!-- STATS ROW -->
-  <div class="stats-row">
-    <div class="stat-card" style="animation-delay:0.05s">
-      <div class="stat-number" id="stat1">47</div>
-      <div class="stat-label">Alerts Today</div>
-      <div class="stat-change">↑ 12 from yesterday</div>
-    </div>
-    <div class="stat-card" style="animation-delay:0.1s">
-      <div class="stat-number">4</div>
-      <div class="stat-label">Categories Tracked</div>
-      <div class="stat-change">All active</div>
-    </div>
-    <div class="stat-card" style="animation-delay:0.15s">
-      <div class="stat-number">18</div>
-      <div class="stat-label">Sources Monitored</div>
-      <div class="stat-change">↑ 3 new sources</div>
-    </div>
-    <div class="stat-card" style="animation-delay:0.2s">
-      <div class="stat-number" id="trendStat">↑</div>
-      <div class="stat-label">Market Momentum</div>
-      <div class="stat-change" style="color:var(--blush)">Luxury sector up</div>
+  <div class="status-bar">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Click "Fetch Latest" to load today's fashion news with real links</span>
+  </div>
+  <div id="content">
+    <div class="empty-state">
+      <div class="empty-icon">S</div>
+      <div class="empty-title">Your Daily Fashion Intelligence</div>
+      <div class="empty-sub">Real news. Real links. Curated for Sevora founders.</div>
+      <button class="fetch-btn" onclick="fetchNews()" style="margin:0 auto;display:block;">Fetch Today's News →</button>
     </div>
   </div>
-
-  <!-- FILTERS -->
-  <div class="filters">
-    <button class="filter-tab active" data-cat="all" onclick="filterCards('all', this)">All Updates</button>
-    <button class="filter-tab" data-cat="runway" onclick="filterCards('runway', this)">Runway & FW</button>
-    <button class="filter-tab" data-cat="trend" onclick="filterCards('trend', this)">Trend Forecasting</button>
-    <button class="filter-tab" data-cat="stylist" onclick="filterCards('stylist', this)">Stylist News</button>
-    <button class="filter-tab" data-cat="tech" onclick="filterCards('tech', this)">Fashion Tech</button>
-  </div>
-
-  <!-- MAIN CARDS -->
-  <div class="section-label">Top Stories</div>
-  <div class="cards-grid" id="cardsGrid">
-
-    <!-- FEATURED -->
-    <div class="card featured" data-cat="runway">
-      <span class="card-cat"><span class="cat-dot"></span>Runway & Fashion Weeks</span>
-      <div class="card-visual">
-        <div class="card-visual-pattern"></div>
-        <span class="card-visual-text">SS26</span>
-      </div>
-      <div class="card-title">Milan Fashion Week: The Return of Structured Opulence</div>
-      <div class="card-body">Prada, Gucci, and Bottega Veneta collectively signalled a departure from quiet minimalism — bold tailoring, sculptural silhouettes, and richly textured fabrics dominated the runways. Key takeaway for stylists: clients will be asking for statement pieces with architectural cuts heading into SS26. Color story: deep terracotta, aged bronze, and unexpected sage.</div>
-      <div class="trend-meter">
-        <div class="trend-label"><span>Stylist Relevance</span><span>92%</span></div>
-        <div class="trend-bar"><div class="trend-fill" style="width:0%; background: linear-gradient(90deg, var(--gold), var(--gold-light));" data-width="92"></div></div>
-      </div>
-      <div class="card-meta">
-        <span class="card-source">Business of Fashion · 2h ago</span>
-        <span class="card-badge">Featured</span>
-      </div>
-    </div>
-
-    <div class="card" data-cat="trend">
-      <span class="card-cat"><span class="cat-dot"></span>Trend Forecasting</span>
-      <div class="card-title">WGSN: "Biome" Named Macro Trend for 2026</div>
-      <div class="card-body">Nature-derived textures, earthy pigments, and botanical prints are set to dominate. Clients are moving toward investment pieces that feel organic and tactile.</div>
-      <div class="trend-meter">
-        <div class="trend-label"><span>Velocity</span><span>78%</span></div>
-        <div class="trend-bar"><div class="trend-fill" style="width:0%; background: linear-gradient(90deg, var(--sage), #4a7064);" data-width="78"></div></div>
-      </div>
-      <div class="card-meta">
-        <span class="card-source">WGSN · 4h ago</span>
-        <span class="card-badge">Forecast</span>
-      </div>
-    </div>
-
-    <div class="card" data-cat="tech">
-      <span class="card-cat"><span class="cat-dot"></span>Fashion Tech</span>
-      <div class="card-title">AI Styling Tools See 200% B2B Surge in Q1</div>
-      <div class="card-body">Enterprise fashion platforms are integrating AI recommendations at scale. Stylist-led tools are outperforming algorithm-only solutions in client satisfaction metrics.</div>
-      <div class="trend-meter">
-        <div class="trend-label"><span>Industry Impact</span><span>85%</span></div>
-        <div class="trend-bar"><div class="trend-fill" style="width:0%; background: linear-gradient(90deg, #a5b4d4, #5060a0);" data-width="85"></div></div>
-      </div>
-      <div class="card-meta">
-        <span class="card-source">Vogue Business · 6h ago</span>
-        <span class="card-badge">Relevant</span>
-      </div>
-    </div>
-
-    <div class="card" data-cat="stylist">
-      <span class="card-cat"><span class="cat-dot"></span>Stylist News</span>
-      <div class="card-title">Top Stylists Predict the Comeback of Personal Shopping</div>
-      <div class="card-body">Celebrity stylists report a 40% increase in personal shopping requests. Clients want curated, high-touch experiences — a key signal for Sevora's positioning.</div>
-      <div class="trend-meter">
-        <div class="trend-label"><span>Platform Signal</span><span>88%</span></div>
-        <div class="trend-bar"><div class="trend-fill" style="width:0%; background: linear-gradient(90deg, var(--blush), #a06060);" data-width="88"></div></div>
-      </div>
-      <div class="card-meta">
-        <span class="card-source">WWD · 3h ago</span>
-        <span class="card-badge">High Signal</span>
-      </div>
-    </div>
-
-    <div class="card" data-cat="runway">
-      <span class="card-cat"><span class="cat-dot"></span>Runway</span>
-      <div class="card-title">Paris Haute Couture: Romanticism Reimagined</div>
-      <div class="card-body">Valentino and Dior leaned into neo-romantic language — flowing silhouettes, hand-embroidery, and soft drapery suggesting a softer counter-movement to Milan's structure.</div>
-      <div class="card-meta">
-        <span class="card-source">Vogue · 1h ago</span>
-        <span class="card-badge">Breaking</span>
-      </div>
-    </div>
-
-    <div class="card" data-cat="trend">
-      <span class="card-cat"><span class="cat-dot"></span>Trend Signal</span>
-      <div class="card-title">Pinterest: "Maritime Luxe" Replacing Coastal Grandmother</div>
-      <div class="card-body">Search volume for nautical luxury aesthetics has surged 120% in the past 30 days. Linen, navy, rope details, and polished boat shoes leading the shift.</div>
-      <div class="card-meta">
-        <span class="card-source">Pinterest Trends · Today</span>
-        <span class="card-badge">Trending</span>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- TREND SIGNALS + SOURCES -->
-  <div class="trend-signals">
-    <div class="signals-panel">
-      <div class="section-label">Rising Trend Signals</div>
-      <div class="signal-item">
-        <div class="signal-rank">01</div>
-        <div class="signal-content">
-          <div class="signal-name">Sculptural Tailoring</div>
-          <div class="signal-desc">Oversized structured blazers and architectural shirting. Key for formal-casual stylist requests.</div>
-        </div>
-        <div class="signal-heat">🔥 +48%</div>
-      </div>
-      <div class="signal-item">
-        <div class="signal-rank">02</div>
-        <div class="signal-content">
-          <div class="signal-name">Terracotta & Bronze Palette</div>
-          <div class="signal-desc">Earthy warm tones dominating SS26 collections across price points.</div>
-        </div>
-        <div class="signal-heat">🔥 +38%</div>
-      </div>
-      <div class="signal-item">
-        <div class="signal-rank">03</div>
-        <div class="signal-content">
-          <div class="signal-name">Quiet Luxury Evolution</div>
-          <div class="signal-desc">Shifting from plain minimalism to refined textures — bouclé, cashmere, and raw silk.</div>
-        </div>
-        <div class="signal-heat">↑ +31%</div>
-      </div>
-      <div class="signal-item">
-        <div class="signal-rank">04</div>
-        <div class="signal-content">
-          <div class="signal-name">Maritime Luxe</div>
-          <div class="signal-desc">Nautical aesthetics elevated with premium materials. Pinterest & TikTok driving velocity.</div>
-        </div>
-        <div class="signal-heat">↑ +27%</div>
-      </div>
-      <div class="signal-item">
-        <div class="signal-rank">05</div>
-        <div class="signal-content">
-          <div class="signal-name">AI-Assisted Styling Tools</div>
-          <div class="signal-desc">Platform investment in AI curation tools accelerating across fashion retail.</div>
-        </div>
-        <div class="signal-heat">↑ +22%</div>
-      </div>
-    </div>
-
-    <div class="sources-panel">
-      <div class="section-label" style="color:var(--gold)">Sources Active</div>
-      <div class="source-item">
-        <span class="source-name">Business of Fashion<span class="source-new">3 new</span></span>
-        <span class="source-count">12</span>
-      </div>
-      <div class="source-item">
-        <span class="source-name">Vogue Business<span class="source-new">2 new</span></span>
-        <span class="source-count">8</span>
-      </div>
-      <div class="source-item">
-        <span class="source-name">WWD</span>
-        <span class="source-count">7</span>
-      </div>
-      <div class="source-item">
-        <span class="source-name">WGSN</span>
-        <span class="source-count">5</span>
-      </div>
-      <div class="source-item">
-        <span class="source-name">Pinterest Trends<span class="source-new">1 new</span></span>
-        <span class="source-count">4</span>
-      </div>
-      <div class="source-item">
-        <span class="source-name">Hypebeast</span>
-        <span class="source-count">4</span>
-      </div>
-      <div class="source-item">
-        <span class="source-name">The Cut</span>
-        <span class="source-count">4</span>
-      </div>
-      <div class="source-item">
-        <span class="source-name">Dezeen</span>
-        <span class="source-count">3</span>
-      </div>
-    </div>
-  </div>
-
 </main>
 
 <footer>
-  Sevora Intelligence Dashboard &nbsp;·&nbsp; Daily Digest &nbsp;·&nbsp; All categories active &nbsp;·&nbsp; Tracking 18 sources
+  Sevora Tools &nbsp;·&nbsp; <a href="/">← Back to Tools</a> &nbsp;·&nbsp; Fashion Intelligence &nbsp;·&nbsp; Kolkata
 </footer>
 
-<!-- TOAST -->
-<div class="toast" id="toast">
-  <div class="toast-title">Alert System</div>
-  <div id="toastMsg">Dashboard refreshed with latest updates.</div>
-</div>
-
 <script>
-  // Set date
   const now = new Date();
-  document.getElementById('dateDisplay').textContent = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  document.getElementById('dateTag').textContent = now.toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'short', year: 'numeric'
+  }).toUpperCase();
 
-  // Animate trend bars on load
-  setTimeout(() => {
-    document.querySelectorAll('.trend-fill').forEach(bar => {
-      bar.style.width = bar.dataset.width + '%';
-    });
-  }, 600);
+  let allArticles = [];
+  let currentFilter = 'all';
 
-  // Filter cards
-  function filterCards(cat, btn) {
-    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+  function setFilter(cat, btn) {
+    currentFilter = cat;
+    document.querySelectorAll('.ftab').forEach(t => t.classList.remove('active'));
     btn.classList.add('active');
+    renderArticles();
+  }
 
-    document.querySelectorAll('.card').forEach(card => {
-      if (cat === 'all' || card.dataset.cat === cat) {
-        card.classList.remove('hidden');
-      } else {
-        card.classList.add('hidden');
-      }
+  function setStatus(state, text) {
+    document.getElementById('statusDot').className = 'status-dot ' + state;
+    document.getElementById('statusText').textContent = text;
+  }
+
+  function renderSkeleton() {
+    let html = '<div class="skeleton-grid">';
+    for (let i = 0; i < 6; i++) {
+      html += `<div class="skeleton-card">
+        <div class="skel skel-tag"></div>
+        <div class="skel skel-title"></div>
+        <div class="skel skel-title2"></div>
+        <div class="skel skel-body"></div>
+        <div class="skel skel-body2"></div>
+        <div class="skel skel-body3"></div>
+        <div class="skel skel-link"></div>
+      </div>`;
+    }
+    html += '</div>';
+    document.getElementById('content').innerHTML = html;
+  }
+
+  function renderArticles() {
+    const filtered = currentFilter === 'all' ? allArticles : allArticles.filter(a => a.category === currentFilter);
+
+    if (filtered.length === 0) {
+      document.getElementById('content').innerHTML = `
+        <div class="empty-state">
+          <div class="empty-title">No articles in this category</div>
+          <div class="empty-sub">Try a different filter or fetch new news.</div>
+        </div>`;
+      return;
+    }
+
+    const catLabels = { runway: 'Runway & Fashion Weeks', trend: 'Trend Forecasting', stylist: 'Stylist News', tech: 'Fashion Tech' };
+
+    let html = '<div class="news-grid">';
+    filtered.forEach((a, i) => {
+      const cat = a.category || 'trend';
+      html += `
+        <div class="news-card" style="animation-delay:${i * 0.06}s">
+          <div class="news-cat cat-${cat}">
+            <span class="cat-pip"></span>${catLabels[cat] || cat}
+          </div>
+          <div class="news-title">${escHtml(a.title)}</div>
+          <div class="news-summary">${escHtml(a.summary)}</div>
+          <div class="news-footer">
+            <span class="news-source">${escHtml(a.source)}</span>
+            <a class="news-link" href="${escHtml(a.url)}" target="_blank" rel="noopener noreferrer">Read Article →</a>
+          </div>
+        </div>`;
     });
+    html += '</div>';
+    document.getElementById('content').innerHTML = html;
   }
 
-  // Toast helper
-  function showToast(msg) {
-    const toast = document.getElementById('toast');
-    document.getElementById('toastMsg').textContent = msg;
-    toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 3500);
+  function escHtml(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  // Refresh
-  function refreshAlerts() {
-    const btn = document.querySelector('.refresh-btn');
-    btn.textContent = '↻ Loading…';
-    setTimeout(() => {
-      btn.textContent = '↻ Refresh';
-      document.getElementById('stat1').textContent = Math.floor(Math.random() * 20) + 40;
-      // re-animate bars
-      document.querySelectorAll('.trend-fill').forEach(bar => {
-        bar.style.width = '0%';
-        setTimeout(() => { bar.style.width = bar.dataset.width + '%'; }, 100);
+  async function fetchNews() {
+    const btn = document.getElementById('fetchBtn');
+    btn.disabled = true;
+    btn.textContent = '⟳ Fetching...';
+    setStatus('loading', 'Searching the web for latest fashion news...');
+    renderSkeleton();
+
+    const today = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+    const prompt = `You are a fashion intelligence curator for Sevora, a stylist-led luxury fashion app in Kolkata, India.
+
+Today is ${today}. Search the web and find 12 real fashion news articles published in the past 7 days.
+
+Return 3 articles per category:
+- runway: Fashion week coverage, runway shows, designer collections (Milan, Paris, London, NY, India FW)
+- trend: Trend reports, micro-trends, color forecasts, style movements, WGSN/Pinterest trend signals  
+- stylist: Personal styling news, stylist collaborations, styling tips, wardrobe curation news
+- tech: Fashion tech, AI in fashion, styling apps, e-commerce innovation, virtual try-on
+
+CRITICAL: Every URL must be a real, working link to an actual article. Use sources like businessoffashion.com, voguebusiness.com, wwd.com, vogue.com, elle.com, harpersbazaar.com, hypebeast.com, fashionnetwork.com, thecut.com, indianfashiontimes.com.
+
+Respond ONLY with a raw JSON array (no markdown, no backticks, no explanation):
+[{"title":"...","summary":"2-3 sentences relevant to a fashion startup founder and stylists","source":"Publication Name","url":"https://real-url.com/article-slug","category":"runway|trend|stylist|tech"}]`;
+
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 4000,
+          tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+          messages: [{ role: 'user', content: prompt }]
+        })
       });
-      showToast('Dashboard refreshed with the latest fashion intelligence.');
-    }, 1200);
+
+      if (!response.ok) throw new Error(`API error: ${response.status}`);
+
+      const data = await response.json();
+
+      // Extract all text blocks
+      let rawText = (data.content || [])
+        .filter(b => b.type === 'text')
+        .map(b => b.text)
+        .join('');
+
+      // Find JSON array in response
+      const jsonMatch = rawText.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) throw new Error('Could not parse news data from response.');
+
+      const articles = JSON.parse(jsonMatch[0]);
+      if (!Array.isArray(articles) || articles.length === 0) throw new Error('No articles returned.');
+
+      allArticles = articles;
+      setStatus('live', `${articles.length} articles loaded · ${today}`);
+      renderArticles();
+
+    } catch (err) {
+      console.error(err);
+      setStatus('error', 'Failed to load news. ' + err.message);
+      document.getElementById('content').innerHTML = `
+        <div class="empty-state">
+          <div class="empty-title">Could not load news</div>
+          <div class="empty-sub">${err.message}</div>
+          <button class="fetch-btn" onclick="fetchNews()" style="margin:0 auto;display:block;margin-top:1.5rem;">Try Again →</button>
+        </div>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '↻ Fetch Latest';
+    }
   }
 
-  // Card click
-  document.querySelectorAll('.card').forEach(card => {
-    card.addEventListener('click', function() {
-      const title = this.querySelector('.card-title').textContent;
-      showToast('Opening: ' + title.substring(0, 45) + '…');
-    });
-  });
-
-  // Initial toast
-  setTimeout(() => showToast('Good morning! Your daily digest is ready — 47 new alerts.'), 1500);
+  // Auto-fetch on load
+  window.addEventListener('load', () => setTimeout(fetchNews, 400));
 </script>
 </body>
 </html>
