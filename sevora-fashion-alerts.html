@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sevora — Fashion Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Jost:wght@300;400;500&family=Courier+Prime&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #181818;
+    --gold: #c9a84c;
+    --gold2: #e8c96a;
+    --cream: #f0e8d8;
+    --muted: #666;
+    --border: rgba(201,168,76,0.15);
+    --runway: #c9a84c;
+    --trend: #7a9e8a;
+    --stylist: #b88a8a;
+    --tech: #7a8eb8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--cream);
+    font-family: 'Jost', sans-serif;
+    font-weight: 300;
+    min-height: 100vh;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.8rem 2.5rem;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: rgba(10,10,10,0.95);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+
+  .brand { display: flex; align-items: baseline; gap: 0.8rem; }
+
+  .brand-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.6rem;
+    font-weight: 600;
+    color: var(--gold);
+    letter-spacing: 0.05em;
+  }
+
+  .brand-tag {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.25em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .header-right { display: flex; align-items: center; gap: 1rem; }
+
+  #dateTag {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.62rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+  }
+
+  .fetch-btn {
+    background: var(--gold);
+    color: #0a0a0a;
+    border: none;
+    padding: 0.55rem 1.4rem;
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    cursor: pointer;
+    font-weight: 700;
+    transition: all 0.2s;
+  }
+
+  .fetch-btn:hover { background: var(--gold2); transform: translateY(-1px); }
+  .fetch-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .filters {
+    display: flex;
+    padding: 0 2.5rem;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+
+  .ftab {
+    padding: 0.9rem 1.4rem;
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+
+  .ftab:hover { color: var(--cream); }
+  .ftab.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+  main { padding: 2rem 2.5rem; max-width: 1200px; margin: 0 auto; }
+
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    padding: 0.8rem 1.2rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+  }
+
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+  .status-dot.live { background: #4caf50; box-shadow: 0 0 6px #4caf50; animation: pulse 2s infinite; }
+  .status-dot.loading { background: var(--gold); box-shadow: 0 0 6px var(--gold); animation: pulse 0.8s infinite; }
+  .status-dot.error { background: #e07070; }
+
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  .skeleton-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1px; background: var(--border); }
+  .skeleton-card { background: var(--surface); padding: 1.8rem; }
+  .skel { background: var(--surface2); border-radius: 2px; animation: shimmer 1.5s infinite; margin-bottom: 0.6rem; }
+  .skel-tag { height: 10px; width: 80px; }
+  .skel-title { height: 18px; width: 90%; }
+  .skel-title2 { height: 18px; width: 65%; }
+  .skel-body { height: 10px; width: 100%; }
+  .skel-body2 { height: 10px; width: 80%; }
+  .skel-body3 { height: 10px; width: 55%; margin-bottom: 1.5rem; }
+  .skel-link { height: 10px; width: 120px; }
+
+  @keyframes shimmer { 0%,100% { opacity: 0.3; } 50% { opacity: 0.6; } }
+
+  .news-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1px;
+    background: var(--border);
+  }
+
+  .news-card {
+    background: var(--surface);
+    padding: 1.8rem;
+    transition: background 0.2s;
+    display: flex;
+    flex-direction: column;
+    animation: fadeIn 0.5s ease both;
+  }
+
+  .news-card:hover { background: var(--surface2); }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .news-cat {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    margin-bottom: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .cat-pip { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+  .cat-runway .cat-pip, .cat-runway { background: var(--runway); color: var(--runway); }
+  .cat-trend .cat-pip, .cat-trend { background: var(--trend); color: var(--trend); }
+  .cat-stylist .cat-pip, .cat-stylist { background: var(--stylist); color: var(--stylist); }
+  .cat-tech .cat-pip, .cat-tech { background: var(--tech); color: var(--tech); }
+  .cat-pip { background: currentColor; }
+
+  .news-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.2rem;
+    line-height: 1.4;
+    color: var(--cream);
+    margin-bottom: 0.8rem;
+    flex-grow: 0;
+  }
+
+  .news-summary {
+    font-size: 0.82rem;
+    line-height: 1.7;
+    color: #999;
+    margin-bottom: 1.4rem;
+    flex-grow: 1;
+  }
+
+  .news-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    gap: 0.5rem;
+  }
+
+  .news-source {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .news-link {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s;
+    padding-bottom: 1px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .news-link:hover { border-bottom-color: var(--gold); }
+
+  .empty-state { text-align: center; padding: 5rem 2rem; }
+  .empty-icon { font-family: 'Cormorant Garamond', serif; font-size: 4rem; font-style: italic; color: #222; margin-bottom: 1rem; }
+  .empty-title { font-family: 'Cormorant Garamond', serif; font-size: 1.4rem; color: var(--cream); margin-bottom: 0.5rem; }
+  .empty-sub { font-size: 0.82rem; color: var(--muted); margin-bottom: 2rem; }
+
+  footer {
+    text-align: center;
+    padding: 2rem;
+    border-top: 1px solid var(--border);
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-top: 3rem;
+  }
+
+  footer a { color: var(--gold); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    header, main { padding: 1.2rem; }
+    .filters { padding: 0 1.2rem; }
+    .news-grid, .skeleton-grid { grid-template-columns: 1fr; }
+    .brand-tag { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="brand-name">Sevora</span>
+    <span class="brand-tag">Fashion Intelligence</span>
+  </div>
+  <div class="header-right">
+    <span id="dateTag"></span>
+    <button class="fetch-btn" id="fetchBtn" onclick="fetchNews()">↻ Fetch Latest</button>
+  </div>
+</header>
+
+<div class="filters">
+  <button class="ftab active" onclick="setFilter('all', this)">All</button>
+  <button class="ftab" onclick="setFilter('runway', this)">Runway & FW</button>
+  <button class="ftab" onclick="setFilter('trend', this)">Trend Forecasting</button>
+  <button class="ftab" onclick="setFilter('stylist', this)">Stylist News</button>
+  <button class="ftab" onclick="setFilter('tech', this)">Fashion Tech</button>
+</div>
+
+<main>
+  <div class="status-bar">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Click "Fetch Latest" to load today's fashion news with real links</span>
+  </div>
+  <div id="content">
+    <div class="empty-state">
+      <div class="empty-icon">S</div>
+      <div class="empty-title">Your Daily Fashion Intelligence</div>
+      <div class="empty-sub">Real news. Real links. Curated for Sevora founders.</div>
+      <button class="fetch-btn" onclick="fetchNews()" style="margin:0 auto;display:block;">Fetch Today's News →</button>
+    </div>
+  </div>
+</main>
+
+<footer>
+  Sevora Tools &nbsp;·&nbsp; <a href="/">← Back to Tools</a> &nbsp;·&nbsp; Fashion Intelligence &nbsp;·&nbsp; Kolkata
+</footer>
+
+<script>
+  const now = new Date();
+  document.getElementById('dateTag').textContent = now.toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'short', year: 'numeric'
+  }).toUpperCase();
+
+  let allArticles = [];
+  let currentFilter = 'all';
+
+  function setFilter(cat, btn) {
+    currentFilter = cat;
+    document.querySelectorAll('.ftab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    renderArticles();
+  }
+
+  function setStatus(state, text) {
+    document.getElementById('statusDot').className = 'status-dot ' + state;
+    document.getElementById('statusText').textContent = text;
+  }
+
+  function renderSkeleton() {
+    let html = '<div class="skeleton-grid">';
+    for (let i = 0; i < 6; i++) {
+      html += `<div class="skeleton-card">
+        <div class="skel skel-tag"></div>
+        <div class="skel skel-title"></div>
+        <div class="skel skel-title2"></div>
+        <div class="skel skel-body"></div>
+        <div class="skel skel-body2"></div>
+        <div class="skel skel-body3"></div>
+        <div class="skel skel-link"></div>
+      </div>`;
+    }
+    html += '</div>';
+    document.getElementById('content').innerHTML = html;
+  }
+
+  function renderArticles() {
+    const filtered = currentFilter === 'all' ? allArticles : allArticles.filter(a => a.category === currentFilter);
+
+    if (filtered.length === 0) {
+      document.getElementById('content').innerHTML = `
+        <div class="empty-state">
+          <div class="empty-title">No articles in this category</div>
+          <div class="empty-sub">Try a different filter or fetch new news.</div>
+        </div>`;
+      return;
+    }
+
+    const catLabels = { runway: 'Runway & Fashion Weeks', trend: 'Trend Forecasting', stylist: 'Stylist News', tech: 'Fashion Tech' };
+
+    let html = '<div class="news-grid">';
+    filtered.forEach((a, i) => {
+      const cat = a.category || 'trend';
+      html += `
+        <div class="news-card" style="animation-delay:${i * 0.06}s">
+          <div class="news-cat cat-${cat}">
+            <span class="cat-pip"></span>${catLabels[cat] || cat}
+          </div>
+          <div class="news-title">${escHtml(a.title)}</div>
+          <div class="news-summary">${escHtml(a.summary)}</div>
+          <div class="news-footer">
+            <span class="news-source">${escHtml(a.source)}</span>
+            <a class="news-link" href="${escHtml(a.url)}" target="_blank" rel="noopener noreferrer">Read Article →</a>
+          </div>
+        </div>`;
+    });
+    html += '</div>';
+    document.getElementById('content').innerHTML = html;
+  }
+
+  function escHtml(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  async function fetchNews() {
+    const btn = document.getElementById('fetchBtn');
+    btn.disabled = true;
+    btn.textContent = '⟳ Fetching...';
+    setStatus('loading', 'Searching the web for latest fashion news...');
+    renderSkeleton();
+
+    const today = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+    const prompt = `You are a fashion intelligence curator for Sevora, a stylist-led luxury fashion app in Kolkata, India.
+
+Today is ${today}. Search the web and find 12 real fashion news articles published in the past 7 days.
+
+Return 3 articles per category:
+- runway: Fashion week coverage, runway shows, designer collections (Milan, Paris, London, NY, India FW)
+- trend: Trend reports, micro-trends, color forecasts, style movements, WGSN/Pinterest trend signals  
+- stylist: Personal styling news, stylist collaborations, styling tips, wardrobe curation news
+- tech: Fashion tech, AI in fashion, styling apps, e-commerce innovation, virtual try-on
+
+CRITICAL: Every URL must be a real, working link to an actual article. Use sources like businessoffashion.com, voguebusiness.com, wwd.com, vogue.com, elle.com, harpersbazaar.com, hypebeast.com, fashionnetwork.com, thecut.com, indianfashiontimes.com.
+
+Respond ONLY with a raw JSON array (no markdown, no backticks, no explanation):
+[{"title":"...","summary":"2-3 sentences relevant to a fashion startup founder and stylists","source":"Publication Name","url":"https://real-url.com/article-slug","category":"runway|trend|stylist|tech"}]`;
+
+    try {
+      // ✅ FIXED: calls our Vercel proxy instead of Anthropic directly
+      const response = await fetch('/api/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 4000,
+          tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+
+      if (!response.ok) throw new Error(`API error: ${response.status}`);
+
+      const data = await response.json();
+
+      // Extract all text blocks
+      let rawText = (data.content || [])
+        .filter(b => b.type === 'text')
+        .map(b => b.text)
+        .join('');
+
+      // Find JSON array in response
+      const jsonMatch = rawText.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) throw new Error('Could not parse news data from response.');
+
+      const articles = JSON.parse(jsonMatch[0]);
+      if (!Array.isArray(articles) || articles.length === 0) throw new Error('No articles returned.');
+
+      allArticles = articles;
+      setStatus('live', `${articles.length} articles loaded · ${today}`);
+      renderArticles();
+
+    } catch (err) {
+      console.error(err);
+      setStatus('error', 'Failed to load news. ' + err.message);
+      document.getElementById('content').innerHTML = `
+        <div class="empty-state">
+          <div class="empty-title">Could not load news</div>
+          <div class="empty-sub">${err.message}</div>
+          <button class="fetch-btn" onclick="fetchNews()" style="margin:0 auto;display:block;margin-top:1.5rem;">Try Again →</button>
+        </div>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '↻ Fetch Latest';
+    }
+  }
+
+  // Auto-fetch on load
+  window.addEventListener('load', () => setTimeout(fetchNews, 400));
+</script>
+</body>
+</html>
