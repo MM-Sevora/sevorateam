@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sevora Pricing Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#09090e;--surface:#0f0f17;--card:#13131c;--border:#1f1f2e;--border2:#2a2a3a;--gold:#c9a84c;--gold2:#e8c97a;--gold3:rgba(201,168,76,0.1);--text:#e8e8f0;--muted:#6b6b8a;--muted2:#4a4a62;--green:#34d399;--yellow:#fbbf24;--red:#f87171;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 50% at 50% -20%,rgba(201,168,76,0.05),transparent);pointer-events:none;}
+.app{position:relative;z-index:1;max-width:1300px;margin:0 auto;padding:28px 20px;}
+
+/* Header */
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:32px;padding-bottom:20px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:12px;}
+.brand{display:flex;align-items:center;gap:12px;}
+.brand-icon{width:40px;height:40px;background:linear-gradient(135deg,var(--gold),#6b3f0a);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;}
+.brand h1{font-family:'Playfair Display',serif;font-size:20px;font-weight:900;}
+.brand p{font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-top:2px;}
+.industry-pill{background:var(--gold3);border:1px solid rgba(201,168,76,0.2);border-radius:20px;padding:5px 14px;font-size:10px;color:var(--gold);letter-spacing:0.5px;}
+
+/* Presets */
+.presets{display:flex;gap:7px;margin-bottom:24px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;}
+.presets::-webkit-scrollbar{display:none;}
+.preset{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:7px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);white-space:nowrap;transition:all 0.2s;flex-shrink:0;}
+.preset:hover,.preset.active{border-color:var(--gold);color:var(--gold);background:var(--gold3);}
+
+/* Tips */
+.tips{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:10px;padding:16px 20px;margin-bottom:24px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+.tip{display:flex;gap:10px;}
+.tip-icon{font-size:15px;flex-shrink:0;margin-top:1px;}
+.tip-head{font-size:9px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;}
+.tip-body{font-size:10px;color:var(--muted);line-height:1.5;}
+
+/* Layout */
+.layout{display:grid;grid-template-columns:1fr 370px;gap:18px;}
+
+/* Cards */
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:24px;margin-bottom:16px;}
+.card:last-child{margin-bottom:0;}
+.sec-head{display:flex;align-items:center;gap:9px;margin-bottom:20px;}
+.sec-num{width:22px;height:22px;border-radius:5px;background:var(--gold3);border:1px solid rgba(201,168,76,0.2);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--gold);}
+.sec-title{font-family:'Playfair Display',serif;font-size:15px;font-weight:700;}
+.sec-note{font-size:9px;color:var(--muted);margin-left:auto;letter-spacing:0.5px;}
+
+/* Inputs */
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.ig{margin-bottom:0;}
+.ig.full{grid-column:1/-1;}
+.lbl{font-size:9px;color:var(--muted);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:6px;display:flex;justify-content:space-between;}
+.lbl span{color:var(--muted2);font-size:8px;letter-spacing:0;text-transform:none;}
+.iw{display:flex;}
+.px,.sx{background:var(--surface);border:1px solid var(--border2);padding:8px 10px;font-size:12px;color:var(--muted);display:flex;align-items:center;}
+.px{border-right:none;border-radius:5px 0 0 5px;}
+.sx{border-left:none;border-radius:0 5px 5px 0;}
+input[type=number],input[type=text]{flex:1;background:var(--surface);border:1px solid var(--border2);padding:8px 12px;font-size:12px;font-family:'DM Mono',monospace;color:var(--text);outline:none;transition:border-color 0.2s;-moz-appearance:textfield;}
+input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
+input:focus{border-color:var(--gold);}
+input.a{border-radius:5px;width:100%;}
+input.p{border-radius:0 5px 5px 0;}
+input.s{border-radius:5px 0 0 5px;}
+input[type=text]{border-radius:5px;width:100%;}
+
+/* Bench tags */
+.btags{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;}
+.bt{font-size:9px;padding:3px 7px;border-radius:3px;cursor:pointer;transition:all 0.15s;border:1px solid transparent;}
+.bt.g{background:rgba(52,211,153,0.08);color:var(--green);border-color:rgba(52,211,153,0.2);}
+.bt.y{background:rgba(251,191,36,0.08);color:var(--yellow);border-color:rgba(251,191,36,0.2);}
+.bt.r{background:rgba(248,113,113,0.08);color:var(--red);border-color:rgba(248,113,113,0.2);}
+.bt:hover{opacity:0.75;}
+
+/* Mode toggle */
+.mtoggle{display:flex;background:var(--surface);border-radius:7px;padding:3px;border:1px solid var(--border2);margin-bottom:18px;}
+.mbtn{flex:1;padding:7px;text-align:center;font-size:10px;font-family:'DM Mono',monospace;cursor:pointer;border-radius:5px;transition:all 0.2s;color:var(--muted);border:none;background:transparent;}
+.mbtn.active{background:var(--gold);color:#000;font-weight:500;}
+
+/* Toggle switch */
+.trow{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border);}
+.trow:last-child{border-bottom:none;}
+.tlabel{font-size:11px;color:var(--text);}
+.tsub{font-size:9px;color:var(--muted);margin-top:2px;}
+.toggle{width:34px;height:18px;background:var(--border2);border-radius:9px;cursor:pointer;transition:background 0.2s;position:relative;flex-shrink:0;}
+.toggle.on{background:var(--gold);}
+.toggle::after{content:'';position:absolute;width:14px;height:14px;background:#fff;border-radius:50%;top:2px;left:2px;transition:transform 0.2s;}
+.toggle.on::after{transform:translateX(16px);}
+
+/* Calc btn */
+.cbtn{width:100%;padding:13px;background:linear-gradient(135deg,var(--gold),#8b5e1a);color:#000;border:none;border-radius:7px;font-family:'Playfair Display',serif;font-size:15px;font-weight:700;cursor:pointer;transition:opacity 0.2s,transform 0.1s;margin-top:4px;}
+.cbtn:hover{opacity:0.9;transform:translateY(-1px);}
+
+/* Results */
+.results{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;position:sticky;top:20px;}
+.res-head{background:linear-gradient(135deg,#1a1408,#0f0f17);padding:22px;border-bottom:1px solid var(--border);}
+.res-eye{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:12px;}
+.mrp-row{display:flex;align-items:baseline;gap:8px;margin-bottom:4px;}
+.mrp-lbl{font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+.mrp-val{font-size:12px;color:var(--muted);text-decoration:line-through;}
+.price-big{font-family:'Playfair Display',serif;font-size:44px;font-weight:900;color:#fff;line-height:1;}
+.price-sub{font-size:10px;color:rgba(255,255,255,0.35);margin-top:3px;}
+.disc-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(52,211,153,0.12);border:1px solid rgba(52,211,153,0.2);border-radius:4px;padding:3px 8px;font-size:9px;color:var(--green);margin-top:8px;}
+
+.res-body{padding:18px;}
+
+/* Gauge */
+.gauge-wrap{margin-bottom:18px;}
+.gauge-hd{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:7px;}
+.gauge-track{height:7px;background:var(--border2);border-radius:4px;overflow:hidden;}
+.gauge-fill{height:100%;border-radius:4px;transition:width 0.6s ease,background 0.3s;}
+.gauge-marks{display:flex;justify-content:space-between;margin-top:3px;}
+.gm{font-size:8px;color:var(--muted2);}
+
+/* Health */
+.health{border-radius:7px;padding:12px 14px;margin-bottom:16px;border:1px solid transparent;}
+.health.good{background:rgba(52,211,153,0.07);border-color:rgba(52,211,153,0.2);}
+.health.warn{background:rgba(251,191,36,0.07);border-color:rgba(251,191,36,0.2);}
+.health.bad{background:rgba(248,113,113,0.07);border-color:rgba(248,113,113,0.2);}
+.h-title{font-size:11px;font-weight:500;margin-bottom:5px;}
+.health.good .h-title{color:var(--green);}
+.health.warn .h-title{color:var(--yellow);}
+.health.bad .h-title{color:var(--red);}
+.h-text{font-size:10px;color:var(--muted);line-height:1.5;}
+
+/* Metric rows */
+.msec{margin-bottom:16px;}
+.msec-title{font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted2);margin-bottom:10px;}
+.mrow{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);}
+.mrow:last-child{border-bottom:none;}
+.mname{font-size:10px;color:var(--muted);}
+.mval{font-size:12px;font-weight:500;color:var(--text);}
+.mval.gold{color:var(--gold2);font-family:'Playfair Display',serif;font-size:15px;}
+.mval.green{color:var(--green);}
+.mval.red{color:var(--red);}
+.mval.yellow{color:var(--yellow);}
+
+/* Benchmark grid */
+.bench-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}
+.bench-box{padding:10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);}
+.bench-box.hi{border-color:var(--gold);background:var(--gold3);}
+.bench-lbl{font-size:8px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;}
+.bench-val{font-size:14px;font-weight:500;}
+.bench-val.g{color:var(--green);}
+.bench-val.y{color:var(--yellow);}
+.bench-val.r{color:var(--red);}
+.bench-val.gold{color:var(--gold2);}
+
+/* Breakdown */
+.bdown{margin-top:4px;}
+.bdown-title{font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted2);margin-bottom:10px;}
+.bi{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.bi-lbl{font-size:9px;color:var(--muted);width:80px;flex-shrink:0;}
+.bi-track{flex:1;height:3px;background:var(--border2);border-radius:2px;overflow:hidden;}
+.bi-fill{height:100%;border-radius:2px;transition:width 0.5s ease;}
+.bi-pct{font-size:9px;color:var(--muted);width:32px;text-align:right;flex-shrink:0;}
+
+/* Empty */
+.empty{text-align:center;padding:44px 20px;}
+.empty-icon{font-size:40px;opacity:0.12;margin-bottom:14px;}
+.empty-txt{font-size:11px;color:var(--muted);line-height:1.7;}
+
+@media(max-width:900px){.layout{grid-template-columns:1fr;}.results{position:static;}.tips{grid-template-columns:1fr;}.row2{grid-template-columns:1fr;}}
+@media(max-width:500px){.price-big{font-size:34px;}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<div class="header">
+  <div class="brand">
+    <div class="brand-icon">◈</div>
+    <div>
+      <h1>Pricing Calculator</h1>
+      <p>Sevora · Luxury Fashion · Ecommerce</p>
+    </div>
+  </div>
+  <div class="industry-pill">✦ Industry Best Practices Enabled</div>
+</div>
+
+<!-- Category Presets -->
+<div class="presets">
+  <div class="preset active" onclick="applyPreset('saree')" id="pre-saree">🥻 Saree</div>
+  <div class="preset" onclick="applyPreset('kurti')" id="pre-kurti">👗 Kurti / Top</div>
+  <div class="preset" onclick="applyPreset('lehenga')" id="pre-lehenga">👘 Lehenga</div>
+  <div class="preset" onclick="applyPreset('suit')" id="pre-suit">🧥 Suit Set</div>
+  <div class="preset" onclick="applyPreset('jewellery')" id="pre-jewellery">💎 Jewellery</div>
+  <div class="preset" onclick="applyPreset('accessories')" id="pre-accessories">👜 Accessories</div>
+  <div class="preset" onclick="applyPreset('menswear')" id="pre-menswear">🧣 Menswear</div>
+</div>
+
+<!-- Industry Tips -->
+<div class="tips">
+  <div class="tip"><div class="tip-icon">📊</div><div><div class="tip-head">Margin Benchmark</div><div class="tip-body" id="tip1">Target 55–70% gross margin for designer sarees. Premium positioning justifies higher markup.</div></div></div>
+  <div class="tip"><div class="tip-icon">↩️</div><div><div class="tip-head">Returns Buffer</div><div class="tip-body" id="tip2">Fashion ecommerce sees 15–30% return rates. Buffer 8–12% of selling price for returns & restocking.</div></div></div>
+  <div class="tip"><div class="tip-icon">🏷️</div><div><div class="tip-head">MRP Strategy</div><div class="tip-body" id="tip3">Set MRP 25–40% above selling price. Visible discount increases perceived value & conversions.</div></div></div>
+</div>
+
+<div class="layout">
+<div>
+
+<!-- Section 1 -->
+<div class="card">
+  <div class="sec-head"><div class="sec-num">1</div><div class="sec-title">Product Information</div></div>
+  <div class="row2">
+    <div class="ig full"><div class="lbl">Product Name <span>Optional</span></div><input type="text" id="productName" placeholder="e.g. Banarasi Silk Saree — Red & Gold" oninput="calculate()"></div>
+    <div class="ig full">
+      <div class="lbl">Sourcing / Product Cost <span>What you pay supplier</span></div>
+      <div class="iw"><div class="px">₹</div><input type="number" id="productCost" class="p" placeholder="0" oninput="calculate()" min="0"></div>
+      <div class="btags">
+        <span class="bt g" onclick="sv('productCost',2000)">Budget ₹2K</span>
+        <span class="bt y" onclick="sv('productCost',5000)">Mid ₹5K</span>
+        <span class="bt r" onclick="sv('productCost',15000)">Premium ₹15K</span>
+        <span class="bt r" onclick="sv('productCost',40000)">Luxury ₹40K</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 2 -->
+<div class="card">
+  <div class="sec-head"><div class="sec-num">2</div><div class="sec-title">Operational Costs</div><div class="sec-note">Per unit</div></div>
+  <div class="row2">
+    <div class="ig">
+      <div class="lbl">Packaging <span>Box, tissue, tag</span></div>
+      <div class="iw"><div class="px">₹</div><input type="number" id="packagingCost" class="p" placeholder="150" oninput="calculate()" min="0"></div>
+    </div>
+    <div class="ig">
+      <div class="lbl">Delivery / Shipping</div>
+      <div class="iw"><div class="px">₹</div><input type="number" id="deliveryCost" class="p" placeholder="180" oninput="calculate()" min="0"></div>
+    </div>
+    <div class="ig">
+      <div class="lbl">Payment Gateway <span>Razorpay ~2%</span></div>
+      <div class="iw"><input type="number" id="gatewayFee" class="s" placeholder="1.9" oninput="calculate()" min="0" max="10" step="0.1"><div class="sx">%</div></div>
+      <div class="btags"><span class="bt g" onclick="sv('gatewayFee',1.9)">Razorpay 1.9%</span><span class="bt y" onclick="sv('gatewayFee',2.5)">Paytm 2.5%</span></div>
+    </div>
+    <div class="ig">
+      <div class="lbl">Returns Buffer <span>Industry: 8–12%</span></div>
+      <div class="iw"><input type="number" id="returnBuffer" class="s" placeholder="12" oninput="calculate()" min="0" max="50" step="0.5"><div class="sx">%</div></div>
+      <div class="btags"><span class="bt g" onclick="sv('returnBuffer',8)">Low 8%</span><span class="bt y" onclick="sv('returnBuffer',12)">Avg 12%</span><span class="bt r" onclick="sv('returnBuffer',20)">High 20%</span></div>
+    </div>
+    <div class="ig">
+      <div class="lbl">GST Rate <span>Textiles: 5–12%</span></div>
+      <div class="iw"><input type="number" id="gstRate" class="s" placeholder="5" oninput="calculate()" min="0" max="28"><div class="sx">%</div></div>
+      <div class="btags"><span class="bt g" onclick="sv('gstRate',5)">Saree 5%</span><span class="bt y" onclick="sv('gstRate',12)">Fashion 12%</span><span class="bt r" onclick="sv('gstRate',18)">Luxury 18%</span></div>
+    </div>
+    <div class="ig">
+      <div class="lbl">Marketing / CAC <span>Cost per sale</span></div>
+      <div class="iw"><div class="px">₹</div><input type="number" id="marketingCost" class="p" placeholder="250" oninput="calculate()" min="0"></div>
+      <div class="btags"><span class="bt g" onclick="sv('marketingCost',100)">Low ₹100</span><span class="bt y" onclick="sv('marketingCost',250)">Avg ₹250</span><span class="bt r" onclick="sv('marketingCost',600)">High ₹600</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 3 -->
+<div class="card">
+  <div class="sec-head"><div class="sec-num">3</div><div class="sec-title">Pricing Strategy</div></div>
+  <div class="mtoggle">
+    <button class="mbtn active" onclick="setMode('markup')" id="btn-markup">Fixed Markup %</button>
+    <button class="mbtn" onclick="setMode('margin')" id="btn-margin">Target Margin %</button>
+    <button class="mbtn" onclick="setMode('price')" id="btn-price">Set My Price</button>
+  </div>
+  <div id="markup-inputs">
+    <div class="ig">
+      <div class="lbl">Markup on Total Cost <span>Luxury fashion: 100–300%</span></div>
+      <div class="iw"><input type="number" id="markupPct" class="s" placeholder="200" oninput="calculate()" min="0"><div class="sx">%</div></div>
+      <div class="btags"><span class="bt r" onclick="sv('markupPct',80)">Basic 80%</span><span class="bt y" onclick="sv('markupPct',150)">Good 150%</span><span class="bt g" onclick="sv('markupPct',200)">Premium 200%</span><span class="bt g" onclick="sv('markupPct',300)">Luxury 300%</span></div>
+    </div>
+  </div>
+  <div id="margin-inputs" style="display:none">
+    <div class="ig">
+      <div class="lbl">Target Gross Margin <span>Luxury fashion: 55–70%</span></div>
+      <div class="iw"><input type="number" id="marginPct" class="s" placeholder="60" oninput="calculate()" min="1" max="95"><div class="sx">%</div></div>
+      <div class="btags"><span class="bt r" onclick="sv('marginPct',40)">Low 40%</span><span class="bt y" onclick="sv('marginPct',55)">Avg 55%</span><span class="bt g" onclick="sv('marginPct',65)">Good 65%</span></div>
+    </div>
+  </div>
+  <div id="price-inputs" style="display:none">
+    <div class="ig">
+      <div class="lbl">Your Selling Price (pre-GST)</div>
+      <div class="iw"><div class="px">₹</div><input type="number" id="sellingPrice" class="p" placeholder="0" oninput="calculate()" min="0"></div>
+    </div>
+  </div>
+
+  <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border);">
+    <div class="lbl" style="margin-bottom:12px;">MRP Strategy</div>
+    <div class="trow">
+      <div><div class="tlabel">Show MRP with discount</div><div class="tsub">Increases conversion — customers love seeing savings</div></div>
+      <div class="toggle on" id="mrpToggle" onclick="toggleMRP()"></div>
+    </div>
+    <div id="mrp-input" style="margin-top:14px;">
+      <div class="lbl">MRP Markup above Selling Price <span>Industry: 25–40%</span></div>
+      <div class="iw"><input type="number" id="mrpMarkup" class="s" placeholder="30" oninput="calculate()" min="0"><div class="sx">%</div></div>
+      <div class="btags"><span class="bt y" onclick="sv('mrpMarkup',20)">Minimal 20%</span><span class="bt g" onclick="sv('mrpMarkup',30)">Standard 30%</span><span class="bt g" onclick="sv('mrpMarkup',40)">High 40%</span></div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<!-- Results Panel -->
+<div class="results">
+  <div id="emptyState" class="empty">
+    <div class="empty-icon">◈</div>
+    <div class="empty-txt">Enter your product cost to see recommended selling price with industry benchmarks for luxury fashion ecommerce.</div>
+  </div>
+
+  <div id="resultsContent" style="display:none">
+    <div class="res-head">
+      <div class="res-eye">✦ Recommended Selling Price</div>
+      <div class="mrp-row" id="mrpRow" style="display:none"><div class="mrp-lbl">MRP</div><div class="mrp-val" id="resMrp">₹0</div></div>
+      <div class="price-big" id="resPrice">₹0</div>
+      <div class="price-sub" id="resPriceSub">Pre-GST selling price</div>
+      <div class="disc-badge" id="discBadge" style="display:none">🏷️ <span id="discPct">0%</span> off MRP</div>
+    </div>
+
+    <div class="res-body">
+      <!-- Gauge -->
+      <div class="gauge-wrap">
+        <div class="gauge-hd"><span>Profit Margin</span><span id="resMarginPct" style="color:var(--gold)">0%</span></div>
+        <div class="gauge-track"><div class="gauge-fill" id="gaugeBar" style="width:0%"></div></div>
+        <div class="gauge-marks"><span class="gm">0%</span><span class="gm" style="color:var(--red)">30%</span><span class="gm" style="color:var(--yellow)">55%</span><span class="gm" style="color:var(--green)">70%+</span></div>
+      </div>
+
+      <!-- Health -->
+      <div class="health" id="healthCard">
+        <div class="h-title" id="healthTitle">—</div>
+        <div class="h-text" id="healthText">—</div>
+      </div>
+
+      <!-- Price summary -->
+      <div class="msec">
+        <div class="msec-title">Price Summary</div>
+        <div class="mrow"><div class="mname">Total All-In Cost</div><div class="mval" id="resTotalCost">₹0</div></div>
+        <div class="mrow"><div class="mname">Selling Price (pre-GST)</div><div class="mval gold" id="resSellingPrice">₹0</div></div>
+        <div class="mrow" id="gstRow" style="display:none"><div class="mname">GST Amount</div><div class="mval" id="resGst">₹0</div></div>
+        <div class="mrow" id="finalRow" style="display:none"><div class="mname">Final Customer Price</div><div class="mval gold" id="resFinal">₹0</div></div>
+      </div>
+
+      <!-- Profitability -->
+      <div class="msec">
+        <div class="msec-title">Profitability</div>
+        <div class="mrow"><div class="mname">Gross Profit</div><div class="mval green" id="resProfit">₹0</div></div>
+        <div class="mrow"><div class="mname">Profit Margin</div><div class="mval green" id="resMargin">0%</div></div>
+        <div class="mrow"><div class="mname">Markup on Cost</div><div class="mval" id="resMarkup">0%</div></div>
+        <div class="mrow"><div class="mname">Return on Investment</div><div class="mval" id="resRoi">0%</div></div>
+        <div class="mrow"><div class="mname">Break-even Price</div><div class="mval" id="resBreakeven">₹0</div></div>
+      </div>
+
+      <!-- Benchmarks -->
+      <div class="bench-grid">
+        <div class="bench-box"><div class="bench-lbl">Industry Avg Margin</div><div class="bench-val y" id="benchAvg">55–65%</div></div>
+        <div class="bench-box hi"><div class="bench-lbl">Your Margin</div><div class="bench-val" id="benchYours">0%</div></div>
+        <div class="bench-box"><div class="bench-lbl">Suggested MRP</div><div class="bench-val gold" id="benchMrp">₹0</div></div>
+        <div class="bench-box"><div class="bench-lbl">Min Viable Price</div><div class="bench-val" id="benchMin">₹0</div></div>
+      </div>
+
+      <!-- Breakdown -->
+      <div class="bdown">
+        <div class="bdown-title">Revenue Breakdown</div>
+        <div class="bi"><div class="bi-lbl">Product Cost</div><div class="bi-track"><div class="bi-fill" id="bProduct" style="background:#c9a84c"></div></div><div class="bi-pct" id="pProduct">0%</div></div>
+        <div class="bi"><div class="bi-lbl">Packaging</div><div class="bi-track"><div class="bi-fill" id="bPackaging" style="background:#8b6f47"></div></div><div class="bi-pct" id="pPackaging">0%</div></div>
+        <div class="bi"><div class="bi-lbl">Delivery</div><div class="bi-track"><div class="bi-fill" id="bDelivery" style="background:#4a8b6f"></div></div><div class="bi-pct" id="pDelivery">0%</div></div>
+        <div class="bi"><div class="bi-lbl">Gateway</div><div class="bi-track"><div class="bi-fill" id="bGateway" style="background:#6b7a8b"></div></div><div class="bi-pct" id="pGateway">0%</div></div>
+        <div class="bi"><div class="bi-lbl">Returns</div><div class="bi-track"><div class="bi-fill" id="bReturns" style="background:#8b4a6b"></div></div><div class="bi-pct" id="pReturns">0%</div></div>
+        <div class="bi"><div class="bi-lbl">Marketing</div><div class="bi-track"><div class="bi-fill" id="bMarketing" style="background:#4a6b8b"></div></div><div class="bi-pct" id="pMarketing">0%</div></div>
+        <div class="bi"><div class="bi-lbl">Profit</div><div class="bi-track"><div class="bi-fill" id="bProfit" style="background:#34d399"></div></div><div class="bi-pct" id="pProfit">0%</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+</div>
+
+<script>
+let mode='markup',mrpOn=true;
+const presets={
+  saree:{pack:150,del:180,gw:1.9,ret:12,gst:5,mkt:250,mu:200,tips:['Target 55–70% gross margin for designer sarees. Premium positioning justifies higher markup.','Fashion ecommerce sees 15–30% return rates. Buffer 8–12% of selling price for returns & restocking.','Set MRP 25–40% above your selling price. Visible discount increases perceived value & conversions.']},
+  kurti:{pack:80,del:120,gw:1.9,ret:15,gst:5,mkt:150,mu:150,tips:['Kurtis/tops have high competition — aim for 45–55% margin. Differentiate on quality & styling.','Return rates for tops can reach 25%. Build a 10–15% returns buffer into your pricing.','MRP 25–30% above selling price works well for mid-range kurtis.']},
+  lehenga:{pack:300,del:250,gw:2.0,ret:8,gst:12,mkt:400,mu:280,tips:['Lehengas are occasion-wear — target 60–75% margins. High AOV justifies premium positioning.','Return rates are lower (8–12%) for planned occasion purchases. Buffer 8% minimum.','MRP 35–45% above selling price signals luxury value. Discount creates urgency for festive season.']},
+  suit:{pack:200,del:200,gw:1.9,ret:10,gst:12,mkt:300,mu:180,tips:['Suit sets perform well at 55–65% margins. Bundle styling guides to reduce returns.','10% returns buffer is standard for suit sets. Offer easy exchange to retain customers.','MRP 30–35% above selling price is the sweet spot for premium suit sets.']},
+  jewellery:{pack:100,del:150,gw:2.0,ret:5,gst:3,mkt:200,mu:350,tips:['Fashion jewellery commands 250–400% markup. Focus on perceived luxury, not just materials.','Jewellery has low return rates (5–8%). Quality photography is key to reducing returns.','MRP 40–60% above selling price is standard in jewellery. High perceived value = high conversions.']},
+  accessories:{pack:80,del:120,gw:1.9,ret:8,gst:18,mkt:180,mu:220,tips:['Accessories (bags, belts) target 50–65% margin. Bundle with apparel for higher AOV.','8–10% return buffer is typical. Clear material descriptions and images reduce returns.','MRP 25–35% above selling price. Highlight quality & craftsmanship in product listings.']},
+  menswear:{pack:120,del:150,gw:1.9,ret:12,gst:5,mkt:200,mu:160,tips:['Menswear luxury targets 50–60% margin. Fit accuracy is key — offer free alterations.','Men shop less frequently but spend more per occasion. 12% returns buffer is standard.','MRP 25–30% above selling price. Highlight occasion-specific styling for conversions.']}
+};
+
+function applyPreset(k){
+  document.querySelectorAll('.preset').forEach(b=>b.classList.remove('active'));
+  document.getElementById('pre-'+k).classList.add('active');
+  const p=presets[k];
+  sv('packagingCost',p.pack);sv('deliveryCost',p.del);sv('gatewayFee',p.gw);
+  sv('returnBuffer',p.ret);sv('gstRate',p.gst);sv('marketingCost',p.mkt);
+  if(mode==='markup')sv('markupPct',p.mu);
+  document.getElementById('tip1').textContent=p.tips[0];
+  document.getElementById('tip2').textContent=p.tips[1];
+  document.getElementById('tip3').textContent=p.tips[2];
+  const avgs={saree:'55–70%',kurti:'45–55%',lehenga:'60–75%',suit:'55–65%',jewellery:'65–80%',accessories:'50–65%',menswear:'50–60%'};
+  document.getElementById('benchAvg').textContent=avgs[k];
+  calculate();
+}
+
+function sv(id,val){document.getElementById(id).value=val;}
+function setMode(m){
+  mode=m;
+  ['markup','margin','price'].forEach(x=>{
+    document.getElementById('btn-'+x).classList.toggle('active',x===m);
+    document.getElementById(x+'-inputs').style.display=x===m?'block':'none';
+  });
+  calculate();
+}
+function toggleMRP(){mrpOn=!mrpOn;document.getElementById('mrpToggle').classList.toggle('on',mrpOn);document.getElementById('mrp-input').style.display=mrpOn?'block':'none';calculate();}
+function fmt(n){return'₹'+Math.round(n).toLocaleString('en-IN');}
+function fmtP(n){return n.toFixed(1)+'%';}
+
+function calculate(){
+  const pc=+document.getElementById('productCost').value||0;
+  const pak=+document.getElementById('packagingCost').value||0;
+  const del=+document.getElementById('deliveryCost').value||0;
+  const gw=+document.getElementById('gatewayFee').value||0;
+  const ret=+document.getElementById('returnBuffer').value||0;
+  const gst=+document.getElementById('gstRate').value||0;
+  const mkt=+document.getElementById('marketingCost').value||0;
+  const mrpMu=mrpOn?(+document.getElementById('mrpMarkup').value||30):0;
+
+  if(pc===0){document.getElementById('emptyState').style.display='block';document.getElementById('resultsContent').style.display='none';return;}
+
+  const fixed=pc+pak+del+mkt;
+  let sp=0;
+  if(mode==='markup'){const mu=+document.getElementById('markupPct').value||200;const d=1-gw/100-ret/100;sp=d>0?(fixed*(1+mu/100))/d:fixed*4;}
+  else if(mode==='margin'){const tg=+document.getElementById('marginPct').value||60;const d=1-tg/100-gw/100-ret/100;sp=d>0?fixed/d:fixed*5;}
+  else{sp=+document.getElementById('sellingPrice').value||0;}
+
+  const gwAmt=sp*gw/100;const retAmt=sp*ret/100;
+  const totalCost=fixed+gwAmt+retAmt;
+  const profit=sp-totalCost;
+  const margin=sp>0?(profit/sp)*100:0;
+  const markup=totalCost>0?(profit/totalCost)*100:0;
+  const roi=totalCost>0?(profit/totalCost)*100:0;
+  const gstAmt=sp*gst/100;const finalP=sp+gstAmt;
+  const mrp=mrpOn?sp*(1+mrpMu/100):0;
+  const discPct=mrp>0?((mrp-sp)/mrp*100):0;
+  const breakeven=fixed/(1-gw/100-ret/100);
+  const minViable=fixed/(1-gw/100-ret/100-0.1); // 10% min margin
+
+  document.getElementById('emptyState').style.display='none';
+  document.getElementById('resultsContent').style.display='block';
+  document.getElementById('resPrice').textContent=fmt(sp);
+  document.getElementById('resPriceSub').textContent=gst>0?'Pre-GST selling price':'Selling price';
+  document.getElementById('resTotalCost').textContent=fmt(totalCost);
+  document.getElementById('resSellingPrice').textContent=fmt(sp);
+  document.getElementById('resProfit').textContent=fmt(profit);
+  document.getElementById('resMargin').textContent=fmtP(margin);
+  document.getElementById('resMarginPct').textContent=fmtP(margin);
+  document.getElementById('resMarkup').textContent=fmtP(markup);
+  document.getElementById('resRoi').textContent=fmtP(roi);
+  document.getElementById('resBreakeven').textContent=fmt(breakeven);
+  document.getElementById('benchYours').textContent=fmtP(margin);
+  document.getElementById('benchMrp').textContent=mrpOn?fmt(mrp):'Off';
+  document.getElementById('benchMin').textContent=fmt(minViable);
+
+  const bv=document.getElementById('benchYours');
+  bv.className='bench-val '+(margin>=55?'g':margin>=40?'y':'r');
+
+  document.getElementById('gstRow').style.display=gst>0?'flex':'none';
+  document.getElementById('finalRow').style.display=gst>0?'flex':'none';
+  if(gst>0){document.getElementById('resGst').textContent=fmt(gstAmt);document.getElementById('resFinal').textContent=fmt(finalP);}
+
+  document.getElementById('mrpRow').style.display=mrpOn?'flex':'none';
+  document.getElementById('discBadge').style.display=mrpOn?'flex':'none';
+  if(mrpOn){document.getElementById('resMrp').textContent=fmt(mrp);document.getElementById('discPct').textContent=fmtP(discPct);}
+
+  const gb=document.getElementById('gaugeBar');
+  gb.style.width=Math.min(Math.max(margin,0),100)+'%';
+  gb.style.background=margin>=55?'var(--green)':margin>=35?'var(--yellow)':'var(--red)';
+
+  const hc=document.getElementById('healthCard');
+  const ht=document.getElementById('healthTitle');
+  const htx=document.getElementById('healthText');
+  if(margin>=55){hc.className='health good';ht.textContent='✅ Excellent — Luxury Fashion Standard';htx.textContent=`At ${fmtP(margin)}, you're in the top tier. This margin gives room for seasonal discounts, returns, and marketing without hurting profitability.`;}
+  else if(margin>=40){hc.className='health warn';ht.textContent='⚠️ Moderate — Below Industry Benchmark';htx.textContent=`${fmtP(margin)} is below the luxury fashion benchmark of 55–70%. Consider reducing sourcing costs or increasing your price point to protect margins after returns.`;}
+  else if(profit>0){hc.className='health bad';ht.textContent='🚨 Low Margin — Action Required';htx.textContent=`At ${fmtP(margin)}, you may break even or lose money after returns and unforeseen costs. Increase selling price or reduce costs immediately.`;}
+  else{hc.className='health bad';ht.textContent='🚨 Loss Making — Immediate Action Needed';htx.textContent='Your costs exceed your selling price. You are losing money on every sale. Increase your selling price or significantly reduce costs.';}
+
+  function setBar(fill,pct,val){const p=sp>0?Math.max(val/sp*100,0):0;document.getElementById(fill).style.width=Math.min(p,100)+'%';document.getElementById(pct).textContent=fmtP(p);}
+  setBar('bProduct','pProduct',pc);setBar('bPackaging','pPackaging',pak);setBar('bDelivery','pDelivery',del);
+  setBar('bGateway','pGateway',gwAmt);setBar('bReturns','pReturns',retAmt);setBar('bMarketing','pMarketing',mkt);setBar('bProfit','pProfit',profit);
+}
+
+applyPreset('saree');
+</script>
+</body>
+</html>
