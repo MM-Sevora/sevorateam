@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sevora — Fashion Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Jost:wght@300;400;500&family=Courier+Prime&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #181818;
+    --gold: #c9a84c;
+    --gold2: #e8c96a;
+    --cream: #f0e8d8;
+    --muted: #666;
+    --border: rgba(201,168,76,0.15);
+    --runway: #c9a84c;
+    --trend: #7a9e8a;
+    --stylist: #b88a8a;
+    --tech: #7a8eb8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--cream);
+    font-family: 'Jost', sans-serif;
+    font-weight: 300;
+    min-height: 100vh;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.8rem 2.5rem;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: rgba(10,10,10,0.95);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+
+  .brand { display: flex; align-items: baseline; gap: 0.8rem; }
+
+  .brand-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.6rem;
+    font-weight: 600;
+    color: var(--gold);
+    letter-spacing: 0.05em;
+  }
+
+  .brand-tag {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.25em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .header-right { display: flex; align-items: center; gap: 1rem; }
+
+  #dateTag {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.62rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+  }
+
+  .fetch-btn {
+    background: var(--gold);
+    color: #0a0a0a;
+    border: none;
+    padding: 0.55rem 1.4rem;
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    cursor: pointer;
+    font-weight: 700;
+    transition: all 0.2s;
+  }
+
+  .fetch-btn:hover { background: var(--gold2); transform: translateY(-1px); }
+  .fetch-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .filters {
+    display: flex;
+    padding: 0 2.5rem;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+
+  .ftab {
+    padding: 0.9rem 1.4rem;
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+
+  .ftab:hover { color: var(--cream); }
+  .ftab.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+  main { padding: 2rem 2.5rem; max-width: 1300px; margin: 0 auto; }
+
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    padding: 0.8rem 1.2rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+  }
+
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+  .status-dot.live { background: #4caf50; box-shadow: 0 0 6px #4caf50; animation: pulse 2s infinite; }
+  .status-dot.loading { background: var(--gold); box-shadow: 0 0 6px var(--gold); animation: pulse 0.8s infinite; }
+  .status-dot.error { background: #e07070; }
+
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  /* SKELETON */
+  .skeleton-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1px; background: var(--border); }
+  .skeleton-card { background: var(--surface); padding: 1.8rem; }
+  .skel { background: var(--surface2); border-radius: 2px; animation: shimmer 1.5s infinite; margin-bottom: 0.6rem; }
+  .skel-tag { height: 10px; width: 80px; }
+  .skel-title { height: 18px; width: 90%; }
+  .skel-title2 { height: 18px; width: 65%; }
+  .skel-body { height: 10px; width: 100%; }
+  .skel-body2 { height: 10px; width: 80%; }
+  .skel-body3 { height: 10px; width: 55%; margin-bottom: 1.5rem; }
+  .skel-link { height: 10px; width: 120px; }
+  @keyframes shimmer { 0%,100% { opacity: 0.3; } 50% { opacity: 0.6; } }
+
+  /* NEWS GRID */
+  .news-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1px;
+    background: var(--border);
+  }
+
+  .news-card {
+    background: var(--surface);
+    padding: 1.8rem;
+    transition: background 0.2s;
+    display: flex;
+    flex-direction: column;
+    animation: fadeIn 0.4s ease both;
+  }
+
+  .news-card:hover { background: var(--surface2); }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  .news-cat {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    margin-bottom: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .cat-pip { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; background: currentColor; }
+
+  .cat-runway { color: var(--runway); }
+  .cat-trend { color: var(--trend); }
+  .cat-stylist { color: var(--stylist); }
+  .cat-tech { color: var(--tech); }
+
+  .news-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.15rem;
+    line-height: 1.4;
+    color: var(--cream);
+    margin-bottom: 0.7rem;
+  }
+
+  .news-summary {
+    font-size: 0.8rem;
+    line-height: 1.7;
+    color: #888;
+    margin-bottom: 1.4rem;
+    flex-grow: 1;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .news-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    gap: 0.5rem;
+  }
+
+  .news-meta { display: flex; flex-direction: column; gap: 2px; }
+
+  .news-source {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .news-date {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.55rem;
+    color: #444;
+    letter-spacing: 0.05em;
+  }
+
+  .news-link {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s;
+    padding-bottom: 1px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .news-link:hover { border-bottom-color: var(--gold); }
+
+  .empty-state { text-align: center; padding: 5rem 2rem; }
+  .empty-icon { font-family: 'Cormorant Garamond', serif; font-size: 4rem; font-style: italic; color: #1a1a1a; margin-bottom: 1rem; }
+  .empty-title { font-family: 'Cormorant Garamond', serif; font-size: 1.4rem; color: var(--cream); margin-bottom: 0.5rem; }
+  .empty-sub { font-size: 0.82rem; color: var(--muted); margin-bottom: 2rem; line-height: 1.6; }
+
+  footer {
+    text-align: center;
+    padding: 2rem;
+    border-top: 1px solid var(--border);
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-top: 3rem;
+  }
+  footer a { color: var(--gold); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    header, main { padding: 1.2rem; }
+    .filters { padding: 0 1.2rem; }
+    .news-grid, .skeleton-grid { grid-template-columns: 1fr; }
+    .brand-tag { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="brand-name">Sevora</span>
+    <span class="brand-tag">Fashion Intelligence</span>
+  </div>
+  <div class="header-right">
+    <span id="dateTag"></span>
+    <button class="fetch-btn" id="fetchBtn" onclick="loadAllFeeds()">↻ Refresh</button>
+  </div>
+</header>
+
+<div class="filters">
+  <button class="ftab active" onclick="setFilter('all', this)">All</button>
+  <button class="ftab" onclick="setFilter('runway', this)">Runway & FW</button>
+  <button class="ftab" onclick="setFilter('trend', this)">Trend Forecasting</button>
+  <button class="ftab" onclick="setFilter('stylist', this)">Stylist News</button>
+  <button class="ftab" onclick="setFilter('tech', this)">Fashion Tech</button>
+</div>
+
+<main>
+  <div class="status-bar">
+    <div class="status-dot loading" id="statusDot"></div>
+    <span id="statusText">Loading latest fashion news...</span>
+  </div>
+  <div id="content"></div>
+</main>
+
+<footer>
+  Sevora Tools &nbsp;·&nbsp; <a href="/">← Back to Tools</a> &nbsp;·&nbsp; Live from Vogue, WWD, BoF & more
+</footer>
+
+<script>
+  // Set date
+  const now = new Date();
+  document.getElementById('dateTag').textContent = now.toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'short', year: 'numeric'
+  }).toUpperCase();
+
+  let allArticles = [];
+  let currentFilter = 'all';
+
+  // RSS FEEDS mapped to categories
+  // Using rss2json.com free API to convert RSS → JSON (handles CORS)
+  const RSS2JSON = 'https://api.rss2json.com/v1/api.json?rss_url=';
+
+  const FEEDS = [
+    // RUNWAY
+    { url: 'https://www.vogue.com/feed/fashion/rss', source: 'Vogue', category: 'runway' },
+    { url: 'https://wwd.com/feed/', source: 'WWD', category: 'runway' },
+
+    // TREND
+    { url: 'https://www.businessoffashion.com/rss', source: 'Business of Fashion', category: 'trend' },
+    { url: 'https://www.refinery29.com/en-us/fashion/rss.xml', source: 'Refinery29', category: 'trend' },
+
+    // STYLIST
+    { url: 'https://www.harpersbazaar.com/rss/all.xml/', source: "Harper's Bazaar", category: 'stylist' },
+    { url: 'https://www.elle.com/rss/all.xml/', source: 'Elle', category: 'stylist' },
+
+    // TECH
+    { url: 'https://voguebusiness.com/rss', source: 'Vogue Business', category: 'tech' },
+    { url: 'https://hypebeast.com/feed', source: 'Hypebeast', category: 'tech' },
+  ];
+
+  const catLabels = {
+    runway: 'Runway & Fashion Weeks',
+    trend: 'Trend Forecasting',
+    stylist: 'Stylist News',
+    tech: 'Fashion Tech'
+  };
+
+  function setFilter(cat, btn) {
+    currentFilter = cat;
+    document.querySelectorAll('.ftab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    renderArticles();
+  }
+
+  function setStatus(state, text) {
+    document.getElementById('statusDot').className = 'status-dot ' + state;
+    document.getElementById('statusText').textContent = text;
+  }
+
+  function renderSkeleton() {
+    let html = '<div class="skeleton-grid">';
+    for (let i = 0; i < 8; i++) {
+      html += `<div class="skeleton-card">
+        <div class="skel skel-tag"></div>
+        <div class="skel skel-title"></div>
+        <div class="skel skel-title2"></div>
+        <div class="skel skel-body"></div>
+        <div class="skel skel-body2"></div>
+        <div class="skel skel-body3"></div>
+        <div class="skel skel-link"></div>
+      </div>`;
+    }
+    html += '</div>';
+    document.getElementById('content').innerHTML = html;
+  }
+
+  function stripHtml(html) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html || '';
+    return tmp.textContent || tmp.innerText || '';
+  }
+
+  function timeAgo(dateStr) {
+    const d = new Date(dateStr);
+    if (isNaN(d)) return '';
+    const diff = Math.floor((Date.now() - d) / 1000);
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    return Math.floor(diff / 86400) + 'd ago';
+  }
+
+  function renderArticles() {
+    const filtered = currentFilter === 'all'
+      ? allArticles
+      : allArticles.filter(a => a.category === currentFilter);
+
+    if (filtered.length === 0) {
+      document.getElementById('content').innerHTML = `
+        <div class="empty-state">
+          <div class="empty-title">No articles found</div>
+          <div class="empty-sub">Try a different filter or refresh.</div>
+        </div>`;
+      return;
+    }
+
+    let html = '<div class="news-grid">';
+    filtered.forEach((a, i) => {
+      const cat = a.category || 'trend';
+      html += `
+        <div class="news-card" style="animation-delay:${i * 0.04}s">
+          <div class="news-cat cat-${cat}">
+            <span class="cat-pip"></span>${catLabels[cat] || cat}
+          </div>
+          <div class="news-title">${a.title}</div>
+          <div class="news-summary">${a.summary}</div>
+          <div class="news-footer">
+            <div class="news-meta">
+              <span class="news-source">${a.source}</span>
+              <span class="news-date">${a.timeAgo}</span>
+            </div>
+            <a class="news-link" href="${a.url}" target="_blank" rel="noopener noreferrer">Read →</a>
+          </div>
+        </div>`;
+    });
+    html += '</div>';
+    document.getElementById('content').innerHTML = html;
+  }
+
+  async function fetchFeed(feed) {
+    try {
+      const res = await fetch(`${RSS2JSON}${encodeURIComponent(feed.url)}&count=6`);
+      const data = await res.json();
+      if (data.status !== 'ok' || !data.items) return [];
+
+      return data.items.slice(0, 5).map(item => ({
+        title: stripHtml(item.title) || 'Untitled',
+        summary: stripHtml(item.description).substring(0, 200).trim() + '...',
+        url: item.link || item.guid || '#',
+        source: feed.source,
+        category: feed.category,
+        pubDate: item.pubDate,
+        timeAgo: timeAgo(item.pubDate)
+      }));
+    } catch (e) {
+      console.warn('Feed failed:', feed.source, e);
+      return [];
+    }
+  }
+
+  async function loadAllFeeds() {
+    const btn = document.getElementById('fetchBtn');
+    btn.disabled = true;
+    btn.textContent = '⟳ Loading...';
+    setStatus('loading', 'Fetching live fashion news...');
+    renderSkeleton();
+
+    try {
+      // Fetch all feeds in parallel
+      const results = await Promise.allSettled(FEEDS.map(f => fetchFeed(f)));
+
+      let articles = [];
+      results.forEach(r => {
+        if (r.status === 'fulfilled') articles = articles.concat(r.value);
+      });
+
+      // Sort by date, newest first
+      articles.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+
+      // Deduplicate by title
+      const seen = new Set();
+      articles = articles.filter(a => {
+        const key = a.title.substring(0, 40);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      if (articles.length === 0) throw new Error('No articles loaded from any feed.');
+
+      allArticles = articles;
+      setStatus('live', `${articles.length} articles loaded live · ${FEEDS.length} sources`);
+      renderArticles();
+
+    } catch (err) {
+      setStatus('error', err.message);
+      document.getElementById('content').innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">S</div>
+          <div class="empty-title">Could not load feeds</div>
+          <div class="empty-sub">${err.message}<br><br>Check your internet connection and try again.</div>
+          <button class="fetch-btn" onclick="loadAllFeeds()" style="margin:0 auto;display:block;margin-top:1.5rem;">Try Again →</button>
+        </div>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '↻ Refresh';
+    }
+  }
+
+  // Load on page open
+  loadAllFeeds();
+</script>
+</body>
+</html>
