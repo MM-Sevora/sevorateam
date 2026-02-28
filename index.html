@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sevora Tools</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --card: #16161f;
+    --border: #1e1e2e;
+    --gold: #c9a84c;
+    --gold2: #e8c97a;
+    --text: #e4e4f0;
+    --muted: #6b6b8a;
+    --accent: #7c3aed;
+    --accent2: #06b6d4;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(201,168,76,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(201,168,76,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+  .wrapper { position: relative; z-index: 1; max-width: 800px; width: 100%; padding: 48px 24px; text-align: center; }
+
+  .eyebrow { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); margin-bottom: 16px; }
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 48px; font-weight: 900; line-height: 1.1;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, #fff 0%, var(--gold2) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  p { font-size: 14px; color: var(--muted); margin-bottom: 48px; }
+
+  .divider { display: flex; align-items: center; gap: 12px; max-width: 160px; margin: 0 auto 48px; }
+  .divider-line { flex: 1; height: 1px; background: var(--gold); opacity: 0.3; }
+  .divider-diamond { width: 6px; height: 6px; background: var(--gold); transform: rotate(45deg); flex-shrink: 0; }
+
+  .tools-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+  .tool-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 36px 28px;
+    text-decoration: none; color: var(--text);
+    transition: border-color 0.3s, transform 0.3s;
+    display: block; text-align: left;
+    position: relative; overflow: hidden;
+  }
+  .tool-card::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(201,168,76,0.05), transparent);
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .tool-card:hover { border-color: var(--gold); transform: translateY(-4px); }
+  .tool-card:hover::before { opacity: 1; }
+
+  .tool-icon { font-size: 36px; margin-bottom: 20px; }
+  .tool-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px; font-weight: 700; margin-bottom: 10px;
+  }
+  .tool-desc { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 20px; }
+  .tool-link {
+    font-size: 12px; color: var(--gold);
+    letter-spacing: 1px; text-transform: uppercase;
+  }
+
+  .footer { margin-top: 48px; font-size: 11px; color: var(--muted); letter-spacing: 1px; }
+  .footer span { color: var(--gold); }
+
+  @media(max-width: 600px) {
+    .tools-grid { grid-template-columns: 1fr; }
+    h1 { font-size: 36px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <div class="eyebrow">✦ Internal Tools</div>
+  <h1>Sevora Tools</h1>
+  <p>Your private dashboard for managing Sevora's social analytics and pricing strategy</p>
+
+  <div class="divider">
+    <div class="divider-line"></div>
+    <div class="divider-diamond"></div>
+    <div class="divider-line"></div>
+  </div>
+
+  <div class="tools-grid">
+    <a href="/sevora-dashboard.html" class="tool-card">
+      <div class="tool-icon">📊</div>
+      <div class="tool-name">Social Command Center</div>
+      <div class="tool-desc">Live Facebook & Instagram analytics. Track followers, engagement, reach and top posts in real time.</div>
+      <div class="tool-link">Open Dashboard →</div>
+    </a>
+    <a href="/sevora-pricing-calculator.html" class="tool-card">
+      <div class="tool-icon">💰</div>
+      <div class="tool-name">Pricing Calculator</div>
+      <div class="tool-desc">Calculate optimal selling prices and profit margins. Includes sourcing, packaging, delivery & gateway fees.</div>
+      <div class="tool-link">Open Calculator →</div>
+    </a>
+  </div>
+
+  <div class="footer">Built for <span>SEVORA</span> · Luxury Fashion Platform · Kolkata</div>
+</div>
+</body>
+</html>
