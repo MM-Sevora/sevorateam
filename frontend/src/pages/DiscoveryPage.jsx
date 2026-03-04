@@ -3,11 +3,10 @@ import { influencerApi, aiApi } from '../lib/api';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
+import { AddInfluencerForm } from '../components/AddInfluencerForm';
 import { toast } from 'sonner';
 import { 
     Search, 
@@ -18,8 +17,7 @@ import {
     MapPin,
     Users,
     TrendingUp,
-    Plus,
-    X
+    Plus
 } from 'lucide-react';
 
 const CATEGORIES = ['luxury', 'menswear', 'womenswear', 'streetwear', 'ethnic', 'minimal'];
@@ -101,19 +99,6 @@ export const DiscoveryPage = () => {
         min_followers: '',
         min_engagement: ''
     });
-    const [newInfluencer, setNewInfluencer] = useState({
-        name: '',
-        instagram_handle: '',
-        youtube_handle: '',
-        email: '',
-        phone: '',
-        city: 'Mumbai',
-        category: 'luxury',
-        followers: '',
-        engagement_rate: '',
-        style_tags: []
-    });
-    const [tagInput, setTagInput] = useState('');
 
     useEffect(() => {
         fetchInfluencers();
@@ -158,51 +143,6 @@ export const DiscoveryPage = () => {
         }
     };
 
-    const handleAddInfluencer = async (e) => {
-        e.preventDefault();
-        try {
-            await influencerApi.create({
-                ...newInfluencer,
-                followers: parseInt(newInfluencer.followers) || 0,
-                engagement_rate: parseFloat(newInfluencer.engagement_rate) || 0
-            });
-            toast.success('Influencer added successfully');
-            setShowAddModal(false);
-            setNewInfluencer({
-                name: '',
-                instagram_handle: '',
-                youtube_handle: '',
-                email: '',
-                phone: '',
-                city: 'Mumbai',
-                category: 'luxury',
-                followers: '',
-                engagement_rate: '',
-                style_tags: []
-            });
-            fetchInfluencers();
-        } catch (error) {
-            toast.error('Failed to add influencer');
-        }
-    };
-
-    const addTag = () => {
-        if (tagInput && !newInfluencer.style_tags.includes(tagInput)) {
-            setNewInfluencer({
-                ...newInfluencer,
-                style_tags: [...newInfluencer.style_tags, tagInput]
-            });
-            setTagInput('');
-        }
-    };
-
-    const removeTag = (tag) => {
-        setNewInfluencer({
-            ...newInfluencer,
-            style_tags: newInfluencer.style_tags.filter(t => t !== tag)
-        });
-    };
-
     return (
         <div className="p-8 space-y-8" data-testid="discovery-page">
             {/* Header */}
@@ -213,126 +153,22 @@ export const DiscoveryPage = () => {
                     </p>
                     <h1 className="font-serif text-4xl">Discovery</h1>
                 </div>
-                <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-                    <DialogTrigger asChild>
-                        <Button 
-                            data-testid="add-influencer-btn"
-                            className="rounded-none bg-primary text-primary-foreground hover:bg-gold"
-                        >
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add Influencer
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-lg">
-                        <DialogHeader>
-                            <DialogTitle className="font-serif text-2xl">Add New Influencer</DialogTitle>
-                        </DialogHeader>
-                        <form onSubmit={handleAddInfluencer} className="space-y-4 mt-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label className="font-mono text-xs uppercase">Name *</Label>
-                                    <Input
-                                        data-testid="inf-name-input"
-                                        value={newInfluencer.name}
-                                        onChange={(e) => setNewInfluencer({ ...newInfluencer, name: e.target.value })}
-                                        required
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="font-mono text-xs uppercase">Instagram</Label>
-                                    <Input
-                                        data-testid="inf-instagram-input"
-                                        value={newInfluencer.instagram_handle}
-                                        onChange={(e) => setNewInfluencer({ ...newInfluencer, instagram_handle: e.target.value })}
-                                        placeholder="@handle"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="font-mono text-xs uppercase">Email</Label>
-                                    <Input
-                                        type="email"
-                                        value={newInfluencer.email}
-                                        onChange={(e) => setNewInfluencer({ ...newInfluencer, email: e.target.value })}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="font-mono text-xs uppercase">Phone</Label>
-                                    <Input
-                                        value={newInfluencer.phone}
-                                        onChange={(e) => setNewInfluencer({ ...newInfluencer, phone: e.target.value })}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="font-mono text-xs uppercase">City *</Label>
-                                    <Select value={newInfluencer.city} onValueChange={(v) => setNewInfluencer({ ...newInfluencer, city: v })}>
-                                        <SelectTrigger><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            {CITIES.map(city => (
-                                                <SelectItem key={city} value={city}>{city}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="font-mono text-xs uppercase">Category *</Label>
-                                    <Select value={newInfluencer.category} onValueChange={(v) => setNewInfluencer({ ...newInfluencer, category: v })}>
-                                        <SelectTrigger><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            {CATEGORIES.map(cat => (
-                                                <SelectItem key={cat} value={cat} className="capitalize">{cat}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="font-mono text-xs uppercase">Followers</Label>
-                                    <Input
-                                        type="number"
-                                        value={newInfluencer.followers}
-                                        onChange={(e) => setNewInfluencer({ ...newInfluencer, followers: e.target.value })}
-                                        placeholder="e.g., 50000"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="font-mono text-xs uppercase">Engagement %</Label>
-                                    <Input
-                                        type="number"
-                                        step="0.1"
-                                        value={newInfluencer.engagement_rate}
-                                        onChange={(e) => setNewInfluencer({ ...newInfluencer, engagement_rate: e.target.value })}
-                                        placeholder="e.g., 4.5"
-                                    />
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="font-mono text-xs uppercase">Style Tags</Label>
-                                <div className="flex gap-2">
-                                    <Input
-                                        value={tagInput}
-                                        onChange={(e) => setTagInput(e.target.value)}
-                                        placeholder="Add tag"
-                                        onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
-                                    />
-                                    <Button type="button" variant="outline" onClick={addTag}>Add</Button>
-                                </div>
-                                <div className="flex flex-wrap gap-1.5 mt-2">
-                                    {newInfluencer.style_tags.map(tag => (
-                                        <Badge key={tag} variant="outline" className="text-xs">
-                                            {tag}
-                                            <button type="button" onClick={() => removeTag(tag)} className="ml-1">
-                                                <X className="w-3 h-3" />
-                                            </button>
-                                        </Badge>
-                                    ))}
-                                </div>
-                            </div>
-                            <Button type="submit" data-testid="submit-influencer-btn" className="w-full rounded-none">
-                                Add Influencer
-                            </Button>
-                        </form>
-                    </DialogContent>
-                </Dialog>
+                <Button 
+                    data-testid="add-influencer-btn"
+                    className="rounded-none bg-primary text-primary-foreground hover:bg-gold"
+                    onClick={() => setShowAddModal(true)}
+                >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Influencer
+                </Button>
             </div>
+
+            {/* Add Influencer Form Modal */}
+            <AddInfluencerForm 
+                open={showAddModal} 
+                onOpenChange={setShowAddModal}
+                onSuccess={fetchInfluencers}
+            />
 
             {/* Filters */}
             <Card className="border border-border">

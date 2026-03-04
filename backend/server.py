@@ -67,33 +67,119 @@ class TokenResponse(BaseModel):
     user: UserResponse
 
 class InfluencerCreate(BaseModel):
+    # Basic Information
     name: str
+    bio: Optional[str] = None
+    profile_image_url: Optional[str] = None
+    
+    # Social Media Handles
     instagram_handle: Optional[str] = None
     youtube_handle: Optional[str] = None
     tiktok_handle: Optional[str] = None
+    linkedin_handle: Optional[str] = None
+    twitter_handle: Optional[str] = None
+    pinterest_handle: Optional[str] = None
+    blog_url: Optional[str] = None
+    
+    # Contact Information
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
+    whatsapp: Optional[str] = None
+    
+    # Location
     city: str
+    state: Optional[str] = None
+    country: str = "India"
+    
+    # Classification
     category: str  # menswear, womenswear, luxury, ethnic, streetwear
+    content_type: List[str] = []  # fashion, lifestyle, beauty, fitness
+    tier: str = "micro"  # nano, micro, macro, mega, celebrity
+    gender_focus: str = "unisex"  # menswear, womenswear, unisex
+    
+    # Metrics
     followers: int = 0
     engagement_rate: float = 0.0
+    avg_likes: int = 0
+    avg_comments: int = 0
+    avg_views: int = 0
+    
+    # Audience Demographics
     audience_location: str = "India"
+    audience_age_group: str = "18-34"
+    audience_gender_split: Optional[str] = None  # e.g., "60% Female, 40% Male"
+    
+    # Rate Card
+    rate_per_post: Optional[float] = None
+    rate_per_reel: Optional[float] = None
+    rate_per_story: Optional[float] = None
+    rate_per_video: Optional[float] = None
+    accepts_barter: bool = False
+    
+    # Additional Info
     style_tags: List[str] = []
+    languages: List[str] = ["English", "Hindi"]
+    past_brands: List[str] = []
+    portfolio_url: Optional[str] = None
+    media_kit_url: Optional[str] = None
     notes: Optional[str] = None
 
 class InfluencerUpdate(BaseModel):
+    # Basic Information
     name: Optional[str] = None
+    bio: Optional[str] = None
+    profile_image_url: Optional[str] = None
+    
+    # Social Media Handles
     instagram_handle: Optional[str] = None
     youtube_handle: Optional[str] = None
     tiktok_handle: Optional[str] = None
+    linkedin_handle: Optional[str] = None
+    twitter_handle: Optional[str] = None
+    pinterest_handle: Optional[str] = None
+    blog_url: Optional[str] = None
+    
+    # Contact Information
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
+    whatsapp: Optional[str] = None
+    
+    # Location
     city: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = None
+    
+    # Classification
     category: Optional[str] = None
+    content_type: Optional[List[str]] = None
+    tier: Optional[str] = None
+    gender_focus: Optional[str] = None
+    
+    # Metrics
     followers: Optional[int] = None
     engagement_rate: Optional[float] = None
+    avg_likes: Optional[int] = None
+    avg_comments: Optional[int] = None
+    avg_views: Optional[int] = None
+    
+    # Audience Demographics
     audience_location: Optional[str] = None
+    audience_age_group: Optional[str] = None
+    audience_gender_split: Optional[str] = None
+    
+    # Rate Card
+    rate_per_post: Optional[float] = None
+    rate_per_reel: Optional[float] = None
+    rate_per_story: Optional[float] = None
+    rate_per_video: Optional[float] = None
+    accepts_barter: Optional[bool] = None
+    
+    # Additional Info
     style_tags: Optional[List[str]] = None
+    languages: Optional[List[str]] = None
+    past_brands: Optional[List[str]] = None
+    portfolio_url: Optional[str] = None
+    media_kit_url: Optional[str] = None
     notes: Optional[str] = None
     status: Optional[str] = None
 
