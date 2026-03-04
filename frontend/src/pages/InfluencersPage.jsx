@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { influencerApi, aiApi, socialApi } from '../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -21,12 +21,18 @@ import { toast } from 'sonner';
 import { 
     Search, Users, Sparkles, Instagram, MapPin, TrendingUp, Plus, Star, 
     MoreHorizontal, Mail, Trash2, Zap, Loader2, CheckCircle, ExternalLink,
-    GitCompare, Shield, Youtube, RefreshCw, Linkedin
+    GitCompare, Shield, Youtube, RefreshCw, Linkedin, ArrowUpDown, ArrowUp, ArrowDown,
+    Filter, X, ChevronDown
 } from 'lucide-react';
 
 const CATEGORIES = ['luxury', 'menswear', 'womenswear', 'streetwear', 'ethnic', 'minimal'];
 const CITIES = ['Mumbai', 'Delhi', 'Kolkata', 'Bangalore', 'Chennai', 'Hyderabad', 'Pune'];
 const STATUS_OPTIONS = ['identified', 'contacted', 'interested', 'negotiation', 'confirmed', 'completed'];
+const INDUSTRIES = ['fashion', 'beauty', 'lifestyle', 'fitness', 'tech', 'food', 'travel'];
+const TIERS = ['nano', 'micro', 'macro', 'mega', 'celebrity'];
+const GENDERS = ['male', 'female', 'non-binary', 'other'];
+const PLATFORMS = ['instagram', 'youtube', 'linkedin', 'tiktok', 'twitter'];
+
 const STATUS_COLORS = {
     identified: 'bg-muted text-muted-foreground',
     contacted: 'bg-blue-100 text-blue-700',
@@ -36,12 +42,35 @@ const STATUS_COLORS = {
     completed: 'bg-emerald-100 text-emerald-700'
 };
 
+const TIER_COLORS = {
+    nano: 'bg-slate-100 text-slate-600',
+    micro: 'bg-blue-100 text-blue-600',
+    macro: 'bg-purple-100 text-purple-600',
+    mega: 'bg-orange-100 text-orange-600',
+    celebrity: 'bg-gold/20 text-gold'
+};
+
 const PLATFORM_ICONS = {
     instagram: { icon: Instagram, color: 'text-pink-500', bg: 'bg-pink-50' },
     youtube: { icon: Youtube, color: 'text-red-500', bg: 'bg-red-50' },
     linkedin: { icon: Linkedin, color: 'text-blue-600', bg: 'bg-blue-50' },
     tiktok: { icon: Sparkles, color: 'text-black', bg: 'bg-gray-100' },
     twitter: { icon: () => <span className="text-xs">𝕏</span>, color: 'text-black', bg: 'bg-gray-100' }
+};
+
+// Format followers count
+const formatFollowers = (count) => {
+    if (!count) return '0';
+    if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
+    if (count >= 1000) return `${(count / 1000).toFixed(0)}K`;
+    return count.toString();
+};
+
+// Format date
+const formatDate = (dateStr) => {
+    if (!dateStr) return '-';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
 };
 
 export const InfluencersPage = () => {
@@ -53,8 +82,24 @@ export const InfluencersPage = () => {
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [selectedInfluencer, setSelectedInfluencer] = useState(null);
     
-    // Filters
+    // Basic Filters
     const [filters, setFilters] = useState({ search: '', category: '', city: '', status: '' });
+    
+    // Advanced Filters
+    const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+    const [advancedFilters, setAdvancedFilters] = useState({
+        industry: '',
+        gender: '',
+        tier: '',
+        platform: '',
+        minEngagement: 0,
+        maxEngagement: 20,
+        minFollowers: 0,
+        maxFollowers: 10000000
+    });
+    
+    // Sorting
+    const [sortConfig, setSortConfig] = useState({ key: 'score', direction: 'desc' });
     
     // AI Discovery with SSE
     const [aiLoading, setAiLoading] = useState(false);
@@ -79,6 +124,97 @@ export const InfluencersPage = () => {
     
     // Verification
     const [verifying, setVerifying] = useState({});
+    
+    // Sorted and filtered influencers
+    const sortedInfluencers = useMemo(() => {
+        let filtered = [...influencers];
+        
+        // Apply advanced filters
+        if (advancedFilters.industry) {
+            filtered = filtered.filter(i => i.industry?.toLowerCase() === advancedFilters.industry.toLowerCase());
+        }
+        if (advancedFilters.gender) {
+            filtered = filtered.filter(i => i.gender?.toLowerCase() === advancedFilters.gender.toLowerCase());
+        }
+        if (advancedFilters.tier) {
+            filtered = filtered.filter(i => i.tier?.toLowerCase() === advancedFilters.tier.toLowerCase());
+        }
+        if (advancedFilters.platform) {
+            filtered = filtered.filter(i => i.primary_platform?.toLowerCase() === advancedFilters.platform.toLowerCase());
+        }
+        if (advancedFilters.minEngagement > 0) {
+            filtered = filtered.filter(i => (i.engagement_rate || 0) >= advancedFilters.minEngagement);
+        }
+        if (advancedFilters.maxEngagement < 20) {
+            filtered = filtered.filter(i => (i.engagement_rate || 0) <= advancedFilters.maxEngagement);
+        }
+        if (advancedFilters.minFollowers > 0) {
+            filtered = filtered.filter(i => (i.followers || 0) >= advancedFilters.minFollowers);
+        }
+        if (advancedFilters.maxFollowers < 10000000) {
+            filtered = filtered.filter(i => (i.followers || 0) <= advancedFilters.maxFollowers);
+        }
+        
+        // Apply sorting
+        if (sortConfig.key) {
+            filtered.sort((a, b) => {
+                let aValue = a[sortConfig.key];
+                let bValue = b[sortConfig.key];
+                
+                // Handle null/undefined
+                if (aValue == null) aValue = sortConfig.key === 'name' ? '' : 0;
+                if (bValue == null) bValue = sortConfig.key === 'name' ? '' : 0;
+                
+                // String comparison
+                if (typeof aValue === 'string') {
+                    return sortConfig.direction === 'asc' 
+                        ? aValue.localeCompare(bValue)
+                        : bValue.localeCompare(aValue);
+                }
+                
+                // Number comparison
+                return sortConfig.direction === 'asc' ? aValue - bValue : bValue - aValue;
+            });
+        }
+        
+        return filtered;
+    }, [influencers, sortConfig, advancedFilters]);
+    
+    // Handle column sorting
+    const handleSort = (key) => {
+        setSortConfig(prev => ({
+            key,
+            direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc'
+        }));
+    };
+    
+    // Get sort icon for column
+    const getSortIcon = (key) => {
+        if (sortConfig.key !== key) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-40" />;
+        return sortConfig.direction === 'asc' 
+            ? <ArrowUp className="w-3 h-3 ml-1 text-gold" />
+            : <ArrowDown className="w-3 h-3 ml-1 text-gold" />;
+    };
+    
+    // Clear all advanced filters
+    const clearAdvancedFilters = () => {
+        setAdvancedFilters({
+            industry: '',
+            gender: '',
+            tier: '',
+            platform: '',
+            minEngagement: 0,
+            maxEngagement: 20,
+            minFollowers: 0,
+            maxFollowers: 10000000
+        });
+    };
+    
+    // Check if any advanced filters are active
+    const hasActiveAdvancedFilters = advancedFilters.industry || advancedFilters.gender || 
+        advancedFilters.tier || advancedFilters.platform || 
+        advancedFilters.minEngagement > 0 || advancedFilters.maxEngagement < 20 ||
+        advancedFilters.minFollowers > 0 || advancedFilters.maxFollowers < 10000000;
 
     useEffect(() => { fetchInfluencers(); }, []);
 
@@ -318,7 +454,7 @@ export const InfluencersPage = () => {
                         ))}
                     </div>
 
-                    {/* Filters */}
+                    {/* Basic Filters */}
                     <div className="flex gap-3">
                         <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -328,6 +464,7 @@ export const InfluencersPage = () => {
                                 onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                                 onKeyPress={(e) => e.key === 'Enter' && fetchInfluencers()}
                                 className="pl-9"
+                                data-testid="search-input"
                             />
                         </div>
                         <Select value={filters.category || "all"} onValueChange={(v) => setFilters({ ...filters, category: v === "all" ? "" : v })}>
@@ -344,102 +481,314 @@ export const InfluencersPage = () => {
                                 {CITIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                             </SelectContent>
                         </Select>
+                        <Button 
+                            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)} 
+                            variant={hasActiveAdvancedFilters ? "default" : "outline"}
+                            className="gap-2"
+                            data-testid="advanced-filters-btn"
+                        >
+                            <Filter className="w-4 h-4" />
+                            {hasActiveAdvancedFilters && <span className="text-xs">({Object.values(advancedFilters).filter(v => v && v !== 0 && v !== 20 && v !== 10000000).length})</span>}
+                        </Button>
                         <Button onClick={fetchInfluencers} variant="outline">Search</Button>
                     </div>
+                    
+                    {/* Advanced Filters Panel */}
+                    {showAdvancedFilters && (
+                        <Card className="border border-gold/20 bg-gold/5">
+                            <CardContent className="p-4">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h4 className="font-mono text-xs uppercase text-gold">Advanced Filters</h4>
+                                    <div className="flex gap-2">
+                                        {hasActiveAdvancedFilters && (
+                                            <Button variant="ghost" size="sm" onClick={clearAdvancedFilters} className="h-7 text-xs">
+                                                <X className="w-3 h-3 mr-1" /> Clear All
+                                            </Button>
+                                        )}
+                                        <Button variant="ghost" size="sm" onClick={() => setShowAdvancedFilters(false)} className="h-7">
+                                            <X className="w-4 h-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-4 gap-4">
+                                    {/* Industry */}
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] uppercase font-mono">Industry</Label>
+                                        <Select value={advancedFilters.industry || "all"} onValueChange={(v) => setAdvancedFilters({ ...advancedFilters, industry: v === "all" ? "" : v })}>
+                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Industries</SelectItem>
+                                                {INDUSTRIES.map(i => <SelectItem key={i} value={i} className="capitalize">{i}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    
+                                    {/* Gender */}
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] uppercase font-mono">Gender</Label>
+                                        <Select value={advancedFilters.gender || "all"} onValueChange={(v) => setAdvancedFilters({ ...advancedFilters, gender: v === "all" ? "" : v })}>
+                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Genders</SelectItem>
+                                                {GENDERS.map(g => <SelectItem key={g} value={g} className="capitalize">{g}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    
+                                    {/* Tier */}
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] uppercase font-mono">Tier</Label>
+                                        <Select value={advancedFilters.tier || "all"} onValueChange={(v) => setAdvancedFilters({ ...advancedFilters, tier: v === "all" ? "" : v })}>
+                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Tiers</SelectItem>
+                                                {TIERS.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    
+                                    {/* Platform */}
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] uppercase font-mono">Platform</Label>
+                                        <Select value={advancedFilters.platform || "all"} onValueChange={(v) => setAdvancedFilters({ ...advancedFilters, platform: v === "all" ? "" : v })}>
+                                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Platforms</SelectItem>
+                                                {PLATFORMS.map(p => <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    
+                                    {/* Engagement Range */}
+                                    <div className="col-span-2 space-y-2">
+                                        <Label className="text-[10px] uppercase font-mono">Engagement Rate: {advancedFilters.minEngagement}% - {advancedFilters.maxEngagement}%</Label>
+                                        <div className="flex gap-2 items-center">
+                                            <Input 
+                                                type="number" 
+                                                min="0" 
+                                                max="20"
+                                                value={advancedFilters.minEngagement}
+                                                onChange={(e) => setAdvancedFilters({ ...advancedFilters, minEngagement: parseFloat(e.target.value) || 0 })}
+                                                className="h-8 w-20 text-xs"
+                                            />
+                                            <span className="text-muted-foreground">to</span>
+                                            <Input 
+                                                type="number" 
+                                                min="0" 
+                                                max="20"
+                                                value={advancedFilters.maxEngagement}
+                                                onChange={(e) => setAdvancedFilters({ ...advancedFilters, maxEngagement: parseFloat(e.target.value) || 20 })}
+                                                className="h-8 w-20 text-xs"
+                                            />
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Followers Range */}
+                                    <div className="col-span-2 space-y-2">
+                                        <Label className="text-[10px] uppercase font-mono">Followers: {formatFollowers(advancedFilters.minFollowers)} - {formatFollowers(advancedFilters.maxFollowers)}</Label>
+                                        <div className="flex gap-2 items-center">
+                                            <Select value={advancedFilters.minFollowers.toString()} onValueChange={(v) => setAdvancedFilters({ ...advancedFilters, minFollowers: parseInt(v) })}>
+                                                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="0">0</SelectItem>
+                                                    <SelectItem value="1000">1K</SelectItem>
+                                                    <SelectItem value="10000">10K</SelectItem>
+                                                    <SelectItem value="50000">50K</SelectItem>
+                                                    <SelectItem value="100000">100K</SelectItem>
+                                                    <SelectItem value="500000">500K</SelectItem>
+                                                    <SelectItem value="1000000">1M</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <span className="text-muted-foreground">to</span>
+                                            <Select value={advancedFilters.maxFollowers.toString()} onValueChange={(v) => setAdvancedFilters({ ...advancedFilters, maxFollowers: parseInt(v) })}>
+                                                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="10000">10K</SelectItem>
+                                                    <SelectItem value="50000">50K</SelectItem>
+                                                    <SelectItem value="100000">100K</SelectItem>
+                                                    <SelectItem value="500000">500K</SelectItem>
+                                                    <SelectItem value="1000000">1M</SelectItem>
+                                                    <SelectItem value="10000000">10M+</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
 
-                    {/* Table */}
+                    {/* Results Summary */}
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                        <span>Showing {sortedInfluencers.length} of {influencers.length} influencers</span>
+                        {sortConfig.key && (
+                            <span className="font-mono text-xs">
+                                Sorted by <span className="text-gold capitalize">{sortConfig.key.replace('_', ' ')}</span> ({sortConfig.direction})
+                            </span>
+                        )}
+                    </div>
+
+                    {/* Enhanced Table */}
                     <Card className="border">
                         <CardContent className="p-0">
                             {loading ? (
                                 <div className="p-6 space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
-                            ) : influencers.length === 0 ? (
+                            ) : sortedInfluencers.length === 0 ? (
                                 <div className="p-12 text-center">
                                     <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
                                     <p className="text-muted-foreground">No influencers found</p>
+                                    {hasActiveAdvancedFilters && (
+                                        <Button variant="link" onClick={clearAdvancedFilters} className="mt-2">
+                                            Clear filters
+                                        </Button>
+                                    )}
                                 </div>
                             ) : (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead className="w-[40px]"></TableHead>
-                                            <TableHead className="font-mono text-[10px] uppercase">Influencer</TableHead>
-                                            <TableHead className="font-mono text-[10px] uppercase">Platform</TableHead>
-                                            <TableHead className="font-mono text-[10px] uppercase">Metrics</TableHead>
-                                            <TableHead className="font-mono text-[10px] uppercase">Category</TableHead>
-                                            <TableHead className="font-mono text-[10px] uppercase">Status</TableHead>
-                                            <TableHead className="font-mono text-[10px] uppercase">Score</TableHead>
-                                            <TableHead className="w-[40px]"></TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {influencers.map((inf) => {
-                                            const platform = inf.primary_platform || 'instagram';
-                                            const PlatformIcon = PLATFORM_ICONS[platform]?.icon || Instagram;
-                                            const platformColor = PLATFORM_ICONS[platform]?.color || 'text-pink-500';
-                                            const platformBg = PLATFORM_ICONS[platform]?.bg || 'bg-pink-50';
-                                            const primaryHandle = platform === 'instagram' ? inf.instagram_handle :
-                                                                  platform === 'youtube' ? inf.youtube_handle :
-                                                                  platform === 'linkedin' ? inf.linkedin_handle :
-                                                                  platform === 'tiktok' ? inf.tiktok_handle :
-                                                                  inf.instagram_handle;
-                                            return (
-                                            <TableRow key={inf.id} className={`cursor-pointer ${selectedForCompare.includes(inf.id) ? 'bg-gold/5' : ''}`}>
-                                                <TableCell onClick={(e) => e.stopPropagation()}>
-                                                    <Checkbox
-                                                        checked={selectedForCompare.includes(inf.id)}
-                                                        onCheckedChange={() => toggleCompareSelection(inf.id)}
-                                                        data-testid={`compare-checkbox-${inf.id}`}
-                                                    />
-                                                </TableCell>
-                                                <TableCell onClick={() => navigate(`/influencers/${inf.id}`)}>
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={`w-9 h-9 rounded-full ${platformBg} flex items-center justify-center`}>
-                                                            <PlatformIcon className={`w-4 h-4 ${platformColor}`} />
-                                                        </div>
-                                                        <div>
-                                                            <p className="font-medium text-sm">{inf.name}</p>
-                                                            <p className="text-xs text-muted-foreground">@{primaryHandle || inf.instagram_handle} • {inf.city}</p>
-                                                        </div>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge className={`${platformBg} ${platformColor} border-0 text-[10px] capitalize`}>
-                                                        {platform}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-xs">
-                                                    {(inf.followers / 1000).toFixed(0)}K • {inf.engagement_rate}%
-                                                </TableCell>
-                                                <TableCell><Badge variant="outline" className="text-[10px] capitalize">{inf.category}</Badge></TableCell>
-                                                <TableCell onClick={(e) => e.stopPropagation()}>
-                                                    <Select value={inf.status} onValueChange={(v) => handleStatusUpdate(inf.id, v)}>
-                                                        <SelectTrigger className={`w-[110px] text-[10px] h-7 ${STATUS_COLORS[inf.status]}`}><SelectValue /></SelectTrigger>
-                                                        <SelectContent>
-                                                            {STATUS_OPTIONS.map(s => <SelectItem key={s} value={s} className="capitalize text-xs">{s}</SelectItem>)}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge className="bg-gold/10 text-gold border-0 text-xs">{inf.score}</Badge>
-                                                </TableCell>
-                                                <TableCell onClick={(e) => e.stopPropagation()}>
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end">
-                                                            <DropdownMenuItem onClick={() => handleVerify(inf.id)} disabled={verifying[inf.id]}>
-                                                                {verifying[inf.id] ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Shield className="w-4 h-4 mr-2" />}
-                                                                Verify Profile
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuItem onClick={() => navigate(`/outreach?influencer=${inf.id}`)}><Mail className="w-4 h-4 mr-2" />Outreach</DropdownMenuItem>
-                                                            <DropdownMenuItem onClick={() => handleDelete(inf.id)} className="text-destructive"><Trash2 className="w-4 h-4 mr-2" />Delete</DropdownMenuItem>
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
-                                                </TableCell>
+                                <div className="overflow-x-auto">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead className="w-[40px]"></TableHead>
+                                                <TableHead 
+                                                    className="font-mono text-[10px] uppercase cursor-pointer hover:text-gold transition-colors"
+                                                    onClick={() => handleSort('name')}
+                                                    data-testid="sort-name"
+                                                >
+                                                    <div className="flex items-center">Influencer {getSortIcon('name')}</div>
+                                                </TableHead>
+                                                <TableHead 
+                                                    className="font-mono text-[10px] uppercase cursor-pointer hover:text-gold transition-colors"
+                                                    onClick={() => handleSort('primary_platform')}
+                                                >
+                                                    <div className="flex items-center">Platform {getSortIcon('primary_platform')}</div>
+                                                </TableHead>
+                                                <TableHead 
+                                                    className="font-mono text-[10px] uppercase cursor-pointer hover:text-gold transition-colors"
+                                                    onClick={() => handleSort('followers')}
+                                                    data-testid="sort-followers"
+                                                >
+                                                    <div className="flex items-center">Followers {getSortIcon('followers')}</div>
+                                                </TableHead>
+                                                <TableHead 
+                                                    className="font-mono text-[10px] uppercase cursor-pointer hover:text-gold transition-colors"
+                                                    onClick={() => handleSort('engagement_rate')}
+                                                    data-testid="sort-engagement"
+                                                >
+                                                    <div className="flex items-center">Eng. % {getSortIcon('engagement_rate')}</div>
+                                                </TableHead>
+                                                <TableHead className="font-mono text-[10px] uppercase">Industry</TableHead>
+                                                <TableHead 
+                                                    className="font-mono text-[10px] uppercase cursor-pointer hover:text-gold transition-colors"
+                                                    onClick={() => handleSort('tier')}
+                                                >
+                                                    <div className="flex items-center">Tier {getSortIcon('tier')}</div>
+                                                </TableHead>
+                                                <TableHead className="font-mono text-[10px] uppercase">Gender</TableHead>
+                                                <TableHead className="font-mono text-[10px] uppercase">Status</TableHead>
+                                                <TableHead 
+                                                    className="font-mono text-[10px] uppercase cursor-pointer hover:text-gold transition-colors"
+                                                    onClick={() => handleSort('score')}
+                                                    data-testid="sort-score"
+                                                >
+                                                    <div className="flex items-center">Score {getSortIcon('score')}</div>
+                                                </TableHead>
+                                                <TableHead className="font-mono text-[10px] uppercase">Updated</TableHead>
+                                                <TableHead className="w-[40px]"></TableHead>
                                             </TableRow>
-                                        );
-                                        })}
-                                    </TableBody>
-                                </Table>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {sortedInfluencers.map((inf) => {
+                                                const platform = inf.primary_platform || 'instagram';
+                                                const PlatformIcon = PLATFORM_ICONS[platform]?.icon || Instagram;
+                                                const platformColor = PLATFORM_ICONS[platform]?.color || 'text-pink-500';
+                                                const platformBg = PLATFORM_ICONS[platform]?.bg || 'bg-pink-50';
+                                                const primaryHandle = platform === 'instagram' ? inf.instagram_handle :
+                                                                      platform === 'youtube' ? inf.youtube_handle :
+                                                                      platform === 'linkedin' ? inf.linkedin_handle :
+                                                                      platform === 'tiktok' ? inf.tiktok_handle :
+                                                                      inf.instagram_handle;
+                                                return (
+                                                <TableRow 
+                                                    key={inf.id} 
+                                                    className={`cursor-pointer hover:bg-muted/50 ${selectedForCompare.includes(inf.id) ? 'bg-gold/5' : ''}`}
+                                                    data-testid={`influencer-row-${inf.id}`}
+                                                >
+                                                    <TableCell onClick={(e) => e.stopPropagation()}>
+                                                        <Checkbox
+                                                            checked={selectedForCompare.includes(inf.id)}
+                                                            onCheckedChange={() => toggleCompareSelection(inf.id)}
+                                                            data-testid={`compare-checkbox-${inf.id}`}
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell onClick={() => navigate(`/influencers/${inf.id}`)}>
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`w-9 h-9 rounded-full ${platformBg} flex items-center justify-center`}>
+                                                                <PlatformIcon className={`w-4 h-4 ${platformColor}`} />
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-medium text-sm">{inf.name}</p>
+                                                                <p className="text-xs text-muted-foreground">@{primaryHandle || inf.instagram_handle} • {inf.city}</p>
+                                                            </div>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge className={`${platformBg} ${platformColor} border-0 text-[10px] capitalize`}>
+                                                            {platform}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell className="text-sm font-medium">
+                                                        {formatFollowers(inf.followers)}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <span className={`text-sm font-medium ${(inf.engagement_rate || 0) >= 5 ? 'text-green-600' : (inf.engagement_rate || 0) >= 3 ? 'text-yellow-600' : 'text-muted-foreground'}`}>
+                                                            {inf.engagement_rate?.toFixed(1) || '0.0'}%
+                                                        </span>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <span className="text-xs text-muted-foreground capitalize">{inf.industry || '-'}</span>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge className={`${TIER_COLORS[inf.tier] || 'bg-muted'} border-0 text-[10px] capitalize`}>
+                                                            {inf.tier || 'micro'}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <span className="text-xs text-muted-foreground capitalize">{inf.gender || '-'}</span>
+                                                    </TableCell>
+                                                    <TableCell onClick={(e) => e.stopPropagation()}>
+                                                        <Select value={inf.status} onValueChange={(v) => handleStatusUpdate(inf.id, v)}>
+                                                            <SelectTrigger className={`w-[100px] text-[10px] h-7 ${STATUS_COLORS[inf.status]}`}><SelectValue /></SelectTrigger>
+                                                            <SelectContent>
+                                                                {STATUS_OPTIONS.map(s => <SelectItem key={s} value={s} className="capitalize text-xs">{s}</SelectItem>)}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge className="bg-gold/10 text-gold border-0 text-xs">{inf.score?.toFixed(0) || 0}</Badge>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <span className="text-[10px] text-muted-foreground">{formatDate(inf.created_at)}</span>
+                                                    </TableCell>
+                                                    <TableCell onClick={(e) => e.stopPropagation()}>
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end">
+                                                                <DropdownMenuItem onClick={() => handleVerify(inf.id)} disabled={verifying[inf.id]}>
+                                                                    {verifying[inf.id] ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Shield className="w-4 h-4 mr-2" />}
+                                                                    Verify Profile
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => navigate(`/outreach?influencer=${inf.id}`)}><Mail className="w-4 h-4 mr-2" />Outreach</DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => handleDelete(inf.id)} className="text-destructive"><Trash2 className="w-4 h-4 mr-2" />Delete</DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                            })}
+                                        </TableBody>
+                                    </Table>
+                                </div>
                             )}
                         </CardContent>
                     </Card>
