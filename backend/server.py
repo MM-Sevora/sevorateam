@@ -107,7 +107,13 @@ class InfluencerCreate(BaseModel):
     gender: Optional[str] = None  # male, female, non-binary, other
     gender_focus: str = "unisex"  # menswear, womenswear, unisex
     
-    # Metrics
+    # Per-Platform Metrics
+    instagram_metrics: Optional[Dict[str, Any]] = None  # followers, engagement_rate, avg_likes, avg_comments, avg_reel_views
+    youtube_metrics: Optional[Dict[str, Any]] = None  # subscribers, avg_views, avg_likes, avg_comments, total_videos
+    linkedin_metrics: Optional[Dict[str, Any]] = None  # connections, followers, avg_engagement
+    tiktok_metrics: Optional[Dict[str, Any]] = None  # followers, avg_views, avg_likes, engagement_rate
+    
+    # Legacy/Combined Metrics (for backwards compatibility)
     followers: int = 0
     engagement_rate: float = 0.0
     avg_likes: int = 0
@@ -170,7 +176,13 @@ class InfluencerUpdate(BaseModel):
     gender: Optional[str] = None
     gender_focus: Optional[str] = None
     
-    # Metrics
+    # Per-Platform Metrics
+    instagram_metrics: Optional[Dict[str, Any]] = None
+    youtube_metrics: Optional[Dict[str, Any]] = None
+    linkedin_metrics: Optional[Dict[str, Any]] = None
+    tiktok_metrics: Optional[Dict[str, Any]] = None
+    
+    # Legacy Metrics
     followers: Optional[int] = None
     engagement_rate: Optional[float] = None
     avg_likes: Optional[int] = None
@@ -219,6 +231,10 @@ class InfluencerResponse(BaseModel):
     tier: Optional[str] = None
     gender: Optional[str] = None
     gender_focus: Optional[str] = None
+    instagram_metrics: Optional[Dict[str, Any]] = None
+    youtube_metrics: Optional[Dict[str, Any]] = None
+    linkedin_metrics: Optional[Dict[str, Any]] = None
+    tiktok_metrics: Optional[Dict[str, Any]] = None
     followers: Optional[int] = 0
     engagement_rate: Optional[float] = 0.0
     avg_likes: Optional[int] = 0
@@ -296,12 +312,21 @@ class OutreachResponse(BaseModel):
     opened: bool
     replied: bool
 
+class DeliverableItem(BaseModel):
+    type: str  # reel, post, story, video, youtube_video, carousel, live
+    quantity: int = 1
+    rate: float  # per unit rate
+    total: Optional[float] = None  # quantity * rate
+    platform: str = "instagram"  # instagram, youtube, linkedin, tiktok
+    notes: Optional[str] = None
+
 class NegotiationCreate(BaseModel):
     influencer_id: str
     campaign_id: Optional[str] = None
     initial_quote: float
     our_budget: Optional[float] = None
-    deliverables: str
+    deliverables: str  # Legacy text field
+    deliverables_bucket: Optional[List[DeliverableItem]] = []  # New structured deliverables
     deadline: Optional[str] = None
     notes: Optional[str] = None
 
@@ -312,11 +337,13 @@ class NegotiationUpdate(BaseModel):
     status: Optional[str] = None  # pending, negotiating, agreed, rejected, on_hold
     notes: Optional[str] = None
     deadline: Optional[str] = None
+    deliverables_bucket: Optional[List[DeliverableItem]] = None
 
 class NegotiationEventCreate(BaseModel):
     event_type: str  # quote_sent, counter_received, counter_sent, agreed, rejected, note_added
     amount: Optional[float] = None
     note: Optional[str] = None
+    deliverables_bucket: Optional[List[DeliverableItem]] = None  # Can update deliverables during negotiation
 
 class AIMatchRequest(BaseModel):
     category: str
@@ -725,14 +752,30 @@ async def create_negotiation(data: NegotiationCreate, user: dict = Depends(get_c
     neg_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     
-    # Initial timeline event
+    # Process deliverables bucket - calculate totals
+    deliverables_bucket = []
+    bucket_total = 0
+    if data.deliverables_bucket:
+        for item in data.deliverables_bucket:
+            item_dict = item.model_dump()
+            item_dict['total'] = item.quantity * item.rate
+            bucket_total += item_dict['total']
+            deliverables_bucket.append(item_dict)
+    
+    # Initial timeline event with deliverables summary
+    deliverables_summary = data.deliverables
+    if deliverables_bucket:
+        items_str = ", ".join([f"{d['quantity']}x {d['type']}" for d in deliverables_bucket])
+        deliverables_summary = f"{items_str} (Total: ₹{bucket_total:,.0f})"
+    
     timeline = [{
         "id": str(uuid.uuid4()),
         "event_type": "negotiation_started",
         "amount": data.initial_quote,
-        "note": f"Negotiation started. Influencer's initial quote: ₹{data.initial_quote:,.0f}",
+        "note": f"Negotiation started. Quote: ₹{data.initial_quote:,.0f}. Deliverables: {deliverables_summary}",
         "timestamp": now,
-        "created_by": user.get('email', 'system')
+        "created_by": user.get('email', 'system'),
+        "deliverables_bucket": deliverables_bucket if deliverables_bucket else None
     }]
     
     neg_doc = {
@@ -748,6 +791,8 @@ async def create_negotiation(data: NegotiationCreate, user: dict = Depends(get_c
         "our_counter": None,
         "final_price": None,
         "deliverables": data.deliverables,
+        "deliverables_bucket": deliverables_bucket,
+        "bucket_total": bucket_total if bucket_total > 0 else None,
         "deadline": data.deadline,
         "status": "pending",
         "notes": data.notes,

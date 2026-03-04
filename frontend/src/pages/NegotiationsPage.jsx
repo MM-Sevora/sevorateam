@@ -15,7 +15,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { toast } from 'sonner';
 import { 
     Handshake, Plus, TrendingDown, TrendingUp, Clock, CheckCircle, XCircle, 
-    MessageSquare, DollarSign, Users, Target, AlertCircle, ArrowRight, Loader2
+    MessageSquare, DollarSign, Users, Target, AlertCircle, ArrowRight, Loader2,
+    Trash2, Video, Image, MessageCircle, Youtube, Package
 } from 'lucide-react';
 
 const STATUS_CONFIG = {
@@ -35,6 +36,16 @@ const EVENT_CONFIG = {
     note_added: { icon: MessageSquare, color: 'text-gray-500' }
 };
 
+const DELIVERABLE_TYPES = [
+    { value: 'reel', label: 'Instagram Reel', icon: Video, platform: 'instagram' },
+    { value: 'post', label: 'Static Post', icon: Image, platform: 'instagram' },
+    { value: 'story', label: 'Story', icon: MessageCircle, platform: 'instagram' },
+    { value: 'carousel', label: 'Carousel', icon: Image, platform: 'instagram' },
+    { value: 'youtube_video', label: 'YouTube Video', icon: Youtube, platform: 'youtube' },
+    { value: 'youtube_short', label: 'YouTube Short', icon: Video, platform: 'youtube' },
+    { value: 'live', label: 'Live Stream', icon: Video, platform: 'instagram' },
+];
+
 export const NegotiationsPage = () => {
     const [negotiations, setNegotiations] = useState([]);
     const [influencers, setInfluencers] = useState([]);
@@ -46,6 +57,10 @@ export const NegotiationsPage = () => {
     const [selectedNeg, setSelectedNeg] = useState(null);
     const [filter, setFilter] = useState('all');
     const [actionLoading, setActionLoading] = useState(false);
+    
+    // Deliverables bucket for new negotiation
+    const [deliverablesBucket, setDeliverablesBucket] = useState([]);
+    const [newDeliverable, setNewDeliverable] = useState({ type: 'reel', quantity: 1, rate: '', platform: 'instagram' });
     
     const [newNeg, setNewNeg] = useState({
         influencer_id: '',
@@ -88,25 +103,77 @@ export const NegotiationsPage = () => {
     };
 
     const handleCreate = async () => {
-        if (!newNeg.influencer_id || !newNeg.initial_quote || !newNeg.deliverables) {
-            toast.error('Influencer, quote, and deliverables are required');
+        if (!newNeg.influencer_id || (!newNeg.initial_quote && deliverablesBucket.length === 0)) {
+            toast.error('Influencer and either quote or deliverables bucket required');
             return;
         }
+        
+        // Calculate total from bucket if available
+        const bucketTotal = deliverablesBucket.reduce((sum, d) => sum + (d.quantity * d.rate), 0);
+        const finalQuote = newNeg.initial_quote ? parseFloat(newNeg.initial_quote) : bucketTotal;
+        
+        // Generate deliverables text from bucket
+        let deliverablesText = newNeg.deliverables;
+        if (deliverablesBucket.length > 0 && !deliverablesText) {
+            deliverablesText = deliverablesBucket.map(d => `${d.quantity}x ${d.type}`).join(', ');
+        }
+        
         setActionLoading(true);
         try {
             await negotiationApi.create({
                 ...newNeg,
-                initial_quote: parseFloat(newNeg.initial_quote),
-                our_budget: newNeg.our_budget ? parseFloat(newNeg.our_budget) : null
+                initial_quote: finalQuote,
+                our_budget: newNeg.our_budget ? parseFloat(newNeg.our_budget) : null,
+                deliverables: deliverablesText || 'See deliverables bucket',
+                deliverables_bucket: deliverablesBucket.length > 0 ? deliverablesBucket : undefined
             });
             toast.success('Negotiation started');
             setShowCreateModal(false);
             setNewNeg({ influencer_id: '', campaign_id: '', initial_quote: '', our_budget: '', deliverables: '', deadline: '', notes: '' });
+            setDeliverablesBucket([]);
             fetchData();
         } catch (error) {
             toast.error('Failed to create negotiation');
         } finally {
             setActionLoading(false);
+        }
+    };
+
+    // Deliverables bucket functions
+    const addDeliverable = () => {
+        if (!newDeliverable.rate) {
+            toast.error('Rate is required');
+            return;
+        }
+        const deliverable = {
+            ...newDeliverable,
+            rate: parseFloat(newDeliverable.rate),
+            total: newDeliverable.quantity * parseFloat(newDeliverable.rate)
+        };
+        setDeliverablesBucket([...deliverablesBucket, deliverable]);
+        setNewDeliverable({ type: 'reel', quantity: 1, rate: '', platform: 'instagram' });
+    };
+
+    const removeDeliverable = (index) => {
+        setDeliverablesBucket(deliverablesBucket.filter((_, i) => i !== index));
+    };
+
+    const getBucketTotal = () => {
+        return deliverablesBucket.reduce((sum, d) => sum + (d.quantity * d.rate), 0);
+    };
+
+    // Auto-fill rate from influencer's rate card
+    const selectedInfluencer = influencers.find(i => i.id === newNeg.influencer_id);
+    const getInfluencerRate = (type) => {
+        if (!selectedInfluencer) return '';
+        switch (type) {
+            case 'reel': return selectedInfluencer.rate_per_reel || '';
+            case 'post': 
+            case 'carousel': return selectedInfluencer.rate_per_post || '';
+            case 'story': return selectedInfluencer.rate_per_story || '';
+            case 'youtube_video':
+            case 'youtube_short': return selectedInfluencer.rate_per_video || '';
+            default: return '';
         }
     };
 
@@ -344,14 +411,98 @@ export const NegotiationsPage = () => {
                                 </SelectContent>
                             </Select>
                         </div>
+                        
+                        {/* Deliverables Bucket */}
+                        <div className="space-y-2 border rounded p-3 bg-muted/30">
+                            <Label className="text-[10px] uppercase font-mono flex items-center gap-2">
+                                <Package className="w-3 h-3" /> Deliverables Package
+                            </Label>
+                            
+                            {/* Add deliverable row */}
+                            <div className="flex gap-2 items-end">
+                                <div className="flex-1">
+                                    <Label className="text-[9px] text-muted-foreground">Type</Label>
+                                    <Select value={newDeliverable.type} onValueChange={(v) => {
+                                        const dt = DELIVERABLE_TYPES.find(d => d.value === v);
+                                        setNewDeliverable({ 
+                                            ...newDeliverable, 
+                                            type: v, 
+                                            platform: dt?.platform || 'instagram',
+                                            rate: getInfluencerRate(v) || newDeliverable.rate
+                                        });
+                                    }}>
+                                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            {DELIVERABLE_TYPES.map(dt => (
+                                                <SelectItem key={dt.value} value={dt.value} className="text-xs">
+                                                    {dt.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="w-16">
+                                    <Label className="text-[9px] text-muted-foreground">Qty</Label>
+                                    <Input 
+                                        type="number" 
+                                        min="1"
+                                        value={newDeliverable.quantity} 
+                                        onChange={(e) => setNewDeliverable({ ...newDeliverable, quantity: parseInt(e.target.value) || 1 })}
+                                        className="h-8 text-xs"
+                                    />
+                                </div>
+                                <div className="w-24">
+                                    <Label className="text-[9px] text-muted-foreground">Rate (₹)</Label>
+                                    <Input 
+                                        type="number" 
+                                        value={newDeliverable.rate} 
+                                        onChange={(e) => setNewDeliverable({ ...newDeliverable, rate: e.target.value })}
+                                        placeholder={getInfluencerRate(newDeliverable.type) ? `~${getInfluencerRate(newDeliverable.type)}` : ''}
+                                        className="h-8 text-xs"
+                                    />
+                                </div>
+                                <Button type="button" size="sm" variant="outline" onClick={addDeliverable} className="h-8">
+                                    <Plus className="w-3 h-3" />
+                                </Button>
+                            </div>
+                            
+                            {/* Bucket items */}
+                            {deliverablesBucket.length > 0 && (
+                                <div className="space-y-1 mt-2">
+                                    {deliverablesBucket.map((d, i) => {
+                                        const dt = DELIVERABLE_TYPES.find(t => t.value === d.type);
+                                        const Icon = dt?.icon || Video;
+                                        return (
+                                            <div key={i} className="flex items-center justify-between p-2 bg-white rounded border text-xs">
+                                                <div className="flex items-center gap-2">
+                                                    <Icon className="w-3 h-3 text-muted-foreground" />
+                                                    <span>{d.quantity}x {dt?.label || d.type}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-medium">₹{(d.quantity * d.rate).toLocaleString()}</span>
+                                                    <Button type="button" size="sm" variant="ghost" onClick={() => removeDeliverable(i)} className="h-6 w-6 p-0 text-red-500">
+                                                        <Trash2 className="w-3 h-3" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                    <div className="flex justify-between pt-2 border-t font-medium text-sm">
+                                        <span>Package Total</span>
+                                        <span className="text-gold">₹{getBucketTotal().toLocaleString()}</span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        
                         <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1">
-                                <Label className="text-[10px] uppercase font-mono">Influencer's Quote (₹) *</Label>
+                                <Label className="text-[10px] uppercase font-mono">Final Quote (₹) {deliverablesBucket.length > 0 && <span className="text-muted-foreground">(or use bucket total)</span>}</Label>
                                 <Input 
                                     type="number" 
                                     value={newNeg.initial_quote} 
                                     onChange={(e) => setNewNeg({ ...newNeg, initial_quote: e.target.value })}
-                                    placeholder="50000"
+                                    placeholder={deliverablesBucket.length > 0 ? getBucketTotal().toString() : "50000"}
                                     data-testid="neg-quote-input"
                                 />
                             </div>
@@ -366,11 +517,11 @@ export const NegotiationsPage = () => {
                             </div>
                         </div>
                         <div className="space-y-1">
-                            <Label className="text-[10px] uppercase font-mono">Deliverables *</Label>
+                            <Label className="text-[10px] uppercase font-mono">Additional Notes on Deliverables</Label>
                             <Textarea 
                                 value={newNeg.deliverables} 
                                 onChange={(e) => setNewNeg({ ...newNeg, deliverables: e.target.value })}
-                                placeholder="2 Reels + 3 Stories + 1 Post"
+                                placeholder="Any specific requirements or notes..."
                                 rows={2}
                                 data-testid="neg-deliverables-input"
                             />
@@ -395,7 +546,7 @@ export const NegotiationsPage = () => {
                             />
                         </div>
                         <div className="flex gap-2 pt-2">
-                            <Button variant="outline" onClick={() => setShowCreateModal(false)} className="flex-1 rounded-none">Cancel</Button>
+                            <Button variant="outline" onClick={() => { setShowCreateModal(false); setDeliverablesBucket([]); }} className="flex-1 rounded-none">Cancel</Button>
                             <Button onClick={handleCreate} disabled={actionLoading} className="flex-1 rounded-none bg-gold text-white hover:bg-gold/90" data-testid="create-neg-btn">
                                 {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Start Negotiation'}
                             </Button>

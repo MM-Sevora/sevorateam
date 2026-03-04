@@ -459,61 +459,185 @@ export const InfluencerProfilePage = () => {
                     </div>
                 </TabsContent>
 
-                {/* Core Metrics Tab */}
+                {/* Core Metrics Tab - Per Platform */}
                 <TabsContent value="metrics">
-                    <div className="grid grid-cols-2 gap-6">
-                        {/* Engagement Metrics */}
-                        <Card className="border">
-                            <CardHeader className="pb-3">
-                                <CardTitle className="text-base flex items-center gap-2">
-                                    <BarChart3 className="w-4 h-4 text-gold" /> Engagement Metrics
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1">
-                                        <Label className="text-[10px] uppercase font-mono">Followers</Label>
+                    <div className="space-y-6">
+                        {/* Per-Platform Metrics */}
+                        <div className="grid grid-cols-2 gap-6">
+                            {/* Instagram Metrics */}
+                            {(data.instagram_handle || data.primary_platform === 'instagram') && (
+                                <Card className="border border-pink-200">
+                                    <CardHeader className="pb-3 bg-pink-50/50">
+                                        <CardTitle className="text-base flex items-center gap-2">
+                                            <Instagram className="w-4 h-4 text-pink-500" /> Instagram Metrics
+                                            {data.primary_platform === 'instagram' && <Badge className="bg-pink-100 text-pink-600 text-[8px]">Primary</Badge>}
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="pt-4">
                                         {editing ? (
-                                            <Input type="number" value={data.followers || ''} onChange={(e) => update('followers', parseInt(e.target.value) || 0)} className="h-8" />
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px] uppercase font-mono">Followers</Label>
+                                                    <Input type="number" value={data.instagram_metrics?.followers || data.followers || ''} 
+                                                        onChange={(e) => update('instagram_metrics', { ...data.instagram_metrics, followers: parseInt(e.target.value) || 0 })} className="h-8" />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px] uppercase font-mono">Engagement %</Label>
+                                                    <Input type="number" step="0.1" value={data.instagram_metrics?.engagement_rate || data.engagement_rate || ''} 
+                                                        onChange={(e) => update('instagram_metrics', { ...data.instagram_metrics, engagement_rate: parseFloat(e.target.value) || 0 })} className="h-8" />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px] uppercase font-mono">Avg Likes</Label>
+                                                    <Input type="number" value={data.instagram_metrics?.avg_likes || data.avg_likes || ''} 
+                                                        onChange={(e) => update('instagram_metrics', { ...data.instagram_metrics, avg_likes: parseInt(e.target.value) || 0 })} className="h-8" />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px] uppercase font-mono">Avg Reel Views</Label>
+                                                    <Input type="number" value={data.instagram_metrics?.avg_reel_views || ''} 
+                                                        onChange={(e) => update('instagram_metrics', { ...data.instagram_metrics, avg_reel_views: parseInt(e.target.value) || 0 })} className="h-8" />
+                                                </div>
+                                            </div>
                                         ) : (
-                                            <p className="font-medium">{(data.followers || 0).toLocaleString()}</p>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div><span className="text-[10px] text-muted-foreground">Followers</span><p className="font-medium">{((data.instagram_metrics?.followers || data.followers || 0) / 1000).toFixed(0)}K</p></div>
+                                                <div><span className="text-[10px] text-muted-foreground">Engagement</span><p className="font-medium">{data.instagram_metrics?.engagement_rate || data.engagement_rate || 0}%</p></div>
+                                                <div><span className="text-[10px] text-muted-foreground">Avg Likes</span><p className="font-medium">{(data.instagram_metrics?.avg_likes || data.avg_likes || 0).toLocaleString()}</p></div>
+                                                <div><span className="text-[10px] text-muted-foreground">Avg Reel Views</span><p className="font-medium">{(data.instagram_metrics?.avg_reel_views || 0).toLocaleString()}</p></div>
+                                            </div>
                                         )}
-                                    </div>
-                                    <div className="space-y-1">
-                                        <Label className="text-[10px] uppercase font-mono">Engagement Rate (%)</Label>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* YouTube Metrics */}
+                            {(data.youtube_handle || data.primary_platform === 'youtube') && (
+                                <Card className="border border-red-200">
+                                    <CardHeader className="pb-3 bg-red-50/50">
+                                        <CardTitle className="text-base flex items-center gap-2">
+                                            <Youtube className="w-4 h-4 text-red-500" /> YouTube Metrics
+                                            {data.primary_platform === 'youtube' && <Badge className="bg-red-100 text-red-600 text-[8px]">Primary</Badge>}
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="pt-4">
                                         {editing ? (
-                                            <Input type="number" step="0.1" value={data.engagement_rate || ''} onChange={(e) => update('engagement_rate', parseFloat(e.target.value) || 0)} className="h-8" />
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px] uppercase font-mono">Subscribers</Label>
+                                                    <Input type="number" value={data.youtube_metrics?.subscribers || ''} 
+                                                        onChange={(e) => update('youtube_metrics', { ...data.youtube_metrics, subscribers: parseInt(e.target.value) || 0 })} className="h-8" />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px] uppercase font-mono">Avg Views</Label>
+                                                    <Input type="number" value={data.youtube_metrics?.avg_views || ''} 
+                                                        onChange={(e) => update('youtube_metrics', { ...data.youtube_metrics, avg_views: parseInt(e.target.value) || 0 })} className="h-8" />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px] uppercase font-mono">Avg Likes</Label>
+                                                    <Input type="number" value={data.youtube_metrics?.avg_likes || ''} 
+                                                        onChange={(e) => update('youtube_metrics', { ...data.youtube_metrics, avg_likes: parseInt(e.target.value) || 0 })} className="h-8" />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px] uppercase font-mono">Total Videos</Label>
+                                                    <Input type="number" value={data.youtube_metrics?.total_videos || ''} 
+                                                        onChange={(e) => update('youtube_metrics', { ...data.youtube_metrics, total_videos: parseInt(e.target.value) || 0 })} className="h-8" />
+                                                </div>
+                                            </div>
                                         ) : (
-                                            <p className="font-medium">{data.engagement_rate || 0}%</p>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div><span className="text-[10px] text-muted-foreground">Subscribers</span><p className="font-medium">{((data.youtube_metrics?.subscribers || 0) / 1000).toFixed(0)}K</p></div>
+                                                <div><span className="text-[10px] text-muted-foreground">Avg Views</span><p className="font-medium">{(data.youtube_metrics?.avg_views || 0).toLocaleString()}</p></div>
+                                                <div><span className="text-[10px] text-muted-foreground">Avg Likes</span><p className="font-medium">{(data.youtube_metrics?.avg_likes || 0).toLocaleString()}</p></div>
+                                                <div><span className="text-[10px] text-muted-foreground">Total Videos</span><p className="font-medium">{data.youtube_metrics?.total_videos || 0}</p></div>
+                                            </div>
                                         )}
-                                    </div>
-                                    <div className="space-y-1">
-                                        <Label className="text-[10px] uppercase font-mono">Avg Likes</Label>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* LinkedIn Metrics */}
+                            {(data.linkedin_handle || data.primary_platform === 'linkedin') && (
+                                <Card className="border border-blue-200">
+                                    <CardHeader className="pb-3 bg-blue-50/50">
+                                        <CardTitle className="text-base flex items-center gap-2">
+                                            <Linkedin className="w-4 h-4 text-blue-600" /> LinkedIn Metrics
+                                            {data.primary_platform === 'linkedin' && <Badge className="bg-blue-100 text-blue-600 text-[8px]">Primary</Badge>}
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="pt-4">
                                         {editing ? (
-                                            <Input type="number" value={data.avg_likes || ''} onChange={(e) => update('avg_likes', parseInt(e.target.value) || 0)} className="h-8" />
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px] uppercase font-mono">Connections</Label>
+                                                    <Input type="number" value={data.linkedin_metrics?.connections || ''} 
+                                                        onChange={(e) => update('linkedin_metrics', { ...data.linkedin_metrics, connections: parseInt(e.target.value) || 0 })} className="h-8" />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px] uppercase font-mono">Followers</Label>
+                                                    <Input type="number" value={data.linkedin_metrics?.followers || ''} 
+                                                        onChange={(e) => update('linkedin_metrics', { ...data.linkedin_metrics, followers: parseInt(e.target.value) || 0 })} className="h-8" />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px] uppercase font-mono">Avg Engagement</Label>
+                                                    <Input type="number" step="0.1" value={data.linkedin_metrics?.avg_engagement || ''} 
+                                                        onChange={(e) => update('linkedin_metrics', { ...data.linkedin_metrics, avg_engagement: parseFloat(e.target.value) || 0 })} className="h-8" />
+                                                </div>
+                                            </div>
                                         ) : (
-                                            <p className="font-medium">{(data.avg_likes || 0).toLocaleString()}</p>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div><span className="text-[10px] text-muted-foreground">Connections</span><p className="font-medium">{(data.linkedin_metrics?.connections || 0).toLocaleString()}</p></div>
+                                                <div><span className="text-[10px] text-muted-foreground">Followers</span><p className="font-medium">{(data.linkedin_metrics?.followers || 0).toLocaleString()}</p></div>
+                                                <div><span className="text-[10px] text-muted-foreground">Avg Engagement</span><p className="font-medium">{data.linkedin_metrics?.avg_engagement || 0}%</p></div>
+                                            </div>
                                         )}
-                                    </div>
-                                    <div className="space-y-1">
-                                        <Label className="text-[10px] uppercase font-mono">Avg Comments</Label>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* TikTok Metrics */}
+                            {(data.tiktok_handle || data.primary_platform === 'tiktok') && (
+                                <Card className="border border-gray-300">
+                                    <CardHeader className="pb-3 bg-gray-50/50">
+                                        <CardTitle className="text-base flex items-center gap-2">
+                                            <Sparkles className="w-4 h-4" /> TikTok Metrics
+                                            {data.primary_platform === 'tiktok' && <Badge className="bg-gray-200 text-gray-700 text-[8px]">Primary</Badge>}
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="pt-4">
                                         {editing ? (
-                                            <Input type="number" value={data.avg_comments || ''} onChange={(e) => update('avg_comments', parseInt(e.target.value) || 0)} className="h-8" />
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px] uppercase font-mono">Followers</Label>
+                                                    <Input type="number" value={data.tiktok_metrics?.followers || ''} 
+                                                        onChange={(e) => update('tiktok_metrics', { ...data.tiktok_metrics, followers: parseInt(e.target.value) || 0 })} className="h-8" />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px] uppercase font-mono">Avg Views</Label>
+                                                    <Input type="number" value={data.tiktok_metrics?.avg_views || ''} 
+                                                        onChange={(e) => update('tiktok_metrics', { ...data.tiktok_metrics, avg_views: parseInt(e.target.value) || 0 })} className="h-8" />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px] uppercase font-mono">Avg Likes</Label>
+                                                    <Input type="number" value={data.tiktok_metrics?.avg_likes || ''} 
+                                                        onChange={(e) => update('tiktok_metrics', { ...data.tiktok_metrics, avg_likes: parseInt(e.target.value) || 0 })} className="h-8" />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px] uppercase font-mono">Engagement %</Label>
+                                                    <Input type="number" step="0.1" value={data.tiktok_metrics?.engagement_rate || ''} 
+                                                        onChange={(e) => update('tiktok_metrics', { ...data.tiktok_metrics, engagement_rate: parseFloat(e.target.value) || 0 })} className="h-8" />
+                                                </div>
+                                            </div>
                                         ) : (
-                                            <p className="font-medium">{(data.avg_comments || 0).toLocaleString()}</p>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div><span className="text-[10px] text-muted-foreground">Followers</span><p className="font-medium">{((data.tiktok_metrics?.followers || 0) / 1000).toFixed(0)}K</p></div>
+                                                <div><span className="text-[10px] text-muted-foreground">Avg Views</span><p className="font-medium">{(data.tiktok_metrics?.avg_views || 0).toLocaleString()}</p></div>
+                                                <div><span className="text-[10px] text-muted-foreground">Avg Likes</span><p className="font-medium">{(data.tiktok_metrics?.avg_likes || 0).toLocaleString()}</p></div>
+                                                <div><span className="text-[10px] text-muted-foreground">Engagement</span><p className="font-medium">{data.tiktok_metrics?.engagement_rate || 0}%</p></div>
+                                            </div>
                                         )}
-                                    </div>
-                                    <div className="space-y-1">
-                                        <Label className="text-[10px] uppercase font-mono">Avg Views (Video)</Label>
-                                        {editing ? (
-                                            <Input type="number" value={data.avg_views || ''} onChange={(e) => update('avg_views', parseInt(e.target.value) || 0)} className="h-8" />
-                                        ) : (
-                                            <p className="font-medium">{(data.avg_views || 0).toLocaleString()}</p>
-                                        )}
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
+                                    </CardContent>
+                                </Card>
+                            )}
+                        </div>
 
                         {/* Audience Demographics */}
                         <Card className="border">
@@ -523,7 +647,7 @@ export const InfluencerProfilePage = () => {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-3 gap-4">
                                     <div className="space-y-1">
                                         <Label className="text-[10px] uppercase font-mono">Primary Location</Label>
                                         {editing ? (
@@ -550,7 +674,7 @@ export const InfluencerProfilePage = () => {
                                             <p className="font-medium">{data.audience_age_group || '18-34'}</p>
                                         )}
                                     </div>
-                                    <div className="space-y-1 col-span-2">
+                                    <div className="space-y-1">
                                         <Label className="text-[10px] uppercase font-mono">Gender Split</Label>
                                         {editing ? (
                                             <Input value={data.audience_gender_split || ''} onChange={(e) => update('audience_gender_split', e.target.value)} placeholder="e.g., 60% Female, 40% Male" className="h-8" />
