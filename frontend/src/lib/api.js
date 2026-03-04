@@ -10,6 +10,7 @@ export const influencerApi = {
     create: (data) => axios.post(`${API}/influencers`, data),
     update: (id, data) => axios.put(`${API}/influencers/${id}`, data),
     delete: (id) => axios.delete(`${API}/influencers/${id}`),
+    compare: (influencer_ids) => axios.post(`${API}/influencers/compare`, { influencer_ids }),
 };
 
 // Campaign API
@@ -51,6 +52,29 @@ export const aiApi = {
     getCampaignIdeas: (data) => axios.post(`${API}/ai/campaign-ideas`, data),
     autoDiscover: (data) => axios.post(`${API}/ai/auto-discover`, data),
     importDiscovered: (data) => axios.post(`${API}/ai/import-discovered`, data),
+    // SSE endpoint for streaming discovery
+    autoDiscoverStream: (params) => {
+        const queryString = new URLSearchParams(params).toString();
+        return `${API}/ai/auto-discover-stream?${queryString}`;
+    },
+};
+
+// Social API Verification
+export const socialApi = {
+    configure: (data) => axios.post(`${API}/social/configure`, data),
+    verifyProfile: (platform, handle) => axios.post(`${API}/social/verify`, { platform, handle }),
+    verifyInfluencer: (influencerId) => axios.post(`${API}/social/verify-influencer/${influencerId}`),
+};
+
+// Scheduled Discovery API
+export const scheduledApi = {
+    getSearches: () => axios.get(`${API}/scheduled/searches`),
+    getSearch: (id) => axios.get(`${API}/scheduled/searches/${id}`),
+    createSearch: (data) => axios.post(`${API}/scheduled/searches`, data),
+    updateSearch: (id, data) => axios.put(`${API}/scheduled/searches/${id}`, data),
+    deleteSearch: (id) => axios.delete(`${API}/scheduled/searches/${id}`),
+    runNow: (id) => axios.post(`${API}/scheduled/searches/${id}/run`),
+    getResults: (params) => axios.get(`${API}/scheduled/results`, { params }),
 };
 
 // Content Library API

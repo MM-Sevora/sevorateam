@@ -1,5 +1,6 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, BackgroundTasks, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -7,11 +8,13 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone, timedelta
 import jwt
 import bcrypt
+import asyncio
+import json
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -37,6 +40,8 @@ campaign_router = APIRouter(prefix="/campaigns", tags=["Campaigns"])
 outreach_router = APIRouter(prefix="/outreach", tags=["Outreach"])
 analytics_router = APIRouter(prefix="/analytics", tags=["Analytics"])
 ai_router = APIRouter(prefix="/ai", tags=["AI"])
+social_router = APIRouter(prefix="/social", tags=["Social API"])
+scheduled_router = APIRouter(prefix="/scheduled", tags=["Scheduled Discovery"])
 
 security = HTTPBearer()
 
@@ -186,22 +191,22 @@ class InfluencerUpdate(BaseModel):
 class InfluencerResponse(BaseModel):
     id: str
     name: str
-    instagram_handle: Optional[str]
-    youtube_handle: Optional[str]
-    tiktok_handle: Optional[str]
-    email: Optional[str]
-    phone: Optional[str]
-    city: str
-    category: str
-    followers: int
-    engagement_rate: float
-    audience_location: str
-    style_tags: List[str]
-    notes: Optional[str]
-    status: str
-    score: float
-    created_at: str
-    last_contacted: Optional[str]
+    instagram_handle: Optional[str] = None
+    youtube_handle: Optional[str] = None
+    tiktok_handle: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    city: Optional[str] = None
+    category: Optional[str] = None
+    followers: Optional[int] = 0
+    engagement_rate: Optional[float] = 0.0
+    audience_location: Optional[str] = None
+    style_tags: Optional[List[str]] = []
+    notes: Optional[str] = None
+    status: Optional[str] = None
+    score: Optional[float] = 0.0
+    created_at: Optional[str] = None
+    last_contacted: Optional[str] = None
 
 class DeliverableCreate(BaseModel):
     deliverable_type: str  # reel, post, story, video
@@ -1117,6 +1122,379 @@ async def update_payment_status(payment_id: str, status: str, user: dict = Depen
         raise HTTPException(status_code=404, detail="Payment not found")
     return {"message": "Payment status updated"}
 
+# ============== SOCIAL API VERIFICATION ROUTES ==============
+class SocialVerifyRequest(BaseModel):
+    platform: str  # instagram, youtube
+    handle: str
+
+class SocialConfigRequest(BaseModel):
+    instagram_token: Optional[str] = None
+    instagram_account_id: Optional[str] = None
+    youtube_api_key: Optional[str] = None
+
+@social_router.post("/configure")
+async def configure_social_apis(config: SocialConfigRequest, user: dict = Depends(get_current_user)):
+    """Configure social media API credentials"""
+    from services.social_api import social_api_service
+    
+    configured = []
+    
+    if config.instagram_token and config.instagram_account_id:
+        social_api_service.configure_instagram(config.instagram_token, config.instagram_account_id)
+        configured.append("instagram")
+    
+    if config.youtube_api_key:
+        social_api_service.configure_youtube(config.youtube_api_key)
+        configured.append("youtube")
+    
+    return {"message": "APIs configured", "configured_platforms": configured}
+
+@social_router.post("/verify")
+async def verify_social_profile(request: SocialVerifyRequest, user: dict = Depends(get_current_user)):
+    """Verify a social media profile and get metrics"""
+    from services.social_api import social_api_service
+    
+    result = None
+    
+    if request.platform == "instagram":
+        result = await social_api_service.verify_instagram(request.handle)
+    elif request.platform == "youtube":
+        result = await social_api_service.verify_youtube(request.handle)
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported platform: {request.platform}")
+    
+    if not result:
+        raise HTTPException(status_code=404, detail=f"Profile not found or API not configured for {request.platform}")
+    
+    return result.dict()
+
+@social_router.post("/verify-influencer/{influencer_id}")
+async def verify_influencer_profiles(
+    influencer_id: str, 
+    user: dict = Depends(get_current_user)
+):
+    """Verify and update an influencer's social profiles"""
+    from services.social_api import social_api_service
+    
+    influencer = await db.influencers.find_one({"id": influencer_id}, {"_id": 0})
+    if not influencer:
+        raise HTTPException(status_code=404, detail="Influencer not found")
+    
+    handles = {}
+    if influencer.get("instagram_handle"):
+        handles["instagram"] = influencer["instagram_handle"]
+    if influencer.get("youtube_handle"):
+        handles["youtube"] = influencer["youtube_handle"]
+    
+    if not handles:
+        return {"message": "No social handles to verify", "verified": {}}
+    
+    results = await social_api_service.verify_all_platforms(handles)
+    
+    # Update influencer with verified data
+    update_data = {"last_verified": datetime.now(timezone.utc).isoformat()}
+    
+    for platform, profile in results.items():
+        if profile:
+            if platform == "instagram":
+                update_data["followers"] = profile.followers
+                update_data["engagement_rate"] = profile.engagement_rate
+                update_data["instagram_verified"] = profile.is_verified
+            elif platform == "youtube":
+                update_data["youtube_subscribers"] = profile.followers
+                update_data["youtube_engagement"] = profile.engagement_rate
+    
+    await db.influencers.update_one({"id": influencer_id}, {"$set": update_data})
+    
+    # Recalculate score
+    updated = await db.influencers.find_one({"id": influencer_id})
+    new_score = calculate_influencer_score(updated)
+    await db.influencers.update_one({"id": influencer_id}, {"$set": {"score": new_score}})
+    
+    return {
+        "message": "Profiles verified",
+        "verified": {k: v.dict() if v else None for k, v in results.items()},
+        "updated_score": new_score
+    }
+
+# ============== SCHEDULED DISCOVERY ROUTES ==============
+class ScheduledSearchCreate(BaseModel):
+    name: str
+    campaign_brief: str
+    category: str
+    location: str = "India"
+    follower_range: str = "10K-500K"
+    frequency: str = "daily"  # daily, weekly
+    num_suggestions: int = 10
+
+class ScheduledSearchUpdate(BaseModel):
+    name: Optional[str] = None
+    campaign_brief: Optional[str] = None
+    category: Optional[str] = None
+    location: Optional[str] = None
+    follower_range: Optional[str] = None
+    frequency: Optional[str] = None
+    num_suggestions: Optional[int] = None
+    is_active: Optional[bool] = None
+
+@scheduled_router.get("/searches")
+async def get_scheduled_searches(user: dict = Depends(get_current_user)):
+    """Get all scheduled searches"""
+    from services.scheduled_discovery import create_scheduled_discovery_service
+    service = create_scheduled_discovery_service(db)
+    return await service.get_scheduled_searches(user['id'])
+
+@scheduled_router.post("/searches")
+async def create_scheduled_search(data: ScheduledSearchCreate, user: dict = Depends(get_current_user)):
+    """Create a new scheduled search"""
+    from services.scheduled_discovery import create_scheduled_discovery_service
+    service = create_scheduled_discovery_service(db)
+    return await service.create_scheduled_search(
+        name=data.name,
+        campaign_brief=data.campaign_brief,
+        category=data.category,
+        location=data.location,
+        follower_range=data.follower_range,
+        frequency=data.frequency,
+        num_suggestions=data.num_suggestions,
+        user_id=user['id']
+    )
+
+@scheduled_router.get("/searches/{search_id}")
+async def get_scheduled_search(search_id: str, user: dict = Depends(get_current_user)):
+    """Get a specific scheduled search"""
+    from services.scheduled_discovery import create_scheduled_discovery_service
+    service = create_scheduled_discovery_service(db)
+    search = await service.get_scheduled_search(search_id)
+    if not search:
+        raise HTTPException(status_code=404, detail="Search not found")
+    return search
+
+@scheduled_router.put("/searches/{search_id}")
+async def update_scheduled_search(search_id: str, data: ScheduledSearchUpdate, user: dict = Depends(get_current_user)):
+    """Update a scheduled search"""
+    from services.scheduled_discovery import create_scheduled_discovery_service
+    service = create_scheduled_discovery_service(db)
+    update_dict = {k: v for k, v in data.dict().items() if v is not None}
+    result = await service.update_scheduled_search(search_id, update_dict)
+    if not result:
+        raise HTTPException(status_code=404, detail="Search not found")
+    return result
+
+@scheduled_router.delete("/searches/{search_id}")
+async def delete_scheduled_search(search_id: str, user: dict = Depends(get_current_user)):
+    """Delete a scheduled search"""
+    from services.scheduled_discovery import create_scheduled_discovery_service
+    service = create_scheduled_discovery_service(db)
+    success = await service.delete_scheduled_search(search_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Search not found")
+    return {"message": "Search deleted"}
+
+@scheduled_router.post("/searches/{search_id}/run")
+async def run_scheduled_search_now(search_id: str, user: dict = Depends(get_current_user)):
+    """Manually trigger a scheduled search to run now"""
+    from services.scheduled_discovery import create_scheduled_discovery_service
+    service = create_scheduled_discovery_service(db)
+    result = await service.run_discovery_now(search_id)
+    return result
+
+@scheduled_router.get("/results")
+async def get_discovery_results(
+    search_id: Optional[str] = None,
+    limit: int = Query(default=10, le=50),
+    user: dict = Depends(get_current_user)
+):
+    """Get discovery results from scheduled searches"""
+    from services.scheduled_discovery import create_scheduled_discovery_service
+    service = create_scheduled_discovery_service(db)
+    return await service.get_discovery_results(search_id, limit)
+
+# ============== INFLUENCER COMPARISON ROUTES ==============
+class CompareRequest(BaseModel):
+    influencer_ids: List[str]  # 2-5 influencers to compare
+
+@api_router.post("/influencers/compare")
+async def compare_influencers(request: CompareRequest, user: dict = Depends(get_current_user)):
+    """Compare multiple influencers side by side"""
+    if len(request.influencer_ids) < 2:
+        raise HTTPException(status_code=400, detail="At least 2 influencers required for comparison")
+    if len(request.influencer_ids) > 5:
+        raise HTTPException(status_code=400, detail="Maximum 5 influencers can be compared")
+    
+    influencers = []
+    for inf_id in request.influencer_ids:
+        inf = await db.influencers.find_one({"id": inf_id}, {"_id": 0})
+        if inf:
+            influencers.append(inf)
+    
+    if len(influencers) < 2:
+        raise HTTPException(status_code=404, detail="Not enough valid influencers found")
+    
+    # Calculate comparison metrics
+    comparison = {
+        "influencers": influencers,
+        "metrics": {
+            "followers": {
+                "values": [i.get("followers", 0) for i in influencers],
+                "max": max(i.get("followers", 0) for i in influencers),
+                "min": min(i.get("followers", 0) for i in influencers),
+                "avg": sum(i.get("followers", 0) for i in influencers) / len(influencers)
+            },
+            "engagement_rate": {
+                "values": [i.get("engagement_rate", 0) for i in influencers],
+                "max": max(i.get("engagement_rate", 0) for i in influencers),
+                "min": min(i.get("engagement_rate", 0) for i in influencers),
+                "avg": sum(i.get("engagement_rate", 0) for i in influencers) / len(influencers)
+            },
+            "score": {
+                "values": [i.get("score", 0) for i in influencers],
+                "max": max(i.get("score", 0) for i in influencers),
+                "min": min(i.get("score", 0) for i in influencers),
+                "avg": sum(i.get("score", 0) for i in influencers) / len(influencers)
+            },
+            "rate_per_reel": {
+                "values": [i.get("rate_per_reel", 0) or 0 for i in influencers],
+                "max": max((i.get("rate_per_reel", 0) or 0) for i in influencers),
+                "min": min((i.get("rate_per_reel", 0) or 0) for i in influencers),
+                "avg": sum((i.get("rate_per_reel", 0) or 0) for i in influencers) / len(influencers)
+            }
+        },
+        "recommendation": None
+    }
+    
+    # AI recommendation for comparison
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        
+        api_key = os.environ.get('EMERGENT_LLM_KEY')
+        chat = LlmChat(
+            api_key=api_key,
+            session_id=f"compare-{uuid.uuid4()}",
+            system_message="You are a fashion influencer marketing expert. Compare influencers and recommend the best choice."
+        ).with_model("openai", "gpt-5.2")
+        
+        inf_summary = "\n".join([
+            f"- {i['name']}: {i.get('followers', 0):,} followers, {i.get('engagement_rate', 0)}% engagement, Score: {i.get('score', 0)}, Rate: Rs.{i.get('rate_per_reel', 'N/A')}"
+            for i in influencers
+        ])
+        
+        message = UserMessage(
+            text=f"Compare these influencers for a luxury fashion campaign:\n{inf_summary}\n\nProvide a 2-3 sentence recommendation on which to choose and why."
+        )
+        
+        comparison["recommendation"] = await chat.send_message(message)
+    except Exception as e:
+        logger.error(f"Comparison AI error: {e}")
+        comparison["recommendation"] = "AI recommendation unavailable. Review metrics to make your choice."
+    
+    return comparison
+
+# ============== AI DISCOVERY WITH SSE PROGRESS ==============
+@ai_router.get("/auto-discover-stream")
+async def ai_auto_discover_stream(
+    campaign_brief: str,
+    category: str = "luxury",
+    location: str = "India",
+    follower_range: str = "10K-500K",
+    num_suggestions: int = 8,
+    user: dict = Depends(get_current_user)
+):
+    """AI-powered auto-discovery with Server-Sent Events for progress updates"""
+    
+    async def generate_events():
+        try:
+            yield f"data: {json.dumps({'type': 'progress', 'message': 'Starting AI discovery...', 'progress': 10})}\n\n"
+            await asyncio.sleep(0.5)
+            
+            yield f"data: {json.dumps({'type': 'progress', 'message': 'Analyzing campaign brief...', 'progress': 25})}\n\n"
+            
+            from emergentintegrations.llm.chat import LlmChat, UserMessage
+            
+            api_key = os.environ.get('EMERGENT_LLM_KEY')
+            
+            yield f"data: {json.dumps({'type': 'progress', 'message': 'Generating influencer profiles...', 'progress': 40})}\n\n"
+            
+            chat = LlmChat(
+                api_key=api_key,
+                session_id=f"discover-stream-{uuid.uuid4()}",
+                system_message="""You are an expert influencer marketing strategist for luxury fashion brands. 
+                Generate realistic Indian fashion influencer profiles. 
+                Always respond in valid JSON format."""
+            ).with_model("openai", "gpt-5.2")
+            
+            prompt = f"""Generate {num_suggestions} Indian fashion influencer profiles for:
+
+Brief: {campaign_brief}
+Category: {category}
+Location: {location}
+Follower Range: {follower_range}
+
+Return ONLY valid JSON (no markdown):
+{{
+    "search_strategy": "one sentence strategy",
+    "influencers": [
+        {{
+            "name": "Full Name",
+            "instagram_handle": "handle",
+            "bio": "Short bio",
+            "city": "City",
+            "category": "{category}",
+            "tier": "micro",
+            "followers": 50000,
+            "engagement_rate": 4.5,
+            "style_tags": ["minimal", "luxury"],
+            "why_recommended": "Reason",
+            "audience_match_score": 85
+        }}
+    ]
+}}"""
+            
+            message = UserMessage(text=prompt)
+            
+            yield f"data: {json.dumps({'type': 'progress', 'message': 'AI is thinking...', 'progress': 60})}\n\n"
+            
+            response = await chat.send_message(message)
+            
+            yield f"data: {json.dumps({'type': 'progress', 'message': 'Processing results...', 'progress': 80})}\n\n"
+            
+            # Parse response
+            response_text = response
+            if "```json" in response_text:
+                response_text = response_text.split("```json")[1].split("```")[0]
+            elif "```" in response_text:
+                response_text = response_text.split("```")[1].split("```")[0]
+            
+            parsed = json.loads(response_text.strip())
+            influencers = parsed.get("influencers", [])
+            
+            yield f"data: {json.dumps({'type': 'progress', 'message': f'Found {len(influencers)} influencers!', 'progress': 100})}\n\n"
+            
+            # Send final result
+            result = {
+                "type": "complete",
+                "success": True,
+                "search_strategy": parsed.get("search_strategy", "AI-powered discovery"),
+                "discovered_influencers": influencers,
+                "total_discovered": len(influencers)
+            }
+            
+            yield f"data: {json.dumps(result)}\n\n"
+            
+        except Exception as e:
+            logger.error(f"SSE Discovery error: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+    
+    return StreamingResponse(
+        generate_events(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
 # ============== INCLUDE ROUTERS ==============
 api_router.include_router(auth_router)
 api_router.include_router(influencer_router)
@@ -1124,6 +1502,8 @@ api_router.include_router(campaign_router)
 api_router.include_router(outreach_router)
 api_router.include_router(analytics_router)
 api_router.include_router(ai_router)
+api_router.include_router(social_router)
+api_router.include_router(scheduled_router)
 
 @api_router.get("/")
 async def root():
