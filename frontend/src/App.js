@@ -6,6 +6,7 @@ import { Layout } from "./components/Layout";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { InfluencersPage } from "./pages/InfluencersPage";
+import { InfluencerProfilePage } from "./pages/InfluencerProfilePage";
 import { OutreachPage } from "./pages/OutreachPage";
 import { CampaignsPage } from "./pages/CampaignsPage";
 import { NegotiationsPage } from "./pages/NegotiationsPage";
@@ -36,6 +37,7 @@ function App() {
                     <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
                     <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
                     <Route path="/influencers" element={<ProtectedRoute><InfluencersPage /></ProtectedRoute>} />
+                    <Route path="/influencers/:id" element={<ProtectedRoute><InfluencerProfilePage /></ProtectedRoute>} />
                     <Route path="/outreach" element={<ProtectedRoute><OutreachPage /></ProtectedRoute>} />
                     <Route path="/negotiations" element={<ProtectedRoute><NegotiationsPage /></ProtectedRoute>} />
                     <Route path="/campaigns" element={<ProtectedRoute><CampaignsPage /></ProtectedRoute>} />

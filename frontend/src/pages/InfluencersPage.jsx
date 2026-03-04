@@ -391,7 +391,7 @@ export const InfluencersPage = () => {
                                                         data-testid={`compare-checkbox-${inf.id}`}
                                                     />
                                                 </TableCell>
-                                                <TableCell onClick={() => { setSelectedInfluencer(inf); setShowProfileModal(true); }}>
+                                                <TableCell onClick={() => navigate(`/influencers/${inf.id}`)}>
                                                     <div className="flex items-center gap-3">
                                                         <div className={`w-9 h-9 rounded-full ${platformBg} flex items-center justify-center`}>
                                                             <PlatformIcon className={`w-4 h-4 ${platformColor}`} />
