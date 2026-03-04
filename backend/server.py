@@ -86,6 +86,9 @@ class InfluencerCreate(BaseModel):
     pinterest_handle: Optional[str] = None
     blog_url: Optional[str] = None
     
+    # Primary Platform - which platform is their main presence
+    primary_platform: str = "instagram"  # instagram, youtube, linkedin, tiktok, twitter
+    
     # Contact Information
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
@@ -144,6 +147,9 @@ class InfluencerUpdate(BaseModel):
     pinterest_handle: Optional[str] = None
     blog_url: Optional[str] = None
     
+    # Primary Platform
+    primary_platform: Optional[str] = None
+    
     # Contact Information
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
@@ -191,17 +197,24 @@ class InfluencerUpdate(BaseModel):
 class InfluencerResponse(BaseModel):
     id: str
     name: str
+    bio: Optional[str] = None
     instagram_handle: Optional[str] = None
     youtube_handle: Optional[str] = None
     tiktok_handle: Optional[str] = None
+    linkedin_handle: Optional[str] = None
+    twitter_handle: Optional[str] = None
+    primary_platform: Optional[str] = "instagram"
     email: Optional[str] = None
     phone: Optional[str] = None
     city: Optional[str] = None
     category: Optional[str] = None
+    tier: Optional[str] = None
     followers: Optional[int] = 0
     engagement_rate: Optional[float] = 0.0
     audience_location: Optional[str] = None
     style_tags: Optional[List[str]] = []
+    rate_per_reel: Optional[float] = None
+    rate_per_video: Optional[float] = None
     notes: Optional[str] = None
     status: Optional[str] = None
     score: Optional[float] = 0.0

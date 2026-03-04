@@ -21,7 +21,7 @@ import { toast } from 'sonner';
 import { 
     Search, Users, Sparkles, Instagram, MapPin, TrendingUp, Plus, Star, 
     MoreHorizontal, Mail, Trash2, Zap, Loader2, CheckCircle, ExternalLink,
-    GitCompare, Shield, Youtube, RefreshCw
+    GitCompare, Shield, Youtube, RefreshCw, Linkedin
 } from 'lucide-react';
 
 const CATEGORIES = ['luxury', 'menswear', 'womenswear', 'streetwear', 'ethnic', 'minimal'];
@@ -34,6 +34,14 @@ const STATUS_COLORS = {
     negotiation: 'bg-yellow-100 text-yellow-700',
     confirmed: 'bg-gold/20 text-gold',
     completed: 'bg-emerald-100 text-emerald-700'
+};
+
+const PLATFORM_ICONS = {
+    instagram: { icon: Instagram, color: 'text-pink-500', bg: 'bg-pink-50' },
+    youtube: { icon: Youtube, color: 'text-red-500', bg: 'bg-red-50' },
+    linkedin: { icon: Linkedin, color: 'text-blue-600', bg: 'bg-blue-50' },
+    tiktok: { icon: Sparkles, color: 'text-black', bg: 'bg-gray-100' },
+    twitter: { icon: () => <span className="text-xs">𝕏</span>, color: 'text-black', bg: 'bg-gray-100' }
 };
 
 export const InfluencersPage = () => {
@@ -355,6 +363,7 @@ export const InfluencersPage = () => {
                                         <TableRow>
                                             <TableHead className="w-[40px]"></TableHead>
                                             <TableHead className="font-mono text-[10px] uppercase">Influencer</TableHead>
+                                            <TableHead className="font-mono text-[10px] uppercase">Platform</TableHead>
                                             <TableHead className="font-mono text-[10px] uppercase">Metrics</TableHead>
                                             <TableHead className="font-mono text-[10px] uppercase">Category</TableHead>
                                             <TableHead className="font-mono text-[10px] uppercase">Status</TableHead>
@@ -363,7 +372,17 @@ export const InfluencersPage = () => {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {influencers.map((inf) => (
+                                        {influencers.map((inf) => {
+                                            const platform = inf.primary_platform || 'instagram';
+                                            const PlatformIcon = PLATFORM_ICONS[platform]?.icon || Instagram;
+                                            const platformColor = PLATFORM_ICONS[platform]?.color || 'text-pink-500';
+                                            const platformBg = PLATFORM_ICONS[platform]?.bg || 'bg-pink-50';
+                                            const primaryHandle = platform === 'instagram' ? inf.instagram_handle :
+                                                                  platform === 'youtube' ? inf.youtube_handle :
+                                                                  platform === 'linkedin' ? inf.linkedin_handle :
+                                                                  platform === 'tiktok' ? inf.tiktok_handle :
+                                                                  inf.instagram_handle;
+                                            return (
                                             <TableRow key={inf.id} className={`cursor-pointer ${selectedForCompare.includes(inf.id) ? 'bg-gold/5' : ''}`}>
                                                 <TableCell onClick={(e) => e.stopPropagation()}>
                                                     <Checkbox
@@ -374,14 +393,19 @@ export const InfluencersPage = () => {
                                                 </TableCell>
                                                 <TableCell onClick={() => { setSelectedInfluencer(inf); setShowProfileModal(true); }}>
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-9 h-9 rounded-full bg-gold/10 flex items-center justify-center">
-                                                            <span className="font-serif text-gold">{inf.name?.charAt(0)}</span>
+                                                        <div className={`w-9 h-9 rounded-full ${platformBg} flex items-center justify-center`}>
+                                                            <PlatformIcon className={`w-4 h-4 ${platformColor}`} />
                                                         </div>
                                                         <div>
                                                             <p className="font-medium text-sm">{inf.name}</p>
-                                                            <p className="text-xs text-muted-foreground">@{inf.instagram_handle} • {inf.city}</p>
+                                                            <p className="text-xs text-muted-foreground">@{primaryHandle || inf.instagram_handle} • {inf.city}</p>
                                                         </div>
                                                     </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge className={`${platformBg} ${platformColor} border-0 text-[10px] capitalize`}>
+                                                        {platform}
+                                                    </Badge>
                                                 </TableCell>
                                                 <TableCell className="text-xs">
                                                     {(inf.followers / 1000).toFixed(0)}K • {inf.engagement_rate}%
@@ -412,7 +436,8 @@ export const InfluencersPage = () => {
                                                     </DropdownMenu>
                                                 </TableCell>
                                             </TableRow>
-                                        ))}
+                                        );
+                                        })}
                                     </TableBody>
                                 </Table>
                             )}
@@ -567,13 +592,54 @@ export const InfluencersPage = () => {
                                     {selectedInfluencer.name}
                                 </DialogTitle>
                             </DialogHeader>
+                            
+                            {/* Primary Platform Badge */}
+                            {selectedInfluencer.primary_platform && (
+                                <div className="flex items-center gap-2 mt-2">
+                                    <span className="text-xs text-muted-foreground">Primary Platform:</span>
+                                    <Badge className={`${PLATFORM_ICONS[selectedInfluencer.primary_platform]?.bg} ${PLATFORM_ICONS[selectedInfluencer.primary_platform]?.color} border-0 text-xs capitalize`}>
+                                        {selectedInfluencer.primary_platform}
+                                    </Badge>
+                                </div>
+                            )}
+                            
+                            {/* Social Handles */}
+                            <div className="grid grid-cols-3 gap-2 mt-4 p-3 bg-muted/30 rounded">
+                                {selectedInfluencer.instagram_handle && (
+                                    <div className="flex items-center gap-1.5 text-xs">
+                                        <Instagram className="w-3.5 h-3.5 text-pink-500" />
+                                        <span>@{selectedInfluencer.instagram_handle}</span>
+                                    </div>
+                                )}
+                                {selectedInfluencer.youtube_handle && (
+                                    <div className="flex items-center gap-1.5 text-xs">
+                                        <Youtube className="w-3.5 h-3.5 text-red-500" />
+                                        <span>{selectedInfluencer.youtube_handle}</span>
+                                    </div>
+                                )}
+                                {selectedInfluencer.linkedin_handle && (
+                                    <div className="flex items-center gap-1.5 text-xs">
+                                        <Linkedin className="w-3.5 h-3.5 text-blue-600" />
+                                        <span>{selectedInfluencer.linkedin_handle}</span>
+                                    </div>
+                                )}
+                                {selectedInfluencer.tiktok_handle && (
+                                    <div className="flex items-center gap-1.5 text-xs">
+                                        <Sparkles className="w-3.5 h-3.5" />
+                                        <span>@{selectedInfluencer.tiktok_handle}</span>
+                                    </div>
+                                )}
+                            </div>
+                            
                             <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
-                                <div><span className="text-muted-foreground">Instagram:</span> @{selectedInfluencer.instagram_handle}</div>
                                 <div><span className="text-muted-foreground">City:</span> {selectedInfluencer.city}</div>
+                                <div><span className="text-muted-foreground">Tier:</span> <Badge variant="outline" className="capitalize text-[10px]">{selectedInfluencer.tier || 'micro'}</Badge></div>
                                 <div><span className="text-muted-foreground">Followers:</span> {(selectedInfluencer.followers / 1000).toFixed(0)}K</div>
                                 <div><span className="text-muted-foreground">Engagement:</span> {selectedInfluencer.engagement_rate}%</div>
                                 <div><span className="text-muted-foreground">Category:</span> <Badge variant="outline" className="capitalize">{selectedInfluencer.category}</Badge></div>
                                 <div><span className="text-muted-foreground">Score:</span> <Badge className="bg-gold text-white">{selectedInfluencer.score}</Badge></div>
+                                {selectedInfluencer.rate_per_reel && <div><span className="text-muted-foreground">Rate/Reel:</span> ₹{selectedInfluencer.rate_per_reel?.toLocaleString()}</div>}
+                                {selectedInfluencer.rate_per_video && <div><span className="text-muted-foreground">Rate/Video:</span> ₹{selectedInfluencer.rate_per_video?.toLocaleString()}</div>}
                                 {selectedInfluencer.email && <div className="col-span-2"><span className="text-muted-foreground">Email:</span> {selectedInfluencer.email}</div>}
                                 {selectedInfluencer.phone && <div className="col-span-2"><span className="text-muted-foreground">Phone:</span> {selectedInfluencer.phone}</div>}
                             </div>

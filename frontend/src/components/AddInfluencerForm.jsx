@@ -15,12 +15,20 @@ import { User, AtSign, DollarSign, Plus, X } from 'lucide-react';
 const CATEGORIES = ['luxury', 'menswear', 'womenswear', 'streetwear', 'ethnic', 'minimal', 'sustainable'];
 const TIERS = ['nano', 'micro', 'mid', 'macro', 'mega', 'celebrity'];
 const CITIES = ['Mumbai', 'Delhi', 'Bangalore', 'Kolkata', 'Chennai', 'Hyderabad', 'Pune', 'Jaipur'];
+const PLATFORMS = [
+    { value: 'instagram', label: 'Instagram', icon: '📸' },
+    { value: 'youtube', label: 'YouTube', icon: '▶️' },
+    { value: 'linkedin', label: 'LinkedIn', icon: '💼' },
+    { value: 'tiktok', label: 'TikTok', icon: '🎵' },
+    { value: 'twitter', label: 'Twitter/X', icon: '🐦' }
+];
 
 const initialForm = {
-    name: '', bio: '', instagram_handle: '', youtube_handle: '', tiktok_handle: '',
+    name: '', bio: '', instagram_handle: '', youtube_handle: '', tiktok_handle: '', linkedin_handle: '', twitter_handle: '',
+    primary_platform: 'instagram',
     email: '', phone: '', city: 'Mumbai', category: 'luxury', tier: 'micro',
     followers: '', engagement_rate: '', avg_likes: '',
-    rate_per_post: '', rate_per_reel: '', rate_per_story: '', accepts_barter: false,
+    rate_per_post: '', rate_per_reel: '', rate_per_story: '', rate_per_video: '', accepts_barter: false,
     style_tags: [], past_brands: [], notes: ''
 };
 
@@ -123,18 +131,54 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
                         </TabsContent>
 
                         <TabsContent value="social" className="space-y-3 mt-4">
+                            {/* Primary Platform Selection */}
+                            <div className="space-y-1">
+                                <Label className="text-[10px] uppercase font-mono">Primary Platform *</Label>
+                                <Select value={form.primary_platform} onValueChange={(v) => update('primary_platform', v)}>
+                                    <SelectTrigger className="h-8" data-testid="primary-platform-select">
+                                        <SelectValue placeholder="Select primary platform" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {PLATFORMS.map(p => (
+                                            <SelectItem key={p.value} value={p.value}>
+                                                <span className="flex items-center gap-2">{p.icon} {p.label}</span>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-[9px] text-muted-foreground">The platform where this influencer has their main presence</p>
+                            </div>
+                            
                             <div className="grid grid-cols-3 gap-3">
                                 <div className="space-y-1">
-                                    <Label className="text-[10px] uppercase font-mono">Instagram</Label>
+                                    <Label className="text-[10px] uppercase font-mono flex items-center gap-1">
+                                        Instagram {form.primary_platform === 'instagram' && <Badge className="bg-gold/20 text-gold border-0 text-[8px]">Primary</Badge>}
+                                    </Label>
                                     <Input data-testid="inf-instagram-input" value={form.instagram_handle} onChange={(e) => update('instagram_handle', e.target.value)} placeholder="@handle" className="h-8" />
                                 </div>
                                 <div className="space-y-1">
-                                    <Label className="text-[10px] uppercase font-mono">YouTube</Label>
-                                    <Input value={form.youtube_handle} onChange={(e) => update('youtube_handle', e.target.value)} className="h-8" />
+                                    <Label className="text-[10px] uppercase font-mono flex items-center gap-1">
+                                        YouTube {form.primary_platform === 'youtube' && <Badge className="bg-red-500/20 text-red-600 border-0 text-[8px]">Primary</Badge>}
+                                    </Label>
+                                    <Input value={form.youtube_handle} onChange={(e) => update('youtube_handle', e.target.value)} placeholder="@channel" className="h-8" />
                                 </div>
                                 <div className="space-y-1">
-                                    <Label className="text-[10px] uppercase font-mono">TikTok</Label>
+                                    <Label className="text-[10px] uppercase font-mono flex items-center gap-1">
+                                        LinkedIn {form.primary_platform === 'linkedin' && <Badge className="bg-blue-500/20 text-blue-600 border-0 text-[8px]">Primary</Badge>}
+                                    </Label>
+                                    <Input value={form.linkedin_handle} onChange={(e) => update('linkedin_handle', e.target.value)} placeholder="profile-url" className="h-8" />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] uppercase font-mono flex items-center gap-1">
+                                        TikTok {form.primary_platform === 'tiktok' && <Badge className="bg-pink-500/20 text-pink-600 border-0 text-[8px]">Primary</Badge>}
+                                    </Label>
                                     <Input value={form.tiktok_handle} onChange={(e) => update('tiktok_handle', e.target.value)} placeholder="@handle" className="h-8" />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] uppercase font-mono flex items-center gap-1">
+                                        Twitter/X {form.primary_platform === 'twitter' && <Badge className="bg-sky-500/20 text-sky-600 border-0 text-[8px]">Primary</Badge>}
+                                    </Label>
+                                    <Input value={form.twitter_handle} onChange={(e) => update('twitter_handle', e.target.value)} placeholder="@handle" className="h-8" />
                                 </div>
                                 <div className="space-y-1">
                                     <Label className="text-[10px] uppercase font-mono">Followers</Label>
