@@ -14,11 +14,13 @@ import {
     FolderOpen,
     Sparkles,
     LogOut,
-    Settings
+    Settings,
+    Zap
 } from 'lucide-react';
 
 const navItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/ai-discovery', icon: Zap, label: 'AI Discovery', highlight: true },
     { to: '/discovery', icon: Search, label: 'Discovery' },
     { to: '/influencers', icon: Users, label: 'Influencer CRM' },
     { to: '/outreach', icon: Send, label: 'Outreach' },
@@ -64,12 +66,19 @@ export const Layout = ({ children }) => {
                                     `flex items-center gap-3 px-3 py-2.5 text-sm transition-all duration-200 ${
                                         isActive
                                             ? 'text-gold border-l-2 border-gold bg-gold/5 -ml-px'
-                                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                                            : item.highlight 
+                                                ? 'text-gold hover:bg-gold/5'
+                                                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                                     }`
                                 }
                             >
-                                <item.icon className="w-4 h-4" strokeWidth={1.5} />
+                                <item.icon className={`w-4 h-4 ${item.highlight ? 'text-gold' : ''}`} strokeWidth={1.5} />
                                 <span className="font-medium">{item.label}</span>
+                                {item.highlight && (
+                                    <span className="ml-auto text-[9px] bg-gold text-white px-1.5 py-0.5 rounded-full font-mono">
+                                        NEW
+                                    </span>
+                                )}
                             </NavLink>
                         ))}
                     </nav>

@@ -49,6 +49,8 @@ export const aiApi = {
     matchInfluencers: (data) => axios.post(`${API}/ai/match-influencers`, data),
     generateCaption: (data) => axios.post(`${API}/ai/generate-caption`, data),
     getCampaignIdeas: (data) => axios.post(`${API}/ai/campaign-ideas`, data),
+    autoDiscover: (data) => axios.post(`${API}/ai/auto-discover`, data),
+    importDiscovered: (data) => axios.post(`${API}/ai/import-discovered`, data),
 };
 
 // Content Library API

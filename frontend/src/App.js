@@ -13,6 +13,7 @@ import { BudgetPage } from "./pages/BudgetPage";
 import { AnalyticsPage } from "./pages/AnalyticsPage";
 import { ContentLibraryPage } from "./pages/ContentLibraryPage";
 import { AIStudioPage } from "./pages/AIStudioPage";
+import { AIAutoDiscoveryPage } from "./pages/AIAutoDiscoveryPage";
 import "./App.css";
 
 const ProtectedRoute = ({ children }) => {
@@ -145,6 +146,14 @@ function AppRoutes() {
                 element={
                     <ProtectedRoute>
                         <AIStudioPage />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/ai-discovery"
+                element={
+                    <ProtectedRoute>
+                        <AIAutoDiscoveryPage />
                     </ProtectedRoute>
                 }
             />

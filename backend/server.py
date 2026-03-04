@@ -286,6 +286,17 @@ class AICampaignIdeaRequest(BaseModel):
     category: str
     budget: float
 
+class AIAutoDiscoveryRequest(BaseModel):
+    campaign_brief: str
+    category: Optional[str] = None
+    target_audience: Optional[str] = None
+    budget_range: Optional[str] = None
+    location: Optional[str] = "India"
+    style_preference: Optional[str] = None
+    follower_range: Optional[str] = "10K-500K"
+    content_type: Optional[str] = None
+    num_suggestions: int = 10
+
 # ============== HELPERS ==============
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -828,6 +839,199 @@ async def ai_campaign_ideas(data: AICampaignIdeaRequest, user: dict = Depends(ge
     except Exception as e:
         logger.error(f"Campaign ideas error: {e}")
         return {"ideas": "1. Seasonal Style Showcase\n2. Street Fashion Spotlight\n3. Luxury Lifestyle Series"}
+
+@ai_router.post("/auto-discover")
+async def ai_auto_discover_influencers(data: AIAutoDiscoveryRequest, user: dict = Depends(get_current_user)):
+    """AI-powered automatic influencer discovery based on campaign brief"""
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        import json
+        
+        api_key = os.environ.get('EMERGENT_LLM_KEY')
+        
+        # First, use AI to analyze the campaign brief and generate search criteria
+        analysis_chat = LlmChat(
+            api_key=api_key,
+            session_id=f"discover-analysis-{uuid.uuid4()}",
+            system_message="""You are an expert influencer marketing strategist for luxury fashion brands. 
+            Analyze campaign briefs and identify the ideal influencer profiles. 
+            Always respond in valid JSON format."""
+        ).with_model("openai", "gpt-5.2")
+        
+        analysis_prompt = f"""Generate {data.num_suggestions} Indian fashion influencer profiles for this campaign:
+
+Brief: {data.campaign_brief}
+Category: {data.category or 'Fashion'}
+Location: {data.location}
+Follower Range: {data.follower_range}
+
+Return ONLY valid JSON (no markdown) with this exact structure:
+{{
+    "search_strategy": "one sentence strategy",
+    "ideal_profile": "one sentence profile description",
+    "influencers": [
+        {{
+            "name": "Full Name",
+            "instagram_handle": "handle",
+            "bio": "Short bio",
+            "city": "Mumbai",
+            "category": "luxury",
+            "tier": "micro",
+            "followers": 50000,
+            "engagement_rate": 4.5,
+            "style_tags": ["minimal", "luxury"],
+            "content_type": ["Reels"],
+            "estimated_rate_per_reel": 25000,
+            "why_recommended": "Reason",
+            "audience_match_score": 85
+        }}
+    ]
+}}"""
+        
+        analysis_message = UserMessage(text=analysis_prompt)
+        ai_response = await analysis_chat.send_message(analysis_message)
+        
+        # Parse AI response
+        try:
+            # Clean up response - extract JSON from markdown if needed
+            response_text = ai_response
+            if "```json" in response_text:
+                response_text = response_text.split("```json")[1].split("```")[0]
+            elif "```" in response_text:
+                response_text = response_text.split("```")[1].split("```")[0]
+            
+            parsed = json.loads(response_text.strip())
+            
+            # Handle various response formats
+            if isinstance(parsed, list):
+                # AI returned a list of influencers directly
+                discovered = {
+                    "search_strategy": "AI-powered influencer discovery based on campaign brief",
+                    "ideal_profile": "Influencers matching your campaign requirements",
+                    "influencers": parsed
+                }
+            elif "influencers" in parsed and isinstance(parsed["influencers"], list):
+                # Standard format with influencers array
+                discovered = parsed
+            else:
+                # Try to extract influencers from nested structure
+                discovered = {
+                    "search_strategy": parsed.get("search_strategy", "AI-powered discovery"),
+                    "ideal_profile": parsed.get("ideal_profile", ""),
+                    "influencers": []
+                }
+                # Check for nested influencers
+                for key, value in parsed.items():
+                    if isinstance(value, list):
+                        for item in value:
+                            if isinstance(item, dict) and "influencers" in item:
+                                discovered["influencers"].extend(item["influencers"])
+                                if item.get("search_strategy"):
+                                    discovered["search_strategy"] = item["search_strategy"]
+                                if item.get("ideal_profile"):
+                                    discovered["ideal_profile"] = item["ideal_profile"]
+                            elif isinstance(item, dict) and "name" in item:
+                                discovered["influencers"].append(item)
+                                
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parse error: {e}")
+            # Fallback structure
+            discovered = {
+                "search_strategy": "AI-powered search based on campaign requirements",
+                "ideal_profile": "Fashion-forward influencers with engaged audiences",
+                "influencers": []
+            }
+        
+        # Also search existing database for matches
+        db_query = {}
+        if data.category:
+            db_query["category"] = {"$regex": data.category, "$options": "i"}
+        if data.location and data.location != "India":
+            db_query["city"] = {"$regex": data.location, "$options": "i"}
+        
+        existing_matches = await db.influencers.find(db_query, {"_id": 0}).sort("score", -1).limit(5).to_list(5)
+        
+        # Generate AI insights for each discovered influencer
+        insights_chat = LlmChat(
+            api_key=api_key,
+            session_id=f"discover-insights-{uuid.uuid4()}",
+            system_message="You are an influencer marketing expert. Provide brief, actionable insights."
+        ).with_model("openai", "gpt-5.2")
+        
+        campaign_insights_prompt = f"""Based on the campaign brief: "{data.campaign_brief}"
+        
+Provide 3 key recommendations for outreach strategy and 2 potential risks to watch for. Keep it concise (2-3 sentences each)."""
+        
+        insights_message = UserMessage(text=campaign_insights_prompt)
+        campaign_insights = await insights_chat.send_message(insights_message)
+        
+        return {
+            "success": True,
+            "search_strategy": discovered.get("search_strategy", ""),
+            "ideal_profile": discovered.get("ideal_profile", ""),
+            "discovered_influencers": discovered.get("influencers", []),
+            "existing_matches": existing_matches,
+            "campaign_insights": campaign_insights,
+            "total_discovered": len(discovered.get("influencers", [])),
+            "total_existing_matches": len(existing_matches)
+        }
+        
+    except Exception as e:
+        logger.error(f"AI auto-discovery error: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "discovered_influencers": [],
+            "existing_matches": [],
+            "campaign_insights": "Unable to generate insights. Please try again."
+        }
+
+@ai_router.post("/import-discovered")
+async def import_discovered_influencer(
+    influencer_data: dict,
+    user: dict = Depends(get_current_user)
+):
+    """Import an AI-discovered influencer into the database"""
+    try:
+        influencer_id = str(uuid.uuid4())
+        
+        influencer_doc = {
+            "id": influencer_id,
+            "name": influencer_data.get("name", "Unknown"),
+            "instagram_handle": influencer_data.get("instagram_handle", ""),
+            "bio": influencer_data.get("bio", ""),
+            "city": influencer_data.get("city", "Mumbai"),
+            "category": influencer_data.get("category", "luxury"),
+            "tier": influencer_data.get("tier", "micro"),
+            "followers": influencer_data.get("followers", 0),
+            "engagement_rate": influencer_data.get("engagement_rate", 0),
+            "style_tags": influencer_data.get("style_tags", []),
+            "content_type": influencer_data.get("content_type", []),
+            "rate_per_reel": influencer_data.get("estimated_rate_per_reel"),
+            "audience_location": "India",
+            "status": "identified",
+            "score": 0.0,
+            "notes": f"AI Discovered. Match Score: {influencer_data.get('audience_match_score', 0)}%. Reason: {influencer_data.get('why_recommended', '')}",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "source": "ai_discovery",
+            "last_contacted": None
+        }
+        
+        # Calculate score
+        influencer_doc['score'] = calculate_influencer_score(influencer_doc)
+        
+        await db.influencers.insert_one(influencer_doc)
+        if '_id' in influencer_doc:
+            del influencer_doc['_id']
+        
+        return {
+            "success": True,
+            "message": "Influencer imported successfully",
+            "influencer": influencer_doc
+        }
+    except Exception as e:
+        logger.error(f"Import error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ============== CONTENT LIBRARY ==============
 @api_router.get("/content-library")

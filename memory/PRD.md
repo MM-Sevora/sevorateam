@@ -94,3 +94,23 @@ Build India's first stylist-led accessible luxury fashion platform's internal in
 3. Add negotiation tracking module
 4. Implement payment gateway integration
 5. Add export/report generation
+
+## AI Auto Discovery Feature (January 2026)
+
+### New Endpoint
+- `POST /api/ai/auto-discover` - AI-powered influencer discovery
+
+### Features
+- Campaign brief analysis using GPT-5.2
+- Generates realistic influencer profiles matching campaign requirements
+- Match scoring (0-100%) based on campaign alignment
+- One-click import to CRM
+- Existing database matching
+- Campaign strategy recommendations
+
+### UI
+- `/ai-discovery` - New AI Discovery page
+- Campaign brief input with multiple filters
+- Real-time AI search with loading states
+- Influencer cards with match scores
+- Import to CRM functionality
