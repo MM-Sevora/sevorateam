@@ -1,0 +1,158 @@
+{
+  "identity": {
+    "name": "E1: The Anti-AI Designer",
+    "mission": "Create a premium, curated, fashion-authority driven internal tool for SEVORA.",
+    "principles": [
+      "Fusion over Imitation: Mix Editorial Layouts with SaaS Utility.",
+      "Emotion First: The tool should feel like managing a Vogue shoot.",
+      "Content is King: Data is presented as a narrative.",
+      "Zoom In: Use close-ups and bold focus.",
+      "Negative Space: Luxury = Space."
+    ],
+    "anti_patterns": [
+      "No generic 'Inter' font for headings.",
+      "No 'Center-Everything' layouts.",
+      "No 'Gradient Overload'.",
+      "No generic 'Bootstrap' columns."
+    ]
+  },
+  "typography": {
+    "primary_font": "Manrope",
+    "secondary_font": "Playfair Display",
+    "mono_font": "Space Mono",
+    "font_imports": [
+      "https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Manrope:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
+    ],
+    "usage": {
+      "headings": "font-serif tracking-tight font-medium (Playfair Display)",
+      "body": "font-sans tracking-normal (Manrope)",
+      "captions": "font-mono text-xs uppercase tracking-widest (Space Mono)",
+      "display": "text-5xl md:text-7xl font-serif leading-[0.9]"
+    }
+  },
+  "colors": {
+    "palette": {
+      "light": {
+        "background": "#FAFAF9",
+        "foreground": "#1C1917",
+        "card": "#FFFFFF",
+        "card_foreground": "#1C1917",
+        "primary": "#1C1917",
+        "primary_foreground": "#FAFAF9",
+        "secondary": "#E7E5E4",
+        "secondary_foreground": "#1C1917",
+        "muted": "#F5F5F4",
+        "muted_foreground": "#78716C",
+        "accent": "#C5A059",
+        "accent_foreground": "#FFFFFF",
+        "destructive": "#991B1B",
+        "destructive_foreground": "#FAFAF9",
+        "border": "#E7E5E4",
+        "input": "#E7E5E4",
+        "ring": "#1C1917"
+      },
+      "dark": {
+        "background": "#0C0A09",
+        "foreground": "#FAFAF9",
+        "card": "#1C1917",
+        "card_foreground": "#FAFAF9",
+        "primary": "#FAFAF9",
+        "primary_foreground": "#1C1917",
+        "secondary": "#292524",
+        "secondary_foreground": "#FAFAF9",
+        "muted": "#292524",
+        "muted_foreground": "#A8A29E",
+        "accent": "#D4AF37",
+        "accent_foreground": "#1C1917",
+        "destructive": "#7F1D1D",
+        "destructive_foreground": "#FAFAF9",
+        "border": "#292524",
+        "input": "#292524",
+        "ring": "#D4AF37"
+      }
+    },
+    "strategy": "Dual Theme: Sophisticated Editorial Light (Default) & Deep Atelier Dark. Use 'Gold' (#C5A059) as the subtle luxury accent.",
+    "forbidden_colors": ["#7351B7", "#1B93A4"]
+  },
+  "layout": {
+    "grid_system": "The 'Bento' Grid (Mode A) for Dashboards. 'Tetris' logic for asymmetrical balance.",
+    "spacing": "Generous. Use p-8 to p-12 for containers. Borders must have internal padding.",
+    "containers": "Sharp corners or minimal rounded-sm (2px). No large rounded corners.",
+    "z_index": "Layered depth. Use z-10 for sticky headers, z-50 for modals."
+  },
+  "components": {
+    "buttons": {
+      "style": "Sharp edges (rounded-none) or pill (rounded-full). Uppercase text. Wide tracking.",
+      "hover": "Invert colors on hover. Transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1)."
+    },
+    "cards": {
+      "style": "Minimalist. 1px Border. No Shadow (or very subtle ambient).",
+      "hover": "Border color shift to Accent or Primary. Slight scale (1.01)."
+    },
+    "inputs": {
+      "style": "Underline only or minimal border. Background transparent or muted.",
+      "focus": "Border-bottom color Primary. No ring."
+    },
+    "navigation": {
+      "style": "Sidebar or Topbar. Glassmorphism (backdrop-blur-md) if overlaying content.",
+      "active_state": "Border-l-2 (Sidebar) or Underline (Topbar) in Accent color."
+    },
+    "charts": {
+      "library": "Recharts",
+      "style": "Minimalist. Thin lines (strokeWidth={1}). No grid lines. Tooltip custom styled."
+    }
+  },
+  "assets": {
+    "icons": {
+      "library": "Lucide React (Default)",
+      "style": "Stroke width 1.5px. Elegant and thin.",
+      "import": "import { IconName } from 'lucide-react';"
+    },
+    "images": {
+      "hero_fashion": [
+        "https://images.unsplash.com/photo-1646514336754-1c3fe17e28c2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1ODR8MHwxfHNlYXJjaHwyfHxmYXNoaW9uJTIwbW9kZWwlMjBlZGl0b3JpYWwlMjBzdHJlZXQlMjBzdHlsZXxlbnwwfHx8fDE3NzI2MTY1NzZ8MA&ixlib=rb-4.1.0&q=85",
+        "https://images.unsplash.com/photo-1652281846260-14c1bdd5e9a0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1ODR8MHwxfHNlYXJjaHwxfHxmYXNoaW9uJTIwbW9kZWwlMjBlZGl0b3JpYWwlMjBzdHJlZXQlMjBzdHlsZXxlbnwwfHx8fDE3NzI2MTY1NzZ8MA&ixlib=rb-4.1.0&q=85"
+      ],
+      "textures": [
+        "https://images.unsplash.com/photo-1650026857159-3cc0003a609e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzh8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMHNpbGslMjBmYWJyaWMlMjB0ZXh0dXJlJTIwbHV4dXJ5JTIwZ29sZCUyMGJsYWNrJTIwbWFyYmxlJTIwcnVud2F5fGVufDB8fHx8MTc3MjYxNjU5M3ww&ixlib=rb-4.1.0&q=85",
+        "https://images.unsplash.com/photo-1719059821311-f2bfafcdcba2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzh8MHwxfHNlYXJjaHw0fHxhYnN0cmFjdCUyMHNpbGslMjBmYWJyaWMlMjB0ZXh0dXJlJTIwbHV4dXJ5JTIwZ29sZCUyMGJsYWNrJTIwbWFyYmxlJTIwcnVud2F5fGVufDB8fHx8MTc3MjYxNjU5M3ww&ixlib=rb-4.1.0&q=85"
+      ],
+      "avatars": [
+        "https://images.unsplash.com/photo-1770061072353-32cc5837c28d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1ODR8MHwxfHNlYXJjaHwzfHxmYXNoaW9uJTIwbW9kZWwlMjBlZGl0b3JpYWwlMjBzdHJlZXQlMjBzdHlsZXxlbnwwfHx8fDE3NzI2MTY1NzZ8MA&ixlib=rb-4.1.0&q=85",
+        "https://images.unsplash.com/photo-1652281846249-f81974eba5b4?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1ODR8MHwxfHNlYXJjaHw0fHxmYXNoaW9uJTIwbW9kZWwlMjBlZGl0b3JpYWwlMjBzdHJlZXQlMjBzdHlsZXxlbnwwfHx8fDE3NzI2MTY1NzZ8MA&ixlib=rb-4.1.0&q=85"
+      ]
+    }
+  },
+  "motion": {
+    "transitions": "transition-all duration-300 ease-out",
+    "hover_effects": "hover:-translate-y-1 hover:shadow-lg",
+    "page_load": "animate-in fade-in slide-in-from-bottom-4 duration-700",
+    "stagger": "stagger-children"
+  },
+  "accessibility": {
+    "contrast": "Ensure 4.5:1 ratio for text. Use tooltips for icon-only buttons.",
+    "focus": "Visible focus rings in Accent color.",
+    "testing": "All interactive elements must have data-testid."
+  },
+  "universal_guidelines": [
+    "Don't make generic centered layouts.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur).",
+    "Every interaction needs micro-animations.",
+    "Use 2-3x more spacing than feels comfortable.",
+    "Subtle grain textures, noise overlays, custom cursors.",
+    "Main agent relies on these image URLs. Missing categories = placeholder text FORBIDDEN.",
+    "Prioritize using pre-existing components from src/components/ui.",
+    "Components MUST use named exports.",
+    "Use sonner for toasts."
+  ],
+  "instructions_to_main_agent": [
+    "1. Update tailwind.config.js with the new color palette and fonts.",
+    "2. Create a global Layout component that handles the Sidebar/Topbar structure.",
+    "3. Use the 'Bento' grid for the main Dashboard page.",
+    "4. Implement the 'Discovery' page using a Masonry layout with the provided fashion images.",
+    "5. Ensure all text uses the correct font family (Playfair for Heads, Manrope for Body).",
+    "6. Use the 'Gold' accent color sparingly for active states and primary actions.",
+    "7. Add a subtle noise texture to the background if possible."
+  ]
+}
