@@ -255,19 +255,19 @@ export const ContentLibraryPage = () => {
                         <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Filter</span>
                     </div>
                     <div className="grid grid-cols-3 gap-4">
-                        <Select value={filter.campaign} onValueChange={(v) => setFilter({ ...filter, campaign: v })}>
+                        <Select value={filter.campaign || "all"} onValueChange={(v) => setFilter({ ...filter, campaign: v === "all" ? "" : v })}>
                             <SelectTrigger><SelectValue placeholder="All Campaigns" /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">All Campaigns</SelectItem>
+                                <SelectItem value="all">All Campaigns</SelectItem>
                                 {campaigns.map(c => (
                                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
-                        <Select value={filter.influencer} onValueChange={(v) => setFilter({ ...filter, influencer: v })}>
+                        <Select value={filter.influencer || "all"} onValueChange={(v) => setFilter({ ...filter, influencer: v === "all" ? "" : v })}>
                             <SelectTrigger><SelectValue placeholder="All Influencers" /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">All Influencers</SelectItem>
+                                <SelectItem value="all">All Influencers</SelectItem>
                                 {influencers.map(i => (
                                     <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>
                                 ))}

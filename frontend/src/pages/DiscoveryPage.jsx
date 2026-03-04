@@ -352,23 +352,23 @@ export const DiscoveryPage = () => {
                                 className="pl-9"
                             />
                         </div>
-                        <Select value={filters.category} onValueChange={(v) => setFilters({ ...filters, category: v })}>
+                        <Select value={filters.category || "all"} onValueChange={(v) => setFilters({ ...filters, category: v === "all" ? "" : v })}>
                             <SelectTrigger data-testid="category-filter">
                                 <SelectValue placeholder="Category" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">All Categories</SelectItem>
+                                <SelectItem value="all">All Categories</SelectItem>
                                 {CATEGORIES.map(cat => (
                                     <SelectItem key={cat} value={cat} className="capitalize">{cat}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
-                        <Select value={filters.city} onValueChange={(v) => setFilters({ ...filters, city: v })}>
+                        <Select value={filters.city || "all"} onValueChange={(v) => setFilters({ ...filters, city: v === "all" ? "" : v })}>
                             <SelectTrigger data-testid="city-filter">
                                 <SelectValue placeholder="City" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">All Cities</SelectItem>
+                                <SelectItem value="all">All Cities</SelectItem>
                                 {CITIES.map(city => (
                                     <SelectItem key={city} value={city}>{city}</SelectItem>
                                 ))}
