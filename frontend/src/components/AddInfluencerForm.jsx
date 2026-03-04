@@ -13,6 +13,8 @@ import { toast } from 'sonner';
 import { User, AtSign, DollarSign, Plus, X } from 'lucide-react';
 
 const CATEGORIES = ['luxury', 'menswear', 'womenswear', 'streetwear', 'ethnic', 'minimal', 'sustainable'];
+const INDUSTRIES = ['fashion', 'beauty', 'lifestyle', 'fitness', 'tech', 'food', 'travel', 'entertainment', 'education', 'finance'];
+const GENDERS = ['male', 'female', 'non-binary', 'other', 'prefer not to say'];
 const TIERS = ['nano', 'micro', 'mid', 'macro', 'mega', 'celebrity'];
 const CITIES = ['Mumbai', 'Delhi', 'Bangalore', 'Kolkata', 'Chennai', 'Hyderabad', 'Pune', 'Jaipur'];
 const PLATFORMS = [
@@ -26,7 +28,8 @@ const PLATFORMS = [
 const initialForm = {
     name: '', bio: '', instagram_handle: '', youtube_handle: '', tiktok_handle: '', linkedin_handle: '', twitter_handle: '',
     primary_platform: 'instagram',
-    email: '', phone: '', city: 'Mumbai', category: 'luxury', tier: 'micro',
+    email: '', phone: '', city: 'Mumbai', category: 'luxury', industry: 'fashion', tier: 'micro',
+    gender: '', gender_focus: 'unisex', content_type: [],
     followers: '', engagement_rate: '', avg_likes: '',
     rate_per_post: '', rate_per_reel: '', rate_per_story: '', rate_per_video: '', accepts_barter: false,
     style_tags: [], past_brands: [], notes: ''
@@ -81,10 +84,20 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
                         </TabsList>
 
                         <TabsContent value="basic" className="space-y-3 mt-4">
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-3 gap-3">
                                 <div className="space-y-1">
                                     <Label className="text-[10px] uppercase font-mono">Name *</Label>
                                     <Input data-testid="inf-name-input" value={form.name} onChange={(e) => update('name', e.target.value)} required className="h-8" />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] uppercase font-mono">Gender</Label>
+                                    <Select value={form.gender || "none"} onValueChange={(v) => update('gender', v === "none" ? "" : v)}>
+                                        <SelectTrigger className="h-8"><SelectValue placeholder="Select" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">Not specified</SelectItem>
+                                            {GENDERS.map(g => <SelectItem key={g} value={g} className="capitalize">{g}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                                 <div className="space-y-1">
                                     <Label className="text-[10px] uppercase font-mono">City *</Label>
@@ -101,10 +114,28 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
                                     </Select>
                                 </div>
                                 <div className="space-y-1">
+                                    <Label className="text-[10px] uppercase font-mono">Industry</Label>
+                                    <Select value={form.industry} onValueChange={(v) => update('industry', v)}>
+                                        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                                        <SelectContent>{INDUSTRIES.map(i => <SelectItem key={i} value={i} className="capitalize">{i}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1">
                                     <Label className="text-[10px] uppercase font-mono">Tier</Label>
                                     <Select value={form.tier} onValueChange={(v) => update('tier', v)}>
                                         <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                                         <SelectContent>{TIERS.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] uppercase font-mono">Audience Focus</Label>
+                                    <Select value={form.gender_focus || 'unisex'} onValueChange={(v) => update('gender_focus', v)}>
+                                        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="menswear">Menswear</SelectItem>
+                                            <SelectItem value="womenswear">Womenswear</SelectItem>
+                                            <SelectItem value="unisex">Unisex</SelectItem>
+                                        </SelectContent>
                                     </Select>
                                 </div>
                                 <div className="space-y-1">

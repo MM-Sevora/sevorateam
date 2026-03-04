@@ -101,8 +101,10 @@ class InfluencerCreate(BaseModel):
     
     # Classification
     category: str  # menswear, womenswear, luxury, ethnic, streetwear
-    content_type: List[str] = []  # fashion, lifestyle, beauty, fitness
+    industry: str = "fashion"  # fashion, beauty, lifestyle, fitness, tech, food, travel
+    content_type: List[str] = []  # reels, posts, stories, youtube, blogs
     tier: str = "micro"  # nano, micro, macro, mega, celebrity
+    gender: Optional[str] = None  # male, female, non-binary, other
     gender_focus: str = "unisex"  # menswear, womenswear, unisex
     
     # Metrics
@@ -162,8 +164,10 @@ class InfluencerUpdate(BaseModel):
     
     # Classification
     category: Optional[str] = None
+    industry: Optional[str] = None
     content_type: Optional[List[str]] = None
     tier: Optional[str] = None
+    gender: Optional[str] = None
     gender_focus: Optional[str] = None
     
     # Metrics
@@ -207,14 +211,32 @@ class InfluencerResponse(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     city: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = None
     category: Optional[str] = None
+    industry: Optional[str] = None
+    content_type: Optional[List[str]] = []
     tier: Optional[str] = None
+    gender: Optional[str] = None
+    gender_focus: Optional[str] = None
     followers: Optional[int] = 0
     engagement_rate: Optional[float] = 0.0
+    avg_likes: Optional[int] = 0
+    avg_comments: Optional[int] = 0
+    avg_views: Optional[int] = 0
     audience_location: Optional[str] = None
-    style_tags: Optional[List[str]] = []
+    audience_age_group: Optional[str] = None
+    audience_gender_split: Optional[str] = None
+    rate_per_post: Optional[float] = None
     rate_per_reel: Optional[float] = None
+    rate_per_story: Optional[float] = None
     rate_per_video: Optional[float] = None
+    accepts_barter: Optional[bool] = False
+    style_tags: Optional[List[str]] = []
+    languages: Optional[List[str]] = []
+    past_brands: Optional[List[str]] = []
+    portfolio_url: Optional[str] = None
+    media_kit_url: Optional[str] = None
     notes: Optional[str] = None
     status: Optional[str] = None
     score: Optional[float] = 0.0

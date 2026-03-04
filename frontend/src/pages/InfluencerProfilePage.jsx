@@ -21,6 +21,9 @@ import {
 } from 'lucide-react';
 
 const CATEGORIES = ['luxury', 'menswear', 'womenswear', 'streetwear', 'ethnic', 'minimal', 'sustainable'];
+const INDUSTRIES = ['fashion', 'beauty', 'lifestyle', 'fitness', 'tech', 'food', 'travel', 'entertainment', 'education', 'finance'];
+const CONTENT_TYPES = ['reels', 'posts', 'stories', 'youtube videos', 'blogs', 'podcasts', 'live streams'];
+const GENDERS = ['male', 'female', 'non-binary', 'other', 'prefer not to say'];
 const TIERS = ['nano', 'micro', 'mid', 'macro', 'mega', 'celebrity'];
 const PLATFORMS = ['instagram', 'youtube', 'linkedin', 'tiktok', 'twitter'];
 const STATUS_OPTIONS = ['identified', 'contacted', 'interested', 'negotiation', 'confirmed', 'completed'];
@@ -355,45 +358,99 @@ export const InfluencerProfilePage = () => {
                                 </CardHeader>
                                 <CardContent>
                                     {editing ? (
-                                        <div className="grid grid-cols-3 gap-4">
-                                            <div className="space-y-1">
-                                                <Label className="text-[10px] uppercase font-mono">Category</Label>
-                                                <Select value={data.category || 'luxury'} onValueChange={(v) => update('category', v)}>
-                                                    <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                                                    <SelectContent>
-                                                        {CATEGORIES.map(c => <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}
-                                                    </SelectContent>
-                                                </Select>
+                                        <div className="space-y-4">
+                                            <div className="grid grid-cols-3 gap-4">
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px] uppercase font-mono">Category</Label>
+                                                    <Select value={data.category || 'luxury'} onValueChange={(v) => update('category', v)}>
+                                                        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                                                        <SelectContent>
+                                                            {CATEGORIES.map(c => <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px] uppercase font-mono">Industry</Label>
+                                                    <Select value={data.industry || 'fashion'} onValueChange={(v) => update('industry', v)}>
+                                                        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                                                        <SelectContent>
+                                                            {INDUSTRIES.map(i => <SelectItem key={i} value={i} className="capitalize">{i}</SelectItem>)}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px] uppercase font-mono">Tier</Label>
+                                                    <Select value={data.tier || 'micro'} onValueChange={(v) => update('tier', v)}>
+                                                        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                                                        <SelectContent>
+                                                            {TIERS.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
                                             </div>
-                                            <div className="space-y-1">
-                                                <Label className="text-[10px] uppercase font-mono">Tier</Label>
-                                                <Select value={data.tier || 'micro'} onValueChange={(v) => update('tier', v)}>
-                                                    <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                                                    <SelectContent>
-                                                        {TIERS.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <Label className="text-[10px] uppercase font-mono">Gender Focus</Label>
-                                                <Select value={data.gender_focus || 'unisex'} onValueChange={(v) => update('gender_focus', v)}>
-                                                    <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="menswear">Menswear</SelectItem>
-                                                        <SelectItem value="womenswear">Womenswear</SelectItem>
-                                                        <SelectItem value="unisex">Unisex</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
+                                            <div className="grid grid-cols-3 gap-4">
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px] uppercase font-mono">Gender</Label>
+                                                    <Select value={data.gender || 'prefer not to say'} onValueChange={(v) => update('gender', v)}>
+                                                        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                                                        <SelectContent>
+                                                            {GENDERS.map(g => <SelectItem key={g} value={g} className="capitalize">{g}</SelectItem>)}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px] uppercase font-mono">Audience Focus</Label>
+                                                    <Select value={data.gender_focus || 'unisex'} onValueChange={(v) => update('gender_focus', v)}>
+                                                        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="menswear">Menswear</SelectItem>
+                                                            <SelectItem value="womenswear">Womenswear</SelectItem>
+                                                            <SelectItem value="unisex">Unisex</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label className="text-[10px] uppercase font-mono">Content Types</Label>
+                                                    <Input 
+                                                        value={data.content_type?.join(', ') || ''} 
+                                                        onChange={(e) => update('content_type', e.target.value.split(',').map(s => s.trim()).filter(Boolean))} 
+                                                        placeholder="reels, posts, stories"
+                                                        className="h-8 text-xs"
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="flex flex-wrap gap-2">
-                                            <Badge variant="outline" className="capitalize">{data.category}</Badge>
-                                            <Badge className={`${TIER_INFO[data.tier || 'micro']?.color} capitalize`}>{data.tier || 'micro'}</Badge>
-                                            <Badge variant="outline" className="capitalize">{data.gender_focus || 'unisex'}</Badge>
-                                            {data.style_tags?.map(tag => (
-                                                <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
-                                            ))}
+                                        <div className="space-y-3">
+                                            <div className="flex flex-wrap gap-2">
+                                                <Badge variant="outline" className="capitalize">{data.category}</Badge>
+                                                <Badge className="bg-blue-100 text-blue-700 capitalize">{data.industry || 'fashion'}</Badge>
+                                                <Badge className={`${TIER_INFO[data.tier || 'micro']?.color} capitalize`}>{data.tier || 'micro'}</Badge>
+                                                {data.gender && data.gender !== 'prefer not to say' && (
+                                                    <Badge variant="outline" className="capitalize">{data.gender}</Badge>
+                                                )}
+                                                <Badge variant="outline" className="capitalize">{data.gender_focus || 'unisex'} audience</Badge>
+                                            </div>
+                                            {data.content_type?.length > 0 && (
+                                                <div>
+                                                    <p className="text-[10px] uppercase font-mono text-muted-foreground mb-1">Content Types</p>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {data.content_type.map(ct => (
+                                                            <Badge key={ct} variant="secondary" className="text-[10px] capitalize">{ct}</Badge>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {data.style_tags?.length > 0 && (
+                                                <div>
+                                                    <p className="text-[10px] uppercase font-mono text-muted-foreground mb-1">Style Tags</p>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {data.style_tags.map(tag => (
+                                                            <Badge key={tag} variant="secondary" className="text-[10px]">{tag}</Badge>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </CardContent>
