@@ -34,7 +34,7 @@ class InstagramAPIClient:
         self.access_token = access_token
         self.business_account_id = business_account_id
         self.base_url = "https://graph.instagram.com"
-        self.api_version = "v18.0"
+        self.api_version = "v21.0"
     
     async def verify_profile(self, username: str) -> Optional[SocialProfile]:
         """Verify an Instagram profile using Business Discovery API"""

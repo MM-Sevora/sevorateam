@@ -1749,6 +1749,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.on_event("startup")
+async def startup_configure_apis():
+    """Auto-configure social APIs from environment variables"""
+    from services.social_api import social_api_service
+    
+    # Configure Instagram if credentials are available
+    instagram_token = os.environ.get('INSTAGRAM_ACCESS_TOKEN')
+    instagram_account_id = os.environ.get('INSTAGRAM_ACCOUNT_ID')
+    if instagram_token and instagram_account_id:
+        social_api_service.configure_instagram(instagram_token, instagram_account_id)
+        logger.info("Instagram API configured from environment variables")
+    
+    # Configure YouTube if API key is available
+    youtube_api_key = os.environ.get('YOUTUBE_API_KEY')
+    if youtube_api_key:
+        social_api_service.configure_youtube(youtube_api_key)
+        logger.info("YouTube API configured from environment variables")
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
