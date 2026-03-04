@@ -28,30 +28,146 @@ class SocialProfile(BaseModel):
 
 
 class InstagramAPIClient:
-    """Client for Instagram Graph API with Business Discovery"""
+    """Client for Instagram Graph API - supports both Basic Display and Business Discovery"""
     
     def __init__(self, access_token: str, business_account_id: str):
         self.access_token = access_token
         self.business_account_id = business_account_id
         self.base_url = "https://graph.instagram.com"
         self.api_version = "v21.0"
+        self.own_username = None  # Will be set after first /me call
     
     async def verify_profile(self, username: str) -> Optional[SocialProfile]:
-        """Verify an Instagram profile using Business Discovery API"""
+        """Verify an Instagram profile - uses /me for own account, Business Discovery for others"""
+        try:
+            # First, check if this is our own account
+            if self.own_username is None:
+                await self._fetch_own_profile()
+            
+            # Clean username
+            clean_username = username.lstrip("@").lower()
+            
+            # If it's our own account, use Basic Display API
+            if self.own_username and clean_username == self.own_username.lower():
+                return await self._verify_own_profile()
+            
+            # For other accounts, try Business Discovery (requires Facebook Page token)
+            return await self._verify_other_profile(clean_username)
+                
+        except Exception as e:
+            logger.error(f"Instagram verification error for {username}: {e}")
+            return None
+    
+    async def _fetch_own_profile(self):
+        """Fetch and cache own username"""
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
-                # Business Discovery endpoint
-                url = f"{self.base_url}/{self.api_version}/{self.business_account_id}"
+                url = f"{self.base_url}/me"
                 params = {
-                    "fields": f"business_discovery.username({username}){{id,username,name,biography,website,followers_count,follows_count,media_count,profile_picture_url,ig_verified}}",
+                    "fields": "id,username",
+                    "access_token": self.access_token
+                }
+                response = await client.get(url, params=params)
+                if response.status_code == 200:
+                    data = response.json()
+                    self.own_username = data.get("username", "")
+                    logger.info(f"Instagram own account: @{self.own_username}")
+        except Exception as e:
+            logger.error(f"Error fetching own profile: {e}")
+    
+    async def _verify_own_profile(self) -> Optional[SocialProfile]:
+        """Verify own Instagram profile using Basic Display API"""
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                url = f"{self.base_url}/me"
+                params = {
+                    "fields": "id,username,account_type,media_count",
                     "access_token": self.access_token
                 }
                 
                 response = await client.get(url, params=params)
                 
                 if response.status_code != 200:
-                    logger.error(f"Instagram API error: {response.status_code} - {response.text}")
+                    logger.error(f"Instagram Basic API error: {response.status_code} - {response.text}")
                     return None
+                
+                data = response.json()
+                
+                # Get media to calculate engagement
+                media_data = await self._get_own_media()
+                engagement_rate = 0.0
+                followers = 0
+                
+                return SocialProfile(
+                    platform="instagram",
+                    username=data.get("username", ""),
+                    display_name=data.get("username", ""),
+                    bio=None,  # Basic Display doesn't provide bio
+                    followers=followers,
+                    following=0,
+                    posts_count=data.get("media_count", 0),
+                    engagement_rate=engagement_rate,
+                    is_verified=False,
+                    profile_url=f"https://instagram.com/{data.get('username', '')}",
+                    avatar_url=None,
+                    last_verified=datetime.now(timezone.utc).isoformat(),
+                    raw_data=data
+                )
+                
+        except Exception as e:
+            logger.error(f"Own profile verification error: {e}")
+            return None
+    
+    async def _get_own_media(self) -> list:
+        """Get own media for engagement calculation"""
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                url = f"{self.base_url}/me/media"
+                params = {
+                    "fields": "id,caption,media_type,timestamp,like_count,comments_count",
+                    "limit": 10,
+                    "access_token": self.access_token
+                }
+                response = await client.get(url, params=params)
+                if response.status_code == 200:
+                    return response.json().get("data", [])
+        except:
+            pass
+        return []
+    
+    async def _verify_other_profile(self, username: str) -> Optional[SocialProfile]:
+        """Verify another user's Instagram profile using Business Discovery API"""
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                # Business Discovery endpoint (requires Facebook Page token)
+                url = f"{self.base_url}/{self.api_version}/{self.business_account_id}"
+                params = {
+                    "fields": f"business_discovery.username({username}){{id,username,name,biography,website,followers_count,follows_count,media_count,profile_picture_url}}",
+                    "access_token": self.access_token
+                }
+                
+                response = await client.get(url, params=params)
+                
+                if response.status_code != 200:
+                    error_data = response.json()
+                    error_msg = error_data.get("error", {}).get("message", "Unknown error")
+                    logger.warning(f"Business Discovery not available for {username}: {error_msg}")
+                    # Return a minimal profile with just the username
+                    return SocialProfile(
+                        platform="instagram",
+                        username=username,
+                        display_name=username,
+                        bio=None,
+                        followers=0,
+                        following=0,
+                        posts_count=0,
+                        engagement_rate=0.0,
+                        is_verified=False,
+                        profile_url=f"https://instagram.com/{username}",
+                        avatar_url=None,
+                        last_verified=datetime.now(timezone.utc).isoformat(),
+                        raw_data={"note": "Business Discovery requires Facebook Page token with instagram_basic permission"}
+                    )
                 
                 data = response.json()
                 
