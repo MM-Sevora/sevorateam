@@ -35,8 +35,11 @@ export const outreachApi = {
 // Negotiation API
 export const negotiationApi = {
     getAll: (params) => axios.get(`${API}/negotiations`, { params }),
+    getById: (id) => axios.get(`${API}/negotiations/${id}`),
     create: (data) => axios.post(`${API}/negotiations`, data),
     update: (id, data) => axios.put(`${API}/negotiations/${id}`, data),
+    addEvent: (id, data) => axios.post(`${API}/negotiations/${id}/timeline`, data),
+    getStats: () => axios.get(`${API}/negotiations/stats/summary`),
 };
 
 // Analytics API

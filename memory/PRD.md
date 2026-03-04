@@ -49,7 +49,9 @@ An internal tool for a luxury fashion brand (SEVORA) to manage its entire influe
 - [x] **Social API Integration Framework:** Instagram Graph API and YouTube Data API ready (requires API keys)
 - [x] **Real-time Progress Updates:** SSE streaming for AI discovery progress
 - [x] **Profile Verification Endpoints:** Verify influencer social profiles via APIs
-- [x] **Primary Platform Feature:** Each influencer can have a primary platform (Instagram, YouTube, LinkedIn, TikTok, Twitter) - displays in table and profile modal with platform-specific icons and colors
+- [x] **Primary Platform Feature:** Each influencer can have a primary platform (Instagram, YouTube, LinkedIn, TikTok, Twitter)
+- [x] **Clickable Social Links:** All social handles now open in new tabs with proper URLs
+- [x] **Negotiation Tracker Module:** Complete negotiation management with timeline, events, stats, and deal tracking
 
 ---
 

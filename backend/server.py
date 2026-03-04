@@ -276,15 +276,25 @@ class OutreachResponse(BaseModel):
 
 class NegotiationCreate(BaseModel):
     influencer_id: str
-    campaign_id: str
+    campaign_id: Optional[str] = None
     initial_quote: float
+    our_budget: Optional[float] = None
     deliverables: str
+    deadline: Optional[str] = None
+    notes: Optional[str] = None
 
 class NegotiationUpdate(BaseModel):
     counter_offer: Optional[float] = None
+    our_counter: Optional[float] = None
     final_price: Optional[float] = None
-    status: Optional[str] = None
+    status: Optional[str] = None  # pending, negotiating, agreed, rejected, on_hold
     notes: Optional[str] = None
+    deadline: Optional[str] = None
+
+class NegotiationEventCreate(BaseModel):
+    event_type: str  # quote_sent, counter_received, counter_sent, agreed, rejected, note_added
+    amount: Optional[float] = None
+    note: Optional[str] = None
 
 class AIMatchRequest(BaseModel):
     category: str
@@ -656,12 +666,28 @@ async def update_outreach_response(outreach_id: str, opened: bool = False, repli
 
 # ============== NEGOTIATION ROUTES ==============
 @api_router.get("/negotiations")
-async def get_negotiations(influencer_id: Optional[str] = None, user: dict = Depends(get_current_user)):
+async def get_negotiations(
+    influencer_id: Optional[str] = None, 
+    campaign_id: Optional[str] = None,
+    status: Optional[str] = None,
+    user: dict = Depends(get_current_user)
+):
     query = {}
     if influencer_id:
         query["influencer_id"] = influencer_id
+    if campaign_id:
+        query["campaign_id"] = campaign_id
+    if status:
+        query["status"] = status
     negotiations = await db.negotiations.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
     return negotiations
+
+@api_router.get("/negotiations/{neg_id}")
+async def get_negotiation(neg_id: str, user: dict = Depends(get_current_user)):
+    neg = await db.negotiations.find_one({"id": neg_id}, {"_id": 0})
+    if not neg:
+        raise HTTPException(status_code=404, detail="Negotiation not found")
+    return neg
 
 @api_router.post("/negotiations")
 async def create_negotiation(data: NegotiationCreate, user: dict = Depends(get_current_user)):
@@ -669,19 +695,43 @@ async def create_negotiation(data: NegotiationCreate, user: dict = Depends(get_c
     if not influencer:
         raise HTTPException(status_code=404, detail="Influencer not found")
     
+    campaign_name = None
+    if data.campaign_id:
+        campaign = await db.campaigns.find_one({"id": data.campaign_id}, {"_id": 0, "name": 1})
+        campaign_name = campaign.get("name") if campaign else None
+    
     neg_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Initial timeline event
+    timeline = [{
+        "id": str(uuid.uuid4()),
+        "event_type": "negotiation_started",
+        "amount": data.initial_quote,
+        "note": f"Negotiation started. Influencer's initial quote: ₹{data.initial_quote:,.0f}",
+        "timestamp": now,
+        "created_by": user.get('email', 'system')
+    }]
+    
     neg_doc = {
         "id": neg_id,
         "influencer_id": data.influencer_id,
         "influencer_name": influencer['name'],
+        "influencer_handle": influencer.get('instagram_handle', ''),
         "campaign_id": data.campaign_id,
+        "campaign_name": campaign_name,
         "initial_quote": data.initial_quote,
+        "our_budget": data.our_budget,
         "counter_offer": None,
+        "our_counter": None,
         "final_price": None,
         "deliverables": data.deliverables,
+        "deadline": data.deadline,
         "status": "pending",
-        "notes": None,
-        "created_at": datetime.now(timezone.utc).isoformat()
+        "notes": data.notes,
+        "timeline": timeline,
+        "created_at": now,
+        "updated_at": now
     }
     await db.negotiations.insert_one(neg_doc)
     await db.influencers.update_one({"id": data.influencer_id}, {"$set": {"status": "negotiation"}})
@@ -695,6 +745,8 @@ async def update_negotiation(neg_id: str, data: NegotiationUpdate, user: dict = 
     if not update_data:
         raise HTTPException(status_code=400, detail="No data to update")
     
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
     result = await db.negotiations.find_one_and_update(
         {"id": neg_id},
         {"$set": update_data},
@@ -702,8 +754,106 @@ async def update_negotiation(neg_id: str, data: NegotiationUpdate, user: dict = 
     )
     if not result:
         raise HTTPException(status_code=404, detail="Negotiation not found")
+    
+    # Update influencer status based on negotiation status
+    if data.status == "agreed":
+        await db.influencers.update_one(
+            {"id": result["influencer_id"]}, 
+            {"$set": {"status": "confirmed"}}
+        )
+    elif data.status == "rejected":
+        await db.influencers.update_one(
+            {"id": result["influencer_id"]}, 
+            {"$set": {"status": "identified"}}
+        )
+    
     del result['_id']
     return result
+
+@api_router.post("/negotiations/{neg_id}/timeline")
+async def add_negotiation_event(neg_id: str, data: NegotiationEventCreate, user: dict = Depends(get_current_user)):
+    """Add an event to the negotiation timeline"""
+    neg = await db.negotiations.find_one({"id": neg_id}, {"_id": 0})
+    if not neg:
+        raise HTTPException(status_code=404, detail="Negotiation not found")
+    
+    event = {
+        "id": str(uuid.uuid4()),
+        "event_type": data.event_type,
+        "amount": data.amount,
+        "note": data.note,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "created_by": user.get('email', 'system')
+    }
+    
+    # Update negotiation based on event type
+    update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    
+    if data.event_type == "counter_received" and data.amount:
+        update_data["counter_offer"] = data.amount
+        update_data["status"] = "negotiating"
+        event["note"] = event["note"] or f"Influencer counter-offered: ₹{data.amount:,.0f}"
+    elif data.event_type == "counter_sent" and data.amount:
+        update_data["our_counter"] = data.amount
+        update_data["status"] = "negotiating"
+        event["note"] = event["note"] or f"We countered with: ₹{data.amount:,.0f}"
+    elif data.event_type == "agreed" and data.amount:
+        update_data["final_price"] = data.amount
+        update_data["status"] = "agreed"
+        event["note"] = event["note"] or f"Deal agreed at ₹{data.amount:,.0f}"
+        # Update influencer status
+        await db.influencers.update_one({"id": neg["influencer_id"]}, {"$set": {"status": "confirmed"}})
+    elif data.event_type == "rejected":
+        update_data["status"] = "rejected"
+        event["note"] = event["note"] or "Negotiation rejected"
+        await db.influencers.update_one({"id": neg["influencer_id"]}, {"$set": {"status": "identified"}})
+    
+    result = await db.negotiations.find_one_and_update(
+        {"id": neg_id},
+        {
+            "$set": update_data,
+            "$push": {"timeline": event}
+        },
+        return_document=True
+    )
+    
+    del result['_id']
+    return result
+
+@api_router.get("/negotiations/stats/summary")
+async def get_negotiation_stats(user: dict = Depends(get_current_user)):
+    """Get negotiation statistics"""
+    all_negs = await db.negotiations.find({}, {"_id": 0}).to_list(500)
+    
+    total = len(all_negs)
+    by_status = {}
+    total_initial = 0
+    total_final = 0
+    successful = 0
+    
+    for neg in all_negs:
+        status = neg.get("status", "pending")
+        by_status[status] = by_status.get(status, 0) + 1
+        total_initial += neg.get("initial_quote", 0)
+        
+        if neg.get("final_price"):
+            total_final += neg["final_price"]
+            successful += 1
+    
+    avg_discount = 0
+    if successful > 0 and total_initial > 0:
+        avg_agreed = total_final / successful
+        avg_initial = total_initial / total
+        avg_discount = ((avg_initial - avg_agreed) / avg_initial) * 100 if avg_initial > 0 else 0
+    
+    return {
+        "total": total,
+        "by_status": by_status,
+        "success_rate": (successful / total * 100) if total > 0 else 0,
+        "avg_discount_percent": round(avg_discount, 1),
+        "total_value_negotiated": total_initial,
+        "total_value_agreed": total_final
+    }
 
 # ============== ANALYTICS ROUTES ==============
 @analytics_router.get("/dashboard")

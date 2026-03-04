@@ -8,6 +8,7 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { InfluencersPage } from "./pages/InfluencersPage";
 import { OutreachPage } from "./pages/OutreachPage";
 import { CampaignsPage } from "./pages/CampaignsPage";
+import { NegotiationsPage } from "./pages/NegotiationsPage";
 import { BudgetPage } from "./pages/BudgetPage";
 import { AnalyticsPage } from "./pages/AnalyticsPage";
 import { AIToolsPage } from "./pages/AIToolsPage";
@@ -36,6 +37,7 @@ function App() {
                     <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
                     <Route path="/influencers" element={<ProtectedRoute><InfluencersPage /></ProtectedRoute>} />
                     <Route path="/outreach" element={<ProtectedRoute><OutreachPage /></ProtectedRoute>} />
+                    <Route path="/negotiations" element={<ProtectedRoute><NegotiationsPage /></ProtectedRoute>} />
                     <Route path="/campaigns" element={<ProtectedRoute><CampaignsPage /></ProtectedRoute>} />
                     <Route path="/budget" element={<ProtectedRoute><BudgetPage /></ProtectedRoute>} />
                     <Route path="/analytics" element={<ProtectedRoute><AnalyticsPage /></ProtectedRoute>} />

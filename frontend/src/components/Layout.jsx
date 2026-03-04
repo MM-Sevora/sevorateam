@@ -2,12 +2,13 @@ import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
-import { LayoutDashboard, Users, Send, Megaphone, Wallet, BarChart3, Sparkles, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, Send, Handshake, Megaphone, Wallet, BarChart3, Sparkles, LogOut } from 'lucide-react';
 
 const navItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/influencers', icon: Users, label: 'Influencers' },
     { to: '/outreach', icon: Send, label: 'Outreach' },
+    { to: '/negotiations', icon: Handshake, label: 'Negotiations' },
     { to: '/campaigns', icon: Megaphone, label: 'Campaigns' },
     { to: '/budget', icon: Wallet, label: 'Budget' },
     { to: '/analytics', icon: BarChart3, label: 'Analytics' },

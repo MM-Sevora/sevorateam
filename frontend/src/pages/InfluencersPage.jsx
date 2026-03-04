@@ -603,31 +603,67 @@ export const InfluencersPage = () => {
                                 </div>
                             )}
                             
-                            {/* Social Handles */}
-                            <div className="grid grid-cols-3 gap-2 mt-4 p-3 bg-muted/30 rounded">
+                            {/* Social Handles - Clickable Links */}
+                            <div className="grid grid-cols-2 gap-2 mt-4 p-3 bg-muted/30 rounded">
                                 {selectedInfluencer.instagram_handle && (
-                                    <div className="flex items-center gap-1.5 text-xs">
+                                    <a 
+                                        href={`https://instagram.com/${selectedInfluencer.instagram_handle.replace('@', '')}`}
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-1.5 text-xs hover:text-pink-500 transition-colors group"
+                                    >
                                         <Instagram className="w-3.5 h-3.5 text-pink-500" />
-                                        <span>@{selectedInfluencer.instagram_handle}</span>
-                                    </div>
+                                        <span className="group-hover:underline">@{selectedInfluencer.instagram_handle.replace('@', '')}</span>
+                                        <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    </a>
                                 )}
                                 {selectedInfluencer.youtube_handle && (
-                                    <div className="flex items-center gap-1.5 text-xs">
+                                    <a 
+                                        href={`https://youtube.com/@${selectedInfluencer.youtube_handle.replace('@', '')}`}
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-1.5 text-xs hover:text-red-500 transition-colors group"
+                                    >
                                         <Youtube className="w-3.5 h-3.5 text-red-500" />
-                                        <span>{selectedInfluencer.youtube_handle}</span>
-                                    </div>
+                                        <span className="group-hover:underline">{selectedInfluencer.youtube_handle}</span>
+                                        <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    </a>
                                 )}
                                 {selectedInfluencer.linkedin_handle && (
-                                    <div className="flex items-center gap-1.5 text-xs">
+                                    <a 
+                                        href={selectedInfluencer.linkedin_handle.startsWith('http') ? selectedInfluencer.linkedin_handle : `https://linkedin.com/in/${selectedInfluencer.linkedin_handle}`}
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-1.5 text-xs hover:text-blue-600 transition-colors group"
+                                    >
                                         <Linkedin className="w-3.5 h-3.5 text-blue-600" />
-                                        <span>{selectedInfluencer.linkedin_handle}</span>
-                                    </div>
+                                        <span className="group-hover:underline">{selectedInfluencer.linkedin_handle}</span>
+                                        <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    </a>
                                 )}
                                 {selectedInfluencer.tiktok_handle && (
-                                    <div className="flex items-center gap-1.5 text-xs">
+                                    <a 
+                                        href={`https://tiktok.com/@${selectedInfluencer.tiktok_handle.replace('@', '')}`}
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-1.5 text-xs hover:text-black transition-colors group"
+                                    >
                                         <Sparkles className="w-3.5 h-3.5" />
-                                        <span>@{selectedInfluencer.tiktok_handle}</span>
-                                    </div>
+                                        <span className="group-hover:underline">@{selectedInfluencer.tiktok_handle.replace('@', '')}</span>
+                                        <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    </a>
+                                )}
+                                {selectedInfluencer.twitter_handle && (
+                                    <a 
+                                        href={`https://x.com/${selectedInfluencer.twitter_handle.replace('@', '')}`}
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-1.5 text-xs hover:text-black transition-colors group"
+                                    >
+                                        <span className="text-xs font-bold">𝕏</span>
+                                        <span className="group-hover:underline">@{selectedInfluencer.twitter_handle.replace('@', '')}</span>
+                                        <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    </a>
                                 )}
                             </div>
                             
