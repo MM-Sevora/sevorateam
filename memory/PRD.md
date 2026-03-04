@@ -52,6 +52,7 @@ An internal tool for a luxury fashion brand (SEVORA) to manage its entire influe
 - [x] **Primary Platform Feature:** Each influencer can have a primary platform (Instagram, YouTube, LinkedIn, TikTok, Twitter)
 - [x] **Clickable Social Links:** All social handles now open in new tabs with proper URLs
 - [x] **Negotiation Tracker Module:** Complete negotiation management with timeline, events, stats, and deal tracking
+- [x] **Enhanced Influencer Table:** New columns (Followers, Engagement %, Industry, Tier, Gender, Updated), column sorting, advanced filters panel
 
 ---
 
@@ -109,6 +110,9 @@ An internal tool for a luxury fashion brand (SEVORA) to manage its entire influe
     "phone": "string",
     "city": "string",
     "category": "luxury|menswear|womenswear|streetwear|ethnic|minimal",
+    "industry": "fashion|beauty|lifestyle|fitness|tech|food|travel",
+    "tier": "nano|micro|macro|mega|celebrity",
+    "gender": "male|female|non-binary|other",
     "followers": "int",
     "engagement_rate": "float",
     "style_tags": ["string"],
@@ -157,14 +161,14 @@ An internal tool for a luxury fashion brand (SEVORA) to manage its entire influe
 ### P0 - High Priority
 - [ ] Connect Instagram Graph API with real credentials
 - [ ] Connect YouTube Data API with real credentials
-- [ ] Implement Negotiation Tracker module
-- [ ] Implement Budget Manager improvements
+- [ ] Implement actual scheduling logic for Auto-Discovery (apscheduler)
+- [ ] Refactor server.py into smaller router files
 
 ### P1 - Medium Priority
 - [ ] Content Library module
+- [ ] Display Deliverables Bucket in negotiation detail view
 - [ ] WhatsApp Business API integration
 - [ ] Email outreach via SendGrid (integrated but needs testing)
-- [ ] WebSocket for real-time notifications
 
 ### P2 - Future
 - [ ] User roles and permissions
@@ -177,11 +181,11 @@ An internal tool for a luxury fashion brand (SEVORA) to manage its entire influe
 ## Known Issues
 1. SSE streaming returns 403 when called directly (works via fetch with auth header)
 2. Recharts console warnings (cosmetic only)
-3. Social verification requires external API keys
+3. Social verification requires external API keys (currently using stubs)
+4. server.py is over 1700 lines - needs refactoring into routers
 
 ## Test Credentials
-- Email: test@sevora.com
-- Password: test123456
+- Register a new account on the login page to test
 
 ---
 
