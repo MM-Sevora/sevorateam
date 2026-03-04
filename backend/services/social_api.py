@@ -28,14 +28,18 @@ class SocialProfile(BaseModel):
 
 
 class InstagramAPIClient:
-    """Client for Instagram Graph API - supports both Basic Display and Business Discovery"""
+    """Client for Instagram Graph API via Facebook - supports Business Discovery"""
     
     def __init__(self, access_token: str, business_account_id: str):
         self.access_token = access_token
         self.business_account_id = business_account_id
-        self.base_url = "https://graph.instagram.com"
+        # Use Facebook Graph API for Page tokens, Instagram Graph API for IG tokens
+        if access_token.startswith("EAA"):
+            self.base_url = "https://graph.facebook.com"
+        else:
+            self.base_url = "https://graph.instagram.com"
         self.api_version = "v21.0"
-        self.own_username = None  # Will be set after first /me call
+        self.own_username = None
     
     async def verify_profile(self, username: str) -> Optional[SocialProfile]:
         """Verify an Instagram profile - uses /me for own account, Business Discovery for others"""
