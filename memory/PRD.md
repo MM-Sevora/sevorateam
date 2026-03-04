@@ -1,116 +1,185 @@
 # SEVORA Influencer Operations Tool - PRD
 
-## Original Problem Statement
-Build India's first stylist-led accessible luxury fashion platform's internal influencer marketing system - a comprehensive platform to discover influencers, manage relationships, run campaigns, and track ROI.
-
-## Architecture
-- **Frontend**: React with Shadcn UI components, TailwindCSS
-- **Backend**: FastAPI (Python)
-- **Database**: MongoDB
-- **AI Integration**: OpenAI GPT-5.2 via Emergent LLM Key
-
-## User Personas
-1. **Marketing Manager**: Creates and manages influencer campaigns
-2. **Influencer Manager**: Handles outreach and negotiations
-3. **Finance Team**: Tracks budget and payments
-4. **Founder/Admin**: Full system access
+## Product Overview
+An internal tool for a luxury fashion brand (SEVORA) to manage its entire influencer marketing lifecycle. Built as a full-stack application with React frontend, FastAPI backend, and MongoDB database.
 
 ## Core Requirements
-- [x] JWT-based authentication
-- [x] Influencer Discovery & CRM
-- [x] Campaign Management
-- [x] Outreach Management
-- [x] Budget & Payment Tracking
-- [x] Performance Analytics
-- [x] Content Library
-- [x] AI Features (influencer matching, caption generation, campaign ideas)
+- **Influencer Discovery:** Find relevant fashion influencers using AI-powered search
+- **Influencer CRM:** Store detailed profiles with metrics, rates, and collaboration history
+- **Campaign Management:** Create campaigns, assign influencers, track content
+- **Budget & Payments:** Control campaign spending and track payments
+- **Analytics Dashboard:** Measure ROI and performance metrics
+- **AI Features:** Influencer matching, caption generation, campaign ideas
 
-## Implemented Features (January 2026)
+## User Personas
+- **Marketing Manager:** Primary user - manages influencer relationships and campaigns
+- **Founder:** Oversees budget and high-level analytics
+- **Finance Team:** Tracks payments and budget utilization
+
+## Tech Stack
+- **Frontend:** React, Tailwind CSS, Shadcn/UI, Recharts
+- **Backend:** FastAPI (Python), Pydantic
+- **Database:** MongoDB
+- **Authentication:** JWT
+- **AI Integration:** OpenAI GPT-5.2 via Emergent LLM Key
+
+---
+
+## Implemented Features (December 2025)
+
+### Phase 1 - Core MVP ✅
+- [x] User authentication (JWT-based login/register)
+- [x] Dashboard with KPI cards and charts
+- [x] Influencer CRUD operations
+- [x] Campaign management
+- [x] Budget tracking
+- [x] Analytics dashboard
+- [x] Outreach tracking
+
+### Phase 2 - AI Features ✅
+- [x] AI-powered influencer discovery (GPT-5.2)
+- [x] Caption generator
+- [x] Campaign ideas generator
+- [x] Influencer matching algorithm
+- [x] Import AI-discovered influencers to database
+
+### Phase 3 - Advanced Features ✅ (March 4, 2026)
+- [x] **Influencer Comparison:** Select 2-5 influencers, compare metrics side-by-side with AI recommendation
+- [x] **Scheduled Auto-Discovery:** Create daily/weekly automated discovery searches
+- [x] **Social API Integration Framework:** Instagram Graph API and YouTube Data API ready (requires API keys)
+- [x] **Real-time Progress Updates:** SSE streaming for AI discovery progress
+- [x] **Profile Verification Endpoints:** Verify influencer social profiles via APIs
+
+---
+
+## API Endpoints
 
 ### Authentication
-- JWT-based login/register
-- Role-based access control
+- `POST /api/auth/register` - Create new user
+- `POST /api/auth/login` - Login and get token
 
-### Influencer Discovery
-- Search and filter influencers
-- AI-powered matching with GPT-5.2
-- Influencer scoring (0-100)
-- Add/edit influencer profiles
+### Influencers
+- `GET/POST /api/influencers` - List/Create influencers
+- `GET/PUT/DELETE /api/influencers/{id}` - CRUD operations
+- `POST /api/influencers/compare` - Compare 2-5 influencers
 
-### Influencer CRM
-- Status pipeline (Identified → Contacted → Interested → Negotiation → Confirmed → Completed)
-- Profile management with social handles, metrics
-- Notes and collaboration history
+### Campaigns
+- `GET/POST /api/campaigns` - List/Create campaigns
+- `PUT /api/campaigns/{id}/status` - Update campaign status
+- `POST /api/campaigns/{id}/assign` - Assign influencer to campaign
 
-### Campaign Management
-- Create campaigns with budget, dates, objectives
-- Assign influencers to campaigns
-- Content status tracking (pending → brief_sent → draft_submitted → approved → published)
-
-### Outreach System
-- Email and WhatsApp templates
-- Outreach tracking (sent, opened, replied)
-- Personalized messaging
-
-### Budget & Payments
-- Campaign budget tracking
-- Payment status management
-- ROI visualization
-
-### Analytics Dashboard
-- KPIs: Total influencers, active campaigns, budget
-- Pipeline status distribution
-- Category distribution
-- Engagement trends
-
-### AI Studio (GPT-5.2)
-- Influencer matching recommendations
-- Caption generation
-- Campaign idea generation
-
-### Content Library
-- Store influencer content
-- Filter by campaign, influencer, type
-
-## Prioritized Backlog
-
-### P0 (Critical)
-- None remaining
-
-### P1 (High Priority)
-- SendGrid email integration (playbook ready)
-- Meta WhatsApp API integration (playbook ready)
-- Real-time notifications
-
-### P2 (Medium Priority)
-- Influencer application portal
-- Affiliate tracking with unique codes
-- Advanced fraud detection integration
-- Mobile responsive optimizations
-
-## Next Tasks
-1. Integrate SendGrid for actual email delivery
-2. Integrate Meta WhatsApp Business API for messaging
-3. Add negotiation tracking module
-4. Implement payment gateway integration
-5. Add export/report generation
-
-## AI Auto Discovery Feature (January 2026)
-
-### New Endpoint
+### AI Tools
 - `POST /api/ai/auto-discover` - AI-powered influencer discovery
+- `GET /api/ai/auto-discover-stream` - SSE streaming discovery
+- `POST /api/ai/generate-caption` - Generate social captions
+- `POST /api/ai/campaign-ideas` - Generate campaign ideas
+- `POST /api/ai/import-discovered` - Import AI-discovered influencer
 
-### Features
-- Campaign brief analysis using GPT-5.2
-- Generates realistic influencer profiles matching campaign requirements
-- Match scoring (0-100%) based on campaign alignment
-- One-click import to CRM
-- Existing database matching
-- Campaign strategy recommendations
+### Scheduled Discovery
+- `GET/POST /api/scheduled/searches` - Manage scheduled searches
+- `PUT/DELETE /api/scheduled/searches/{id}` - Update/Delete search
+- `POST /api/scheduled/searches/{id}/run` - Run search manually
+- `GET /api/scheduled/results` - Get discovery results
 
-### UI
-- `/ai-discovery` - New AI Discovery page
-- Campaign brief input with multiple filters
-- Real-time AI search with loading states
-- Influencer cards with match scores
-- Import to CRM functionality
+### Social Verification
+- `POST /api/social/configure` - Configure API credentials
+- `POST /api/social/verify` - Verify a social profile
+- `POST /api/social/verify-influencer/{id}` - Verify influencer's profiles
+
+### Analytics
+- `GET /api/analytics/dashboard` - Dashboard metrics
+- `GET /api/analytics/campaign/{id}` - Campaign analytics
+
+---
+
+## Data Models
+
+### Influencer
+```python
+{
+    "id": "uuid",
+    "name": "string",
+    "instagram_handle": "string",
+    "youtube_handle": "string",
+    "tiktok_handle": "string",
+    "email": "string",
+    "phone": "string",
+    "city": "string",
+    "category": "luxury|menswear|womenswear|streetwear|ethnic|minimal",
+    "followers": "int",
+    "engagement_rate": "float",
+    "style_tags": ["string"],
+    "rate_per_reel": "int",
+    "status": "identified|contacted|interested|negotiation|confirmed|completed",
+    "score": "float (calculated)",
+    "created_at": "datetime"
+}
+```
+
+### Campaign
+```python
+{
+    "id": "uuid",
+    "name": "string",
+    "objective": "string",
+    "budget": "int",
+    "start_date": "date",
+    "end_date": "date",
+    "status": "planning|active|completed|cancelled",
+    "influencers": [{"influencer_id", "rate", "content_status"}],
+    "created_at": "datetime"
+}
+```
+
+### Scheduled Search
+```python
+{
+    "id": "uuid",
+    "name": "string",
+    "campaign_brief": "string",
+    "category": "string",
+    "location": "string",
+    "follower_range": "string",
+    "frequency": "daily|weekly",
+    "is_active": "bool",
+    "next_run": "datetime",
+    "total_discovered": "int"
+}
+```
+
+---
+
+## Upcoming Tasks (Backlog)
+
+### P0 - High Priority
+- [ ] Connect Instagram Graph API with real credentials
+- [ ] Connect YouTube Data API with real credentials
+- [ ] Implement Negotiation Tracker module
+- [ ] Implement Budget Manager improvements
+
+### P1 - Medium Priority
+- [ ] Content Library module
+- [ ] WhatsApp Business API integration
+- [ ] Email outreach via SendGrid (integrated but needs testing)
+- [ ] WebSocket for real-time notifications
+
+### P2 - Future
+- [ ] User roles and permissions
+- [ ] Mobile app for influencers
+- [ ] Advanced analytics and reporting
+- [ ] AI stylist influencers
+
+---
+
+## Known Issues
+1. SSE streaming returns 403 when called directly (works via fetch with auth header)
+2. Recharts console warnings (cosmetic only)
+3. Social verification requires external API keys
+
+## Test Credentials
+- Email: test@sevora.com
+- Password: test123456
+
+---
+
+*Last Updated: March 4, 2026*
