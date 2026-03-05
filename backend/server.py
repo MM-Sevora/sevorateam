@@ -54,7 +54,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     name: str
-    role: str = "influencer_manager"
+    role: str = "marketing_manager"  # Default role for new users
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -1413,6 +1413,421 @@ async def import_discovered_influencer(
         logger.error(f"Import error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# ============== BACKGROUND TASK AI DISCOVERY ==============
+@ai_router.post("/auto-discover-background")
+async def start_background_discovery(
+    data: AIAutoDiscoveryRequest,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Start AI discovery as a background task.
+    Returns task_id immediately - poll /task-status/{task_id} for results.
+    Prevents timeout issues for long-running AI operations.
+    """
+    from services.background_tasks import create_background_task_service
+    
+    task_service = create_background_task_service(db)
+    
+    # Create the background task
+    task_id = await task_service.create_task(
+        task_type="ai_discovery",
+        params={
+            "campaign_brief": data.campaign_brief,
+            "industry": data.industry,
+            "target_audience": data.target_audience,
+            "budget_range": data.budget_range,
+            "location": data.location,
+            "style_preference": data.style_preference,
+            "follower_range": data.follower_range,
+            "content_type": data.content_type,
+            "num_suggestions": data.num_suggestions
+        },
+        user_id=user['id']
+    )
+    
+    # Start the background task
+    background_tasks.add_task(task_service.run_ai_discovery_task, task_id)
+    
+    return {
+        "success": True,
+        "task_id": task_id,
+        "message": "AI discovery started. Poll /api/ai/task-status/{task_id} for results.",
+        "status_url": f"/api/ai/task-status/{task_id}"
+    }
+
+@ai_router.get("/task-status/{task_id}")
+async def get_task_status(task_id: str, user: dict = Depends(get_current_user)):
+    """
+    Get status of a background AI discovery task.
+    Poll this endpoint to check progress and get results.
+    """
+    from services.background_tasks import create_background_task_service
+    
+    task_service = create_background_task_service(db)
+    task = await task_service.get_task_status(task_id)
+    
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    return task
+
+# ============== WHATSAPP OUTREACH ROUTES ==============
+whatsapp_router = APIRouter(prefix="/whatsapp", tags=["WhatsApp"])
+
+@whatsapp_router.get("/status")
+async def get_whatsapp_status(user: dict = Depends(get_current_user)):
+    """Get WhatsApp API configuration status"""
+    from services.whatsapp_service import get_whatsapp_service
+    
+    wa_service = get_whatsapp_service()
+    return wa_service.get_configuration_status()
+
+@whatsapp_router.post("/send-text")
+async def send_whatsapp_text(
+    phone_number: str,
+    message: str,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Send a text message via WhatsApp.
+    Note: Only works within 24-hour conversation window.
+    """
+    # Check user permission
+    from services.permissions import has_permission
+    if not has_permission(user.get('role', 'marketing_manager'), 'outreach:write'):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    from services.whatsapp_service import get_whatsapp_service
+    
+    wa_service = get_whatsapp_service()
+    
+    if not wa_service.is_configured:
+        raise HTTPException(
+            status_code=400,
+            detail="WhatsApp API not configured. Set WA_ACCESS_TOKEN and WA_PHONE_NUMBER_ID in environment."
+        )
+    
+    try:
+        result = wa_service.send_text_message(phone_number, message)
+        
+        # Log the outreach
+        await db.outreach.insert_one({
+            "id": str(uuid.uuid4()),
+            "type": "whatsapp",
+            "channel": "text",
+            "phone_number": phone_number,
+            "message": message,
+            "status": "sent",
+            "message_id": result.get("messages", [{}])[0].get("id"),
+            "sent_by": user['id'],
+            "sent_at": datetime.now(timezone.utc).isoformat()
+        })
+        
+        return {
+            "success": True,
+            "message_id": result.get("messages", [{}])[0].get("id"),
+            "response": result
+        }
+    except Exception as e:
+        logger.error(f"WhatsApp send error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@whatsapp_router.post("/send-template")
+async def send_whatsapp_template(
+    phone_number: str,
+    template_name: str,
+    parameters: Optional[List[str]] = None,
+    language: str = "en_US",
+    user: dict = Depends(get_current_user)
+):
+    """
+    Send a pre-approved template message via WhatsApp.
+    Templates must be created and approved in WhatsApp Business Manager first.
+    """
+    from services.permissions import has_permission
+    if not has_permission(user.get('role', 'marketing_manager'), 'outreach:write'):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    from services.whatsapp_service import get_whatsapp_service
+    
+    wa_service = get_whatsapp_service()
+    
+    if not wa_service.is_configured:
+        raise HTTPException(
+            status_code=400,
+            detail="WhatsApp API not configured"
+        )
+    
+    try:
+        result = wa_service.send_template_message(
+            phone_number=phone_number,
+            template_name=template_name,
+            template_language=language,
+            parameters=parameters
+        )
+        
+        # Log the outreach
+        await db.outreach.insert_one({
+            "id": str(uuid.uuid4()),
+            "type": "whatsapp",
+            "channel": "template",
+            "phone_number": phone_number,
+            "template_name": template_name,
+            "parameters": parameters,
+            "status": "sent",
+            "message_id": result.get("messages", [{}])[0].get("id"),
+            "sent_by": user['id'],
+            "sent_at": datetime.now(timezone.utc).isoformat()
+        })
+        
+        return {
+            "success": True,
+            "message_id": result.get("messages", [{}])[0].get("id"),
+            "response": result
+        }
+    except Exception as e:
+        logger.error(f"WhatsApp template error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@whatsapp_router.post("/send-influencer-outreach")
+async def send_influencer_whatsapp_outreach(
+    influencer_id: str,
+    campaign_name: Optional[str] = None,
+    offer_details: Optional[str] = None,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Send collaboration outreach to an influencer via WhatsApp.
+    Requires influencer to have a phone number on file.
+    """
+    from services.permissions import has_permission
+    if not has_permission(user.get('role', 'marketing_manager'), 'outreach:write'):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    from services.whatsapp_service import get_whatsapp_service
+    
+    # Get influencer
+    influencer = await db.influencers.find_one({"id": influencer_id}, {"_id": 0})
+    if not influencer:
+        raise HTTPException(status_code=404, detail="Influencer not found")
+    
+    phone_number = influencer.get('phone') or influencer.get('whatsapp')
+    if not phone_number:
+        raise HTTPException(
+            status_code=400,
+            detail="Influencer does not have a phone number on file"
+        )
+    
+    wa_service = get_whatsapp_service()
+    
+    if not wa_service.is_configured:
+        raise HTTPException(
+            status_code=400,
+            detail="WhatsApp API not configured"
+        )
+    
+    try:
+        result = wa_service.send_influencer_outreach(
+            phone_number=phone_number,
+            influencer_name=influencer.get('name', 'there'),
+            brand_name="SEVORA",
+            campaign_name=campaign_name,
+            offer_details=offer_details
+        )
+        
+        # Update influencer status
+        await db.influencers.update_one(
+            {"id": influencer_id},
+            {
+                "$set": {
+                    "status": "contacted",
+                    "last_contacted": datetime.now(timezone.utc).isoformat()
+                }
+            }
+        )
+        
+        # Log the outreach
+        await db.outreach.insert_one({
+            "id": str(uuid.uuid4()),
+            "type": "whatsapp",
+            "channel": "influencer_outreach",
+            "influencer_id": influencer_id,
+            "influencer_name": influencer.get('name'),
+            "phone_number": phone_number,
+            "campaign_name": campaign_name,
+            "status": "sent",
+            "message_id": result.get("messages", [{}])[0].get("id"),
+            "sent_by": user['id'],
+            "sent_at": datetime.now(timezone.utc).isoformat()
+        })
+        
+        return {
+            "success": True,
+            "message": f"Outreach sent to {influencer.get('name')}",
+            "message_id": result.get("messages", [{}])[0].get("id")
+        }
+    except Exception as e:
+        logger.error(f"Influencer outreach error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@whatsapp_router.post("/batch-outreach")
+async def send_batch_whatsapp_outreach(
+    influencer_ids: List[str],
+    template_name: str,
+    campaign_name: Optional[str] = None,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Send WhatsApp outreach to multiple influencers.
+    """
+    from services.permissions import has_permission
+    if not has_permission(user.get('role', 'marketing_manager'), 'outreach:write'):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    from services.whatsapp_service import get_whatsapp_service
+    
+    wa_service = get_whatsapp_service()
+    
+    if not wa_service.is_configured:
+        raise HTTPException(status_code=400, detail="WhatsApp API not configured")
+    
+    results = []
+    
+    for influencer_id in influencer_ids:
+        influencer = await db.influencers.find_one({"id": influencer_id}, {"_id": 0})
+        if not influencer:
+            results.append({"influencer_id": influencer_id, "success": False, "error": "Not found"})
+            continue
+        
+        phone_number = influencer.get('phone') or influencer.get('whatsapp')
+        if not phone_number:
+            results.append({"influencer_id": influencer_id, "success": False, "error": "No phone number"})
+            continue
+        
+        try:
+            parameters = [
+                influencer.get('name', 'there'),
+                "SEVORA",
+                campaign_name or "an exciting collaboration"
+            ]
+            
+            result = wa_service.send_template_message(
+                phone_number=phone_number,
+                template_name=template_name,
+                parameters=parameters
+            )
+            
+            # Update influencer status
+            await db.influencers.update_one(
+                {"id": influencer_id},
+                {"$set": {"status": "contacted", "last_contacted": datetime.now(timezone.utc).isoformat()}}
+            )
+            
+            results.append({
+                "influencer_id": influencer_id,
+                "influencer_name": influencer.get('name'),
+                "success": True,
+                "message_id": result.get("messages", [{}])[0].get("id")
+            })
+        except Exception as e:
+            results.append({
+                "influencer_id": influencer_id,
+                "success": False,
+                "error": str(e)
+            })
+    
+    return {
+        "total": len(influencer_ids),
+        "successful": sum(1 for r in results if r.get("success")),
+        "failed": sum(1 for r in results if not r.get("success")),
+        "results": results
+    }
+
+# ============== USER MANAGEMENT & ROLES ==============
+users_router = APIRouter(prefix="/users", tags=["Users"])
+
+@users_router.get("")
+async def get_all_users(user: dict = Depends(get_current_user)):
+    """Get all users (admin only)"""
+    from services.permissions import has_permission
+    if not has_permission(user.get('role', 'marketing_manager'), 'users:read'):
+        raise HTTPException(status_code=403, detail="Permission denied. Admin access required.")
+    
+    users = await db.users.find({}, {"_id": 0, "password": 0}).to_list(100)
+    return users
+
+@users_router.get("/roles")
+async def get_available_roles(user: dict = Depends(get_current_user)):
+    """Get all available roles and their permissions"""
+    from services.permissions import get_all_roles, get_role_details
+    
+    roles = get_all_roles()
+    return {
+        "roles": roles,
+        "current_user_role": user.get('role', 'marketing_manager')
+    }
+
+@users_router.get("/my-permissions")
+async def get_my_permissions(user: dict = Depends(get_current_user)):
+    """Get current user's permissions"""
+    from services.permissions import get_role_details
+    
+    role_info = get_role_details(user.get('role', 'marketing_manager'))
+    return {
+        "user_id": user['id'],
+        "email": user['email'],
+        "role": user.get('role', 'marketing_manager'),
+        "role_info": role_info
+    }
+
+@users_router.put("/{user_id}/role")
+async def update_user_role(
+    user_id: str,
+    new_role: str,
+    user: dict = Depends(get_current_user)
+):
+    """Update a user's role (admin only)"""
+    from services.permissions import has_permission, ROLES
+    
+    if not has_permission(user.get('role', 'marketing_manager'), 'users:write'):
+        raise HTTPException(status_code=403, detail="Permission denied. Admin access required.")
+    
+    if new_role not in ROLES:
+        raise HTTPException(status_code=400, detail=f"Invalid role. Must be one of: {list(ROLES.keys())}")
+    
+    # Prevent admin from demoting themselves
+    if user_id == user['id'] and new_role != 'admin':
+        raise HTTPException(status_code=400, detail="Cannot change your own role")
+    
+    result = await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"role": new_role}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {"success": True, "message": f"User role updated to {new_role}"}
+
+@users_router.delete("/{user_id}")
+async def delete_user(user_id: str, user: dict = Depends(get_current_user)):
+    """Delete a user (admin only)"""
+    from services.permissions import has_permission
+    
+    if not has_permission(user.get('role', 'marketing_manager'), 'users:delete'):
+        raise HTTPException(status_code=403, detail="Permission denied. Admin access required.")
+    
+    if user_id == user['id']:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+    
+    result = await db.users.delete_one({"id": user_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {"success": True, "message": "User deleted"}
+
 # ============== CONTENT LIBRARY ==============
 @api_router.get("/content-library")
 async def get_content_library(
@@ -1596,34 +2011,47 @@ async def verify_influencer_profiles(
 class ScheduledSearchCreate(BaseModel):
     name: str
     campaign_brief: str
-    industry: str = "fashion"  # Changed from category
+    industry: str = "fashion"
     location: str = "India"
     follower_range: str = "10K-500K"
-    frequency: str = "daily"  # daily, weekly
+    frequency: str = "daily"  # daily, weekly, hourly
     num_suggestions: int = 10
 
 class ScheduledSearchUpdate(BaseModel):
     name: Optional[str] = None
     campaign_brief: Optional[str] = None
-    industry: Optional[str] = None  # Changed from category
+    industry: Optional[str] = None
     location: Optional[str] = None
     follower_range: Optional[str] = None
     frequency: Optional[str] = None
     num_suggestions: Optional[int] = None
     is_active: Optional[bool] = None
 
+# Global scheduler service instance
+_scheduler_service = None
+
+def get_scheduler_service():
+    """Get or create scheduler service"""
+    global _scheduler_service
+    if _scheduler_service is None:
+        from services.scheduler_service import create_scheduled_discovery_service
+        _scheduler_service = create_scheduled_discovery_service(db, mongo_url, os.environ['DB_NAME'])
+    return _scheduler_service
+
 @scheduled_router.get("/searches")
 async def get_scheduled_searches(user: dict = Depends(get_current_user)):
     """Get all scheduled searches"""
-    from services.scheduled_discovery import create_scheduled_discovery_service
-    service = create_scheduled_discovery_service(db)
+    service = get_scheduler_service()
     return await service.get_scheduled_searches(user['id'])
 
 @scheduled_router.post("/searches")
 async def create_scheduled_search(data: ScheduledSearchCreate, user: dict = Depends(get_current_user)):
-    """Create a new scheduled search"""
-    from services.scheduled_discovery import create_scheduled_discovery_service
-    service = create_scheduled_discovery_service(db)
+    """Create a new scheduled search with APScheduler"""
+    from services.permissions import has_permission
+    if not has_permission(user.get('role', 'marketing_manager'), 'scheduled:write'):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    service = get_scheduler_service()
     return await service.create_scheduled_search(
         name=data.name,
         campaign_brief=data.campaign_brief,
@@ -1638,8 +2066,7 @@ async def create_scheduled_search(data: ScheduledSearchCreate, user: dict = Depe
 @scheduled_router.get("/searches/{search_id}")
 async def get_scheduled_search(search_id: str, user: dict = Depends(get_current_user)):
     """Get a specific scheduled search"""
-    from services.scheduled_discovery import create_scheduled_discovery_service
-    service = create_scheduled_discovery_service(db)
+    service = get_scheduler_service()
     search = await service.get_scheduled_search(search_id)
     if not search:
         raise HTTPException(status_code=404, detail="Search not found")
@@ -1648,8 +2075,11 @@ async def get_scheduled_search(search_id: str, user: dict = Depends(get_current_
 @scheduled_router.put("/searches/{search_id}")
 async def update_scheduled_search(search_id: str, data: ScheduledSearchUpdate, user: dict = Depends(get_current_user)):
     """Update a scheduled search"""
-    from services.scheduled_discovery import create_scheduled_discovery_service
-    service = create_scheduled_discovery_service(db)
+    from services.permissions import has_permission
+    if not has_permission(user.get('role', 'marketing_manager'), 'scheduled:write'):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    service = get_scheduler_service()
     update_dict = {k: v for k, v in data.dict().items() if v is not None}
     result = await service.update_scheduled_search(search_id, update_dict)
     if not result:
@@ -1659,8 +2089,11 @@ async def update_scheduled_search(search_id: str, data: ScheduledSearchUpdate, u
 @scheduled_router.delete("/searches/{search_id}")
 async def delete_scheduled_search(search_id: str, user: dict = Depends(get_current_user)):
     """Delete a scheduled search"""
-    from services.scheduled_discovery import create_scheduled_discovery_service
-    service = create_scheduled_discovery_service(db)
+    from services.permissions import has_permission
+    if not has_permission(user.get('role', 'marketing_manager'), 'scheduled:write'):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    service = get_scheduler_service()
     success = await service.delete_scheduled_search(search_id)
     if not success:
         raise HTTPException(status_code=404, detail="Search not found")
@@ -1669,8 +2102,11 @@ async def delete_scheduled_search(search_id: str, user: dict = Depends(get_curre
 @scheduled_router.post("/searches/{search_id}/run")
 async def run_scheduled_search_now(search_id: str, user: dict = Depends(get_current_user)):
     """Manually trigger a scheduled search to run now"""
-    from services.scheduled_discovery import create_scheduled_discovery_service
-    service = create_scheduled_discovery_service(db)
+    from services.permissions import has_permission
+    if not has_permission(user.get('role', 'marketing_manager'), 'scheduled:write'):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    service = get_scheduler_service()
     result = await service.run_discovery_now(search_id)
     return result
 
@@ -1681,9 +2117,14 @@ async def get_discovery_results(
     user: dict = Depends(get_current_user)
 ):
     """Get discovery results from scheduled searches"""
-    from services.scheduled_discovery import create_scheduled_discovery_service
-    service = create_scheduled_discovery_service(db)
+    service = get_scheduler_service()
     return await service.get_discovery_results(search_id, limit)
+
+@scheduled_router.get("/status")
+async def get_scheduler_status(user: dict = Depends(get_current_user)):
+    """Get APScheduler status and running jobs"""
+    service = get_scheduler_service()
+    return service.get_scheduler_status()
 
 # ============== INFLUENCER COMPARISON ROUTES ==============
 class CompareRequest(BaseModel):
@@ -1879,10 +2320,12 @@ api_router.include_router(analytics_router)
 api_router.include_router(ai_router)
 api_router.include_router(social_router)
 api_router.include_router(scheduled_router)
+api_router.include_router(whatsapp_router)
+api_router.include_router(users_router)
 
 @api_router.get("/")
 async def root():
-    return {"message": "SEVORA Influencer Operations API", "version": "1.0.0"}
+    return {"message": "SEVORA Influencer Operations API", "version": "2.0.0"}
 
 app.include_router(api_router)
 
@@ -1896,7 +2339,7 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_configure_apis():
-    """Auto-configure social APIs from environment variables"""
+    """Configure APIs and start scheduler on startup"""
     from services.social_api import social_api_service
     
     # Configure Instagram if credentials are available
@@ -1911,7 +2354,25 @@ async def startup_configure_apis():
     if youtube_api_key:
         social_api_service.configure_youtube(youtube_api_key)
         logger.info("YouTube API configured from environment variables")
+    
+    # Start APScheduler and restore scheduled searches
+    try:
+        scheduler_service = get_scheduler_service()
+        scheduler_service.start_scheduler()
+        await scheduler_service.restore_jobs_on_startup()
+        logger.info("APScheduler started and jobs restored")
+    except Exception as e:
+        logger.error(f"Failed to start scheduler: {e}")
 
 @app.on_event("shutdown")
-async def shutdown_db_client():
+async def shutdown_services():
+    """Shutdown scheduler and database connections"""
+    try:
+        scheduler_service = get_scheduler_service()
+        scheduler_service.shutdown_scheduler()
+        logger.info("APScheduler shutdown complete")
+    except Exception as e:
+        logger.error(f"Error shutting down scheduler: {e}")
+    
     client.close()
+    logger.info("Database connection closed")
