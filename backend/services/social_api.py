@@ -181,8 +181,8 @@ class InstagramAPIClient:
                 
                 discovery = data["business_discovery"]
                 
-                # Calculate engagement rate from recent media
-                engagement_rate = await self._calculate_engagement(username, discovery.get("followers_count", 0))
+                # Calculate engagement rate and avg metrics from recent media
+                engagement_rate, avg_likes, avg_comments = await self._calculate_engagement(username, discovery.get("followers_count", 0))
                 
                 return SocialProfile(
                     platform="instagram",
@@ -197,17 +197,21 @@ class InstagramAPIClient:
                     profile_url=f"https://instagram.com/{username}",
                     avatar_url=discovery.get("profile_picture_url"),
                     last_verified=datetime.now(timezone.utc).isoformat(),
-                    raw_data=discovery
+                    raw_data={
+                        **discovery,
+                        "avg_likes": avg_likes,
+                        "avg_comments": avg_comments
+                    }
                 )
                 
         except Exception as e:
             logger.error(f"Instagram verification error for {username}: {e}")
             return None
     
-    async def _calculate_engagement(self, username: str, followers: int) -> float:
-        """Calculate engagement rate from recent posts"""
+    async def _calculate_engagement(self, username: str, followers: int) -> tuple:
+        """Calculate engagement rate and avg metrics from recent posts. Returns (engagement_rate, avg_likes, avg_comments)"""
         if followers == 0:
-            return 0.0
+            return 0.0, 0, 0
         
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -220,27 +224,28 @@ class InstagramAPIClient:
                 response = await client.get(url, params=params)
                 
                 if response.status_code != 200:
-                    return 0.0
+                    return 0.0, 0, 0
                 
                 data = response.json()
                 media = data.get("business_discovery", {}).get("media", {}).get("data", [])
                 
                 if not media:
-                    return 0.0
+                    return 0.0, 0, 0
                 
-                total_engagement = sum(
-                    (m.get("like_count", 0) + m.get("comments_count", 0))
-                    for m in media
-                )
+                total_likes = sum(m.get("like_count", 0) for m in media)
+                total_comments = sum(m.get("comments_count", 0) for m in media)
+                total_engagement = total_likes + total_comments
                 
+                avg_likes = total_likes // len(media)
+                avg_comments = total_comments // len(media)
                 avg_engagement = total_engagement / len(media)
                 engagement_rate = (avg_engagement / followers) * 100
                 
-                return round(engagement_rate, 2)
+                return round(engagement_rate, 2), avg_likes, avg_comments
                 
         except Exception as e:
             logger.error(f"Engagement calculation error: {e}")
-            return 0.0
+            return 0.0, 0, 0
 
 
 class YouTubeAPIClient:
@@ -337,8 +342,8 @@ class YouTubeAPIClient:
                 snippet = channel.get("snippet", {})
                 stats = channel.get("statistics", {})
                 
-                # Calculate engagement rate
-                engagement_rate = await self._calculate_engagement(channel_id, int(stats.get("subscriberCount", 0)))
+                # Calculate engagement rate and avg metrics
+                engagement_rate, avg_views, avg_likes, avg_comments = await self._calculate_engagement(channel_id, int(stats.get("subscriberCount", 0)))
                 
                 return SocialProfile(
                     platform="youtube",
@@ -349,21 +354,27 @@ class YouTubeAPIClient:
                     following=0,
                     posts_count=int(stats.get("videoCount", 0)),
                     engagement_rate=engagement_rate,
-                    is_verified=False,  # YouTube API doesn't expose this easily
+                    is_verified=False,
                     profile_url=f"https://youtube.com/channel/{channel_id}",
                     avatar_url=snippet.get("thumbnails", {}).get("default", {}).get("url"),
                     last_verified=datetime.now(timezone.utc).isoformat(),
-                    raw_data=channel
+                    raw_data={
+                        **channel,
+                        "avg_views": avg_views,
+                        "avg_likes": avg_likes,
+                        "avg_comments": avg_comments,
+                        "statistics": stats
+                    }
                 )
                 
         except Exception as e:
             logger.error(f"YouTube channel verification error: {e}")
             return None
     
-    async def _calculate_engagement(self, channel_id: str, subscribers: int) -> float:
-        """Calculate engagement rate from recent videos"""
+    async def _calculate_engagement(self, channel_id: str, subscribers: int) -> tuple:
+        """Calculate engagement rate and avg metrics from recent videos. Returns (engagement_rate, avg_views, avg_likes, avg_comments)"""
         if subscribers == 0:
-            return 0.0
+            return 0.0, 0, 0, 0
         
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -381,13 +392,13 @@ class YouTubeAPIClient:
                 response = await client.get(url, params=params)
                 
                 if response.status_code != 200:
-                    return 0.0
+                    return 0.0, 0, 0, 0
                 
                 data = response.json()
                 video_ids = [item["id"]["videoId"] for item in data.get("items", [])]
                 
                 if not video_ids:
-                    return 0.0
+                    return 0.0, 0, 0, 0
                 
                 # Get video statistics
                 videos_url = f"{self.base_url}/videos"
@@ -400,26 +411,38 @@ class YouTubeAPIClient:
                 response = await client.get(videos_url, params=videos_params)
                 
                 if response.status_code != 200:
-                    return 0.0
+                    return 0.0, 0, 0, 0
                 
                 videos_data = response.json()
                 
+                total_views = 0
+                total_likes = 0
+                total_comments = 0
                 total_engagement = 0
+                
                 for video in videos_data.get("items", []):
                     stats = video.get("statistics", {})
-                    total_engagement += (
-                        int(stats.get("likeCount", 0)) +
-                        int(stats.get("commentCount", 0))
-                    )
+                    views = int(stats.get("viewCount", 0))
+                    likes = int(stats.get("likeCount", 0))
+                    comments = int(stats.get("commentCount", 0))
+                    
+                    total_views += views
+                    total_likes += likes
+                    total_comments += comments
+                    total_engagement += likes + comments
                 
-                avg_engagement = total_engagement / len(video_ids)
+                num_videos = len(video_ids)
+                avg_views = total_views // num_videos
+                avg_likes = total_likes // num_videos
+                avg_comments = total_comments // num_videos
+                avg_engagement = total_engagement / num_videos
                 engagement_rate = (avg_engagement / subscribers) * 100
                 
-                return round(engagement_rate, 2)
+                return round(engagement_rate, 2), avg_views, avg_likes, avg_comments
                 
         except Exception as e:
             logger.error(f"YouTube engagement calculation error: {e}")
-            return 0.0
+            return 0.0, 0, 0, 0
 
 
 class SocialAPIService:

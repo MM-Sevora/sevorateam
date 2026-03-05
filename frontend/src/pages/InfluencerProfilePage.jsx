@@ -24,7 +24,7 @@ const INDUSTRIES = ['fashion', 'beauty', 'lifestyle', 'fitness', 'tech', 'food',
 const CONTENT_TYPES = ['reels', 'posts', 'stories', 'youtube videos', 'blogs', 'podcasts', 'live streams'];
 const GENDERS = ['male', 'female', 'non-binary', 'other', 'prefer not to say'];
 const TIERS = ['nano', 'micro', 'mid', 'macro', 'mega', 'celebrity'];
-const PLATFORMS = ['instagram', 'youtube', 'linkedin', 'tiktok', 'twitter'];
+const PLATFORMS = ['instagram', 'youtube'];
 const STATUS_OPTIONS = ['identified', 'contacted', 'interested', 'negotiation', 'confirmed', 'completed'];
 
 const TIER_INFO = {

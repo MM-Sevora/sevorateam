@@ -21,7 +21,7 @@ import { toast } from 'sonner';
 import { 
     Search, Users, Sparkles, Instagram, MapPin, TrendingUp, Plus, Star, 
     MoreHorizontal, Mail, Trash2, Zap, Loader2, CheckCircle, ExternalLink,
-    GitCompare, Shield, Youtube, RefreshCw, Linkedin, ArrowUpDown, ArrowUp, ArrowDown,
+    GitCompare, Shield, Youtube, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown,
     Filter, X, ChevronDown
 } from 'lucide-react';
 
@@ -30,7 +30,7 @@ const STATUS_OPTIONS = ['identified', 'contacted', 'interested', 'negotiation', 
 const INDUSTRIES = ['fashion', 'beauty', 'lifestyle', 'fitness', 'tech', 'food', 'travel'];
 const TIERS = ['nano', 'micro', 'macro', 'mega', 'celebrity'];
 const GENDERS = ['male', 'female', 'non-binary', 'other'];
-const PLATFORMS = ['instagram', 'youtube', 'linkedin', 'tiktok', 'twitter'];
+const PLATFORMS = ['instagram', 'youtube'];
 
 const STATUS_COLORS = {
     identified: 'bg-muted text-muted-foreground',
@@ -51,10 +51,7 @@ const TIER_COLORS = {
 
 const PLATFORM_ICONS = {
     instagram: { icon: Instagram, color: 'text-pink-500', bg: 'bg-pink-50' },
-    youtube: { icon: Youtube, color: 'text-red-500', bg: 'bg-red-50' },
-    linkedin: { icon: Linkedin, color: 'text-blue-600', bg: 'bg-blue-50' },
-    tiktok: { icon: Sparkles, color: 'text-black', bg: 'bg-gray-100' },
-    twitter: { icon: () => <span className="text-xs">𝕏</span>, color: 'text-black', bg: 'bg-gray-100' }
+    youtube: { icon: Youtube, color: 'text-red-500', bg: 'bg-red-50' }
 };
 
 // Format followers count

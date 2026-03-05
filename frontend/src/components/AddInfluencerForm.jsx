@@ -19,10 +19,7 @@ const TIERS = ['nano', 'micro', 'mid', 'macro', 'mega', 'celebrity'];
 const CITIES = ['Mumbai', 'Delhi', 'Bangalore', 'Kolkata', 'Chennai', 'Hyderabad', 'Pune', 'Jaipur'];
 const PLATFORMS = [
     { value: 'instagram', label: 'Instagram', icon: '📸' },
-    { value: 'youtube', label: 'YouTube', icon: '▶️' },
-    { value: 'linkedin', label: 'LinkedIn', icon: '💼' },
-    { value: 'tiktok', label: 'TikTok', icon: '🎵' },
-    { value: 'twitter', label: 'Twitter/X', icon: '🐦' }
+    { value: 'youtube', label: 'YouTube', icon: '▶️' }
 ];
 
 // Helper to calculate tier based on followers
@@ -44,11 +41,11 @@ const formatFollowers = (count) => {
 };
 
 const initialForm = {
-    name: '', bio: '', instagram_handle: '', youtube_handle: '', tiktok_handle: '', linkedin_handle: '', twitter_handle: '',
+    name: '', bio: '', instagram_handle: '', youtube_handle: '',
     primary_platform: 'instagram',
     email: '', phone: '', city: 'Mumbai', industry: 'fashion', tier: 'micro',
     gender: '', gender_focus: 'unisex', content_type: [],
-    followers: '', engagement_rate: '', avg_likes: '',
+    followers: '', engagement_rate: '', avg_likes: '', avg_comments: '', avg_views: '',
     rate_per_post: '', rate_per_reel: '', rate_per_story: '', rate_per_video: '', accepts_barter: false,
     style_tags: [], past_brands: [], notes: ''
 };
@@ -79,19 +76,31 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
             const data = response.data;
             
             if (data && data.followers > 0) {
+                // Store Instagram metrics
+                const igMetrics = {
+                    followers: data.followers,
+                    engagement_rate: data.engagement_rate || 0,
+                    avg_likes: data.raw_data?.avg_likes || 0,
+                    avg_comments: data.raw_data?.avg_comments || 0,
+                    posts_count: data.posts_count || 0
+                };
+                
                 // Auto-fill form fields
                 setForm(prev => ({
                     ...prev,
                     name: prev.name || data.display_name || data.username,
                     bio: prev.bio || data.bio || '',
-                    followers: data.followers,
-                    engagement_rate: data.engagement_rate || 0,
-                    tier: calculateTier(data.followers),
-                    primary_platform: 'instagram'
+                    followers: prev.primary_platform === 'instagram' || !prev.followers ? data.followers : prev.followers,
+                    engagement_rate: prev.primary_platform === 'instagram' || !prev.engagement_rate ? (data.engagement_rate || 0) : prev.engagement_rate,
+                    avg_likes: prev.primary_platform === 'instagram' ? (igMetrics.avg_likes || 0) : prev.avg_likes,
+                    avg_comments: prev.primary_platform === 'instagram' ? (igMetrics.avg_comments || 0) : prev.avg_comments,
+                    tier: calculateTier(prev.primary_platform === 'instagram' ? data.followers : prev.followers || data.followers),
+                    primary_platform: !prev.followers ? 'instagram' : prev.primary_platform,
+                    instagram_metrics: igMetrics
                 }));
                 
-                setFetchedData(prev => ({ ...prev, instagram: data }));
-                toast.success(`Fetched: ${formatFollowers(data.followers)} followers, ${data.engagement_rate?.toFixed(1)}% engagement`);
+                setFetchedData(prev => ({ ...prev, instagram: { ...data, metrics: igMetrics } }));
+                toast.success(`Instagram: ${formatFollowers(data.followers)} followers, ${data.engagement_rate?.toFixed(1)}% engagement`);
             } else {
                 toast.error('Could not fetch Instagram data. Profile may be private or handle incorrect.');
             }
@@ -116,19 +125,33 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
             const data = response.data;
             
             if (data && data.followers > 0) {
+                // Store YouTube metrics
+                const ytMetrics = {
+                    subscribers: data.followers,
+                    engagement_rate: data.engagement_rate || 0,
+                    avg_views: data.raw_data?.avg_views || 0,
+                    avg_likes: data.raw_data?.avg_likes || 0,
+                    avg_comments: data.raw_data?.avg_comments || 0,
+                    videos_count: data.posts_count || 0,
+                    total_views: data.raw_data?.statistics?.viewCount || 0
+                };
+                
                 // Auto-fill form fields
                 setForm(prev => ({
                     ...prev,
                     name: prev.name || data.display_name || data.username,
                     bio: prev.bio || data.bio || '',
-                    followers: prev.primary_platform === 'youtube' ? data.followers : prev.followers || data.followers,
-                    engagement_rate: prev.primary_platform === 'youtube' ? (data.engagement_rate || 0) : prev.engagement_rate || (data.engagement_rate || 0),
-                    tier: prev.primary_platform === 'youtube' ? calculateTier(data.followers) : prev.tier,
-                    primary_platform: !prev.followers ? 'youtube' : prev.primary_platform
+                    followers: prev.primary_platform === 'youtube' || !prev.followers ? data.followers : prev.followers,
+                    engagement_rate: prev.primary_platform === 'youtube' || !prev.engagement_rate ? (data.engagement_rate || 0) : prev.engagement_rate,
+                    avg_views: prev.primary_platform === 'youtube' ? (ytMetrics.avg_views || 0) : prev.avg_views,
+                    avg_likes: prev.primary_platform === 'youtube' ? (ytMetrics.avg_likes || 0) : prev.avg_likes,
+                    tier: calculateTier(prev.primary_platform === 'youtube' ? data.followers : prev.followers || data.followers),
+                    primary_platform: !prev.followers ? 'youtube' : prev.primary_platform,
+                    youtube_metrics: ytMetrics
                 }));
                 
-                setFetchedData(prev => ({ ...prev, youtube: data }));
-                toast.success(`Fetched: ${formatFollowers(data.followers)} subscribers, ${data.engagement_rate?.toFixed(1)}% engagement`);
+                setFetchedData(prev => ({ ...prev, youtube: { ...data, metrics: ytMetrics } }));
+                toast.success(`YouTube: ${formatFollowers(data.followers)} subscribers, ${formatFollowers(ytMetrics.avg_views)} avg views`);
             } else {
                 toast.error('Could not fetch YouTube data. Channel may not exist or handle incorrect.');
             }
@@ -152,11 +175,8 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
                 bio: cleanValue(form.bio),
                 instagram_handle: cleanValue(form.instagram_handle),
                 youtube_handle: cleanValue(form.youtube_handle),
-                tiktok_handle: cleanValue(form.tiktok_handle),
-                linkedin_handle: cleanValue(form.linkedin_handle),
-                twitter_handle: cleanValue(form.twitter_handle),
                 primary_platform: form.primary_platform || 'instagram',
-                email: cleanValue(form.email) || null,  // Must be null, not empty string
+                email: cleanValue(form.email) || null,
                 phone: cleanValue(form.phone),
                 city: form.city,
                 industry: form.industry || 'fashion',
@@ -167,9 +187,15 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
                 followers: typeof form.followers === 'number' ? form.followers : (parseInt(form.followers) || 0),
                 engagement_rate: typeof form.engagement_rate === 'number' ? form.engagement_rate : (parseFloat(form.engagement_rate) || 0),
                 avg_likes: typeof form.avg_likes === 'number' ? form.avg_likes : (parseInt(form.avg_likes) || 0),
+                avg_comments: typeof form.avg_comments === 'number' ? form.avg_comments : (parseInt(form.avg_comments) || 0),
+                avg_views: typeof form.avg_views === 'number' ? form.avg_views : (parseInt(form.avg_views) || 0),
+                // Include platform-specific metrics if fetched
+                instagram_metrics: form.instagram_metrics || null,
+                youtube_metrics: form.youtube_metrics || null,
                 rate_per_post: form.rate_per_post ? parseFloat(form.rate_per_post) : null,
                 rate_per_reel: form.rate_per_reel ? parseFloat(form.rate_per_reel) : null,
                 rate_per_story: form.rate_per_story ? parseFloat(form.rate_per_story) : null,
+                rate_per_video: form.rate_per_video ? parseFloat(form.rate_per_video) : null,
                 accepts_barter: form.accepts_barter || false,
                 style_tags: form.style_tags || [],
                 notes: cleanValue(form.notes),
@@ -389,46 +415,88 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
                                 <p className="text-[9px] text-muted-foreground">The platform where this influencer has their main presence</p>
                             </div>
                             
-                            <div className="grid grid-cols-3 gap-3">
+                            {/* Platform Handles */}
+                            <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-1">
                                     <Label className="text-[10px] uppercase font-mono flex items-center gap-1">
-                                        Instagram {form.primary_platform === 'instagram' && <Badge className="bg-gold/20 text-gold border-0 text-[8px]">Primary</Badge>}
+                                        <Instagram className="w-3 h-3 text-pink-500" /> Instagram 
+                                        {form.primary_platform === 'instagram' && <Badge className="bg-gold/20 text-gold border-0 text-[8px]">Primary</Badge>}
                                         {fetchedData.instagram && <CheckCircle className="w-3 h-3 text-green-500" />}
                                     </Label>
                                     <Input data-testid="inf-instagram-input" value={form.instagram_handle} onChange={(e) => update('instagram_handle', e.target.value)} placeholder="@handle" className="h-8" />
                                 </div>
                                 <div className="space-y-1">
                                     <Label className="text-[10px] uppercase font-mono flex items-center gap-1">
-                                        YouTube {form.primary_platform === 'youtube' && <Badge className="bg-red-500/20 text-red-600 border-0 text-[8px]">Primary</Badge>}
+                                        <Youtube className="w-3 h-3 text-red-500" /> YouTube 
+                                        {form.primary_platform === 'youtube' && <Badge className="bg-red-500/20 text-red-600 border-0 text-[8px]">Primary</Badge>}
                                         {fetchedData.youtube && <CheckCircle className="w-3 h-3 text-green-500" />}
                                     </Label>
                                     <Input value={form.youtube_handle} onChange={(e) => update('youtube_handle', e.target.value)} placeholder="@channel" className="h-8" />
                                 </div>
-                                <div className="space-y-1">
-                                    <Label className="text-[10px] uppercase font-mono flex items-center gap-1">
-                                        LinkedIn {form.primary_platform === 'linkedin' && <Badge className="bg-blue-500/20 text-blue-600 border-0 text-[8px]">Primary</Badge>}
-                                    </Label>
-                                    <Input value={form.linkedin_handle} onChange={(e) => update('linkedin_handle', e.target.value)} placeholder="profile-url" className="h-8" />
-                                </div>
-                                <div className="space-y-1">
-                                    <Label className="text-[10px] uppercase font-mono flex items-center gap-1">
-                                        TikTok {form.primary_platform === 'tiktok' && <Badge className="bg-pink-500/20 text-pink-600 border-0 text-[8px]">Primary</Badge>}
-                                    </Label>
-                                    <Input value={form.tiktok_handle} onChange={(e) => update('tiktok_handle', e.target.value)} placeholder="@handle" className="h-8" />
-                                </div>
-                                <div className="space-y-1">
-                                    <Label className="text-[10px] uppercase font-mono flex items-center gap-1">
-                                        Twitter/X {form.primary_platform === 'twitter' && <Badge className="bg-sky-500/20 text-sky-600 border-0 text-[8px]">Primary</Badge>}
-                                    </Label>
-                                    <Input value={form.twitter_handle} onChange={(e) => update('twitter_handle', e.target.value)} placeholder="@handle" className="h-8" />
-                                </div>
                             </div>
                             
-                            {/* Metrics - now shows if auto-filled */}
-                            <div className="grid grid-cols-3 gap-3 pt-3 border-t">
+                            {/* Instagram Metrics */}
+                            {fetchedData.instagram && (
+                                <div className="p-3 border rounded-lg bg-pink-50/50 border-pink-200">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Instagram className="w-4 h-4 text-pink-500" />
+                                        <span className="font-mono text-[10px] uppercase font-medium">Instagram Metrics</span>
+                                    </div>
+                                    <div className="grid grid-cols-4 gap-3 text-xs">
+                                        <div>
+                                            <p className="text-muted-foreground text-[10px]">Followers</p>
+                                            <p className="font-medium">{formatFollowers(fetchedData.instagram.followers)}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-muted-foreground text-[10px]">Engagement</p>
+                                            <p className="font-medium">{fetchedData.instagram.engagement_rate?.toFixed(2)}%</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-muted-foreground text-[10px]">Posts</p>
+                                            <p className="font-medium">{fetchedData.instagram.posts_count || 0}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-muted-foreground text-[10px]">Avg Likes</p>
+                                            <p className="font-medium">{formatFollowers(fetchedData.instagram.metrics?.avg_likes || 0)}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            {/* YouTube Metrics */}
+                            {fetchedData.youtube && (
+                                <div className="p-3 border rounded-lg bg-red-50/50 border-red-200">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Youtube className="w-4 h-4 text-red-500" />
+                                        <span className="font-mono text-[10px] uppercase font-medium">YouTube Metrics</span>
+                                    </div>
+                                    <div className="grid grid-cols-4 gap-3 text-xs">
+                                        <div>
+                                            <p className="text-muted-foreground text-[10px]">Subscribers</p>
+                                            <p className="font-medium">{formatFollowers(fetchedData.youtube.followers)}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-muted-foreground text-[10px]">Avg Views</p>
+                                            <p className="font-medium">{formatFollowers(fetchedData.youtube.metrics?.avg_views || 0)}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-muted-foreground text-[10px]">Videos</p>
+                                            <p className="font-medium">{fetchedData.youtube.posts_count || 0}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-muted-foreground text-[10px]">Engagement</p>
+                                            <p className="font-medium">{fetchedData.youtube.engagement_rate?.toFixed(2)}%</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            {/* Primary Platform Metrics (editable) */}
+                            <div className="grid grid-cols-4 gap-3 pt-3 border-t">
                                 <div className="space-y-1">
                                     <Label className="text-[10px] uppercase font-mono">
-                                        Followers {(fetchedData.instagram || fetchedData.youtube) && <span className="text-gold">(from API)</span>}
+                                        {form.primary_platform === 'youtube' ? 'Subscribers' : 'Followers'} 
+                                        {(fetchedData.instagram || fetchedData.youtube) && <span className="text-gold ml-1">(API)</span>}
                                     </Label>
                                     <Input 
                                         type="number" 
@@ -440,11 +508,11 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
                                 </div>
                                 <div className="space-y-1">
                                     <Label className="text-[10px] uppercase font-mono">
-                                        Engagement % {(fetchedData.instagram || fetchedData.youtube) && <span className="text-gold">(from API)</span>}
+                                        Engagement %
                                     </Label>
                                     <Input 
                                         type="number" 
-                                        step="0.1" 
+                                        step="0.01" 
                                         value={form.engagement_rate} 
                                         onChange={(e) => update('engagement_rate', e.target.value)} 
                                         placeholder="4.5" 
@@ -454,6 +522,18 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
                                 <div className="space-y-1">
                                     <Label className="text-[10px] uppercase font-mono">Avg Likes</Label>
                                     <Input type="number" value={form.avg_likes} onChange={(e) => update('avg_likes', e.target.value)} placeholder="2500" className="h-8" />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] uppercase font-mono">
+                                        {form.primary_platform === 'youtube' ? 'Avg Views' : 'Avg Comments'}
+                                    </Label>
+                                    <Input 
+                                        type="number" 
+                                        value={form.primary_platform === 'youtube' ? form.avg_views : form.avg_comments} 
+                                        onChange={(e) => update(form.primary_platform === 'youtube' ? 'avg_views' : 'avg_comments', e.target.value)} 
+                                        placeholder={form.primary_platform === 'youtube' ? '50000' : '100'} 
+                                        className="h-8" 
+                                    />
                                 </div>
                             </div>
                         </TabsContent>
