@@ -101,11 +101,40 @@ export default function Layout({ children }) {
 
       {/* Mobile Sidebar */}
       <aside
-        className={`lg:hidden fixed left-0 top-0 h-screen w-64 bg-zinc-950 border-r border-white/5 z-50 transform transition-transform duration-300 flex flex-col ${
+        className={`lg:hidden fixed left-0 top-0 h-screen w-64 bg-zinc-950 border-r border-white/5 z-50 transform transition-transform duration-300 flex flex-col overflow-y-auto ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
+        data-testid="mobile-sidebar"
       >
-        <SidebarContent />
+        <div className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-accent-violet flex items-center justify-center flex-shrink-0">
+              <Zap className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-lg font-heading font-bold text-white">SocialFlow AI</span>
+          </div>
+          <button onClick={() => setMobileOpen(false)} className="p-2 rounded-lg hover:bg-white/5 text-zinc-400" data-testid="close-mobile-menu">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <nav className="flex-1 px-3 py-4 space-y-1">
+          {navItems.map(item => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              onClick={() => setMobileOpen(false)}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  isActive ? 'bg-accent-violet/10 text-accent-violet' : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                }`
+              }
+              data-testid={`mobile-nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}
+            >
+              <item.icon className="w-5 h-5 flex-shrink-0" />
+              <span>{item.label}</span>
+            </NavLink>
+          ))}
+        </nav>
       </aside>
 
       {/* Main Content */}
