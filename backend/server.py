@@ -115,10 +115,10 @@ PLATFORM_CREDENTIAL_SCHEMAS = {
     "linkedin": {
         "display_name": "LinkedIn",
         "required_fields": [
-            {"key": "client_id", "label": "Client ID", "type": "text", "placeholder": "e.g., 77abcd1234ef"},
-            {"key": "client_secret", "label": "Client Secret", "type": "password", "placeholder": "e.g., aBcDeF123..."},
-            {"key": "access_token", "label": "Access Token", "type": "password", "placeholder": "OAuth 2.0 access token"},
-            {"key": "organization_id", "label": "Organization ID (optional)", "type": "text", "placeholder": "For company page posting"},
+            {"key": "client_id", "label": "Client ID", "type": "text", "placeholder": "e.g., 77abcd1234ef", "required": True},
+            {"key": "client_secret", "label": "Client Secret", "type": "password", "placeholder": "e.g., aBcDeF123...", "required": True},
+            {"key": "access_token", "label": "Access Token", "type": "password", "placeholder": "OAuth 2.0 access token", "required": True},
+            {"key": "organization_id", "label": "Organization ID (optional)", "type": "text", "placeholder": "For company page posting", "required": False},
         ],
         "guide": {
             "title": "How to get LinkedIn API credentials",
@@ -139,11 +139,11 @@ PLATFORM_CREDENTIAL_SCHEMAS = {
     "youtube": {
         "display_name": "YouTube (Google API)",
         "required_fields": [
-            {"key": "api_key", "label": "Google API Key", "type": "text", "placeholder": "e.g., AIzaSy..."},
-            {"key": "client_id", "label": "OAuth Client ID", "type": "text", "placeholder": "e.g., 123456-abc.apps.googleusercontent.com"},
-            {"key": "client_secret", "label": "OAuth Client Secret", "type": "password", "placeholder": "e.g., GOCSPX-..."},
-            {"key": "refresh_token", "label": "OAuth Refresh Token", "type": "password", "placeholder": "Long-lived refresh token"},
-            {"key": "channel_id", "label": "Channel ID", "type": "text", "placeholder": "e.g., UCxxxxxxxxxxxxxxxx"},
+            {"key": "api_key", "label": "Google API Key", "type": "text", "placeholder": "e.g., AIzaSy...", "required": True},
+            {"key": "client_id", "label": "OAuth Client ID (optional)", "type": "text", "placeholder": "e.g., 123456-abc.apps.googleusercontent.com", "required": False},
+            {"key": "client_secret", "label": "OAuth Client Secret (optional)", "type": "password", "placeholder": "e.g., GOCSPX-...", "required": False},
+            {"key": "refresh_token", "label": "OAuth Refresh Token (optional)", "type": "password", "placeholder": "Long-lived refresh token", "required": False},
+            {"key": "channel_id", "label": "Channel ID (optional)", "type": "text", "placeholder": "e.g., UCxxxxxxxxxxxxxxxx", "required": False},
         ],
         "guide": {
             "title": "How to get YouTube API credentials",
@@ -458,7 +458,7 @@ async def save_platform_credentials(req: PlatformCredentials, auth: dict = Depen
     if not schema:
         raise HTTPException(status_code=400, detail="Unknown platform")
 
-    required_keys = [f["key"] for f in schema["required_fields"] if "optional" not in f.get("label", "").lower()]
+    required_keys = [f["key"] for f in schema["required_fields"] if f.get("required", True) and "optional" not in f.get("label", "").lower()]
     missing = [k for k in required_keys if not req.credentials.get(k)]
     if missing:
         raise HTTPException(status_code=400, detail=f"Missing required credentials: {', '.join(missing)}")
@@ -542,8 +542,12 @@ async def update_platform_credentials(platform_id: str, req: PlatformCredentials
 
     merged = existing.get("credentials", {})
     for key, val in req.credentials.items():
-        if val and not val.startswith("****"):
-            merged[key] = val
+        if not val:
+            continue
+        # Skip masked values (contain consecutive asterisks)
+        if "****" in str(val):
+            continue
+        merged[key] = val
 
     api_credentials_col.update_one(
         {"platform_id": platform_id, "user_id": auth["user_id"]},

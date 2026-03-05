@@ -128,8 +128,11 @@ export default function Platforms() {
       try {
         const res = await api.get(`/api/platforms/${platformId}/credentials`);
         setSavedCreds(prev => ({ ...prev, [platformId]: res.data }));
+        // Initialize edit fields as empty - don't pre-fill with masked values
         if (res.data.has_credentials) {
-          setEditCreds(prev => ({ ...prev, [platformId]: { ...res.data.credentials } }));
+          const emptyFields = {};
+          Object.keys(res.data.credentials).forEach(key => { emptyFields[key] = ''; });
+          setEditCreds(prev => ({ ...prev, [platformId]: emptyFields }));
         }
       } catch (err) { console.error(err); }
       finally { setLoadingCreds(''); }
@@ -446,9 +449,14 @@ export default function Platforms() {
 
                         {pCreds?.has_credentials && schemas[pkey] && (
                           <div className="space-y-2.5">
-                            {schemas[pkey].required_fields.map(field => (
+                            {schemas[pkey].required_fields.map(field => {
+                              const maskedVal = pCreds?.credentials?.[field.key] || '';
+                              return (
                               <div key={field.key}>
-                                <label className="block text-xs font-medium text-zinc-500 mb-1">{field.label}</label>
+                                <div className="flex items-center justify-between mb-1">
+                                  <label className="block text-xs font-medium text-zinc-500">{field.label}</label>
+                                  {maskedVal && <span className="text-[10px] text-zinc-600 font-mono">Current: {maskedVal}</span>}
+                                </div>
                                 <div className="relative">
                                   <input
                                     type={field.type === 'password' && !showPasswords[`edit_${conn.platform_id}_${field.key}`] ? 'password' : 'text'}
@@ -457,7 +465,8 @@ export default function Platforms() {
                                       ...prev,
                                       [conn.platform_id]: { ...prev[conn.platform_id], [field.key]: e.target.value }
                                     }))}
-                                    className="w-full bg-zinc-950/50 border border-white/10 focus:border-accent-violet/50 rounded-lg py-2 px-3 pr-16 text-xs text-white font-mono transition-all"
+                                    placeholder={maskedVal ? 'Leave empty to keep current value' : field.placeholder}
+                                    className="w-full bg-zinc-950/50 border border-white/10 focus:border-accent-violet/50 rounded-lg py-2 px-3 pr-16 text-xs text-white font-mono placeholder-zinc-600 transition-all"
                                     data-testid={`edit-cred-${pkey}-${field.key}`}
                                   />
                                   <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
@@ -470,7 +479,8 @@ export default function Platforms() {
                                   </div>
                                 </div>
                               </div>
-                            ))}
+                              );
+                            })}
                             <div className="flex items-center gap-3 pt-2">
                               <button onClick={() => handleUpdateCredentials(conn.platform_id, pkey)}
                                 disabled={savingCreds === conn.platform_id}
