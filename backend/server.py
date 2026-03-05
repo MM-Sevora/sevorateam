@@ -1056,7 +1056,7 @@ PLATFORM_OAUTH_CONFIG = {
     "linkedin": {
         "auth_url": "https://www.linkedin.com/oauth/v2/authorization",
         "token_url": "https://www.linkedin.com/oauth/v2/accessToken",
-        "scopes": ["openid", "profile", "w_member_social"],
+        "scopes": ["openid", "profile", "email", "w_member_social", "r_organization_social", "w_organization_social"],
         "api_version": "v2",
     },
     "youtube": {
@@ -1731,7 +1731,7 @@ async def _get_real_youtube_insights(user_id: str, platform: dict):
 
 
 async def _get_real_linkedin_insights(user_id: str, platform: dict):
-    """Fetch real LinkedIn profile data using stored access token"""
+    """Fetch real LinkedIn profile + organization data using stored access token"""
     import httpx
     cred = api_credentials_col.find_one({"user_id": user_id, "platform": "linkedin"}, {"_id": 0})
     if not cred or not cred.get("credentials", {}).get("access_token"):
@@ -1740,65 +1740,134 @@ async def _get_real_linkedin_insights(user_id: str, platform: dict):
     access_token = cred["credentials"]["access_token"]
     org_id = cred["credentials"].get("organization_id", "")
 
+    profile = {}
+    org_data = {}
+    org_followers = 0
+    org_posts = []
+
     async with httpx.AsyncClient(timeout=10.0) as client:
         # Get profile info via OpenID userinfo
         profile_resp = await client.get(
             "https://api.linkedin.com/v2/userinfo",
             headers={"Authorization": f"Bearer {access_token}"}
         )
-        if profile_resp.status_code != 200:
-            return None
+        if profile_resp.status_code == 200:
+            profile = profile_resp.json()
 
-        profile = profile_resp.json()
-        name = profile.get("name", "")
-        picture = profile.get("picture", "")
-        sub = profile.get("sub", "")
-
-        # With w_member_social we can post but reading posts requires r_member_social (restricted)
-        # Show what we have access to
-        capabilities = ["Post to personal feed", "Delete own posts"]
+        # Try to get organization data if org_id available
         if org_id:
-            capabilities.append(f"Organization page (ID: {org_id})")
+            # Get org info
+            org_resp = await client.get(
+                f"https://api.linkedin.com/rest/organizations/{org_id}",
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "LinkedIn-Version": "202306",
+                }
+            )
+            if org_resp.status_code == 200:
+                org_data = org_resp.json()
 
-        return {
-            "platform": "linkedin",
-            "page_name": name,
-            "period": "current",
-            "is_simulated": False,
-            "profile_url": f"https://www.linkedin.com/in/",
-            "thumbnail": picture,
-            "overview": {
-                "followers": 0,
-                "following": 0,
-                "posts_count": 0,
-                "avg_engagement_rate": 0,
-                "note": "Detailed analytics require Marketing Developer Platform access",
-            },
-            "engagement": {
-                "total_likes": 0,
-                "total_comments": 0,
-                "total_shares": 0,
-                "total_saves": 0,
-            },
-            "capabilities": capabilities,
-            "account": {
-                "name": name,
-                "sub": sub,
-                "picture": picture,
-                "organization_id": org_id,
-            },
-            "audience": {
-                "top_countries": [
-                    {"country": "Audience data requires Marketing Developer Platform", "percentage": 0},
-                ],
-            },
-            "best_posting_times": [
-                {"day": "Tuesday-Thursday", "time": "8:00 AM - 10:00 AM", "engagement_index": 1.8},
-                {"day": "Tuesday-Thursday", "time": "12:00 PM - 1:00 PM", "engagement_index": 1.5},
-                {"day": "Wednesday", "time": "5:00 PM - 6:00 PM", "engagement_index": 1.3},
+            # Get org follower count
+            follower_resp = await client.get(
+                f"https://api.linkedin.com/rest/networkSizes/urn:li:organization:{org_id}?edgeType=CompanyFollowedByMember",
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "LinkedIn-Version": "202306",
+                }
+            )
+            if follower_resp.status_code == 200:
+                fdata = follower_resp.json()
+                org_followers = fdata.get("firstDegreeSize", 0)
+
+            # Get org posts
+            posts_resp = await client.get(
+                f"https://api.linkedin.com/rest/posts?q=author&author=urn%3Ali%3Aorganization%3A{org_id}&count=10",
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "LinkedIn-Version": "202306",
+                    "X-Restli-Protocol-Version": "2.0.0",
+                }
+            )
+            if posts_resp.status_code == 200:
+                posts_data = posts_resp.json()
+                for p in posts_data.get("elements", []):
+                    post_text = p.get("commentary", p.get("specificContent", {}).get("com.linkedin.ugc.ShareContent", {}).get("shareCommentary", {}).get("text", ""))
+                    org_posts.append({
+                        "content": post_text[:150] if post_text else "Post",
+                        "likes": 0,
+                        "comments": 0,
+                        "shares": 0,
+                        "date": p.get("createdAt", ""),
+                        "urn": p.get("id", ""),
+                    })
+
+    name = profile.get("name", platform.get("page_name", ""))
+    picture = profile.get("picture", "")
+    org_name = org_data.get("localizedName", "")
+    org_description = org_data.get("localizedDescription", "")
+    org_logo = ""
+    logo_v2 = org_data.get("logoV2", {})
+    if logo_v2:
+        original = logo_v2.get("original", logo_v2.get("cropped", ""))
+        if isinstance(original, str) and original:
+            org_logo = original
+    org_vanity = org_data.get("vanityName", "")
+    org_website = org_data.get("localizedWebsite", org_data.get("websiteUrl", ""))
+    org_industry = org_data.get("localizedSpecialties", [])
+    staff_range = org_data.get("staffCountRange", "")
+
+    capabilities = ["Post to personal feed", "Delete own posts"]
+    if org_id:
+        capabilities.append("Read organization posts")
+        capabilities.append("Post to company page")
+        capabilities.append("Read organization analytics")
+
+    display_name = org_name or name
+    display_thumb = org_logo or picture
+
+    return {
+        "platform": "linkedin",
+        "page_name": display_name,
+        "period": "current",
+        "is_simulated": False,
+        "profile_url": f"https://www.linkedin.com/company/{org_vanity}" if org_vanity else "https://www.linkedin.com/in/",
+        "thumbnail": display_thumb,
+        "overview": {
+            "followers": org_followers,
+            "following": 0,
+            "posts_count": len(org_posts),
+            "avg_engagement_rate": 0,
+            "staff_range": staff_range,
+        },
+        "engagement": {
+            "total_likes": sum(p.get("likes", 0) for p in org_posts),
+            "total_comments": sum(p.get("comments", 0) for p in org_posts),
+            "total_shares": sum(p.get("shares", 0) for p in org_posts),
+            "total_saves": 0,
+        },
+        "capabilities": capabilities,
+        "account": {
+            "name": name,
+            "picture": picture,
+            "organization_name": org_name,
+            "organization_id": org_id,
+            "organization_vanity": org_vanity,
+            "organization_description": org_description[:200] if org_description else "",
+            "organization_website": org_website,
+            "staff_range": staff_range,
+        },
+        "audience": {
+            "top_countries": [
+                {"country": "Audience demographics available via Marketing API", "percentage": 0},
             ],
-            "top_posts": [],
-        }
+        },
+        "best_posting_times": [
+            {"day": "Tuesday-Thursday", "time": "8:00 AM - 10:00 AM", "engagement_index": 1.8},
+            {"day": "Tuesday-Thursday", "time": "12:00 PM - 1:00 PM", "engagement_index": 1.5},
+            {"day": "Wednesday", "time": "5:00 PM - 6:00 PM", "engagement_index": 1.3},
+        ],
+        "top_posts": org_posts[:5],
+    }
 
 @app.post("/api/platforms/{platform_id}/post")
 async def post_to_platform(platform_id: str, req: PostCreate, auth: dict = Depends(verify_token)):
