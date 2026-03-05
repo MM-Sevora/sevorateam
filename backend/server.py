@@ -1056,7 +1056,7 @@ PLATFORM_OAUTH_CONFIG = {
     "linkedin": {
         "auth_url": "https://www.linkedin.com/oauth/v2/authorization",
         "token_url": "https://www.linkedin.com/oauth/v2/accessToken",
-        "scopes": ["openid", "profile", "email", "w_member_social", "r_organization_social", "w_organization_social"],
+        "scopes": ["openid", "profile", "email", "w_member_social"],
         "api_version": "v2",
     },
     "youtube": {
