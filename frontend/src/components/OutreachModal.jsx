@@ -156,10 +156,12 @@ export const OutreachModal = ({ open, onClose, influencer, onSuccess }) => {
 
     const canSendEmail = influencer?.email && channelStatus.email?.configured;
     const canSendWhatsApp = (influencer?.phone || influencer?.whatsapp) && channelStatus.whatsapp?.configured;
+    const isEmailMock = channelStatus.email?.mock_mode;
+    const isWhatsAppMock = channelStatus.whatsapp?.mock_mode;
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
-            <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto" data-testid="outreach-modal">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Send className="w-5 h-5 text-gold" />
@@ -168,6 +170,16 @@ export const OutreachModal = ({ open, onClose, influencer, onSuccess }) => {
                 </DialogHeader>
 
                 <div className="space-y-4 mt-4">
+                    {/* Mock Mode Banner */}
+                    {(isEmailMock || isWhatsAppMock) && (
+                        <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                            <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+                            <span className="text-sm text-amber-700 dark:text-amber-400">
+                                <strong>Test Mode:</strong> Messages are simulated and not actually sent. Configure API keys to enable real sending.
+                            </span>
+                        </div>
+                    )}
+                    
                     {/* Contact Info */}
                     <div className="flex gap-4 p-3 bg-muted/30 rounded-lg">
                         <div className="flex items-center gap-2">
@@ -187,18 +199,20 @@ export const OutreachModal = ({ open, onClose, influencer, onSuccess }) => {
                     {/* Channel Selection */}
                     <Tabs value={selectedChannel} onValueChange={setSelectedChannel}>
                         <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="email" disabled={!canSendEmail} className="gap-2">
+                            <TabsTrigger value="email" disabled={!canSendEmail} className="gap-2" data-testid="email-tab">
                                 <Mail className="w-4 h-4" />
                                 Email
+                                {isEmailMock && <Badge variant="outline" className="text-[10px] px-1 py-0 text-amber-600 border-amber-400">MOCK</Badge>}
                                 {canSendEmail ? (
                                     <CheckCircle className="w-3 h-3 text-green-500" />
                                 ) : (
                                     <XCircle className="w-3 h-3 text-red-500" />
                                 )}
                             </TabsTrigger>
-                            <TabsTrigger value="whatsapp" disabled={!canSendWhatsApp} className="gap-2">
+                            <TabsTrigger value="whatsapp" disabled={!canSendWhatsApp} className="gap-2" data-testid="whatsapp-tab">
                                 <MessageCircle className="w-4 h-4" />
                                 WhatsApp
+                                {isWhatsAppMock && <Badge variant="outline" className="text-[10px] px-1 py-0 text-amber-600 border-amber-400">MOCK</Badge>}
                                 {canSendWhatsApp ? (
                                     <CheckCircle className="w-3 h-3 text-green-500" />
                                 ) : (
@@ -330,11 +344,12 @@ export const OutreachModal = ({ open, onClose, influencer, onSuccess }) => {
 
                     {/* Actions */}
                     <div className="flex justify-end gap-2 pt-4 border-t">
-                        <Button variant="outline" onClick={onClose}>Cancel</Button>
+                        <Button variant="outline" onClick={onClose} data-testid="outreach-cancel-btn">Cancel</Button>
                         <Button 
                             onClick={handleSend} 
                             disabled={loading || (selectedChannel === 'email' && !canSendEmail) || (selectedChannel === 'whatsapp' && !canSendWhatsApp)}
                             className="gap-2"
+                            data-testid="outreach-send-btn"
                         >
                             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                             Send {selectedChannel === 'email' ? 'Email' : 'WhatsApp'}

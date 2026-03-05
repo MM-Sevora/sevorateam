@@ -307,14 +307,23 @@ class OutreachCreate(BaseModel):
 class OutreachResponse(BaseModel):
     id: str
     influencer_id: str
-    influencer_name: str
-    channel: str
-    subject: Optional[str]
+    influencer_name: Optional[str] = None
+    channel: Optional[str] = None
+    type: Optional[str] = None  # For backward compatibility
+    subject: Optional[str] = None
     message: str
     status: str
     sent_at: str
-    opened: bool
-    replied: bool
+    opened: bool = False
+    replied: bool = False
+    recipient: Optional[str] = None
+    message_id: Optional[str] = None
+    campaign_name: Optional[str] = None
+    
+    @property
+    def display_channel(self) -> str:
+        """Get channel for display (prefer 'channel', fallback to 'type')"""
+        return self.channel or self.type or "unknown"
 
 class DeliverableItem(BaseModel):
     type: str  # reel, post, story, video, youtube_video, carousel, live
@@ -806,6 +815,16 @@ async def get_outreach(influencer_id: Optional[str] = None, user: dict = Depends
     if influencer_id:
         query["influencer_id"] = influencer_id
     outreach = await db.outreach.find(query, {"_id": 0}).sort("sent_at", -1).to_list(200)
+    
+    # Transform data for compatibility (handle 'type' -> 'channel')
+    for item in outreach:
+        if 'type' in item and 'channel' not in item:
+            item['channel'] = item['type']
+        if 'opened' not in item:
+            item['opened'] = False
+        if 'replied' not in item:
+            item['replied'] = False
+    
     return outreach
 
 @outreach_router.post("", response_model=OutreachResponse)
@@ -2308,12 +2327,14 @@ async def get_outreach_channels_status(user: dict = Depends(get_current_user)):
     return {
         "email": {
             "configured": email_service.is_configured,
-            "provider": "SendGrid",
+            "mock_mode": email_service.is_mock_mode,
+            "provider": "SendGrid (MOCK)" if email_service.is_mock_mode else "SendGrid",
             "sender": email_service.sender_email if email_service.is_configured else None
         },
         "whatsapp": {
             "configured": wa_service.is_configured,
-            "provider": "Meta Cloud API"
+            "mock_mode": wa_service.is_mock_mode,
+            "provider": "Meta Cloud API (MOCK)" if wa_service.is_mock_mode else "Meta Cloud API"
         }
     }
 

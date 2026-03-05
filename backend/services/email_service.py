@@ -1,15 +1,24 @@
 """
 SendGrid Email Service for Influencer Outreach
 Sends personalized emails for collaboration requests
+Supports MOCK mode when SendGrid is not configured
 """
 import os
 import logging
+import uuid
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, Email, To, Content, Personalization
 
 logger = logging.getLogger(__name__)
+
+# Check if SendGrid is available
+SENDGRID_AVAILABLE = False
+try:
+    from sendgrid import SendGridAPIClient
+    from sendgrid.helpers.mail import Mail, Email, To, Content, Personalization
+    SENDGRID_AVAILABLE = True
+except ImportError:
+    logger.warning("SendGrid not installed. Running in MOCK mode.")
 
 
 class EmailDeliveryError(Exception):
@@ -18,37 +27,62 @@ class EmailDeliveryError(Exception):
 
 
 class SendGridEmailService:
-    """Service for sending emails via SendGrid"""
+    """Service for sending emails via SendGrid with MOCK fallback"""
     
     def __init__(self):
         self.api_key = os.environ.get('SENDGRID_API_KEY')
         self.sender_email = os.environ.get('SENDGRID_SENDER_EMAIL', 'outreach@sevora.com')
         self.sender_name = os.environ.get('SENDGRID_SENDER_NAME', 'SEVORA Team')
         self._client = None
-        self._configured = bool(self.api_key)
+        # Enable mock mode via env var or when SendGrid is not available/configured
+        self._mock_mode = os.environ.get('EMAIL_MOCK_MODE', 'true').lower() == 'true'
+        self._configured = bool(self.api_key) and SENDGRID_AVAILABLE
     
     @property
     def is_configured(self) -> bool:
-        """Check if SendGrid is properly configured"""
-        return self._configured
+        """Check if email service is available (real or mock)"""
+        # Return True if mock mode is enabled OR if SendGrid is properly configured
+        return self._mock_mode or self._configured
+    
+    @property
+    def is_mock_mode(self) -> bool:
+        """Check if running in mock mode"""
+        return self._mock_mode or not self._configured
     
     def get_configuration_status(self) -> Dict[str, Any]:
         """Get current configuration status"""
         return {
-            "configured": self._configured,
+            "configured": self.is_configured,
+            "mock_mode": self.is_mock_mode,
             "has_api_key": bool(self.api_key),
-            "sender_email": self.sender_email if self._configured else None,
-            "sender_name": self.sender_name if self._configured else None
+            "sendgrid_available": SENDGRID_AVAILABLE,
+            "sender_email": self.sender_email,
+            "sender_name": self.sender_name
         }
     
-    def _get_client(self) -> SendGridAPIClient:
+    def _get_client(self):
         """Get or create SendGrid client"""
-        if not self._configured:
+        if not SENDGRID_AVAILABLE:
+            raise EmailDeliveryError("SendGrid SDK not installed.")
+        
+        if not self.api_key:
             raise EmailDeliveryError("SendGrid not configured. Set SENDGRID_API_KEY environment variable.")
         
         if self._client is None:
             self._client = SendGridAPIClient(self.api_key)
         return self._client
+    
+    def _mock_send(self, to_email: str, subject: str) -> Dict[str, Any]:
+        """Mock email send - logs and returns success"""
+        mock_message_id = f"mock-{uuid.uuid4().hex[:16]}"
+        logger.info(f"[MOCK] Email sent to {to_email}: subject='{subject}', message_id={mock_message_id}")
+        return {
+            "success": True,
+            "status_code": 202,
+            "message_id": mock_message_id,
+            "to": to_email,
+            "mock": True
+        }
     
     def send_email(
         self,
@@ -59,7 +93,7 @@ class SendGridEmailService:
         reply_to: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Send a single email via SendGrid.
+        Send a single email via SendGrid or MOCK mode.
         
         Args:
             to_email: Recipient email address
@@ -71,6 +105,14 @@ class SendGridEmailService:
         Returns:
             Response dict with status and message_id
         """
+        # Use mock mode if enabled or SendGrid not configured
+        if self.is_mock_mode:
+            return self._mock_send(to_email, subject)
+        
+        # Real SendGrid sending
+        from sendgrid import SendGridAPIClient
+        from sendgrid.helpers.mail import Mail, Content
+        
         message = Mail(
             from_email=(self.sender_email, self.sender_name),
             to_emails=to_email,
@@ -101,6 +143,10 @@ class SendGridEmailService:
             
         except Exception as e:
             logger.error(f"SendGrid error sending to {to_email}: {str(e)}")
+            # Fall back to mock mode on error
+            if self._mock_mode:
+                logger.info(f"Falling back to mock mode due to error")
+                return self._mock_send(to_email, subject)
             raise EmailDeliveryError(f"Failed to send email: {str(e)}")
     
     def send_influencer_outreach(

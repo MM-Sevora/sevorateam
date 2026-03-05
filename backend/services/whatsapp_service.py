@@ -1,9 +1,11 @@
 """
 WhatsApp Business API Service
 Uses Meta Cloud API for sending messages and outreach
+Supports MOCK mode when WhatsApp API is not configured
 """
 import os
 import logging
+import uuid
 import requests
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
@@ -12,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class WhatsAppService:
-    """Service for WhatsApp Business API integration"""
+    """Service for WhatsApp Business API integration with MOCK fallback"""
     
     def __init__(self):
         self.access_token = os.environ.get('WA_ACCESS_TOKEN')
@@ -22,21 +24,40 @@ class WhatsAppService:
         self.base_url = f"https://graph.facebook.com/{self.api_version}"
         self.verify_token = os.environ.get('WA_VERIFY_TOKEN', 'sevora-whatsapp-verify')
         
-        self._configured = bool(self.access_token and self.phone_number_id)
+        # Enable mock mode via env var
+        self._mock_mode = os.environ.get('WHATSAPP_MOCK_MODE', 'true').lower() == 'true'
+        self._real_configured = bool(self.access_token and self.phone_number_id)
     
     @property
     def is_configured(self) -> bool:
-        """Check if WhatsApp API is properly configured"""
-        return self._configured
+        """Check if WhatsApp service is available (real or mock)"""
+        return self._mock_mode or self._real_configured
+    
+    @property
+    def is_mock_mode(self) -> bool:
+        """Check if running in mock mode"""
+        return self._mock_mode or not self._real_configured
     
     def get_configuration_status(self) -> Dict[str, Any]:
         """Get current configuration status"""
         return {
-            "configured": self._configured,
+            "configured": self.is_configured,
+            "mock_mode": self.is_mock_mode,
             "has_access_token": bool(self.access_token),
             "has_phone_number_id": bool(self.phone_number_id),
             "has_business_account_id": bool(self.business_account_id),
             "api_version": self.api_version
+        }
+    
+    def _mock_send(self, phone_number: str, message_type: str = "text") -> Dict[str, Any]:
+        """Mock message send - logs and returns success"""
+        mock_message_id = f"wamid.mock{uuid.uuid4().hex[:16]}"
+        logger.info(f"[MOCK] WhatsApp {message_type} sent to {phone_number}: message_id={mock_message_id}")
+        return {
+            "messaging_product": "whatsapp",
+            "contacts": [{"input": phone_number, "wa_id": phone_number}],
+            "messages": [{"id": mock_message_id}],
+            "mock": True
         }
     
     def _send_message(self, message_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -49,7 +70,11 @@ class WhatsAppService:
         Returns:
             API response containing message_id
         """
-        if not self._configured:
+        # Use mock mode if enabled
+        if self.is_mock_mode:
+            return self._mock_send(message_data.get('to'), message_data.get('type', 'text'))
+        
+        if not self._real_configured:
             raise Exception("WhatsApp API not configured. Set WA_ACCESS_TOKEN and WA_PHONE_NUMBER_ID")
         
         url = f"{self.base_url}/{self.phone_number_id}/messages"
@@ -71,6 +96,10 @@ class WhatsAppService:
             if response.status_code >= 400:
                 error_detail = response.json() if response.text else str(response.status_code)
                 logger.error(f"WhatsApp API error: {error_detail}")
+                # Fall back to mock on error if mock mode enabled
+                if self._mock_mode:
+                    logger.info("Falling back to mock mode due to API error")
+                    return self._mock_send(message_data.get('to'), message_data.get('type', 'text'))
                 raise Exception(f"WhatsApp API error: {error_detail}")
             
             result = response.json()
@@ -79,6 +108,9 @@ class WhatsAppService:
             
         except requests.RequestException as e:
             logger.error(f"WhatsApp request failed: {str(e)}")
+            if self._mock_mode:
+                logger.info("Falling back to mock mode due to request error")
+                return self._mock_send(message_data.get('to'), message_data.get('type', 'text'))
             raise Exception(f"Failed to send WhatsApp message: {str(e)}")
     
     def send_text_message(self, phone_number: str, text: str) -> Dict[str, Any]:
