@@ -77,22 +77,22 @@ class InfluencerCreate(BaseModel):
     bio: Optional[str] = None
     profile_image_url: Optional[str] = None
     
-    # Social Media Handles
+    # Social Media Handles (Instagram & YouTube only)
     instagram_handle: Optional[str] = None
     youtube_handle: Optional[str] = None
-    tiktok_handle: Optional[str] = None
-    linkedin_handle: Optional[str] = None
-    twitter_handle: Optional[str] = None
-    pinterest_handle: Optional[str] = None
-    blog_url: Optional[str] = None
     
     # Primary Platform - which platform is their main presence
-    primary_platform: str = "instagram"  # instagram, youtube, linkedin, tiktok, twitter
+    primary_platform: str = "instagram"  # instagram, youtube
     
     # Contact Information
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     whatsapp: Optional[str] = None
+    
+    # Manager/Agent Contact
+    manager_name: Optional[str] = None
+    manager_email: Optional[str] = None
+    manager_phone: Optional[str] = None
     
     # Location
     city: str
@@ -100,7 +100,6 @@ class InfluencerCreate(BaseModel):
     country: str = "India"
     
     # Classification
-    category: str  # menswear, womenswear, luxury, ethnic, streetwear
     industry: str = "fashion"  # fashion, beauty, lifestyle, fitness, tech, food, travel
     content_type: List[str] = []  # reels, posts, stories, youtube, blogs
     tier: str = "micro"  # nano, micro, macro, mega, celebrity
@@ -108,22 +107,18 @@ class InfluencerCreate(BaseModel):
     gender_focus: str = "unisex"  # menswear, womenswear, unisex
     
     # Per-Platform Metrics
-    instagram_metrics: Optional[Dict[str, Any]] = None  # followers, engagement_rate, avg_likes, avg_comments, avg_reel_views
+    instagram_metrics: Optional[Dict[str, Any]] = None  # followers, engagement_rate, avg_likes, avg_comments
     youtube_metrics: Optional[Dict[str, Any]] = None  # subscribers, avg_views, avg_likes, avg_comments, total_videos
-    linkedin_metrics: Optional[Dict[str, Any]] = None  # connections, followers, avg_engagement
-    tiktok_metrics: Optional[Dict[str, Any]] = None  # followers, avg_views, avg_likes, engagement_rate
     
-    # Legacy/Combined Metrics (for backwards compatibility)
+    # Combined Metrics (from primary platform)
     followers: int = 0
     engagement_rate: float = 0.0
     avg_likes: int = 0
     avg_comments: int = 0
     avg_views: int = 0
     
-    # Audience Demographics
-    audience_location: str = "India"
-    audience_age_group: str = "18-34"
-    audience_gender_split: Optional[str] = None  # e.g., "60% Female, 40% Male"
+    # Audience Demographics (structured object with splits)
+    audience_demographics: Optional[Dict[str, Any]] = None  # {age_split: [...], gender_split: [...], city_split: [...]}
     
     # Rate Card
     rate_per_post: Optional[float] = None
@@ -131,6 +126,11 @@ class InfluencerCreate(BaseModel):
     rate_per_story: Optional[float] = None
     rate_per_video: Optional[float] = None
     accepts_barter: bool = False
+    
+    # Commercial Terms
+    exclusivity_terms: Optional[str] = None
+    typical_turnaround_days: Optional[int] = None
+    payment_terms: Optional[str] = None  # advance, 50-50, post-delivery, milestone
     
     # Additional Info
     style_tags: List[str] = []
@@ -146,14 +146,9 @@ class InfluencerUpdate(BaseModel):
     bio: Optional[str] = None
     profile_image_url: Optional[str] = None
     
-    # Social Media Handles
+    # Social Media Handles (Instagram & YouTube only)
     instagram_handle: Optional[str] = None
     youtube_handle: Optional[str] = None
-    tiktok_handle: Optional[str] = None
-    linkedin_handle: Optional[str] = None
-    twitter_handle: Optional[str] = None
-    pinterest_handle: Optional[str] = None
-    blog_url: Optional[str] = None
     
     # Primary Platform
     primary_platform: Optional[str] = None
@@ -163,13 +158,17 @@ class InfluencerUpdate(BaseModel):
     phone: Optional[str] = None
     whatsapp: Optional[str] = None
     
+    # Manager/Agent Contact
+    manager_name: Optional[str] = None
+    manager_email: Optional[str] = None
+    manager_phone: Optional[str] = None
+    
     # Location
     city: Optional[str] = None
     state: Optional[str] = None
     country: Optional[str] = None
     
     # Classification
-    category: Optional[str] = None
     industry: Optional[str] = None
     content_type: Optional[List[str]] = None
     tier: Optional[str] = None
@@ -179,10 +178,8 @@ class InfluencerUpdate(BaseModel):
     # Per-Platform Metrics
     instagram_metrics: Optional[Dict[str, Any]] = None
     youtube_metrics: Optional[Dict[str, Any]] = None
-    linkedin_metrics: Optional[Dict[str, Any]] = None
-    tiktok_metrics: Optional[Dict[str, Any]] = None
     
-    # Legacy Metrics
+    # Combined Metrics
     followers: Optional[int] = None
     engagement_rate: Optional[float] = None
     avg_likes: Optional[int] = None
@@ -190,9 +187,7 @@ class InfluencerUpdate(BaseModel):
     avg_views: Optional[int] = None
     
     # Audience Demographics
-    audience_location: Optional[str] = None
-    audience_age_group: Optional[str] = None
-    audience_gender_split: Optional[str] = None
+    audience_demographics: Optional[Dict[str, Any]] = None
     
     # Rate Card
     rate_per_post: Optional[float] = None
@@ -200,6 +195,11 @@ class InfluencerUpdate(BaseModel):
     rate_per_story: Optional[float] = None
     rate_per_video: Optional[float] = None
     accepts_barter: Optional[bool] = None
+    
+    # Commercial Terms
+    exclusivity_terms: Optional[str] = None
+    typical_turnaround_days: Optional[int] = None
+    payment_terms: Optional[str] = None
     
     # Additional Info
     style_tags: Optional[List[str]] = None
@@ -216,16 +216,17 @@ class InfluencerResponse(BaseModel):
     bio: Optional[str] = None
     instagram_handle: Optional[str] = None
     youtube_handle: Optional[str] = None
-    tiktok_handle: Optional[str] = None
-    linkedin_handle: Optional[str] = None
-    twitter_handle: Optional[str] = None
     primary_platform: Optional[str] = "instagram"
     email: Optional[str] = None
     phone: Optional[str] = None
+    whatsapp: Optional[str] = None
+    # Manager/Agent Contact
+    manager_name: Optional[str] = None
+    manager_email: Optional[str] = None
+    manager_phone: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
     country: Optional[str] = None
-    category: Optional[str] = None
     industry: Optional[str] = None
     content_type: Optional[List[str]] = []
     tier: Optional[str] = None
@@ -233,21 +234,22 @@ class InfluencerResponse(BaseModel):
     gender_focus: Optional[str] = None
     instagram_metrics: Optional[Dict[str, Any]] = None
     youtube_metrics: Optional[Dict[str, Any]] = None
-    linkedin_metrics: Optional[Dict[str, Any]] = None
-    tiktok_metrics: Optional[Dict[str, Any]] = None
     followers: Optional[int] = 0
     engagement_rate: Optional[float] = 0.0
     avg_likes: Optional[int] = 0
     avg_comments: Optional[int] = 0
     avg_views: Optional[int] = 0
-    audience_location: Optional[str] = None
-    audience_age_group: Optional[str] = None
-    audience_gender_split: Optional[str] = None
+    # Audience Demographics (structured)
+    audience_demographics: Optional[Dict[str, Any]] = None
     rate_per_post: Optional[float] = None
     rate_per_reel: Optional[float] = None
     rate_per_story: Optional[float] = None
     rate_per_video: Optional[float] = None
     accepts_barter: Optional[bool] = False
+    # Commercial Terms
+    exclusivity_terms: Optional[str] = None
+    typical_turnaround_days: Optional[int] = None
+    payment_terms: Optional[str] = None
     style_tags: Optional[List[str]] = []
     languages: Optional[List[str]] = []
     past_brands: Optional[List[str]] = []
@@ -348,7 +350,7 @@ class NegotiationEventCreate(BaseModel):
     deliverables_bucket: Optional[List[DeliverableItem]] = None  # Can update deliverables during negotiation
 
 class AIMatchRequest(BaseModel):
-    category: str
+    industry: str = "fashion"  # Changed from category
     min_followers: int = 10000
     min_engagement: float = 3.0
     city: Optional[str] = None
@@ -362,12 +364,12 @@ class AICaptionRequest(BaseModel):
 
 class AICampaignIdeaRequest(BaseModel):
     season: str
-    category: str
+    industry: str = "fashion"  # Changed from category
     budget: float
 
 class AIAutoDiscoveryRequest(BaseModel):
     campaign_brief: str
-    category: Optional[str] = None
+    industry: Optional[str] = "fashion"  # Changed from category
     target_audience: Optional[str] = None
     budget_range: Optional[str] = None
     location: Optional[str] = "India"
@@ -420,14 +422,14 @@ def calculate_influencer_score(influencer: dict) -> float:
         score += 10
     elif followers >= 10000:
         score += 5
-    # Fashion relevance (20%) - based on category
-    fashion_cats = ['luxury', 'streetwear', 'ethnic', 'menswear', 'womenswear', 'minimal']
-    if influencer.get('category', '').lower() in fashion_cats:
+    # Fashion relevance (20%) - based on industry
+    fashion_industries = ['fashion', 'luxury', 'beauty', 'lifestyle']
+    if influencer.get('industry', '').lower() in fashion_industries:
         score += 20
     # Content quality placeholder (15%)
     score += 12
-    # Audience location (10%)
-    if influencer.get('audience_location', '').lower() == 'india':
+    # Audience demographics bonus (10%)
+    if influencer.get('audience_demographics'):
         score += 10
     # Brand alignment placeholder (10%)
     score += 8
@@ -476,7 +478,7 @@ async def get_me(user: dict = Depends(get_current_user)):
 # ============== INFLUENCER ROUTES ==============
 @influencer_router.get("", response_model=List[InfluencerResponse])
 async def get_influencers(
-    category: Optional[str] = None,
+    industry: Optional[str] = None,
     city: Optional[str] = None,
     min_followers: Optional[int] = None,
     min_engagement: Optional[float] = None,
@@ -485,8 +487,8 @@ async def get_influencers(
     user: dict = Depends(get_current_user)
 ):
     query = {}
-    if category:
-        query["category"] = {"$regex": category, "$options": "i"}
+    if industry:
+        query["industry"] = {"$regex": industry, "$options": "i"}
     if city:
         query["city"] = {"$regex": city, "$options": "i"}
     if min_followers:
@@ -502,6 +504,7 @@ async def get_influencers(
         ]
     
     influencers = await db.influencers.find(query, {"_id": 0}).sort("score", -1).to_list(500)
+    return influencers
     return influencers
 
 @influencer_router.get("/{influencer_id}", response_model=InfluencerResponse)
@@ -1083,11 +1086,11 @@ async def get_dashboard_analytics(user: dict = Depends(get_current_user)):
     ]
     status_dist = await db.influencers.aggregate(pipeline).to_list(10)
     
-    # Get category distribution
-    cat_pipeline = [
-        {"$group": {"_id": "$category", "count": {"$sum": 1}}}
+    # Get industry distribution (changed from category)
+    industry_pipeline = [
+        {"$group": {"_id": "$industry", "count": {"$sum": 1}}}
     ]
-    cat_dist = await db.influencers.aggregate(cat_pipeline).to_list(20)
+    industry_dist = await db.influencers.aggregate(industry_pipeline).to_list(20)
     
     # Get recent outreach
     recent_outreach = await db.outreach.find({}, {"_id": 0}).sort("sent_at", -1).limit(5).to_list(5)
@@ -1102,7 +1105,7 @@ async def get_dashboard_analytics(user: dict = Depends(get_current_user)):
         "total_spent": total_spent,
         "budget_remaining": total_budget - total_spent,
         "status_distribution": {s['_id']: s['count'] for s in status_dist if s['_id']},
-        "category_distribution": {c['_id']: c['count'] for c in cat_dist if c['_id']},
+        "industry_distribution": {c['_id']: c['count'] for c in industry_dist if c['_id']},
         "recent_outreach": recent_outreach,
         "top_influencers": top_influencers
     }
@@ -1132,8 +1135,8 @@ async def ai_match_influencers(data: AIMatchRequest, user: dict = Depends(get_cu
         "followers": {"$gte": data.min_followers},
         "engagement_rate": {"$gte": data.min_engagement}
     }
-    if data.category:
-        query["category"] = {"$regex": data.category, "$options": "i"}
+    if data.industry:
+        query["industry"] = {"$regex": data.industry, "$options": "i"}
     if data.city:
         query["city"] = {"$regex": data.city, "$options": "i"}
     
@@ -1151,12 +1154,12 @@ async def ai_match_influencers(data: AIMatchRequest, user: dict = Depends(get_cu
         ).with_model("openai", "gpt-5.2")
         
         influencer_summary = "\n".join([
-            f"- {i['name']}: {i['followers']} followers, {i['engagement_rate']}% engagement, {i['category']}, {i['city']}"
+            f"- {i['name']}: {i['followers']} followers, {i['engagement_rate']}% engagement, {i.get('industry', 'fashion')}, {i['city']}"
             for i in influencers[:10]
         ])
         
         message = UserMessage(
-            text=f"Based on these influencers for a {data.category} campaign:\n{influencer_summary}\n\nProvide a brief 2-3 sentence recommendation on which 3 would be best for a luxury fashion brand campaign."
+            text=f"Based on these influencers for a {data.industry} campaign:\n{influencer_summary}\n\nProvide a brief 2-3 sentence recommendation on which 3 would be best for a luxury fashion brand campaign."
         )
         
         recommendation = await chat.send_message(message)
@@ -1209,7 +1212,7 @@ async def ai_campaign_ideas(data: AICampaignIdeaRequest, user: dict = Depends(ge
         ).with_model("openai", "gpt-5.2")
         
         message = UserMessage(
-            text=f"Generate 3 creative influencer campaign ideas for a {data.season} {data.category} fashion campaign with a budget of ₹{data.budget:,.0f}. Include campaign name, concept, and suggested deliverables. Be concise."
+            text=f"Generate 3 creative influencer campaign ideas for a {data.season} {data.industry} fashion campaign with a budget of ₹{data.budget:,.0f}. Include campaign name, concept, and suggested deliverables. Be concise."
         )
         
         ideas = await chat.send_message(message)
@@ -1239,7 +1242,7 @@ async def ai_auto_discover_influencers(data: AIAutoDiscoveryRequest, user: dict 
         analysis_prompt = f"""Generate {data.num_suggestions} Indian fashion influencer profiles for this campaign:
 
 Brief: {data.campaign_brief}
-Category: {data.category or 'Fashion'}
+Industry: {data.industry or 'Fashion'}
 Location: {data.location}
 Follower Range: {data.follower_range}
 
@@ -1253,7 +1256,7 @@ Return ONLY valid JSON (no markdown) with this exact structure:
             "instagram_handle": "handle",
             "bio": "Short bio",
             "city": "Mumbai",
-            "category": "luxury",
+            "industry": "fashion",
             "tier": "micro",
             "followers": 50000,
             "engagement_rate": 4.5,
@@ -1322,8 +1325,8 @@ Return ONLY valid JSON (no markdown) with this exact structure:
         
         # Also search existing database for matches
         db_query = {}
-        if data.category:
-            db_query["category"] = {"$regex": data.category, "$options": "i"}
+        if data.industry:
+            db_query["industry"] = {"$regex": data.industry, "$options": "i"}
         if data.location and data.location != "India":
             db_query["city"] = {"$regex": data.location, "$options": "i"}
         
@@ -1379,14 +1382,13 @@ async def import_discovered_influencer(
             "instagram_handle": influencer_data.get("instagram_handle", ""),
             "bio": influencer_data.get("bio", ""),
             "city": influencer_data.get("city", "Mumbai"),
-            "category": influencer_data.get("category", "luxury"),
+            "industry": influencer_data.get("industry", "fashion"),
             "tier": influencer_data.get("tier", "micro"),
             "followers": influencer_data.get("followers", 0),
             "engagement_rate": influencer_data.get("engagement_rate", 0),
             "style_tags": influencer_data.get("style_tags", []),
             "content_type": influencer_data.get("content_type", []),
             "rate_per_reel": influencer_data.get("estimated_rate_per_reel"),
-            "audience_location": "India",
             "status": "identified",
             "score": 0.0,
             "notes": f"AI Discovered. Match Score: {influencer_data.get('audience_match_score', 0)}%. Reason: {influencer_data.get('why_recommended', '')}",
@@ -1594,7 +1596,7 @@ async def verify_influencer_profiles(
 class ScheduledSearchCreate(BaseModel):
     name: str
     campaign_brief: str
-    category: str
+    industry: str = "fashion"  # Changed from category
     location: str = "India"
     follower_range: str = "10K-500K"
     frequency: str = "daily"  # daily, weekly
@@ -1603,7 +1605,7 @@ class ScheduledSearchCreate(BaseModel):
 class ScheduledSearchUpdate(BaseModel):
     name: Optional[str] = None
     campaign_brief: Optional[str] = None
-    category: Optional[str] = None
+    industry: Optional[str] = None  # Changed from category
     location: Optional[str] = None
     follower_range: Optional[str] = None
     frequency: Optional[str] = None
@@ -1625,7 +1627,7 @@ async def create_scheduled_search(data: ScheduledSearchCreate, user: dict = Depe
     return await service.create_scheduled_search(
         name=data.name,
         campaign_brief=data.campaign_brief,
-        category=data.category,
+        industry=data.industry,
         location=data.location,
         follower_range=data.follower_range,
         frequency=data.frequency,
@@ -1767,7 +1769,7 @@ async def compare_influencers(request: CompareRequest, user: dict = Depends(get_
 @ai_router.get("/auto-discover-stream")
 async def ai_auto_discover_stream(
     campaign_brief: str,
-    category: str = "luxury",
+    industry: str = "fashion",  # Changed from category
     location: str = "India",
     follower_range: str = "10K-500K",
     num_suggestions: int = 8,
@@ -1799,7 +1801,7 @@ async def ai_auto_discover_stream(
             prompt = f"""Generate {num_suggestions} Indian fashion influencer profiles for:
 
 Brief: {campaign_brief}
-Category: {category}
+Industry: {industry}
 Location: {location}
 Follower Range: {follower_range}
 
@@ -1812,7 +1814,7 @@ Return ONLY valid JSON (no markdown):
             "instagram_handle": "handle",
             "bio": "Short bio",
             "city": "City",
-            "category": "{category}",
+            "industry": "{industry}",
             "tier": "micro",
             "followers": 50000,
             "engagement_rate": 4.5,

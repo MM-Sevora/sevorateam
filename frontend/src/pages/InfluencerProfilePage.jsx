@@ -738,44 +738,129 @@ export const InfluencerProfilePage = () => {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div className="space-y-1">
-                                        <Label className="text-[10px] uppercase font-mono">Primary Location</Label>
-                                        {editing ? (
-                                            <Input value={data.audience_location || ''} onChange={(e) => update('audience_location', e.target.value)} placeholder="e.g., India, Mumbai" className="h-8" />
-                                        ) : (
-                                            <p className="font-medium">{data.audience_location || 'India'}</p>
+                                {data.audience_demographics ? (
+                                    <>
+                                        {/* Age Distribution */}
+                                        {data.audience_demographics.age_split?.length > 0 && (
+                                            <div className="space-y-2">
+                                                <Label className="text-[10px] uppercase font-mono">Age Distribution</Label>
+                                                <div className="space-y-1">
+                                                    {data.audience_demographics.age_split.map(item => (
+                                                        <div key={item.group} className="flex items-center gap-2">
+                                                            <span className="text-xs w-14">{item.group}</span>
+                                                            <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                                                <div className="bg-gold h-2 rounded-full transition-all" style={{width: `${item.percentage}%`}}></div>
+                                                            </div>
+                                                            <span className="text-xs font-medium w-10 text-right">{item.percentage}%</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         )}
-                                    </div>
-                                    <div className="space-y-1">
-                                        <Label className="text-[10px] uppercase font-mono">Age Group</Label>
-                                        {editing ? (
-                                            <Select value={data.audience_age_group || '18-34'} onValueChange={(v) => update('audience_age_group', v)}>
-                                                <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="13-17">13-17</SelectItem>
-                                                    <SelectItem value="18-24">18-24</SelectItem>
-                                                    <SelectItem value="18-34">18-34</SelectItem>
-                                                    <SelectItem value="25-34">25-34</SelectItem>
-                                                    <SelectItem value="35-44">35-44</SelectItem>
-                                                    <SelectItem value="45+">45+</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        ) : (
-                                            <p className="font-medium">{data.audience_age_group || '18-34'}</p>
+                                        
+                                        {/* Gender Distribution */}
+                                        {data.audience_demographics.gender_split?.length > 0 && (
+                                            <div className="space-y-2">
+                                                <Label className="text-[10px] uppercase font-mono">Gender Distribution</Label>
+                                                <div className="space-y-1">
+                                                    {data.audience_demographics.gender_split.map(item => (
+                                                        <div key={item.gender} className="flex items-center gap-2">
+                                                            <span className="text-xs w-14">{item.gender}</span>
+                                                            <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                                                <div className="bg-purple-500 h-2 rounded-full transition-all" style={{width: `${item.percentage}%`}}></div>
+                                                            </div>
+                                                            <span className="text-xs font-medium w-10 text-right">{item.percentage}%</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         )}
-                                    </div>
-                                    <div className="space-y-1">
-                                        <Label className="text-[10px] uppercase font-mono">Gender Split</Label>
-                                        {editing ? (
-                                            <Input value={data.audience_gender_split || ''} onChange={(e) => update('audience_gender_split', e.target.value)} placeholder="e.g., 60% Female, 40% Male" className="h-8" />
-                                        ) : (
-                                            <p className="font-medium">{data.audience_gender_split || 'Not specified'}</p>
+                                        
+                                        {/* City Distribution */}
+                                        {data.audience_demographics.city_split?.length > 0 && (
+                                            <div className="space-y-2">
+                                                <Label className="text-[10px] uppercase font-mono">Top Cities</Label>
+                                                <div className="space-y-1">
+                                                    {data.audience_demographics.city_split.map(item => (
+                                                        <div key={item.city} className="flex items-center gap-2">
+                                                            <span className="text-xs w-20 truncate">{item.city}</span>
+                                                            <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                                                <div className="bg-blue-500 h-2 rounded-full transition-all" style={{width: `${item.percentage}%`}}></div>
+                                                            </div>
+                                                            <span className="text-xs font-medium w-10 text-right">{item.percentage}%</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         )}
-                                    </div>
-                                </div>
+                                    </>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground italic">No audience demographics data available</p>
+                                )}
                             </CardContent>
                         </Card>
+                        
+                        {/* Manager / Agent Contact */}
+                        {(data.manager_name || data.manager_email || data.manager_phone) && (
+                            <Card className="border">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-base flex items-center gap-2">
+                                        <Users className="w-4 h-4 text-gold" /> Manager / Agent
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                    {data.manager_name && (
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-muted-foreground text-xs w-16">Name</span>
+                                            <span className="font-medium">{data.manager_name}</span>
+                                        </div>
+                                    )}
+                                    {data.manager_email && (
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-muted-foreground text-xs w-16">Email</span>
+                                            <a href={`mailto:${data.manager_email}`} className="text-gold hover:underline">{data.manager_email}</a>
+                                        </div>
+                                    )}
+                                    {data.manager_phone && (
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-muted-foreground text-xs w-16">Phone</span>
+                                            <a href={`tel:${data.manager_phone}`} className="text-gold hover:underline">{data.manager_phone}</a>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        )}
+                        
+                        {/* Commercial Terms */}
+                        {(data.exclusivity_terms || data.typical_turnaround_days || data.payment_terms) && (
+                            <Card className="border">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-base flex items-center gap-2">
+                                        <DollarSign className="w-4 h-4 text-gold" /> Commercial Terms
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                    {data.typical_turnaround_days && (
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-muted-foreground text-xs w-24">Turnaround</span>
+                                            <span className="font-medium">{data.typical_turnaround_days} days</span>
+                                        </div>
+                                    )}
+                                    {data.payment_terms && (
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-muted-foreground text-xs w-24">Payment</span>
+                                            <Badge variant="outline" className="capitalize">{data.payment_terms.replace('-', ' / ')}</Badge>
+                                        </div>
+                                    )}
+                                    {data.exclusivity_terms && (
+                                        <div className="space-y-1">
+                                            <span className="text-muted-foreground text-xs">Exclusivity Terms</span>
+                                            <p className="text-sm bg-muted/30 p-2 rounded">{data.exclusivity_terms}</p>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        )}
                     </div>
                 </TabsContent>
 

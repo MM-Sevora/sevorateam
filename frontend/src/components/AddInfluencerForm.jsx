@@ -11,16 +11,21 @@ import { Switch } from '../components/ui/switch';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { influencerApi, socialApi } from '../lib/api';
 import { toast } from 'sonner';
-import { User, AtSign, DollarSign, Plus, X, Loader2, Download, CheckCircle, Instagram, Youtube, Users } from 'lucide-react';
+import { User, AtSign, DollarSign, Plus, X, Loader2, Download, CheckCircle, Instagram, Youtube, Users, Trash2, Briefcase } from 'lucide-react';
 
 const INDUSTRIES = ['fashion', 'beauty', 'lifestyle', 'fitness', 'tech', 'food', 'travel', 'entertainment', 'education', 'finance'];
 const GENDERS = ['male', 'female', 'non-binary', 'other', 'prefer not to say'];
 const TIERS = ['nano', 'micro', 'mid', 'macro', 'mega', 'celebrity'];
-const CITIES = ['Mumbai', 'Delhi', 'Bangalore', 'Kolkata', 'Chennai', 'Hyderabad', 'Pune', 'Jaipur'];
+const CITIES = ['Mumbai', 'Delhi', 'Bangalore', 'Kolkata', 'Chennai', 'Hyderabad', 'Pune', 'Jaipur', 'Ahmedabad', 'Lucknow', 'Other'];
 const PLATFORMS = [
     { value: 'instagram', label: 'Instagram', icon: '📸' },
     { value: 'youtube', label: 'YouTube', icon: '▶️' }
 ];
+
+// Audience Demographics Options
+const AGE_GROUPS = ['13-17', '18-24', '25-34', '35-44', '45-54', '55+'];
+const AUDIENCE_GENDERS = ['Male', 'Female', 'Other'];
+const TOP_CITIES = ['Mumbai', 'Delhi', 'Bangalore', 'Kolkata', 'Chennai', 'Hyderabad', 'Pune', 'Jaipur', 'Ahmedabad', 'Lucknow', 'Other Indian', 'International'];
 
 // Helper to calculate tier based on followers
 const calculateTier = (followers) => {
@@ -46,10 +51,12 @@ const initialForm = {
     email: '', phone: '', city: 'Mumbai', industry: 'fashion', tier: 'micro',
     gender: '', gender_focus: 'unisex', content_type: [],
     followers: '', engagement_rate: '', avg_likes: '', avg_comments: '', avg_views: '',
-    // Manager/Agent
+    // Manager/Agent Contact
     manager_name: '', manager_email: '', manager_phone: '',
-    // Audience Demographics
-    audience_age_split: '', audience_gender_split: '', audience_top_cities: '',
+    // Audience Demographics with ratios
+    audience_age_split: [],    // [{group: '18-24', percentage: 40}, ...]
+    audience_gender_split: [], // [{gender: 'Female', percentage: 70}, ...]
+    audience_city_split: [],   // [{city: 'Mumbai', percentage: 30}, ...]
     // Commercial Terms
     rate_per_post: '', rate_per_reel: '', rate_per_story: '', rate_per_video: '', 
     accepts_barter: false, exclusivity_terms: '', turnaround_days: '', payment_terms: '',
@@ -67,6 +74,30 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
     const update = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
     const addTag = () => { if (tagInput && !form.style_tags.includes(tagInput)) { update('style_tags', [...form.style_tags, tagInput]); setTagInput(''); } };
     const removeTag = (tag) => update('style_tags', form.style_tags.filter(t => t !== tag));
+
+    // Demographic split helpers
+    const addDemoSplit = (field, item, labelKey) => {
+        const current = form[field] || [];
+        if (!current.find(d => d[labelKey] === item)) {
+            update(field, [...current, { [labelKey]: item, percentage: 0 }]);
+        }
+    };
+    
+    const updateDemoSplitPercentage = (field, labelKey, itemValue, percentage) => {
+        const current = form[field] || [];
+        update(field, current.map(d => 
+            d[labelKey] === itemValue ? { ...d, percentage: Math.max(0, Math.min(100, parseInt(percentage) || 0)) } : d
+        ));
+    };
+    
+    const removeDemoSplit = (field, labelKey, itemValue) => {
+        const current = form[field] || [];
+        update(field, current.filter(d => d[labelKey] !== itemValue));
+    };
+    
+    const getDemoTotal = (field) => {
+        return (form[field] || []).reduce((sum, d) => sum + (d.percentage || 0), 0);
+    };
 
     // Fetch Instagram data
     const fetchInstagramData = async () => {
@@ -176,6 +207,13 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
             // Clean up empty strings to null for optional fields
             const cleanValue = (val) => (val === '' || val === undefined) ? null : val;
             
+            // Build audience demographics object
+            const audience_demographics = {
+                age_split: form.audience_age_split?.length > 0 ? form.audience_age_split : null,
+                gender_split: form.audience_gender_split?.length > 0 ? form.audience_gender_split : null,
+                city_split: form.audience_city_split?.length > 0 ? form.audience_city_split : null
+            };
+            
             const submitData = {
                 name: form.name,
                 bio: cleanValue(form.bio),
@@ -198,11 +236,22 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
                 // Include platform-specific metrics if fetched
                 instagram_metrics: form.instagram_metrics || null,
                 youtube_metrics: form.youtube_metrics || null,
+                // Manager/Agent Contact
+                manager_name: cleanValue(form.manager_name),
+                manager_email: cleanValue(form.manager_email),
+                manager_phone: cleanValue(form.manager_phone),
+                // Audience Demographics
+                audience_demographics: (audience_demographics.age_split || audience_demographics.gender_split || audience_demographics.city_split) ? audience_demographics : null,
+                // Rate Card
                 rate_per_post: form.rate_per_post ? parseFloat(form.rate_per_post) : null,
                 rate_per_reel: form.rate_per_reel ? parseFloat(form.rate_per_reel) : null,
                 rate_per_story: form.rate_per_story ? parseFloat(form.rate_per_story) : null,
                 rate_per_video: form.rate_per_video ? parseFloat(form.rate_per_video) : null,
                 accepts_barter: form.accepts_barter || false,
+                // Commercial Terms
+                exclusivity_terms: cleanValue(form.exclusivity_terms),
+                typical_turnaround_days: form.turnaround_days ? parseInt(form.turnaround_days) : null,
+                payment_terms: cleanValue(form.payment_terms),
                 style_tags: form.style_tags || [],
                 notes: cleanValue(form.notes),
             };
@@ -363,10 +412,11 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
 
                 <form onSubmit={handleSubmit}>
                     <Tabs defaultValue="basic" className="mt-4">
-                        <TabsList className="grid w-full grid-cols-4">
+                        <TabsList className="grid w-full grid-cols-5">
                             <TabsTrigger value="basic" className="text-xs gap-1"><User className="w-3 h-3" />Basic</TabsTrigger>
                             <TabsTrigger value="social" className="text-xs gap-1"><AtSign className="w-3 h-3" />Social</TabsTrigger>
                             <TabsTrigger value="audience" className="text-xs gap-1"><Users className="w-3 h-3" />Audience</TabsTrigger>
+                            <TabsTrigger value="manager" className="text-xs gap-1"><Briefcase className="w-3 h-3" />Manager</TabsTrigger>
                             <TabsTrigger value="rates" className="text-xs gap-1"><DollarSign className="w-3 h-3" />Rates</TabsTrigger>
                         </TabsList>
 
@@ -586,6 +636,222 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
                                         placeholder={form.primary_platform === 'youtube' ? '50000' : '100'} 
                                         className="h-8" 
                                     />
+                                </div>
+                            </div>
+                        </TabsContent>
+
+                        {/* AUDIENCE DEMOGRAPHICS TAB */}
+                        <TabsContent value="audience" className="space-y-4 mt-4">
+                            <p className="text-xs text-muted-foreground">Add audience demographics from influencer's media kit. Click to add, then set percentages.</p>
+                            
+                            {/* Age Group Split */}
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-[10px] uppercase font-mono">Age Group Distribution</Label>
+                                    <span className={`text-[10px] font-mono ${getDemoTotal('audience_age_split') === 100 ? 'text-green-600' : getDemoTotal('audience_age_split') > 100 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                                        Total: {getDemoTotal('audience_age_split')}%
+                                    </span>
+                                </div>
+                                <div className="flex flex-wrap gap-1 mb-2">
+                                    {AGE_GROUPS.filter(ag => !(form.audience_age_split || []).find(d => d.group === ag)).map(ag => (
+                                        <Badge 
+                                            key={ag} 
+                                            variant="outline" 
+                                            className="text-[10px] cursor-pointer hover:bg-gold/10 hover:border-gold"
+                                            onClick={() => addDemoSplit('audience_age_split', ag, 'group')}
+                                        >
+                                            <Plus className="w-2 h-2 mr-1" />{ag}
+                                        </Badge>
+                                    ))}
+                                </div>
+                                {(form.audience_age_split || []).length > 0 && (
+                                    <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
+                                        {(form.audience_age_split || []).map(item => (
+                                            <div key={item.group} className="flex items-center gap-2">
+                                                <span className="text-xs w-16">{item.group}</span>
+                                                <Input 
+                                                    type="number" 
+                                                    min="0" 
+                                                    max="100"
+                                                    value={item.percentage} 
+                                                    onChange={(e) => updateDemoSplitPercentage('audience_age_split', 'group', item.group, e.target.value)}
+                                                    className="h-7 w-20 text-xs"
+                                                />
+                                                <span className="text-xs text-muted-foreground">%</span>
+                                                <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                                    <div className="bg-gold h-2 rounded-full transition-all" style={{width: `${item.percentage}%`}}></div>
+                                                </div>
+                                                <button type="button" onClick={() => removeDemoSplit('audience_age_split', 'group', item.group)} className="text-red-500 hover:text-red-700">
+                                                    <Trash2 className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Gender Split */}
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-[10px] uppercase font-mono">Gender Distribution</Label>
+                                    <span className={`text-[10px] font-mono ${getDemoTotal('audience_gender_split') === 100 ? 'text-green-600' : getDemoTotal('audience_gender_split') > 100 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                                        Total: {getDemoTotal('audience_gender_split')}%
+                                    </span>
+                                </div>
+                                <div className="flex flex-wrap gap-1 mb-2">
+                                    {AUDIENCE_GENDERS.filter(g => !(form.audience_gender_split || []).find(d => d.gender === g)).map(g => (
+                                        <Badge 
+                                            key={g} 
+                                            variant="outline" 
+                                            className="text-[10px] cursor-pointer hover:bg-gold/10 hover:border-gold"
+                                            onClick={() => addDemoSplit('audience_gender_split', g, 'gender')}
+                                        >
+                                            <Plus className="w-2 h-2 mr-1" />{g}
+                                        </Badge>
+                                    ))}
+                                </div>
+                                {(form.audience_gender_split || []).length > 0 && (
+                                    <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
+                                        {(form.audience_gender_split || []).map(item => (
+                                            <div key={item.gender} className="flex items-center gap-2">
+                                                <span className="text-xs w-16">{item.gender}</span>
+                                                <Input 
+                                                    type="number" 
+                                                    min="0" 
+                                                    max="100"
+                                                    value={item.percentage} 
+                                                    onChange={(e) => updateDemoSplitPercentage('audience_gender_split', 'gender', item.gender, e.target.value)}
+                                                    className="h-7 w-20 text-xs"
+                                                />
+                                                <span className="text-xs text-muted-foreground">%</span>
+                                                <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                                    <div className="bg-purple-500 h-2 rounded-full transition-all" style={{width: `${item.percentage}%`}}></div>
+                                                </div>
+                                                <button type="button" onClick={() => removeDemoSplit('audience_gender_split', 'gender', item.gender)} className="text-red-500 hover:text-red-700">
+                                                    <Trash2 className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* City Split */}
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-[10px] uppercase font-mono">Top Cities / Regions</Label>
+                                    <span className={`text-[10px] font-mono ${getDemoTotal('audience_city_split') === 100 ? 'text-green-600' : getDemoTotal('audience_city_split') > 100 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                                        Total: {getDemoTotal('audience_city_split')}%
+                                    </span>
+                                </div>
+                                <div className="flex flex-wrap gap-1 mb-2">
+                                    {TOP_CITIES.filter(c => !(form.audience_city_split || []).find(d => d.city === c)).map(c => (
+                                        <Badge 
+                                            key={c} 
+                                            variant="outline" 
+                                            className="text-[10px] cursor-pointer hover:bg-gold/10 hover:border-gold"
+                                            onClick={() => addDemoSplit('audience_city_split', c, 'city')}
+                                        >
+                                            <Plus className="w-2 h-2 mr-1" />{c}
+                                        </Badge>
+                                    ))}
+                                </div>
+                                {(form.audience_city_split || []).length > 0 && (
+                                    <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
+                                        {(form.audience_city_split || []).map(item => (
+                                            <div key={item.city} className="flex items-center gap-2">
+                                                <span className="text-xs w-24 truncate">{item.city}</span>
+                                                <Input 
+                                                    type="number" 
+                                                    min="0" 
+                                                    max="100"
+                                                    value={item.percentage} 
+                                                    onChange={(e) => updateDemoSplitPercentage('audience_city_split', 'city', item.city, e.target.value)}
+                                                    className="h-7 w-20 text-xs"
+                                                />
+                                                <span className="text-xs text-muted-foreground">%</span>
+                                                <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                                    <div className="bg-blue-500 h-2 rounded-full transition-all" style={{width: `${item.percentage}%`}}></div>
+                                                </div>
+                                                <button type="button" onClick={() => removeDemoSplit('audience_city_split', 'city', item.city)} className="text-red-500 hover:text-red-700">
+                                                    <Trash2 className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </TabsContent>
+
+                        {/* MANAGER / AGENT TAB */}
+                        <TabsContent value="manager" className="space-y-3 mt-4">
+                            <p className="text-xs text-muted-foreground">Contact details for influencer's manager or talent agency (if applicable).</p>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1 col-span-2">
+                                    <Label className="text-[10px] uppercase font-mono">Manager / Agent Name</Label>
+                                    <Input 
+                                        value={form.manager_name} 
+                                        onChange={(e) => update('manager_name', e.target.value)} 
+                                        placeholder="John Doe" 
+                                        className="h-8" 
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] uppercase font-mono">Manager Email</Label>
+                                    <Input 
+                                        type="email" 
+                                        value={form.manager_email} 
+                                        onChange={(e) => update('manager_email', e.target.value)} 
+                                        placeholder="manager@agency.com" 
+                                        className="h-8" 
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] uppercase font-mono">Manager Phone</Label>
+                                    <Input 
+                                        value={form.manager_phone} 
+                                        onChange={(e) => update('manager_phone', e.target.value)} 
+                                        placeholder="+91 98765 43210" 
+                                        className="h-8" 
+                                    />
+                                </div>
+                            </div>
+                            
+                            <div className="border-t pt-3 mt-3">
+                                <p className="text-xs font-medium mb-3">Commercial Terms</p>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] uppercase font-mono">Turnaround (Days)</Label>
+                                        <Input 
+                                            type="number" 
+                                            value={form.turnaround_days} 
+                                            onChange={(e) => update('turnaround_days', e.target.value)} 
+                                            placeholder="7" 
+                                            className="h-8" 
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] uppercase font-mono">Payment Terms</Label>
+                                        <Select value={form.payment_terms || "none"} onValueChange={(v) => update('payment_terms', v === "none" ? "" : v)}>
+                                            <SelectTrigger className="h-8"><SelectValue placeholder="Select" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">Not specified</SelectItem>
+                                                <SelectItem value="advance">Full Advance</SelectItem>
+                                                <SelectItem value="50-50">50% Advance, 50% Post</SelectItem>
+                                                <SelectItem value="post-delivery">Post Delivery</SelectItem>
+                                                <SelectItem value="milestone">Milestone Based</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1 col-span-2">
+                                        <Label className="text-[10px] uppercase font-mono">Exclusivity Terms</Label>
+                                        <Textarea 
+                                            value={form.exclusivity_terms} 
+                                            onChange={(e) => update('exclusivity_terms', e.target.value)} 
+                                            placeholder="e.g., No competing brand posts for 30 days" 
+                                            rows={2} 
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </TabsContent>
