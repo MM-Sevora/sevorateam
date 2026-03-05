@@ -60,6 +60,15 @@ An internal tool for a luxury fashion brand (SEVORA) to manage its entire influe
 - [x] **Verification Status Display:** Shows checkmark badge and last verified date on influencer profiles
 - [x] **Enhanced Add Influencer Form:** Quick Add section with Fetch buttons to pull live data from Instagram/YouTube APIs
 
+### Phase 4 - Industry-Standard Data Fields ✅ (March 5, 2026)
+- [x] **Audience Demographics with Ratios:** Multi-select demographic splits with percentage ratios for Age Group (13-17 to 55+), Gender (Male/Female/Other), Top Cities
+- [x] **Manager/Agent Contact Fields:** Manager name, email, phone for talent agency contacts
+- [x] **Commercial Terms:** Exclusivity terms, typical turnaround days, payment terms (advance, 50-50, post-delivery, milestone)
+- [x] **Enhanced Add Influencer Form:** Now 5 tabs (Basic, Social, Audience, Manager, Rates)
+- [x] **Visual Demographics Display:** Profile page shows demographics as visual progress bars with color coding (gold/purple/blue)
+- [x] **Removed Category Field:** Replaced with Industry throughout the application
+- [x] **Removed Legacy Platforms:** Cleaned up LinkedIn, TikTok, Twitter from UI and models (focused on Instagram & YouTube)
+
 ---
 
 ## API Endpoints
@@ -111,18 +120,38 @@ An internal tool for a luxury fashion brand (SEVORA) to manage its entire influe
     "name": "string",
     "instagram_handle": "string",
     "youtube_handle": "string",
-    "tiktok_handle": "string",
     "email": "string",
     "phone": "string",
     "city": "string",
-    "category": "luxury|menswear|womenswear|streetwear|ethnic|minimal",
     "industry": "fashion|beauty|lifestyle|fitness|tech|food|travel",
     "tier": "nano|micro|macro|mega|celebrity",
     "gender": "male|female|non-binary|other",
+    "gender_focus": "menswear|womenswear|unisex",
     "followers": "int",
     "engagement_rate": "float",
+    "instagram_metrics": {"followers", "engagement_rate", "avg_likes", "avg_comments"},
+    "youtube_metrics": {"subscribers", "avg_views", "avg_likes", "engagement_rate"},
+    # NEW - Manager Contact
+    "manager_name": "string",
+    "manager_email": "string",
+    "manager_phone": "string",
+    # NEW - Audience Demographics (multi-select with ratios)
+    "audience_demographics": {
+        "age_split": [{"group": "18-24", "percentage": 40}, ...],
+        "gender_split": [{"gender": "Female", "percentage": 70}, ...],
+        "city_split": [{"city": "Mumbai", "percentage": 30}, ...]
+    },
+    # Rate Card
+    "rate_per_post": "float",
+    "rate_per_reel": "float",
+    "rate_per_story": "float",
+    "rate_per_video": "float",
+    "accepts_barter": "bool",
+    # NEW - Commercial Terms
+    "exclusivity_terms": "string",
+    "typical_turnaround_days": "int",
+    "payment_terms": "advance|50-50|post-delivery|milestone",
     "style_tags": ["string"],
-    "rate_per_reel": "int",
     "status": "identified|contacted|interested|negotiation|confirmed|completed",
     "score": "float (calculated)",
     "created_at": "datetime"
@@ -150,7 +179,7 @@ An internal tool for a luxury fashion brand (SEVORA) to manage its entire influe
     "id": "uuid",
     "name": "string",
     "campaign_brief": "string",
-    "category": "string",
+    "industry": "string",  # Changed from category
     "location": "string",
     "follower_range": "string",
     "frequency": "daily|weekly",
@@ -165,32 +194,33 @@ An internal tool for a luxury fashion brand (SEVORA) to manage its entire influe
 ## Upcoming Tasks (Backlog)
 
 ### P0 - High Priority
-- [ ] Refactor server.py into smaller router files (1800+ lines now)
+- [ ] Refactor server.py into smaller router files (1900+ lines now)
 - [ ] Implement actual scheduling logic for Auto-Discovery (using apscheduler)
 
 ### P1 - Medium Priority
-- [ ] Content Library module
+- [ ] Content Library module - Store influencer-generated content
 - [ ] Display Deliverables Bucket in negotiation detail view
 - [ ] WhatsApp Business API integration
 - [ ] Email outreach via SendGrid (integrated but needs testing)
 
 ### P2 - Future
-- [ ] User roles and permissions
+- [ ] User roles and permissions (Founder, Marketing Manager)
 - [ ] Mobile app for influencers
 - [ ] Advanced analytics and reporting
 - [ ] AI stylist influencers
+- [ ] AI discovery timeout fix (background tasks)
 
 ---
 
 ## Known Issues
-1. SSE streaming returns 403 when called directly (works via fetch with auth header)
-2. Recharts console warnings (cosmetic only)
-3. server.py is over 1800 lines - needs refactoring into routers
-4. Some older influencers without social handles show 0 followers (need to add handles and refresh)
+1. Recharts console warnings (cosmetic only)
+2. server.py is over 1900 lines - needs refactoring into routers
+3. Some older influencers without social handles show 0 followers (need to add handles and refresh)
+4. AI discovery may timeout under heavy load (SSE helps but not fully async)
 
 ## Test Credentials
 - Register a new account on the login page to test
 
 ---
 
-*Last Updated: March 4, 2026*
+*Last Updated: March 5, 2026*
