@@ -21,12 +21,19 @@ export default function Platforms() {
   const [schemas, setSchemas] = useState({});
   const [showConnect, setShowConnect] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState('');
-  const [connectStep, setConnectStep] = useState('select'); // select | credentials | guide
+  const [connectStep, setConnectStep] = useState('select'); // select | credentials | oauth | guide
   const [credentialInputs, setCredentialInputs] = useState({});
   const [pageName, setPageName] = useState('');
   const [saving, setSaving] = useState(false);
   const [showPasswords, setShowPasswords] = useState({});
   const [error, setError] = useState('');
+
+  // OAuth flow state
+  const [oauthClientId, setOauthClientId] = useState('');
+  const [oauthClientSecret, setOauthClientSecret] = useState('');
+  const [oauthLoading, setOauthLoading] = useState(false);
+  const [oauthUrl, setOauthUrl] = useState('');
+  const [oauthRedirectUri, setOauthRedirectUri] = useState('');
 
   // Insights & credential management for connected
   const [expandedPanel, setExpandedPanel] = useState({}); // {platformId: 'insights'|'credentials'|''}
@@ -104,6 +111,60 @@ export default function Platforms() {
       setError(err.response?.data?.detail || 'Failed to save credentials');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleStartOAuth = async () => {
+    if (!selectedPlatform || !oauthClientId.trim()) {
+      setError('Client ID is required for OAuth');
+      return;
+    }
+    setOauthLoading(true);
+    setError('');
+    try {
+      const res = await api.post('/api/platforms/oauth/start', {
+        platform: selectedPlatform,
+        client_id: oauthClientId,
+        client_secret: oauthClientSecret,
+      });
+      setOauthUrl(res.data.oauth_url);
+      setOauthRedirectUri(res.data.redirect_uri);
+
+      // Listen for OAuth callback via postMessage
+      const handler = async (event) => {
+        if (event.data?.type === 'oauth_callback' && event.data.code) {
+          window.removeEventListener('message', handler);
+          try {
+            const exRes = await api.post('/api/platforms/oauth/exchange', {
+              platform: selectedPlatform,
+              code: event.data.code,
+              client_id: oauthClientId,
+              client_secret: oauthClientSecret,
+              page_name: pageName || `My ${selectedPlatform}`,
+            });
+            await fetchPlatforms();
+            setShowConnect(false);
+            setConnectStep('select');
+            setSelectedPlatform('');
+            setOauthClientId('');
+            setOauthClientSecret('');
+            setOauthUrl('');
+          } catch (err) {
+            setError(err.response?.data?.detail || 'OAuth token exchange failed');
+          }
+        } else if (event.data?.type === 'oauth_error') {
+          window.removeEventListener('message', handler);
+          setError(`OAuth error: ${event.data.error}`);
+        }
+      };
+      window.addEventListener('message', handler);
+
+      // Open OAuth popup
+      window.open(res.data.oauth_url, 'oauth_popup', 'width=600,height=700,left=300,top=100');
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to start OAuth');
+    } finally {
+      setOauthLoading(false);
     }
   };
 
@@ -242,8 +303,24 @@ export default function Platforms() {
                   </div>
                   <div>
                     <h3 className="text-lg font-heading font-semibold text-white">{schema.display_name}</h3>
-                    <p className="text-xs text-zinc-500">Enter your API credentials</p>
+                    <p className="text-xs text-zinc-500">Choose how to connect</p>
                   </div>
+                </div>
+
+                {/* Connect Method Tabs */}
+                <div className="flex gap-2 mb-5 p-1 bg-zinc-950/50 rounded-lg">
+                  <button onClick={() => setConnectStep('credentials')}
+                    className="flex-1 px-3 py-2 rounded-md text-xs font-medium transition-all bg-accent-violet/10 text-accent-violet"
+                    data-testid="tab-manual-creds"
+                  >
+                    <Key className="w-3 h-3 inline mr-1" /> Manual API Keys
+                  </button>
+                  <button onClick={() => setConnectStep('oauth')}
+                    className="flex-1 px-3 py-2 rounded-md text-xs font-medium transition-all text-zinc-400 hover:text-white hover:bg-white/5"
+                    data-testid="tab-oauth-connect"
+                  >
+                    <Shield className="w-3 h-3 inline mr-1" /> Connect via OAuth
+                  </button>
                 </div>
 
                 {error && (
@@ -333,6 +410,115 @@ export default function Platforms() {
                     ))}
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {connectStep === 'oauth' && schema && (
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${platformMeta[selectedPlatform]?.color}20` }}>
+                  {platformMeta[selectedPlatform]?.icon && React.createElement(platformMeta[selectedPlatform].icon, { className: "w-5 h-5", style: { color: platformMeta[selectedPlatform]?.color } })}
+                </div>
+                <div>
+                  <h3 className="text-lg font-heading font-semibold text-white">{schema.display_name} - OAuth Connect</h3>
+                  <p className="text-xs text-zinc-500">Authorize directly with {schema.display_name}</p>
+                </div>
+              </div>
+
+              {/* Connect Method Tabs */}
+              <div className="flex gap-2 mb-5 p-1 bg-zinc-950/50 rounded-lg">
+                <button onClick={() => setConnectStep('credentials')}
+                  className="flex-1 px-3 py-2 rounded-md text-xs font-medium transition-all text-zinc-400 hover:text-white hover:bg-white/5"
+                  data-testid="tab-manual-creds-2"
+                >
+                  <Key className="w-3 h-3 inline mr-1" /> Manual API Keys
+                </button>
+                <button onClick={() => setConnectStep('oauth')}
+                  className="flex-1 px-3 py-2 rounded-md text-xs font-medium transition-all bg-accent-violet/10 text-accent-violet"
+                  data-testid="tab-oauth-connect-2"
+                >
+                  <Shield className="w-3 h-3 inline mr-1" /> Connect via OAuth
+                </button>
+              </div>
+
+              {error && (
+                <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2" data-testid="oauth-error">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0" /> {error}
+                </div>
+              )}
+
+              <div className="bg-zinc-950/50 rounded-lg p-4 border border-white/5 mb-4">
+                <p className="text-sm text-zinc-300 mb-3">Enter your app credentials to start OAuth authorization:</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-400 mb-1.5">Client ID / App ID</label>
+                    <input type="text" value={oauthClientId} onChange={(e) => setOauthClientId(e.target.value)}
+                      className="w-full bg-zinc-950/50 border border-white/10 focus:border-accent-violet/50 focus:ring-2 focus:ring-accent-violet/20 rounded-lg py-2.5 px-4 text-sm text-white font-mono placeholder-zinc-600 transition-all"
+                      placeholder="Enter your Client ID" data-testid="oauth-client-id-input"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-400 mb-1.5">Client Secret</label>
+                    <div className="relative">
+                      <input type={showPasswords['oauth_secret'] ? 'text' : 'password'} value={oauthClientSecret} onChange={(e) => setOauthClientSecret(e.target.value)}
+                        className="w-full bg-zinc-950/50 border border-white/10 focus:border-accent-violet/50 focus:ring-2 focus:ring-accent-violet/20 rounded-lg py-2.5 px-4 pr-10 text-sm text-white font-mono placeholder-zinc-600 transition-all"
+                        placeholder="Enter your Client Secret" data-testid="oauth-client-secret-input"
+                      />
+                      <button type="button" onClick={() => toggleShowPassword('oauth_secret')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400">
+                        {showPasswords['oauth_secret'] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-400 mb-1.5">Page/Account Name</label>
+                    <input type="text" value={pageName} onChange={(e) => setPageName(e.target.value)}
+                      className="w-full bg-zinc-950/50 border border-white/10 focus:border-accent-violet/50 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-600 transition-all"
+                      placeholder="e.g., My Company Page" data-testid="oauth-page-name-input"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {oauthUrl && (
+                <div className="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">
+                  <p className="font-medium mb-1">OAuth popup opened!</p>
+                  <p className="text-xs text-emerald-400/70">Complete the authorization in the popup window. If the popup was blocked, copy this URL:</p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <input type="text" value={oauthUrl} readOnly className="flex-1 bg-zinc-950/50 border border-white/10 rounded-lg py-1.5 px-3 text-[10px] text-zinc-300 font-mono" />
+                    <button onClick={() => { navigator.clipboard.writeText(oauthUrl); setCopied('oauth_url'); }}
+                      className="p-1.5 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white" data-testid="copy-oauth-url">
+                      {copied === 'oauth_url' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-amber-500/5 border border-amber-500/10 rounded-lg p-3 mb-4">
+                <p className="text-xs text-amber-400 font-medium mb-1">Important: Add this Redirect URI to your app settings</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <code className="text-[10px] text-zinc-300 bg-zinc-900 px-2 py-1 rounded font-mono flex-1 truncate" data-testid="redirect-uri-display">
+                    {oauthRedirectUri || `${window.location.origin}/api/platforms/oauth/redirect`}
+                  </code>
+                  <button onClick={() => handleCopy(oauthRedirectUri || `${window.location.origin}/api/platforms/oauth/redirect`, 'redirect_uri')}
+                    className="p-1.5 rounded-lg bg-zinc-800 text-zinc-400 hover:text-white flex-shrink-0" data-testid="copy-redirect-uri">
+                    {copied === 'redirect_uri' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={() => { setConnectStep('select'); setError(''); setOauthUrl(''); }}
+                  className="bg-zinc-800 hover:bg-zinc-700 text-white border border-white/10 rounded-lg font-medium px-5 py-2.5 text-sm transition-all"
+                >Back</button>
+                <button onClick={handleStartOAuth} disabled={oauthLoading || !oauthClientId.trim()}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium px-6 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 transition-all"
+                  data-testid="start-oauth-button"
+                >
+                  {oauthLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
+                  {oauthLoading ? 'Starting...' : 'Authorize with ' + (schema?.display_name || selectedPlatform)}
+                </button>
               </div>
             </div>
           )}

@@ -117,7 +117,7 @@ PLATFORM_CREDENTIAL_SCHEMAS = {
         "required_fields": [
             {"key": "client_id", "label": "Client ID", "type": "text", "placeholder": "e.g., 77abcd1234ef", "required": True},
             {"key": "client_secret", "label": "Client Secret", "type": "password", "placeholder": "e.g., aBcDeF123...", "required": True},
-            {"key": "access_token", "label": "Access Token", "type": "password", "placeholder": "OAuth 2.0 access token", "required": True},
+            {"key": "access_token", "label": "Access Token (auto-filled via OAuth)", "type": "password", "placeholder": "Will be obtained via OAuth flow", "required": False},
             {"key": "organization_id", "label": "Organization ID (optional)", "type": "text", "placeholder": "For company page posting", "required": False},
         ],
         "guide": {
@@ -1037,30 +1037,280 @@ def _get_youtube_api_key(user_id: str) -> str:
 PLATFORM_OAUTH_CONFIG = {
     "facebook": {
         "auth_url": "https://www.facebook.com/v19.0/dialog/oauth",
+        "token_url": "https://graph.facebook.com/v19.0/oauth/access_token",
         "scopes": ["pages_manage_posts", "pages_read_engagement", "pages_show_list"],
         "api_version": "v19.0",
     },
     "instagram": {
-        "auth_url": "https://api.instagram.com/oauth/authorize",
-        "scopes": ["instagram_basic", "instagram_content_publish", "instagram_manage_insights"],
+        "auth_url": "https://www.facebook.com/v19.0/dialog/oauth",
+        "token_url": "https://graph.facebook.com/v19.0/oauth/access_token",
+        "scopes": ["instagram_basic", "instagram_content_publish", "instagram_manage_insights", "pages_show_list"],
         "api_version": "v19.0",
     },
     "twitter": {
         "auth_url": "https://twitter.com/i/oauth2/authorize",
+        "token_url": "https://api.x.com/2/oauth2/token",
         "scopes": ["tweet.read", "tweet.write", "users.read", "offline.access"],
         "api_version": "v2",
     },
     "linkedin": {
         "auth_url": "https://www.linkedin.com/oauth/v2/authorization",
-        "scopes": ["r_liteprofile", "w_member_social", "r_organization_social"],
+        "token_url": "https://www.linkedin.com/oauth/v2/accessToken",
+        "scopes": ["openid", "profile", "w_member_social"],
         "api_version": "v2",
     },
     "youtube": {
         "auth_url": "https://accounts.google.com/o/oauth2/v2/auth",
+        "token_url": "https://oauth2.googleapis.com/token",
         "scopes": ["https://www.googleapis.com/auth/youtube", "https://www.googleapis.com/auth/youtube.upload"],
         "api_version": "v3",
     },
 }
+
+APP_BASE_URL = os.environ.get("APP_URL", "")
+
+class OAuthStartRequest(BaseModel):
+    platform: str
+    client_id: str
+    client_secret: Optional[str] = ""
+
+class OAuthCodeExchange(BaseModel):
+    platform: str
+    code: str
+    client_id: str
+    client_secret: str
+    page_name: Optional[str] = ""
+
+@app.post("/api/platforms/oauth/start")
+async def oauth_start(req: OAuthStartRequest, auth: dict = Depends(verify_token)):
+    """Generate the proper OAuth authorization URL with all required parameters"""
+    config = PLATFORM_OAUTH_CONFIG.get(req.platform)
+    if not config:
+        raise HTTPException(status_code=400, detail="Unsupported platform")
+
+    existing = platforms_col.find_one({"user_id": auth["user_id"], "platform": req.platform})
+    if existing:
+        raise HTTPException(status_code=400, detail=f"{req.platform} is already connected")
+
+    state = str(uuid.uuid4())
+    redirect_uri = f"{APP_BASE_URL}/api/platforms/oauth/redirect"
+    scopes = " ".join(config["scopes"])
+
+    # Store state for verification
+    db["oauth_states"].insert_one({
+        "state": state,
+        "user_id": auth["user_id"],
+        "platform": req.platform,
+        "client_id": req.client_id,
+        "client_secret": req.client_secret,
+        "redirect_uri": redirect_uri,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+    if req.platform == "linkedin":
+        oauth_url = (
+            f"{config['auth_url']}"
+            f"?response_type=code"
+            f"&client_id={req.client_id}"
+            f"&redirect_uri={redirect_uri}"
+            f"&state={state}"
+            f"&scope={scopes}"
+        )
+    elif req.platform in ("facebook", "instagram"):
+        oauth_url = (
+            f"{config['auth_url']}"
+            f"?client_id={req.client_id}"
+            f"&redirect_uri={redirect_uri}"
+            f"&state={state}"
+            f"&scope={scopes}"
+            f"&response_type=code"
+        )
+    elif req.platform == "twitter":
+        import hashlib
+        code_verifier = uuid.uuid4().hex + uuid.uuid4().hex
+        code_challenge = base64.urlsafe_b64encode(
+            hashlib.sha256(code_verifier.encode()).digest()
+        ).decode().rstrip("=")
+        db["oauth_states"].update_one(
+            {"state": state},
+            {"$set": {"code_verifier": code_verifier}}
+        )
+        oauth_url = (
+            f"{config['auth_url']}"
+            f"?response_type=code"
+            f"&client_id={req.client_id}"
+            f"&redirect_uri={redirect_uri}"
+            f"&scope={scopes}"
+            f"&state={state}"
+            f"&code_challenge={code_challenge}"
+            f"&code_challenge_method=S256"
+        )
+    elif req.platform == "youtube":
+        oauth_url = (
+            f"{config['auth_url']}"
+            f"?client_id={req.client_id}"
+            f"&redirect_uri={redirect_uri}"
+            f"&response_type=code"
+            f"&scope={scopes}"
+            f"&state={state}"
+            f"&access_type=offline"
+            f"&prompt=consent"
+        )
+    else:
+        oauth_url = config["auth_url"]
+
+    return {
+        "oauth_url": oauth_url,
+        "state": state,
+        "redirect_uri": redirect_uri,
+        "platform": req.platform,
+        "note": f"Redirect the user to oauth_url. Make sure '{redirect_uri}' is added as an authorized redirect URI in your {req.platform} app settings.",
+    }
+
+from fastapi.responses import HTMLResponse
+from urllib.parse import urlencode
+
+@app.get("/api/platforms/oauth/redirect")
+async def oauth_redirect(code: str = "", state: str = "", error: str = ""):
+    """Handle OAuth redirect - sends code back to frontend"""
+    if error:
+        html = f"""<html><body><script>
+            window.opener?.postMessage({{ type: 'oauth_error', error: '{error}' }}, '*');
+            window.close();
+        </script><p>Authorization failed: {error}. You can close this window.</p></body></html>"""
+        return HTMLResponse(content=html)
+
+    html = f"""<html><body><script>
+        window.opener?.postMessage({{ type: 'oauth_callback', code: '{code}', state: '{state}' }}, '*');
+        setTimeout(() => window.close(), 2000);
+    </script><p>Authorization successful! This window will close automatically...</p></body></html>"""
+    return HTMLResponse(content=html)
+
+@app.post("/api/platforms/oauth/exchange")
+async def oauth_exchange(req: OAuthCodeExchange, auth: dict = Depends(verify_token)):
+    """Exchange authorization code for access token"""
+    import httpx
+
+    config = PLATFORM_OAUTH_CONFIG.get(req.platform)
+    if not config:
+        raise HTTPException(status_code=400, detail="Unsupported platform")
+
+    # Get stored state info
+    state_doc = db["oauth_states"].find_one({"user_id": auth["user_id"], "platform": req.platform})
+    redirect_uri = state_doc["redirect_uri"] if state_doc else f"{APP_BASE_URL}/api/platforms/oauth/redirect"
+
+    access_token = ""
+    refresh_token = ""
+    token_data = {}
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        if req.platform == "linkedin":
+            resp = await client.post(config["token_url"], data={
+                "grant_type": "authorization_code",
+                "code": req.code,
+                "client_id": req.client_id,
+                "client_secret": req.client_secret,
+                "redirect_uri": redirect_uri,
+            }, headers={"Content-Type": "application/x-www-form-urlencoded"})
+            if resp.status_code == 200:
+                token_data = resp.json()
+                access_token = token_data.get("access_token", "")
+            else:
+                raise HTTPException(status_code=400, detail=f"Token exchange failed: {resp.text[:300]}")
+
+        elif req.platform in ("facebook", "instagram"):
+            resp = await client.get(config["token_url"], params={
+                "client_id": req.client_id,
+                "client_secret": req.client_secret,
+                "redirect_uri": redirect_uri,
+                "code": req.code,
+            })
+            if resp.status_code == 200:
+                token_data = resp.json()
+                access_token = token_data.get("access_token", "")
+            else:
+                raise HTTPException(status_code=400, detail=f"Token exchange failed: {resp.text[:300]}")
+
+        elif req.platform == "twitter":
+            code_verifier = state_doc.get("code_verifier", "") if state_doc else ""
+            resp = await client.post(config["token_url"], data={
+                "code": req.code,
+                "grant_type": "authorization_code",
+                "client_id": req.client_id,
+                "redirect_uri": redirect_uri,
+                "code_verifier": code_verifier,
+            }, headers={"Content-Type": "application/x-www-form-urlencoded"})
+            if resp.status_code == 200:
+                token_data = resp.json()
+                access_token = token_data.get("access_token", "")
+                refresh_token = token_data.get("refresh_token", "")
+            else:
+                raise HTTPException(status_code=400, detail=f"Token exchange failed: {resp.text[:300]}")
+
+        elif req.platform == "youtube":
+            resp = await client.post(config["token_url"], data={
+                "code": req.code,
+                "client_id": req.client_id,
+                "client_secret": req.client_secret,
+                "redirect_uri": redirect_uri,
+                "grant_type": "authorization_code",
+            })
+            if resp.status_code == 200:
+                token_data = resp.json()
+                access_token = token_data.get("access_token", "")
+                refresh_token = token_data.get("refresh_token", "")
+            else:
+                raise HTTPException(status_code=400, detail=f"Token exchange failed: {resp.text[:300]}")
+
+    if not access_token:
+        raise HTTPException(status_code=400, detail="Failed to obtain access token")
+
+    # Save credentials and connect platform
+    platform_id = str(uuid.uuid4())
+    page_name = req.page_name or f"My {req.platform.capitalize()}"
+
+    cred_doc = {
+        "user_id": auth["user_id"],
+        "platform": req.platform,
+        "platform_id": platform_id,
+        "credentials": {
+            "client_id": req.client_id,
+            "client_secret": req.client_secret,
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+        },
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    api_credentials_col.update_one(
+        {"user_id": auth["user_id"], "platform": req.platform},
+        {"$set": cred_doc}, upsert=True
+    )
+
+    platform_doc = {
+        "platform_id": platform_id,
+        "user_id": auth["user_id"],
+        "platform": req.platform,
+        "page_name": page_name,
+        "connected_at": datetime.now(timezone.utc).isoformat(),
+        "status": "connected",
+        "has_api_credentials": True,
+        "scopes": config["scopes"],
+        "api_version": config["api_version"],
+        "token_expires": token_data.get("expires_in", ""),
+    }
+    platforms_col.insert_one(platform_doc)
+    platform_doc.pop("_id", None)
+
+    # Clean up state
+    db["oauth_states"].delete_many({"user_id": auth["user_id"], "platform": req.platform})
+
+    return {
+        "platform_id": platform_id,
+        "platform": req.platform,
+        "status": "connected",
+        "has_api_credentials": True,
+        "message": f"Successfully connected {req.platform} via OAuth!",
+    }
 
 @app.post("/api/platforms/oauth/init")
 async def init_oauth(req: OAuthInitRequest, auth: dict = Depends(verify_token)):
