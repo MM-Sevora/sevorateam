@@ -540,12 +540,42 @@ export default function Platforms() {
                       <div className="flex items-center justify-center py-6"><Loader2 className="w-5 h-5 text-accent-violet animate-spin" /></div>
                     ) : pInsights ? (
                       <div className="space-y-4">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {/* Data source badge */}
+                        <div className="flex items-center gap-2">
+                          {pInsights.is_simulated ? (
+                            <span className="text-[10px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3" /> Simulated Data - Add API keys for real metrics
+                            </span>
+                          ) : (
+                            <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <CheckCircle className="w-3 h-3" /> Live Data from API
+                            </span>
+                          )}
+                          {pInsights.channel_url && (
+                            <a href={pInsights.channel_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-accent-violet flex items-center gap-1">
+                              <ExternalLink className="w-3 h-3" /> View Channel
+                            </a>
+                          )}
+                        </div>
+
+                        {/* Channel header for real YouTube data */}
+                        {pInsights.thumbnail && (
+                          <div className="flex items-center gap-3 bg-zinc-950/50 rounded-lg p-3 border border-white/5">
+                            <img src={pInsights.thumbnail} alt="" className="w-12 h-12 rounded-full object-cover" />
+                            <div>
+                              <p className="text-sm font-medium text-white">{pInsights.page_name}</p>
+                              <p className="text-xs text-zinc-500">{pInsights.period}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className={`grid gap-3 ${pInsights.overview?.total_views !== undefined ? 'grid-cols-2 md:grid-cols-5' : 'grid-cols-2 md:grid-cols-4'}`}>
                           {[
-                            { label: 'Followers', value: pInsights.overview?.followers?.toLocaleString(), color: meta?.color },
+                            { label: pkey === 'youtube' ? 'Subscribers' : 'Followers', value: pInsights.overview?.followers?.toLocaleString(), color: meta?.color },
+                            ...(pInsights.overview?.total_views !== undefined ? [{ label: 'Total Views', value: pInsights.overview.total_views.toLocaleString(), color: '#3b82f6' }] : []),
                             { label: 'Avg Engagement', value: `${pInsights.overview?.avg_engagement_rate}%`, color: '#10b981' },
                             { label: 'Total Likes', value: pInsights.engagement?.total_likes?.toLocaleString(), color: '#ec4899' },
-                            { label: 'Total Shares', value: pInsights.engagement?.total_shares?.toLocaleString(), color: '#f97316' },
+                            { label: pkey === 'youtube' ? 'Total Comments' : 'Total Shares', value: (pkey === 'youtube' ? pInsights.engagement?.total_comments : pInsights.engagement?.total_shares)?.toLocaleString(), color: '#f97316' },
                           ].map(m => (
                             <div key={m.label} className="bg-zinc-950/50 rounded-lg p-3 border border-white/5">
                               <p className="text-xs text-zinc-500 uppercase tracking-wide mb-1">{m.label}</p>
@@ -553,7 +583,35 @@ export default function Platforms() {
                             </div>
                           ))}
                         </div>
+
+                        {/* Top Videos/Posts */}
+                        {pInsights.top_posts && pInsights.top_posts.length > 0 && (
+                          <div className="bg-zinc-950/50 rounded-lg p-4 border border-white/5">
+                            <h4 className="text-sm font-medium text-white mb-3">{pkey === 'youtube' ? 'Top Videos' : 'Top Posts'}</h4>
+                            <div className="space-y-2">
+                              {pInsights.top_posts.map((post, i) => (
+                                <div key={i} className="flex items-center justify-between p-2 bg-zinc-900/50 rounded-lg">
+                                  <div className="flex-1 min-w-0 mr-3">
+                                    {post.url ? (
+                                      <a href={post.url} target="_blank" rel="noopener noreferrer" className="text-xs text-zinc-300 hover:text-white truncate block">{post.content}</a>
+                                    ) : (
+                                      <span className="text-xs text-zinc-300 truncate block">{post.content}</span>
+                                    )}
+                                    <span className="text-[10px] text-zinc-600">{post.date}</span>
+                                  </div>
+                                  <div className="flex items-center gap-3 text-[10px] text-zinc-500 flex-shrink-0">
+                                    {post.views !== undefined && <span>{post.views.toLocaleString()} views</span>}
+                                    <span>{post.likes?.toLocaleString()} likes</span>
+                                    <span>{post.comments?.toLocaleString()} comments</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {pInsights.audience?.top_countries?.[0]?.percentage > 0 && (
                           <div className="bg-zinc-950/50 rounded-lg p-4 border border-white/5">
                             <h4 className="text-sm font-medium text-white mb-3">Top Audiences</h4>
                             <div className="space-y-2">
@@ -570,6 +628,7 @@ export default function Platforms() {
                               ))}
                             </div>
                           </div>
+                          )}
                           <div className="bg-zinc-950/50 rounded-lg p-4 border border-white/5">
                             <h4 className="text-sm font-medium text-white mb-3">Best Posting Times</h4>
                             <div className="space-y-2">

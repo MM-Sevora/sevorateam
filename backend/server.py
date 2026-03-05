@@ -1114,18 +1114,31 @@ async def oauth_callback(req: OAuthInitRequest, auth: dict = Depends(verify_toke
 
 @app.get("/api/platforms/{platform_id}/insights")
 async def get_platform_insights(platform_id: str, auth: dict = Depends(verify_token)):
-    """Get detailed insights for a connected platform"""
+    """Get detailed insights for a connected platform - uses real API when credentials available"""
     platform = platforms_col.find_one(
         {"platform_id": platform_id, "user_id": auth["user_id"]}, {"_id": 0}
     )
     if not platform:
         raise HTTPException(status_code=404, detail="Platform not found")
     
+    pname = platform["platform"]
+
+    # Try real YouTube API if credentials exist
+    if pname == "youtube":
+        try:
+            real = await _get_real_youtube_insights(auth["user_id"], platform)
+            if real:
+                return real
+        except Exception:
+            pass  # Fall through to simulated data
+
+    # Simulated insights for platforms without real API integration
     now = datetime.now(timezone.utc)
     insights = {
-        "platform": platform["platform"],
+        "platform": pname,
         "page_name": platform["page_name"],
         "period": "last_30_days",
+        "is_simulated": True,
         "overview": {
             "followers": random.randint(5000, 100000),
             "following": random.randint(100, 5000),
@@ -1145,17 +1158,6 @@ async def get_platform_insights(platform_id: str, auth: dict = Depends(verify_to
                 {"country": "Canada", "percentage": round(random.uniform(5, 15), 1)},
                 {"country": "India", "percentage": round(random.uniform(5, 12), 1)},
             ],
-            "age_groups": [
-                {"range": "18-24", "percentage": round(random.uniform(15, 30), 1)},
-                {"range": "25-34", "percentage": round(random.uniform(25, 40), 1)},
-                {"range": "35-44", "percentage": round(random.uniform(15, 25), 1)},
-                {"range": "45+", "percentage": round(random.uniform(5, 15), 1)},
-            ],
-            "gender_split": {
-                "male": round(random.uniform(35, 55), 1),
-                "female": round(random.uniform(40, 60), 1),
-                "other": round(random.uniform(1, 5), 1),
-            },
         },
         "best_posting_times": [
             {"day": "Monday", "time": "9:00 AM", "engagement_index": round(random.uniform(1.0, 2.0), 2)},
@@ -1165,7 +1167,7 @@ async def get_platform_insights(platform_id: str, auth: dict = Depends(verify_to
         ],
         "top_posts": [
             {
-                "content": f"Sample top post on {platform['platform']}",
+                "content": f"Sample post on {pname}",
                 "likes": random.randint(500, 5000),
                 "comments": random.randint(50, 500),
                 "shares": random.randint(20, 200),
@@ -1175,6 +1177,121 @@ async def get_platform_insights(platform_id: str, auth: dict = Depends(verify_to
         ],
     }
     return insights
+
+async def _get_real_youtube_insights(user_id: str, platform: dict):
+    """Fetch real YouTube channel insights using stored API credentials"""
+    import httpx
+    api_key = _get_youtube_api_key(user_id)
+    if not api_key:
+        return None
+
+    cred = api_credentials_col.find_one({"user_id": user_id, "platform": "youtube"}, {"_id": 0})
+    channel_id = cred.get("credentials", {}).get("channel_id", "") if cred else ""
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        # Get channel stats
+        ch_params = {"part": "snippet,statistics", "key": api_key}
+        if channel_id:
+            ch_params["id"] = channel_id
+        else:
+            # Try searching by page name
+            search_resp = await client.get(
+                "https://www.googleapis.com/youtube/v3/search",
+                params={"part": "snippet", "q": platform.get("page_name", ""), "type": "channel", "maxResults": 1, "key": api_key}
+            )
+            if search_resp.status_code == 200:
+                items = search_resp.json().get("items", [])
+                if items:
+                    channel_id = items[0]["snippet"]["channelId"]
+                    ch_params["id"] = channel_id
+
+        if "id" not in ch_params:
+            return None
+
+        ch_resp = await client.get("https://www.googleapis.com/youtube/v3/channels", params=ch_params)
+        if ch_resp.status_code != 200:
+            return None
+        ch_items = ch_resp.json().get("items", [])
+        if not ch_items:
+            return None
+
+        ch = ch_items[0]
+        snippet = ch.get("snippet", {})
+        stats = ch.get("statistics", {})
+        subscribers = int(stats.get("subscriberCount", 0))
+        total_views = int(stats.get("viewCount", 0))
+        video_count = int(stats.get("videoCount", 0))
+
+        # Get recent videos for engagement data
+        vid_resp = await client.get(
+            "https://www.googleapis.com/youtube/v3/search",
+            params={"part": "snippet", "channelId": channel_id, "order": "date", "type": "video", "maxResults": 10, "key": api_key}
+        )
+        total_likes = 0
+        total_comments = 0
+        top_videos = []
+
+        if vid_resp.status_code == 200:
+            vid_items = vid_resp.json().get("items", [])
+            if vid_items:
+                video_ids = [v["id"]["videoId"] for v in vid_items]
+                stats_resp = await client.get(
+                    "https://www.googleapis.com/youtube/v3/videos",
+                    params={"part": "snippet,statistics", "id": ",".join(video_ids), "key": api_key}
+                )
+                if stats_resp.status_code == 200:
+                    for v in stats_resp.json().get("items", []):
+                        vs = v.get("statistics", {})
+                        likes = int(vs.get("likeCount", 0))
+                        comments = int(vs.get("commentCount", 0))
+                        views = int(vs.get("viewCount", 0))
+                        total_likes += likes
+                        total_comments += comments
+                        top_videos.append({
+                            "content": v["snippet"].get("title", ""),
+                            "likes": likes,
+                            "comments": comments,
+                            "shares": 0,
+                            "views": views,
+                            "date": v["snippet"].get("publishedAt", "")[:10],
+                            "url": f"https://youtube.com/watch?v={v['id']}",
+                        })
+
+        avg_engagement = round(((total_likes + total_comments) / max(total_views, 1)) * 100, 2) if total_views > 0 else 0
+        top_videos.sort(key=lambda x: x.get("views", 0), reverse=True)
+
+        return {
+            "platform": "youtube",
+            "page_name": snippet.get("title", platform.get("page_name", "")),
+            "period": "all_time",
+            "is_simulated": False,
+            "channel_url": f"https://youtube.com/channel/{channel_id}",
+            "thumbnail": snippet.get("thumbnails", {}).get("medium", {}).get("url", ""),
+            "overview": {
+                "followers": subscribers,
+                "following": 0,
+                "posts_count": video_count,
+                "avg_engagement_rate": avg_engagement,
+                "total_views": total_views,
+            },
+            "engagement": {
+                "total_likes": total_likes,
+                "total_comments": total_comments,
+                "total_shares": 0,
+                "total_saves": 0,
+            },
+            "audience": {
+                "top_countries": [
+                    {"country": "Data requires YouTube Analytics API", "percentage": 0},
+                ],
+            },
+            "best_posting_times": [
+                {"day": "Weekdays", "time": "2:00 PM - 4:00 PM", "engagement_index": 1.5},
+                {"day": "Saturday", "time": "9:00 AM - 11:00 AM", "engagement_index": 1.3},
+                {"day": "Sunday", "time": "10:00 AM - 12:00 PM", "engagement_index": 1.2},
+            ],
+            "top_posts": top_videos[:5],
+        }
 
 @app.post("/api/platforms/{platform_id}/post")
 async def post_to_platform(platform_id: str, req: PostCreate, auth: dict = Depends(verify_token)):
