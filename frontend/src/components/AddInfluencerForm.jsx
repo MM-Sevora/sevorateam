@@ -11,7 +11,7 @@ import { Switch } from '../components/ui/switch';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { influencerApi, socialApi } from '../lib/api';
 import { toast } from 'sonner';
-import { User, AtSign, DollarSign, Plus, X, Loader2, Download, CheckCircle, Instagram, Youtube } from 'lucide-react';
+import { User, AtSign, DollarSign, Plus, X, Loader2, Download, CheckCircle, Instagram, Youtube, Users } from 'lucide-react';
 
 const INDUSTRIES = ['fashion', 'beauty', 'lifestyle', 'fitness', 'tech', 'food', 'travel', 'entertainment', 'education', 'finance'];
 const GENDERS = ['male', 'female', 'non-binary', 'other', 'prefer not to say'];
@@ -46,7 +46,13 @@ const initialForm = {
     email: '', phone: '', city: 'Mumbai', industry: 'fashion', tier: 'micro',
     gender: '', gender_focus: 'unisex', content_type: [],
     followers: '', engagement_rate: '', avg_likes: '', avg_comments: '', avg_views: '',
-    rate_per_post: '', rate_per_reel: '', rate_per_story: '', rate_per_video: '', accepts_barter: false,
+    // Manager/Agent
+    manager_name: '', manager_email: '', manager_phone: '',
+    // Audience Demographics
+    audience_age_split: '', audience_gender_split: '', audience_top_cities: '',
+    // Commercial Terms
+    rate_per_post: '', rate_per_reel: '', rate_per_story: '', rate_per_video: '', 
+    accepts_barter: false, exclusivity_terms: '', turnaround_days: '', payment_terms: '',
     style_tags: [], past_brands: [], notes: ''
 };
 
@@ -357,9 +363,10 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
 
                 <form onSubmit={handleSubmit}>
                     <Tabs defaultValue="basic" className="mt-4">
-                        <TabsList className="grid w-full grid-cols-3">
+                        <TabsList className="grid w-full grid-cols-4">
                             <TabsTrigger value="basic" className="text-xs gap-1"><User className="w-3 h-3" />Basic</TabsTrigger>
                             <TabsTrigger value="social" className="text-xs gap-1"><AtSign className="w-3 h-3" />Social</TabsTrigger>
+                            <TabsTrigger value="audience" className="text-xs gap-1"><Users className="w-3 h-3" />Audience</TabsTrigger>
                             <TabsTrigger value="rates" className="text-xs gap-1"><DollarSign className="w-3 h-3" />Rates</TabsTrigger>
                         </TabsList>
 
