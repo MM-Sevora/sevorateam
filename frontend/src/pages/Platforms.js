@@ -8,11 +8,11 @@ import {
 import { FaFacebook, FaInstagram, FaTwitter, FaLinkedin, FaYoutube } from 'react-icons/fa';
 
 const platformMeta = {
-  facebook: { icon: FaFacebook, color: '#1877F2', gradient: 'from-blue-600/20 to-blue-900/5' },
-  instagram: { icon: FaInstagram, color: '#E4405F', gradient: 'from-pink-600/20 to-purple-900/5' },
-  twitter: { icon: FaTwitter, color: '#1DA1F2', gradient: 'from-sky-600/20 to-sky-900/5' },
-  linkedin: { icon: FaLinkedin, color: '#0A66C2', gradient: 'from-blue-700/20 to-blue-950/5' },
-  youtube: { icon: FaYoutube, color: '#FF0000', gradient: 'from-red-600/20 to-red-900/5' },
+  facebook: { icon: FaFacebook, color: '#1877F2', gradient: 'from-blue-600/10 to-transparent' },
+  instagram: { icon: FaInstagram, color: '#E4405F', gradient: 'from-pink-600/10 to-transparent' },
+  twitter: { icon: FaTwitter, color: '#1DA1F2', gradient: 'from-sky-600/10 to-transparent' },
+  linkedin: { icon: FaLinkedin, color: '#0A66C2', gradient: 'from-blue-700/10 to-transparent' },
+  youtube: { icon: FaYoutube, color: '#FF0000', gradient: 'from-red-600/10 to-transparent' },
 };
 
 function formatNum(n) {
@@ -356,17 +356,17 @@ export default function Platforms() {
 
                 {/* Insights Panel */}
                 {panelState === 'insights' && (
-                  <div className="border-t border-white/5 p-5 bg-zinc-950/30 animate-slide-up" data-testid={`insights-panel-${pkey}`}>
+                  <div className="border-t border-white/5 p-5 bg-zinc-900/50 animate-slide-up" data-testid={`insights-panel-${pkey}`}>
                     {loadingInsights === conn.platform_id ? (
                       <div className="flex items-center justify-center py-8"><Loader2 className="w-6 h-6 text-accent-violet animate-spin" /></div>
                     ) : pInsights ? (
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            {pInsights.thumbnail && <img src={pInsights.thumbnail} alt="" className="w-10 h-10 rounded-full object-cover border border-white/10" />}
+                            {pInsights.thumbnail && <img src={pInsights.thumbnail} alt="" className="w-10 h-10 rounded-full object-cover border-2 border-white/10" />}
                             <div>
                               <p className="text-sm font-medium text-white">{pInsights.page_name}</p>
-                              {pInsights.account?.organization_description && <p className="text-[10px] text-zinc-500 max-w-md truncate">{pInsights.account.organization_description}</p>}
+                              {pInsights.account?.organization_description && <p className="text-[10px] text-zinc-400 max-w-md truncate">{pInsights.account.organization_description}</p>}
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -389,15 +389,15 @@ export default function Platforms() {
                             { label: 'Likes', value: formatNum(pInsights.engagement?.total_likes), icon: Heart, color: '#ec4899' },
                             { label: pkey === 'youtube' ? 'Comments' : 'Activity', value: formatNum(pkey === 'youtube' ? pInsights.engagement?.total_comments : pInsights.engagement?.total_shares), icon: MessageSquare, color: '#f97316' },
                           ].map(m => (
-                            <div key={m.label} className="bg-zinc-900/60 rounded-xl p-4 border border-white/5">
-                              <div className="flex items-center gap-1.5 mb-2"><m.icon className="w-3.5 h-3.5" style={{ color: m.color }} /><span className="text-[10px] text-zinc-500 uppercase tracking-wider">{m.label}</span></div>
+                            <div key={m.label} className="bg-zinc-800/80 rounded-xl p-4 border border-white/10">
+                              <div className="flex items-center gap-1.5 mb-2"><m.icon className="w-3.5 h-3.5" style={{ color: m.color }} /><span className="text-[10px] text-zinc-400 uppercase tracking-wider">{m.label}</span></div>
                               <p className="text-xl font-heading font-bold" style={{ color: m.color }}>{m.value}</p>
                             </div>
                           ))}
                         </div>
 
                         {pInsights.capabilities && (
-                          <div className="bg-zinc-900/60 rounded-xl p-4 border border-white/5">
+                          <div className="bg-zinc-800/80 rounded-xl p-4 border border-white/10">
                             <h4 className="text-xs font-semibold text-zinc-300 mb-3 uppercase tracking-wider">API Capabilities</h4>
                             <div className="flex flex-wrap gap-2">
                               {pInsights.capabilities.map((cap, i) => (
@@ -411,11 +411,11 @@ export default function Platforms() {
                         )}
 
                         {pInsights.top_posts?.length > 0 && (
-                          <div className="bg-zinc-900/60 rounded-xl p-4 border border-white/5">
+                          <div className="bg-zinc-800/80 rounded-xl p-4 border border-white/10">
                             <h4 className="text-xs font-semibold text-zinc-300 mb-3 uppercase tracking-wider">{pkey === 'youtube' ? 'Top Videos' : 'Recent Posts'}</h4>
                             <div className="space-y-2">
                               {pInsights.top_posts.map((post, i) => (
-                                <div key={i} className="flex items-center justify-between p-2.5 bg-zinc-950/50 rounded-lg border border-white/5 hover:border-white/10 transition-colors">
+                                <div key={i} className="flex items-center justify-between p-2.5 bg-zinc-700/40 rounded-lg border border-white/5 hover:border-white/15 transition-colors">
                                   <div className="flex-1 min-w-0 mr-3">
                                     {post.url ? <a href={post.url} target="_blank" rel="noopener noreferrer" className="text-xs text-zinc-300 hover:text-white truncate block">{post.content}</a> : <span className="text-xs text-zinc-300 truncate block">{post.content}</span>}
                                     {post.date && <span className="text-[10px] text-zinc-600">{post.date}</span>}
@@ -433,17 +433,17 @@ export default function Platforms() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           {pInsights.audience?.top_countries?.[0]?.percentage > 0 && (
-                            <div className="bg-zinc-900/60 rounded-xl p-4 border border-white/5">
+                            <div className="bg-zinc-800/80 rounded-xl p-4 border border-white/10">
                               <h4 className="text-xs font-semibold text-zinc-300 mb-3 uppercase tracking-wider">Top Audiences</h4>
                               <div className="space-y-2.5">{pInsights.audience.top_countries.map((c, i) => (
                                 <div key={i} className="flex items-center justify-between"><span className="text-xs text-zinc-400">{c.country}</span><div className="flex items-center gap-2"><div className="w-24 h-1.5 rounded-full bg-zinc-800 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${c.percentage}%`, backgroundColor: meta?.color }} /></div><span className="text-[10px] text-zinc-500 w-10 text-right">{c.percentage}%</span></div></div>
                               ))}</div>
                             </div>
                           )}
-                          <div className="bg-zinc-900/60 rounded-xl p-4 border border-white/5">
+                          <div className="bg-zinc-800/80 rounded-xl p-4 border border-white/10">
                             <h4 className="text-xs font-semibold text-zinc-300 mb-3 uppercase tracking-wider">Best Posting Times</h4>
                             <div className="space-y-2">{pInsights.best_posting_times?.map((t, i) => (
-                              <div key={i} className="flex items-center justify-between p-2 bg-zinc-950/50 rounded-lg"><span className="text-xs text-zinc-300">{t.day} {t.time}</span><span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">{t.engagement_index}x</span></div>
+                              <div key={i} className="flex items-center justify-between p-2 bg-zinc-700/40 rounded-lg"><span className="text-xs text-zinc-200">{t.day} {t.time}</span><span className="text-[10px] text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-full">{t.engagement_index}x</span></div>
                             ))}</div>
                           </div>
                         </div>
@@ -454,7 +454,7 @@ export default function Platforms() {
 
                 {/* Credentials Panel */}
                 {panelState === 'credentials' && (
-                  <div className="border-t border-white/5 p-5 bg-zinc-950/30 animate-slide-up" data-testid={`credentials-panel-${pkey}`}>
+                  <div className="border-t border-white/5 p-5 bg-zinc-900/50 animate-slide-up" data-testid={`credentials-panel-${pkey}`}>
                     {loadingCreds === conn.platform_id ? (
                       <div className="flex items-center justify-center py-6"><Loader2 className="w-5 h-5 text-accent-violet animate-spin" /></div>
                     ) : (
