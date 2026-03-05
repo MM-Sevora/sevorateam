@@ -99,6 +99,29 @@ An internal tool for a luxury fashion brand (SEVORA) to manage its entire influe
   - Outreach logging to database
   - **Requires SENDGRID_API_KEY env var**
 
+### Phase 7 - Unified Outreach System ✅ (March 5, 2026)
+- [x] **Unified Outreach Hub:** Single interface to send Email and WhatsApp messages
+  - `/api/outreach-hub/send` - Send via either channel
+  - `/api/outreach-hub/status` - Check channel configuration status
+  - `/api/outreach-hub/history` - View all outreach history with filters
+  - `/api/outreach-hub/templates` - CRUD for message templates
+- [x] **Message Templates:** Create reusable templates for both channels
+  - Variable substitution: `{{influencer_name}}`, `{{campaign_name}}`, `{{brand_name}}`
+  - Template usage tracking
+- [x] **OutreachModal Component:** Send outreach directly from influencer profile
+  - Tab interface for Email/WhatsApp selection
+  - Live message preview with variable substitution
+  - Template selection dropdown
+- [x] **Mock Mode for Development:** Both Email and WhatsApp services support MOCK mode
+  - `EMAIL_MOCK_MODE=true` - Simulates SendGrid API
+  - `WHATSAPP_MOCK_MODE=true` - Simulates Meta Cloud API
+  - Messages logged but not actually sent
+  - UI shows "Test Mode" banner and "MOCK" badges
+- [x] **Outreach Page Enhancement:** Communication Hub with stats and history
+  - Stats cards: Total Sent, Opened, Replied, Email count, WhatsApp count
+  - Recent outreach list with message previews
+  - "Mark Opened" functionality for tracking
+
 ---
 
 ## API Endpoints
@@ -231,16 +254,18 @@ An internal tool for a luxury fashion brand (SEVORA) to manage its entire influe
 ## Upcoming Tasks (Backlog)
 
 ### P0 - High Priority
-- [ ] Refactor server.py into smaller router files (2600+ lines now)
+- [ ] Refactor server.py into smaller router files (3000+ lines now)
 - [ ] Add frontend UI for Content Library management
-- [ ] Add frontend UI for WhatsApp/Email outreach buttons on influencer cards
 - [ ] Add frontend UI for User Role management (admin panel)
 
 ### P1 - Medium Priority
-- [ ] Add permission checks to core influencer CRUD endpoints (optional)
+- [ ] Enforce role-based permission checks on core CRUD endpoints
 - [ ] Campaign ROI tracking and reporting
+- [ ] Batch outreach from Outreach page (select multiple influencers)
 
 ### P2 - Future
+- [ ] Real SendGrid integration (user provides valid API key)
+- [ ] Real WhatsApp Business API integration (user provides Meta credentials)
 - [ ] Mobile app for influencers
 - [ ] Advanced analytics and reporting dashboards
 - [ ] AI stylist influencers
@@ -250,12 +275,13 @@ An internal tool for a luxury fashion brand (SEVORA) to manage its entire influe
 
 ## Known Issues
 1. Recharts console warnings (cosmetic only - "width/height < 0")
-2. server.py is over 2600 lines - needs refactoring into routers
+2. server.py is over 3000 lines - needs refactoring into routers
 3. Some older influencers without social handles show 0 followers
 
 ## Test Credentials
 - Admin: admin@sevora.com / admin123
 - Test User: test_demo@test.com / test123
+- Outreach Tester: outreach-test@sevora.com / Test123!
 
 ## Environment Variables Required
 
@@ -264,14 +290,16 @@ An internal tool for a luxury fashion brand (SEVORA) to manage its entire influe
 - `INSTAGRAM_ACCOUNT_ID` - Instagram Business Account ID
 - `YOUTUBE_API_KEY` - YouTube Data API Key
 
-### WhatsApp Business API (needs setup)
+### WhatsApp Business API (needs setup for real sending)
 - `WA_ACCESS_TOKEN` - Meta Cloud API Access Token
 - `WA_PHONE_NUMBER_ID` - WhatsApp Business Phone Number ID
+- `WHATSAPP_MOCK_MODE=true` - Currently in mock mode
 
-### SendGrid Email (needs setup)
+### SendGrid Email (needs setup for real sending)
 - `SENDGRID_API_KEY` - SendGrid API Key
 - `SENDGRID_SENDER_EMAIL` - Verified sender email (default: outreach@sevora.com)
 - `SENDGRID_SENDER_NAME` - Sender display name (default: SEVORA Team)
+- `EMAIL_MOCK_MODE=true` - Currently in mock mode
 
 ---
 
