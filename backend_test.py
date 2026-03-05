@@ -69,11 +69,11 @@ class SocialFlowAPITester:
         return success
 
     def test_register(self):
-        """Test user registration with new test user credentials"""
+        """Test user registration with the provided test user credentials"""
         test_user = {
-            "name": "Test User 2", 
-            "email": "test2@socialflow.com",
-            "password": "testpass123"
+            "name": "Cred Test User", 
+            "email": "credtest@test.com",
+            "password": "test123"
         }
         success, response = self.run_test(
             "User Registration",
@@ -89,10 +89,10 @@ class SocialFlowAPITester:
         return success
 
     def test_login(self):
-        """Test user login with new test user credentials"""
+        """Test user login with the provided test user credentials"""
         login_data = {
-            "email": "test2@socialflow.com",
-            "password": "testpass123"
+            "email": "credtest@test.com",
+            "password": "test123"
         }
         success, response = self.run_test(
             "User Login",
@@ -407,13 +407,173 @@ class SocialFlowAPITester:
             print(f"   Analysis period: {response.get('analysis_period')}")
         return success
 
+    # ===== API Credential Management Tests =====
+
+    def test_get_credential_schemas(self):
+        """Test GET /api/platforms/credential-schemas"""
+        success, response = self.run_test(
+            "Get All Credential Schemas",
+            "GET", 
+            "api/platforms/credential-schemas",
+            200
+        )
+        if success:
+            platforms = list(response.keys())
+            print(f"   Available platforms: {platforms}")
+            print(f"   Total platforms: {len(platforms)}")
+            # Verify expected platforms
+            expected = ["facebook", "instagram", "twitter", "linkedin", "youtube"]
+            missing = [p for p in expected if p not in platforms]
+            if missing:
+                print(f"   ⚠️  Missing platforms: {missing}")
+        return success
+
+    def test_get_facebook_schema(self):
+        """Test GET /api/platforms/credential-schema/facebook"""
+        success, response = self.run_test(
+            "Get Facebook Credential Schema",
+            "GET",
+            "api/platforms/credential-schema/facebook", 
+            200
+        )
+        if success:
+            print(f"   Display name: {response.get('display_name')}")
+            print(f"   Required fields: {len(response.get('required_fields', []))}")
+            print(f"   Guide steps: {len(response.get('guide', {}).get('steps', []))}")
+        return success
+
+    def test_save_twitter_credentials(self):
+        """Test POST /api/platforms/credentials with Twitter test data"""
+        twitter_creds = {
+            "platform": "twitter",
+            "credentials": {
+                "api_key": "test123",
+                "api_secret": "secret456",
+                "access_token": "token789", 
+                "access_token_secret": "tokensecret",
+                "bearer_token": "bearer123"
+            },
+            "page_name": "TestTwitter"
+        }
+        success, response = self.run_test(
+            "Save Twitter Credentials",
+            "POST",
+            "api/platforms/credentials",
+            200,
+            data=twitter_creds
+        )
+        if success and 'platform_id' in response:
+            self.platform_id = response['platform_id'] 
+            print(f"   Twitter connected with ID: {self.platform_id}")
+            print(f"   Status: {response.get('status')}")
+        return success
+
+    def test_get_platform_credentials(self):
+        """Test GET /api/platforms/{platform_id}/credentials"""
+        if not self.platform_id:
+            print("❌ No platform ID available for credentials test")
+            return False
+        
+        success, response = self.run_test(
+            "Get Platform Credentials (Masked)",
+            "GET",
+            f"api/platforms/{self.platform_id}/credentials",
+            200
+        )
+        if success:
+            print(f"   Has credentials: {response.get('has_credentials')}")
+            if response.get('has_credentials'):
+                creds = response.get('credentials', {})
+                print(f"   Masked credential keys: {list(creds.keys())}")
+                # Verify masking 
+                for key, val in creds.items():
+                    if val and '*' not in val:
+                        print(f"   ⚠️  {key} may not be properly masked: {val}")
+        return success
+
+    def test_update_platform_credentials(self):
+        """Test PUT /api/platforms/{platform_id}/credentials"""
+        if not self.platform_id:
+            print("❌ No platform ID available for update credentials test")
+            return False
+        
+        update_creds = {
+            "credentials": {
+                "api_key": "updated_test123",
+                "bearer_token": "updated_bearer123"
+            }
+        }
+        success, response = self.run_test(
+            "Update Platform Credentials", 
+            "PUT",
+            f"api/platforms/{self.platform_id}/credentials",
+            200,
+            data=update_creds
+        )
+        if success:
+            print(f"   Update result: {response.get('message')}")
+        return success
+
+    def test_connection_test(self):
+        """Test POST /api/platforms/{platform_id}/test-connection"""
+        if not self.platform_id:
+            print("❌ No platform ID available for connection test")
+            return False
+        
+        success, response = self.run_test(
+            "Test Platform Connection",
+            "POST", 
+            f"api/platforms/{self.platform_id}/test-connection",
+            200
+        )
+        if success:
+            print(f"   Test status: {response.get('status')}")
+            print(f"   Test message: {response.get('message')}")
+            # With fake credentials, we expect this to fail
+            if response.get('status') == 'error':
+                print(f"   ✅ Expected failure with fake credentials")
+        return success
+
+    def test_delete_platform_credentials(self):
+        """Test DELETE /api/platforms/{platform_id}/credentials"""
+        if not self.platform_id:
+            print("❌ No platform ID available for delete credentials test")
+            return False
+        
+        success, response = self.run_test(
+            "Delete Platform Credentials",
+            "DELETE",
+            f"api/platforms/{self.platform_id}/credentials", 
+            200
+        )
+        if success:
+            print(f"   Delete result: {response.get('message')}")
+        return success
+
+    def test_delete_platform_with_credentials(self):
+        """Test DELETE /api/platforms/{platform_id} also removes credentials"""
+        if not self.platform_id:
+            print("❌ No platform ID available for delete platform test")
+            return False
+        
+        success, response = self.run_test(
+            "Delete Platform (with associated credentials)",
+            "DELETE",
+            f"api/platforms/{self.platform_id}",
+            200
+        )
+        if success:
+            print(f"   Platform deleted: {response.get('message')}")
+        return success
+
 def main():
-    print("🚀 Starting SocialFlow AI Backend Testing...")
+    print("🚀 Starting SocialFlow AI Backend Testing - ITERATION 3...")
+    print("Testing new API credential management features")
     print("=" * 60)
     
     tester = SocialFlowAPITester()
 
-    # Test sequence
+    # Test sequence - updated for iteration 3 credential management features
     tests = [
         ("Health Check", tester.test_health_check),
         ("User Registration", tester.test_register),
@@ -422,12 +582,25 @@ def main():
         ("Dashboard Metrics", tester.test_dashboard_metrics),
         ("Dashboard Summary", tester.test_dashboard_summary),
         ("Get Platforms", tester.test_get_platforms),
-        ("Connect Platform", tester.test_connect_platform),
-        # OAuth Platform Integration Tests
-        ("OAuth Init", tester.test_oauth_init),
-        ("OAuth Callback", tester.test_oauth_callback),
+        # NEW: API Credential Management Tests
+        ("Get All Credential Schemas", tester.test_get_credential_schemas),
+        ("Get Facebook Schema", tester.test_get_facebook_schema),
+        ("Save Twitter Credentials", tester.test_save_twitter_credentials),
+        ("Get Platform Credentials", tester.test_get_platform_credentials),
+        ("Update Platform Credentials", tester.test_update_platform_credentials),
+        ("Test Connection", tester.test_connection_test),
+        ("Delete Platform Credentials", tester.test_delete_platform_credentials),
+        # Re-save credentials for subsequent tests
+        ("Re-save Twitter Credentials", tester.test_save_twitter_credentials),
         ("Platform Insights", tester.test_platform_insights),
         ("Post to Platform", tester.test_post_to_platform),
+        # Clean up with full platform deletion (tests credential cascade delete)
+        ("Delete Platform with Credentials", tester.test_delete_platform_with_credentials),
+        # Legacy OAuth tests
+        ("Connect Platform", tester.test_connect_platform),
+        ("OAuth Init", tester.test_oauth_init),
+        ("OAuth Callback", tester.test_oauth_callback),
+        ("Disconnect Platform", tester.test_disconnect_platform),
         # AI Avatar Tests (CRUD only, skipping AI generation)
         ("Create Avatar", tester.test_create_avatar), 
         ("Get Avatar", tester.test_get_avatar),
@@ -440,7 +613,6 @@ def main():
         ("Get Posts", tester.test_get_posts),
         ("Publish Post", tester.test_publish_post),
         ("Delete Post", tester.test_delete_post),
-        ("Disconnect Platform", tester.test_disconnect_platform),
     ]
 
     passed_tests = []

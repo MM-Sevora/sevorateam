@@ -34,6 +34,133 @@ metrics_col = db["metrics"]
 avatars_col = db["avatars"]
 avatar_chats_col = db["avatar_chats"]
 predictions_col = db["predictions"]
+api_credentials_col = db["api_credentials"]
+
+# Platform API credential schemas and setup guides
+PLATFORM_CREDENTIAL_SCHEMAS = {
+    "facebook": {
+        "display_name": "Facebook / Meta",
+        "required_fields": [
+            {"key": "app_id", "label": "App ID", "type": "text", "placeholder": "e.g., 1234567890123456"},
+            {"key": "app_secret", "label": "App Secret", "type": "password", "placeholder": "e.g., abc123def456..."},
+            {"key": "page_access_token", "label": "Page Access Token", "type": "password", "placeholder": "Long-lived page access token"},
+            {"key": "page_id", "label": "Page ID", "type": "text", "placeholder": "e.g., 112233445566778"},
+        ],
+        "guide": {
+            "title": "How to get Facebook API credentials",
+            "steps": [
+                "Go to https://developers.facebook.com and log in",
+                "Click 'My Apps' > 'Create App' > Choose 'Business' type",
+                "Note your App ID and App Secret from the app dashboard",
+                "Add 'Facebook Login' and 'Pages API' products to your app",
+                "Go to Graph API Explorer (https://developers.facebook.com/tools/explorer/)",
+                "Select your app, then request permissions: pages_manage_posts, pages_read_engagement",
+                "Generate a User Access Token, then exchange it for a long-lived Page Access Token",
+                "Your Page ID is found on your Facebook Page under Settings > Page Info",
+            ],
+            "docs_url": "https://developers.facebook.com/docs/pages-api/getting-started",
+            "permissions": ["pages_manage_posts", "pages_read_engagement", "pages_show_list", "pages_read_user_content"],
+        },
+    },
+    "instagram": {
+        "display_name": "Instagram (via Meta Graph API)",
+        "required_fields": [
+            {"key": "app_id", "label": "Meta App ID", "type": "text", "placeholder": "Same as Facebook App ID"},
+            {"key": "app_secret", "label": "Meta App Secret", "type": "password", "placeholder": "Same as Facebook App Secret"},
+            {"key": "access_token", "label": "Instagram Access Token", "type": "password", "placeholder": "Long-lived access token"},
+            {"key": "instagram_account_id", "label": "Instagram Business Account ID", "type": "text", "placeholder": "e.g., 17841400000000000"},
+        ],
+        "guide": {
+            "title": "How to get Instagram API credentials",
+            "steps": [
+                "Instagram API uses the Meta (Facebook) Graph API - you need a Meta Developer account",
+                "Go to https://developers.facebook.com > Create/select your app",
+                "Add 'Instagram Graph API' product to your app",
+                "Your Instagram account must be a Business or Creator account",
+                "Link your Instagram account to a Facebook Page",
+                "In Graph API Explorer, select your app and request instagram_basic, instagram_content_publish",
+                "Generate access token and exchange for long-lived token (60 days)",
+                "Find your Instagram Business Account ID via: GET /me/accounts -> page_id -> GET /{page_id}?fields=instagram_business_account",
+            ],
+            "docs_url": "https://developers.facebook.com/docs/instagram-api/getting-started",
+            "permissions": ["instagram_basic", "instagram_content_publish", "instagram_manage_insights", "pages_show_list"],
+        },
+    },
+    "twitter": {
+        "display_name": "Twitter / X",
+        "required_fields": [
+            {"key": "api_key", "label": "API Key (Consumer Key)", "type": "text", "placeholder": "e.g., abcDEF123..."},
+            {"key": "api_secret", "label": "API Secret (Consumer Secret)", "type": "password", "placeholder": "e.g., xyz789ABC..."},
+            {"key": "access_token", "label": "Access Token", "type": "password", "placeholder": "e.g., 1234567890-abc..."},
+            {"key": "access_token_secret", "label": "Access Token Secret", "type": "password", "placeholder": "e.g., secret123..."},
+            {"key": "bearer_token", "label": "Bearer Token (for v2 API)", "type": "password", "placeholder": "e.g., AAAAAAAAAA..."},
+        ],
+        "guide": {
+            "title": "How to get Twitter/X API credentials",
+            "steps": [
+                "Go to https://developer.x.com/en/portal/dashboard and sign in",
+                "Apply for developer access (Free tier allows basic read/write)",
+                "Create a new Project and App in the Developer Portal",
+                "Under 'Keys and Tokens' tab, generate your API Key and Secret",
+                "Generate Access Token and Secret (with Read and Write permissions)",
+                "For Twitter API v2, also generate a Bearer Token",
+                "Set your app permissions to 'Read and Write' under User authentication settings",
+                "Add your callback URL if using OAuth 2.0 flow",
+            ],
+            "docs_url": "https://developer.x.com/en/docs/twitter-api/getting-started/getting-access-to-the-twitter-api",
+            "permissions": ["tweet.read", "tweet.write", "users.read", "offline.access"],
+        },
+    },
+    "linkedin": {
+        "display_name": "LinkedIn",
+        "required_fields": [
+            {"key": "client_id", "label": "Client ID", "type": "text", "placeholder": "e.g., 77abcd1234ef"},
+            {"key": "client_secret", "label": "Client Secret", "type": "password", "placeholder": "e.g., aBcDeF123..."},
+            {"key": "access_token", "label": "Access Token", "type": "password", "placeholder": "OAuth 2.0 access token"},
+            {"key": "organization_id", "label": "Organization ID (optional)", "type": "text", "placeholder": "For company page posting"},
+        ],
+        "guide": {
+            "title": "How to get LinkedIn API credentials",
+            "steps": [
+                "Go to https://www.linkedin.com/developers/apps and sign in",
+                "Click 'Create App' and fill in the details",
+                "Note your Client ID and Client Secret from the Auth tab",
+                "Under 'Products' tab, request access to 'Share on LinkedIn' and 'Sign In with LinkedIn using OpenID Connect'",
+                "For company page posting, also request 'Community Management API' or 'Marketing Developer Platform'",
+                "Generate an OAuth 2.0 access token using the authorization code flow",
+                "Use the OAuth 2.0 Authorization URL: https://www.linkedin.com/oauth/v2/authorization",
+                "Your Organization ID can be found in your company page URL or via GET /organizationalEntityAcls",
+            ],
+            "docs_url": "https://learn.microsoft.com/en-us/linkedin/shared/authentication/getting-started",
+            "permissions": ["openid", "profile", "w_member_social", "r_organization_social"],
+        },
+    },
+    "youtube": {
+        "display_name": "YouTube (Google API)",
+        "required_fields": [
+            {"key": "api_key", "label": "Google API Key", "type": "text", "placeholder": "e.g., AIzaSy..."},
+            {"key": "client_id", "label": "OAuth Client ID", "type": "text", "placeholder": "e.g., 123456-abc.apps.googleusercontent.com"},
+            {"key": "client_secret", "label": "OAuth Client Secret", "type": "password", "placeholder": "e.g., GOCSPX-..."},
+            {"key": "refresh_token", "label": "OAuth Refresh Token", "type": "password", "placeholder": "Long-lived refresh token"},
+            {"key": "channel_id", "label": "Channel ID", "type": "text", "placeholder": "e.g., UCxxxxxxxxxxxxxxxx"},
+        ],
+        "guide": {
+            "title": "How to get YouTube API credentials",
+            "steps": [
+                "Go to https://console.cloud.google.com and create/select a project",
+                "Enable the 'YouTube Data API v3' in APIs & Services > Library",
+                "Create an API Key: APIs & Services > Credentials > Create Credentials > API Key",
+                "Create OAuth Client ID: Credentials > Create Credentials > OAuth client ID (Web application type)",
+                "Configure OAuth consent screen with required scopes",
+                "Use the OAuth Playground (https://developers.google.com/oauthplayground/) to get a refresh token",
+                "Select YouTube Data API v3 scopes, authorize, and exchange for refresh token",
+                "Your Channel ID is in YouTube Studio > Settings > Channel > Advanced settings, or in your channel URL",
+            ],
+            "docs_url": "https://developers.google.com/youtube/v3/getting-started",
+            "permissions": ["https://www.googleapis.com/auth/youtube", "https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube.readonly"],
+        },
+    },
+}
 
 
 @asynccontextmanager
@@ -126,6 +253,14 @@ class PredictRequest(BaseModel):
 class OAuthInitRequest(BaseModel):
     platform: str
     page_name: Optional[str] = ""
+
+class PlatformCredentials(BaseModel):
+    platform: str
+    credentials: dict  # platform-specific credentials
+    page_name: Optional[str] = ""
+
+class PlatformCredentialsUpdate(BaseModel):
+    credentials: dict
 
 # ===== Auth Helpers =====
 
@@ -297,7 +432,211 @@ async def disconnect_platform(platform_id: str, auth: dict = Depends(verify_toke
     result = platforms_col.delete_one({"platform_id": platform_id, "user_id": auth["user_id"]})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Platform not found")
+    api_credentials_col.delete_one({"platform_id": platform_id, "user_id": auth["user_id"]})
     return {"message": "Platform disconnected"}
+
+# ===== Platform Credential Management =====
+
+@app.get("/api/platforms/credential-schemas")
+async def get_credential_schemas(auth: dict = Depends(verify_token)):
+    """Return the credential schemas and setup guides for all platforms"""
+    return PLATFORM_CREDENTIAL_SCHEMAS
+
+@app.get("/api/platforms/credential-schema/{platform}")
+async def get_credential_schema(platform: str, auth: dict = Depends(verify_token)):
+    """Return the credential schema and setup guide for a single platform"""
+    schema = PLATFORM_CREDENTIAL_SCHEMAS.get(platform)
+    if not schema:
+        raise HTTPException(status_code=404, detail="Unknown platform")
+    return schema
+
+@app.post("/api/platforms/credentials")
+async def save_platform_credentials(req: PlatformCredentials, auth: dict = Depends(verify_token)):
+    """Save API credentials for a platform and connect it"""
+    schema = PLATFORM_CREDENTIAL_SCHEMAS.get(req.platform)
+    if not schema:
+        raise HTTPException(status_code=400, detail="Unknown platform")
+
+    required_keys = [f["key"] for f in schema["required_fields"] if "optional" not in f.get("label", "").lower()]
+    missing = [k for k in required_keys if not req.credentials.get(k)]
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Missing required credentials: {', '.join(missing)}")
+
+    existing = platforms_col.find_one({"user_id": auth["user_id"], "platform": req.platform})
+    platform_id = existing["platform_id"] if existing else str(uuid.uuid4())
+
+    cred_doc = {
+        "user_id": auth["user_id"],
+        "platform": req.platform,
+        "platform_id": platform_id,
+        "credentials": req.credentials,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    api_credentials_col.update_one(
+        {"user_id": auth["user_id"], "platform": req.platform},
+        {"$set": cred_doc},
+        upsert=True
+    )
+
+    if not existing:
+        page_name = req.page_name or req.credentials.get("page_name", f"My {req.platform.capitalize()}")
+        platform_doc = {
+            "platform_id": platform_id,
+            "user_id": auth["user_id"],
+            "platform": req.platform,
+            "page_name": page_name,
+            "page_url": "",
+            "connected_at": datetime.now(timezone.utc).isoformat(),
+            "status": "connected",
+            "has_api_credentials": True,
+            "scopes": schema["guide"]["permissions"],
+            "api_version": PLATFORM_OAUTH_CONFIG.get(req.platform, {}).get("api_version", ""),
+        }
+        platforms_col.insert_one(platform_doc)
+        platform_doc.pop("_id", None)
+    else:
+        platforms_col.update_one(
+            {"platform_id": platform_id},
+            {"$set": {"has_api_credentials": True, "status": "connected", "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        platform_doc = platforms_col.find_one({"platform_id": platform_id}, {"_id": 0})
+
+    return {
+        "platform_id": platform_id,
+        "platform": req.platform,
+        "status": "connected",
+        "has_api_credentials": True,
+        "message": f"API credentials saved for {req.platform}. Platform connected."
+    }
+
+@app.get("/api/platforms/{platform_id}/credentials")
+async def get_platform_credentials(platform_id: str, auth: dict = Depends(verify_token)):
+    """Get saved credentials for a platform (masked)"""
+    cred = api_credentials_col.find_one(
+        {"platform_id": platform_id, "user_id": auth["user_id"]}, {"_id": 0}
+    )
+    if not cred:
+        return {"has_credentials": False, "credentials": {}}
+
+    masked = {}
+    for key, val in cred.get("credentials", {}).items():
+        if val and len(str(val)) > 8:
+            masked[key] = str(val)[:4] + "*" * (len(str(val)) - 8) + str(val)[-4:]
+        elif val:
+            masked[key] = "****"
+        else:
+            masked[key] = ""
+    return {
+        "has_credentials": True,
+        "credentials": masked,
+        "updated_at": cred.get("updated_at", ""),
+    }
+
+@app.put("/api/platforms/{platform_id}/credentials")
+async def update_platform_credentials(platform_id: str, req: PlatformCredentialsUpdate, auth: dict = Depends(verify_token)):
+    """Update API credentials for a connected platform"""
+    existing = api_credentials_col.find_one({"platform_id": platform_id, "user_id": auth["user_id"]})
+    if not existing:
+        raise HTTPException(status_code=404, detail="No credentials found for this platform")
+
+    merged = existing.get("credentials", {})
+    for key, val in req.credentials.items():
+        if val and not val.startswith("****"):
+            merged[key] = val
+
+    api_credentials_col.update_one(
+        {"platform_id": platform_id, "user_id": auth["user_id"]},
+        {"$set": {"credentials": merged, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"message": "Credentials updated successfully"}
+
+@app.delete("/api/platforms/{platform_id}/credentials")
+async def delete_platform_credentials(platform_id: str, auth: dict = Depends(verify_token)):
+    """Remove API credentials for a platform"""
+    api_credentials_col.delete_one({"platform_id": platform_id, "user_id": auth["user_id"]})
+    platforms_col.update_one(
+        {"platform_id": platform_id, "user_id": auth["user_id"]},
+        {"$set": {"has_api_credentials": False}}
+    )
+    return {"message": "Credentials removed"}
+
+@app.post("/api/platforms/{platform_id}/test-connection")
+async def test_platform_connection(platform_id: str, auth: dict = Depends(verify_token)):
+    """Test if the stored API credentials are valid"""
+    platform = platforms_col.find_one(
+        {"platform_id": platform_id, "user_id": auth["user_id"]}, {"_id": 0}
+    )
+    if not platform:
+        raise HTTPException(status_code=404, detail="Platform not found")
+
+    cred = api_credentials_col.find_one(
+        {"platform_id": platform_id, "user_id": auth["user_id"]}, {"_id": 0}
+    )
+    if not cred or not cred.get("credentials"):
+        raise HTTPException(status_code=400, detail="No credentials saved for this platform")
+
+    import httpx
+    pname = platform["platform"]
+    credentials = cred["credentials"]
+    test_result = {"platform": pname, "status": "unknown", "message": ""}
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            if pname == "facebook":
+                token = credentials.get("page_access_token", "")
+                resp = await client.get(f"https://graph.facebook.com/v19.0/me?access_token={token}")
+                if resp.status_code == 200:
+                    data = resp.json()
+                    test_result = {"status": "success", "message": f"Connected to page: {data.get('name', 'Unknown')}", "data": {"name": data.get("name"), "id": data.get("id")}}
+                else:
+                    test_result = {"status": "error", "message": f"Facebook API error: {resp.json().get('error', {}).get('message', 'Unknown error')}"}
+
+            elif pname == "instagram":
+                token = credentials.get("access_token", "")
+                ig_id = credentials.get("instagram_account_id", "")
+                resp = await client.get(f"https://graph.facebook.com/v19.0/{ig_id}?fields=name,username,followers_count&access_token={token}")
+                if resp.status_code == 200:
+                    data = resp.json()
+                    test_result = {"status": "success", "message": f"Connected to @{data.get('username', 'Unknown')}", "data": data}
+                else:
+                    test_result = {"status": "error", "message": f"Instagram API error: {resp.json().get('error', {}).get('message', 'Unknown error')}"}
+
+            elif pname == "twitter":
+                bearer = credentials.get("bearer_token", "")
+                resp = await client.get("https://api.x.com/2/users/me", headers={"Authorization": f"Bearer {bearer}"})
+                if resp.status_code == 200:
+                    data = resp.json().get("data", {})
+                    test_result = {"status": "success", "message": f"Connected to @{data.get('username', 'Unknown')}", "data": data}
+                else:
+                    test_result = {"status": "error", "message": f"Twitter API error: {resp.text[:200]}"}
+
+            elif pname == "linkedin":
+                token = credentials.get("access_token", "")
+                resp = await client.get("https://api.linkedin.com/v2/userinfo", headers={"Authorization": f"Bearer {token}"})
+                if resp.status_code == 200:
+                    data = resp.json()
+                    test_result = {"status": "success", "message": f"Connected to {data.get('name', data.get('given_name', 'Unknown'))}", "data": data}
+                else:
+                    test_result = {"status": "error", "message": f"LinkedIn API error: {resp.text[:200]}"}
+
+            elif pname == "youtube":
+                api_key = credentials.get("api_key", "")
+                channel_id = credentials.get("channel_id", "")
+                resp = await client.get(f"https://www.googleapis.com/youtube/v3/channels?part=snippet&id={channel_id}&key={api_key}")
+                if resp.status_code == 200:
+                    items = resp.json().get("items", [])
+                    if items:
+                        data = items[0].get("snippet", {})
+                        test_result = {"status": "success", "message": f"Connected to {data.get('title', 'Unknown')}", "data": data}
+                    else:
+                        test_result = {"status": "error", "message": "Channel not found. Check your Channel ID."}
+                else:
+                    test_result = {"status": "error", "message": f"YouTube API error: {resp.json().get('error', {}).get('message', 'Unknown error')}"}
+    except Exception as e:
+        test_result = {"status": "error", "message": f"Connection test failed: {str(e)[:200]}"}
+
+    test_result["platform"] = pname
+    return test_result
 
 # ===== AI Content Routes =====
 
