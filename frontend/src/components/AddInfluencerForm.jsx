@@ -215,6 +215,39 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
         }
     };
 
+    // Fetch both platforms at once
+    const [fetchingAll, setFetchingAll] = useState(false);
+    
+    const fetchAllData = async () => {
+        const hasInstagram = form.instagram_handle?.replace('@', '').trim();
+        const hasYoutube = form.youtube_handle?.replace('@', '').trim();
+        
+        if (!hasInstagram && !hasYoutube) {
+            toast.error('Enter at least one handle to fetch');
+            return;
+        }
+        
+        setFetchingAll(true);
+        let fetchedCount = 0;
+        
+        // Fetch Instagram if handle exists
+        if (hasInstagram) {
+            await fetchInstagramData();
+            fetchedCount++;
+        }
+        
+        // Fetch YouTube if handle exists
+        if (hasYoutube) {
+            await fetchYoutubeData();
+            fetchedCount++;
+        }
+        
+        setFetchingAll(false);
+        if (fetchedCount > 1) {
+            toast.success(`Fetched data from ${fetchedCount} platforms!`);
+        }
+    };
+
     const resetForm = () => {
         setForm(initialForm);
         setFetchedData({ instagram: null, youtube: null });
@@ -229,11 +262,23 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
                 
                 {/* Quick Add Section */}
                 <div className="bg-gold/5 border border-gold/20 rounded-lg p-4 space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-medium text-gold">
-                        <Download className="w-4 h-4" />
-                        Quick Add - Fetch from Social Media
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm font-medium text-gold">
+                            <Download className="w-4 h-4" />
+                            Quick Add - Fetch from Social Media
+                        </div>
+                        <Button 
+                            type="button"
+                            onClick={fetchAllData}
+                            disabled={fetchingAll || fetchingInstagram || fetchingYoutube || (!form.instagram_handle && !form.youtube_handle)}
+                            className="h-8 bg-gold hover:bg-gold/90 text-white text-xs"
+                            data-testid="fetch-all-btn"
+                        >
+                            {fetchingAll ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Download className="w-3 h-3 mr-1" />}
+                            Fetch All
+                        </Button>
                     </div>
-                    <p className="text-xs text-muted-foreground">Enter a handle and click Fetch to auto-fill profile data</p>
+                    <p className="text-xs text-muted-foreground">Enter handles and click Fetch All, or fetch individually</p>
                     
                     <div className="grid grid-cols-2 gap-3">
                         {/* Instagram Fetch */}

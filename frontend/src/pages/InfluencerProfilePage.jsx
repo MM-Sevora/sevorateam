@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { influencerApi } from '../lib/api';
+import { influencerApi, socialApi } from '../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -14,10 +14,10 @@ import { Switch } from '../components/ui/switch';
 import { Separator } from '../components/ui/separator';
 import { toast } from 'sonner';
 import { 
-    ArrowLeft, Edit2, Save, X, Instagram, Youtube, Linkedin, 
+    ArrowLeft, Edit2, Save, X, Instagram, Youtube, 
     Users, TrendingUp, MapPin, Mail, Phone, DollarSign, 
     ExternalLink, Star, Sparkles, Video, Image, MessageCircle,
-    Eye, Heart, BarChart3, Target, Globe, Calendar, RefreshCw, Loader2, CheckCircle
+    Eye, Heart, BarChart3, Target, Globe, Calendar, RefreshCw, Loader2, CheckCircle, Download
 } from 'lucide-react';
 
 const INDUSTRIES = ['fashion', 'beauty', 'lifestyle', 'fitness', 'tech', 'food', 'travel', 'entertainment', 'education', 'finance'];
@@ -38,10 +38,7 @@ const TIER_INFO = {
 
 const PLATFORM_URLS = {
     instagram: (h) => `https://instagram.com/${h?.replace('@', '')}`,
-    youtube: (h) => `https://youtube.com/@${h?.replace('@', '')}`,
-    linkedin: (h) => h?.startsWith('http') ? h : `https://linkedin.com/in/${h}`,
-    tiktok: (h) => `https://tiktok.com/@${h?.replace('@', '')}`,
-    twitter: (h) => `https://x.com/${h?.replace('@', '')}`
+    youtube: (h) => `https://youtube.com/@${h?.replace('@', '')}`
 };
 
 export const InfluencerProfilePage = () => {
@@ -52,6 +49,7 @@ export const InfluencerProfilePage = () => {
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+    const [fetchingPlatform, setFetchingPlatform] = useState(null);
     const [editData, setEditData] = useState({});
 
     useEffect(() => {
@@ -83,6 +81,60 @@ export const InfluencerProfilePage = () => {
             toast.error('Failed to refresh data');
         } finally {
             setRefreshing(false);
+        }
+    };
+    
+    // Fetch data for a specific platform and update the influencer
+    const fetchPlatformData = async (platform) => {
+        const handle = platform === 'instagram' ? editData.instagram_handle : editData.youtube_handle;
+        if (!handle) {
+            toast.error(`Enter ${platform} handle first`);
+            return;
+        }
+        
+        setFetchingPlatform(platform);
+        try {
+            const response = await socialApi.verifyProfile(platform, handle.replace('@', ''));
+            const data = response.data;
+            
+            if (data && data.followers > 0) {
+                const metrics = platform === 'instagram' ? {
+                    followers: data.followers,
+                    engagement_rate: data.engagement_rate || 0,
+                    avg_likes: data.raw_data?.avg_likes || 0,
+                    avg_comments: data.raw_data?.avg_comments || 0,
+                    posts_count: data.posts_count || 0,
+                    last_verified: data.last_verified
+                } : {
+                    subscribers: data.followers,
+                    engagement_rate: data.engagement_rate || 0,
+                    avg_views: data.raw_data?.avg_views || 0,
+                    avg_likes: data.raw_data?.avg_likes || 0,
+                    videos_count: data.posts_count || 0,
+                    last_verified: data.last_verified
+                };
+                
+                // Update editData with new metrics
+                const metricsKey = platform === 'instagram' ? 'instagram_metrics' : 'youtube_metrics';
+                const updatedData = {
+                    ...editData,
+                    [metricsKey]: metrics,
+                    // Update main followers if this is the primary platform
+                    ...(editData.primary_platform === platform && {
+                        followers: data.followers,
+                        engagement_rate: data.engagement_rate || 0
+                    })
+                };
+                
+                setEditData(updatedData);
+                toast.success(`${platform === 'instagram' ? 'Instagram' : 'YouTube'}: ${formatFollowers(data.followers)} ${platform === 'instagram' ? 'followers' : 'subscribers'} fetched`);
+            } else {
+                toast.error(`Could not fetch ${platform} data`);
+            }
+        } catch (error) {
+            toast.error(`Failed to fetch ${platform} data`);
+        } finally {
+            setFetchingPlatform(null);
         }
     };
     
@@ -297,31 +349,45 @@ export const InfluencerProfilePage = () => {
                                                     </SelectContent>
                                                 </Select>
                                             </div>
-                                            <div className="grid grid-cols-3 gap-3">
+                                            <div className="grid grid-cols-2 gap-3">
                                                 <div className="space-y-1">
-                                                    <Label className="text-[10px] uppercase font-mono">Instagram</Label>
-                                                    <Input value={data.instagram_handle || ''} onChange={(e) => update('instagram_handle', e.target.value)} placeholder="@handle" className="h-8 text-xs" />
+                                                    <Label className="text-[10px] uppercase font-mono flex items-center gap-1">
+                                                        <Instagram className="w-3 h-3 text-pink-500" /> Instagram
+                                                    </Label>
+                                                    <div className="flex gap-1">
+                                                        <Input value={data.instagram_handle || ''} onChange={(e) => update('instagram_handle', e.target.value)} placeholder="@handle" className="h-8 text-xs flex-1" />
+                                                        <Button 
+                                                            type="button" 
+                                                            size="sm"
+                                                            onClick={() => fetchPlatformData('instagram')}
+                                                            disabled={fetchingPlatform === 'instagram' || !data.instagram_handle}
+                                                            className="h-8 px-2 bg-pink-500 hover:bg-pink-600 text-white"
+                                                        >
+                                                            {fetchingPlatform === 'instagram' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                                                        </Button>
+                                                    </div>
                                                 </div>
                                                 <div className="space-y-1">
-                                                    <Label className="text-[10px] uppercase font-mono">YouTube</Label>
-                                                    <Input value={data.youtube_handle || ''} onChange={(e) => update('youtube_handle', e.target.value)} placeholder="@channel" className="h-8 text-xs" />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <Label className="text-[10px] uppercase font-mono">LinkedIn</Label>
-                                                    <Input value={data.linkedin_handle || ''} onChange={(e) => update('linkedin_handle', e.target.value)} placeholder="profile" className="h-8 text-xs" />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <Label className="text-[10px] uppercase font-mono">TikTok</Label>
-                                                    <Input value={data.tiktok_handle || ''} onChange={(e) => update('tiktok_handle', e.target.value)} placeholder="@handle" className="h-8 text-xs" />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <Label className="text-[10px] uppercase font-mono">Twitter/X</Label>
-                                                    <Input value={data.twitter_handle || ''} onChange={(e) => update('twitter_handle', e.target.value)} placeholder="@handle" className="h-8 text-xs" />
+                                                    <Label className="text-[10px] uppercase font-mono flex items-center gap-1">
+                                                        <Youtube className="w-3 h-3 text-red-500" /> YouTube
+                                                    </Label>
+                                                    <div className="flex gap-1">
+                                                        <Input value={data.youtube_handle || ''} onChange={(e) => update('youtube_handle', e.target.value)} placeholder="@channel" className="h-8 text-xs flex-1" />
+                                                        <Button 
+                                                            type="button" 
+                                                            size="sm"
+                                                            onClick={() => fetchPlatformData('youtube')}
+                                                            disabled={fetchingPlatform === 'youtube' || !data.youtube_handle}
+                                                            className="h-8 px-2 bg-red-500 hover:bg-red-600 text-white"
+                                                        >
+                                                            {fetchingPlatform === 'youtube' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                                                        </Button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="grid grid-cols-3 gap-4">
+                                        <div className="grid grid-cols-2 gap-4">
                                             {data.instagram_handle && (
                                                 <a href={PLATFORM_URLS.instagram(data.instagram_handle)} target="_blank" rel="noopener noreferrer" 
                                                    className={`flex items-center gap-2 p-3 rounded border hover:bg-muted/50 transition-colors ${data.primary_platform === 'instagram' ? 'border-pink-300 bg-pink-50/50' : ''}`}>
@@ -344,16 +410,8 @@ export const InfluencerProfilePage = () => {
                                                     <ExternalLink className="w-3 h-3 ml-auto text-muted-foreground" />
                                                 </a>
                                             )}
-                                            {data.linkedin_handle && (
-                                                <a href={PLATFORM_URLS.linkedin(data.linkedin_handle)} target="_blank" rel="noopener noreferrer"
-                                                   className={`flex items-center gap-2 p-3 rounded border hover:bg-muted/50 transition-colors ${data.primary_platform === 'linkedin' ? 'border-blue-300 bg-blue-50/50' : ''}`}>
-                                                    <Linkedin className="w-5 h-5 text-blue-600" />
-                                                    <div>
-                                                        <p className="text-sm font-medium">{data.linkedin_handle}</p>
-                                                        {data.primary_platform === 'linkedin' && <Badge className="bg-blue-100 text-blue-600 text-[8px]">Primary</Badge>}
-                                                    </div>
-                                                    <ExternalLink className="w-3 h-3 ml-auto text-muted-foreground" />
-                                                </a>
+                                            {!data.instagram_handle && !data.youtube_handle && (
+                                                <p className="text-sm text-muted-foreground col-span-2">No social profiles added. Click Edit to add Instagram or YouTube handles.</p>
                                             )}
                                         </div>
                                     )}
