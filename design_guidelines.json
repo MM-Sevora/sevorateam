@@ -1,0 +1,162 @@
+{
+  "application_name": "SocialFlow AI",
+  "design_philosophy": {
+    "name": "The Tactical Command Center",
+    "description": "A high-density, dark-mode-first interface designed for professional social media managers. It combines the precision of a financial terminal with the creative spark of AI tools. It prioritizes data clarity, speed, and 'tactical minimalism'.",
+    "emotional_tone": "Professional, Efficient, Powerful, Creative",
+    "archetype": "The Performance Pro (Archetype 2)"
+  },
+  "typography": {
+    "font_family_heading": "Manrope",
+    "font_family_body": "Inter",
+    "scale": {
+      "h1": "text-4xl md:text-5xl font-bold tracking-tight",
+      "h2": "text-3xl font-semibold tracking-tight",
+      "h3": "text-2xl font-semibold",
+      "body_large": "text-lg leading-relaxed",
+      "body": "text-base leading-relaxed text-zinc-400",
+      "caption": "text-sm text-zinc-500 font-medium tracking-wide uppercase"
+    }
+  },
+  "colors": {
+    "theme_mode": "dark",
+    "palette": {
+      "background": {
+        "default": "#09090b",
+        "paper": "#18181b",
+        "subtle": "#27272a"
+      },
+      "primary": {
+        "main": "#7c3aed",
+        "hover": "#6d28d9",
+        "foreground": "#ffffff"
+      },
+      "secondary": {
+        "main": "#27272a",
+        "foreground": "#fafafa"
+      },
+      "accent": {
+        "cyan": "#06b6d4",
+        "pink": "#ec4899",
+        "orange": "#f97316"
+      },
+      "status": {
+        "success": "#10b981",
+        "warning": "#f59e0b",
+        "error": "#ef4444",
+        "info": "#3b82f6"
+      },
+      "border": {
+        "default": "rgba(255, 255, 255, 0.1)",
+        "active": "rgba(255, 255, 255, 0.2)"
+      }
+    },
+    "gradients": {
+      "primary_glow": "conic-gradient(from 180deg at 50% 50%, #7c3aed 0deg, #4c1d95 180deg, #7c3aed 360deg)",
+      "glass_surface": "linear-gradient(180deg, rgba(24, 24, 27, 0.6) 0%, rgba(24, 24, 27, 0.8) 100%)"
+    }
+  },
+  "layout_strategies": {
+    "dashboard_grid": {
+      "type": "Bento Grid (Mode B)",
+      "classes": "grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 auto-rows-[minmax(180px,auto)]",
+      "rules": [
+        "Every pixel must be utilized.",
+        "Use h-full on children to ensure they stretch.",
+        "Primary Data charts should span 2-3 columns.",
+        "Feed lists should be tall (row-span-2)."
+      ]
+    },
+    "container_spacing": {
+      "page_padding": "p-6 md:p-8 lg:p-12",
+      "card_padding": "p-6",
+      "section_gap": "gap-8"
+    }
+  },
+  "components": {
+    "cards": {
+      "style": "flat_technical",
+      "classes": "bg-zinc-900/50 backdrop-blur-md border border-white/5 shadow-sm rounded-xl overflow-hidden hover:border-white/10 transition-colors duration-200",
+      "header_style": "border-b border-white/5 pb-4 mb-4"
+    },
+    "buttons": {
+      "primary": "bg-violet-600 hover:bg-violet-700 text-white shadow-[0_0_15px_rgba(124,58,237,0.3)] hover:shadow-[0_0_25px_rgba(124,58,237,0.5)] transition-all duration-300 rounded-lg font-medium px-6 py-2.5",
+      "secondary": "bg-zinc-800 hover:bg-zinc-700 text-white border border-white/10 hover:border-white/20 transition-all duration-200 rounded-lg font-medium px-6 py-2.5",
+      "ghost": "hover:bg-white/5 text-zinc-400 hover:text-white transition-colors rounded-lg px-4 py-2"
+    },
+    "inputs": {
+      "classes": "bg-zinc-950/50 border-white/10 focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20 rounded-lg py-2.5 text-sm transition-all"
+    }
+  },
+  "visual_enhancers": {
+    "glassmorphism": {
+      "use_for": "Sticky Headers, Floating Navs, Modal Overlays",
+      "classes": "bg-zinc-950/80 backdrop-blur-xl border-b border-white/10"
+    },
+    "borders": {
+      "use_for": "Dashboard Grids",
+      "style": "1px solid rgba(255,255,255,0.08)"
+    },
+    "shadows": {
+      "glow": "shadow-[0_0_20px_rgba(124,58,237,0.15)]"
+    }
+  },
+  "motion": {
+    "page_transition": {
+      "initial": { "opacity": 0, "y": 20 },
+      "animate": { "opacity": 1, "y": 0 },
+      "exit": { "opacity": 0, "y": -20 },
+      "transition": { "duration": 0.3, "ease": "easeOut" }
+    },
+    "hover_effects": {
+      "card_lift": "hover:-translate-y-1 hover:shadow-lg transition-transform duration-200"
+    }
+  },
+  "assets": {
+    "images": [
+      {
+        "category": "hero_background",
+        "url": "https://images.unsplash.com/photo-1765046255479-669cf07a0230?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzd8MHwxfHNlYXJjaHwzfHxmdXR1cmlzdGljJTIwZGlnaXRhbCUyMGFic3RyYWN0JTIwZGF0YSUyMHZpc3VhbGl6YXRpb258ZW58MHx8fHwxNzcyNzMzNTIzfDA&ixlib=rb-4.1.0&q=85",
+        "description": "Abstract white wavy lines on a soft background for subtle texture."
+      },
+      {
+        "category": "ai_feature_bg",
+        "url": "https://images.unsplash.com/photo-1762279388952-85187155e48d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzd8MHwxfHNlYXJjaHw0fHxmdXR1cmlzdGljJTIwZGlnaXRhbCUyMGFic3RyYWN0JTIwZGF0YSUyMHZpc3VhbGl6YXRpb258ZW58MHx8fHwxNzcyNzMzNTIzfDA&ixlib=rb-4.1.0&q=85",
+        "description": "Abstract neon lines for AI content generation section."
+      },
+      {
+        "category": "marketing_team",
+        "url": "https://images.unsplash.com/photo-1758520144667-3041caeff3c1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODF8MHwxfHNlYXJjaHwxfHxzb2NpYWwlMjBtZWRpYSUyMG1hcmtldGluZyUyMHRlYW0lMjBkYXJrJTIwb2ZmaWNlfGVufDB8fHx8MTc3MjczMzUyMnww&ixlib=rb-4.1.0&q=85",
+        "description": "Man working late at desk, suitable for 'About' or 'Team' section."
+      }
+    ],
+    "icons": {
+      "library": "lucide-react",
+      "social_logos": "react-icons/fa (FaFacebook, FaInstagram, FaTwitter, FaLinkedin, FaYoutube)"
+    }
+  },
+  "universal_guidelines": [
+    "Dark colors must be used independently, avoiding gradients for backgrounds.",
+    "Do NOT use 'Inter' for headings; use 'Manrope' or 'Barlow Condensed'.",
+    "Use 2-3x more spacing than typical designs (p-6, p-8).",
+    "Every interaction needs micro-animations (hover, focus, active).",
+    "Use 'sonner' for toast notifications.",
+    "All interactive elements MUST include 'data-testid'.",
+    "Do NOT use purple or teal for CTAs (use Violet/Indigo or White/Black).",
+    "Avoid the Center-Everything Disease; use asymmetry and grids.",
+    "BANNED: Generic AI emoji characters (🤖, 🧠, etc.). Use abstract shapes or Lucide icons instead."
+  ],
+  "accessibility": {
+    "contrast": "Ensure text meets APCA standards (4.5:1 min).",
+    "focus_states": "Visible focus rings with high contrast.",
+    "reduced_motion": "Respect 'prefers-reduced-motion' media query."
+  },
+  "instructions_to_main_agent": [
+    "1. Setup Shadcn/UI with the 'zinc' neutral color and 'violet' primary color.",
+    "2. Install 'lucide-react', 'react-icons', 'recharts', 'framer-motion', 'sonner', 'clsx', 'tailwind-merge'.",
+    "3. Implement the Dashboard using the 'Bento Grid' layout defined above.",
+    "4. Create a layout wrapper that includes the Sidebar (fixed left) and Topbar.",
+    "5. Use the provided image URLs for the Landing Page hero and AI sections.",
+    "6. Ensure all charts in the dashboard use the application color palette (Violet, Cyan, Pink, Orange)."
+  ]
+}
