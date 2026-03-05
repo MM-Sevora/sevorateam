@@ -1828,6 +1828,439 @@ async def delete_user(user_id: str, user: dict = Depends(get_current_user)):
     
     return {"success": True, "message": "User deleted"}
 
+# ============== EMAIL OUTREACH ROUTES ==============
+email_router = APIRouter(prefix="/email", tags=["Email"])
+
+@email_router.get("/status")
+async def get_email_status(user: dict = Depends(get_current_user)):
+    """Get SendGrid email service configuration status"""
+    from services.email_service import get_email_service
+    
+    email_service = get_email_service()
+    return email_service.get_configuration_status()
+
+@email_router.post("/send-outreach")
+async def send_email_outreach(
+    influencer_id: str,
+    campaign_name: Optional[str] = None,
+    personalized_message: Optional[str] = None,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Send collaboration outreach email to an influencer.
+    Requires influencer to have an email on file.
+    """
+    from services.permissions import has_permission
+    if not has_permission(user.get('role', 'marketing_manager'), 'outreach:write'):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    from services.email_service import get_email_service, EmailDeliveryError
+    
+    # Get influencer
+    influencer = await db.influencers.find_one({"id": influencer_id}, {"_id": 0})
+    if not influencer:
+        raise HTTPException(status_code=404, detail="Influencer not found")
+    
+    email = influencer.get('email')
+    if not email:
+        raise HTTPException(
+            status_code=400,
+            detail="Influencer does not have an email on file"
+        )
+    
+    email_service = get_email_service()
+    
+    if not email_service.is_configured:
+        raise HTTPException(
+            status_code=400,
+            detail="SendGrid not configured. Set SENDGRID_API_KEY in environment."
+        )
+    
+    try:
+        result = email_service.send_influencer_outreach(
+            to_email=email,
+            influencer_name=influencer.get('name', 'there'),
+            campaign_name=campaign_name,
+            personalized_message=personalized_message
+        )
+        
+        # Update influencer status
+        await db.influencers.update_one(
+            {"id": influencer_id},
+            {
+                "$set": {
+                    "status": "contacted",
+                    "last_contacted": datetime.now(timezone.utc).isoformat()
+                }
+            }
+        )
+        
+        # Log the outreach
+        await db.outreach.insert_one({
+            "id": str(uuid.uuid4()),
+            "type": "email",
+            "channel": "sendgrid",
+            "influencer_id": influencer_id,
+            "influencer_name": influencer.get('name'),
+            "email": email,
+            "campaign_name": campaign_name,
+            "status": "sent",
+            "message_id": result.get('message_id'),
+            "sent_by": user['id'],
+            "sent_at": datetime.now(timezone.utc).isoformat()
+        })
+        
+        return {
+            "success": True,
+            "message": f"Outreach email sent to {influencer.get('name')}",
+            "message_id": result.get('message_id')
+        }
+    except EmailDeliveryError as e:
+        logger.error(f"Email outreach error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@email_router.post("/batch-outreach")
+async def send_batch_email_outreach(
+    influencer_ids: List[str],
+    campaign_name: Optional[str] = None,
+    default_message: Optional[str] = None,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Send email outreach to multiple influencers.
+    """
+    from services.permissions import has_permission
+    if not has_permission(user.get('role', 'marketing_manager'), 'outreach:write'):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    from services.email_service import get_email_service
+    
+    email_service = get_email_service()
+    
+    if not email_service.is_configured:
+        raise HTTPException(status_code=400, detail="SendGrid not configured")
+    
+    results = []
+    
+    for influencer_id in influencer_ids:
+        influencer = await db.influencers.find_one({"id": influencer_id}, {"_id": 0})
+        if not influencer:
+            results.append({"influencer_id": influencer_id, "success": False, "error": "Not found"})
+            continue
+        
+        email = influencer.get('email')
+        if not email:
+            results.append({"influencer_id": influencer_id, "success": False, "error": "No email on file"})
+            continue
+        
+        try:
+            result = email_service.send_influencer_outreach(
+                to_email=email,
+                influencer_name=influencer.get('name', 'there'),
+                campaign_name=campaign_name,
+                personalized_message=default_message
+            )
+            
+            # Update influencer status
+            await db.influencers.update_one(
+                {"id": influencer_id},
+                {"$set": {"status": "contacted", "last_contacted": datetime.now(timezone.utc).isoformat()}}
+            )
+            
+            # Log outreach
+            await db.outreach.insert_one({
+                "id": str(uuid.uuid4()),
+                "type": "email",
+                "channel": "sendgrid",
+                "influencer_id": influencer_id,
+                "influencer_name": influencer.get('name'),
+                "email": email,
+                "campaign_name": campaign_name,
+                "status": "sent",
+                "message_id": result.get('message_id'),
+                "sent_by": user['id'],
+                "sent_at": datetime.now(timezone.utc).isoformat()
+            })
+            
+            results.append({
+                "influencer_id": influencer_id,
+                "influencer_name": influencer.get('name'),
+                "success": True,
+                "message_id": result.get('message_id')
+            })
+        except Exception as e:
+            results.append({
+                "influencer_id": influencer_id,
+                "success": False,
+                "error": str(e)
+            })
+    
+    return {
+        "total": len(influencer_ids),
+        "successful": sum(1 for r in results if r.get("success")),
+        "failed": sum(1 for r in results if not r.get("success")),
+        "results": results
+    }
+
+@email_router.post("/send-follow-up/{influencer_id}")
+async def send_follow_up_email(
+    influencer_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Send follow-up email to an influencer who hasn't responded"""
+    from services.permissions import has_permission
+    if not has_permission(user.get('role', 'marketing_manager'), 'outreach:write'):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    from services.email_service import get_email_service
+    
+    influencer = await db.influencers.find_one({"id": influencer_id}, {"_id": 0})
+    if not influencer:
+        raise HTTPException(status_code=404, detail="Influencer not found")
+    
+    email = influencer.get('email')
+    if not email:
+        raise HTTPException(status_code=400, detail="Influencer has no email on file")
+    
+    email_service = get_email_service()
+    
+    if not email_service.is_configured:
+        raise HTTPException(status_code=400, detail="SendGrid not configured")
+    
+    try:
+        result = email_service.send_follow_up(
+            to_email=email,
+            influencer_name=influencer.get('name', 'there')
+        )
+        
+        # Log follow-up
+        await db.outreach.insert_one({
+            "id": str(uuid.uuid4()),
+            "type": "email",
+            "channel": "follow_up",
+            "influencer_id": influencer_id,
+            "influencer_name": influencer.get('name'),
+            "email": email,
+            "status": "sent",
+            "message_id": result.get('message_id'),
+            "sent_by": user['id'],
+            "sent_at": datetime.now(timezone.utc).isoformat()
+        })
+        
+        return {
+            "success": True,
+            "message": f"Follow-up email sent to {influencer.get('name')}"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============== CONTENT LIBRARY ==============
+content_router = APIRouter(prefix="/content", tags=["Content Library"])
+
+class ContentCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    content_type: str  # reel, post, story, youtube_video, image, video
+    platform: str = "instagram"  # instagram, youtube
+    influencer_id: Optional[str] = None
+    campaign_id: Optional[str] = None
+    negotiation_id: Optional[str] = None
+    media_url: Optional[str] = None  # URL to the content (Instagram post, YouTube video, etc.)
+    thumbnail_url: Optional[str] = None
+    tags: List[str] = []
+    performance_metrics: Optional[Dict[str, Any]] = None  # views, likes, comments, shares
+    status: str = "draft"  # draft, pending_approval, approved, published, archived
+    published_at: Optional[str] = None
+    notes: Optional[str] = None
+
+class ContentUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    content_type: Optional[str] = None
+    platform: Optional[str] = None
+    media_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    tags: Optional[List[str]] = None
+    performance_metrics: Optional[Dict[str, Any]] = None
+    status: Optional[str] = None
+    published_at: Optional[str] = None
+    notes: Optional[str] = None
+
+@content_router.get("")
+async def get_content_library(
+    influencer_id: Optional[str] = None,
+    campaign_id: Optional[str] = None,
+    content_type: Optional[str] = None,
+    platform: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = Query(default=50, le=200),
+    user: dict = Depends(get_current_user)
+):
+    """Get content from the library with optional filters"""
+    query = {}
+    
+    if influencer_id:
+        query["influencer_id"] = influencer_id
+    if campaign_id:
+        query["campaign_id"] = campaign_id
+    if content_type:
+        query["content_type"] = content_type
+    if platform:
+        query["platform"] = platform
+    if status:
+        query["status"] = status
+    
+    contents = await db.content_library.find(
+        query, {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    return contents
+
+@content_router.post("")
+async def add_content(data: ContentCreate, user: dict = Depends(get_current_user)):
+    """Add new content to the library"""
+    from services.permissions import has_permission
+    if not has_permission(user.get('role', 'marketing_manager'), 'influencers:write'):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    content_id = str(uuid.uuid4())
+    
+    # Get influencer name if ID provided
+    influencer_name = None
+    if data.influencer_id:
+        influencer = await db.influencers.find_one({"id": data.influencer_id}, {"_id": 0, "name": 1})
+        if influencer:
+            influencer_name = influencer.get('name')
+    
+    # Get campaign name if ID provided
+    campaign_name = None
+    if data.campaign_id:
+        campaign = await db.campaigns.find_one({"id": data.campaign_id}, {"_id": 0, "name": 1})
+        if campaign:
+            campaign_name = campaign.get('name')
+    
+    content_doc = {
+        "id": content_id,
+        "title": data.title,
+        "description": data.description,
+        "content_type": data.content_type,
+        "platform": data.platform,
+        "influencer_id": data.influencer_id,
+        "influencer_name": influencer_name,
+        "campaign_id": data.campaign_id,
+        "campaign_name": campaign_name,
+        "negotiation_id": data.negotiation_id,
+        "media_url": data.media_url,
+        "thumbnail_url": data.thumbnail_url,
+        "tags": data.tags,
+        "performance_metrics": data.performance_metrics or {},
+        "status": data.status,
+        "published_at": data.published_at,
+        "notes": data.notes,
+        "created_by": user['id'],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.content_library.insert_one(content_doc)
+    
+    if '_id' in content_doc:
+        del content_doc['_id']
+    
+    return content_doc
+
+@content_router.get("/{content_id}")
+async def get_content(content_id: str, user: dict = Depends(get_current_user)):
+    """Get a specific content item"""
+    content = await db.content_library.find_one({"id": content_id}, {"_id": 0})
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+    return content
+
+@content_router.put("/{content_id}")
+async def update_content(content_id: str, data: ContentUpdate, user: dict = Depends(get_current_user)):
+    """Update a content item"""
+    from services.permissions import has_permission
+    if not has_permission(user.get('role', 'marketing_manager'), 'influencers:write'):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    update_data = {k: v for k, v in data.dict().items() if v is not None}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.content_library.find_one_and_update(
+        {"id": content_id},
+        {"$set": update_data},
+        return_document=True
+    )
+    
+    if not result:
+        raise HTTPException(status_code=404, detail="Content not found")
+    
+    if '_id' in result:
+        del result['_id']
+    
+    return result
+
+@content_router.delete("/{content_id}")
+async def delete_content(content_id: str, user: dict = Depends(get_current_user)):
+    """Delete a content item"""
+    from services.permissions import has_permission
+    if not has_permission(user.get('role', 'marketing_manager'), 'influencers:delete'):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    result = await db.content_library.delete_one({"id": content_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Content not found")
+    
+    return {"success": True, "message": "Content deleted"}
+
+@content_router.put("/{content_id}/metrics")
+async def update_content_metrics(
+    content_id: str,
+    metrics: Dict[str, Any],
+    user: dict = Depends(get_current_user)
+):
+    """Update performance metrics for a content item"""
+    result = await db.content_library.update_one(
+        {"id": content_id},
+        {
+            "$set": {
+                "performance_metrics": metrics,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Content not found")
+    
+    return {"success": True, "message": "Metrics updated"}
+
+@content_router.get("/influencer/{influencer_id}/stats")
+async def get_influencer_content_stats(influencer_id: str, user: dict = Depends(get_current_user)):
+    """Get content statistics for an influencer"""
+    pipeline = [
+        {"$match": {"influencer_id": influencer_id}},
+        {"$group": {
+            "_id": "$content_type",
+            "count": {"$sum": 1},
+            "total_views": {"$sum": {"$ifNull": ["$performance_metrics.views", 0]}},
+            "total_likes": {"$sum": {"$ifNull": ["$performance_metrics.likes", 0]}},
+            "total_comments": {"$sum": {"$ifNull": ["$performance_metrics.comments", 0]}}
+        }}
+    ]
+    
+    stats = await db.content_library.aggregate(pipeline).to_list(20)
+    
+    total_content = await db.content_library.count_documents({"influencer_id": influencer_id})
+    
+    return {
+        "influencer_id": influencer_id,
+        "total_content": total_content,
+        "by_type": {s['_id']: s for s in stats if s['_id']}
+    }
+
 # ============== CONTENT LIBRARY ==============
 @api_router.get("/content-library")
 async def get_content_library(
@@ -2322,6 +2755,8 @@ api_router.include_router(social_router)
 api_router.include_router(scheduled_router)
 api_router.include_router(whatsapp_router)
 api_router.include_router(users_router)
+api_router.include_router(email_router)
+api_router.include_router(content_router)
 
 @api_router.get("/")
 async def root():

@@ -602,8 +602,49 @@ export const NegotiationsPage = () => {
 
                                 {/* Deliverables */}
                                 <div className="p-3 bg-muted/30 rounded">
-                                    <p className="text-[10px] uppercase font-mono text-muted-foreground mb-1">Deliverables</p>
-                                    <p className="text-sm">{selectedNeg.deliverables}</p>
+                                    <p className="text-[10px] uppercase font-mono text-muted-foreground mb-2 flex items-center gap-2">
+                                        <Package className="w-3 h-3" /> Deliverables Package
+                                    </p>
+                                    
+                                    {/* Show structured deliverables bucket if available */}
+                                    {selectedNeg.deliverables_bucket && selectedNeg.deliverables_bucket.length > 0 ? (
+                                        <div className="space-y-2">
+                                            <div className="grid gap-2">
+                                                {selectedNeg.deliverables_bucket.map((d, i) => {
+                                                    const dt = DELIVERABLE_TYPES.find(t => t.value === d.type);
+                                                    const Icon = dt?.icon || Video;
+                                                    return (
+                                                        <div key={i} className="flex items-center justify-between p-2 bg-white rounded border text-sm">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-8 h-8 rounded bg-muted flex items-center justify-center">
+                                                                    <Icon className="w-4 h-4 text-gold" />
+                                                                </div>
+                                                                <div>
+                                                                    <p className="font-medium">{d.quantity}x {dt?.label || d.type}</p>
+                                                                    <p className="text-[10px] text-muted-foreground capitalize">{d.platform || 'Instagram'}</p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <p className="font-medium">₹{(d.rate || 0).toLocaleString()}/each</p>
+                                                                <p className="text-[10px] text-muted-foreground">
+                                                                    Subtotal: ₹{((d.quantity || 1) * (d.rate || 0)).toLocaleString()}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            <div className="flex justify-between pt-2 border-t font-medium">
+                                                <span>Package Total</span>
+                                                <span className="text-gold text-lg">
+                                                    ₹{selectedNeg.deliverables_bucket.reduce((sum, d) => sum + ((d.quantity || 1) * (d.rate || 0)), 0).toLocaleString()}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        /* Fallback to text description if no structured bucket */
+                                        <p className="text-sm">{selectedNeg.deliverables || 'No deliverables specified'}</p>
+                                    )}
                                 </div>
 
                                 {/* Timeline */}
