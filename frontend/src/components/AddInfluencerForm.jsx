@@ -13,7 +13,6 @@ import { influencerApi, socialApi } from '../lib/api';
 import { toast } from 'sonner';
 import { User, AtSign, DollarSign, Plus, X, Loader2, Download, CheckCircle, Instagram, Youtube } from 'lucide-react';
 
-const CATEGORIES = ['luxury', 'menswear', 'womenswear', 'streetwear', 'ethnic', 'minimal', 'sustainable'];
 const INDUSTRIES = ['fashion', 'beauty', 'lifestyle', 'fitness', 'tech', 'food', 'travel', 'entertainment', 'education', 'finance'];
 const GENDERS = ['male', 'female', 'non-binary', 'other', 'prefer not to say'];
 const TIERS = ['nano', 'micro', 'mid', 'macro', 'mega', 'celebrity'];
@@ -47,7 +46,7 @@ const formatFollowers = (count) => {
 const initialForm = {
     name: '', bio: '', instagram_handle: '', youtube_handle: '', tiktok_handle: '', linkedin_handle: '', twitter_handle: '',
     primary_platform: 'instagram',
-    email: '', phone: '', city: 'Mumbai', category: 'luxury', industry: 'fashion', tier: 'micro',
+    email: '', phone: '', city: 'Mumbai', industry: 'fashion', tier: 'micro',
     gender: '', gender_focus: 'unisex', content_type: [],
     followers: '', engagement_rate: '', avg_likes: '',
     rate_per_post: '', rate_per_reel: '', rate_per_story: '', rate_per_video: '', accepts_barter: false,
@@ -160,7 +159,6 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
                 email: cleanValue(form.email) || null,  // Must be null, not empty string
                 phone: cleanValue(form.phone),
                 city: form.city,
-                category: form.category || 'luxury',
                 industry: form.industry || 'fashion',
                 tier: form.tier || 'micro',
                 gender: cleanValue(form.gender),
@@ -315,13 +313,6 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
                                     <Select value={form.city} onValueChange={(v) => update('city', v)}>
                                         <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                                         <SelectContent>{CITIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-1">
-                                    <Label className="text-[10px] uppercase font-mono">Category</Label>
-                                    <Select value={form.category} onValueChange={(v) => update('category', v)}>
-                                        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                                        <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}</SelectContent>
                                     </Select>
                                 </div>
                                 <div className="space-y-1">

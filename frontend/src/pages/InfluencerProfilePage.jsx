@@ -20,7 +20,6 @@ import {
     Eye, Heart, BarChart3, Target, Globe, Calendar, RefreshCw, Loader2, CheckCircle
 } from 'lucide-react';
 
-const CATEGORIES = ['luxury', 'menswear', 'womenswear', 'streetwear', 'ethnic', 'minimal', 'sustainable'];
 const INDUSTRIES = ['fashion', 'beauty', 'lifestyle', 'fitness', 'tech', 'food', 'travel', 'entertainment', 'education', 'finance'];
 const CONTENT_TYPES = ['reels', 'posts', 'stories', 'youtube videos', 'blogs', 'podcasts', 'live streams'];
 const GENDERS = ['male', 'female', 'non-binary', 'other', 'prefer not to say'];
@@ -204,7 +203,7 @@ export const InfluencerProfilePage = () => {
                                         )}
                                     </div>
                                     <h2 className="font-serif text-xl">{data.name}</h2>
-                                    <Badge className="capitalize mt-1">{data.category}</Badge>
+                                    <Badge className="capitalize mt-1">{data.industry || 'fashion'}</Badge>
                                     
                                     {/* Verification Status */}
                                     {data.last_verified && (
@@ -405,15 +404,6 @@ export const InfluencerProfilePage = () => {
                                         <div className="space-y-4">
                                             <div className="grid grid-cols-3 gap-4">
                                                 <div className="space-y-1">
-                                                    <Label className="text-[10px] uppercase font-mono">Category</Label>
-                                                    <Select value={data.category || 'luxury'} onValueChange={(v) => update('category', v)}>
-                                                        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                                                        <SelectContent>
-                                                            {CATEGORIES.map(c => <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                                <div className="space-y-1">
                                                     <Label className="text-[10px] uppercase font-mono">Industry</Label>
                                                     <Select value={data.industry || 'fashion'} onValueChange={(v) => update('industry', v)}>
                                                         <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
@@ -467,7 +457,6 @@ export const InfluencerProfilePage = () => {
                                     ) : (
                                         <div className="space-y-3">
                                             <div className="flex flex-wrap gap-2">
-                                                <Badge variant="outline" className="capitalize">{data.category}</Badge>
                                                 <Badge className="bg-blue-100 text-blue-700 capitalize">{data.industry || 'fashion'}</Badge>
                                                 <Badge className={`${TIER_INFO[data.tier || 'micro']?.color} capitalize`}>{data.tier || 'micro'}</Badge>
                                                 {data.gender && data.gender !== 'prefer not to say' && (

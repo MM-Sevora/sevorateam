@@ -25,7 +25,6 @@ import {
     Filter, X, ChevronDown
 } from 'lucide-react';
 
-const CATEGORIES = ['luxury', 'menswear', 'womenswear', 'streetwear', 'ethnic', 'minimal'];
 const CITIES = ['Mumbai', 'Delhi', 'Kolkata', 'Bangalore', 'Chennai', 'Hyderabad', 'Pune'];
 const STATUS_OPTIONS = ['identified', 'contacted', 'interested', 'negotiation', 'confirmed', 'completed'];
 const INDUSTRIES = ['fashion', 'beauty', 'lifestyle', 'fitness', 'tech', 'food', 'travel'];
@@ -83,7 +82,7 @@ export const InfluencersPage = () => {
     const [selectedInfluencer, setSelectedInfluencer] = useState(null);
     
     // Basic Filters
-    const [filters, setFilters] = useState({ search: '', category: '', city: '', status: '' });
+    const [filters, setFilters] = useState({ search: '', city: '', status: '' });
     
     // Advanced Filters
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -110,7 +109,6 @@ export const InfluencersPage = () => {
     const [imported, setImported] = useState({});
     const [aiParams, setAiParams] = useState({
         campaign_brief: '',
-        category: 'luxury',
         location: 'India',
         follower_range: '10K-500K',
         num_suggestions: 8
@@ -223,7 +221,6 @@ export const InfluencersPage = () => {
             setLoading(true);
             const params = {};
             if (filters.search) params.search = filters.search;
-            if (filters.category) params.category = filters.category;
             if (filters.city) params.city = filters.city;
             if (filters.status) params.status = filters.status;
             const response = await influencerApi.getAll(params);
@@ -273,7 +270,6 @@ export const InfluencersPage = () => {
             const token = localStorage.getItem('sevora_token');
             const url = aiApi.autoDiscoverStream({
                 campaign_brief: aiParams.campaign_brief,
-                category: aiParams.category,
                 location: aiParams.location,
                 follower_range: aiParams.follower_range,
                 num_suggestions: aiParams.num_suggestions
@@ -510,13 +506,6 @@ export const InfluencersPage = () => {
                                 data-testid="search-input"
                             />
                         </div>
-                        <Select value={filters.category || "all"} onValueChange={(v) => setFilters({ ...filters, category: v === "all" ? "" : v })}>
-                            <SelectTrigger className="w-[140px]"><SelectValue placeholder="Category" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All</SelectItem>
-                                {CATEGORIES.map(c => <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
                         <Select value={filters.city || "all"} onValueChange={(v) => setFilters({ ...filters, city: v === "all" ? "" : v })}>
                             <SelectTrigger className="w-[140px]"><SelectValue placeholder="City" /></SelectTrigger>
                             <SelectContent>
@@ -864,15 +853,6 @@ export const InfluencersPage = () => {
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
                                     <div className="space-y-1">
-                                        <Label className="text-[10px] uppercase font-mono">Category</Label>
-                                        <Select value={aiParams.category} onValueChange={(v) => setAiParams({ ...aiParams, category: v })}>
-                                            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                {CATEGORIES.map(c => <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="space-y-1">
                                         <Label className="text-[10px] uppercase font-mono">Location</Label>
                                         <Select value={aiParams.location} onValueChange={(v) => setAiParams({ ...aiParams, location: v })}>
                                             <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
@@ -1068,7 +1048,7 @@ export const InfluencersPage = () => {
                                 <div><span className="text-muted-foreground">Tier:</span> <Badge variant="outline" className="capitalize text-[10px]">{selectedInfluencer.tier || 'micro'}</Badge></div>
                                 <div><span className="text-muted-foreground">Followers:</span> {(selectedInfluencer.followers / 1000).toFixed(0)}K</div>
                                 <div><span className="text-muted-foreground">Engagement:</span> {selectedInfluencer.engagement_rate}%</div>
-                                <div><span className="text-muted-foreground">Category:</span> <Badge variant="outline" className="capitalize">{selectedInfluencer.category}</Badge></div>
+                                <div><span className="text-muted-foreground">Industry:</span> <Badge variant="outline" className="capitalize">{selectedInfluencer.industry || 'fashion'}</Badge></div>
                                 <div><span className="text-muted-foreground">Score:</span> <Badge className="bg-gold text-white">{selectedInfluencer.score}</Badge></div>
                                 {selectedInfluencer.rate_per_reel && <div><span className="text-muted-foreground">Rate/Reel:</span> ₹{selectedInfluencer.rate_per_reel?.toLocaleString()}</div>}
                                 {selectedInfluencer.rate_per_video && <div><span className="text-muted-foreground">Rate/Video:</span> ₹{selectedInfluencer.rate_per_video?.toLocaleString()}</div>}
@@ -1108,7 +1088,7 @@ export const InfluencersPage = () => {
                                             </div>
                                             <p className="font-medium text-sm">{inf.name}</p>
                                             <p className="text-[10px] text-muted-foreground">@{inf.instagram_handle}</p>
-                                            <Badge variant="outline" className="mt-2 text-[10px] capitalize">{inf.category}</Badge>
+                                            <Badge variant="outline" className="mt-2 text-[10px] capitalize">{inf.industry || 'fashion'}</Badge>
                                         </CardContent>
                                     </Card>
                                 ))}
