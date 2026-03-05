@@ -145,22 +145,47 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
         if (!form.name || !form.city) { toast.error('Name and City required'); return; }
         setLoading(true);
         try {
-            await influencerApi.create({
-                ...form,
-                followers: parseInt(form.followers) || 0,
-                engagement_rate: parseFloat(form.engagement_rate) || 0,
-                avg_likes: parseInt(form.avg_likes) || 0,
-                rate_per_post: parseFloat(form.rate_per_post) || null,
-                rate_per_reel: parseFloat(form.rate_per_reel) || null,
-                rate_per_story: parseFloat(form.rate_per_story) || null,
-            });
+            // Clean up empty strings to null for optional fields
+            const cleanValue = (val) => (val === '' || val === undefined) ? null : val;
+            
+            const submitData = {
+                name: form.name,
+                bio: cleanValue(form.bio),
+                instagram_handle: cleanValue(form.instagram_handle),
+                youtube_handle: cleanValue(form.youtube_handle),
+                tiktok_handle: cleanValue(form.tiktok_handle),
+                linkedin_handle: cleanValue(form.linkedin_handle),
+                twitter_handle: cleanValue(form.twitter_handle),
+                primary_platform: form.primary_platform || 'instagram',
+                email: cleanValue(form.email) || null,  // Must be null, not empty string
+                phone: cleanValue(form.phone),
+                city: form.city,
+                category: form.category || 'luxury',
+                industry: form.industry || 'fashion',
+                tier: form.tier || 'micro',
+                gender: cleanValue(form.gender),
+                gender_focus: form.gender_focus || 'unisex',
+                content_type: form.content_type || [],
+                followers: typeof form.followers === 'number' ? form.followers : (parseInt(form.followers) || 0),
+                engagement_rate: typeof form.engagement_rate === 'number' ? form.engagement_rate : (parseFloat(form.engagement_rate) || 0),
+                avg_likes: typeof form.avg_likes === 'number' ? form.avg_likes : (parseInt(form.avg_likes) || 0),
+                rate_per_post: form.rate_per_post ? parseFloat(form.rate_per_post) : null,
+                rate_per_reel: form.rate_per_reel ? parseFloat(form.rate_per_reel) : null,
+                rate_per_story: form.rate_per_story ? parseFloat(form.rate_per_story) : null,
+                accepts_barter: form.accepts_barter || false,
+                style_tags: form.style_tags || [],
+                notes: cleanValue(form.notes),
+            };
+            
+            await influencerApi.create(submitData);
             toast.success('Influencer added with live data!');
             setForm(initialForm);
             setFetchedData({ instagram: null, youtube: null });
             onOpenChange(false);
             if (onSuccess) onSuccess();
         } catch (error) {
-            toast.error('Failed to add');
+            console.error('Failed to add influencer:', error);
+            toast.error(error.response?.data?.detail || 'Failed to add influencer');
         } finally {
             setLoading(false);
         }
