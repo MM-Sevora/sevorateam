@@ -71,6 +71,17 @@ An internal tool for a luxury fashion brand (SEVORA) to manage its entire influe
 - [x] **Removed Legacy Platforms:** Cleaned up LinkedIn, TikTok, Twitter from UI and models (focused on Instagram & YouTube)
 - [x] **Legacy Support:** Old demographics format (without platform keys) still supported for backward compatibility
 
+### Phase 5 - Enterprise Features ✅ (March 5, 2026)
+- [x] **AI Discovery Timeout Fix:** Background tasks with FastAPI BackgroundTasks - tasks start immediately, poll for results via `/api/ai/task-status/{task_id}`
+- [x] **Scheduled Auto-Discovery with APScheduler:** MongoDB persistence for job storage (survives restarts), daily/weekly/hourly frequency options, restore jobs on startup
+- [x] **User Roles & Permissions:** Three roles implemented:
+  - `admin` - Full access to everything
+  - `marketing_manager` - Influencers, Campaigns, Outreach, AI Tools
+  - `finance` - Budget, Payments, Analytics only
+- [x] **WhatsApp Business API Integration:** Meta Cloud API service ready - send text messages, template messages, influencer outreach, batch messaging. Requires credentials: `WA_ACCESS_TOKEN`, `WA_PHONE_NUMBER_ID`
+- [x] **User Management Endpoints:** Get all users, update user roles, delete users (admin only)
+- [x] **Scheduler Status Endpoint:** View running APScheduler jobs and their next run times
+
 ---
 
 ## API Endpoints
@@ -203,32 +214,44 @@ An internal tool for a luxury fashion brand (SEVORA) to manage its entire influe
 ## Upcoming Tasks (Backlog)
 
 ### P0 - High Priority
-- [ ] Refactor server.py into smaller router files (1900+ lines now)
-- [ ] Implement actual scheduling logic for Auto-Discovery (using apscheduler)
+- [ ] Refactor server.py into smaller router files (2300+ lines now)
+- [ ] Add frontend UI for WhatsApp outreach
+- [ ] Add frontend UI for User Role management (admin panel)
 
 ### P1 - Medium Priority
 - [ ] Content Library module - Store influencer-generated content
 - [ ] Display Deliverables Bucket in negotiation detail view
-- [ ] WhatsApp Business API integration
 - [ ] Email outreach via SendGrid (integrated but needs testing)
+- [ ] Add permission checks to core influencer CRUD endpoints (optional)
 
 ### P2 - Future
-- [ ] User roles and permissions (Founder, Marketing Manager)
 - [ ] Mobile app for influencers
 - [ ] Advanced analytics and reporting
 - [ ] AI stylist influencers
-- [ ] AI discovery timeout fix (background tasks)
 
 ---
 
 ## Known Issues
 1. Recharts console warnings (cosmetic only)
-2. server.py is over 1900 lines - needs refactoring into routers
+2. server.py is over 2300 lines - needs refactoring into routers
 3. Some older influencers without social handles show 0 followers (need to add handles and refresh)
-4. AI discovery may timeout under heavy load (SSE helps but not fully async)
 
 ## Test Credentials
-- Register a new account on the login page to test
+- Admin: admin@sevora.com / admin123
+- Test User: test_demo@test.com / test123 (register new if needed)
+
+## Environment Variables Required
+
+### Social APIs (already configured)
+- `INSTAGRAM_ACCESS_TOKEN` - Instagram Graph API Page Access Token
+- `INSTAGRAM_ACCOUNT_ID` - Instagram Business Account ID
+- `YOUTUBE_API_KEY` - YouTube Data API Key
+
+### WhatsApp Business API (needs setup)
+- `WA_ACCESS_TOKEN` - Meta Cloud API Access Token
+- `WA_PHONE_NUMBER_ID` - WhatsApp Business Phone Number ID
+- `WA_BUSINESS_ACCOUNT_ID` - WhatsApp Business Account ID (optional)
+- `WA_VERIFY_TOKEN` - Webhook verification token (optional)
 
 ---
 
