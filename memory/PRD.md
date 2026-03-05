@@ -61,13 +61,15 @@ An internal tool for a luxury fashion brand (SEVORA) to manage its entire influe
 - [x] **Enhanced Add Influencer Form:** Quick Add section with Fetch buttons to pull live data from Instagram/YouTube APIs
 
 ### Phase 4 - Industry-Standard Data Fields ✅ (March 5, 2026)
-- [x] **Audience Demographics with Ratios:** Multi-select demographic splits with percentage ratios for Age Group (13-17 to 55+), Gender (Male/Female/Other), Top Cities
+- [x] **Platform-Specific Audience Demographics:** Separate demographics for Instagram and YouTube with multi-select ratios for Age Group (13-17 to 55+), Gender (Male/Female/Other), Top Cities
+- [x] **Visual Distinction:** Instagram section uses pink/purple gradient, YouTube uses red/orange gradient
 - [x] **Manager/Agent Contact Fields:** Manager name, email, phone for talent agency contacts
 - [x] **Commercial Terms:** Exclusivity terms, typical turnaround days, payment terms (advance, 50-50, post-delivery, milestone)
 - [x] **Enhanced Add Influencer Form:** Now 5 tabs (Basic, Social, Audience, Manager, Rates)
-- [x] **Visual Demographics Display:** Profile page shows demographics as visual progress bars with color coding (gold/purple/blue)
+- [x] **Visual Demographics Display:** Profile page shows demographics as visual progress bars with platform-specific color coding
 - [x] **Removed Category Field:** Replaced with Industry throughout the application
 - [x] **Removed Legacy Platforms:** Cleaned up LinkedIn, TikTok, Twitter from UI and models (focused on Instagram & YouTube)
+- [x] **Legacy Support:** Old demographics format (without platform keys) still supported for backward compatibility
 
 ---
 
@@ -131,15 +133,22 @@ An internal tool for a luxury fashion brand (SEVORA) to manage its entire influe
     "engagement_rate": "float",
     "instagram_metrics": {"followers", "engagement_rate", "avg_likes", "avg_comments"},
     "youtube_metrics": {"subscribers", "avg_views", "avg_likes", "engagement_rate"},
-    # NEW - Manager Contact
+    # Manager Contact
     "manager_name": "string",
     "manager_email": "string",
     "manager_phone": "string",
-    # NEW - Audience Demographics (multi-select with ratios)
+    # Platform-Specific Audience Demographics
     "audience_demographics": {
-        "age_split": [{"group": "18-24", "percentage": 40}, ...],
-        "gender_split": [{"gender": "Female", "percentage": 70}, ...],
-        "city_split": [{"city": "Mumbai", "percentage": 30}, ...]
+        "instagram": {
+            "age_split": [{"group": "18-24", "percentage": 45}, ...],
+            "gender_split": [{"gender": "Female", "percentage": 75}, ...],
+            "city_split": [{"city": "Mumbai", "percentage": 35}, ...]
+        },
+        "youtube": {
+            "age_split": [{"group": "25-34", "percentage": 40}, ...],
+            "gender_split": [{"gender": "Male", "percentage": 55}, ...],
+            "city_split": [{"city": "Bangalore", "percentage": 30}, ...]
+        }
     },
     # Rate Card
     "rate_per_post": "float",
@@ -147,7 +156,7 @@ An internal tool for a luxury fashion brand (SEVORA) to manage its entire influe
     "rate_per_story": "float",
     "rate_per_video": "float",
     "accepts_barter": "bool",
-    # NEW - Commercial Terms
+    # Commercial Terms
     "exclusivity_terms": "string",
     "typical_turnaround_days": "int",
     "payment_terms": "advance|50-50|post-delivery|milestone",
