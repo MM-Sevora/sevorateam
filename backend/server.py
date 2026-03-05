@@ -834,7 +834,219 @@ async def publish_post(post_id: str, auth: dict = Depends(verify_token)):
     updated = posts_col.find_one({"post_id": post_id}, {"_id": 0})
     return updated
 
-# ===== Health Check =====
+# ===== Real Platform Posting =====
+
+class RealPostRequest(BaseModel):
+    content: str
+    platform: str
+    image_url: Optional[str] = ""
+
+async def _post_to_linkedin(user_id: str, content: str) -> dict:
+    import httpx
+    cred = api_credentials_col.find_one({"user_id": user_id, "platform": "linkedin"}, {"_id": 0})
+    if not cred or not cred.get("credentials", {}).get("access_token"):
+        return {"success": False, "error": "LinkedIn not connected"}
+    token = cred["credentials"]["access_token"]
+    person_id = cred["credentials"].get("person_id", "")
+    if not person_id:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get("https://api.linkedin.com/v2/userinfo", headers={"Authorization": f"Bearer {token}"})
+            if resp.status_code == 200:
+                person_id = resp.json().get("sub", "")
+    if not person_id:
+        return {"success": False, "error": "Could not get LinkedIn person ID"}
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        resp = await client.post(
+            "https://api.linkedin.com/v2/ugcPosts",
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", "X-Restli-Protocol-Version": "2.0.0"},
+            json={
+                "author": f"urn:li:person:{person_id}",
+                "lifecycleState": "PUBLISHED",
+                "specificContent": {"com.linkedin.ugc.ShareContent": {"shareCommentary": {"text": content}, "shareMediaCategory": "NONE"}},
+                "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"}
+            }
+        )
+        if resp.status_code in (200, 201):
+            post_urn = resp.json().get("id", "")
+            return {"success": True, "post_id": post_urn, "url": f"https://www.linkedin.com/feed/update/{post_urn}"}
+        return {"success": False, "error": f"LinkedIn API error ({resp.status_code}): {resp.text[:200]}"}
+
+async def _post_to_instagram(user_id: str, content: str, image_url: str = "") -> dict:
+    import httpx
+    cred = api_credentials_col.find_one({"user_id": user_id, "platform": "instagram"}, {"_id": 0})
+    if not cred or not cred.get("credentials", {}).get("access_token"):
+        return {"success": False, "error": "Instagram not connected"}
+    token = cred["credentials"]["access_token"]
+    ig_id = cred["credentials"].get("instagram_account_id", "")
+    if not ig_id:
+        return {"success": False, "error": "Instagram account ID not set"}
+    if not image_url:
+        return {"success": False, "error": "Instagram requires an image URL. Generate an image first."}
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        create_resp = await client.post(
+            f"https://graph.facebook.com/v19.0/{ig_id}/media",
+            params={"image_url": image_url, "caption": content, "access_token": token}
+        )
+        if create_resp.status_code != 200:
+            err = create_resp.json().get("error", {}).get("message", create_resp.text[:200])
+            return {"success": False, "error": f"Failed to create media: {err}"}
+        container_id = create_resp.json().get("id")
+        if not container_id:
+            return {"success": False, "error": "No container ID returned"}
+        publish_resp = await client.post(
+            f"https://graph.facebook.com/v19.0/{ig_id}/media_publish",
+            params={"creation_id": container_id, "access_token": token}
+        )
+        if publish_resp.status_code == 200:
+            media_id = publish_resp.json().get("id", "")
+            return {"success": True, "post_id": media_id, "url": f"https://www.instagram.com/shopsevora/"}
+        err = publish_resp.json().get("error", {}).get("message", publish_resp.text[:200])
+        return {"success": False, "error": f"Failed to publish: {err}"}
+
+async def _post_to_facebook(user_id: str, content: str, image_url: str = "") -> dict:
+    import httpx
+    cred = api_credentials_col.find_one({"user_id": user_id, "platform": "facebook"}, {"_id": 0})
+    if not cred:
+        return {"success": False, "error": "Facebook not connected"}
+    credentials = cred.get("credentials", {})
+    user_token = credentials.get("user_access_token") or credentials.get("page_access_token")
+    if not user_token:
+        return {"success": False, "error": "No Facebook access token"}
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        pages_resp = await client.get("https://graph.facebook.com/v19.0/me/accounts", params={"fields": "name,access_token", "limit": 10, "access_token": user_token})
+        page_id = ""
+        page_token = user_token
+        if pages_resp.status_code == 200:
+            pages = pages_resp.json().get("data", [])
+            for p in pages:
+                if "sevora" in p.get("name", "").lower():
+                    page_id = p["id"]
+                    page_token = p["access_token"]
+                    break
+            if not page_id and pages:
+                page_id = pages[0]["id"]
+                page_token = pages[0]["access_token"]
+        if not page_id:
+            return {"success": False, "error": "No Facebook page found"}
+        params = {"message": content, "access_token": page_token}
+        if image_url:
+            resp = await client.post(f"https://graph.facebook.com/v19.0/{page_id}/photos", params={**params, "url": image_url})
+        else:
+            resp = await client.post(f"https://graph.facebook.com/v19.0/{page_id}/feed", params=params)
+        if resp.status_code == 200:
+            post_id = resp.json().get("id", "")
+            return {"success": True, "post_id": post_id, "url": f"https://www.facebook.com/{post_id}"}
+        err = resp.json().get("error", {}).get("message", resp.text[:200])
+        return {"success": False, "error": f"Facebook error: {err}"}
+
+@app.post("/api/publish/real")
+async def publish_to_real_platform(req: RealPostRequest, auth: dict = Depends(verify_token)):
+    """Publish content to a real social media platform"""
+    result = {}
+    if req.platform == "linkedin":
+        result = await _post_to_linkedin(auth["user_id"], req.content)
+    elif req.platform == "instagram":
+        result = await _post_to_instagram(auth["user_id"], req.content, req.image_url)
+    elif req.platform == "facebook":
+        result = await _post_to_facebook(auth["user_id"], req.content, req.image_url)
+    else:
+        raise HTTPException(status_code=400, detail=f"Real posting not supported for {req.platform}")
+    if result.get("success"):
+        posts_col.insert_one({
+            "post_id": str(uuid.uuid4()), "user_id": auth["user_id"], "platform": req.platform,
+            "content": req.content, "image_url": req.image_url, "status": "published",
+            "published_at": datetime.now(timezone.utc).isoformat(), "created_at": datetime.now(timezone.utc).isoformat(),
+            "external_post_id": result.get("post_id", ""), "external_url": result.get("url", ""), "is_real_post": True,
+        })
+    return result
+
+@app.post("/api/publish/multi")
+async def publish_to_multiple(req: RealPostRequest, auth: dict = Depends(verify_token)):
+    """Publish to multiple platforms (comma-separated or 'all')"""
+    platforms_to_post = []
+    if req.platform == "all":
+        connected = list(platforms_col.find({"user_id": auth["user_id"]}, {"_id": 0}))
+        platforms_to_post = [p["platform"] for p in connected if p["platform"] in ("linkedin", "instagram", "facebook")]
+    else:
+        platforms_to_post = [p.strip() for p in req.platform.split(",")]
+    results = {}
+    for p in platforms_to_post:
+        if p == "linkedin": results[p] = await _post_to_linkedin(auth["user_id"], req.content)
+        elif p == "instagram": results[p] = await _post_to_instagram(auth["user_id"], req.content, req.image_url)
+        elif p == "facebook": results[p] = await _post_to_facebook(auth["user_id"], req.content, req.image_url)
+        if results.get(p, {}).get("success"):
+            posts_col.insert_one({
+                "post_id": str(uuid.uuid4()), "user_id": auth["user_id"], "platform": p,
+                "content": req.content, "image_url": req.image_url, "status": "published",
+                "published_at": datetime.now(timezone.utc).isoformat(), "created_at": datetime.now(timezone.utc).isoformat(),
+                "external_post_id": results[p].get("post_id", ""), "external_url": results[p].get("url", ""), "is_real_post": True,
+            })
+    return {"results": results}
+
+# ===== Content Autopilot =====
+
+class AutopilotRequest(BaseModel):
+    industry: Optional[str] = ""
+    topics: Optional[List[str]] = []
+    tone: Optional[str] = "professional"
+    platforms: Optional[List[str]] = ["linkedin", "instagram", "facebook"]
+    posts_per_day: Optional[int] = 1
+    days: Optional[int] = 7
+
+@app.post("/api/autopilot/generate")
+async def generate_autopilot_content(req: AutopilotRequest, auth: dict = Depends(verify_token)):
+    """AI generates a week of content across platforms"""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    avatar = avatars_col.find_one({"user_id": auth["user_id"]}, {"_id": 0})
+    brand_context = ""
+    if avatar:
+        brand_context = f"\nBrand: {avatar.get('name','')}\nVoice: {avatar.get('brand_voice','')}\nTone: {avatar.get('tone','')}\nIndustry: {avatar.get('industry','')}\nAudience: {avatar.get('target_audience','')}"
+    topics_text = ", ".join(req.topics) if req.topics else "general industry topics"
+    total_posts = req.posts_per_day * req.days
+    session_id = f"autopilot-{auth['user_id']}-{uuid.uuid4()}"
+    chat = LlmChat(
+        api_key=EMERGENT_LLM_KEY, session_id=session_id,
+        system_message=f"""You are an expert social media content strategist.{brand_context}
+Generate exactly {total_posts} social media posts for a {req.days}-day content calendar.
+Return a JSON array. Each item: day (1-{req.days}), platform (one of {req.platforms}), content (full post text), hashtags (array), best_time (e.g. "9:00 AM"), content_type ("text" or "image"), image_prompt (if image type).
+LinkedIn=professional, Instagram=visual/lifestyle, Facebook=community. Return ONLY JSON array."""
+    )
+    chat.with_model("openai", "gpt-5.2")
+    msg = UserMessage(text=f"Create {req.days}-day calendar ({req.posts_per_day}/day) for {', '.join(req.platforms)}. Topics: {topics_text}. Tone: {req.tone}. Industry: {req.industry or 'general'}.")
+    response = await chat.send_message(msg)
+    import json
+    try:
+        cleaned = response.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+            if cleaned.endswith("```"): cleaned = cleaned[:-3]
+            cleaned = cleaned.strip()
+        content_plan = json.loads(cleaned)
+    except json.JSONDecodeError:
+        content_plan = []
+    now = datetime.now(timezone.utc)
+    saved_posts = []
+    for item in content_plan:
+        day_offset = item.get("day", 1) - 1
+        scheduled_date = (now + timedelta(days=day_offset)).strftime("%Y-%m-%d")
+        post_id = str(uuid.uuid4())
+        doc = {
+            "post_id": post_id, "user_id": auth["user_id"], "platform": item.get("platform", "linkedin"),
+            "content": item.get("content", ""), "hashtags": item.get("hashtags", []),
+            "image_url": "", "image_prompt": item.get("image_prompt", ""),
+            "scheduled_at": f"{scheduled_date}T{item.get('best_time', '10:00 AM')}",
+            "status": "scheduled", "created_at": now.isoformat(),
+            "content_type": item.get("content_type", "text"), "is_autopilot": True,
+        }
+        posts_col.insert_one(doc)
+        doc.pop("_id", None)
+        saved_posts.append(doc)
+    return {"total_generated": len(saved_posts), "days": req.days, "platforms": req.platforms, "posts": saved_posts}
+
+@app.get("/api/autopilot/scheduled")
+async def get_autopilot_posts(auth: dict = Depends(verify_token)):
+    docs = list(posts_col.find({"user_id": auth["user_id"], "is_autopilot": True}, {"_id": 0}).sort("scheduled_at", 1))
+    return docs
 
 @app.get("/api/health")
 async def health():

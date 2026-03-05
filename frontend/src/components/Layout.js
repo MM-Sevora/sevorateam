@@ -11,6 +11,7 @@ const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/ideas', label: 'Content Ideas', icon: Lightbulb },
   { to: '/creator', label: 'Content Creator', icon: Wand2 },
+  { to: '/autopilot', label: 'Autopilot', icon: Zap },
   { to: '/avatar', label: 'AI Avatar', icon: Bot },
   { to: '/predictor', label: 'Predictor', icon: BarChart3 },
   { to: '/youtube', label: 'YouTube', icon: FaYoutube },

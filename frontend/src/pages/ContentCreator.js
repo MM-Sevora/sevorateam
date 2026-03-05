@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import api from '../api';
-import { Wand2, Image, Send, Copy, Loader2, Check, Download } from 'lucide-react';
+import { Wand2, Image, Send, Copy, Loader2, Check, Download, Globe, Zap, CheckCircle, XCircle } from 'lucide-react';
 import { FaFacebook, FaInstagram, FaTwitter, FaLinkedin, FaYoutube } from 'react-icons/fa';
 
 const platformOptions = [
@@ -26,6 +26,8 @@ export default function ContentCreator() {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
   const [savingPost, setSavingPost] = useState(false);
+  const [publishing, setPublishing] = useState('');
+  const [publishResults, setPublishResults] = useState({});
 
   const generateContent = async () => {
     if (!topic.trim()) return;
@@ -68,18 +70,41 @@ export default function ContentCreator() {
     if (!generatedContent?.content) return;
     setSavingPost(true);
     try {
-      await api.post('/api/posts', {
-        platform,
-        content: generatedContent.content,
-        image_url: generatedImage || '',
-        status,
-      });
+      await api.post('/api/posts', { platform, content: generatedContent.content, image_url: generatedImage || '', status });
       alert(`Post saved as ${status}!`);
+    } catch (err) { setError('Failed to save post'); }
+    finally { setSavingPost(false); }
+  };
+
+  const publishToReal = async (targetPlatform) => {
+    if (!generatedContent?.content) return;
+    setPublishing(targetPlatform);
+    setPublishResults(prev => ({ ...prev, [targetPlatform]: null }));
+    try {
+      const res = await api.post('/api/publish/real', {
+        content: generatedContent.content,
+        platform: targetPlatform,
+        image_url: generatedImage || '',
+      });
+      setPublishResults(prev => ({ ...prev, [targetPlatform]: res.data }));
     } catch (err) {
-      setError('Failed to save post');
-    } finally {
-      setSavingPost(false);
-    }
+      setPublishResults(prev => ({ ...prev, [targetPlatform]: { success: false, error: err.response?.data?.detail || 'Failed to publish' } }));
+    } finally { setPublishing(''); }
+  };
+
+  const publishToAll = async () => {
+    if (!generatedContent?.content) return;
+    setPublishing('all');
+    try {
+      const res = await api.post('/api/publish/multi', {
+        content: generatedContent.content,
+        platform: 'all',
+        image_url: generatedImage || '',
+      });
+      setPublishResults(res.data.results || {});
+    } catch (err) {
+      setError('Failed to publish to platforms');
+    } finally { setPublishing(''); }
   };
 
   return (
@@ -235,25 +260,63 @@ export default function ContentCreator() {
           )}
 
           {generatedContent && (
-            <div className="flex gap-3">
-              <button
-                onClick={() => saveAsPost('draft')}
-                disabled={savingPost}
-                className="bg-zinc-800 hover:bg-zinc-700 text-white border border-white/10 hover:border-white/20 transition-all duration-200 rounded-lg font-medium px-6 py-2.5 flex items-center gap-2 disabled:opacity-50"
-                data-testid="save-draft-button"
-              >
-                <Download className="w-4 h-4" />
-                Save as Draft
-              </button>
-              <button
-                onClick={() => saveAsPost('scheduled')}
-                disabled={savingPost}
-                className="bg-accent-violet hover:bg-accent-violet-hover text-white shadow-[0_0_15px_rgba(124,58,237,0.3)] transition-all duration-300 rounded-lg font-medium px-6 py-2.5 flex items-center gap-2 disabled:opacity-50"
-                data-testid="schedule-post-button"
-              >
-                <Send className="w-4 h-4" />
-                Schedule Post
-              </button>
+            <div className="space-y-3">
+              {/* Save buttons */}
+              <div className="flex gap-3">
+                <button onClick={() => saveAsPost('draft')} disabled={savingPost}
+                  className="bg-zinc-800 hover:bg-zinc-700 text-white border border-white/10 hover:border-white/20 transition-all duration-200 rounded-lg font-medium px-5 py-2.5 flex items-center gap-2 disabled:opacity-50 text-sm"
+                  data-testid="save-draft-button"
+                ><Download className="w-4 h-4" /> Save Draft</button>
+                <button onClick={() => saveAsPost('scheduled')} disabled={savingPost}
+                  className="bg-accent-violet hover:bg-accent-violet-hover text-white shadow-[0_0_15px_rgba(124,58,237,0.3)] transition-all duration-300 rounded-lg font-medium px-5 py-2.5 flex items-center gap-2 disabled:opacity-50 text-sm"
+                  data-testid="schedule-post-button"
+                ><Send className="w-4 h-4" /> Schedule</button>
+              </div>
+
+              {/* Real Publish */}
+              <div className="bg-zinc-900/50 backdrop-blur-md border border-white/5 rounded-xl p-4" data-testid="publish-panel">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-heading font-semibold text-white flex items-center gap-2">
+                    <Globe className="w-4 h-4 text-emerald-400" /> Publish to Real Platforms
+                  </h4>
+                  <button onClick={publishToAll} disabled={publishing === 'all'}
+                    className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-3 py-1.5 flex items-center gap-1.5 disabled:opacity-50 transition-all"
+                    data-testid="publish-all-button"
+                  >
+                    {publishing === 'all' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+                    Publish to All
+                  </button>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { key: 'linkedin', label: 'LinkedIn', icon: FaLinkedin, color: '#0A66C2' },
+                    { key: 'instagram', label: 'Instagram', icon: FaInstagram, color: '#E4405F' },
+                    { key: 'facebook', label: 'Facebook', icon: FaFacebook, color: '#1877F2' },
+                  ].map(p => {
+                    const result = publishResults[p.key];
+                    return (
+                      <div key={p.key} className="space-y-2">
+                        <button onClick={() => publishToReal(p.key)} disabled={!!publishing}
+                          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-xs font-medium border border-white/10 hover:border-white/20 bg-zinc-800/80 hover:bg-zinc-700 text-white transition-all disabled:opacity-50"
+                          data-testid={`publish-${p.key}-button`}
+                        >
+                          {publishing === p.key ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <p.icon className="w-3.5 h-3.5" style={{ color: p.color }} />}
+                          {p.label}
+                        </button>
+                        {result && (
+                          <div className={`text-[10px] p-2 rounded-lg ${result.success ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`} data-testid={`publish-result-${p.key}`}>
+                            {result.success ? (
+                              <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Published!{result.url && <a href={result.url} target="_blank" rel="noopener noreferrer" className="underline ml-1">View</a>}</span>
+                            ) : (
+                              <span className="flex items-start gap-1"><XCircle className="w-3 h-3 mt-0.5 flex-shrink-0" /> {result.error}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
 
