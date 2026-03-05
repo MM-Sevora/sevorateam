@@ -1557,7 +1557,16 @@ async def get_platform_insights(platform_id: str, auth: dict = Depends(verify_to
             if real:
                 return real
         except Exception:
-            pass  # Fall through to simulated data
+            pass
+
+    # Try real LinkedIn API if credentials exist
+    if pname == "linkedin":
+        try:
+            real = await _get_real_linkedin_insights(auth["user_id"], platform)
+            if real:
+                return real
+        except Exception:
+            pass
 
     # Simulated insights for platforms without real API integration
     now = datetime.now(timezone.utc)
@@ -1718,6 +1727,77 @@ async def _get_real_youtube_insights(user_id: str, platform: dict):
                 {"day": "Sunday", "time": "10:00 AM - 12:00 PM", "engagement_index": 1.2},
             ],
             "top_posts": top_videos[:5],
+        }
+
+
+async def _get_real_linkedin_insights(user_id: str, platform: dict):
+    """Fetch real LinkedIn profile data using stored access token"""
+    import httpx
+    cred = api_credentials_col.find_one({"user_id": user_id, "platform": "linkedin"}, {"_id": 0})
+    if not cred or not cred.get("credentials", {}).get("access_token"):
+        return None
+
+    access_token = cred["credentials"]["access_token"]
+    org_id = cred["credentials"].get("organization_id", "")
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        # Get profile info via OpenID userinfo
+        profile_resp = await client.get(
+            "https://api.linkedin.com/v2/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"}
+        )
+        if profile_resp.status_code != 200:
+            return None
+
+        profile = profile_resp.json()
+        name = profile.get("name", "")
+        picture = profile.get("picture", "")
+        sub = profile.get("sub", "")
+
+        # With w_member_social we can post but reading posts requires r_member_social (restricted)
+        # Show what we have access to
+        capabilities = ["Post to personal feed", "Delete own posts"]
+        if org_id:
+            capabilities.append(f"Organization page (ID: {org_id})")
+
+        return {
+            "platform": "linkedin",
+            "page_name": name,
+            "period": "current",
+            "is_simulated": False,
+            "profile_url": f"https://www.linkedin.com/in/",
+            "thumbnail": picture,
+            "overview": {
+                "followers": 0,
+                "following": 0,
+                "posts_count": 0,
+                "avg_engagement_rate": 0,
+                "note": "Detailed analytics require Marketing Developer Platform access",
+            },
+            "engagement": {
+                "total_likes": 0,
+                "total_comments": 0,
+                "total_shares": 0,
+                "total_saves": 0,
+            },
+            "capabilities": capabilities,
+            "account": {
+                "name": name,
+                "sub": sub,
+                "picture": picture,
+                "organization_id": org_id,
+            },
+            "audience": {
+                "top_countries": [
+                    {"country": "Audience data requires Marketing Developer Platform", "percentage": 0},
+                ],
+            },
+            "best_posting_times": [
+                {"day": "Tuesday-Thursday", "time": "8:00 AM - 10:00 AM", "engagement_index": 1.8},
+                {"day": "Tuesday-Thursday", "time": "12:00 PM - 1:00 PM", "engagement_index": 1.5},
+                {"day": "Wednesday", "time": "5:00 PM - 6:00 PM", "engagement_index": 1.3},
+            ],
+            "top_posts": [],
         }
 
 @app.post("/api/platforms/{platform_id}/post")

@@ -770,6 +770,24 @@ export default function Platforms() {
                           ))}
                         </div>
 
+                        {/* Capabilities (LinkedIn) */}
+                        {pInsights.capabilities && (
+                          <div className="bg-zinc-950/50 rounded-lg p-4 border border-white/5">
+                            <h4 className="text-sm font-medium text-white mb-3">API Capabilities</h4>
+                            <div className="space-y-1.5">
+                              {pInsights.capabilities.map((cap, i) => (
+                                <div key={i} className="flex items-center gap-2 text-xs text-zinc-300">
+                                  <CheckCircle className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                                  {cap}
+                                </div>
+                              ))}
+                            </div>
+                            {pInsights.overview?.note && (
+                              <p className="text-[10px] text-zinc-500 mt-3 bg-zinc-900/50 p-2 rounded">{pInsights.overview.note}</p>
+                            )}
+                          </div>
+                        )}
+
                         {/* Top Videos/Posts */}
                         {pInsights.top_posts && pInsights.top_posts.length > 0 && (
                           <div className="bg-zinc-950/50 rounded-lg p-4 border border-white/5">
