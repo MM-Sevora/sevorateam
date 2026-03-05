@@ -43,7 +43,7 @@ An internal tool for a luxury fashion brand (SEVORA) to manage its entire influe
 - [x] Influencer matching algorithm
 - [x] Import AI-discovered influencers to database
 
-### Phase 3 - Advanced Features ✅ (March 4, 2026)
+### Phase 3 - Advanced Features ✅ (March 4-5, 2026)
 - [x] **Influencer Comparison:** Select 2-5 influencers, compare metrics side-by-side with AI recommendation
 - [x] **Scheduled Auto-Discovery:** Create daily/weekly automated discovery searches
 - [x] **Social API Integration Framework:** Instagram Graph API and YouTube Data API ready (requires API keys)
@@ -53,6 +53,11 @@ An internal tool for a luxury fashion brand (SEVORA) to manage its entire influe
 - [x] **Clickable Social Links:** All social handles now open in new tabs with proper URLs
 - [x] **Negotiation Tracker Module:** Complete negotiation management with timeline, events, stats, and deal tracking
 - [x] **Enhanced Influencer Table:** New columns (Followers, Engagement %, Industry, Tier, Gender, Updated), column sorting, advanced filters panel
+- [x] **Live Instagram API Integration:** Business Discovery API configured with user credentials
+- [x] **Live YouTube API Integration:** Data API v3 configured with user credentials
+- [x] **Auto-Fetch Social Data:** Automatically fetches Instagram/YouTube metrics when adding new influencers
+- [x] **Refresh Data Feature:** Single influencer refresh and batch refresh all influencers
+- [x] **Verification Status Display:** Shows checkmark badge and last verified date on influencer profiles
 
 ---
 
@@ -159,10 +164,8 @@ An internal tool for a luxury fashion brand (SEVORA) to manage its entire influe
 ## Upcoming Tasks (Backlog)
 
 ### P0 - High Priority
-- [ ] Connect Instagram Graph API with real credentials
-- [ ] Connect YouTube Data API with real credentials
-- [ ] Implement actual scheduling logic for Auto-Discovery (apscheduler)
-- [ ] Refactor server.py into smaller router files
+- [ ] Refactor server.py into smaller router files (1800+ lines now)
+- [ ] Implement actual scheduling logic for Auto-Discovery (using apscheduler)
 
 ### P1 - Medium Priority
 - [ ] Content Library module
@@ -181,8 +184,8 @@ An internal tool for a luxury fashion brand (SEVORA) to manage its entire influe
 ## Known Issues
 1. SSE streaming returns 403 when called directly (works via fetch with auth header)
 2. Recharts console warnings (cosmetic only)
-3. Social verification requires external API keys (currently using stubs)
-4. server.py is over 1700 lines - needs refactoring into routers
+3. server.py is over 1800 lines - needs refactoring into routers
+4. Some older influencers without social handles show 0 followers (need to add handles and refresh)
 
 ## Test Credentials
 - Register a new account on the login page to test

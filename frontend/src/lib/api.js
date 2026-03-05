@@ -11,6 +11,8 @@ export const influencerApi = {
     update: (id, data) => axios.put(`${API}/influencers/${id}`, data),
     delete: (id) => axios.delete(`${API}/influencers/${id}`),
     compare: (influencer_ids) => axios.post(`${API}/influencers/compare`, { influencer_ids }),
+    refresh: (id) => axios.post(`${API}/influencers/${id}/refresh`),
+    batchRefresh: (influencer_ids) => axios.post(`${API}/influencers/batch-refresh`, influencer_ids ? { influencer_ids } : null),
 };
 
 // Campaign API

@@ -17,7 +17,7 @@ import {
     ArrowLeft, Edit2, Save, X, Instagram, Youtube, Linkedin, 
     Users, TrendingUp, MapPin, Mail, Phone, DollarSign, 
     ExternalLink, Star, Sparkles, Video, Image, MessageCircle,
-    Eye, Heart, BarChart3, Target, Globe, Calendar
+    Eye, Heart, BarChart3, Target, Globe, Calendar, RefreshCw, Loader2, CheckCircle
 } from 'lucide-react';
 
 const CATEGORIES = ['luxury', 'menswear', 'womenswear', 'streetwear', 'ethnic', 'minimal', 'sustainable'];
@@ -52,6 +52,7 @@ export const InfluencerProfilePage = () => {
     const [loading, setLoading] = useState(true);
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
     const [editData, setEditData] = useState({});
 
     useEffect(() => {
@@ -70,6 +71,27 @@ export const InfluencerProfilePage = () => {
         } finally {
             setLoading(false);
         }
+    };
+    
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        try {
+            const response = await influencerApi.refresh(id);
+            setInfluencer(response.data);
+            setEditData(response.data);
+            toast.success(`Data refreshed: ${formatFollowers(response.data.followers)} followers, ${response.data.engagement_rate?.toFixed(1)}% engagement`);
+        } catch (error) {
+            toast.error('Failed to refresh data');
+        } finally {
+            setRefreshing(false);
+        }
+    };
+    
+    const formatFollowers = (count) => {
+        if (!count) return '0';
+        if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
+        if (count >= 1000) return `${(count / 1000).toFixed(0)}K`;
+        return count.toString();
     };
 
     const handleSave = async () => {
@@ -130,6 +152,16 @@ export const InfluencerProfilePage = () => {
                     </Badge>
                 </div>
                 <div className="flex gap-2">
+                    <Button 
+                        variant="outline" 
+                        onClick={handleRefresh} 
+                        disabled={refreshing} 
+                        className="rounded-none"
+                        data-testid="refresh-btn"
+                    >
+                        {refreshing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                        Refresh Data
+                    </Button>
                     {editing ? (
                         <>
                             <Button variant="outline" onClick={handleCancel} className="rounded-none">
@@ -163,11 +195,23 @@ export const InfluencerProfilePage = () => {
                             <CardContent className="p-6 space-y-4">
                                 {/* Avatar */}
                                 <div className="flex flex-col items-center text-center">
-                                    <div className="w-24 h-24 rounded-full bg-gold/10 flex items-center justify-center mb-3">
+                                    <div className="w-24 h-24 rounded-full bg-gold/10 flex items-center justify-center mb-3 relative">
                                         <span className="font-serif text-3xl text-gold">{data.name?.charAt(0)}</span>
+                                        {data.last_verified && (
+                                            <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-green-500 flex items-center justify-center" title="Verified via API">
+                                                <CheckCircle className="w-4 h-4 text-white" />
+                                            </div>
+                                        )}
                                     </div>
                                     <h2 className="font-serif text-xl">{data.name}</h2>
                                     <Badge className="capitalize mt-1">{data.category}</Badge>
+                                    
+                                    {/* Verification Status */}
+                                    {data.last_verified && (
+                                        <p className="text-[10px] text-muted-foreground mt-1">
+                                            Last verified: {new Date(data.last_verified).toLocaleDateString()}
+                                        </p>
+                                    )}
                                     
                                     {/* Status */}
                                     {editing ? (

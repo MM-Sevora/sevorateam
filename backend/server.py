@@ -258,6 +258,8 @@ class InfluencerResponse(BaseModel):
     score: Optional[float] = 0.0
     created_at: Optional[str] = None
     last_contacted: Optional[str] = None
+    last_verified: Optional[str] = None
+    verification_status: Optional[Dict[str, Any]] = None
 
 class DeliverableCreate(BaseModel):
     deliverable_type: str  # reel, post, story, video
@@ -518,13 +520,154 @@ async def create_influencer(data: InfluencerCreate, user: dict = Depends(get_cur
         "status": "identified",
         "score": 0.0,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "last_contacted": None
+        "last_contacted": None,
+        "last_verified": None,
+        "verification_status": {}
     }
+    
+    # Auto-fetch social media data
+    try:
+        influencer_doc = await auto_fetch_social_data(influencer_doc)
+    except Exception as e:
+        logger.warning(f"Auto-fetch failed for new influencer: {e}")
+    
     influencer_doc['score'] = calculate_influencer_score(influencer_doc)
     await db.influencers.insert_one(influencer_doc)
     if '_id' in influencer_doc:
         del influencer_doc['_id']
     return influencer_doc
+
+
+async def auto_fetch_social_data(influencer_doc: dict) -> dict:
+    """Auto-fetch data from Instagram and YouTube APIs based on handles"""
+    from services.social_api import social_api_service
+    
+    primary_platform = influencer_doc.get('primary_platform', 'instagram')
+    updated = False
+    
+    # Fetch Instagram data
+    instagram_handle = influencer_doc.get('instagram_handle')
+    if instagram_handle:
+        try:
+            profile = await social_api_service.verify_instagram(instagram_handle)
+            if profile:
+                influencer_doc['instagram_metrics'] = {
+                    'followers': profile.followers,
+                    'following': profile.following,
+                    'posts_count': profile.posts_count,
+                    'engagement_rate': profile.engagement_rate,
+                    'bio': profile.bio,
+                    'avatar_url': profile.avatar_url,
+                    'last_verified': profile.last_verified
+                }
+                influencer_doc['verification_status'] = influencer_doc.get('verification_status', {})
+                influencer_doc['verification_status']['instagram'] = {
+                    'verified': True,
+                    'last_verified': profile.last_verified
+                }
+                # Update main metrics if Instagram is primary
+                if primary_platform == 'instagram':
+                    influencer_doc['followers'] = profile.followers
+                    influencer_doc['engagement_rate'] = profile.engagement_rate
+                    if profile.bio and not influencer_doc.get('bio'):
+                        influencer_doc['bio'] = profile.bio
+                updated = True
+                logger.info(f"Auto-fetched Instagram data for @{instagram_handle}: {profile.followers} followers")
+        except Exception as e:
+            logger.warning(f"Failed to fetch Instagram data for @{instagram_handle}: {e}")
+            influencer_doc['verification_status'] = influencer_doc.get('verification_status', {})
+            influencer_doc['verification_status']['instagram'] = {'verified': False, 'error': str(e)}
+    
+    # Fetch YouTube data
+    youtube_handle = influencer_doc.get('youtube_handle')
+    if youtube_handle:
+        try:
+            profile = await social_api_service.verify_youtube(youtube_handle)
+            if profile:
+                influencer_doc['youtube_metrics'] = {
+                    'subscribers': profile.followers,
+                    'videos_count': profile.posts_count,
+                    'engagement_rate': profile.engagement_rate,
+                    'bio': profile.bio,
+                    'avatar_url': profile.avatar_url,
+                    'last_verified': profile.last_verified
+                }
+                influencer_doc['verification_status'] = influencer_doc.get('verification_status', {})
+                influencer_doc['verification_status']['youtube'] = {
+                    'verified': True,
+                    'last_verified': profile.last_verified
+                }
+                # Update main metrics if YouTube is primary
+                if primary_platform == 'youtube':
+                    influencer_doc['followers'] = profile.followers
+                    influencer_doc['engagement_rate'] = profile.engagement_rate
+                    if profile.bio and not influencer_doc.get('bio'):
+                        influencer_doc['bio'] = profile.bio
+                updated = True
+                logger.info(f"Auto-fetched YouTube data for @{youtube_handle}: {profile.followers} subscribers")
+        except Exception as e:
+            logger.warning(f"Failed to fetch YouTube data for @{youtube_handle}: {e}")
+            influencer_doc['verification_status'] = influencer_doc.get('verification_status', {})
+            influencer_doc['verification_status']['youtube'] = {'verified': False, 'error': str(e)}
+    
+    if updated:
+        influencer_doc['last_verified'] = datetime.now(timezone.utc).isoformat()
+    
+    return influencer_doc
+
+
+@influencer_router.post("/{influencer_id}/refresh", response_model=InfluencerResponse)
+async def refresh_influencer_data(influencer_id: str, user: dict = Depends(get_current_user)):
+    """Refresh influencer data from social media APIs"""
+    influencer = await db.influencers.find_one({"id": influencer_id}, {"_id": 0})
+    if not influencer:
+        raise HTTPException(status_code=404, detail="Influencer not found")
+    
+    # Fetch fresh data
+    try:
+        influencer = await auto_fetch_social_data(influencer)
+        influencer['score'] = calculate_influencer_score(influencer)
+        
+        # Update in database
+        await db.influencers.update_one(
+            {"id": influencer_id},
+            {"$set": influencer}
+        )
+        
+        return influencer
+    except Exception as e:
+        logger.error(f"Failed to refresh influencer {influencer_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to refresh data: {str(e)}")
+
+
+@influencer_router.post("/batch-refresh")
+async def batch_refresh_influencers(
+    influencer_ids: Optional[List[str]] = None,
+    user: dict = Depends(get_current_user)
+):
+    """Batch refresh multiple influencers. If no IDs provided, refreshes all."""
+    query = {}
+    if influencer_ids:
+        query = {"id": {"$in": influencer_ids}}
+    
+    influencers = await db.influencers.find(query, {"_id": 0}).to_list(500)
+    
+    results = {"success": 0, "failed": 0, "errors": []}
+    
+    for inf in influencers:
+        try:
+            updated = await auto_fetch_social_data(inf)
+            updated['score'] = calculate_influencer_score(updated)
+            await db.influencers.update_one(
+                {"id": inf['id']},
+                {"$set": updated}
+            )
+            results['success'] += 1
+        except Exception as e:
+            results['failed'] += 1
+            results['errors'].append({"id": inf['id'], "name": inf.get('name'), "error": str(e)})
+    
+    return results
 
 @influencer_router.put("/{influencer_id}", response_model=InfluencerResponse)
 async def update_influencer(influencer_id: str, data: InfluencerUpdate, user: dict = Depends(get_current_user)):

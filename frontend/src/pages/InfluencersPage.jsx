@@ -396,6 +396,39 @@ export const InfluencersPage = () => {
             setVerifying(prev => ({ ...prev, [id]: false }));
         }
     };
+    
+    // Refresh single influencer data from social APIs
+    const [refreshing, setRefreshing] = useState({});
+    const [batchRefreshing, setBatchRefreshing] = useState(false);
+    
+    const handleRefresh = async (id) => {
+        setRefreshing(prev => ({ ...prev, [id]: true }));
+        try {
+            const response = await influencerApi.refresh(id);
+            toast.success(`Refreshed data: ${formatFollowers(response.data.followers)} followers, ${response.data.engagement_rate?.toFixed(1)}% engagement`);
+            fetchInfluencers();
+        } catch (error) {
+            toast.error('Failed to refresh data');
+        } finally {
+            setRefreshing(prev => ({ ...prev, [id]: false }));
+        }
+    };
+    
+    // Batch refresh all influencers
+    const handleBatchRefresh = async () => {
+        setBatchRefreshing(true);
+        try {
+            const ids = selectedForCompare.length > 0 ? selectedForCompare : null;
+            const response = await influencerApi.batchRefresh(ids);
+            toast.success(`Refreshed ${response.data.success} influencers${response.data.failed > 0 ? `, ${response.data.failed} failed` : ''}`);
+            fetchInfluencers();
+            setSelectedForCompare([]);
+        } catch (error) {
+            toast.error('Batch refresh failed');
+        } finally {
+            setBatchRefreshing(false);
+        }
+    };
 
     const statusCounts = influencers.reduce((acc, inf) => {
         acc[inf.status] = (acc[inf.status] || 0) + 1;
@@ -408,6 +441,16 @@ export const InfluencersPage = () => {
             <div className="flex items-center justify-between">
                 <h1 className="font-serif text-3xl">Influencers</h1>
                 <div className="flex gap-2">
+                    <Button 
+                        onClick={handleBatchRefresh} 
+                        variant="outline" 
+                        className="rounded-none"
+                        disabled={batchRefreshing}
+                        data-testid="batch-refresh-btn"
+                    >
+                        {batchRefreshing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                        {selectedForCompare.length > 0 ? `Refresh (${selectedForCompare.length})` : 'Refresh All'}
+                    </Button>
                     {selectedForCompare.length >= 2 && (
                         <Button 
                             onClick={handleCompare} 
@@ -774,6 +817,10 @@ export const InfluencersPage = () => {
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
                                                             <DropdownMenuContent align="end">
+                                                                <DropdownMenuItem onClick={() => handleRefresh(inf.id)} disabled={refreshing[inf.id]}>
+                                                                    {refreshing[inf.id] ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                                                                    Refresh Data
+                                                                </DropdownMenuItem>
                                                                 <DropdownMenuItem onClick={() => handleVerify(inf.id)} disabled={verifying[inf.id]}>
                                                                     {verifying[inf.id] ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Shield className="w-4 h-4 mr-2" />}
                                                                     Verify Profile
