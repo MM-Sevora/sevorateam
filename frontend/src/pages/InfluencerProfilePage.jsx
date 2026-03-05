@@ -17,8 +17,9 @@ import {
     ArrowLeft, Edit2, Save, X, Instagram, Youtube, 
     Users, TrendingUp, MapPin, Mail, Phone, DollarSign, 
     ExternalLink, Star, Sparkles, Video, Image, MessageCircle,
-    Eye, Heart, BarChart3, Target, Globe, Calendar, RefreshCw, Loader2, CheckCircle, Download
+    Eye, Heart, BarChart3, Target, Globe, Calendar, RefreshCw, Loader2, CheckCircle, Download, Send
 } from 'lucide-react';
+import OutreachModal from '../components/OutreachModal';
 
 const INDUSTRIES = ['fashion', 'beauty', 'lifestyle', 'fitness', 'tech', 'food', 'travel', 'entertainment', 'education', 'finance'];
 const CONTENT_TYPES = ['reels', 'posts', 'stories', 'youtube videos', 'blogs', 'podcasts', 'live streams'];
@@ -51,6 +52,7 @@ export const InfluencerProfilePage = () => {
     const [refreshing, setRefreshing] = useState(false);
     const [fetchingPlatform, setFetchingPlatform] = useState(null);
     const [editData, setEditData] = useState({});
+    const [showOutreach, setShowOutreach] = useState(false);
 
     useEffect(() => {
         fetchInfluencer();
@@ -223,12 +225,25 @@ export const InfluencerProfilePage = () => {
                             </Button>
                         </>
                     ) : (
-                        <Button onClick={() => setEditing(true)} className="rounded-none" data-testid="edit-btn">
-                            <Edit2 className="w-4 h-4 mr-2" /> Edit Profile
-                        </Button>
+                        <>
+                            <Button onClick={() => setShowOutreach(true)} variant="default" className="rounded-none bg-gold hover:bg-gold/90" data-testid="outreach-btn">
+                                <Send className="w-4 h-4 mr-2" /> Send Outreach
+                            </Button>
+                            <Button onClick={() => setEditing(true)} variant="outline" className="rounded-none" data-testid="edit-btn">
+                                <Edit2 className="w-4 h-4 mr-2" /> Edit Profile
+                            </Button>
+                        </>
                     )}
                 </div>
             </div>
+
+            {/* Outreach Modal */}
+            <OutreachModal 
+                open={showOutreach} 
+                onClose={() => setShowOutreach(false)} 
+                influencer={data}
+                onSuccess={fetchInfluencer}
+            />
 
             <Tabs defaultValue="overview" className="space-y-6">
                 <TabsList>

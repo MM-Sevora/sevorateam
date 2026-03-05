@@ -2261,6 +2261,233 @@ async def get_influencer_content_stats(influencer_id: str, user: dict = Depends(
         "by_type": {s['_id']: s for s in stats if s['_id']}
     }
 
+# ============== UNIFIED OUTREACH ROUTES ==============
+unified_outreach_router = APIRouter(prefix="/outreach-hub", tags=["Unified Outreach"])
+
+class MessageTemplateCreate(BaseModel):
+    name: str
+    channel: str  # email, whatsapp, both
+    subject: Optional[str] = None
+    body: str
+    variables: List[str] = []
+
+class MessageTemplateUpdate(BaseModel):
+    name: Optional[str] = None
+    channel: Optional[str] = None
+    subject: Optional[str] = None
+    body: Optional[str] = None
+    variables: Optional[List[str]] = None
+    is_active: Optional[bool] = None
+
+class OutreachRequest(BaseModel):
+    influencer_id: str
+    channel: str  # email, whatsapp
+    message: str
+    subject: Optional[str] = None
+    template_id: Optional[str] = None
+    variables: Optional[Dict[str, str]] = None
+    campaign_name: Optional[str] = None
+
+class BatchOutreachRequest(BaseModel):
+    influencer_ids: List[str]
+    channel: str
+    message: str
+    subject: Optional[str] = None
+    template_id: Optional[str] = None
+    campaign_name: Optional[str] = None
+
+@unified_outreach_router.get("/status")
+async def get_outreach_channels_status(user: dict = Depends(get_current_user)):
+    """Get status of all outreach channels (Email & WhatsApp)"""
+    from services.email_service import get_email_service
+    from services.whatsapp_service import get_whatsapp_service
+    
+    email_service = get_email_service()
+    wa_service = get_whatsapp_service()
+    
+    return {
+        "email": {
+            "configured": email_service.is_configured,
+            "provider": "SendGrid",
+            "sender": email_service.sender_email if email_service.is_configured else None
+        },
+        "whatsapp": {
+            "configured": wa_service.is_configured,
+            "provider": "Meta Cloud API"
+        }
+    }
+
+@unified_outreach_router.get("/templates")
+async def get_message_templates(
+    channel: Optional[str] = None,
+    user: dict = Depends(get_current_user)
+):
+    """Get all message templates"""
+    from services.outreach_service import create_outreach_service
+    service = create_outreach_service(db)
+    return await service.get_templates(channel)
+
+@unified_outreach_router.post("/templates")
+async def create_message_template(
+    data: MessageTemplateCreate,
+    user: dict = Depends(get_current_user)
+):
+    """Create a new message template"""
+    from services.permissions import has_permission
+    if not has_permission(user.get('role', 'marketing_manager'), 'outreach:write'):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    from services.outreach_service import create_outreach_service
+    service = create_outreach_service(db)
+    
+    return await service.create_template(
+        name=data.name,
+        channel=data.channel,
+        subject=data.subject,
+        body=data.body,
+        variables=data.variables,
+        user_id=user['id']
+    )
+
+@unified_outreach_router.get("/templates/{template_id}")
+async def get_message_template(template_id: str, user: dict = Depends(get_current_user)):
+    """Get a specific template"""
+    from services.outreach_service import create_outreach_service
+    service = create_outreach_service(db)
+    
+    template = await service.get_template(template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return template
+
+@unified_outreach_router.put("/templates/{template_id}")
+async def update_message_template(
+    template_id: str,
+    data: MessageTemplateUpdate,
+    user: dict = Depends(get_current_user)
+):
+    """Update a message template"""
+    from services.permissions import has_permission
+    if not has_permission(user.get('role', 'marketing_manager'), 'outreach:write'):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    from services.outreach_service import create_outreach_service
+    service = create_outreach_service(db)
+    
+    update_dict = {k: v for k, v in data.dict().items() if v is not None}
+    result = await service.update_template(template_id, update_dict)
+    
+    if not result:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return result
+
+@unified_outreach_router.delete("/templates/{template_id}")
+async def delete_message_template(template_id: str, user: dict = Depends(get_current_user)):
+    """Delete a message template"""
+    from services.permissions import has_permission
+    if not has_permission(user.get('role', 'marketing_manager'), 'outreach:write'):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    from services.outreach_service import create_outreach_service
+    service = create_outreach_service(db)
+    
+    success = await service.delete_template(template_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return {"success": True, "message": "Template deleted"}
+
+@unified_outreach_router.post("/send")
+async def send_unified_outreach(
+    data: OutreachRequest,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Send outreach message via Email or WhatsApp.
+    
+    Message can include variables like {{influencer_name}}, {{campaign_name}}, {{brand_name}}
+    """
+    from services.permissions import has_permission
+    if not has_permission(user.get('role', 'marketing_manager'), 'outreach:write'):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    from services.outreach_service import create_outreach_service
+    service = create_outreach_service(db)
+    
+    result = await service.send_outreach(
+        influencer_id=data.influencer_id,
+        channel=data.channel,
+        message=data.message,
+        subject=data.subject,
+        template_id=data.template_id,
+        variables=data.variables,
+        campaign_name=data.campaign_name,
+        user_id=user['id']
+    )
+    
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Failed to send"))
+    
+    return result
+
+@unified_outreach_router.post("/send-batch")
+async def send_batch_unified_outreach(
+    data: BatchOutreachRequest,
+    user: dict = Depends(get_current_user)
+):
+    """Send outreach to multiple influencers"""
+    from services.permissions import has_permission
+    if not has_permission(user.get('role', 'marketing_manager'), 'outreach:write'):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    from services.outreach_service import create_outreach_service
+    service = create_outreach_service(db)
+    
+    return await service.send_batch_outreach(
+        influencer_ids=data.influencer_ids,
+        channel=data.channel,
+        message=data.message,
+        subject=data.subject,
+        template_id=data.template_id,
+        campaign_name=data.campaign_name,
+        user_id=user['id']
+    )
+
+@unified_outreach_router.get("/history")
+async def get_outreach_history(
+    influencer_id: Optional[str] = None,
+    channel: Optional[str] = None,
+    limit: int = Query(default=50, le=200),
+    user: dict = Depends(get_current_user)
+):
+    """Get outreach history with optional filters"""
+    from services.outreach_service import create_outreach_service
+    service = create_outreach_service(db)
+    
+    return await service.get_outreach_history(
+        influencer_id=influencer_id,
+        channel=channel,
+        limit=limit
+    )
+
+@unified_outreach_router.get("/influencer/{influencer_id}/contact-info")
+async def get_influencer_contact_info(influencer_id: str, user: dict = Depends(get_current_user)):
+    """Get influencer's contact info for outreach"""
+    influencer = await db.influencers.find_one({"id": influencer_id}, {"_id": 0})
+    if not influencer:
+        raise HTTPException(status_code=404, detail="Influencer not found")
+    
+    return {
+        "id": influencer_id,
+        "name": influencer.get('name'),
+        "email": influencer.get('email'),
+        "phone": influencer.get('phone') or influencer.get('whatsapp'),
+        "instagram_handle": influencer.get('instagram_handle'),
+        "can_email": bool(influencer.get('email')),
+        "can_whatsapp": bool(influencer.get('phone') or influencer.get('whatsapp')),
+        "last_contacted": influencer.get('last_contacted'),
+        "status": influencer.get('status')
+    }
+
 # ============== CONTENT LIBRARY ==============
 @api_router.get("/content-library")
 async def get_content_library(
@@ -2757,6 +2984,7 @@ api_router.include_router(whatsapp_router)
 api_router.include_router(users_router)
 api_router.include_router(email_router)
 api_router.include_router(content_router)
+api_router.include_router(unified_outreach_router)
 
 @api_router.get("/")
 async def root():
