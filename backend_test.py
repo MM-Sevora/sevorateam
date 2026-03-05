@@ -566,14 +566,109 @@ class SocialFlowAPITester:
             print(f"   Platform deleted: {response.get('message')}")
         return success
 
+    # ===== YouTube API Integration Tests =====
+
+    def test_youtube_search_channel(self):
+        """Test YouTube channel search with real API"""
+        success, response = self.run_test(
+            "YouTube Search Channel (MrBeast)",
+            "GET",
+            "api/youtube/search-channel?q=MrBeast",
+            200
+        )
+        if success:
+            channels = response.get('channels', [])
+            print(f"   Found {len(channels)} channels")
+            if channels:
+                print(f"   First result: {channels[0].get('title', 'N/A')}")
+                print(f"   Channel ID: {channels[0].get('channel_id', 'N/A')}")
+        return success
+
+    def test_youtube_channel_details(self):
+        """Test YouTube channel details with MrBeast channel ID"""
+        channel_id = "UCX6OQ3DkcsbYNE6H8uQQuVA"  # MrBeast channel ID
+        success, response = self.run_test(
+            "YouTube Channel Details (MrBeast)",
+            "GET",
+            f"api/youtube/channel/{channel_id}",
+            200
+        )
+        if success:
+            print(f"   Channel: {response.get('title', 'N/A')}")
+            stats = response.get('statistics', {})
+            print(f"   Subscribers: {stats.get('subscribers', 'N/A'):,}")
+            print(f"   Total Views: {stats.get('total_views', 'N/A'):,}")
+            print(f"   Video Count: {stats.get('video_count', 'N/A'):,}")
+        return success
+
+    def test_youtube_channel_videos(self):
+        """Test YouTube channel videos with MrBeast channel ID"""
+        channel_id = "UCX6OQ3DkcsbYNE6H8uQQuVA"  # MrBeast channel ID
+        success, response = self.run_test(
+            "YouTube Channel Videos (MrBeast)",
+            "GET", 
+            f"api/youtube/channel/{channel_id}/videos?max_results=5",
+            200
+        )
+        if success:
+            videos = response.get('videos', [])
+            print(f"   Found {len(videos)} videos")
+            if videos:
+                first_video = videos[0]
+                print(f"   Latest video: {first_video.get('title', 'N/A')}")
+                print(f"   Video ID: {first_video.get('video_id', 'N/A')}")
+                stats = first_video.get('statistics', {})
+                print(f"   Views: {stats.get('views', 'N/A'):,}")
+                print(f"   Likes: {stats.get('likes', 'N/A'):,}")
+        return success
+
+    def test_youtube_video_analytics(self):
+        """Test YouTube video analytics - using a known MrBeast video"""
+        # Using a known popular MrBeast video ID for testing
+        video_id = "fMfipiV_17o"  # "$1 vs $250,000,000 Private Jet!"
+        success, response = self.run_test(
+            "YouTube Video Analytics",
+            "GET",
+            f"api/youtube/video/{video_id}/analytics",
+            200
+        )
+        if success:
+            print(f"   Video: {response.get('title', 'N/A')}")
+            print(f"   Channel: {response.get('channel_title', 'N/A')}")
+            stats = response.get('statistics', {})
+            print(f"   Views: {stats.get('views', 'N/A'):,}")
+            print(f"   Likes: {stats.get('likes', 'N/A'):,}")
+            print(f"   Engagement Rate: {stats.get('engagement_rate', 'N/A')}%")
+            print(f"   Duration: {response.get('duration', 'N/A')}")
+        return success
+
+    def test_youtube_trending(self):
+        """Test YouTube trending videos"""
+        success, response = self.run_test(
+            "YouTube Trending Videos",
+            "GET",
+            "api/youtube/trending?region_code=US",
+            200
+        )
+        if success:
+            trending = response.get('trending', [])
+            print(f"   Found {len(trending)} trending videos")
+            print(f"   Region: {response.get('region', 'N/A')}")
+            if trending:
+                first_trending = trending[0]
+                print(f"   #1 Trending: {first_trending.get('title', 'N/A')}")
+                print(f"   Channel: {first_trending.get('channel', 'N/A')}")
+                print(f"   Views: {first_trending.get('views', 'N/A'):,}")
+        return success
+
 def main():
-    print("🚀 Starting SocialFlow AI Backend Testing - ITERATION 3...")
-    print("Testing new API credential management features")
+    print("🚀 Starting SocialFlow AI Backend Testing - ITERATION 4...")
+    print("Testing YouTube Data API v3 integration with REAL data")
     print("=" * 60)
     
     tester = SocialFlowAPITester()
 
-    # Test sequence - updated for iteration 3 credential management features
+    # Test sequence - updated for iteration 4 YouTube API integration
     tests = [
         ("Health Check", tester.test_health_check),
         ("User Registration", tester.test_register),
@@ -582,7 +677,13 @@ def main():
         ("Dashboard Metrics", tester.test_dashboard_metrics),
         ("Dashboard Summary", tester.test_dashboard_summary),
         ("Get Platforms", tester.test_get_platforms),
-        # NEW: API Credential Management Tests
+        # NEW ITERATION 4: YouTube API Integration Tests (REAL DATA)
+        ("YouTube Search Channel", tester.test_youtube_search_channel),
+        ("YouTube Channel Details", tester.test_youtube_channel_details),
+        ("YouTube Channel Videos", tester.test_youtube_channel_videos),
+        ("YouTube Video Analytics", tester.test_youtube_video_analytics),
+        ("YouTube Trending Videos", tester.test_youtube_trending),
+        # API Credential Management Tests (from iteration 3)
         ("Get All Credential Schemas", tester.test_get_credential_schemas),
         ("Get Facebook Schema", tester.test_get_facebook_schema),
         ("Save Twitter Credentials", tester.test_save_twitter_credentials),

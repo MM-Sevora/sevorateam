@@ -12,6 +12,7 @@ import Scheduler from './pages/Scheduler';
 import Platforms from './pages/Platforms';
 import AvatarPage from './pages/AvatarPage';
 import PerformancePredictor from './pages/PerformancePredictor';
+import YouTubeExplorer from './pages/YouTubeExplorer';
 
 function ProtectedRoute({ children }) {
   const { token, loading } = useAuth();
@@ -54,6 +55,7 @@ function App() {
           <Route path="/platforms" element={<ProtectedRoute><Platforms /></ProtectedRoute>} />
           <Route path="/avatar" element={<ProtectedRoute><AvatarPage /></ProtectedRoute>} />
           <Route path="/predictor" element={<ProtectedRoute><PerformancePredictor /></ProtectedRoute>} />
+          <Route path="/youtube" element={<ProtectedRoute><YouTubeExplorer /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </AuthProvider>

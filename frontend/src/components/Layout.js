@@ -5,6 +5,7 @@ import {
   LayoutDashboard, Lightbulb, Wand2, FileText, Calendar,
   Link2, LogOut, Zap, Menu, X, ChevronLeft, Bot, BarChart3
 } from 'lucide-react';
+import { FaYoutube } from 'react-icons/fa';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -12,6 +13,7 @@ const navItems = [
   { to: '/creator', label: 'Content Creator', icon: Wand2 },
   { to: '/avatar', label: 'AI Avatar', icon: Bot },
   { to: '/predictor', label: 'Predictor', icon: BarChart3 },
+  { to: '/youtube', label: 'YouTube', icon: FaYoutube },
   { to: '/posts', label: 'Posts', icon: FileText },
   { to: '/scheduler', label: 'Calendar', icon: Calendar },
   { to: '/platforms', label: 'Platforms', icon: Link2 },

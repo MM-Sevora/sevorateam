@@ -21,6 +21,7 @@ MONGO_URL = os.environ.get("MONGO_URL")
 DB_NAME = os.environ.get("DB_NAME")
 JWT_SECRET = os.environ.get("JWT_SECRET")
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY")
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
 # MongoDB setup
 client = MongoClient(MONGO_URL)
@@ -834,6 +835,198 @@ async def publish_post(post_id: str, auth: dict = Depends(verify_token)):
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "service": "SocialFlow AI"}
+
+# ===== YouTube Real API Integration =====
+
+@app.get("/api/youtube/search-channel")
+async def youtube_search_channel(q: str, auth: dict = Depends(verify_token)):
+    """Search for YouTube channels by name using the Google API key"""
+    import httpx
+    api_key = _get_youtube_api_key(auth["user_id"])
+    if not api_key:
+        raise HTTPException(status_code=400, detail="No Google/YouTube API key configured")
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(
+            "https://www.googleapis.com/youtube/v3/search",
+            params={"part": "snippet", "q": q, "type": "channel", "maxResults": 5, "key": api_key}
+        )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail=resp.json().get("error", {}).get("message", "YouTube API error"))
+        items = resp.json().get("items", [])
+        channels = []
+        for item in items:
+            channels.append({
+                "channel_id": item["snippet"]["channelId"],
+                "title": item["snippet"]["title"],
+                "description": item["snippet"]["description"][:150],
+                "thumbnail": item["snippet"]["thumbnails"].get("default", {}).get("url", ""),
+            })
+        return {"channels": channels}
+
+@app.get("/api/youtube/channel/{channel_id}")
+async def youtube_channel_details(channel_id: str, auth: dict = Depends(verify_token)):
+    """Get real YouTube channel details and statistics"""
+    import httpx
+    api_key = _get_youtube_api_key(auth["user_id"])
+    if not api_key:
+        raise HTTPException(status_code=400, detail="No Google/YouTube API key configured")
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(
+            "https://www.googleapis.com/youtube/v3/channels",
+            params={"part": "snippet,statistics,contentDetails,brandingSettings", "id": channel_id, "key": api_key}
+        )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail=resp.json().get("error", {}).get("message", "YouTube API error"))
+        items = resp.json().get("items", [])
+        if not items:
+            raise HTTPException(status_code=404, detail="Channel not found")
+        ch = items[0]
+        snippet = ch.get("snippet", {})
+        stats = ch.get("statistics", {})
+        return {
+            "channel_id": channel_id,
+            "title": snippet.get("title", ""),
+            "description": snippet.get("description", "")[:300],
+            "custom_url": snippet.get("customUrl", ""),
+            "thumbnail": snippet.get("thumbnails", {}).get("medium", {}).get("url", ""),
+            "banner": ch.get("brandingSettings", {}).get("image", {}).get("bannerExternalUrl", ""),
+            "country": snippet.get("country", ""),
+            "published_at": snippet.get("publishedAt", ""),
+            "statistics": {
+                "subscribers": int(stats.get("subscriberCount", 0)),
+                "total_views": int(stats.get("viewCount", 0)),
+                "video_count": int(stats.get("videoCount", 0)),
+                "hidden_subscriber_count": stats.get("hiddenSubscriberCount", False),
+            },
+        }
+
+@app.get("/api/youtube/channel/{channel_id}/videos")
+async def youtube_channel_videos(channel_id: str, max_results: int = 10, auth: dict = Depends(verify_token)):
+    """Get recent videos from a YouTube channel with real statistics"""
+    import httpx
+    api_key = _get_youtube_api_key(auth["user_id"])
+    if not api_key:
+        raise HTTPException(status_code=400, detail="No Google/YouTube API key configured")
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        # First get video IDs from search
+        search_resp = await client.get(
+            "https://www.googleapis.com/youtube/v3/search",
+            params={"part": "snippet", "channelId": channel_id, "order": "date", "type": "video", "maxResults": max_results, "key": api_key}
+        )
+        if search_resp.status_code != 200:
+            raise HTTPException(status_code=search_resp.status_code, detail="Failed to fetch videos")
+        search_items = search_resp.json().get("items", [])
+        if not search_items:
+            return {"videos": []}
+
+        video_ids = [item["id"]["videoId"] for item in search_items]
+
+        # Then get detailed stats
+        stats_resp = await client.get(
+            "https://www.googleapis.com/youtube/v3/videos",
+            params={"part": "snippet,statistics,contentDetails", "id": ",".join(video_ids), "key": api_key}
+        )
+        if stats_resp.status_code != 200:
+            raise HTTPException(status_code=stats_resp.status_code, detail="Failed to fetch video stats")
+
+        videos = []
+        for item in stats_resp.json().get("items", []):
+            snippet = item.get("snippet", {})
+            stats = item.get("statistics", {})
+            videos.append({
+                "video_id": item["id"],
+                "title": snippet.get("title", ""),
+                "description": snippet.get("description", "")[:200],
+                "published_at": snippet.get("publishedAt", ""),
+                "thumbnail": snippet.get("thumbnails", {}).get("medium", {}).get("url", ""),
+                "duration": item.get("contentDetails", {}).get("duration", ""),
+                "statistics": {
+                    "views": int(stats.get("viewCount", 0)),
+                    "likes": int(stats.get("likeCount", 0)),
+                    "comments": int(stats.get("commentCount", 0)),
+                },
+                "url": f"https://www.youtube.com/watch?v={item['id']}",
+            })
+        return {"videos": videos, "total": len(videos)}
+
+@app.get("/api/youtube/video/{video_id}/analytics")
+async def youtube_video_analytics(video_id: str, auth: dict = Depends(verify_token)):
+    """Get detailed analytics for a specific YouTube video"""
+    import httpx
+    api_key = _get_youtube_api_key(auth["user_id"])
+    if not api_key:
+        raise HTTPException(status_code=400, detail="No Google/YouTube API key configured")
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(
+            "https://www.googleapis.com/youtube/v3/videos",
+            params={"part": "snippet,statistics,contentDetails,topicDetails", "id": video_id, "key": api_key}
+        )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail="YouTube API error")
+        items = resp.json().get("items", [])
+        if not items:
+            raise HTTPException(status_code=404, detail="Video not found")
+        v = items[0]
+        snippet = v.get("snippet", {})
+        stats = v.get("statistics", {})
+        views = int(stats.get("viewCount", 0))
+        likes = int(stats.get("likeCount", 0))
+        comments = int(stats.get("commentCount", 0))
+        engagement_rate = round(((likes + comments) / max(views, 1)) * 100, 2)
+        return {
+            "video_id": video_id,
+            "title": snippet.get("title", ""),
+            "channel_title": snippet.get("channelTitle", ""),
+            "published_at": snippet.get("publishedAt", ""),
+            "thumbnail": snippet.get("thumbnails", {}).get("high", {}).get("url", ""),
+            "duration": v.get("contentDetails", {}).get("duration", ""),
+            "tags": snippet.get("tags", [])[:15],
+            "category_id": snippet.get("categoryId", ""),
+            "statistics": {
+                "views": views,
+                "likes": likes,
+                "comments": comments,
+                "engagement_rate": engagement_rate,
+            },
+            "url": f"https://www.youtube.com/watch?v={video_id}",
+        }
+
+@app.get("/api/youtube/trending")
+async def youtube_trending(region_code: str = "US", category_id: str = "0", auth: dict = Depends(verify_token)):
+    """Get trending YouTube videos for content inspiration"""
+    import httpx
+    api_key = _get_youtube_api_key(auth["user_id"])
+    if not api_key:
+        raise HTTPException(status_code=400, detail="No Google/YouTube API key configured")
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        params = {"part": "snippet,statistics", "chart": "mostPopular", "regionCode": region_code, "maxResults": 10, "key": api_key}
+        if category_id != "0":
+            params["videoCategoryId"] = category_id
+        resp = await client.get("https://www.googleapis.com/youtube/v3/videos", params=params)
+        if resp.status_code != 200:
+            raise HTTPException(status_code=resp.status_code, detail="YouTube API error")
+        videos = []
+        for item in resp.json().get("items", []):
+            snippet = item.get("snippet", {})
+            stats = item.get("statistics", {})
+            videos.append({
+                "video_id": item["id"],
+                "title": snippet.get("title", ""),
+                "channel": snippet.get("channelTitle", ""),
+                "thumbnail": snippet.get("thumbnails", {}).get("medium", {}).get("url", ""),
+                "views": int(stats.get("viewCount", 0)),
+                "likes": int(stats.get("likeCount", 0)),
+                "published_at": snippet.get("publishedAt", ""),
+                "url": f"https://www.youtube.com/watch?v={item['id']}",
+            })
+        return {"trending": videos, "region": region_code}
+
+def _get_youtube_api_key(user_id: str) -> str:
+    """Get YouTube API key from user credentials or fallback to env"""
+    cred = api_credentials_col.find_one({"user_id": user_id, "platform": "youtube"}, {"_id": 0})
+    if cred and cred.get("credentials", {}).get("api_key"):
+        return cred["credentials"]["api_key"]
+    return GOOGLE_API_KEY or ""
 
 # ===== OAuth Platform Integration Routes =====
 
