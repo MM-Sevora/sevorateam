@@ -58,6 +58,7 @@ An internal tool for a luxury fashion brand (SEVORA) to manage its entire influe
 - [x] **Auto-Fetch Social Data:** Automatically fetches Instagram/YouTube metrics when adding new influencers
 - [x] **Refresh Data Feature:** Single influencer refresh and batch refresh all influencers
 - [x] **Verification Status Display:** Shows checkmark badge and last verified date on influencer profiles
+- [x] **Enhanced Add Influencer Form:** Quick Add section with Fetch buttons to pull live data from Instagram/YouTube APIs
 
 ---
 

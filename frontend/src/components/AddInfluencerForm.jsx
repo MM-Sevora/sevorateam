@@ -8,9 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Switch } from '../components/ui/switch';
-import { influencerApi } from '../lib/api';
+import { Alert, AlertDescription } from '../components/ui/alert';
+import { influencerApi, socialApi } from '../lib/api';
 import { toast } from 'sonner';
-import { User, AtSign, DollarSign, Plus, X } from 'lucide-react';
+import { User, AtSign, DollarSign, Plus, X, Loader2, Download, CheckCircle, Instagram, Youtube } from 'lucide-react';
 
 const CATEGORIES = ['luxury', 'menswear', 'womenswear', 'streetwear', 'ethnic', 'minimal', 'sustainable'];
 const INDUSTRIES = ['fashion', 'beauty', 'lifestyle', 'fitness', 'tech', 'food', 'travel', 'entertainment', 'education', 'finance'];
@@ -25,6 +26,24 @@ const PLATFORMS = [
     { value: 'twitter', label: 'Twitter/X', icon: '🐦' }
 ];
 
+// Helper to calculate tier based on followers
+const calculateTier = (followers) => {
+    if (followers >= 5000000) return 'celebrity';
+    if (followers >= 1000000) return 'mega';
+    if (followers >= 500000) return 'macro';
+    if (followers >= 100000) return 'mid';
+    if (followers >= 10000) return 'micro';
+    return 'nano';
+};
+
+// Format followers for display
+const formatFollowers = (count) => {
+    if (!count) return '0';
+    if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
+    if (count >= 1000) return `${(count / 1000).toFixed(0)}K`;
+    return count.toString();
+};
+
 const initialForm = {
     name: '', bio: '', instagram_handle: '', youtube_handle: '', tiktok_handle: '', linkedin_handle: '', twitter_handle: '',
     primary_platform: 'instagram',
@@ -38,11 +57,88 @@ const initialForm = {
 export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
     const [form, setForm] = useState(initialForm);
     const [loading, setLoading] = useState(false);
+    const [fetchingInstagram, setFetchingInstagram] = useState(false);
+    const [fetchingYoutube, setFetchingYoutube] = useState(false);
+    const [fetchedData, setFetchedData] = useState({ instagram: null, youtube: null });
     const [tagInput, setTagInput] = useState('');
 
     const update = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
     const addTag = () => { if (tagInput && !form.style_tags.includes(tagInput)) { update('style_tags', [...form.style_tags, tagInput]); setTagInput(''); } };
     const removeTag = (tag) => update('style_tags', form.style_tags.filter(t => t !== tag));
+
+    // Fetch Instagram data
+    const fetchInstagramData = async () => {
+        const handle = form.instagram_handle?.replace('@', '').trim();
+        if (!handle) {
+            toast.error('Enter an Instagram handle first');
+            return;
+        }
+        
+        setFetchingInstagram(true);
+        try {
+            const response = await socialApi.verifyProfile('instagram', handle);
+            const data = response.data;
+            
+            if (data && data.followers > 0) {
+                // Auto-fill form fields
+                setForm(prev => ({
+                    ...prev,
+                    name: prev.name || data.display_name || data.username,
+                    bio: prev.bio || data.bio || '',
+                    followers: data.followers,
+                    engagement_rate: data.engagement_rate || 0,
+                    tier: calculateTier(data.followers),
+                    primary_platform: 'instagram'
+                }));
+                
+                setFetchedData(prev => ({ ...prev, instagram: data }));
+                toast.success(`Fetched: ${formatFollowers(data.followers)} followers, ${data.engagement_rate?.toFixed(1)}% engagement`);
+            } else {
+                toast.error('Could not fetch Instagram data. Profile may be private or handle incorrect.');
+            }
+        } catch (error) {
+            toast.error('Failed to fetch Instagram data');
+        } finally {
+            setFetchingInstagram(false);
+        }
+    };
+
+    // Fetch YouTube data
+    const fetchYoutubeData = async () => {
+        const handle = form.youtube_handle?.replace('@', '').trim();
+        if (!handle) {
+            toast.error('Enter a YouTube handle first');
+            return;
+        }
+        
+        setFetchingYoutube(true);
+        try {
+            const response = await socialApi.verifyProfile('youtube', handle);
+            const data = response.data;
+            
+            if (data && data.followers > 0) {
+                // Auto-fill form fields
+                setForm(prev => ({
+                    ...prev,
+                    name: prev.name || data.display_name || data.username,
+                    bio: prev.bio || data.bio || '',
+                    followers: prev.primary_platform === 'youtube' ? data.followers : prev.followers || data.followers,
+                    engagement_rate: prev.primary_platform === 'youtube' ? (data.engagement_rate || 0) : prev.engagement_rate || (data.engagement_rate || 0),
+                    tier: prev.primary_platform === 'youtube' ? calculateTier(data.followers) : prev.tier,
+                    primary_platform: !prev.followers ? 'youtube' : prev.primary_platform
+                }));
+                
+                setFetchedData(prev => ({ ...prev, youtube: data }));
+                toast.success(`Fetched: ${formatFollowers(data.followers)} subscribers, ${data.engagement_rate?.toFixed(1)}% engagement`);
+            } else {
+                toast.error('Could not fetch YouTube data. Channel may not exist or handle incorrect.');
+            }
+        } catch (error) {
+            toast.error('Failed to fetch YouTube data');
+        } finally {
+            setFetchingYoutube(false);
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -58,8 +154,9 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
                 rate_per_reel: parseFloat(form.rate_per_reel) || null,
                 rate_per_story: parseFloat(form.rate_per_story) || null,
             });
-            toast.success('Influencer added');
+            toast.success('Influencer added with live data!');
             setForm(initialForm);
+            setFetchedData({ instagram: null, youtube: null });
             onOpenChange(false);
             if (onSuccess) onSuccess();
         } catch (error) {
@@ -69,12 +166,101 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
         }
     };
 
+    const resetForm = () => {
+        setForm(initialForm);
+        setFetchedData({ instagram: null, youtube: null });
+    };
+
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-2xl">
+        <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v); }}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="font-serif text-xl">Add Influencer</DialogTitle>
                 </DialogHeader>
+                
+                {/* Quick Add Section */}
+                <div className="bg-gold/5 border border-gold/20 rounded-lg p-4 space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-medium text-gold">
+                        <Download className="w-4 h-4" />
+                        Quick Add - Fetch from Social Media
+                    </div>
+                    <p className="text-xs text-muted-foreground">Enter a handle and click Fetch to auto-fill profile data</p>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                        {/* Instagram Fetch */}
+                        <div className="space-y-2">
+                            <Label className="text-[10px] uppercase font-mono flex items-center gap-1">
+                                <Instagram className="w-3 h-3 text-pink-500" /> Instagram Handle
+                            </Label>
+                            <div className="flex gap-2">
+                                <Input 
+                                    data-testid="quick-instagram-input"
+                                    value={form.instagram_handle} 
+                                    onChange={(e) => update('instagram_handle', e.target.value)} 
+                                    placeholder="@nike" 
+                                    className="h-9 flex-1" 
+                                />
+                                <Button 
+                                    type="button" 
+                                    onClick={fetchInstagramData}
+                                    disabled={fetchingInstagram || !form.instagram_handle}
+                                    className="h-9 bg-pink-500 hover:bg-pink-600 text-white"
+                                    data-testid="fetch-instagram-btn"
+                                >
+                                    {fetchingInstagram ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Fetch'}
+                                </Button>
+                            </div>
+                            {fetchedData.instagram && (
+                                <div className="flex items-center gap-1 text-[10px] text-green-600">
+                                    <CheckCircle className="w-3 h-3" />
+                                    {formatFollowers(fetchedData.instagram.followers)} followers fetched
+                                </div>
+                            )}
+                        </div>
+                        
+                        {/* YouTube Fetch */}
+                        <div className="space-y-2">
+                            <Label className="text-[10px] uppercase font-mono flex items-center gap-1">
+                                <Youtube className="w-3 h-3 text-red-500" /> YouTube Handle
+                            </Label>
+                            <div className="flex gap-2">
+                                <Input 
+                                    data-testid="quick-youtube-input"
+                                    value={form.youtube_handle} 
+                                    onChange={(e) => update('youtube_handle', e.target.value)} 
+                                    placeholder="@mkbhd" 
+                                    className="h-9 flex-1" 
+                                />
+                                <Button 
+                                    type="button" 
+                                    onClick={fetchYoutubeData}
+                                    disabled={fetchingYoutube || !form.youtube_handle}
+                                    className="h-9 bg-red-500 hover:bg-red-600 text-white"
+                                    data-testid="fetch-youtube-btn"
+                                >
+                                    {fetchingYoutube ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Fetch'}
+                                </Button>
+                            </div>
+                            {fetchedData.youtube && (
+                                <div className="flex items-center gap-1 text-[10px] text-green-600">
+                                    <CheckCircle className="w-3 h-3" />
+                                    {formatFollowers(fetchedData.youtube.followers)} subscribers fetched
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    
+                    {/* Fetched Data Preview */}
+                    {(fetchedData.instagram || fetchedData.youtube) && (
+                        <Alert className="bg-green-50 border-green-200">
+                            <CheckCircle className="w-4 h-4 text-green-600" />
+                            <AlertDescription className="text-xs text-green-700">
+                                Data fetched! Review and edit below, then click "Add Influencer" to save.
+                            </AlertDescription>
+                        </Alert>
+                    )}
+                </div>
+
                 <form onSubmit={handleSubmit}>
                     <Tabs defaultValue="basic" className="mt-4">
                         <TabsList className="grid w-full grid-cols-3">
@@ -121,7 +307,7 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
                                     </Select>
                                 </div>
                                 <div className="space-y-1">
-                                    <Label className="text-[10px] uppercase font-mono">Tier</Label>
+                                    <Label className="text-[10px] uppercase font-mono">Tier {form.followers && <span className="text-gold">(auto)</span>}</Label>
                                     <Select value={form.tier} onValueChange={(v) => update('tier', v)}>
                                         <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                                         <SelectContent>{TIERS.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}</SelectContent>
@@ -147,6 +333,13 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
                                     <Input value={form.phone} onChange={(e) => update('phone', e.target.value)} className="h-8" />
                                 </div>
                             </div>
+                            
+                            {/* Bio - now more prominent */}
+                            <div className="space-y-1">
+                                <Label className="text-[10px] uppercase font-mono">Bio {(fetchedData.instagram || fetchedData.youtube) && <span className="text-gold">(from API)</span>}</Label>
+                                <Textarea value={form.bio} onChange={(e) => update('bio', e.target.value)} rows={2} placeholder="Influencer bio..." />
+                            </div>
+                            
                             <div className="space-y-1">
                                 <Label className="text-[10px] uppercase font-mono">Style Tags</Label>
                                 <div className="flex gap-2">
@@ -184,12 +377,14 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
                                 <div className="space-y-1">
                                     <Label className="text-[10px] uppercase font-mono flex items-center gap-1">
                                         Instagram {form.primary_platform === 'instagram' && <Badge className="bg-gold/20 text-gold border-0 text-[8px]">Primary</Badge>}
+                                        {fetchedData.instagram && <CheckCircle className="w-3 h-3 text-green-500" />}
                                     </Label>
                                     <Input data-testid="inf-instagram-input" value={form.instagram_handle} onChange={(e) => update('instagram_handle', e.target.value)} placeholder="@handle" className="h-8" />
                                 </div>
                                 <div className="space-y-1">
                                     <Label className="text-[10px] uppercase font-mono flex items-center gap-1">
                                         YouTube {form.primary_platform === 'youtube' && <Badge className="bg-red-500/20 text-red-600 border-0 text-[8px]">Primary</Badge>}
+                                        {fetchedData.youtube && <CheckCircle className="w-3 h-3 text-green-500" />}
                                     </Label>
                                     <Input value={form.youtube_handle} onChange={(e) => update('youtube_handle', e.target.value)} placeholder="@channel" className="h-8" />
                                 </div>
@@ -211,13 +406,34 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
                                     </Label>
                                     <Input value={form.twitter_handle} onChange={(e) => update('twitter_handle', e.target.value)} placeholder="@handle" className="h-8" />
                                 </div>
+                            </div>
+                            
+                            {/* Metrics - now shows if auto-filled */}
+                            <div className="grid grid-cols-3 gap-3 pt-3 border-t">
                                 <div className="space-y-1">
-                                    <Label className="text-[10px] uppercase font-mono">Followers</Label>
-                                    <Input type="number" value={form.followers} onChange={(e) => update('followers', e.target.value)} placeholder="50000" className="h-8" />
+                                    <Label className="text-[10px] uppercase font-mono">
+                                        Followers {(fetchedData.instagram || fetchedData.youtube) && <span className="text-gold">(from API)</span>}
+                                    </Label>
+                                    <Input 
+                                        type="number" 
+                                        value={form.followers} 
+                                        onChange={(e) => update('followers', e.target.value)} 
+                                        placeholder="50000" 
+                                        className={`h-8 ${form.followers ? 'border-green-300 bg-green-50' : ''}`}
+                                    />
                                 </div>
                                 <div className="space-y-1">
-                                    <Label className="text-[10px] uppercase font-mono">Engagement %</Label>
-                                    <Input type="number" step="0.1" value={form.engagement_rate} onChange={(e) => update('engagement_rate', e.target.value)} placeholder="4.5" className="h-8" />
+                                    <Label className="text-[10px] uppercase font-mono">
+                                        Engagement % {(fetchedData.instagram || fetchedData.youtube) && <span className="text-gold">(from API)</span>}
+                                    </Label>
+                                    <Input 
+                                        type="number" 
+                                        step="0.1" 
+                                        value={form.engagement_rate} 
+                                        onChange={(e) => update('engagement_rate', e.target.value)} 
+                                        placeholder="4.5" 
+                                        className={`h-8 ${form.engagement_rate ? 'border-green-300 bg-green-50' : ''}`}
+                                    />
                                 </div>
                                 <div className="space-y-1">
                                     <Label className="text-[10px] uppercase font-mono">Avg Likes</Label>
