@@ -53,10 +53,17 @@ const initialForm = {
     followers: '', engagement_rate: '', avg_likes: '', avg_comments: '', avg_views: '',
     // Manager/Agent Contact
     manager_name: '', manager_email: '', manager_phone: '',
-    // Audience Demographics with ratios
-    audience_age_split: [],    // [{group: '18-24', percentage: 40}, ...]
-    audience_gender_split: [], // [{gender: 'Female', percentage: 70}, ...]
-    audience_city_split: [],   // [{city: 'Mumbai', percentage: 30}, ...]
+    // Platform-specific Audience Demographics with ratios
+    instagram_audience: {
+        age_split: [],    // [{group: '18-24', percentage: 40}, ...]
+        gender_split: [], // [{gender: 'Female', percentage: 70}, ...]
+        city_split: [],   // [{city: 'Mumbai', percentage: 30}, ...]
+    },
+    youtube_audience: {
+        age_split: [],
+        gender_split: [],
+        city_split: [],
+    },
     // Commercial Terms
     rate_per_post: '', rate_per_reel: '', rate_per_story: '', rate_per_video: '', 
     accepts_barter: false, exclusivity_terms: '', turnaround_days: '', payment_terms: '',
@@ -75,28 +82,50 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
     const addTag = () => { if (tagInput && !form.style_tags.includes(tagInput)) { update('style_tags', [...form.style_tags, tagInput]); setTagInput(''); } };
     const removeTag = (tag) => update('style_tags', form.style_tags.filter(t => t !== tag));
 
-    // Demographic split helpers
-    const addDemoSplit = (field, item, labelKey) => {
-        const current = form[field] || [];
+    // Platform-specific demographic split helpers
+    const addPlatformDemoSplit = (platform, splitType, item, labelKey) => {
+        const platformKey = `${platform}_audience`;
+        const current = form[platformKey]?.[splitType] || [];
         if (!current.find(d => d[labelKey] === item)) {
-            update(field, [...current, { [labelKey]: item, percentage: 0 }]);
+            setForm(prev => ({
+                ...prev,
+                [platformKey]: {
+                    ...prev[platformKey],
+                    [splitType]: [...current, { [labelKey]: item, percentage: 0 }]
+                }
+            }));
         }
     };
     
-    const updateDemoSplitPercentage = (field, labelKey, itemValue, percentage) => {
-        const current = form[field] || [];
-        update(field, current.map(d => 
-            d[labelKey] === itemValue ? { ...d, percentage: Math.max(0, Math.min(100, parseInt(percentage) || 0)) } : d
-        ));
+    const updatePlatformDemoSplitPercentage = (platform, splitType, labelKey, itemValue, percentage) => {
+        const platformKey = `${platform}_audience`;
+        const current = form[platformKey]?.[splitType] || [];
+        setForm(prev => ({
+            ...prev,
+            [platformKey]: {
+                ...prev[platformKey],
+                [splitType]: current.map(d => 
+                    d[labelKey] === itemValue ? { ...d, percentage: Math.max(0, Math.min(100, parseInt(percentage) || 0)) } : d
+                )
+            }
+        }));
     };
     
-    const removeDemoSplit = (field, labelKey, itemValue) => {
-        const current = form[field] || [];
-        update(field, current.filter(d => d[labelKey] !== itemValue));
+    const removePlatformDemoSplit = (platform, splitType, labelKey, itemValue) => {
+        const platformKey = `${platform}_audience`;
+        const current = form[platformKey]?.[splitType] || [];
+        setForm(prev => ({
+            ...prev,
+            [platformKey]: {
+                ...prev[platformKey],
+                [splitType]: current.filter(d => d[labelKey] !== itemValue)
+            }
+        }));
     };
     
-    const getDemoTotal = (field) => {
-        return (form[field] || []).reduce((sum, d) => sum + (d.percentage || 0), 0);
+    const getPlatformDemoTotal = (platform, splitType) => {
+        const platformKey = `${platform}_audience`;
+        return (form[platformKey]?.[splitType] || []).reduce((sum, d) => sum + (d.percentage || 0), 0);
     };
 
     // Fetch Instagram data
@@ -207,11 +236,25 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
             // Clean up empty strings to null for optional fields
             const cleanValue = (val) => (val === '' || val === undefined) ? null : val;
             
-            // Build audience demographics object
+            // Build platform-specific audience demographics object
+            const hasInstagramAudience = form.instagram_audience?.age_split?.length > 0 || 
+                                         form.instagram_audience?.gender_split?.length > 0 || 
+                                         form.instagram_audience?.city_split?.length > 0;
+            const hasYoutubeAudience = form.youtube_audience?.age_split?.length > 0 || 
+                                       form.youtube_audience?.gender_split?.length > 0 || 
+                                       form.youtube_audience?.city_split?.length > 0;
+            
             const audience_demographics = {
-                age_split: form.audience_age_split?.length > 0 ? form.audience_age_split : null,
-                gender_split: form.audience_gender_split?.length > 0 ? form.audience_gender_split : null,
-                city_split: form.audience_city_split?.length > 0 ? form.audience_city_split : null
+                instagram: hasInstagramAudience ? {
+                    age_split: form.instagram_audience?.age_split?.length > 0 ? form.instagram_audience.age_split : null,
+                    gender_split: form.instagram_audience?.gender_split?.length > 0 ? form.instagram_audience.gender_split : null,
+                    city_split: form.instagram_audience?.city_split?.length > 0 ? form.instagram_audience.city_split : null
+                } : null,
+                youtube: hasYoutubeAudience ? {
+                    age_split: form.youtube_audience?.age_split?.length > 0 ? form.youtube_audience.age_split : null,
+                    gender_split: form.youtube_audience?.gender_split?.length > 0 ? form.youtube_audience.gender_split : null,
+                    city_split: form.youtube_audience?.city_split?.length > 0 ? form.youtube_audience.city_split : null
+                } : null
             };
             
             const submitData = {
@@ -240,8 +283,8 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
                 manager_name: cleanValue(form.manager_name),
                 manager_email: cleanValue(form.manager_email),
                 manager_phone: cleanValue(form.manager_phone),
-                // Audience Demographics
-                audience_demographics: (audience_demographics.age_split || audience_demographics.gender_split || audience_demographics.city_split) ? audience_demographics : null,
+                // Platform-specific Audience Demographics
+                audience_demographics: (hasInstagramAudience || hasYoutubeAudience) ? audience_demographics : null,
                 // Rate Card
                 rate_per_post: form.rate_per_post ? parseFloat(form.rate_per_post) : null,
                 rate_per_reel: form.rate_per_reel ? parseFloat(form.rate_per_reel) : null,
@@ -641,145 +684,249 @@ export const AddInfluencerForm = ({ open, onOpenChange, onSuccess }) => {
                         </TabsContent>
 
                         {/* AUDIENCE DEMOGRAPHICS TAB */}
-                        <TabsContent value="audience" className="space-y-4 mt-4">
-                            <p className="text-xs text-muted-foreground">Add audience demographics from influencer's media kit. Click to add, then set percentages.</p>
+                        <TabsContent value="audience" className="space-y-6 mt-4 max-h-[60vh] overflow-y-auto pr-2">
+                            <p className="text-xs text-muted-foreground">Add audience demographics from influencer's media kit for each platform. Click to add, then set percentages.</p>
                             
-                            {/* Age Group Split */}
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <Label className="text-[10px] uppercase font-mono">Age Group Distribution</Label>
-                                    <span className={`text-[10px] font-mono ${getDemoTotal('audience_age_split') === 100 ? 'text-green-600' : getDemoTotal('audience_age_split') > 100 ? 'text-red-600' : 'text-muted-foreground'}`}>
-                                        Total: {getDemoTotal('audience_age_split')}%
-                                    </span>
+                            {/* INSTAGRAM AUDIENCE SECTION */}
+                            <div className="border rounded-lg p-4 bg-gradient-to-r from-pink-50 to-purple-50 dark:from-pink-950/20 dark:to-purple-950/20">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <Instagram className="w-5 h-5 text-pink-600" />
+                                    <h3 className="font-semibold text-sm">Instagram Audience</h3>
                                 </div>
-                                <div className="flex flex-wrap gap-1 mb-2">
-                                    {AGE_GROUPS.filter(ag => !(form.audience_age_split || []).find(d => d.group === ag)).map(ag => (
-                                        <Badge 
-                                            key={ag} 
-                                            variant="outline" 
-                                            className="text-[10px] cursor-pointer hover:bg-gold/10 hover:border-gold"
-                                            onClick={() => addDemoSplit('audience_age_split', ag, 'group')}
-                                        >
-                                            <Plus className="w-2 h-2 mr-1" />{ag}
-                                        </Badge>
-                                    ))}
-                                </div>
-                                {(form.audience_age_split || []).length > 0 && (
-                                    <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
-                                        {(form.audience_age_split || []).map(item => (
-                                            <div key={item.group} className="flex items-center gap-2">
-                                                <span className="text-xs w-16">{item.group}</span>
-                                                <Input 
-                                                    type="number" 
-                                                    min="0" 
-                                                    max="100"
-                                                    value={item.percentage} 
-                                                    onChange={(e) => updateDemoSplitPercentage('audience_age_split', 'group', item.group, e.target.value)}
-                                                    className="h-7 w-20 text-xs"
-                                                />
-                                                <span className="text-xs text-muted-foreground">%</span>
-                                                <div className="flex-1 bg-gray-200 rounded-full h-2">
-                                                    <div className="bg-gold h-2 rounded-full transition-all" style={{width: `${item.percentage}%`}}></div>
-                                                </div>
-                                                <button type="button" onClick={() => removeDemoSplit('audience_age_split', 'group', item.group)} className="text-red-500 hover:text-red-700">
-                                                    <Trash2 className="w-3 h-3" />
-                                                </button>
-                                            </div>
+                                
+                                {/* Instagram Age Group Split */}
+                                <div className="space-y-2 mb-4">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-[10px] uppercase font-mono">Age Distribution</Label>
+                                        <span className={`text-[10px] font-mono ${getPlatformDemoTotal('instagram', 'age_split') === 100 ? 'text-green-600' : getPlatformDemoTotal('instagram', 'age_split') > 100 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                                            Total: {getPlatformDemoTotal('instagram', 'age_split')}%
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1 mb-2">
+                                        {AGE_GROUPS.filter(ag => !(form.instagram_audience?.age_split || []).find(d => d.group === ag)).map(ag => (
+                                            <Badge 
+                                                key={ag} 
+                                                variant="outline" 
+                                                className="text-[10px] cursor-pointer hover:bg-pink-100 hover:border-pink-400"
+                                                onClick={() => addPlatformDemoSplit('instagram', 'age_split', ag, 'group')}
+                                            >
+                                                <Plus className="w-2 h-2 mr-1" />{ag}
+                                            </Badge>
                                         ))}
                                     </div>
-                                )}
+                                    {(form.instagram_audience?.age_split || []).length > 0 && (
+                                        <div className="space-y-2 p-2 border rounded bg-white/50 dark:bg-black/20">
+                                            {(form.instagram_audience?.age_split || []).map(item => (
+                                                <div key={item.group} className="flex items-center gap-2">
+                                                    <span className="text-xs w-14">{item.group}</span>
+                                                    <Input type="number" min="0" max="100" value={item.percentage} 
+                                                        onChange={(e) => updatePlatformDemoSplitPercentage('instagram', 'age_split', 'group', item.group, e.target.value)}
+                                                        className="h-6 w-16 text-xs" />
+                                                    <span className="text-xs text-muted-foreground">%</span>
+                                                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                                        <div className="bg-pink-500 h-2 rounded-full transition-all" style={{width: `${item.percentage}%`}}></div>
+                                                    </div>
+                                                    <button type="button" onClick={() => removePlatformDemoSplit('instagram', 'age_split', 'group', item.group)} className="text-red-500 hover:text-red-700">
+                                                        <Trash2 className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Instagram Gender Split */}
+                                <div className="space-y-2 mb-4">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-[10px] uppercase font-mono">Gender Distribution</Label>
+                                        <span className={`text-[10px] font-mono ${getPlatformDemoTotal('instagram', 'gender_split') === 100 ? 'text-green-600' : getPlatformDemoTotal('instagram', 'gender_split') > 100 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                                            Total: {getPlatformDemoTotal('instagram', 'gender_split')}%
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1 mb-2">
+                                        {AUDIENCE_GENDERS.filter(g => !(form.instagram_audience?.gender_split || []).find(d => d.gender === g)).map(g => (
+                                            <Badge key={g} variant="outline" className="text-[10px] cursor-pointer hover:bg-pink-100 hover:border-pink-400"
+                                                onClick={() => addPlatformDemoSplit('instagram', 'gender_split', g, 'gender')}>
+                                                <Plus className="w-2 h-2 mr-1" />{g}
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                    {(form.instagram_audience?.gender_split || []).length > 0 && (
+                                        <div className="space-y-2 p-2 border rounded bg-white/50 dark:bg-black/20">
+                                            {(form.instagram_audience?.gender_split || []).map(item => (
+                                                <div key={item.gender} className="flex items-center gap-2">
+                                                    <span className="text-xs w-14">{item.gender}</span>
+                                                    <Input type="number" min="0" max="100" value={item.percentage} 
+                                                        onChange={(e) => updatePlatformDemoSplitPercentage('instagram', 'gender_split', 'gender', item.gender, e.target.value)}
+                                                        className="h-6 w-16 text-xs" />
+                                                    <span className="text-xs text-muted-foreground">%</span>
+                                                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                                        <div className="bg-purple-500 h-2 rounded-full transition-all" style={{width: `${item.percentage}%`}}></div>
+                                                    </div>
+                                                    <button type="button" onClick={() => removePlatformDemoSplit('instagram', 'gender_split', 'gender', item.gender)} className="text-red-500 hover:text-red-700">
+                                                        <Trash2 className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Instagram City Split */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-[10px] uppercase font-mono">Top Cities</Label>
+                                        <span className={`text-[10px] font-mono ${getPlatformDemoTotal('instagram', 'city_split') === 100 ? 'text-green-600' : getPlatformDemoTotal('instagram', 'city_split') > 100 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                                            Total: {getPlatformDemoTotal('instagram', 'city_split')}%
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1 mb-2">
+                                        {TOP_CITIES.filter(c => !(form.instagram_audience?.city_split || []).find(d => d.city === c)).map(c => (
+                                            <Badge key={c} variant="outline" className="text-[10px] cursor-pointer hover:bg-pink-100 hover:border-pink-400"
+                                                onClick={() => addPlatformDemoSplit('instagram', 'city_split', c, 'city')}>
+                                                <Plus className="w-2 h-2 mr-1" />{c}
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                    {(form.instagram_audience?.city_split || []).length > 0 && (
+                                        <div className="space-y-2 p-2 border rounded bg-white/50 dark:bg-black/20">
+                                            {(form.instagram_audience?.city_split || []).map(item => (
+                                                <div key={item.city} className="flex items-center gap-2">
+                                                    <span className="text-xs w-20 truncate">{item.city}</span>
+                                                    <Input type="number" min="0" max="100" value={item.percentage} 
+                                                        onChange={(e) => updatePlatformDemoSplitPercentage('instagram', 'city_split', 'city', item.city, e.target.value)}
+                                                        className="h-6 w-16 text-xs" />
+                                                    <span className="text-xs text-muted-foreground">%</span>
+                                                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                                        <div className="bg-blue-500 h-2 rounded-full transition-all" style={{width: `${item.percentage}%`}}></div>
+                                                    </div>
+                                                    <button type="button" onClick={() => removePlatformDemoSplit('instagram', 'city_split', 'city', item.city)} className="text-red-500 hover:text-red-700">
+                                                        <Trash2 className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
-                            {/* Gender Split */}
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <Label className="text-[10px] uppercase font-mono">Gender Distribution</Label>
-                                    <span className={`text-[10px] font-mono ${getDemoTotal('audience_gender_split') === 100 ? 'text-green-600' : getDemoTotal('audience_gender_split') > 100 ? 'text-red-600' : 'text-muted-foreground'}`}>
-                                        Total: {getDemoTotal('audience_gender_split')}%
-                                    </span>
+                            {/* YOUTUBE AUDIENCE SECTION */}
+                            <div className="border rounded-lg p-4 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-950/20 dark:to-orange-950/20">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <Youtube className="w-5 h-5 text-red-600" />
+                                    <h3 className="font-semibold text-sm">YouTube Audience</h3>
                                 </div>
-                                <div className="flex flex-wrap gap-1 mb-2">
-                                    {AUDIENCE_GENDERS.filter(g => !(form.audience_gender_split || []).find(d => d.gender === g)).map(g => (
-                                        <Badge 
-                                            key={g} 
-                                            variant="outline" 
-                                            className="text-[10px] cursor-pointer hover:bg-gold/10 hover:border-gold"
-                                            onClick={() => addDemoSplit('audience_gender_split', g, 'gender')}
-                                        >
-                                            <Plus className="w-2 h-2 mr-1" />{g}
-                                        </Badge>
-                                    ))}
-                                </div>
-                                {(form.audience_gender_split || []).length > 0 && (
-                                    <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
-                                        {(form.audience_gender_split || []).map(item => (
-                                            <div key={item.gender} className="flex items-center gap-2">
-                                                <span className="text-xs w-16">{item.gender}</span>
-                                                <Input 
-                                                    type="number" 
-                                                    min="0" 
-                                                    max="100"
-                                                    value={item.percentage} 
-                                                    onChange={(e) => updateDemoSplitPercentage('audience_gender_split', 'gender', item.gender, e.target.value)}
-                                                    className="h-7 w-20 text-xs"
-                                                />
-                                                <span className="text-xs text-muted-foreground">%</span>
-                                                <div className="flex-1 bg-gray-200 rounded-full h-2">
-                                                    <div className="bg-purple-500 h-2 rounded-full transition-all" style={{width: `${item.percentage}%`}}></div>
-                                                </div>
-                                                <button type="button" onClick={() => removeDemoSplit('audience_gender_split', 'gender', item.gender)} className="text-red-500 hover:text-red-700">
-                                                    <Trash2 className="w-3 h-3" />
-                                                </button>
-                                            </div>
+                                
+                                {/* YouTube Age Group Split */}
+                                <div className="space-y-2 mb-4">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-[10px] uppercase font-mono">Age Distribution</Label>
+                                        <span className={`text-[10px] font-mono ${getPlatformDemoTotal('youtube', 'age_split') === 100 ? 'text-green-600' : getPlatformDemoTotal('youtube', 'age_split') > 100 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                                            Total: {getPlatformDemoTotal('youtube', 'age_split')}%
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1 mb-2">
+                                        {AGE_GROUPS.filter(ag => !(form.youtube_audience?.age_split || []).find(d => d.group === ag)).map(ag => (
+                                            <Badge key={ag} variant="outline" className="text-[10px] cursor-pointer hover:bg-red-100 hover:border-red-400"
+                                                onClick={() => addPlatformDemoSplit('youtube', 'age_split', ag, 'group')}>
+                                                <Plus className="w-2 h-2 mr-1" />{ag}
+                                            </Badge>
                                         ))}
                                     </div>
-                                )}
-                            </div>
+                                    {(form.youtube_audience?.age_split || []).length > 0 && (
+                                        <div className="space-y-2 p-2 border rounded bg-white/50 dark:bg-black/20">
+                                            {(form.youtube_audience?.age_split || []).map(item => (
+                                                <div key={item.group} className="flex items-center gap-2">
+                                                    <span className="text-xs w-14">{item.group}</span>
+                                                    <Input type="number" min="0" max="100" value={item.percentage} 
+                                                        onChange={(e) => updatePlatformDemoSplitPercentage('youtube', 'age_split', 'group', item.group, e.target.value)}
+                                                        className="h-6 w-16 text-xs" />
+                                                    <span className="text-xs text-muted-foreground">%</span>
+                                                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                                        <div className="bg-red-500 h-2 rounded-full transition-all" style={{width: `${item.percentage}%`}}></div>
+                                                    </div>
+                                                    <button type="button" onClick={() => removePlatformDemoSplit('youtube', 'age_split', 'group', item.group)} className="text-red-500 hover:text-red-700">
+                                                        <Trash2 className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
 
-                            {/* City Split */}
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <Label className="text-[10px] uppercase font-mono">Top Cities / Regions</Label>
-                                    <span className={`text-[10px] font-mono ${getDemoTotal('audience_city_split') === 100 ? 'text-green-600' : getDemoTotal('audience_city_split') > 100 ? 'text-red-600' : 'text-muted-foreground'}`}>
-                                        Total: {getDemoTotal('audience_city_split')}%
-                                    </span>
-                                </div>
-                                <div className="flex flex-wrap gap-1 mb-2">
-                                    {TOP_CITIES.filter(c => !(form.audience_city_split || []).find(d => d.city === c)).map(c => (
-                                        <Badge 
-                                            key={c} 
-                                            variant="outline" 
-                                            className="text-[10px] cursor-pointer hover:bg-gold/10 hover:border-gold"
-                                            onClick={() => addDemoSplit('audience_city_split', c, 'city')}
-                                        >
-                                            <Plus className="w-2 h-2 mr-1" />{c}
-                                        </Badge>
-                                    ))}
-                                </div>
-                                {(form.audience_city_split || []).length > 0 && (
-                                    <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
-                                        {(form.audience_city_split || []).map(item => (
-                                            <div key={item.city} className="flex items-center gap-2">
-                                                <span className="text-xs w-24 truncate">{item.city}</span>
-                                                <Input 
-                                                    type="number" 
-                                                    min="0" 
-                                                    max="100"
-                                                    value={item.percentage} 
-                                                    onChange={(e) => updateDemoSplitPercentage('audience_city_split', 'city', item.city, e.target.value)}
-                                                    className="h-7 w-20 text-xs"
-                                                />
-                                                <span className="text-xs text-muted-foreground">%</span>
-                                                <div className="flex-1 bg-gray-200 rounded-full h-2">
-                                                    <div className="bg-blue-500 h-2 rounded-full transition-all" style={{width: `${item.percentage}%`}}></div>
-                                                </div>
-                                                <button type="button" onClick={() => removeDemoSplit('audience_city_split', 'city', item.city)} className="text-red-500 hover:text-red-700">
-                                                    <Trash2 className="w-3 h-3" />
-                                                </button>
-                                            </div>
+                                {/* YouTube Gender Split */}
+                                <div className="space-y-2 mb-4">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-[10px] uppercase font-mono">Gender Distribution</Label>
+                                        <span className={`text-[10px] font-mono ${getPlatformDemoTotal('youtube', 'gender_split') === 100 ? 'text-green-600' : getPlatformDemoTotal('youtube', 'gender_split') > 100 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                                            Total: {getPlatformDemoTotal('youtube', 'gender_split')}%
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1 mb-2">
+                                        {AUDIENCE_GENDERS.filter(g => !(form.youtube_audience?.gender_split || []).find(d => d.gender === g)).map(g => (
+                                            <Badge key={g} variant="outline" className="text-[10px] cursor-pointer hover:bg-red-100 hover:border-red-400"
+                                                onClick={() => addPlatformDemoSplit('youtube', 'gender_split', g, 'gender')}>
+                                                <Plus className="w-2 h-2 mr-1" />{g}
+                                            </Badge>
                                         ))}
                                     </div>
-                                )}
+                                    {(form.youtube_audience?.gender_split || []).length > 0 && (
+                                        <div className="space-y-2 p-2 border rounded bg-white/50 dark:bg-black/20">
+                                            {(form.youtube_audience?.gender_split || []).map(item => (
+                                                <div key={item.gender} className="flex items-center gap-2">
+                                                    <span className="text-xs w-14">{item.gender}</span>
+                                                    <Input type="number" min="0" max="100" value={item.percentage} 
+                                                        onChange={(e) => updatePlatformDemoSplitPercentage('youtube', 'gender_split', 'gender', item.gender, e.target.value)}
+                                                        className="h-6 w-16 text-xs" />
+                                                    <span className="text-xs text-muted-foreground">%</span>
+                                                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                                        <div className="bg-orange-500 h-2 rounded-full transition-all" style={{width: `${item.percentage}%`}}></div>
+                                                    </div>
+                                                    <button type="button" onClick={() => removePlatformDemoSplit('youtube', 'gender_split', 'gender', item.gender)} className="text-red-500 hover:text-red-700">
+                                                        <Trash2 className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* YouTube City Split */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-[10px] uppercase font-mono">Top Cities</Label>
+                                        <span className={`text-[10px] font-mono ${getPlatformDemoTotal('youtube', 'city_split') === 100 ? 'text-green-600' : getPlatformDemoTotal('youtube', 'city_split') > 100 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                                            Total: {getPlatformDemoTotal('youtube', 'city_split')}%
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1 mb-2">
+                                        {TOP_CITIES.filter(c => !(form.youtube_audience?.city_split || []).find(d => d.city === c)).map(c => (
+                                            <Badge key={c} variant="outline" className="text-[10px] cursor-pointer hover:bg-red-100 hover:border-red-400"
+                                                onClick={() => addPlatformDemoSplit('youtube', 'city_split', c, 'city')}>
+                                                <Plus className="w-2 h-2 mr-1" />{c}
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                    {(form.youtube_audience?.city_split || []).length > 0 && (
+                                        <div className="space-y-2 p-2 border rounded bg-white/50 dark:bg-black/20">
+                                            {(form.youtube_audience?.city_split || []).map(item => (
+                                                <div key={item.city} className="flex items-center gap-2">
+                                                    <span className="text-xs w-20 truncate">{item.city}</span>
+                                                    <Input type="number" min="0" max="100" value={item.percentage} 
+                                                        onChange={(e) => updatePlatformDemoSplitPercentage('youtube', 'city_split', 'city', item.city, e.target.value)}
+                                                        className="h-6 w-16 text-xs" />
+                                                    <span className="text-xs text-muted-foreground">%</span>
+                                                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                                        <div className="bg-yellow-500 h-2 rounded-full transition-all" style={{width: `${item.percentage}%`}}></div>
+                                                    </div>
+                                                    <button type="button" onClick={() => removePlatformDemoSplit('youtube', 'city_split', 'city', item.city)} className="text-red-500 hover:text-red-700">
+                                                        <Trash2 className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </TabsContent>
 

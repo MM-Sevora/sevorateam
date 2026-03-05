@@ -730,68 +730,176 @@ export const InfluencerProfilePage = () => {
                             )}
                         </div>
 
-                        {/* Audience Demographics */}
+                        {/* Audience Demographics - Platform Specific */}
                         <Card className="border">
                             <CardHeader className="pb-3">
                                 <CardTitle className="text-base flex items-center gap-2">
                                     <Users className="w-4 h-4 text-gold" /> Audience Demographics
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="space-y-4">
+                            <CardContent className="space-y-6">
                                 {data.audience_demographics ? (
                                     <>
-                                        {/* Age Distribution */}
-                                        {data.audience_demographics.age_split?.length > 0 && (
-                                            <div className="space-y-2">
-                                                <Label className="text-[10px] uppercase font-mono">Age Distribution</Label>
-                                                <div className="space-y-1">
-                                                    {data.audience_demographics.age_split.map(item => (
-                                                        <div key={item.group} className="flex items-center gap-2">
-                                                            <span className="text-xs w-14">{item.group}</span>
-                                                            <div className="flex-1 bg-gray-200 rounded-full h-2">
-                                                                <div className="bg-gold h-2 rounded-full transition-all" style={{width: `${item.percentage}%`}}></div>
-                                                            </div>
-                                                            <span className="text-xs font-medium w-10 text-right">{item.percentage}%</span>
+                                        {/* Instagram Audience */}
+                                        {data.audience_demographics.instagram && (
+                                            <div className="border rounded-lg p-4 bg-gradient-to-r from-pink-50 to-purple-50 dark:from-pink-950/20 dark:to-purple-950/20">
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <Instagram className="w-4 h-4 text-pink-600" />
+                                                    <span className="font-semibold text-sm">Instagram</span>
+                                                </div>
+                                                <div className="grid grid-cols-1 gap-4">
+                                                    {/* Age Distribution */}
+                                                    {data.audience_demographics.instagram.age_split?.length > 0 && (
+                                                        <div className="space-y-1">
+                                                            <Label className="text-[9px] uppercase font-mono text-muted-foreground">Age</Label>
+                                                            {data.audience_demographics.instagram.age_split.map(item => (
+                                                                <div key={item.group} className="flex items-center gap-2">
+                                                                    <span className="text-xs w-12">{item.group}</span>
+                                                                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                                                        <div className="bg-pink-500 h-2 rounded-full transition-all" style={{width: `${item.percentage}%`}}></div>
+                                                                    </div>
+                                                                    <span className="text-xs font-medium w-8 text-right">{item.percentage}%</span>
+                                                                </div>
+                                                            ))}
                                                         </div>
-                                                    ))}
+                                                    )}
+                                                    {/* Gender Distribution */}
+                                                    {data.audience_demographics.instagram.gender_split?.length > 0 && (
+                                                        <div className="space-y-1">
+                                                            <Label className="text-[9px] uppercase font-mono text-muted-foreground">Gender</Label>
+                                                            {data.audience_demographics.instagram.gender_split.map(item => (
+                                                                <div key={item.gender} className="flex items-center gap-2">
+                                                                    <span className="text-xs w-12">{item.gender}</span>
+                                                                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                                                        <div className="bg-purple-500 h-2 rounded-full transition-all" style={{width: `${item.percentage}%`}}></div>
+                                                                    </div>
+                                                                    <span className="text-xs font-medium w-8 text-right">{item.percentage}%</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    {/* City Distribution */}
+                                                    {data.audience_demographics.instagram.city_split?.length > 0 && (
+                                                        <div className="space-y-1">
+                                                            <Label className="text-[9px] uppercase font-mono text-muted-foreground">Top Cities</Label>
+                                                            {data.audience_demographics.instagram.city_split.map(item => (
+                                                                <div key={item.city} className="flex items-center gap-2">
+                                                                    <span className="text-xs w-16 truncate">{item.city}</span>
+                                                                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                                                        <div className="bg-blue-500 h-2 rounded-full transition-all" style={{width: `${item.percentage}%`}}></div>
+                                                                    </div>
+                                                                    <span className="text-xs font-medium w-8 text-right">{item.percentage}%</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* YouTube Audience */}
+                                        {data.audience_demographics.youtube && (
+                                            <div className="border rounded-lg p-4 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-950/20 dark:to-orange-950/20">
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <Youtube className="w-4 h-4 text-red-600" />
+                                                    <span className="font-semibold text-sm">YouTube</span>
+                                                </div>
+                                                <div className="grid grid-cols-1 gap-4">
+                                                    {/* Age Distribution */}
+                                                    {data.audience_demographics.youtube.age_split?.length > 0 && (
+                                                        <div className="space-y-1">
+                                                            <Label className="text-[9px] uppercase font-mono text-muted-foreground">Age</Label>
+                                                            {data.audience_demographics.youtube.age_split.map(item => (
+                                                                <div key={item.group} className="flex items-center gap-2">
+                                                                    <span className="text-xs w-12">{item.group}</span>
+                                                                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                                                        <div className="bg-red-500 h-2 rounded-full transition-all" style={{width: `${item.percentage}%`}}></div>
+                                                                    </div>
+                                                                    <span className="text-xs font-medium w-8 text-right">{item.percentage}%</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    {/* Gender Distribution */}
+                                                    {data.audience_demographics.youtube.gender_split?.length > 0 && (
+                                                        <div className="space-y-1">
+                                                            <Label className="text-[9px] uppercase font-mono text-muted-foreground">Gender</Label>
+                                                            {data.audience_demographics.youtube.gender_split.map(item => (
+                                                                <div key={item.gender} className="flex items-center gap-2">
+                                                                    <span className="text-xs w-12">{item.gender}</span>
+                                                                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                                                        <div className="bg-orange-500 h-2 rounded-full transition-all" style={{width: `${item.percentage}%`}}></div>
+                                                                    </div>
+                                                                    <span className="text-xs font-medium w-8 text-right">{item.percentage}%</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    {/* City Distribution */}
+                                                    {data.audience_demographics.youtube.city_split?.length > 0 && (
+                                                        <div className="space-y-1">
+                                                            <Label className="text-[9px] uppercase font-mono text-muted-foreground">Top Cities</Label>
+                                                            {data.audience_demographics.youtube.city_split.map(item => (
+                                                                <div key={item.city} className="flex items-center gap-2">
+                                                                    <span className="text-xs w-16 truncate">{item.city}</span>
+                                                                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                                                        <div className="bg-yellow-500 h-2 rounded-full transition-all" style={{width: `${item.percentage}%`}}></div>
+                                                                    </div>
+                                                                    <span className="text-xs font-medium w-8 text-right">{item.percentage}%</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         )}
                                         
-                                        {/* Gender Distribution */}
-                                        {data.audience_demographics.gender_split?.length > 0 && (
-                                            <div className="space-y-2">
-                                                <Label className="text-[10px] uppercase font-mono">Gender Distribution</Label>
-                                                <div className="space-y-1">
-                                                    {data.audience_demographics.gender_split.map(item => (
-                                                        <div key={item.gender} className="flex items-center gap-2">
-                                                            <span className="text-xs w-14">{item.gender}</span>
-                                                            <div className="flex-1 bg-gray-200 rounded-full h-2">
-                                                                <div className="bg-purple-500 h-2 rounded-full transition-all" style={{width: `${item.percentage}%`}}></div>
+                                        {/* Legacy support - show old format if no platform-specific data */}
+                                        {!data.audience_demographics.instagram && !data.audience_demographics.youtube && (
+                                            <>
+                                                {data.audience_demographics.age_split?.length > 0 && (
+                                                    <div className="space-y-2">
+                                                        <Label className="text-[10px] uppercase font-mono">Age Distribution</Label>
+                                                        {data.audience_demographics.age_split.map(item => (
+                                                            <div key={item.group} className="flex items-center gap-2">
+                                                                <span className="text-xs w-14">{item.group}</span>
+                                                                <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                                                    <div className="bg-gold h-2 rounded-full" style={{width: `${item.percentage}%`}}></div>
+                                                                </div>
+                                                                <span className="text-xs font-medium w-10 text-right">{item.percentage}%</span>
                                                             </div>
-                                                            <span className="text-xs font-medium w-10 text-right">{item.percentage}%</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                        
-                                        {/* City Distribution */}
-                                        {data.audience_demographics.city_split?.length > 0 && (
-                                            <div className="space-y-2">
-                                                <Label className="text-[10px] uppercase font-mono">Top Cities</Label>
-                                                <div className="space-y-1">
-                                                    {data.audience_demographics.city_split.map(item => (
-                                                        <div key={item.city} className="flex items-center gap-2">
-                                                            <span className="text-xs w-20 truncate">{item.city}</span>
-                                                            <div className="flex-1 bg-gray-200 rounded-full h-2">
-                                                                <div className="bg-blue-500 h-2 rounded-full transition-all" style={{width: `${item.percentage}%`}}></div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {data.audience_demographics.gender_split?.length > 0 && (
+                                                    <div className="space-y-2">
+                                                        <Label className="text-[10px] uppercase font-mono">Gender Distribution</Label>
+                                                        {data.audience_demographics.gender_split.map(item => (
+                                                            <div key={item.gender} className="flex items-center gap-2">
+                                                                <span className="text-xs w-14">{item.gender}</span>
+                                                                <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                                                    <div className="bg-purple-500 h-2 rounded-full" style={{width: `${item.percentage}%`}}></div>
+                                                                </div>
+                                                                <span className="text-xs font-medium w-10 text-right">{item.percentage}%</span>
                                                             </div>
-                                                            <span className="text-xs font-medium w-10 text-right">{item.percentage}%</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {data.audience_demographics.city_split?.length > 0 && (
+                                                    <div className="space-y-2">
+                                                        <Label className="text-[10px] uppercase font-mono">Top Cities</Label>
+                                                        {data.audience_demographics.city_split.map(item => (
+                                                            <div key={item.city} className="flex items-center gap-2">
+                                                                <span className="text-xs w-20 truncate">{item.city}</span>
+                                                                <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                                                    <div className="bg-blue-500 h-2 rounded-full" style={{width: `${item.percentage}%`}}></div>
+                                                                </div>
+                                                                <span className="text-xs font-medium w-10 text-right">{item.percentage}%</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </>
                                         )}
                                     </>
                                 ) : (
