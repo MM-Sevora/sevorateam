@@ -69,10 +69,10 @@ class SocialFlowAPITester:
         return success
 
     def test_register(self):
-        """Test user registration"""
+        """Test user registration with new test user credentials"""
         test_user = {
-            "name": "Test User",
-            "email": "test@socialflow.com",
+            "name": "Test User 2", 
+            "email": "test2@socialflow.com",
             "password": "testpass123"
         }
         success, response = self.run_test(
@@ -89,9 +89,9 @@ class SocialFlowAPITester:
         return success
 
     def test_login(self):
-        """Test user login"""
+        """Test user login with new test user credentials"""
         login_data = {
-            "email": "test@socialflow.com",
+            "email": "test2@socialflow.com",
             "password": "testpass123"
         }
         success, response = self.run_test(
@@ -248,6 +248,165 @@ class SocialFlowAPITester:
         )
         return success
 
+    # ===== OAuth Platform Integration Tests =====
+
+    def test_oauth_init(self):
+        """Test OAuth initialization"""
+        oauth_data = {
+            "platform": "facebook",
+            "page_name": "MyBrand"
+        }
+        success, response = self.run_test(
+            "OAuth Init",
+            "POST",
+            "api/platforms/oauth/init",
+            200,
+            data=oauth_data
+        )
+        if success:
+            print(f"   OAuth URL: {response.get('oauth_url', 'N/A')}")
+            print(f"   Scopes: {response.get('scopes', [])}")
+        return success
+
+    def test_oauth_callback(self):
+        """Test OAuth callback (simulated)"""
+        oauth_data = {
+            "platform": "facebook", 
+            "page_name": "MyBrand"
+        }
+        success, response = self.run_test(
+            "OAuth Callback",
+            "POST",
+            "api/platforms/oauth/callback",
+            200,
+            data=oauth_data
+        )
+        if success and 'platform_id' in response:
+            self.platform_id = response['platform_id']
+            print(f"   Platform connected via OAuth with ID: {self.platform_id}")
+        return success
+
+    def test_platform_insights(self):
+        """Test platform insights"""
+        if not self.platform_id:
+            print("❌ No platform ID available for insights test")
+            return False
+        
+        success, response = self.run_test(
+            "Platform Insights",
+            "GET",
+            f"api/platforms/{self.platform_id}/insights",
+            200
+        )
+        if success:
+            print(f"   Platform: {response.get('platform')}")
+            print(f"   Followers: {response.get('overview', {}).get('followers', 'N/A')}")
+        return success
+
+    def test_post_to_platform(self):
+        """Test posting to connected platform"""
+        if not self.platform_id:
+            print("❌ No platform ID available for post-to-platform test")
+            return False
+        
+        post_data = {
+            "platform": "facebook",  # Required field
+            "content": "Test post via platform integration!",
+            "image_url": ""
+        }
+        success, response = self.run_test(
+            "Post to Platform",
+            "POST",
+            f"api/platforms/{self.platform_id}/post",
+            200,
+            data=post_data
+        )
+        if success:
+            print(f"   Posted with external ID: {response.get('external_post_id')}")
+            print(f"   Post URL: {response.get('post_url')}")
+        return success
+
+    # ===== AI Avatar Tests =====
+
+    def test_create_avatar(self):
+        """Test avatar creation"""
+        avatar_data = {
+            "name": "BrandBot",
+            "brand_voice": "Professional and witty",
+            "tone": "professional",
+            "industry": "Technology", 
+            "target_audience": "Tech professionals",
+            "style_keywords": ["modern", "clean", "professional"]
+        }
+        success, response = self.run_test(
+            "Create Avatar",
+            "POST",
+            "api/avatar",
+            200,
+            data=avatar_data
+        )
+        if success:
+            print(f"   Avatar created: {response.get('name')}")
+            print(f"   Tone: {response.get('tone')}")
+        return success
+
+    def test_get_avatar(self):
+        """Test get avatar"""
+        success, response = self.run_test(
+            "Get Avatar",
+            "GET",
+            "api/avatar",
+            200
+        )
+        if success:
+            print(f"   Avatar found: {response.get('name', 'None')}")
+        return success
+
+    def test_update_avatar(self):
+        """Test avatar update"""
+        update_data = {
+            "brand_voice": "Updated: Professional, witty and engaging",
+            "target_audience": "Young tech professionals"
+        }
+        success, response = self.run_test(
+            "Update Avatar",
+            "PUT", 
+            "api/avatar",
+            200,
+            data=update_data
+        )
+        if success:
+            print(f"   Avatar updated successfully")
+        return success
+
+    def test_get_avatar_chat_history(self):
+        """Test get avatar chat history (should be empty initially)"""
+        success, response = self.run_test(
+            "Avatar Chat History",
+            "GET",
+            "api/avatar/chat/history",
+            200
+        )
+        if success:
+            print(f"   Chat history entries: {len(response)}")
+        return success
+
+    # ===== Content Performance Predictor Tests =====
+
+    def test_get_best_times(self):
+        """Test get best posting times"""
+        success, response = self.run_test(
+            "Best Posting Times",
+            "GET",
+            "api/predict/best-times/instagram",
+            200
+        )
+        if success:
+            print(f"   Platform: {response.get('platform')}")
+            print(f"   Top time: {response.get('recommendation', 'N/A')}")
+            print(f"   Analysis period: {response.get('analysis_period')}")
+        return success
+
 def main():
     print("🚀 Starting SocialFlow AI Backend Testing...")
     print("=" * 60)
@@ -258,12 +417,25 @@ def main():
     tests = [
         ("Health Check", tester.test_health_check),
         ("User Registration", tester.test_register),
-        ("User Login", tester.test_login),
+        ("User Login", tester.test_login), 
         ("Get Current User", tester.test_get_me),
         ("Dashboard Metrics", tester.test_dashboard_metrics),
         ("Dashboard Summary", tester.test_dashboard_summary),
         ("Get Platforms", tester.test_get_platforms),
         ("Connect Platform", tester.test_connect_platform),
+        # OAuth Platform Integration Tests
+        ("OAuth Init", tester.test_oauth_init),
+        ("OAuth Callback", tester.test_oauth_callback),
+        ("Platform Insights", tester.test_platform_insights),
+        ("Post to Platform", tester.test_post_to_platform),
+        # AI Avatar Tests (CRUD only, skipping AI generation)
+        ("Create Avatar", tester.test_create_avatar), 
+        ("Get Avatar", tester.test_get_avatar),
+        ("Update Avatar", tester.test_update_avatar),
+        ("Avatar Chat History", tester.test_get_avatar_chat_history),
+        # Performance Predictor Tests (non-AI endpoints only)
+        ("Best Posting Times", tester.test_get_best_times),
+        # Original Post Tests
         ("Create Post", tester.test_create_post),
         ("Get Posts", tester.test_get_posts),
         ("Publish Post", tester.test_publish_post),

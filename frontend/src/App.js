@@ -10,6 +10,8 @@ import ContentCreator from './pages/ContentCreator';
 import Posts from './pages/Posts';
 import Scheduler from './pages/Scheduler';
 import Platforms from './pages/Platforms';
+import AvatarPage from './pages/AvatarPage';
+import PerformancePredictor from './pages/PerformancePredictor';
 
 function ProtectedRoute({ children }) {
   const { token, loading } = useAuth();
@@ -50,6 +52,8 @@ function App() {
           <Route path="/posts" element={<ProtectedRoute><Posts /></ProtectedRoute>} />
           <Route path="/scheduler" element={<ProtectedRoute><Scheduler /></ProtectedRoute>} />
           <Route path="/platforms" element={<ProtectedRoute><Platforms /></ProtectedRoute>} />
+          <Route path="/avatar" element={<ProtectedRoute><AvatarPage /></ProtectedRoute>} />
+          <Route path="/predictor" element={<ProtectedRoute><PerformancePredictor /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </AuthProvider>
