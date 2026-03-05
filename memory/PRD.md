@@ -1,10 +1,10 @@
 # SocialFlow AI - Product Requirements Document
 
 ## Original Problem Statement
-Create a social media management tool that tracks pages with metrics, suggests content ideas, uses AI to create content, and posts it.
+Create a social media management tool that tracks pages with metrics, suggests content ideas, uses AI to create content, and posts it. Added: Platform OAuth integration, AI Avatar with chat, Content Performance Predictor.
 
 ## Architecture
-- **Frontend**: React 19 + Tailwind CSS + Recharts + Framer Motion + Lucide React + React Icons
+- **Frontend**: React 19 + Tailwind CSS + Recharts + Lucide React + React Icons
 - **Backend**: FastAPI (Python) with MongoDB
 - **AI**: OpenAI GPT-5.2 (text generation via emergentintegrations), Gemini Nano Banana (image generation via emergentintegrations)
 - **Auth**: JWT-based custom authentication
@@ -19,61 +19,62 @@ Create a social media management tool that tracks pages with metrics, suggests c
 - AI content idea generation (GPT-5.2)
 - AI content creation (text + images)
 - Post scheduling and calendar view
-- Platform connection management
-- Post CRUD with publishing workflow
+- Platform OAuth connection management with insights
+- AI Avatar with brand voice and chat interface
+- Content Performance Predictor
 
-## What's Been Implemented (March 2026)
+## What's Been Implemented
 
-### Backend (server.py)
+### Phase 1 - MVP (March 2026)
 - JWT authentication (register/login/me)
-- Dashboard metrics API with seeded demo data
-- Platform management (connect/disconnect)
+- Dashboard with metrics, charts, platform breakdown
 - AI content ideas generation (GPT-5.2)
-- AI content creation (GPT-5.2)
-- AI image generation (Gemini Nano Banana)
+- AI content creation (GPT-5.2 for text, Gemini Nano Banana for images)
 - Post CRUD with publish workflow
-- Health check endpoint
+- Content calendar/scheduler
+- Platform connection management
+- Responsive dark-theme UI with sidebar layout
 
-### Frontend (React)
-- Login & Register pages
-- Dashboard with stats cards, engagement chart, platform breakdown, reach trend, post summary
-- Content Ideas page with AI generation
-- Content Creator with text + image generation
-- Posts page with filters and publish/delete
-- Scheduler/Calendar page with date-fns
-- Platforms management page
-- Responsive sidebar layout with mobile support
+### Phase 2 - Advanced Features (March 2026)
+- **OAuth Platform Integration**: Simulated OAuth flows for Facebook, Instagram, Twitter/X, LinkedIn, YouTube with scopes, permissions, and insights panels showing audience demographics, engagement metrics, best posting times, and top posts
+- **AI Avatar System**: Create/configure AI brand avatar with name, brand voice, tone, industry, target audience, and style keywords. Generate visual avatar images via Gemini Nano Banana. Conversational chat interface where the avatar creates content matching brand voice, with persistent chat history
+- **Content Performance Predictor**: AI-powered engagement prediction with engagement score, content quality score, hashtag effectiveness, virality potential, predicted metrics (likes, comments, shares, reach), improvement suggestions, competitor benchmarks, and best posting time heatmap analysis
+- **Platform Insights**: Detailed analytics per connected platform including audience demographics, age groups, gender split, top countries, and best posting times
 
 ## Testing Status
-- Backend: 100% pass
-- Frontend: 95% pass (minor mobile nav fix applied)
+- Backend: 100% pass (all 22 endpoints tested)
+- Frontend: 100% pass (all pages and navigation verified)
 
 ## Prioritized Backlog
 
 ### P0 (Critical - Not Yet Done)
-- None - MVP is functional
+- None - All requested features are functional
 
 ### P1 (High Priority - Next Phase)
-- Real social media API integrations (Facebook Graph API, Instagram API, Twitter API, LinkedIn API, YouTube API)
-- Post scheduling cron job (auto-publish at scheduled time)
-- Analytics export (CSV/PDF)
+- Real OAuth integration with actual API keys (Facebook Graph API, Twitter API v2, LinkedIn API, YouTube Data API)
+- Cron-based auto-publishing for scheduled posts
+- Analytics export (CSV/PDF reports)
+- Webhook notifications for post performance milestones
 
 ### P2 (Medium Priority)
 - Content approval workflow (team collaboration)
 - A/B testing for posts
-- Competitor analysis
-- Hashtag research tool
+- Competitor analysis integration
+- Hashtag research tool with trending data
 - Bulk content scheduling
+- Multi-account support per platform
 
 ### P3 (Nice to Have)
 - Custom reporting templates
 - White-label options
-- Webhook integrations
+- Webhook integrations for external tools
 - Multi-language content generation
-- AI-powered best posting time recommendations
+- Video content creation support
+- RSS feed to social post automation
 
 ## Next Tasks
-1. Integrate real social media APIs for actual posting
-2. Implement cron-based auto-publishing for scheduled posts
+1. Add real OAuth credentials for social media platforms
+2. Implement cron-based auto-publishing
 3. Add team collaboration features
-4. Analytics export functionality
+4. Build analytics export functionality
+5. Add notification system for post milestones
