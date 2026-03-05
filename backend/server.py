@@ -1568,6 +1568,15 @@ async def get_platform_insights(platform_id: str, auth: dict = Depends(verify_to
         except Exception:
             pass
 
+    # Try real Instagram API if credentials exist
+    if pname == "instagram":
+        try:
+            real = await _get_real_instagram_insights(auth["user_id"], platform)
+            if real:
+                return real
+        except Exception:
+            pass
+
     # Simulated insights for platforms without real API integration
     now = datetime.now(timezone.utc)
     insights = {
@@ -1727,6 +1736,95 @@ async def _get_real_youtube_insights(user_id: str, platform: dict):
                 {"day": "Sunday", "time": "10:00 AM - 12:00 PM", "engagement_index": 1.2},
             ],
             "top_posts": top_videos[:5],
+        }
+
+
+async def _get_real_instagram_insights(user_id: str, platform: dict):
+    """Fetch real Instagram data using stored access token"""
+    import httpx
+    cred = api_credentials_col.find_one({"user_id": user_id, "platform": "instagram"}, {"_id": 0})
+    if not cred or not cred.get("credentials", {}).get("access_token"):
+        return None
+
+    access_token = cred["credentials"]["access_token"]
+    ig_id = cred["credentials"].get("instagram_account_id", "")
+    if not ig_id:
+        return None
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        # Get account info
+        acct_resp = await client.get(
+            f"https://graph.facebook.com/v19.0/{ig_id}",
+            params={"fields": "id,name,username,followers_count,follows_count,media_count,profile_picture_url,biography,website", "access_token": access_token}
+        )
+        if acct_resp.status_code != 200:
+            return None
+        acct = acct_resp.json()
+
+        # Get recent media
+        media_resp = await client.get(
+            f"https://graph.facebook.com/v19.0/{ig_id}/media",
+            params={"fields": "id,caption,timestamp,like_count,comments_count,media_type,permalink,thumbnail_url", "limit": 10, "access_token": access_token}
+        )
+        media_items = []
+        total_likes = 0
+        total_comments = 0
+        if media_resp.status_code == 200:
+            for m in media_resp.json().get("data", []):
+                likes = m.get("like_count", 0)
+                comments = m.get("comments_count", 0)
+                total_likes += likes
+                total_comments += comments
+                caption = m.get("caption", "")[:150] if m.get("caption") else "Post"
+                media_items.append({
+                    "content": caption,
+                    "likes": likes,
+                    "comments": comments,
+                    "shares": 0,
+                    "date": m.get("timestamp", "")[:10],
+                    "url": m.get("permalink", ""),
+                    "type": m.get("media_type", ""),
+                })
+
+        followers = acct.get("followers_count", 0)
+        media_count = acct.get("media_count", 0)
+        engagement = round(((total_likes + total_comments) / max(len(media_items), 1)) / max(followers, 1) * 100, 2) if followers > 0 else 0
+
+        return {
+            "platform": "instagram",
+            "page_name": f"@{acct.get('username', '')} - {acct.get('name', '')}",
+            "period": "recent",
+            "is_simulated": False,
+            "profile_url": f"https://instagram.com/{acct.get('username', '')}",
+            "thumbnail": acct.get("profile_picture_url", ""),
+            "overview": {
+                "followers": followers,
+                "following": acct.get("follows_count", 0),
+                "posts_count": media_count,
+                "avg_engagement_rate": engagement,
+            },
+            "engagement": {
+                "total_likes": total_likes,
+                "total_comments": total_comments,
+                "total_shares": 0,
+                "total_saves": 0,
+            },
+            "capabilities": ["View profile data", "View media insights", "Publish content"],
+            "account": {
+                "username": acct.get("username", ""),
+                "name": acct.get("name", ""),
+                "biography": acct.get("biography", ""),
+                "website": acct.get("website", ""),
+            },
+            "audience": {
+                "top_countries": [{"country": "Audience demographics require Instagram Insights API", "percentage": 0}],
+            },
+            "best_posting_times": [
+                {"day": "Monday-Friday", "time": "11:00 AM - 1:00 PM", "engagement_index": 1.6},
+                {"day": "Tuesday & Thursday", "time": "9:00 AM - 10:00 AM", "engagement_index": 1.4},
+                {"day": "Saturday", "time": "10:00 AM - 12:00 PM", "engagement_index": 1.3},
+            ],
+            "top_posts": sorted(media_items, key=lambda x: x.get("likes", 0), reverse=True)[:5],
         }
 
 
