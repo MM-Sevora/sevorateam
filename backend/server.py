@@ -1172,19 +1172,196 @@ from urllib.parse import urlencode
 
 @app.get("/api/platforms/oauth/redirect")
 async def oauth_redirect(code: str = "", state: str = "", error: str = ""):
-    """Handle OAuth redirect - sends code back to frontend"""
+    """Handle OAuth redirect - auto-exchanges code for access token"""
+    import httpx
+
     if error:
-        html = f"""<html><body><script>
-            window.opener?.postMessage({{ type: 'oauth_error', error: '{error}' }}, '*');
-            window.close();
-        </script><p>Authorization failed: {error}. You can close this window.</p></body></html>"""
+        html = f"""<html><head><style>
+            body {{ font-family: 'Inter', sans-serif; background: #09090b; color: #fff; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }}
+            .card {{ background: #18181b; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 40px; max-width: 500px; text-align: center; }}
+            .error {{ color: #ef4444; }}
+            h2 {{ margin-bottom: 12px; }}
+        </style></head><body>
+        <div class="card">
+            <h2 class="error">Authorization Failed</h2>
+            <p style="color:#a1a1aa;">{error}</p>
+            <p style="color:#71717a;margin-top:16px;font-size:13px;">You can close this window.</p>
+        </div>
+        <script>window.opener?.postMessage({{ type: 'oauth_error', error: '{error}' }}, '*');</script>
+        </body></html>"""
         return HTMLResponse(content=html)
 
-    html = f"""<html><body><script>
-        window.opener?.postMessage({{ type: 'oauth_callback', code: '{code}', state: '{state}' }}, '*');
-        setTimeout(() => window.close(), 2000);
-    </script><p>Authorization successful! This window will close automatically...</p></body></html>"""
-    return HTMLResponse(content=html)
+    if not code or not state:
+        return HTMLResponse(content="<html><body><p>Missing code or state parameter.</p></body></html>")
+
+    # Look up stored OAuth state to get credentials
+    state_doc = db["oauth_states"].find_one({"state": state})
+    if not state_doc:
+        # If no state doc, show the code for manual exchange
+        html = f"""<html><head><style>
+            body {{ font-family: 'Inter', sans-serif; background: #09090b; color: #fff; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }}
+            .card {{ background: #18181b; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 40px; max-width: 600px; text-align: center; }}
+            .success {{ color: #10b981; }}
+            code {{ background: #27272a; padding: 8px 16px; border-radius: 8px; display: block; margin: 16px 0; word-break: break-all; font-size: 13px; color: #7c3aed; }}
+            button {{ background: #7c3aed; color: white; border: none; padding: 10px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; margin-top: 8px; }}
+        </style></head><body>
+        <div class="card">
+            <h2 class="success">Authorization Successful!</h2>
+            <p style="color:#a1a1aa;">Copy this authorization code and go back to SocialFlow AI:</p>
+            <code id="authcode">{code}</code>
+            <button onclick="navigator.clipboard.writeText('{code}');this.textContent='Copied!';">Copy Code</button>
+            <p style="color:#71717a;margin-top:16px;font-size:12px;">Paste this code in the Platforms page to complete the connection.</p>
+        </div>
+        <script>window.opener?.postMessage({{ type: 'oauth_callback', code: '{code}', state: '{state}' }}, '*');</script>
+        </body></html>"""
+        return HTMLResponse(content=html)
+
+    # Auto-exchange code for access token
+    platform = state_doc["platform"]
+    client_id = state_doc["client_id"]
+    client_secret = state_doc["client_secret"]
+    redirect_uri = state_doc["redirect_uri"]
+    user_id = state_doc["user_id"]
+    config = PLATFORM_OAUTH_CONFIG.get(platform, {})
+    token_url = config.get("token_url", "")
+
+    access_token = ""
+    token_data = {}
+    error_msg = ""
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client_http:
+            if platform == "linkedin":
+                resp = await client_http.post(token_url, data={
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "redirect_uri": redirect_uri,
+                }, headers={"Content-Type": "application/x-www-form-urlencoded"})
+            elif platform in ("facebook", "instagram"):
+                resp = await client_http.get(token_url, params={
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "redirect_uri": redirect_uri,
+                    "code": code,
+                })
+            elif platform == "twitter":
+                code_verifier = state_doc.get("code_verifier", "")
+                resp = await client_http.post(token_url, data={
+                    "code": code,
+                    "grant_type": "authorization_code",
+                    "client_id": client_id,
+                    "redirect_uri": redirect_uri,
+                    "code_verifier": code_verifier,
+                }, headers={"Content-Type": "application/x-www-form-urlencoded"})
+            elif platform == "youtube":
+                resp = await client_http.post(token_url, data={
+                    "code": code,
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "redirect_uri": redirect_uri,
+                    "grant_type": "authorization_code",
+                })
+            else:
+                resp = None
+
+            if resp and resp.status_code == 200:
+                token_data = resp.json()
+                access_token = token_data.get("access_token", "")
+            elif resp:
+                error_msg = f"Token exchange failed ({resp.status_code}): {resp.text[:200]}"
+    except Exception as e:
+        error_msg = f"Token exchange error: {str(e)[:200]}"
+
+    if access_token:
+        # Save credentials and connect platform
+        platform_id = str(uuid.uuid4())
+        existing_platform = platforms_col.find_one({"user_id": user_id, "platform": platform})
+        if existing_platform:
+            platform_id = existing_platform["platform_id"]
+            # Update existing credentials with access token
+            api_credentials_col.update_one(
+                {"user_id": user_id, "platform": platform},
+                {"$set": {
+                    "credentials.access_token": access_token,
+                    "credentials.refresh_token": token_data.get("refresh_token", ""),
+                    "credentials.client_id": client_id,
+                    "credentials.client_secret": client_secret,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                    "platform_id": platform_id,
+                }},
+                upsert=True
+            )
+            platforms_col.update_one(
+                {"platform_id": platform_id},
+                {"$set": {"has_api_credentials": True, "status": "connected"}}
+            )
+        else:
+            api_credentials_col.update_one(
+                {"user_id": user_id, "platform": platform},
+                {"$set": {
+                    "user_id": user_id,
+                    "platform": platform,
+                    "platform_id": platform_id,
+                    "credentials": {
+                        "client_id": client_id,
+                        "client_secret": client_secret,
+                        "access_token": access_token,
+                        "refresh_token": token_data.get("refresh_token", ""),
+                    },
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }},
+                upsert=True
+            )
+            platforms_col.insert_one({
+                "platform_id": platform_id,
+                "user_id": user_id,
+                "platform": platform,
+                "page_name": f"My {platform.capitalize()}",
+                "connected_at": datetime.now(timezone.utc).isoformat(),
+                "status": "connected",
+                "has_api_credentials": True,
+                "scopes": config.get("scopes", []),
+                "api_version": config.get("api_version", ""),
+            })
+
+        # Cleanup state
+        db["oauth_states"].delete_many({"state": state})
+
+        html = f"""<html><head><style>
+            body {{ font-family: 'Inter', sans-serif; background: #09090b; color: #fff; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }}
+            .card {{ background: #18181b; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 40px; max-width: 500px; text-align: center; }}
+            .success {{ color: #10b981; font-size: 24px; }}
+            .check {{ font-size: 48px; margin-bottom: 16px; }}
+        </style></head><body>
+        <div class="card">
+            <div class="check">&#10003;</div>
+            <h2 class="success">{platform.capitalize()} Connected!</h2>
+            <p style="color:#a1a1aa;margin-top:12px;">Access token obtained and saved successfully.</p>
+            <p style="color:#71717a;margin-top:16px;font-size:13px;">You can close this window and return to SocialFlow AI.</p>
+        </div>
+        <script>
+            window.opener?.postMessage({{ type: 'oauth_success', platform: '{platform}' }}, '*');
+            setTimeout(() => window.close(), 3000);
+        </script>
+        </body></html>"""
+        return HTMLResponse(content=html)
+    else:
+        html = f"""<html><head><style>
+            body {{ font-family: 'Inter', sans-serif; background: #09090b; color: #fff; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }}
+            .card {{ background: #18181b; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 40px; max-width: 600px; text-align: center; }}
+            .error {{ color: #ef4444; }}
+            code {{ background: #27272a; padding: 8px 16px; border-radius: 8px; display: block; margin: 16px 0; word-break: break-all; font-size: 12px; color: #f87171; text-align: left; }}
+        </style></head><body>
+        <div class="card">
+            <h2 class="error">Token Exchange Failed</h2>
+            <p style="color:#a1a1aa;">Authorization was successful but we couldn't get the access token.</p>
+            <code>{error_msg}</code>
+            <p style="color:#71717a;margin-top:16px;font-size:12px;">Please try again or enter credentials manually.</p>
+        </div>
+        </body></html>"""
+        return HTMLResponse(content=html)
 
 @app.post("/api/platforms/oauth/exchange")
 async def oauth_exchange(req: OAuthCodeExchange, auth: dict = Depends(verify_token)):
