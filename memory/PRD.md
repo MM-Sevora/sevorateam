@@ -82,6 +82,23 @@ An internal tool for a luxury fashion brand (SEVORA) to manage its entire influe
 - [x] **User Management Endpoints:** Get all users, update user roles, delete users (admin only)
 - [x] **Scheduler Status Endpoint:** View running APScheduler jobs and their next run times
 
+### Phase 6 - Content & Outreach Features ✅ (March 5, 2026)
+- [x] **Content Library Module:** Full CRUD for storing influencer-generated content
+  - Supports reels, posts, stories, YouTube videos, images
+  - Filter by influencer, campaign, content type, platform, status
+  - Performance metrics tracking (views, likes, comments, shares)
+  - Influencer content stats aggregation endpoint
+- [x] **Deliverables Bucket in Negotiation Detail:** Structured display with icons
+  - Shows type, quantity, per-item rate, subtotals
+  - Package total calculated from all items
+  - Platform indicators (Instagram/YouTube)
+- [x] **SendGrid Email Outreach:** Beautiful HTML templates for influencer outreach
+  - Personalized collaboration emails with SEVORA branding
+  - Follow-up email capability
+  - Batch outreach support
+  - Outreach logging to database
+  - **Requires SENDGRID_API_KEY env var**
+
 ---
 
 ## API Endpoints
@@ -214,31 +231,31 @@ An internal tool for a luxury fashion brand (SEVORA) to manage its entire influe
 ## Upcoming Tasks (Backlog)
 
 ### P0 - High Priority
-- [ ] Refactor server.py into smaller router files (2300+ lines now)
-- [ ] Add frontend UI for WhatsApp outreach
+- [ ] Refactor server.py into smaller router files (2600+ lines now)
+- [ ] Add frontend UI for Content Library management
+- [ ] Add frontend UI for WhatsApp/Email outreach buttons on influencer cards
 - [ ] Add frontend UI for User Role management (admin panel)
 
 ### P1 - Medium Priority
-- [ ] Content Library module - Store influencer-generated content
-- [ ] Display Deliverables Bucket in negotiation detail view
-- [ ] Email outreach via SendGrid (integrated but needs testing)
 - [ ] Add permission checks to core influencer CRUD endpoints (optional)
+- [ ] Campaign ROI tracking and reporting
 
 ### P2 - Future
 - [ ] Mobile app for influencers
-- [ ] Advanced analytics and reporting
+- [ ] Advanced analytics and reporting dashboards
 - [ ] AI stylist influencers
+- [ ] Content calendar integration
 
 ---
 
 ## Known Issues
-1. Recharts console warnings (cosmetic only)
-2. server.py is over 2300 lines - needs refactoring into routers
-3. Some older influencers without social handles show 0 followers (need to add handles and refresh)
+1. Recharts console warnings (cosmetic only - "width/height < 0")
+2. server.py is over 2600 lines - needs refactoring into routers
+3. Some older influencers without social handles show 0 followers
 
 ## Test Credentials
 - Admin: admin@sevora.com / admin123
-- Test User: test_demo@test.com / test123 (register new if needed)
+- Test User: test_demo@test.com / test123
 
 ## Environment Variables Required
 
@@ -250,8 +267,11 @@ An internal tool for a luxury fashion brand (SEVORA) to manage its entire influe
 ### WhatsApp Business API (needs setup)
 - `WA_ACCESS_TOKEN` - Meta Cloud API Access Token
 - `WA_PHONE_NUMBER_ID` - WhatsApp Business Phone Number ID
-- `WA_BUSINESS_ACCOUNT_ID` - WhatsApp Business Account ID (optional)
-- `WA_VERIFY_TOKEN` - Webhook verification token (optional)
+
+### SendGrid Email (needs setup)
+- `SENDGRID_API_KEY` - SendGrid API Key
+- `SENDGRID_SENDER_EMAIL` - Verified sender email (default: outreach@sevora.com)
+- `SENDGRID_SENDER_NAME` - Sender display name (default: SEVORA Team)
 
 ---
 
