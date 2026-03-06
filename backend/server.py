@@ -37,6 +37,9 @@ avatar_chats_col = db["avatar_chats"]
 predictions_col = db["predictions"]
 api_credentials_col = db["api_credentials"]
 post_tracking_col = db["post_tracking"]
+team_col = db["team_members"]
+approvals_col = db["content_approvals"]
+brand_voice_col = db["brand_voice"]
 
 # Platform API credential schemas and setup guides
 PLATFORM_CREDENTIAL_SCHEMAS = {
@@ -1052,6 +1055,247 @@ async def get_autopilot_posts(auth: dict = Depends(verify_token)):
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "service": "SocialFlow AI"}
+
+# ===== Team Content Approval Workflow =====
+
+class TeamMemberInvite(BaseModel):
+    email: str
+    role: str  # admin, editor, reviewer, viewer
+    name: Optional[str] = ""
+
+class ApprovalSubmit(BaseModel):
+    post_id: str
+    note: Optional[str] = ""
+
+class ApprovalAction(BaseModel):
+    action: str  # approve, reject, request_changes
+    feedback: Optional[str] = ""
+
+TEAM_ROLES = {
+    "admin": {"can_create": True, "can_publish": True, "can_approve": True, "can_manage_team": True},
+    "editor": {"can_create": True, "can_publish": True, "can_approve": False, "can_manage_team": False},
+    "reviewer": {"can_create": False, "can_publish": False, "can_approve": True, "can_manage_team": False},
+    "viewer": {"can_create": False, "can_publish": False, "can_approve": False, "can_manage_team": False},
+}
+
+@app.post("/api/team/invite")
+async def invite_team_member(req: TeamMemberInvite, auth: dict = Depends(verify_token)):
+    existing = team_col.find_one({"owner_id": auth["user_id"], "email": req.email})
+    if existing:
+        raise HTTPException(status_code=400, detail="Member already invited")
+    member_id = str(uuid.uuid4())
+    doc = {
+        "member_id": member_id,
+        "owner_id": auth["user_id"],
+        "email": req.email,
+        "name": req.name or req.email.split("@")[0],
+        "role": req.role,
+        "permissions": TEAM_ROLES.get(req.role, TEAM_ROLES["viewer"]),
+        "status": "invited",
+        "invited_at": datetime.now(timezone.utc).isoformat(),
+    }
+    team_col.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+@app.get("/api/team/members")
+async def get_team_members(auth: dict = Depends(verify_token)):
+    members = list(team_col.find({"owner_id": auth["user_id"]}, {"_id": 0}))
+    return members
+
+@app.put("/api/team/{member_id}/role")
+async def update_member_role(member_id: str, req: TeamMemberInvite, auth: dict = Depends(verify_token)):
+    result = team_col.update_one(
+        {"member_id": member_id, "owner_id": auth["user_id"]},
+        {"$set": {"role": req.role, "permissions": TEAM_ROLES.get(req.role, TEAM_ROLES["viewer"])}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Member not found")
+    return {"message": "Role updated"}
+
+@app.delete("/api/team/{member_id}")
+async def remove_team_member(member_id: str, auth: dict = Depends(verify_token)):
+    result = team_col.delete_one({"member_id": member_id, "owner_id": auth["user_id"]})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Member not found")
+    return {"message": "Member removed"}
+
+@app.post("/api/approvals/submit")
+async def submit_for_approval(req: ApprovalSubmit, auth: dict = Depends(verify_token)):
+    post = posts_col.find_one({"post_id": req.post_id, "user_id": auth["user_id"]}, {"_id": 0})
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    approval_id = str(uuid.uuid4())
+    doc = {
+        "approval_id": approval_id,
+        "post_id": req.post_id,
+        "user_id": auth["user_id"],
+        "submitted_by": auth.get("email", ""),
+        "note": req.note,
+        "status": "pending",
+        "content_preview": post.get("content", "")[:200],
+        "platform": post.get("platform", ""),
+        "submitted_at": datetime.now(timezone.utc).isoformat(),
+        "reviews": [],
+    }
+    approvals_col.insert_one(doc)
+    posts_col.update_one({"post_id": req.post_id}, {"$set": {"approval_status": "pending_review", "approval_id": approval_id}})
+    doc.pop("_id", None)
+    return doc
+
+@app.get("/api/approvals")
+async def get_approvals(status: Optional[str] = None, auth: dict = Depends(verify_token)):
+    query = {"user_id": auth["user_id"]}
+    if status:
+        query["status"] = status
+    docs = list(approvals_col.find(query, {"_id": 0}).sort("submitted_at", -1))
+    return docs
+
+@app.post("/api/approvals/{approval_id}/review")
+async def review_approval(approval_id: str, req: ApprovalAction, auth: dict = Depends(verify_token)):
+    approval = approvals_col.find_one({"approval_id": approval_id}, {"_id": 0})
+    if not approval:
+        raise HTTPException(status_code=404, detail="Approval not found")
+    review = {
+        "reviewer": auth.get("email", auth["user_id"]),
+        "action": req.action,
+        "feedback": req.feedback,
+        "reviewed_at": datetime.now(timezone.utc).isoformat(),
+    }
+    new_status = "approved" if req.action == "approve" else "rejected" if req.action == "reject" else "changes_requested"
+    approvals_col.update_one(
+        {"approval_id": approval_id},
+        {"$push": {"reviews": review}, "$set": {"status": new_status, "reviewed_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    posts_col.update_one(
+        {"post_id": approval["post_id"]},
+        {"$set": {"approval_status": new_status}}
+    )
+    return {"status": new_status, "review": review}
+
+@app.get("/api/approvals/stats")
+async def approval_stats(auth: dict = Depends(verify_token)):
+    pending = approvals_col.count_documents({"user_id": auth["user_id"], "status": "pending"})
+    approved = approvals_col.count_documents({"user_id": auth["user_id"], "status": "approved"})
+    rejected = approvals_col.count_documents({"user_id": auth["user_id"], "status": "rejected"})
+    changes = approvals_col.count_documents({"user_id": auth["user_id"], "status": "changes_requested"})
+    return {"pending": pending, "approved": approved, "rejected": rejected, "changes_requested": changes, "total": pending + approved + rejected + changes}
+
+# ===== AI Brand Voice Training =====
+
+class BrandVoiceTrainRequest(BaseModel):
+    sample_posts: Optional[List[str]] = []
+    brand_name: Optional[str] = ""
+    description: Optional[str] = ""
+
+class BrandVoiceGenerateRequest(BaseModel):
+    topic: str
+    platform: Optional[str] = "linkedin"
+
+@app.post("/api/brand-voice/train")
+async def train_brand_voice(req: BrandVoiceTrainRequest, auth: dict = Depends(verify_token)):
+    """Train AI on your brand voice by analyzing past posts"""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+
+    # Collect sample posts - from DB + user provided
+    db_posts = list(posts_col.find(
+        {"user_id": auth["user_id"], "status": "published"},
+        {"_id": 0, "content": 1, "platform": 1}
+    ).sort("created_at", -1).limit(20))
+    all_samples = [p["content"] for p in db_posts if p.get("content")]
+    all_samples.extend(req.sample_posts or [])
+
+    if len(all_samples) < 3:
+        raise HTTPException(status_code=400, detail="Need at least 3 sample posts to train brand voice. Publish more content or provide sample posts.")
+
+    session_id = f"bv-train-{auth['user_id']}-{uuid.uuid4()}"
+    chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=session_id,
+        system_message="""You are an expert brand voice analyst. Analyze the given sample posts and extract the brand voice DNA.
+Return a JSON object with:
+- voice_summary: 2-3 sentence description of the overall brand voice
+- tone_attributes: array of 5 adjectives that describe the tone (e.g. "confident", "warm", "witty")
+- writing_style: object with sentence_length ("short"/"medium"/"long"), vocabulary_level ("simple"/"moderate"/"sophisticated"), emoji_usage ("none"/"minimal"/"moderate"/"heavy"), punctuation_style (description)
+- content_patterns: array of 3-5 patterns observed (e.g. "starts with questions", "uses numbered lists", "ends with CTA")
+- do_list: array of 5 things the brand voice DOES
+- dont_list: array of 5 things the brand voice AVOIDS
+- example_phrases: array of 5 characteristic phrases or openers that match the voice
+- platforms_best_fit: array of which platforms this voice works best on
+Return ONLY the JSON object, no markdown.""")
+    chat.with_model("openai", "gpt-5.2")
+
+    samples_text = "\n---\n".join(all_samples[:15])
+    msg = UserMessage(text=f"Analyze these {len(all_samples)} brand posts and extract the voice DNA:\n\n{samples_text}")
+    response = await chat.send_message(msg)
+
+    import json
+    try:
+        cleaned = response.strip()
+        if cleaned.startswith("```"): cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+        if cleaned.endswith("```"): cleaned = cleaned[:-3]
+        voice_profile = json.loads(cleaned.strip())
+    except json.JSONDecodeError:
+        voice_profile = {"voice_summary": response, "tone_attributes": [], "do_list": [], "dont_list": []}
+
+    doc = {
+        "user_id": auth["user_id"],
+        "brand_name": req.brand_name or "My Brand",
+        "description": req.description,
+        "voice_profile": voice_profile,
+        "sample_count": len(all_samples),
+        "trained_at": datetime.now(timezone.utc).isoformat(),
+    }
+    brand_voice_col.update_one({"user_id": auth["user_id"]}, {"$set": doc}, upsert=True)
+    doc.pop("_id", None)
+    return doc
+
+@app.get("/api/brand-voice")
+async def get_brand_voice(auth: dict = Depends(verify_token)):
+    doc = brand_voice_col.find_one({"user_id": auth["user_id"]}, {"_id": 0})
+    return doc or {}
+
+@app.post("/api/brand-voice/generate")
+async def generate_with_brand_voice(req: BrandVoiceGenerateRequest, auth: dict = Depends(verify_token)):
+    """Generate content using trained brand voice"""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+
+    voice = brand_voice_col.find_one({"user_id": auth["user_id"]}, {"_id": 0})
+    if not voice or not voice.get("voice_profile"):
+        raise HTTPException(status_code=400, detail="Train your brand voice first")
+
+    vp = voice["voice_profile"]
+    voice_instructions = f"""
+Brand Voice Profile:
+Summary: {vp.get('voice_summary', '')}
+Tone: {', '.join(vp.get('tone_attributes', []))}
+Style: {json.dumps(vp.get('writing_style', {}))}
+Patterns: {', '.join(vp.get('content_patterns', []))}
+DO: {', '.join(vp.get('do_list', []))}
+DON'T: {', '.join(vp.get('dont_list', []))}
+Example phrases: {', '.join(vp.get('example_phrases', []))}
+"""
+
+    session_id = f"bv-gen-{auth['user_id']}-{uuid.uuid4()}"
+    chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=session_id,
+        system_message=f"""You are a social media content writer who MUST write in this exact brand voice:
+{voice_instructions}
+Write content for {req.platform}. Match the voice perfectly - same tone, patterns, style, and phrases.
+Return a JSON object with: content (the post text), hashtags (array), voice_match_score (1-100 how well it matches the brand voice), voice_notes (string explaining how it matches the brand voice).
+Return ONLY JSON, no markdown.""")
+    chat.with_model("openai", "gpt-5.2")
+
+    msg = UserMessage(text=f"Write a {req.platform} post about: {req.topic}")
+    response = await chat.send_message(msg)
+
+    import json
+    try:
+        cleaned = response.strip()
+        if cleaned.startswith("```"): cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+        if cleaned.endswith("```"): cleaned = cleaned[:-3]
+        result = json.loads(cleaned.strip())
+    except json.JSONDecodeError:
+        result = {"content": response, "hashtags": [], "voice_match_score": 0}
+
+    return result
 
 # ===== AI Power Tools =====
 
