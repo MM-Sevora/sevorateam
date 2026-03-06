@@ -1787,6 +1787,72 @@ Return ONLY JSON, no markdown.""")
 
     return result
 
+# ===== AI Content Refinement =====
+
+class RefineRequest(BaseModel):
+    content: str
+    action: str  # rewrite, shorten, expand, change_tone, translate, improve, hook
+    tone: Optional[str] = ""
+    language: Optional[str] = ""
+    platform: Optional[str] = "linkedin"
+
+@app.post("/api/content/refine")
+async def refine_content(req: RefineRequest, auth: dict = Depends(verify_token)):
+    """AI-powered content refinement - rewrite, shorten, expand, change tone, translate"""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+
+    prompts = {
+        "rewrite": f"Rewrite this {req.platform} post in a fresh way while keeping the same message. Make it engaging and natural.",
+        "shorten": f"Shorten this {req.platform} post to be more concise and punchy while keeping the key message. Aim for 50% shorter.",
+        "expand": f"Expand this {req.platform} post with more detail, context, and storytelling while keeping it engaging. Add 2-3 more sentences.",
+        "change_tone": f"Rewrite this {req.platform} post in a {req.tone or 'casual'} tone while keeping the same message.",
+        "translate": f"Translate this post to {req.language or 'Spanish'} while keeping it natural and platform-appropriate for {req.platform}.",
+        "improve": f"Improve this {req.platform} post for maximum engagement. Fix grammar, add a hook, improve flow, and suggest better hashtags.",
+        "hook": f"Add a powerful attention-grabbing hook to the beginning of this {req.platform} post. The hook should stop scrolling.",
+        "cta": f"Add a strong call-to-action to the end of this {req.platform} post.",
+        "emoji": f"Add relevant emojis to this {req.platform} post to make it more engaging. Don't overdo it.",
+    }
+    prompt = prompts.get(req.action, prompts["improve"])
+
+    session_id = f"refine-{auth['user_id']}-{uuid.uuid4()}"
+    chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=session_id,
+        system_message="You are an expert social media content editor. Return ONLY the refined text, nothing else. No explanations, no quotes, no markdown formatting.")
+    chat.with_model("openai", "gpt-5.2")
+    msg = UserMessage(text=f"{prompt}\n\nOriginal post:\n{req.content}")
+    response = await chat.send_message(msg)
+
+    return {"original": req.content, "refined": response.strip().strip('"'), "action": req.action}
+
+@app.post("/api/content/quality-check")
+async def quality_check(req: ContentGenerateRequest, auth: dict = Depends(verify_token)):
+    """Check content quality before posting"""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    session_id = f"quality-{auth['user_id']}-{uuid.uuid4()}"
+    chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=session_id,
+        system_message="""Analyze this social media post and return a JSON object with:
+- score: 1-100 overall quality score
+- readability: "easy"/"medium"/"hard"
+- hook_strength: 1-10 (how strong is the opening hook)
+- cta_strength: 1-10 (how strong is the call to action)
+- hashtag_quality: 1-10
+- emoji_usage: "none"/"minimal"/"good"/"excessive"
+- issues: array of specific problems found
+- suggestions: array of 3 improvement suggestions
+- platform_fit: 1-10 how well it fits the target platform
+Return ONLY JSON, no markdown.""")
+    chat.with_model("openai", "gpt-5.2")
+    msg = UserMessage(text=f"Quality check this {req.platform} post:\n\n{req.topic}")
+    response = await chat.send_message(msg)
+    import json
+    try:
+        cleaned = response.strip()
+        if cleaned.startswith("```"): cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+        if cleaned.endswith("```"): cleaned = cleaned[:-3]
+        result = json.loads(cleaned.strip())
+    except json.JSONDecodeError:
+        result = {"score": 50, "suggestions": [response]}
+    return result
+
 # ===== AI Power Tools =====
 
 class RepurposeRequest(BaseModel):

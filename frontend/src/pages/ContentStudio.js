@@ -47,8 +47,11 @@ export default function ContentStudio() {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
   const [savingPost, setSavingPost] = useState(false);
-  const [publishing, setPublishing] = useState('');
-  const [publishResults, setPublishResults] = useState({});
+  const [refining, setRefining] = useState('');
+  const [qualityScore, setQualityScore] = useState(null);
+  const [checkingQuality, setCheckingQuality] = useState(false);
+  const [templates, setTemplates] = useState([]);
+  const [showTemplates, setShowTemplates] = useState(false);
   // Ideas state
   const [ideaTopic, setIdeaTopic] = useState('');
   const [ideas, setIdeas] = useState([]);
@@ -95,27 +98,38 @@ export default function ContentStudio() {
   const saveAsPost = async (status) => {
     if (!generatedContent?.content) return;
     setSavingPost(true);
-    try { await api.post('/api/posts', { platform, content: generatedContent.content, image_url: generatedImage || '', status }); alert(`Saved as ${status}!`); }
+    try { await api.post('/api/posts', { platform, content: generatedContent.content, image_url: generatedImage || '', status }); alert(`Saved as ${status}! Go to Posts & Schedule to publish.`); }
     catch (err) { setError('Failed to save'); }
     finally { setSavingPost(false); }
   };
 
-  const publishToReal = async (targetPlatform) => {
+  const refineContent = async (action, extra = {}) => {
     if (!generatedContent?.content) return;
-    setPublishing(targetPlatform); setPublishResults(prev => ({ ...prev, [targetPlatform]: null }));
+    setRefining(action);
     try {
-      const res = await api.post('/api/publish/real', { content: generatedContent.content, platform: targetPlatform, image_url: generatedImage || '' });
-      setPublishResults(prev => ({ ...prev, [targetPlatform]: res.data }));
-    } catch (err) { setPublishResults(prev => ({ ...prev, [targetPlatform]: { success: false, error: err.response?.data?.detail || 'Failed' } })); }
-    finally { setPublishing(''); }
+      const res = await api.post('/api/content/refine', { content: generatedContent.content, action, platform, ...extra });
+      setGeneratedContent(prev => ({ ...prev, content: res.data.refined }));
+    } catch (err) { setError(err.response?.data?.detail || 'Refine failed'); }
+    finally { setRefining(''); }
   };
 
-  const publishAll = async () => {
+  const checkQuality = async () => {
     if (!generatedContent?.content) return;
-    setPublishing('all');
-    try { const res = await api.post('/api/publish/multi', { content: generatedContent.content, platform: 'all', image_url: generatedImage || '' }); setPublishResults(res.data.results || {}); }
-    catch (err) { setError('Failed'); }
-    finally { setPublishing(''); }
+    setCheckingQuality(true); setQualityScore(null);
+    try {
+      const res = await api.post('/api/content/quality-check', { platform, topic: generatedContent.content });
+      setQualityScore(res.data);
+    } catch (err) { setError('Quality check failed'); }
+    finally { setCheckingQuality(false); }
+  };
+
+  const fetchTemplates = async () => {
+    try { const res = await api.get('/api/templates'); setTemplates(res.data); } catch (err) {}
+  };
+
+  const applyTemplate = (template) => {
+    setTopic(template.content);
+    setShowTemplates(false);
   };
 
   const generateIdeas = async () => {
@@ -268,37 +282,64 @@ export default function ContentStudio() {
                   </div>
                 )}
 
-                {/* Actions */}
-                <div className="flex gap-2">
-                  <button onClick={() => saveAsPost('draft')} disabled={savingPost} className="bg-zinc-800 hover:bg-zinc-700 text-white border border-white/10 rounded-lg px-4 py-2 text-xs flex items-center gap-1.5 disabled:opacity-50"><Download className="w-3.5 h-3.5" /> Draft</button>
-                  <button onClick={() => saveAsPost('scheduled')} disabled={savingPost} className="bg-accent-violet/80 hover:bg-accent-violet text-white rounded-lg px-4 py-2 text-xs flex items-center gap-1.5 disabled:opacity-50"><Clock className="w-3.5 h-3.5" /> Schedule</button>
-                  <button onClick={() => { setPredictContent(generatedContent.content); setTab('predict'); }} className="bg-zinc-800 hover:bg-zinc-700 text-white border border-white/10 rounded-lg px-4 py-2 text-xs flex items-center gap-1.5"><BarChart3 className="w-3.5 h-3.5" /> Predict</button>
+                {/* AI Refinement Tools */}
+                <div className="bg-zinc-900/50 backdrop-blur-md border border-white/5 rounded-xl p-4">
+                  <h4 className="text-xs font-heading font-semibold text-white mb-3 flex items-center gap-2"><Sparkles className="w-3.5 h-3.5 text-amber-400" /> AI Refine</h4>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {[
+                      { action: 'rewrite', label: 'Rewrite', icon: RefreshCw },
+                      { action: 'shorten', label: 'Shorten', icon: Target },
+                      { action: 'expand', label: 'Expand', icon: FileText },
+                      { action: 'hook', label: 'Add Hook', icon: Zap },
+                      { action: 'cta', label: 'Add CTA', icon: Send },
+                      { action: 'emoji', label: 'Add Emojis', icon: Sparkles },
+                    ].map(tool => (
+                      <button key={tool.action} onClick={() => refineContent(tool.action)} disabled={!!refining}
+                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium border transition-all ${refining === tool.action ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'border-white/10 text-zinc-400 hover:text-white hover:bg-white/5'}`}
+                      >{refining === tool.action ? <Loader2 className="w-3 h-3 animate-spin" /> : <tool.icon className="w-3 h-3" />} {tool.label}</button>
+                    ))}
+                  </div>
+                  <div className="flex gap-1.5">
+                    <button onClick={() => refineContent('change_tone', { tone: 'casual' })} disabled={!!refining} className="text-[10px] px-2 py-1 rounded border border-white/5 text-zinc-500 hover:text-white hover:bg-white/5">Casual</button>
+                    <button onClick={() => refineContent('change_tone', { tone: 'professional' })} disabled={!!refining} className="text-[10px] px-2 py-1 rounded border border-white/5 text-zinc-500 hover:text-white hover:bg-white/5">Professional</button>
+                    <button onClick={() => refineContent('change_tone', { tone: 'humorous' })} disabled={!!refining} className="text-[10px] px-2 py-1 rounded border border-white/5 text-zinc-500 hover:text-white hover:bg-white/5">Humorous</button>
+                    <button onClick={() => refineContent('translate', { language: 'Spanish' })} disabled={!!refining} className="text-[10px] px-2 py-1 rounded border border-white/5 text-zinc-500 hover:text-white hover:bg-white/5">Spanish</button>
+                    <button onClick={() => refineContent('translate', { language: 'Hindi' })} disabled={!!refining} className="text-[10px] px-2 py-1 rounded border border-white/5 text-zinc-500 hover:text-white hover:bg-white/5">Hindi</button>
+                  </div>
                 </div>
 
-                {/* Publish to Real Platforms */}
-                <div className="bg-zinc-900/50 backdrop-blur-md border border-emerald-500/10 rounded-xl p-4" data-testid="studio-publish-panel">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-xs font-heading font-semibold text-white flex items-center gap-2"><Globe className="w-4 h-4 text-emerald-400" /> Publish Live</h4>
-                    <button onClick={publishAll} disabled={!!publishing} className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-3 py-1.5 flex items-center gap-1 disabled:opacity-50" data-testid="studio-publish-all">
-                      {publishing === 'all' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />} All Platforms
+                {/* Quality Check */}
+                <div className="flex items-center gap-2">
+                  <button onClick={checkQuality} disabled={checkingQuality} className="text-[10px] bg-zinc-800 hover:bg-zinc-700 text-white border border-white/10 rounded-lg px-3 py-1.5 flex items-center gap-1 disabled:opacity-50">
+                    {checkingQuality ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />} Quality Check
+                  </button>
+                  {qualityScore && (
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${qualityScore.score >= 70 ? 'bg-emerald-500/10 text-emerald-400' : qualityScore.score >= 40 ? 'bg-amber-500/10 text-amber-400' : 'bg-red-500/10 text-red-400'}`}>{qualityScore.score}/100</span>
+                      <span className="text-[10px] text-zinc-500">Hook: {qualityScore.hook_strength}/10 | CTA: {qualityScore.cta_strength}/10</span>
+                    </div>
+                  )}
+                </div>
+                {qualityScore?.suggestions && (
+                  <div className="space-y-1">
+                    {qualityScore.suggestions.map((s, i) => (
+                      <p key={i} className="text-[10px] text-zinc-400 flex items-start gap-1.5"><AlertTriangle className="w-3 h-3 text-amber-400 mt-0.5 flex-shrink-0" />{s}</p>
+                    ))}
+                  </div>
+                )}
+
+                {/* Send to Queue (NOT publish) */}
+                <div className="bg-zinc-900/50 backdrop-blur-md border border-accent-violet/10 rounded-xl p-4">
+                  <h4 className="text-xs font-heading font-semibold text-white mb-3 flex items-center gap-2"><Send className="w-3.5 h-3.5 text-accent-violet" /> Send to Queue</h4>
+                  <div className="flex gap-2">
+                    <button onClick={() => saveAsPost('draft')} disabled={savingPost} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white border border-white/10 rounded-lg px-4 py-2.5 text-xs flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all">
+                      <Download className="w-3.5 h-3.5" /> Save as Draft
+                    </button>
+                    <button onClick={() => saveAsPost('scheduled')} disabled={savingPost} className="flex-1 bg-accent-violet hover:bg-accent-violet-hover text-white rounded-lg px-4 py-2.5 text-xs flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-[0_0_10px_rgba(124,58,237,0.2)] transition-all">
+                      <Clock className="w-3.5 h-3.5" /> Add to Schedule
                     </button>
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[{ key: 'linkedin', icon: FaLinkedin, color: '#0A66C2', label: 'LinkedIn' }, { key: 'instagram', icon: FaInstagram, color: '#E4405F', label: 'Instagram' }, { key: 'facebook', icon: FaFacebook, color: '#1877F2', label: 'Facebook' }].map(p => {
-                      const result = publishResults[p.key];
-                      return (
-                        <div key={p.key}>
-                          <button onClick={() => publishToReal(p.key)} disabled={!!publishing}
-                            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-white/10 bg-zinc-800/80 hover:bg-zinc-700 text-white transition-all disabled:opacity-50"
-                            data-testid={`studio-publish-${p.key}`}
-                          >{publishing === p.key ? <Loader2 className="w-3 h-3 animate-spin" /> : <p.icon className="w-3 h-3" style={{ color: p.color }} />} {p.label}</button>
-                          {result && <div className={`text-[10px] p-1.5 rounded-lg mt-1 ${result.success ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
-                            {result.success ? <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Done!</span> : <span className="flex items-center gap-1"><XCircle className="w-3 h-3" /> {result.error?.substring(0, 40)}</span>}
-                          </div>}
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <p className="text-[9px] text-zinc-600 mt-2 text-center">Go to Posts & Schedule to set timing and publish</p>
                 </div>
               </>
             ) : !loadingText && (
