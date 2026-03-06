@@ -36,6 +36,7 @@ avatars_col = db["avatars"]
 avatar_chats_col = db["avatar_chats"]
 predictions_col = db["predictions"]
 api_credentials_col = db["api_credentials"]
+post_tracking_col = db["post_tracking"]
 
 # Platform API credential schemas and setup guides
 PLATFORM_CREDENTIAL_SCHEMAS = {
@@ -1051,6 +1052,322 @@ async def get_autopilot_posts(auth: dict = Depends(verify_token)):
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "service": "SocialFlow AI"}
+
+# ===== Post Performance Tracking =====
+
+@app.post("/api/tracking/track/{post_id}")
+async def track_post_performance(post_id: str, auth: dict = Depends(verify_token)):
+    """Start tracking a published post's performance over 24/48/72 hours"""
+    post = posts_col.find_one({"post_id": post_id, "user_id": auth["user_id"]}, {"_id": 0})
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    if post.get("status") != "published":
+        raise HTTPException(status_code=400, detail="Only published posts can be tracked")
+
+    # Fetch current metrics from real API
+    current_metrics = await _fetch_real_post_metrics(auth["user_id"], post)
+
+    tracking_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc)
+    doc = {
+        "tracking_id": tracking_id,
+        "post_id": post_id,
+        "user_id": auth["user_id"],
+        "platform": post["platform"],
+        "external_post_id": post.get("external_post_id", ""),
+        "started_at": now.isoformat(),
+        "snapshots": [{
+            "timestamp": now.isoformat(),
+            "hours_since_publish": 0,
+            "metrics": current_metrics,
+        }],
+        "status": "active",
+    }
+    post_tracking_col.update_one(
+        {"post_id": post_id, "user_id": auth["user_id"]},
+        {"$set": doc}, upsert=True
+    )
+    return {"tracking_id": tracking_id, "status": "tracking", "initial_metrics": current_metrics}
+
+@app.get("/api/tracking/posts")
+async def get_tracked_posts(auth: dict = Depends(verify_token)):
+    """Get all tracked posts with their performance snapshots"""
+    docs = list(post_tracking_col.find({"user_id": auth["user_id"]}, {"_id": 0}).sort("started_at", -1))
+    # Enrich with post content
+    for doc in docs:
+        post = posts_col.find_one({"post_id": doc["post_id"]}, {"_id": 0})
+        if post:
+            doc["content"] = post.get("content", "")[:150]
+            doc["published_at"] = post.get("published_at", "")
+            doc["external_url"] = post.get("external_url", "")
+    return docs
+
+@app.post("/api/tracking/refresh/{post_id}")
+async def refresh_post_tracking(post_id: str, auth: dict = Depends(verify_token)):
+    """Manually refresh tracking data for a post"""
+    tracking = post_tracking_col.find_one({"post_id": post_id, "user_id": auth["user_id"]}, {"_id": 0})
+    if not tracking:
+        raise HTTPException(status_code=404, detail="Not tracking this post")
+
+    post = posts_col.find_one({"post_id": post_id}, {"_id": 0})
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    current_metrics = await _fetch_real_post_metrics(auth["user_id"], post)
+    now = datetime.now(timezone.utc)
+    published_at = post.get("published_at", tracking.get("started_at", now.isoformat()))
+    try:
+        pub_dt = datetime.fromisoformat(published_at.replace("Z", "+00:00"))
+        hours = round((now - pub_dt).total_seconds() / 3600, 1)
+    except Exception:
+        hours = 0
+
+    snapshot = {"timestamp": now.isoformat(), "hours_since_publish": hours, "metrics": current_metrics}
+
+    post_tracking_col.update_one(
+        {"post_id": post_id, "user_id": auth["user_id"]},
+        {"$push": {"snapshots": snapshot}, "$set": {"last_refreshed": now.isoformat()}}
+    )
+
+    # Calculate growth from first snapshot
+    snapshots = tracking.get("snapshots", [])
+    first = snapshots[0]["metrics"] if snapshots else {}
+    growth = {}
+    for key in ["likes", "comments", "shares", "reach", "views"]:
+        old_val = first.get(key, 0)
+        new_val = current_metrics.get(key, 0)
+        growth[key] = new_val - old_val
+
+    return {"metrics": current_metrics, "growth": growth, "hours_tracked": hours, "total_snapshots": len(snapshots) + 1}
+
+@app.get("/api/tracking/digest")
+async def get_performance_digest(auth: dict = Depends(verify_token)):
+    """Get a digest of top-performing tracked posts"""
+    tracked = list(post_tracking_col.find({"user_id": auth["user_id"]}, {"_id": 0}))
+    digest = []
+    for t in tracked:
+        snaps = t.get("snapshots", [])
+        if len(snaps) < 1:
+            continue
+        first = snaps[0]["metrics"]
+        latest = snaps[-1]["metrics"]
+        growth = {}
+        for key in ["likes", "comments", "shares", "reach"]:
+            growth[key] = latest.get(key, 0) - first.get(key, 0)
+        total_growth = sum(growth.values())
+        post = posts_col.find_one({"post_id": t["post_id"]}, {"_id": 0})
+        digest.append({
+            "post_id": t["post_id"],
+            "platform": t["platform"],
+            "content": post.get("content", "")[:100] if post else "",
+            "external_url": post.get("external_url", "") if post else "",
+            "current_metrics": latest,
+            "growth": growth,
+            "total_growth": total_growth,
+            "hours_tracked": snaps[-1].get("hours_since_publish", 0),
+            "snapshots_count": len(snaps),
+        })
+    digest.sort(key=lambda x: x["total_growth"], reverse=True)
+    return {
+        "total_tracked": len(digest),
+        "top_performers": digest[:5],
+        "all_posts": digest,
+    }
+
+async def _fetch_real_post_metrics(user_id: str, post: dict) -> dict:
+    """Fetch real-time metrics for a post from its platform API"""
+    import httpx
+    platform = post.get("platform", "")
+    ext_id = post.get("external_post_id", "")
+    metrics = {"likes": 0, "comments": 0, "shares": 0, "reach": 0, "views": 0}
+
+    if not ext_id:
+        return post.get("metrics", metrics)
+
+    try:
+        cred = api_credentials_col.find_one({"user_id": user_id, "platform": platform}, {"_id": 0})
+        if not cred:
+            return post.get("metrics", metrics)
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            if platform == "linkedin":
+                # LinkedIn UGC post stats
+                token = cred["credentials"].get("access_token", "")
+                urn = ext_id.replace(":", "%3A")
+                resp = await client.get(
+                    f"https://api.linkedin.com/v2/socialActions/{urn}",
+                    headers={"Authorization": f"Bearer {token}", "X-Restli-Protocol-Version": "2.0.0"}
+                )
+                if resp.status_code == 200:
+                    d = resp.json()
+                    metrics["likes"] = d.get("likesSummary", {}).get("totalLikes", 0)
+                    metrics["comments"] = d.get("commentsSummary", {}).get("totalFirstLevelComments", 0)
+
+            elif platform == "instagram":
+                token = cred["credentials"].get("access_token", "")
+                # Instagram media insights
+                resp = await client.get(
+                    f"https://graph.facebook.com/v19.0/{ext_id}",
+                    params={"fields": "like_count,comments_count,timestamp", "access_token": token}
+                )
+                if resp.status_code == 200:
+                    d = resp.json()
+                    metrics["likes"] = d.get("like_count", 0)
+                    metrics["comments"] = d.get("comments_count", 0)
+
+            elif platform == "facebook":
+                token = cred["credentials"].get("user_access_token") or cred["credentials"].get("page_access_token", "")
+                # Get page token first
+                pages_resp = await client.get("https://graph.facebook.com/v19.0/me/accounts", params={"fields": "access_token", "limit": 50, "access_token": token})
+                page_token = token
+                if pages_resp.status_code == 200:
+                    for p in pages_resp.json().get("data", []):
+                        page_token = p.get("access_token", token)
+                        break
+                resp = await client.get(
+                    f"https://graph.facebook.com/v19.0/{ext_id}",
+                    params={"fields": "likes.summary(true),comments.summary(true),shares", "access_token": page_token}
+                )
+                if resp.status_code == 200:
+                    d = resp.json()
+                    metrics["likes"] = d.get("likes", {}).get("summary", {}).get("total_count", 0)
+                    metrics["comments"] = d.get("comments", {}).get("summary", {}).get("total_count", 0)
+                    metrics["shares"] = d.get("shares", {}).get("count", 0)
+    except Exception:
+        pass
+
+    return metrics
+
+# ===== Cron Auto-Publisher =====
+
+import asyncio
+import threading
+
+async def _auto_publish_scheduled_posts():
+    """Check for scheduled posts that are due and publish them"""
+    now = datetime.now(timezone.utc)
+    now_str = now.strftime("%Y-%m-%dT%H:%M")
+
+    # Find posts that are scheduled and due
+    due_posts = list(posts_col.find({
+        "status": "scheduled",
+        "scheduled_at": {"$lte": now_str},
+    }, {"_id": 0}))
+
+    published_count = 0
+    for post in due_posts:
+        user_id = post.get("user_id", "")
+        platform = post.get("platform", "")
+        content = post.get("content", "")
+        image_url = post.get("image_url", "")
+
+        if not content or not user_id:
+            continue
+
+        result = {"success": False}
+        try:
+            if platform == "linkedin":
+                result = await _post_to_linkedin(user_id, content)
+            elif platform == "instagram":
+                result = await _post_to_instagram(user_id, content, image_url)
+            elif platform == "facebook":
+                result = await _post_to_facebook(user_id, content, image_url)
+        except Exception:
+            pass
+
+        if result.get("success"):
+            posts_col.update_one(
+                {"post_id": post["post_id"]},
+                {"$set": {
+                    "status": "published",
+                    "published_at": now.isoformat(),
+                    "external_post_id": result.get("post_id", ""),
+                    "external_url": result.get("url", ""),
+                    "is_real_post": True,
+                    "auto_published": True,
+                }}
+            )
+            published_count += 1
+        else:
+            posts_col.update_one(
+                {"post_id": post["post_id"]},
+                {"$set": {"publish_error": result.get("error", "Unknown error"), "last_attempt": now.isoformat()}}
+            )
+
+    return published_count
+
+async def _auto_refresh_tracking():
+    """Auto-refresh metrics for tracked posts"""
+    active_tracking = list(post_tracking_col.find({"status": "active"}, {"_id": 0}))
+    for tracking in active_tracking:
+        post = posts_col.find_one({"post_id": tracking["post_id"]}, {"_id": 0})
+        if not post:
+            continue
+        now = datetime.now(timezone.utc)
+        published_at = post.get("published_at", tracking.get("started_at", now.isoformat()))
+        try:
+            pub_dt = datetime.fromisoformat(published_at.replace("Z", "+00:00"))
+            hours = round((now - pub_dt).total_seconds() / 3600, 1)
+        except Exception:
+            hours = 0
+
+        # Stop tracking after 72 hours
+        if hours > 72:
+            post_tracking_col.update_one(
+                {"tracking_id": tracking["tracking_id"]},
+                {"$set": {"status": "completed"}}
+            )
+            continue
+
+        metrics = await _fetch_real_post_metrics(tracking["user_id"], post)
+        snapshot = {"timestamp": now.isoformat(), "hours_since_publish": hours, "metrics": metrics}
+        post_tracking_col.update_one(
+            {"tracking_id": tracking["tracking_id"]},
+            {"$push": {"snapshots": snapshot}, "$set": {"last_refreshed": now.isoformat()}}
+        )
+
+def _run_scheduler():
+    """Background scheduler that runs every 5 minutes"""
+    import time
+    loop = asyncio.new_event_loop()
+    while True:
+        try:
+            published = loop.run_until_complete(_auto_publish_scheduled_posts())
+            if published > 0:
+                print(f"[Cron] Auto-published {published} posts")
+            loop.run_until_complete(_auto_refresh_tracking())
+        except Exception as e:
+            print(f"[Cron] Error: {e}")
+        time.sleep(300)  # Every 5 minutes
+
+# Start background scheduler in a daemon thread
+scheduler_thread = threading.Thread(target=_run_scheduler, daemon=True)
+scheduler_thread.start()
+
+@app.post("/api/cron/run-now")
+async def run_cron_now(auth: dict = Depends(verify_token)):
+    """Manually trigger the auto-publisher and tracking refresh"""
+    published = await _auto_publish_scheduled_posts()
+    await _auto_refresh_tracking()
+    return {"published": published, "message": f"Published {published} due posts, refreshed tracking"}
+
+@app.get("/api/cron/status")
+async def cron_status(auth: dict = Depends(verify_token)):
+    """Get auto-publisher status"""
+    scheduled = posts_col.count_documents({"status": "scheduled", "user_id": auth["user_id"]})
+    due = posts_col.count_documents({
+        "status": "scheduled",
+        "user_id": auth["user_id"],
+        "scheduled_at": {"$lte": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M")}
+    })
+    active_tracking = post_tracking_col.count_documents({"user_id": auth["user_id"], "status": "active"})
+    return {
+        "scheduled_posts": scheduled,
+        "due_now": due,
+        "active_tracking": active_tracking,
+        "scheduler": "running",
+        "interval": "5 minutes",
+    }
 
 # ===== YouTube Real API Integration =====
 
