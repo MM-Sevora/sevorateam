@@ -1056,6 +1056,111 @@ async def get_autopilot_posts(auth: dict = Depends(verify_token)):
 async def health():
     return {"status": "ok", "service": "SocialFlow AI"}
 
+# ===== Analytics & Reports =====
+
+@app.get("/api/analytics/overview")
+async def analytics_overview(auth: dict = Depends(verify_token)):
+    """Comprehensive analytics overview with benchmarks"""
+    published = list(posts_col.find({"user_id": auth["user_id"], "status": "published"}, {"_id": 0}))
+    total_posts = len(published)
+    total_likes = sum(p.get("metrics", {}).get("likes", 0) for p in published)
+    total_comments = sum(p.get("metrics", {}).get("comments", 0) for p in published)
+    total_shares = sum(p.get("metrics", {}).get("shares", 0) for p in published)
+    total_reach = sum(p.get("metrics", {}).get("reach", 0) for p in published)
+    avg_engagement = round((total_likes + total_comments + total_shares) / max(total_posts, 1), 1)
+
+    # Per-platform breakdown
+    platform_stats = {}
+    for p in published:
+        plat = p.get("platform", "unknown")
+        if plat not in platform_stats:
+            platform_stats[plat] = {"posts": 0, "likes": 0, "comments": 0, "shares": 0, "reach": 0, "real_posts": 0}
+        m = p.get("metrics", {})
+        platform_stats[plat]["posts"] += 1
+        platform_stats[plat]["likes"] += m.get("likes", 0)
+        platform_stats[plat]["comments"] += m.get("comments", 0)
+        platform_stats[plat]["shares"] += m.get("shares", 0)
+        platform_stats[plat]["reach"] += m.get("reach", 0)
+        if p.get("is_real_post"):
+            platform_stats[plat]["real_posts"] += 1
+
+    # Industry benchmarks (average across industries)
+    benchmarks = {
+        "linkedin": {"avg_engagement_rate": 3.5, "avg_likes_per_post": 45, "avg_comments_per_post": 8},
+        "instagram": {"avg_engagement_rate": 4.7, "avg_likes_per_post": 120, "avg_comments_per_post": 15},
+        "facebook": {"avg_engagement_rate": 1.5, "avg_likes_per_post": 30, "avg_comments_per_post": 5},
+        "twitter": {"avg_engagement_rate": 1.2, "avg_likes_per_post": 20, "avg_comments_per_post": 3},
+        "youtube": {"avg_engagement_rate": 3.0, "avg_likes_per_post": 80, "avg_comments_per_post": 12},
+    }
+
+    # Best/worst performing
+    sorted_posts = sorted(published, key=lambda x: x.get("metrics", {}).get("likes", 0), reverse=True)
+    best = sorted_posts[:3] if sorted_posts else []
+    worst = sorted_posts[-3:] if len(sorted_posts) > 3 else []
+
+    return {
+        "overview": {"total_posts": total_posts, "total_likes": total_likes, "total_comments": total_comments, "total_shares": total_shares, "total_reach": total_reach, "avg_engagement_per_post": avg_engagement},
+        "platform_breakdown": platform_stats,
+        "benchmarks": benchmarks,
+        "best_posts": [{"post_id": p["post_id"], "platform": p["platform"], "content": p["content"][:100], "metrics": p.get("metrics", {})} for p in best],
+        "worst_posts": [{"post_id": p["post_id"], "platform": p["platform"], "content": p["content"][:100], "metrics": p.get("metrics", {})} for p in worst],
+    }
+
+@app.get("/api/analytics/export")
+async def export_analytics(format: str = "json", auth: dict = Depends(verify_token)):
+    """Export analytics data as JSON or CSV"""
+    published = list(posts_col.find({"user_id": auth["user_id"], "status": "published"}, {"_id": 0}))
+    if format == "csv":
+        import io, csv
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Post ID", "Platform", "Content", "Status", "Published At", "Likes", "Comments", "Shares", "Reach", "Real Post", "External URL"])
+        for p in published:
+            m = p.get("metrics", {})
+            writer.writerow([p.get("post_id",""), p.get("platform",""), p.get("content","")[:200], p.get("status",""), p.get("published_at",""), m.get("likes",0), m.get("comments",0), m.get("shares",0), m.get("reach",0), p.get("is_real_post", False), p.get("external_url","")])
+        from fastapi.responses import Response
+        return Response(content=output.getvalue(), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=socialflow_analytics.csv"})
+    return published
+
+# ===== Social Listening =====
+
+class ListeningQuery(BaseModel):
+    query: str
+    platforms: Optional[List[str]] = ["instagram", "linkedin", "facebook"]
+
+@app.post("/api/listening/analyze")
+async def social_listening(req: ListeningQuery, auth: dict = Depends(verify_token)):
+    """AI-powered social listening - analyze brand mentions, sentiment, trends"""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    session_id = f"listen-{auth['user_id']}-{uuid.uuid4()}"
+    chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=session_id,
+        system_message="""You are a social media listening and sentiment analysis expert. Analyze the given brand/topic and provide comprehensive social listening insights.
+Return a JSON object with:
+- overall_sentiment: "positive", "neutral", or "negative"
+- sentiment_score: number 1-100 (100 = very positive)
+- sentiment_breakdown: {positive: percentage, neutral: percentage, negative: percentage}
+- trending_topics: array of 5 related trending topics with brief descriptions
+- key_mentions: array of 5 simulated mention examples (as if found on social media) with: text, platform, sentiment, date
+- brand_health_score: number 1-100
+- recommendations: array of 3-5 actionable recommendations
+- competitor_mentions: array of 2-3 related competitor brands being discussed
+- hashtag_analysis: array of 5 relevant hashtags with estimated volume
+- audience_mood: brief description of how the audience feels
+Return ONLY JSON, no markdown.""")
+    chat.with_model("openai", "gpt-5.2")
+    msg = UserMessage(text=f"Perform social listening analysis for: '{req.query}' across {', '.join(req.platforms)}. Analyze brand sentiment, trending topics, key mentions, and provide recommendations.")
+    response = await chat.send_message(msg)
+    import json
+    try:
+        cleaned = response.strip()
+        if cleaned.startswith("```"): cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+        if cleaned.endswith("```"): cleaned = cleaned[:-3]
+        result = json.loads(cleaned.strip())
+    except json.JSONDecodeError:
+        result = {"overall_sentiment": "neutral", "analysis": response}
+    result["query"] = req.query
+    return result
+
 # ===== Team Content Approval Workflow =====
 
 class TeamMemberInvite(BaseModel):

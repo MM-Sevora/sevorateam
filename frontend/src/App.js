@@ -11,6 +11,7 @@ import AvatarPage from './pages/AvatarPage';
 import YouTubeExplorer from './pages/YouTubeExplorer';
 import Platforms from './pages/Platforms';
 import TeamAndBrandVoice from './pages/TeamAndBrandVoice';
+import AnalyticsAndListening from './pages/AnalyticsAndListening';
 
 function ProtectedRoute({ children }) {
   const { token, loading } = useAuth();
@@ -40,6 +41,7 @@ function App() {
           <Route path="/youtube" element={<ProtectedRoute><YouTubeExplorer /></ProtectedRoute>} />
           <Route path="/platforms" element={<ProtectedRoute><Platforms /></ProtectedRoute>} />
           <Route path="/team" element={<ProtectedRoute><TeamAndBrandVoice /></ProtectedRoute>} />
+          <Route path="/analytics" element={<ProtectedRoute><AnalyticsAndListening /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </AuthProvider>
