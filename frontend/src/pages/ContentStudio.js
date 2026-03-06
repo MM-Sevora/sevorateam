@@ -188,7 +188,7 @@ export default function ContentStudio() {
   };
 
   const tabs = [
-    { key: 'create', label: 'Create & Publish', icon: Wand2 },
+    { key: 'create', label: 'Create & Refine', icon: Wand2 },
     { key: 'tools', label: 'AI Tools', icon: Sparkles },
     { key: 'ideas', label: 'Ideas', icon: Lightbulb },
     { key: 'autopilot', label: 'Autopilot', icon: Zap },
@@ -233,12 +233,13 @@ export default function ContentStudio() {
 
       {/* CREATE TAB */}
       {tab === 'create' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5" style={{ minHeight: 'calc(100vh - 280px)' }}>
+          {/* LEFT: Input (2 cols) */}
+          <div className="lg:col-span-2 space-y-4">
             <div className="bg-zinc-900/50 backdrop-blur-md border border-white/5 rounded-xl p-5">
               <textarea value={topic} onChange={(e) => setTopic(e.target.value)}
                 className="w-full bg-zinc-950/50 border border-white/10 focus:border-accent-violet/50 focus:ring-2 focus:ring-accent-violet/20 rounded-lg py-3 px-4 text-sm text-white placeholder-zinc-500 resize-none"
-                rows={3} placeholder="What do you want to post about?" data-testid="studio-topic"
+                rows={4} placeholder="What do you want to post about?" data-testid="studio-topic"
               />
               <div className="flex items-center gap-3 mt-3">
                 <select value={contentType} onChange={(e) => setContentType(e.target.value)}
@@ -254,36 +255,11 @@ export default function ContentStudio() {
                 >{loadingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Image className="w-4 h-4" />} Image</button>
               </div>
             </div>
-          </div>
 
-          <div className="space-y-4">
-            {generatedContent ? (
+            {generatedContent && (
               <>
-                <div className="bg-zinc-900/50 backdrop-blur-md border border-white/5 rounded-xl p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-heading font-semibold text-white">Generated Content</h3>
-                    <button onClick={copyContent} className="text-zinc-400 hover:text-white p-1.5 rounded-lg hover:bg-white/5" data-testid="studio-copy">
-                      {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  <div className="bg-zinc-950/50 rounded-lg p-4 border border-white/5 mb-3">
-                    <p className="text-sm text-zinc-200 whitespace-pre-wrap leading-relaxed" data-testid="studio-generated-text">{generatedContent.content}</p>
-                  </div>
-                  {generatedContent.hashtags?.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mb-3">
-                      {generatedContent.hashtags.map((tag, i) => <span key={i} className="text-xs bg-accent-violet/10 text-accent-violet px-2 py-1 rounded-md">#{tag.replace('#', '')}</span>)}
-                    </div>
-                  )}
-                </div>
-
-                {generatedImage && (
-                  <div className="bg-zinc-900/50 backdrop-blur-md border border-white/5 rounded-xl p-4">
-                    <img src={generatedImage} alt="Generated" className="w-full rounded-lg border border-white/5" data-testid="studio-image" />
-                  </div>
-                )}
-
-                {/* AI Refinement Tools */}
-                <div className="bg-zinc-900/50 backdrop-blur-md border border-white/5 rounded-xl p-4">
+                {/* AI Refine - Always visible on left */}
+                <div className="bg-zinc-900/50 backdrop-blur-md border border-amber-500/10 rounded-xl p-4">
                   <h4 className="text-xs font-heading font-semibold text-white mb-3 flex items-center gap-2"><Sparkles className="w-3.5 h-3.5 text-amber-400" /> AI Refine</h4>
                   <div className="flex flex-wrap gap-1.5 mb-2">
                     {[
@@ -292,60 +268,94 @@ export default function ContentStudio() {
                       { action: 'expand', label: 'Expand', icon: FileText },
                       { action: 'hook', label: 'Add Hook', icon: Zap },
                       { action: 'cta', label: 'Add CTA', icon: Send },
-                      { action: 'emoji', label: 'Add Emojis', icon: Sparkles },
+                      { action: 'emoji', label: 'Emojis', icon: Sparkles },
                     ].map(tool => (
                       <button key={tool.action} onClick={() => refineContent(tool.action)} disabled={!!refining}
                         className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium border transition-all ${refining === tool.action ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'border-white/10 text-zinc-400 hover:text-white hover:bg-white/5'}`}
                       >{refining === tool.action ? <Loader2 className="w-3 h-3 animate-spin" /> : <tool.icon className="w-3 h-3" />} {tool.label}</button>
                     ))}
                   </div>
-                  <div className="flex gap-1.5">
-                    <button onClick={() => refineContent('change_tone', { tone: 'casual' })} disabled={!!refining} className="text-[10px] px-2 py-1 rounded border border-white/5 text-zinc-500 hover:text-white hover:bg-white/5">Casual</button>
-                    <button onClick={() => refineContent('change_tone', { tone: 'professional' })} disabled={!!refining} className="text-[10px] px-2 py-1 rounded border border-white/5 text-zinc-500 hover:text-white hover:bg-white/5">Professional</button>
-                    <button onClick={() => refineContent('change_tone', { tone: 'humorous' })} disabled={!!refining} className="text-[10px] px-2 py-1 rounded border border-white/5 text-zinc-500 hover:text-white hover:bg-white/5">Humorous</button>
-                    <button onClick={() => refineContent('translate', { language: 'Spanish' })} disabled={!!refining} className="text-[10px] px-2 py-1 rounded border border-white/5 text-zinc-500 hover:text-white hover:bg-white/5">Spanish</button>
-                    <button onClick={() => refineContent('translate', { language: 'Hindi' })} disabled={!!refining} className="text-[10px] px-2 py-1 rounded border border-white/5 text-zinc-500 hover:text-white hover:bg-white/5">Hindi</button>
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="text-[9px] text-zinc-600 mr-1 self-center">Tone:</span>
+                    {['casual', 'professional', 'humorous', 'inspirational'].map(t => (
+                      <button key={t} onClick={() => refineContent('change_tone', { tone: t })} disabled={!!refining} className="text-[10px] px-2 py-1 rounded border border-white/5 text-zinc-500 hover:text-white hover:bg-white/5 capitalize">{t}</button>
+                    ))}
+                    <span className="text-[9px] text-zinc-600 ml-2 mr-1 self-center">Lang:</span>
+                    {['Spanish', 'Hindi', 'French'].map(l => (
+                      <button key={l} onClick={() => refineContent('translate', { language: l })} disabled={!!refining} className="text-[10px] px-2 py-1 rounded border border-white/5 text-zinc-500 hover:text-white hover:bg-white/5">{l}</button>
+                    ))}
                   </div>
                 </div>
 
-                {/* Quality Check */}
-                <div className="flex items-center gap-2">
-                  <button onClick={checkQuality} disabled={checkingQuality} className="text-[10px] bg-zinc-800 hover:bg-zinc-700 text-white border border-white/10 rounded-lg px-3 py-1.5 flex items-center gap-1 disabled:opacity-50">
-                    {checkingQuality ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />} Quality Check
-                  </button>
-                  {qualityScore && (
-                    <div className="flex items-center gap-2">
+                {/* Quality + Send to Queue - Always visible on left */}
+                <div className="bg-zinc-900/50 backdrop-blur-md border border-accent-violet/10 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <button onClick={checkQuality} disabled={checkingQuality} className="text-[10px] bg-zinc-800 hover:bg-zinc-700 text-white border border-white/10 rounded-lg px-3 py-1.5 flex items-center gap-1 disabled:opacity-50">
+                      {checkingQuality ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />} Quality Check
+                    </button>
+                    {qualityScore && (
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${qualityScore.score >= 70 ? 'bg-emerald-500/10 text-emerald-400' : qualityScore.score >= 40 ? 'bg-amber-500/10 text-amber-400' : 'bg-red-500/10 text-red-400'}`}>{qualityScore.score}/100</span>
-                      <span className="text-[10px] text-zinc-500">Hook: {qualityScore.hook_strength}/10 | CTA: {qualityScore.cta_strength}/10</span>
+                    )}
+                  </div>
+                  {qualityScore?.suggestions && (
+                    <div className="space-y-1 mb-3">{qualityScore.suggestions.slice(0, 2).map((s, i) => (
+                      <p key={i} className="text-[10px] text-zinc-400 flex items-start gap-1.5"><AlertTriangle className="w-3 h-3 text-amber-400 mt-0.5 flex-shrink-0" />{s}</p>
+                    ))}</div>
+                  )}
+                  <div className="flex gap-2">
+                    <button onClick={() => saveAsPost('draft')} disabled={savingPost} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white border border-white/10 rounded-lg px-4 py-2.5 text-xs flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all">
+                      <Download className="w-3.5 h-3.5" /> Save Draft
+                    </button>
+                    <button onClick={() => saveAsPost('scheduled')} disabled={savingPost} className="flex-1 bg-accent-violet hover:bg-accent-violet-hover text-white rounded-lg px-4 py-2.5 text-xs flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-[0_0_10px_rgba(124,58,237,0.2)] transition-all">
+                      <Send className="w-3.5 h-3.5" /> Add to Queue
+                    </button>
+                  </div>
+                  <p className="text-[9px] text-zinc-600 mt-2 text-center">Then go to Posts & Schedule to publish</p>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* RIGHT: Generated Content + Preview (3 cols) */}
+          <div className="lg:col-span-3">
+            {generatedContent ? (
+              <div className="bg-zinc-900/50 backdrop-blur-md border border-white/5 rounded-xl overflow-hidden h-full flex flex-col">
+                <div className="flex items-center justify-between p-4 border-b border-white/5">
+                  <h3 className="text-sm font-heading font-semibold text-white">Generated Content</h3>
+                  <button onClick={copyContent} className="text-zinc-400 hover:text-white p-1.5 rounded-lg hover:bg-white/5" data-testid="studio-copy">
+                    {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4">
+                  <div className="bg-zinc-950/50 rounded-lg p-4 border border-white/5 mb-3">
+                    <p className="text-sm text-zinc-200 whitespace-pre-wrap leading-relaxed" data-testid="studio-generated-text">{generatedContent.content}</p>
+                  </div>
+                  {generatedContent.hashtags?.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-4">
+                      {generatedContent.hashtags.map((tag, i) => <span key={i} className="text-xs bg-accent-violet/10 text-accent-violet px-2 py-1 rounded-md">#{tag.replace('#', '')}</span>)}
+                    </div>
+                  )}
+                  {generatedContent.call_to_action && (
+                    <p className="text-xs text-zinc-500 mb-4"><span className="text-zinc-400 font-medium">CTA:</span> {generatedContent.call_to_action}</p>
+                  )}
+                  {generatedImage && (
+                    <div className="mb-4">
+                      <img src={generatedImage} alt="Generated" className="w-full rounded-lg border border-white/5" data-testid="studio-image" />
                     </div>
                   )}
                 </div>
-                {qualityScore?.suggestions && (
-                  <div className="space-y-1">
-                    {qualityScore.suggestions.map((s, i) => (
-                      <p key={i} className="text-[10px] text-zinc-400 flex items-start gap-1.5"><AlertTriangle className="w-3 h-3 text-amber-400 mt-0.5 flex-shrink-0" />{s}</p>
-                    ))}
-                  </div>
-                )}
-
-                {/* Send to Queue (NOT publish) */}
-                <div className="bg-zinc-900/50 backdrop-blur-md border border-accent-violet/10 rounded-xl p-4">
-                  <h4 className="text-xs font-heading font-semibold text-white mb-3 flex items-center gap-2"><Send className="w-3.5 h-3.5 text-accent-violet" /> Send to Queue</h4>
-                  <div className="flex gap-2">
-                    <button onClick={() => saveAsPost('draft')} disabled={savingPost} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white border border-white/10 rounded-lg px-4 py-2.5 text-xs flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all">
-                      <Download className="w-3.5 h-3.5" /> Save as Draft
-                    </button>
-                    <button onClick={() => saveAsPost('scheduled')} disabled={savingPost} className="flex-1 bg-accent-violet hover:bg-accent-violet-hover text-white rounded-lg px-4 py-2.5 text-xs flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-[0_0_10px_rgba(124,58,237,0.2)] transition-all">
-                      <Clock className="w-3.5 h-3.5" /> Add to Schedule
-                    </button>
-                  </div>
-                  <p className="text-[9px] text-zinc-600 mt-2 text-center">Go to Posts & Schedule to set timing and publish</p>
-                </div>
-              </>
-            ) : !loadingText && (
-              <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-12 text-center">
-                <Wand2 className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
-                <p className="text-sm text-zinc-500">Enter a topic and click Generate</p>
+              </div>
+            ) : !loadingText ? (
+              <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-16 text-center h-full flex flex-col items-center justify-center">
+                <Wand2 className="w-12 h-12 text-zinc-700 mb-4" />
+                <h3 className="text-lg font-heading font-semibold text-zinc-400">Create Your Content</h3>
+                <p className="text-sm text-zinc-600 mt-1">Enter a topic on the left and click Generate</p>
+                <p className="text-xs text-zinc-700 mt-3">Then use AI Refine tools to perfect it before adding to queue</p>
+              </div>
+            ) : (
+              <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-16 text-center h-full flex flex-col items-center justify-center">
+                <Loader2 className="w-8 h-8 text-accent-violet animate-spin mb-3" />
+                <p className="text-sm text-zinc-400">Generating content...</p>
               </div>
             )}
           </div>
