@@ -1548,9 +1548,11 @@ Return ONLY JSON, no markdown.""")
 
 # ===== Team Content Approval Workflow =====
 
+pillars_col = db["content_pillars"]
+
 class TeamMemberInvite(BaseModel):
     email: str
-    role: str  # admin, editor, reviewer, viewer
+    role: str
     name: Optional[str] = ""
 
 class ApprovalSubmit(BaseModel):
@@ -1558,8 +1560,15 @@ class ApprovalSubmit(BaseModel):
     note: Optional[str] = ""
 
 class ApprovalAction(BaseModel):
-    action: str  # approve, reject, request_changes
+    action: str
     feedback: Optional[str] = ""
+
+class ContentPillar(BaseModel):
+    name: str
+    description: Optional[str] = ""
+    color: Optional[str] = "#7c3aed"
+    target_percentage: Optional[int] = 20
+    example_topics: Optional[List[str]] = []
 
 TEAM_ROLES = {
     "admin": {"can_create": True, "can_publish": True, "can_approve": True, "can_manage_team": True},
@@ -1670,6 +1679,115 @@ async def approval_stats(auth: dict = Depends(verify_token)):
     rejected = approvals_col.count_documents({"user_id": auth["user_id"], "status": "rejected"})
     changes = approvals_col.count_documents({"user_id": auth["user_id"], "status": "changes_requested"})
     return {"pending": pending, "approved": approved, "rejected": rejected, "changes_requested": changes, "total": pending + approved + rejected + changes}
+
+# ===== Post-Review Management =====
+
+@app.post("/api/approvals/{approval_id}/resubmit")
+async def resubmit_for_review(approval_id: str, auth: dict = Depends(verify_token)):
+    """Resubmit a rejected/changes_requested post for review after editing"""
+    approval = approvals_col.find_one({"approval_id": approval_id, "user_id": auth["user_id"]})
+    if not approval:
+        raise HTTPException(status_code=404, detail="Approval not found")
+    post = posts_col.find_one({"post_id": approval["post_id"]}, {"_id": 0})
+    approvals_col.update_one(
+        {"approval_id": approval_id},
+        {"$set": {"status": "pending", "content_preview": post.get("content", "")[:200] if post else approval.get("content_preview", ""), "resubmitted_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    posts_col.update_one({"post_id": approval["post_id"]}, {"$set": {"approval_status": "pending_review"}})
+    return {"message": "Resubmitted for review", "status": "pending"}
+
+@app.post("/api/approvals/{approval_id}/move-to-queue")
+async def move_approved_to_queue(approval_id: str, status: str = "scheduled", auth: dict = Depends(verify_token)):
+    """Move an approved post to the publishing queue"""
+    approval = approvals_col.find_one({"approval_id": approval_id, "user_id": auth["user_id"]})
+    if not approval:
+        raise HTTPException(status_code=404, detail="Approval not found")
+    if approval.get("status") != "approved":
+        raise HTTPException(status_code=400, detail="Post must be approved first")
+    posts_col.update_one(
+        {"post_id": approval["post_id"]},
+        {"$set": {"status": status, "approval_status": "approved_queued", "moved_to_queue_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"message": f"Post moved to {status}", "post_id": approval["post_id"]}
+
+@app.get("/api/approvals/actionable")
+async def get_actionable_approvals(auth: dict = Depends(verify_token)):
+    """Get approvals grouped by action needed"""
+    all_approvals = list(approvals_col.find({"user_id": auth["user_id"]}, {"_id": 0}).sort("submitted_at", -1))
+    result = {"needs_review": [], "approved_ready": [], "needs_edit": [], "completed": []}
+    for a in all_approvals:
+        post = posts_col.find_one({"post_id": a["post_id"]}, {"_id": 0})
+        a["post_content"] = post.get("content", "")[:300] if post else ""
+        a["post_platform"] = post.get("platform", "") if post else ""
+        a["post_status"] = post.get("status", "") if post else ""
+        if a["status"] == "pending":
+            result["needs_review"].append(a)
+        elif a["status"] == "approved" and post and post.get("status") not in ("published", "scheduled"):
+            result["approved_ready"].append(a)
+        elif a["status"] in ("rejected", "changes_requested"):
+            result["needs_edit"].append(a)
+        else:
+            result["completed"].append(a)
+    return result
+
+# ===== Content Pillars =====
+
+@app.post("/api/pillars")
+async def create_pillar(req: ContentPillar, auth: dict = Depends(verify_token)):
+    pillar_id = str(uuid.uuid4())
+    doc = {
+        "pillar_id": pillar_id, "user_id": auth["user_id"],
+        "name": req.name, "description": req.description,
+        "color": req.color, "target_percentage": req.target_percentage,
+        "example_topics": req.example_topics,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    pillars_col.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+@app.get("/api/pillars")
+async def get_pillars(auth: dict = Depends(verify_token)):
+    docs = list(pillars_col.find({"user_id": auth["user_id"]}, {"_id": 0}))
+    # Calculate actual usage from posts
+    total_posts = posts_col.count_documents({"user_id": auth["user_id"]})
+    for d in docs:
+        d["post_count"] = posts_col.count_documents({"user_id": auth["user_id"], "pillar": d["name"]})
+        d["actual_percentage"] = round((d["post_count"] / max(total_posts, 1)) * 100, 1)
+    return docs
+
+@app.delete("/api/pillars/{pillar_id}")
+async def delete_pillar(pillar_id: str, auth: dict = Depends(verify_token)):
+    pillars_col.delete_one({"pillar_id": pillar_id, "user_id": auth["user_id"]})
+    return {"message": "Deleted"}
+
+@app.post("/api/content/ideas-by-pillar")
+async def generate_ideas_by_pillar(req: ContentIdeaRequest, pillar: str = "", auth: dict = Depends(verify_token)):
+    """Generate content ideas for a specific content pillar"""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    pillar_doc = pillars_col.find_one({"user_id": auth["user_id"], "name": pillar}) if pillar else None
+    pillar_context = ""
+    if pillar_doc:
+        pillar_context = f"\n\nContent Pillar: {pillar_doc['name']}\nDescription: {pillar_doc.get('description', '')}\nExample topics: {', '.join(pillar_doc.get('example_topics', []))}"
+    session_id = f"pillar-ideas-{auth['user_id']}-{uuid.uuid4()}"
+    chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=session_id,
+        system_message=f"""You are an expert social media strategist. Generate creative content ideas.{pillar_context}
+Return exactly 5 ideas as a JSON array. Each: title, description, hashtags (array), best_time, estimated_engagement, pillar (the content pillar name).
+Return ONLY the JSON array, no markdown.""")
+    chat.with_model("openai", "gpt-5.2")
+    topic_text = f" about '{req.topic}'" if req.topic else ""
+    pillar_text = f" for the '{pillar}' content pillar" if pillar else ""
+    msg = UserMessage(text=f"Generate 5 {req.tone} content ideas for {req.platform}{topic_text}{pillar_text}.")
+    response = await chat.send_message(msg)
+    import json
+    try:
+        cleaned = response.strip()
+        if cleaned.startswith("```"): cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+        if cleaned.endswith("```"): cleaned = cleaned[:-3]
+        ideas = json.loads(cleaned.strip())
+    except json.JSONDecodeError:
+        ideas = [{"title": "Idea", "description": response, "hashtags": [], "best_time": "10 AM", "estimated_engagement": "Medium", "pillar": pillar}]
+    return {"ideas": ideas, "pillar": pillar}
 
 # ===== AI Brand Voice Training =====
 
