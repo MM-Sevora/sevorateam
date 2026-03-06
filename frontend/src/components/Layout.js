@@ -2,21 +2,17 @@ import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
-  LayoutDashboard, Lightbulb, Wand2, FileText, Calendar,
-  Link2, LogOut, Zap, Menu, X, ChevronLeft, Bot, BarChart3
+  LayoutDashboard, Wand2, FileText,
+  Link2, LogOut, Zap, Menu, X, ChevronLeft, Bot
 } from 'lucide-react';
 import { FaYoutube } from 'react-icons/fa';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/ideas', label: 'Content Ideas', icon: Lightbulb },
-  { to: '/creator', label: 'Content Creator', icon: Wand2 },
-  { to: '/autopilot', label: 'Autopilot', icon: Zap },
+  { to: '/studio', label: 'Content Studio', icon: Wand2 },
+  { to: '/posts', label: 'Posts & Schedule', icon: FileText },
   { to: '/avatar', label: 'AI Avatar', icon: Bot },
-  { to: '/predictor', label: 'Predictor', icon: BarChart3 },
   { to: '/youtube', label: 'YouTube', icon: FaYoutube },
-  { to: '/posts', label: 'Posts', icon: FileText },
-  { to: '/scheduler', label: 'Calendar', icon: Calendar },
   { to: '/platforms', label: 'Platforms', icon: Link2 },
 ];
 
