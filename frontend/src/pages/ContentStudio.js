@@ -34,7 +34,7 @@ function ScoreRing({ score, size = 80 }) {
 }
 
 export default function ContentStudio() {
-  const [tab, setTab] = useState('create'); // create | ideas | autopilot | predict
+  const [tab, setTab] = useState('ideas'); // ideas | create | review
   // Create state
   const [platform, setPlatform] = useState('linkedin');
   const [topic, setTopic] = useState('');
@@ -188,11 +188,33 @@ export default function ContentStudio() {
   };
 
   const tabs = [
+    { key: 'ideas', label: 'Ideas', icon: Lightbulb },
     { key: 'create', label: 'Create & Refine', icon: Wand2 },
-    { key: 'tools', label: 'AI Tools', icon: Sparkles },
-    { key: 'autopilot', label: 'Autopilot', icon: Zap },
-    { key: 'predict', label: 'Predict', icon: BarChart3 },
+    { key: 'review', label: 'Team Review', icon: Users },
   ];
+
+  // Content type
+  const [contentFormat, setContentFormat] = useState('text'); // text, image, video, carousel
+
+  // Approvals for review tab
+  const [approvals, setApprovals] = useState([]);
+  const [approvalStats, setApprovalStats] = useState({});
+  const [reviewFeedback, setReviewFeedback] = useState({});
+  const [reviewing, setReviewing] = useState('');
+
+  const fetchApprovals = async () => {
+    try {
+      const [appRes, statsRes] = await Promise.all([api.get('/api/approvals'), api.get('/api/approvals/stats')]);
+      setApprovals(appRes.data); setApprovalStats(statsRes.data);
+    } catch (err) { console.error(err); }
+  };
+
+  const handleReview = async (approvalId, action) => {
+    setReviewing(approvalId);
+    try { await api.post(`/api/approvals/${approvalId}/review`, { action, feedback: reviewFeedback[approvalId] || '' }); await fetchApprovals(); }
+    catch (err) { console.error(err); }
+    finally { setReviewing(''); }
+  };
 
   // Team review
   const [submittingReview, setSubmittingReview] = useState(false);
@@ -251,12 +273,64 @@ export default function ContentStudio() {
 
       {error && <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
 
+      {/* IDEAS TAB */}
+      {tab === 'ideas' && (
+        <div className="space-y-4">
+          <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-5 flex gap-3">
+            <input type="text" value={ideaTopic} onChange={(e) => setIdeaTopic(e.target.value)}
+              className="flex-1 bg-zinc-950/50 border border-white/10 focus:border-accent-violet/50 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500"
+              placeholder="Topic (optional) e.g., product launch, tips..." data-testid="studio-idea-topic"
+            />
+            <button onClick={generateIdeas} disabled={loadingIdeas}
+              className="bg-accent-violet hover:bg-accent-violet-hover text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50"
+              data-testid="studio-generate-ideas"
+            >{loadingIdeas ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Generate Ideas</button>
+          </div>
+          {ideas.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {ideas.map((idea, i) => (
+                <div key={i} onClick={() => { setTopic(idea.title + ' - ' + idea.description); setTab('create'); }}
+                  className="bg-zinc-900/50 border border-white/5 rounded-xl p-5 hover:border-accent-violet/20 transition-all hover:-translate-y-0.5 cursor-pointer group"
+                  data-testid={`studio-idea-${i}`}
+                >
+                  <h3 className="text-sm font-heading font-semibold text-white mb-2">{idea.title}</h3>
+                  <p className="text-xs text-zinc-400 mb-3 leading-relaxed">{idea.description}</p>
+                  {idea.hashtags?.length > 0 && <div className="flex flex-wrap gap-1 mb-2">{idea.hashtags.slice(0, 4).map((t, j) => <span key={j} className="text-[10px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded">#{t.replace('#','')}</span>)}</div>}
+                  <div className="flex items-center justify-between text-[10px] text-zinc-500 pt-2 border-t border-white/5">
+                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{idea.best_time}</span>
+                    <span className={`px-2 py-0.5 rounded-full ${idea.estimated_engagement?.toLowerCase() === 'high' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>{idea.estimated_engagement}</span>
+                  </div>
+                  <p className="text-[9px] text-accent-violet mt-2 opacity-0 group-hover:opacity-100 transition-opacity">Click to use in Create &rarr;</p>
+                </div>
+              ))}
+            </div>
+          ) : !loadingIdeas && (
+            <div className="text-center py-16"><Lightbulb className="w-12 h-12 text-zinc-700 mx-auto mb-4" /><h3 className="text-lg font-heading font-semibold text-zinc-400">Get AI Content Ideas</h3><p className="text-sm text-zinc-600 mt-1">Select a platform, enter a topic, and generate ideas. Click any idea to use it.</p></div>
+          )}
+        </div>
+      )}
+
       {/* CREATE TAB */}
       {tab === 'create' && (
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-5" style={{ minHeight: 'calc(100vh - 280px)' }}>
           {/* LEFT: Input (2 cols) */}
           <div className="lg:col-span-2 space-y-4">
             <div className="bg-zinc-900/50 backdrop-blur-md border border-white/5 rounded-xl p-5">
+              {/* Content Format Selector */}
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Format:</span>
+                {[
+                  { key: 'text', label: 'Text Post', icon: '📝' },
+                  { key: 'image', label: 'Image Post', icon: '🖼' },
+                  { key: 'video', label: 'Video Script', icon: '🎬' },
+                  { key: 'carousel', label: 'Carousel', icon: '📊' },
+                  { key: 'story', label: 'Story/Reel', icon: '📱' },
+                ].map(f => (
+                  <button key={f.key} onClick={() => { setContentFormat(f.key); setContentType(f.key === 'text' ? 'post' : f.key); }}
+                    className={`px-2.5 py-1.5 rounded-lg text-[10px] font-medium border transition-all ${contentFormat === f.key ? 'bg-accent-violet/10 border-accent-violet/20 text-accent-violet' : 'border-white/5 text-zinc-500 hover:text-white hover:bg-white/5'}`}
+                  >{f.icon} {f.label}</button>
+                ))}
+              </div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Topic</span>
                 <button onClick={() => { setShowIdeas(!showIdeas); if (!showIdeas && ideas.length === 0) generateIdeas(); }}
@@ -434,357 +508,72 @@ export default function ContentStudio() {
         </div>
       )}
 
-      {/* AI TOOLS TAB */}
-      {tab === 'tools' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Tool Selector */}
-          <div className="space-y-2">
+      {/* TEAM REVIEW TAB */}
+      {tab === 'review' && (
+        <div className="space-y-4" data-testid="review-tab">
+          {/* Auto-fetch approvals on tab open */}
+          {approvals.length === 0 && <ReviewLoader fetchApprovals={fetchApprovals} />}
+
+          {/* Stats */}
+          <div className="grid grid-cols-4 gap-3">
             {[
-              { key: 'repurpose', label: 'Content Repurposer', desc: 'One post → all platforms', icon: Repeat, color: '#7c3aed' },
-              { key: 'hashtags', label: 'Hashtag Generator', desc: 'Trending + niche hashtags', icon: Hash, color: '#ec4899' },
-              { key: 'urlpost', label: 'URL to Post', desc: 'Paste URL → social posts', icon: Link, color: '#06b6d4' },
-              { key: 'copywriting', label: 'Copy Frameworks', desc: 'AIDA, PAS, BAB, FAB, STAR', icon: FileText, color: '#f97316' },
-              { key: 'recycle', label: 'Content Recycler', desc: 'Find top posts to repost', icon: RefreshCw, color: '#10b981' },
-              { key: 'competitor', label: 'Competitor Analysis', desc: 'Analyze competitor strategy', icon: Users, color: '#3b82f6' },
-            ].map(tool => (
-              <button key={tool.key} onClick={() => setActiveTool(tool.key)}
-                className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all border ${activeTool === tool.key ? 'bg-white/5 border-white/15' : 'border-white/5 hover:bg-white/5'}`}
-                data-testid={`tool-${tool.key}`}
-              >
-                <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${tool.color}15` }}>
-                  <tool.icon className="w-4 h-4" style={{ color: tool.color }} />
-                </div>
-                <div><p className="text-sm font-medium text-white">{tool.label}</p><p className="text-[10px] text-zinc-500">{tool.desc}</p></div>
-              </button>
+              { label: 'Pending', value: approvalStats.pending || 0, color: '#f59e0b', icon: Clock },
+              { label: 'Approved', value: approvalStats.approved || 0, color: '#10b981', icon: CheckCircle },
+              { label: 'Rejected', value: approvalStats.rejected || 0, color: '#ef4444', icon: XCircle },
+              { label: 'Changes', value: approvalStats.changes_requested || 0, color: '#7c3aed', icon: RefreshCw },
+            ].map(s => (
+              <div key={s.label} className="bg-zinc-900/50 border border-white/5 rounded-xl p-4">
+                <div className="flex items-center gap-1.5 mb-1"><s.icon className="w-3.5 h-3.5" style={{ color: s.color }} /><span className="text-[10px] text-zinc-500 uppercase">{s.label}</span></div>
+                <p className="text-xl font-heading font-bold" style={{ color: s.color }}>{s.value}</p>
+              </div>
             ))}
           </div>
 
-          {/* Tool Input & Output */}
-          <div className="lg:col-span-2 space-y-4">
-            {/* REPURPOSE */}
-            {activeTool === 'repurpose' && (
-              <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-5">
-                <h3 className="text-sm font-heading font-semibold text-white mb-3 flex items-center gap-2"><Repeat className="w-4 h-4 text-accent-violet" /> Content Repurposer</h3>
-                <textarea value={repurposeInput || generatedContent?.content || ''} onChange={(e) => setRepurposeInput(e.target.value)}
-                  className="w-full bg-zinc-950/50 border border-white/10 rounded-lg py-3 px-4 text-sm text-white placeholder-zinc-500 resize-none mb-3" rows={4} placeholder="Paste content to repurpose for all platforms..." />
-                <button onClick={() => runTool('repurpose', { content: repurposeInput || generatedContent?.content || '', source_platform: platform })}
-                  disabled={toolLoading === 'repurpose'} className="bg-accent-violet hover:bg-accent-violet-hover text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50">
-                  {toolLoading === 'repurpose' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Repeat className="w-4 h-4" />} Repurpose for All Platforms
-                </button>
-              </div>
-            )}
-            {/* HASHTAGS */}
-            {activeTool === 'hashtags' && (
-              <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-5">
-                <h3 className="text-sm font-heading font-semibold text-white mb-3 flex items-center gap-2"><Hash className="w-4 h-4 text-pink-400" /> Hashtag Generator</h3>
-                <div className="flex gap-3 mb-3">
-                  <input type="text" value={hashtagTopic} onChange={(e) => setHashtagTopic(e.target.value)}
-                    className="flex-1 bg-zinc-950/50 border border-white/10 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500" placeholder="Topic e.g., fashion styling, tech startup" />
-                  <button onClick={() => runTool('hashtags', { topic: hashtagTopic, platform })}
-                    disabled={toolLoading === 'hashtags' || !hashtagTopic.trim()} className="bg-pink-600 hover:bg-pink-700 text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50">
-                    {toolLoading === 'hashtags' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Hash className="w-4 h-4" />} Generate
-                  </button>
-                </div>
-              </div>
-            )}
-            {/* URL TO POST */}
-            {activeTool === 'urlpost' && (
-              <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-5">
-                <h3 className="text-sm font-heading font-semibold text-white mb-3 flex items-center gap-2"><Link className="w-4 h-4 text-cyan-400" /> URL to Social Posts</h3>
-                <div className="flex gap-3 mb-3">
-                  <input type="text" value={urlInput} onChange={(e) => setUrlInput(e.target.value)}
-                    className="flex-1 bg-zinc-950/50 border border-white/10 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500" placeholder="https://example.com/article" />
-                  <button onClick={() => runTool('urlpost', { url: urlInput, tone })}
-                    disabled={toolLoading === 'urlpost' || !urlInput.trim()} className="bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50">
-                    {toolLoading === 'urlpost' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link className="w-4 h-4" />} Generate Posts
-                  </button>
-                </div>
-              </div>
-            )}
-            {/* COPYWRITING */}
-            {activeTool === 'copywriting' && (
-              <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-5">
-                <h3 className="text-sm font-heading font-semibold text-white mb-3 flex items-center gap-2"><FileText className="w-4 h-4 text-orange-400" /> Copywriting Frameworks</h3>
-                <div className="flex gap-2 mb-3 flex-wrap">
-                  {[{k:'aida',l:'AIDA'},{k:'pas',l:'PAS'},{k:'bab',l:'BAB'},{k:'fab',l:'FAB'},{k:'star',l:'STAR'}].map(f => (
-                    <button key={f.k} onClick={() => setCopyFramework(f.k)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${copyFramework === f.k ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'border-white/10 text-zinc-400 hover:text-white'}`}>{f.l}</button>
-                  ))}
-                </div>
-                <div className="flex gap-3 mb-3">
-                  <input type="text" value={copyTopic} onChange={(e) => setCopyTopic(e.target.value)}
-                    className="flex-1 bg-zinc-950/50 border border-white/10 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500" placeholder="Topic for the copy..." />
-                  <button onClick={() => runTool('copywriting', { topic: copyTopic, framework: copyFramework, platform })}
-                    disabled={toolLoading === 'copywriting' || !copyTopic.trim()} className="bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50">
-                    {toolLoading === 'copywriting' ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} Write
-                  </button>
-                </div>
-              </div>
-            )}
-            {/* RECYCLE */}
-            {activeTool === 'recycle' && (
-              <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-5">
-                <h3 className="text-sm font-heading font-semibold text-white mb-3 flex items-center gap-2"><RefreshCw className="w-4 h-4 text-emerald-400" /> Content Recycler</h3>
-                <p className="text-xs text-zinc-400 mb-3">Find your top-performing posts to repost for maximum engagement</p>
-                <button onClick={() => runTool('recycle', {})}
-                  disabled={toolLoading === 'recycle'} className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50">
-                  {toolLoading === 'recycle' ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} Find Top Posts to Recycle
-                </button>
-              </div>
-            )}
-            {/* COMPETITOR */}
-            {activeTool === 'competitor' && (
-              <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-5">
-                <h3 className="text-sm font-heading font-semibold text-white mb-3 flex items-center gap-2"><Users className="w-4 h-4 text-blue-400" /> Competitor Analysis</h3>
-                <div className="flex gap-3 mb-3">
-                  <input type="text" value={competitorUrl} onChange={(e) => setCompetitorUrl(e.target.value)}
-                    className="flex-1 bg-zinc-950/50 border border-white/10 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500" placeholder="https://competitor-website.com" />
-                  <button onClick={() => runTool('competitor', { competitor_url: competitorUrl })}
-                    disabled={toolLoading === 'competitor' || !competitorUrl.trim()} className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50">
-                    {toolLoading === 'competitor' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />} Analyze
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Tool Results */}
-            {toolResult && (
-              <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-5 animate-slide-up" data-testid="tool-result">
-                {/* Repurpose Results */}
-                {toolResult.tool === 'repurpose' && toolResult.data.repurposed && (
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-heading font-semibold text-white">Repurposed for {Object.keys(toolResult.data.repurposed).length} platforms</h4>
-                    {Object.entries(toolResult.data.repurposed).map(([p, data]) => {
-                      const meta = platformOptions.find(x => x.value === p);
-                      return (
-                        <div key={p} className="bg-zinc-800/80 rounded-lg p-4 border border-white/5">
-                          <div className="flex items-center gap-2 mb-2">{meta?.icon && <meta.icon className="w-4 h-4" style={{ color: meta?.color }} />}<span className="text-xs font-medium text-white capitalize">{p}</span><span className="text-[10px] text-zinc-500">{data.character_count} chars</span></div>
-                          <p className="text-sm text-zinc-300 whitespace-pre-wrap mb-2">{data.content}</p>
-                          {data.hashtags?.length > 0 && <div className="flex flex-wrap gap-1 mb-2">{data.hashtags.map((h,i) => <span key={i} className="text-[10px] bg-accent-violet/10 text-accent-violet px-1.5 py-0.5 rounded">#{h.replace('#','')}</span>)}</div>}
-                          {data.tips && <p className="text-[10px] text-zinc-500 bg-zinc-900/50 p-2 rounded">{data.tips}</p>}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {/* Hashtag Results */}
-                {toolResult.tool === 'hashtags' && (
-                  <div className="space-y-3">
-                    {['trending', 'niche', 'branded', 'mixed'].map(cat => {
-                      const tags = toolResult.data[cat];
-                      if (!tags || !Array.isArray(tags) || tags.length === 0) return null;
-                      return (
-                        <div key={cat}>
-                          <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">{cat}</h4>
-                          <div className="flex flex-wrap gap-2">{tags.map((t, i) => (
-                            <div key={i} className={`px-3 py-1.5 rounded-lg text-xs border ${t.competition === 'low' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : t.competition === 'high' ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-zinc-800 border-white/10 text-zinc-300'}`}>
-                              #{t.tag} <span className="text-[9px] text-zinc-500 ml-1">{t.estimated_posts}</span>
-                            </div>
-                          ))}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {/* URL to Post Results */}
-                {toolResult.tool === 'urlpost' && toolResult.data.posts && (
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-heading font-semibold text-white">Posts from URL</h4>
-                    {Object.entries(toolResult.data.posts).map(([p, data]) => {
-                      const meta = platformOptions.find(x => x.value === p);
-                      return (
-                        <div key={p} className="bg-zinc-800/80 rounded-lg p-4 border border-white/5">
-                          <div className="flex items-center gap-2 mb-2">{meta?.icon && <meta.icon className="w-4 h-4" style={{ color: meta?.color }} />}<span className="text-xs font-medium text-white capitalize">{p}</span></div>
-                          <p className="text-sm text-zinc-300 whitespace-pre-wrap">{data.content}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {/* Copywriting Results */}
-                {toolResult.tool === 'copywriting' && (
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-heading font-semibold text-white">{(toolResult.data.framework || '').toUpperCase()} Framework</h4>
-                    {toolResult.data.sections?.map((s, i) => (
-                      <div key={i} className="bg-zinc-800/80 rounded-lg p-3 border border-white/5">
-                        <p className="text-[10px] text-accent-violet font-bold uppercase mb-1">{s.label}</p>
-                        <p className="text-sm text-zinc-300">{s.text}</p>
+          {/* Approval list */}
+          {approvals.length > 0 ? (
+            <div className="space-y-2">
+              {approvals.map(a => (
+                <div key={a.approval_id} className="bg-zinc-900/50 border border-white/5 rounded-xl p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="text-xs font-medium text-white capitalize">{a.platform}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${a.status === 'approved' ? 'bg-emerald-500/10 text-emerald-400' : a.status === 'rejected' ? 'bg-red-500/10 text-red-400' : a.status === 'changes_requested' ? 'bg-accent-violet/10 text-accent-violet' : 'bg-amber-500/10 text-amber-400'}`}>{a.status.replace('_', ' ')}</span>
+                        <span className="text-[10px] text-zinc-600">{new Date(a.submitted_at).toLocaleString()}</span>
                       </div>
-                    ))}
-                    {toolResult.data.full_post && (
-                      <div className="bg-zinc-950/50 rounded-lg p-4 border border-accent-violet/20">
-                        <p className="text-xs text-zinc-500 mb-1">Ready to post:</p>
-                        <p className="text-sm text-zinc-200 whitespace-pre-wrap">{toolResult.data.full_post}</p>
+                      <p className="text-sm text-zinc-300 line-clamp-2">{a.content_preview}</p>
+                      {a.note && <p className="text-xs text-zinc-500 mt-1">Note: {a.note}</p>}
+                      {a.reviews?.map((r, i) => (
+                        <div key={i} className={`mt-2 p-2 rounded-lg text-xs ${r.action === 'approve' ? 'bg-emerald-500/10 text-emerald-400' : r.action === 'reject' ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                          <span className="font-medium">{r.reviewer}</span>: {r.action} {r.feedback && `- "${r.feedback}"`}
+                        </div>
+                      ))}
+                    </div>
+                    {a.status === 'pending' && (
+                      <div className="flex flex-col gap-2 flex-shrink-0">
+                        <input type="text" value={reviewFeedback[a.approval_id] || ''} onChange={(e) => setReviewFeedback(prev => ({ ...prev, [a.approval_id]: e.target.value }))}
+                          className="bg-zinc-950/50 border border-white/10 rounded-lg py-1.5 px-3 text-xs text-white placeholder-zinc-600 w-48" placeholder="Feedback..." />
+                        <div className="flex gap-1">
+                          <button onClick={() => handleReview(a.approval_id, 'approve')} disabled={!!reviewing} className="flex-1 text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg py-1.5 flex items-center justify-center gap-1 disabled:opacity-50"><CheckCircle className="w-3 h-3" /> Approve</button>
+                          <button onClick={() => handleReview(a.approval_id, 'reject')} disabled={!!reviewing} className="flex-1 text-[10px] bg-red-600 hover:bg-red-700 text-white rounded-lg py-1.5 flex items-center justify-center gap-1 disabled:opacity-50"><XCircle className="w-3 h-3" /> Reject</button>
+                        </div>
                       </div>
                     )}
-                  </div>
-                )}
-                {/* Recycle Results */}
-                {toolResult.tool === 'recycle' && (
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-heading font-semibold text-white">Top Posts to Recycle ({toolResult.data.total_analyzed} analyzed)</h4>
-                    {toolResult.data.recyclable?.map((p, i) => {
-                      const meta = platformOptions.find(x => x.value === p.platform);
-                      return (
-                        <div key={i} className="bg-zinc-800/80 rounded-lg p-3 border border-white/5 flex items-start gap-3">
-                          <span className="text-sm font-bold text-zinc-600">#{i+1}</span>
-                          {meta?.icon && <meta.icon className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: meta?.color }} />}
-                          <div className="flex-1"><p className="text-xs text-zinc-300">{p.content}</p><p className="text-[10px] text-emerald-400 mt-1">Score: {p.recycle_score} - {p.suggestion}</p></div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {/* Competitor Results */}
-                {toolResult.tool === 'competitor' && (
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-heading font-semibold text-white">{toolResult.data.company_name || 'Competitor'} Analysis</h4>
-                    {toolResult.data.content_strategy && <p className="text-xs text-zinc-300 bg-zinc-800/80 p-3 rounded-lg">{toolResult.data.content_strategy}</p>}
-                    {['strengths', 'weaknesses', 'opportunities', 'recommended_actions'].map(key => {
-                      const items = toolResult.data[key];
-                      if (!items?.length) return null;
-                      const colors = { strengths: 'text-emerald-400', weaknesses: 'text-red-400', opportunities: 'text-amber-400', recommended_actions: 'text-accent-violet' };
-                      return (
-                        <div key={key}>
-                          <h5 className={`text-xs font-semibold uppercase tracking-wider mb-1 ${colors[key]}`}>{key.replace('_', ' ')}</h5>
-                          <div className="space-y-1">{items.map((item, i) => <p key={i} className="text-xs text-zinc-400 flex items-start gap-2"><span className="text-zinc-600">-</span>{item}</p>)}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* IDEAS TAB */}
-      {tab === 'ideas' && (
-        <div className="space-y-4">
-          <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-5 flex gap-3">
-            <input type="text" value={ideaTopic} onChange={(e) => setIdeaTopic(e.target.value)}
-              className="flex-1 bg-zinc-950/50 border border-white/10 focus:border-accent-violet/50 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500"
-              placeholder="Topic (optional) e.g., product launch, tips..." data-testid="studio-idea-topic"
-            />
-            <button onClick={generateIdeas} disabled={loadingIdeas}
-              className="bg-accent-violet hover:bg-accent-violet-hover text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50"
-              data-testid="studio-generate-ideas"
-            >{loadingIdeas ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Generate Ideas</button>
-          </div>
-          {ideas.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {ideas.map((idea, i) => (
-                <div key={i} className="bg-zinc-900/50 border border-white/5 rounded-xl p-5 hover:border-white/10 transition-all hover:-translate-y-0.5 cursor-pointer" onClick={() => applyIdea(idea)} data-testid={`studio-idea-${i}`}>
-                  <h3 className="text-sm font-heading font-semibold text-white mb-2">{idea.title}</h3>
-                  <p className="text-xs text-zinc-400 mb-3 leading-relaxed">{idea.description}</p>
-                  {idea.hashtags?.length > 0 && <div className="flex flex-wrap gap-1 mb-2">{idea.hashtags.slice(0, 4).map((t, j) => <span key={j} className="text-[10px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded"><Hash className="w-2.5 h-2.5 inline" />{t.replace('#','')}</span>)}</div>}
-                  <div className="flex items-center justify-between text-[10px] text-zinc-500 pt-2 border-t border-white/5">
-                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{idea.best_time}</span>
-                    <span className={`px-2 py-0.5 rounded-full ${idea.estimated_engagement?.toLowerCase() === 'high' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>{idea.estimated_engagement}</span>
                   </div>
                 </div>
               ))}
             </div>
-          ) : !loadingIdeas && (
-            <div className="text-center py-12"><Lightbulb className="w-10 h-10 text-zinc-700 mx-auto mb-3" /><p className="text-sm text-zinc-500">Click Generate Ideas to get AI-powered suggestions</p><p className="text-xs text-zinc-600 mt-1">Click any idea to use it in the Create tab</p></div>
+          ) : (
+            <div className="text-center py-16"><CheckCircle className="w-12 h-12 text-zinc-700 mx-auto mb-4" /><h3 className="text-lg font-heading font-semibold text-zinc-400">No Pending Reviews</h3><p className="text-sm text-zinc-600 mt-1">Submit content for review from the Create & Refine tab</p></div>
           )}
-        </div>
-      )}
-
-      {/* AUTOPILOT TAB */}
-      {tab === 'autopilot' && (
-        <div className="space-y-4">
-          <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-5">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
-              <input type="text" value={apIndustry} onChange={(e) => setApIndustry(e.target.value)} className="bg-zinc-950/50 border border-white/10 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500" placeholder="Industry" data-testid="studio-ap-industry" />
-              <input type="text" value={apTopics} onChange={(e) => setApTopics(e.target.value)} className="bg-zinc-950/50 border border-white/10 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500" placeholder="Topics (comma-sep)" data-testid="studio-ap-topics" />
-              <select value={apDays} onChange={(e) => setApDays(Number(e.target.value))} className="bg-zinc-950/50 border border-white/10 rounded-lg py-2.5 px-4 text-sm text-white">{[3,5,7,14].map(d => <option key={d} value={d} className="bg-zinc-900">{d} days</option>)}</select>
-              <select value={apPpd} onChange={(e) => setApPpd(Number(e.target.value))} className="bg-zinc-950/50 border border-white/10 rounded-lg py-2.5 px-4 text-sm text-white">{[1,2,3].map(n => <option key={n} value={n} className="bg-zinc-900">{n} post/day</option>)}</select>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex gap-1.5">{['linkedin','instagram','facebook'].map(p => { const m = platformOptions.find(x => x.value === p); const active = apPlatforms.includes(p); return (
-                <button key={p} onClick={() => setApPlatforms(prev => active ? prev.filter(x=>x!==p) : [...prev,p])} className={`p-2 rounded-lg text-xs border transition-all ${active ? 'bg-white/10 border-white/20' : 'border-white/5 opacity-50'}`}>
-                  <m.icon className="w-4 h-4" style={{ color: active ? m.color : '#555' }} />
-                </button>);})}</div>
-              <button onClick={generateAutopilot} disabled={generatingAp}
-                className="bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-lg px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 shadow-[0_0_15px_rgba(245,158,11,0.3)]"
-                data-testid="studio-generate-autopilot"
-              >{generatingAp ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />} Generate {apDays * apPpd} Posts</button>
-            </div>
-          </div>
-          {apPosts.length > 0 && (
-            <div className="space-y-2">
-              {apPosts.map((post, i) => { const m = platformOptions.find(x => x.value === post.platform); return (
-                <div key={i} className="bg-zinc-900/50 border border-white/5 rounded-xl p-4 flex items-start gap-3" data-testid={`studio-ap-post-${i}`}>
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${m?.color}20` }}>
-                    {m?.icon && <m.icon className="w-4 h-4" style={{ color: m.color }} />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-medium text-white capitalize">{post.platform}</span>
-                      <span className="text-[10px] text-zinc-500">{post.scheduled_at}</span>
-                      <span className="text-[10px] bg-accent-violet/10 text-accent-violet px-2 py-0.5 rounded-full">scheduled</span>
-                    </div>
-                    <p className="text-xs text-zinc-300 line-clamp-2">{post.content}</p>
-                  </div>
-                </div>
-              );})}
-            </div>
-          )}
-          {apPosts.length === 0 && !generatingAp && <div className="text-center py-12"><Zap className="w-10 h-10 text-zinc-700 mx-auto mb-3" /><p className="text-sm text-zinc-500">Generate a full content calendar with one click</p></div>}
-        </div>
-      )}
-
-      {/* PREDICT TAB */}
-      {tab === 'predict' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-5">
-            <textarea value={predictContent || generatedContent?.content || ''} onChange={(e) => setPredictContent(e.target.value)}
-              className="w-full bg-zinc-950/50 border border-white/10 focus:border-accent-violet/50 rounded-lg py-3 px-4 text-sm text-white placeholder-zinc-500 resize-none"
-              rows={6} placeholder="Paste content to predict performance..." data-testid="studio-predict-input"
-            />
-            <button onClick={handlePredict} disabled={loadingPredict}
-              className="mt-3 bg-accent-violet hover:bg-accent-violet-hover text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50"
-              data-testid="studio-predict-button"
-            >{loadingPredict ? <Loader2 className="w-4 h-4 animate-spin" /> : <BarChart3 className="w-4 h-4" />} Predict Performance</button>
-          </div>
-          <div>
-            {prediction ? (
-              <div className="space-y-4">
-                <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-5">
-                  <div className="flex justify-center gap-6 mb-4">
-                    <div className="text-center"><ScoreRing score={prediction.engagement_score || 0} /><p className="text-xs text-zinc-400 mt-1">Engagement</p></div>
-                    <div className="text-center"><ScoreRing score={prediction.content_score || 0} /><p className="text-xs text-zinc-400 mt-1">Quality</p></div>
-                  </div>
-                  <div className="text-center mb-3">
-                    <span className={`text-sm font-medium px-3 py-1 rounded-full ${prediction.virality_potential === 'High' || prediction.virality_potential === 'Very High' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>
-                      {prediction.virality_potential} Virality
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[{l:'Likes',v:prediction.predicted_likes,c:'#ec4899'},{l:'Comments',v:prediction.predicted_comments,c:'#06b6d4'},{l:'Shares',v:prediction.predicted_shares,c:'#f97316'},{l:'Reach',v:prediction.predicted_reach,c:'#7c3aed'}].map(m=>(
-                      <div key={m.l} className="bg-zinc-800/80 rounded-lg p-3 border border-white/5"><p className="text-[10px] text-zinc-500">{m.l}</p><p className="text-sm font-heading font-bold" style={{color:m.c}}>{m.v}</p></div>
-                    ))}
-                  </div>
-                  <p className="text-xs text-zinc-400 mt-3"><Clock className="w-3 h-3 inline mr-1" />Best: {prediction.best_time} ({prediction.best_day})</p>
-                </div>
-                {prediction.suggestions?.length > 0 && (
-                  <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-4">
-                    <h4 className="text-xs font-semibold text-zinc-300 mb-2 flex items-center gap-1"><Target className="w-3.5 h-3.5 text-accent-cyan" /> Suggestions</h4>
-                    {prediction.suggestions.map((s,i) => <p key={i} className="text-xs text-zinc-400 flex items-start gap-2 mb-1.5"><AlertTriangle className="w-3 h-3 text-amber-400 mt-0.5 flex-shrink-0" />{s}</p>)}
-                  </div>
-                )}
-              </div>
-            ) : !loadingPredict && (
-              <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-12 text-center">
-                <BarChart3 className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
-                <p className="text-sm text-zinc-500">Predict how your content will perform</p>
-              </div>
-            )}
-          </div>
         </div>
       )}
     </div>
   );
 }
+
+function ReviewLoader({ fetchApprovals }) {
+  React.useEffect(() => { fetchApprovals(); }, []);
+  return null;
+}
+

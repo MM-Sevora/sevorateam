@@ -6,6 +6,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import ContentStudio from './pages/ContentStudio';
+import AIToolsPage from './pages/AIToolsPage';
+import AutopilotPage from './pages/AutopilotPage';
 import PostsAndSchedule from './pages/PostsAndSchedule';
 import AvatarPage from './pages/AvatarPage';
 import YouTubeExplorer from './pages/YouTubeExplorer';
@@ -37,6 +39,8 @@ function App() {
           <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/studio" element={<ProtectedRoute><ContentStudio /></ProtectedRoute>} />
+          <Route path="/tools" element={<ProtectedRoute><AIToolsPage /></ProtectedRoute>} />
+          <Route path="/autopilot" element={<ProtectedRoute><AutopilotPage /></ProtectedRoute>} />
           <Route path="/posts" element={<ProtectedRoute><PostsAndSchedule /></ProtectedRoute>} />
           <Route path="/avatar" element={<ProtectedRoute><AvatarPage /></ProtectedRoute>} />
           <Route path="/youtube" element={<ProtectedRoute><YouTubeExplorer /></ProtectedRoute>} />
