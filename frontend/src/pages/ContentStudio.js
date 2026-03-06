@@ -190,17 +190,37 @@ export default function ContentStudio() {
   const tabs = [
     { key: 'create', label: 'Create & Refine', icon: Wand2 },
     { key: 'tools', label: 'AI Tools', icon: Sparkles },
-    { key: 'ideas', label: 'Ideas', icon: Lightbulb },
     { key: 'autopilot', label: 'Autopilot', icon: Zap },
     { key: 'predict', label: 'Predict', icon: BarChart3 },
   ];
+
+  // Team review
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewNote, setReviewNote] = useState('');
+  const [submitResult, setSubmitResult] = useState(null);
+
+  const submitForReview = async () => {
+    if (!generatedContent?.content) return;
+    setSubmittingReview(true); setSubmitResult(null);
+    try {
+      // Save as draft first, then submit for review
+      const postRes = await api.post('/api/posts', { platform, content: generatedContent.content, image_url: generatedImage || '', status: 'draft' });
+      const approvalRes = await api.post('/api/approvals/submit', { post_id: postRes.data.post_id, note: reviewNote });
+      setSubmitResult({ success: true, approval_id: approvalRes.data.approval_id });
+      setReviewNote('');
+    } catch (err) { setSubmitResult({ success: false, error: err.response?.data?.detail || 'Failed' }); }
+    finally { setSubmittingReview(false); }
+  };
+
+  // Ideas inline
+  const [showIdeas, setShowIdeas] = useState(false);
 
   return (
     <div className="space-y-6 animate-fade-in" data-testid="content-studio-page">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-heading font-bold text-white tracking-tight">Content Studio</h1>
-          <p className="text-zinc-400 mt-1">Create, predict, and publish content across all platforms</p>
+          <p className="text-zinc-400 mt-1">Ideate, create, refine, review, and queue content</p>
         </div>
       </div>
 
@@ -237,10 +257,30 @@ export default function ContentStudio() {
           {/* LEFT: Input (2 cols) */}
           <div className="lg:col-span-2 space-y-4">
             <div className="bg-zinc-900/50 backdrop-blur-md border border-white/5 rounded-xl p-5">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Topic</span>
+                <button onClick={() => { setShowIdeas(!showIdeas); if (!showIdeas && ideas.length === 0) generateIdeas(); }}
+                  className={`text-[10px] px-2.5 py-1 rounded-lg flex items-center gap-1 transition-all ${showIdeas ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'text-zinc-500 hover:text-white border border-white/5 hover:bg-white/5'}`}
+                ><Lightbulb className="w-3 h-3" /> {showIdeas ? 'Hide Ideas' : 'Get Ideas'}</button>
+              </div>
               <textarea value={topic} onChange={(e) => setTopic(e.target.value)}
                 className="w-full bg-zinc-950/50 border border-white/10 focus:border-accent-violet/50 focus:ring-2 focus:ring-accent-violet/20 rounded-lg py-3 px-4 text-sm text-white placeholder-zinc-500 resize-none"
-                rows={4} placeholder="What do you want to post about?" data-testid="studio-topic"
+                rows={3} placeholder="What do you want to post about?" data-testid="studio-topic"
               />
+              {/* Inline Ideas */}
+              {showIdeas && (
+                <div className="mt-3 space-y-1.5 max-h-40 overflow-y-auto">
+                  {loadingIdeas ? <div className="flex justify-center py-3"><Loader2 className="w-4 h-4 text-amber-400 animate-spin" /></div> :
+                  ideas.length > 0 ? ideas.map((idea, i) => (
+                    <button key={i} onClick={() => { setTopic(idea.title + ' - ' + idea.description); setShowIdeas(false); }}
+                      className="w-full text-left p-2.5 bg-zinc-800/60 hover:bg-zinc-700/60 rounded-lg border border-white/5 hover:border-amber-500/20 transition-all"
+                    >
+                      <p className="text-xs text-white font-medium">{idea.title}</p>
+                      <p className="text-[10px] text-zinc-500 line-clamp-1">{idea.description}</p>
+                    </button>
+                  )) : <p className="text-[10px] text-zinc-600 text-center py-2">Click to generate AI ideas for your platform</p>}
+                </div>
+              )}
               <div className="flex items-center gap-3 mt-3">
                 <select value={contentType} onChange={(e) => setContentType(e.target.value)}
                   className="bg-zinc-950/50 border border-white/10 rounded-lg py-2 px-3 text-xs text-white"
@@ -287,9 +327,11 @@ export default function ContentStudio() {
                   </div>
                 </div>
 
-                {/* Quality + Send to Queue - Always visible on left */}
-                <div className="bg-zinc-900/50 backdrop-blur-md border border-accent-violet/10 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-3">
+                {/* Quality + Team Review + Send to Queue */}
+                <div className="bg-zinc-900/50 backdrop-blur-md border border-accent-violet/10 rounded-xl p-4 space-y-3">
+                  {/* Step 1: Quality Check */}
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-accent-violet/15 text-accent-violet text-[10px] font-bold flex items-center justify-center">1</span>
                     <button onClick={checkQuality} disabled={checkingQuality} className="text-[10px] bg-zinc-800 hover:bg-zinc-700 text-white border border-white/10 rounded-lg px-3 py-1.5 flex items-center gap-1 disabled:opacity-50">
                       {checkingQuality ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />} Quality Check
                     </button>
@@ -298,19 +340,49 @@ export default function ContentStudio() {
                     )}
                   </div>
                   {qualityScore?.suggestions && (
-                    <div className="space-y-1 mb-3">{qualityScore.suggestions.slice(0, 2).map((s, i) => (
+                    <div className="space-y-1 pl-7">{qualityScore.suggestions.slice(0, 2).map((s, i) => (
                       <p key={i} className="text-[10px] text-zinc-400 flex items-start gap-1.5"><AlertTriangle className="w-3 h-3 text-amber-400 mt-0.5 flex-shrink-0" />{s}</p>
                     ))}</div>
                   )}
-                  <div className="flex gap-2">
-                    <button onClick={() => saveAsPost('draft')} disabled={savingPost} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white border border-white/10 rounded-lg px-4 py-2.5 text-xs flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all">
-                      <Download className="w-3.5 h-3.5" /> Save Draft
-                    </button>
-                    <button onClick={() => saveAsPost('scheduled')} disabled={savingPost} className="flex-1 bg-accent-violet hover:bg-accent-violet-hover text-white rounded-lg px-4 py-2.5 text-xs flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-[0_0_10px_rgba(124,58,237,0.2)] transition-all">
-                      <Send className="w-3.5 h-3.5" /> Add to Queue
-                    </button>
+
+                  {/* Step 2: Team Review (optional) */}
+                  <div className="border-t border-white/5 pt-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="w-5 h-5 rounded-full bg-amber-500/15 text-amber-400 text-[10px] font-bold flex items-center justify-center">2</span>
+                      <span className="text-[10px] text-zinc-400">Team Review (optional)</span>
+                    </div>
+                    <div className="pl-7 flex gap-2">
+                      <input type="text" value={reviewNote} onChange={(e) => setReviewNote(e.target.value)}
+                        className="flex-1 bg-zinc-950/50 border border-white/10 rounded-lg py-1.5 px-3 text-[10px] text-white placeholder-zinc-600"
+                        placeholder="Note for reviewer..." />
+                      <button onClick={submitForReview} disabled={submittingReview || !generatedContent}
+                        className="text-[10px] bg-amber-600/80 hover:bg-amber-600 text-white rounded-lg px-3 py-1.5 flex items-center gap-1 disabled:opacity-50 whitespace-nowrap">
+                        {submittingReview ? <Loader2 className="w-3 h-3 animate-spin" /> : <Users className="w-3 h-3" />} Submit for Review
+                      </button>
+                    </div>
+                    {submitResult && (
+                      <p className={`text-[10px] pl-7 mt-1 ${submitResult.success ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {submitResult.success ? 'Submitted! Reviewer will see it in Team & Voice → Approvals' : submitResult.error}
+                      </p>
+                    )}
                   </div>
-                  <p className="text-[9px] text-zinc-600 mt-2 text-center">Then go to Posts & Schedule to publish</p>
+
+                  {/* Step 3: Send to Queue */}
+                  <div className="border-t border-white/5 pt-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="w-5 h-5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-bold flex items-center justify-center">3</span>
+                      <span className="text-[10px] text-zinc-400">Send to Queue</span>
+                    </div>
+                    <div className="pl-7 flex gap-2">
+                      <button onClick={() => saveAsPost('draft')} disabled={savingPost} className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white border border-white/10 rounded-lg px-3 py-2 text-[10px] flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all">
+                        <Download className="w-3 h-3" /> Save Draft
+                      </button>
+                      <button onClick={() => saveAsPost('scheduled')} disabled={savingPost} className="flex-1 bg-accent-violet hover:bg-accent-violet-hover text-white rounded-lg px-3 py-2 text-[10px] flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-[0_0_10px_rgba(124,58,237,0.2)] transition-all">
+                        <Send className="w-3 h-3" /> Add to Queue
+                      </button>
+                    </div>
+                    <p className="text-[9px] text-zinc-600 mt-1.5 pl-7">Then go to Posts & Schedule to set timing and publish</p>
+                  </div>
                 </div>
               </>
             )}
