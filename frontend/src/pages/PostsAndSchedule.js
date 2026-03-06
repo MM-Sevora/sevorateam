@@ -3,7 +3,7 @@ import api from '../api';
 import {
   FileText, Trash2, Send, Clock, CheckCircle, Calendar as CalIcon,
   ChevronLeft, ChevronRight, Loader2, Heart, MessageSquare, Share2,
-  Plus, X, Image, Globe, List, Grid3X3, CalendarDays, Eye, Upload, AlertTriangle, Info, ExternalLink
+  Plus, X, Image, Globe, List, Grid3X3, CalendarDays, Eye, Upload, AlertTriangle, Info, ExternalLink, Sparkles
 } from 'lucide-react';
 import { FaFacebook, FaInstagram, FaTwitter, FaLinkedin, FaYoutube } from 'react-icons/fa';
 import { format, startOfWeek, addDays, addWeeks, subWeeks, isToday, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths } from 'date-fns';
@@ -107,6 +107,7 @@ export default function PostsAndSchedule() {
   const [uploading, setUploading] = useState(false);
   const [previewPlatform, setPreviewPlatform] = useState('linkedin');
   const [publishing, setPublishing] = useState('');
+  const [previewTab, setPreviewTab] = useState('compose');
   const fileRef = useRef(null);
 
   const fetchPosts = async () => {
@@ -329,11 +330,11 @@ export default function PostsAndSchedule() {
           )}
         </div>
 
-        {/* Side Panel */}
-        {(selectedPost || showComposer) && (
+        {/* Side Panel - Post Detail Only */}
+        {selectedPost && !showComposer && (
           <div className="w-[420px] flex-shrink-0 bg-zinc-900/50 border border-white/5 rounded-xl overflow-hidden max-h-[calc(100vh-200px)] overflow-y-auto" data-testid="side-panel">
             {/* SELECTED POST DETAIL */}
-            {selectedPost && !showComposer && (
+            {selectedPost && (
               <div>
                 <div className="p-3 border-b border-white/5 flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -369,115 +370,167 @@ export default function PostsAndSchedule() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+      </div>
 
-            {/* COMPOSER */}
-            {showComposer && (
-              <div>
-                <div className="p-3 border-b border-white/5 flex items-center justify-between">
-                  <h3 className="text-sm font-heading font-semibold text-white flex items-center gap-2"><Plus className="w-4 h-4 text-accent-violet" /> New Post</h3>
-                  <button onClick={() => setShowComposer(false)} className="p-1.5 rounded-lg hover:bg-white/5 text-zinc-500"><X className="w-4 h-4" /></button>
-                </div>
-                <div className="p-3 space-y-3">
-                  {/* Platforms */}
-                  <div>
-                    <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1.5">Publish to</p>
-                    <div className="flex gap-1.5">{platforms.map(p => (
-                      <button key={p.key} onClick={() => togglePlatform(p.key)} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-all ${cPlatforms.includes(p.key) ? 'bg-white/10 border-white/20 text-white' : 'border-white/5 text-zinc-600 opacity-50'}`}>
-                        <p.icon className="w-3.5 h-3.5" style={{ color: cPlatforms.includes(p.key) ? p.color : '#555' }} /> {p.label}
-                      </button>
-                    ))}</div>
+      {/* COMPOSER - FULL SCREEN MODAL (Buffer-style) */}
+      {showComposer && (
+              <div className="fixed inset-0 z-50 bg-black/70 flex items-start justify-center pt-8" onClick={(e) => { if (e.target === e.currentTarget) setShowComposer(false); }}>
+                <div className="bg-zinc-900 rounded-2xl border border-white/10 w-[900px] max-h-[85vh] overflow-hidden flex flex-col shadow-2xl" data-testid="composer-modal">
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+                    <div className="flex items-center gap-4">
+                      <h2 className="text-lg font-heading font-bold text-white">Create Post</h2>
+                      <button className="text-xs text-zinc-400 hover:text-white border border-white/10 rounded-lg px-3 py-1.5 flex items-center gap-1.5 hover:bg-white/5"><Sparkles className="w-3.5 h-3.5" /> AI Assistant</button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button className={`text-xs px-3 py-1.5 rounded-lg transition-all ${previewTab === 'compose' ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white'}`} onClick={() => setPreviewTab('compose')}>Compose</button>
+                      <button className={`text-xs px-3 py-1.5 rounded-lg transition-all ${previewTab === 'preview' ? 'bg-accent-violet/15 text-accent-violet' : 'text-zinc-400 hover:text-white'}`} onClick={() => setPreviewTab('preview')}>Preview</button>
+                      <button onClick={() => setShowComposer(false)} className="p-2 rounded-lg hover:bg-white/5 text-zinc-400 ml-2"><X className="w-5 h-5" /></button>
+                    </div>
                   </div>
 
-                  {/* Content with platform tabs */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Content</p>
-                      <div className="flex gap-0.5">
-                        {cPlatforms.map(p => { const m = platforms.find(x => x.key === p); return (
-                          <button key={p} onClick={() => setPreviewPlatform(p)} className={`p-1 rounded transition-all ${previewPlatform === p ? 'bg-white/10' : ''}`}>
-                            <m.icon className="w-3 h-3" style={{ color: previewPlatform === p ? m.color : '#555' }} />
+                  {/* Body - Split Layout */}
+                  <div className="flex flex-1 overflow-hidden">
+                    {/* Left: Compose */}
+                    <div className="flex-1 flex flex-col border-r border-white/5 overflow-y-auto">
+                      {/* Platform Avatars */}
+                      <div className="px-6 pt-5 pb-3 flex items-center gap-3">
+                        {platforms.map(p => {
+                          const active = cPlatforms.includes(p.key);
+                          return (
+                            <button key={p.key} onClick={() => togglePlatform(p.key)} className={`relative w-12 h-12 rounded-full border-2 transition-all flex items-center justify-center ${active ? 'border-white/30 bg-white/10' : 'border-white/5 opacity-40 hover:opacity-70'}`} title={p.label}>
+                              <p.icon className="w-5 h-5" style={{ color: active ? p.color : '#555' }} />
+                              <div className={`absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold ${active ? 'text-white' : 'bg-zinc-700 text-zinc-400'}`} style={active ? { backgroundColor: p.color } : {}}>
+                                {p.label.charAt(0)}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Text Area */}
+                      <div className="flex-1 px-6 pb-3">
+                        {/* Platform content tabs */}
+                        {cPlatforms.length > 1 && (
+                          <div className="flex gap-1 mb-2">
+                            {cPlatforms.map(p => { const m = platforms.find(x => x.key === p); return (
+                              <button key={p} onClick={() => setPreviewPlatform(p)} className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${previewPlatform === p ? 'bg-white/10 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
+                                <m.icon className="w-3 h-3" style={{ color: previewPlatform === p ? m.color : '#666' }} /> {m.label}
+                              </button>
+                            ); })}
+                          </div>
+                        )}
+                        <textarea value={getContent(previewPlatform)} onChange={(e) => setContent(previewPlatform, e.target.value)}
+                          className="w-full h-48 bg-transparent text-white text-[15px] leading-relaxed placeholder-zinc-600 resize-none focus:outline-none"
+                          placeholder="What would you like to share?"
+                          data-testid="composer-textarea"
+                        />
+                        {/* Char count */}
+                        <div className="flex items-center justify-between text-[10px] mt-1">
+                          <div className="flex items-center gap-2">
+                            <div className="w-16 h-1 rounded-full bg-zinc-800 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${charPercent}%`, backgroundColor: charColor }} /></div>
+                            <span style={{ color: charColor }}>{currentContent.length}/{currentPlatformConfig.maxChars}</span>
+                          </div>
+                          <span className="text-zinc-600">Optimal: {currentPlatformConfig.optimalChars} chars</span>
+                        </div>
+                      </div>
+
+                      {/* Image Upload Area */}
+                      <div className="px-6 pb-3">
+                        {cImageUrl ? (
+                          <div className="relative rounded-xl overflow-hidden border border-white/10 mb-2">
+                            <img src={cImageUrl} alt="" className="w-full h-40 object-cover" />
+                            <button onClick={() => setCImageUrl('')} className="absolute top-2 right-2 p-1.5 rounded-full bg-black/70 text-white hover:bg-red-600 transition-colors"><X className="w-4 h-4" /></button>
+                          </div>
+                        ) : (
+                          <button onClick={() => fileRef.current?.click()} disabled={uploading}
+                            className="w-32 h-24 rounded-xl border-2 border-dashed border-white/10 hover:border-accent-violet/30 text-zinc-600 hover:text-accent-violet flex flex-col items-center justify-center gap-1 transition-all disabled:opacity-50 mb-2">
+                            {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
+                            <span className="text-[10px]">{uploading ? 'Uploading...' : 'Drag & drop or select a file'}</span>
                           </button>
-                        ); })}
+                        )}
+                        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
+                      </div>
+
+                      {/* Bottom Toolbar */}
+                      <div className="px-6 py-3 border-t border-white/5 flex items-center justify-between">
+                        <div className="flex items-center gap-1">
+                          <button className="p-2 rounded-lg hover:bg-white/5 text-zinc-500 hover:text-white" title="Add media" onClick={() => fileRef.current?.click()}><Plus className="w-4 h-4" /></button>
+                          <span className="w-px h-5 bg-white/10" />
+                          <button className="p-2 rounded-lg hover:bg-white/5 text-zinc-500 hover:text-white" title="Emoji">
+                            <span className="text-sm">&#128522;</span>
+                          </button>
+                          <button className="p-2 rounded-lg hover:bg-white/5 text-zinc-500 hover:text-white text-sm font-bold" title="Hashtag">#</button>
+                        </div>
+                        {currentPlatformConfig.imageRequired && !cImageUrl && (
+                          <span className="text-[10px] text-amber-400 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {currentPlatformConfig.label} requires an image</span>
+                        )}
                       </div>
                     </div>
-                    <textarea value={getContent(previewPlatform)} onChange={(e) => setContent(previewPlatform, e.target.value)}
-                      className="w-full bg-zinc-950/50 border border-white/10 focus:border-accent-violet/50 rounded-lg py-2.5 px-3 text-sm text-white placeholder-zinc-500 resize-none"
-                      rows={4} placeholder={`Write for ${previewPlatform}... (${currentPlatformConfig.optimalChars} chars optimal)`}
-                    />
-                    <div className="flex items-center justify-between mt-1">
-                      <div className="flex items-center gap-2">
-                        <div className="w-20 h-1.5 rounded-full bg-zinc-800 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${charPercent}%`, backgroundColor: charColor }} /></div>
-                        <span className="text-[10px]" style={{ color: charColor }}>{currentContent.length}/{currentPlatformConfig.maxChars}</span>
+
+                    {/* Right: Live Preview */}
+                    <div className="w-[360px] flex-shrink-0 bg-zinc-950/50 overflow-y-auto">
+                      <div className="p-5">
+                        <h3 className="text-sm font-heading font-semibold text-white mb-4">Post Previews</h3>
+                        {/* Preview tabs */}
+                        <div className="flex gap-1 mb-4">
+                          {cPlatforms.map(p => { const m = platforms.find(x => x.key === p); return (
+                            <button key={p} onClick={() => setPreviewPlatform(p)} className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-all ${previewPlatform === p ? 'bg-white/10 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
+                              <m.icon className="w-3.5 h-3.5" style={{ color: previewPlatform === p ? m.color : '#666' }} /> {m.label}
+                            </button>
+                          ); })}
+                        </div>
+                        {/* Preview */}
+                        <div className="rounded-xl overflow-hidden border border-white/10 shadow-lg">
+                          {previewPlatform === 'linkedin' && <LinkedInPreview content={getContent('linkedin')} image={cImageUrl} />}
+                          {previewPlatform === 'instagram' && <InstagramPreview content={getContent('instagram')} image={cImageUrl} />}
+                          {previewPlatform === 'facebook' && <FacebookPreview content={getContent('facebook')} image={cImageUrl} />}
+                          {previewPlatform === 'twitter' && <TwitterPreview content={getContent('twitter')} image={cImageUrl} />}
+                        </div>
+                        {/* Platform tip */}
+                        <div className="mt-3 p-2.5 bg-zinc-800/50 rounded-lg text-[10px] text-zinc-500 flex items-start gap-1.5">
+                          <Info className="w-3 h-3 mt-0.5 flex-shrink-0 text-accent-violet" />
+                          {currentPlatformConfig.key === 'twitter' ? 'Keep under 280 chars. Tweets with images get 150% more retweets.' :
+                           currentPlatformConfig.key === 'instagram' ? 'First 125 chars visible. Image required. Use up to 30 hashtags.' :
+                           currentPlatformConfig.key === 'linkedin' ? 'Start with a hook. Use line breaks for readability. 3-5 hashtags.' :
+                           'Shorter posts get more engagement. Questions drive comments.'}
+                        </div>
                       </div>
-                      {currentPlatformConfig.imageRequired && !cImageUrl && <span className="text-[10px] text-amber-400 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Image required</span>}
-                    </div>
-                    {/* Platform tip */}
-                    <div className="mt-1.5 p-2 bg-zinc-800/50 rounded-lg text-[10px] text-zinc-500 flex items-start gap-1.5">
-                      <Info className="w-3 h-3 mt-0.5 flex-shrink-0 text-accent-violet" />
-                      {currentPlatformConfig.key === 'twitter' ? 'Keep it under 280 chars. 1-2 hashtags max.' :
-                       currentPlatformConfig.key === 'instagram' ? 'First 125 chars visible before "more". Image is required.' :
-                       currentPlatformConfig.key === 'linkedin' ? 'Start with a hook. Use line breaks. 3-5 hashtags.' :
-                       'Shorter posts get more engagement. 1-3 hashtags.'}
                     </div>
                   </div>
 
-                  {/* Image Upload */}
-                  <div>
-                    <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1.5">Image</p>
-                    {cImageUrl ? (
-                      <div className="relative rounded-lg overflow-hidden border border-white/10">
-                        <img src={cImageUrl} alt="" className="w-full h-32 object-cover" />
-                        <button onClick={() => setCImageUrl('')} className="absolute top-2 right-2 p-1 rounded-full bg-black/60 text-white hover:bg-red-600"><X className="w-3 h-3" /></button>
-                      </div>
-                    ) : (
-                      <button onClick={() => fileRef.current?.click()} disabled={uploading}
-                        className="w-full p-4 rounded-lg border-2 border-dashed border-white/10 hover:border-accent-violet/30 text-zinc-500 hover:text-accent-violet text-xs flex flex-col items-center gap-2 transition-all disabled:opacity-50">
-                        {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
-                        {uploading ? 'Uploading...' : 'Click to upload image'}
-                        <span className="text-[10px] text-zinc-600">JPG, PNG, GIF, WebP (max 10MB)</span>
-                      </button>
-                    )}
-                    <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
-                  </div>
-
-                  {/* Date/Time */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div><p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1.5">Date</p><input type="date" value={cDate} onChange={(e) => setCDate(e.target.value)} className="w-full bg-zinc-950/50 border border-white/10 rounded-lg py-2 px-3 text-xs text-white" /></div>
-                    <div><p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1.5">Time</p><input type="time" value={cTime} onChange={(e) => setCTime(e.target.value)} className="w-full bg-zinc-950/50 border border-white/10 rounded-lg py-2 px-3 text-xs text-white" /></div>
-                  </div>
-
-                  {/* Preview */}
-                  <div>
-                    <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1.5">Preview - {previewPlatform}</p>
-                    <div className="rounded-xl overflow-hidden border border-white/10">
-                      {previewPlatform === 'linkedin' && <LinkedInPreview content={getContent('linkedin')} image={cImageUrl} />}
-                      {previewPlatform === 'instagram' && <InstagramPreview content={getContent('instagram')} image={cImageUrl} />}
-                      {previewPlatform === 'facebook' && <FacebookPreview content={getContent('facebook')} image={cImageUrl} />}
-                      {previewPlatform === 'twitter' && <TwitterPreview content={getContent('twitter')} image={cImageUrl} />}
+                  {/* Footer - Scheduling */}
+                  <div className="px-6 py-4 border-t border-white/5 flex items-center justify-between bg-zinc-900">
+                    <div className="flex items-center gap-3">
+                      {cError && <span className="text-xs text-red-400">{cError}</span>}
+                      {cResult && cResult._scheduled && <span className="text-xs text-accent-violet flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5" /> Scheduled for {cDate} {cTime}</span>}
+                      {cResult && !cResult._scheduled && Object.entries(cResult).map(([p, r]) => (
+                        <span key={p} className={`text-xs flex items-center gap-1 ${r.success ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {r.success ? <CheckCircle className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />} {p}: {r.success ? 'Done!' : 'Failed'}
+                        </span>
+                      ))}
                     </div>
-                  </div>
-
-                  {cError && <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">{cError}</div>}
-                  {cResult && (
-                    <div className="space-y-1">{cResult._scheduled ? (
-                      <div className="p-2 rounded-lg bg-accent-violet/10 text-accent-violet text-xs flex items-center gap-2"><CalIcon className="w-3.5 h-3.5" /> Scheduled for {cDate} at {cTime}!</div>
-                    ) : Object.entries(cResult).map(([p, r]) => (
-                      <div key={p} className={`p-2 rounded-lg text-xs flex items-center gap-2 ${r.success ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
-                        {r.success ? <CheckCircle className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />} <span className="capitalize">{p}:</span> {r.success ? 'Published!' : r.error?.slice(0, 50)}
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 bg-zinc-800 rounded-lg px-3 py-2 border border-white/10">
+                        <Clock className="w-4 h-4 text-zinc-400" />
+                        <input type="date" value={cDate} onChange={(e) => setCDate(e.target.value)} className="bg-transparent text-xs text-white w-28" />
+                        <input type="time" value={cTime} onChange={(e) => setCTime(e.target.value)} className="bg-transparent text-xs text-white w-20" />
                       </div>
-                    ))}</div>
-                  )}
-
-                  <div className="flex gap-2 pt-1">
-                    <button onClick={() => handleSubmit('schedule')} disabled={cSaving} className="flex-1 bg-accent-violet hover:bg-accent-violet-hover text-white rounded-lg font-medium py-2.5 text-sm flex items-center justify-center gap-2 disabled:opacity-50"><Clock className="w-4 h-4" /> Schedule</button>
-                    <button onClick={() => handleSubmit('post_now')} disabled={cSaving} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium py-2.5 text-sm flex items-center justify-center gap-2 disabled:opacity-50"><Globe className="w-4 h-4" /> Post Now</button>
+                      <button onClick={() => handleSubmit('schedule')} disabled={cSaving}
+                        className="bg-zinc-800 hover:bg-zinc-700 text-white border border-white/10 rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 transition-all"
+                        data-testid="composer-schedule"
+                      >{cSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clock className="w-4 h-4" />} Schedule</button>
+                      <button onClick={() => handleSubmit('post_now')} disabled={cSaving}
+                        className="bg-accent-violet hover:bg-accent-violet-hover text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 shadow-[0_0_15px_rgba(124,58,237,0.3)] transition-all"
+                        data-testid="composer-publish"
+                      >{cSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />} Publish Now</button>
+                    </div>
                   </div>
                 </div>
               </div>
             )}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
