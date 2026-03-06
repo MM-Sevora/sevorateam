@@ -7,8 +7,9 @@ from contextlib import asynccontextmanager
 
 import jwt
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Depends, Header
+from fastapi import FastAPI, HTTPException, Depends, Header, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from pymongo import MongoClient
@@ -176,6 +177,10 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="SocialFlow AI", lifespan=lifespan)
+
+# Serve uploaded files
+os.makedirs("/app/backend/uploads", exist_ok=True)
+app.mount("/api/uploads", StaticFiles(directory="/app/backend/uploads"), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,
@@ -1055,6 +1060,63 @@ async def get_autopilot_posts(auth: dict = Depends(verify_token)):
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "service": "SocialFlow AI"}
+
+# ===== Image Upload =====
+
+@app.post("/api/upload/image")
+async def upload_image(file: UploadFile = File(...), auth: dict = Depends(verify_token)):
+    """Upload an image file and return a public URL"""
+    allowed = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+    if file.content_type not in allowed:
+        raise HTTPException(status_code=400, detail=f"File type {file.content_type} not allowed")
+    if file.size and file.size > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 10MB)")
+    ext = file.filename.split(".")[-1] if "." in file.filename else "jpg"
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    filepath = f"/app/backend/uploads/{filename}"
+    contents = await file.read()
+    with open(filepath, "wb") as f:
+        f.write(contents)
+    image_url = f"{APP_BASE_URL}/api/uploads/{filename}"
+    return {"url": image_url, "filename": filename, "size": len(contents)}
+
+# ===== Platform Post Config =====
+
+@app.get("/api/platforms/post-config")
+async def get_post_config(auth: dict = Depends(verify_token)):
+    """Get platform-specific posting guidelines"""
+    return {
+        "linkedin": {
+            "max_chars": 3000, "optimal_chars": "100-300", "image_ratio": "1.91:1 or 1:1",
+            "image_size": "1200x627 or 1080x1080", "hashtag_limit": 5,
+            "tips": ["Start with a hook in the first line", "Use line breaks for readability", "End with a question or CTA", "3-5 relevant hashtags work best"],
+            "supports_image": True, "supports_video": False, "supports_carousel": False,
+        },
+        "instagram": {
+            "max_chars": 2200, "optimal_chars": "138-150", "image_ratio": "1:1, 4:5, or 1.91:1",
+            "image_size": "1080x1080 (square) or 1080x1350 (portrait)", "hashtag_limit": 30,
+            "tips": ["First 125 chars visible before 'more'", "Use up to 30 hashtags", "Image is REQUIRED for posts", "Emojis boost engagement 48%"],
+            "supports_image": True, "supports_video": True, "supports_carousel": True, "image_required": True,
+        },
+        "facebook": {
+            "max_chars": 63206, "optimal_chars": "40-80", "image_ratio": "1.91:1",
+            "image_size": "1200x630", "hashtag_limit": 3,
+            "tips": ["Shorter posts get more engagement", "Questions drive comments", "Native video outperforms links", "1-3 hashtags maximum"],
+            "supports_image": True, "supports_video": True, "supports_carousel": False,
+        },
+        "twitter": {
+            "max_chars": 280, "optimal_chars": "71-100", "image_ratio": "16:9",
+            "image_size": "1200x675", "hashtag_limit": 2,
+            "tips": ["Keep it punchy and concise", "Use 1-2 hashtags max", "Tweets with images get 150% more retweets", "Ask questions for engagement"],
+            "supports_image": True, "supports_video": True, "supports_carousel": False,
+        },
+        "youtube": {
+            "max_chars": 5000, "optimal_chars": "200-500", "image_ratio": "16:9",
+            "image_size": "1280x720 (thumbnail)", "hashtag_limit": 15,
+            "tips": ["Front-load keywords in description", "Include timestamps", "Add links and CTAs", "Use relevant tags"],
+            "supports_image": False, "supports_video": True, "supports_carousel": False,
+        },
+    }
 
 # ===== Analytics & Reports =====
 
