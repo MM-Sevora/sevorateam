@@ -3,7 +3,7 @@ import api from '../api';
 import {
   FileText, Trash2, Send, Clock, CheckCircle, Calendar as CalIcon,
   ChevronLeft, ChevronRight, Loader2, Heart, MessageSquare, Share2,
-  Plus, X, Image, Globe, List, Grid3X3, CalendarDays, Eye, Upload, AlertTriangle, Info, ExternalLink, Sparkles
+  Plus, X, Image, Globe, List, Grid3X3, CalendarDays, Eye, Upload, AlertTriangle, Info, ExternalLink, Sparkles, Edit3
 } from 'lucide-react';
 import { FaFacebook, FaInstagram, FaTwitter, FaLinkedin, FaYoutube } from 'react-icons/fa';
 import { format, startOfWeek, addDays, addWeeks, subWeeks, isToday, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths } from 'date-fns';
@@ -98,9 +98,11 @@ export default function PostsAndSchedule() {
   // Composer
   const [cPlatforms, setCPlatforms] = useState(['linkedin']);
   const [cContents, setCContents] = useState({}); // per-platform content
-  const [cImageUrl, setCImageUrl] = useState('');
+  const [cImages, setCImages] = useState([]); // multiple images [{url, filename}]
+  const [cSchedules, setCSchedules] = useState({}); // per-platform schedule {linkedin: {date, time}, ...}
   const [cDate, setCDate] = useState('');
   const [cTime, setCTime] = useState('10:00');
+  const [cSameTime, setCSameTime] = useState(true); // same time for all platforms
   const [cSaving, setCSaving] = useState(false);
   const [cError, setCError] = useState('');
   const [cResult, setCResult] = useState(null);
@@ -108,6 +110,7 @@ export default function PostsAndSchedule() {
   const [previewPlatform, setPreviewPlatform] = useState('linkedin');
   const [publishing, setPublishing] = useState('');
   const [previewTab, setPreviewTab] = useState('compose');
+  const [editingPost, setEditingPost] = useState(null); // post being edited
   const fileRef = useRef(null);
 
   const fetchPosts = async () => {
@@ -123,11 +126,26 @@ export default function PostsAndSchedule() {
     return posts.filter(p => (p.scheduled_at || p.created_at || '').slice(0, 10) === dateStr).filter(p => !filterPlatform || p.platform === filterPlatform);
   };
 
-  const openComposer = (date) => {
-    setCDate(date ? format(date, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'));
-    setCContents({}); setCImageUrl(''); setCTime('10:00');
-    setCPlatforms(['linkedin']); setCError(''); setCResult(null);
-    setPreviewPlatform('linkedin'); setShowComposer(true); setSelectedPost(null);
+  const openComposer = (date, post = null) => {
+    if (post) {
+      // Edit mode
+      setEditingPost(post);
+      setCPlatforms([post.platform]);
+      setCContents({ [post.platform]: post.content, _shared: post.content });
+      setCImages(post.image_url ? [{ url: post.image_url }] : []);
+      const sa = post.scheduled_at || '';
+      setCDate(sa.split('T')[0] || format(new Date(), 'yyyy-MM-dd'));
+      setCTime(sa.split('T')[1]?.slice(0, 5) || '10:00');
+      setPreviewPlatform(post.platform);
+    } else {
+      // New post mode
+      setEditingPost(null);
+      setCDate(date ? format(date, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'));
+      setCContents({}); setCImages([]); setCTime('10:00');
+      setCPlatforms(['linkedin']); setPreviewPlatform('linkedin');
+    }
+    setCSchedules({}); setCSameTime(true);
+    setCError(''); setCResult(null); setShowComposer(true); setSelectedPost(null);
   };
 
   const togglePlatform = (p) => {
@@ -151,21 +169,36 @@ export default function PostsAndSchedule() {
   };
 
   const handleUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
     setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const token = localStorage.getItem('sf_token');
-      const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/upload/image`, {
-        method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData,
-      });
-      const data = await res.json();
-      if (data.url) setCImageUrl(data.url);
-      else setCError(data.detail || 'Upload failed');
-    } catch (err) { setCError('Upload failed'); }
-    finally { setUploading(false); }
+    const token = localStorage.getItem('sf_token');
+    for (const file of files) {
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/upload/image`, {
+          method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData,
+        });
+        const data = await res.json();
+        if (data.url) setCImages(prev => [...prev, { url: data.url, filename: data.filename }]);
+        else setCError(data.detail || 'Upload failed');
+      } catch (err) { setCError('Upload failed'); }
+    }
+    setUploading(false);
+    if (fileRef.current) fileRef.current.value = '';
+  };
+
+  const removeImage = (index) => { setCImages(prev => prev.filter((_, i) => i !== index)); };
+  const primaryImage = cImages.length > 0 ? cImages[0].url : '';
+
+  const getSchedule = (platform) => {
+    if (cSameTime) return { date: cDate, time: cTime };
+    return cSchedules[platform] || { date: cDate, time: cTime };
+  };
+
+  const setPlatformSchedule = (platform, field, value) => {
+    setCSchedules(prev => ({ ...prev, [platform]: { ...getSchedule(platform), [field]: value } }));
   };
 
   const handleSubmit = async (action) => {
@@ -174,23 +207,45 @@ export default function PostsAndSchedule() {
     if (!hasContent) { setCError('Content is required'); return; }
     setCSaving(true); setCError(''); setCResult(null);
 
-    if (action === 'post_now') {
+    if (editingPost) {
+      // UPDATE existing post
+      try {
+        await api.put(`/api/posts/${editingPost.post_id}`, {
+          content: getContent(editingPost.platform),
+          image_url: primaryImage,
+          scheduled_at: `${cDate}T${cTime}`,
+          status: action === 'post_now' ? 'published' : (action === 'draft' ? 'draft' : 'scheduled'),
+        });
+        if (action === 'post_now') {
+          const res = await api.post('/api/publish/real', { content: getContent(editingPost.platform), platform: editingPost.platform, image_url: primaryImage });
+          setCResult({ [editingPost.platform]: res.data });
+        } else {
+          setCResult({ _scheduled: true });
+        }
+      } catch (err) { setCError(err.response?.data?.detail || 'Update failed'); }
+    } else if (action === 'post_now') {
       const results = {};
       for (const p of cPlatforms) {
         const text = getContent(p);
         if (!text.trim()) continue;
         try {
-          const res = await api.post('/api/publish/real', { content: text, platform: p, image_url: cImageUrl });
+          const res = await api.post('/api/publish/real', { content: text, platform: p, image_url: primaryImage });
           results[p] = res.data;
         } catch (err) { results[p] = { success: false, error: err.response?.data?.detail || 'Failed' }; }
       }
       setCResult(results);
     } else {
+      // Schedule/Draft - per-platform times
       for (const p of cPlatforms) {
         const text = getContent(p);
         if (!text.trim()) continue;
+        const sched = getSchedule(p);
         try {
-          await api.post('/api/posts', { platform: p, content: text, image_url: cImageUrl, scheduled_at: `${cDate}T${cTime}`, status: 'scheduled' });
+          await api.post('/api/posts', {
+            platform: p, content: text, image_url: primaryImage,
+            scheduled_at: `${sched.date}T${sched.time}`,
+            status: action === 'draft' ? 'draft' : 'scheduled',
+          });
         } catch (err) { setCError(`Failed for ${p}`); }
       }
       setCResult({ _scheduled: true });
@@ -342,7 +397,13 @@ export default function PostsAndSchedule() {
                     <span className={`text-[10px] px-2 py-0.5 rounded-full ${(statusColors[selectedPost.status]||{}).bg} ${(statusColors[selectedPost.status]||{}).text}`}>{(statusColors[selectedPost.status]||{}).label}</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    {selectedPost.status !== 'published' && <button onClick={() => handlePublishPost(selectedPost)} disabled={!!publishing} className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-3 py-1.5 flex items-center gap-1 disabled:opacity-50">{publishing === selectedPost.post_id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />} Post now</button>}
+                    {selectedPost.status !== 'published' && (
+                      <>
+                        <button onClick={() => openComposer(null, selectedPost)} className="text-xs bg-zinc-700 hover:bg-zinc-600 text-white rounded-lg px-3 py-1.5 flex items-center gap-1"><Edit3 className="w-3 h-3" /> Edit</button>
+                        <button onClick={() => handlePublishPost(selectedPost)} disabled={!!publishing} className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-3 py-1.5 flex items-center gap-1 disabled:opacity-50">{publishing === selectedPost.post_id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />} Post now</button>
+                      </>
+                    )}
+                    {selectedPost.status === 'published' && <button onClick={() => openComposer(null, selectedPost)} className="text-xs bg-zinc-700 hover:bg-zinc-600 text-white rounded-lg px-3 py-1.5 flex items-center gap-1"><Edit3 className="w-3 h-3" /> Reuse</button>}
                     <button onClick={() => handleDeletePost(selectedPost.post_id)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-zinc-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
                     <button onClick={() => setSelectedPost(null)} className="p-1.5 rounded-lg hover:bg-white/5 text-zinc-500"><X className="w-4 h-4" /></button>
                   </div>
@@ -381,7 +442,7 @@ export default function PostsAndSchedule() {
                   {/* Header */}
                   <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
                     <div className="flex items-center gap-4">
-                      <h2 className="text-lg font-heading font-bold text-white">Create Post</h2>
+                      <h2 className="text-lg font-heading font-bold text-white">{editingPost ? 'Edit Post' : 'Create Post'}</h2>
                       <button className="text-xs text-zinc-400 hover:text-white border border-white/10 rounded-lg px-3 py-1.5 flex items-center gap-1.5 hover:bg-white/5"><Sparkles className="w-3.5 h-3.5" /> AI Assistant</button>
                     </div>
                     <div className="flex items-center gap-2">
@@ -437,21 +498,32 @@ export default function PostsAndSchedule() {
                         </div>
                       </div>
 
-                      {/* Image Upload Area */}
+                      {/* Image Upload Area - Multiple Images */}
                       <div className="px-6 pb-3">
-                        {cImageUrl ? (
-                          <div className="relative rounded-xl overflow-hidden border border-white/10 mb-2">
-                            <img src={cImageUrl} alt="" className="w-full h-40 object-cover" />
-                            <button onClick={() => setCImageUrl('')} className="absolute top-2 right-2 p-1.5 rounded-full bg-black/70 text-white hover:bg-red-600 transition-colors"><X className="w-4 h-4" /></button>
+                        {cImages.length > 0 && (
+                          <div className="flex gap-2 mb-2 flex-wrap">
+                            {cImages.map((img, i) => (
+                              <div key={i} className="relative w-24 h-24 rounded-xl overflow-hidden border border-white/10 group">
+                                <img src={img.url} alt="" className="w-full h-full object-cover" />
+                                <button onClick={() => removeImage(i)} className="absolute top-1 right-1 p-1 rounded-full bg-black/70 text-white hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-3 h-3" /></button>
+                                {i === 0 && <span className="absolute bottom-1 left-1 text-[8px] bg-accent-violet text-white px-1.5 py-0.5 rounded">Primary</span>}
+                              </div>
+                            ))}
+                            <button onClick={() => fileRef.current?.click()} disabled={uploading}
+                              className="w-24 h-24 rounded-xl border-2 border-dashed border-white/10 hover:border-accent-violet/30 text-zinc-600 hover:text-accent-violet flex flex-col items-center justify-center gap-1 transition-all disabled:opacity-50">
+                              {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                              <span className="text-[9px]">Add</span>
+                            </button>
                           </div>
-                        ) : (
+                        )}
+                        {cImages.length === 0 && (
                           <button onClick={() => fileRef.current?.click()} disabled={uploading}
                             className="w-32 h-24 rounded-xl border-2 border-dashed border-white/10 hover:border-accent-violet/30 text-zinc-600 hover:text-accent-violet flex flex-col items-center justify-center gap-1 transition-all disabled:opacity-50 mb-2">
                             {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
-                            <span className="text-[10px]">{uploading ? 'Uploading...' : 'Drag & drop or select a file'}</span>
+                            <span className="text-[10px]">{uploading ? 'Uploading...' : 'Drag & drop or select files'}</span>
                           </button>
                         )}
-                        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
+                        <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
                       </div>
 
                       {/* Bottom Toolbar */}
@@ -464,7 +536,7 @@ export default function PostsAndSchedule() {
                           </button>
                           <button className="p-2 rounded-lg hover:bg-white/5 text-zinc-500 hover:text-white text-sm font-bold" title="Hashtag">#</button>
                         </div>
-                        {currentPlatformConfig.imageRequired && !cImageUrl && (
+                        {currentPlatformConfig.imageRequired && !primaryImage && (
                           <span className="text-[10px] text-amber-400 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {currentPlatformConfig.label} requires an image</span>
                         )}
                       </div>
@@ -484,10 +556,10 @@ export default function PostsAndSchedule() {
                         </div>
                         {/* Preview */}
                         <div className="rounded-xl overflow-hidden border border-white/10 shadow-lg">
-                          {previewPlatform === 'linkedin' && <LinkedInPreview content={getContent('linkedin')} image={cImageUrl} />}
-                          {previewPlatform === 'instagram' && <InstagramPreview content={getContent('instagram')} image={cImageUrl} />}
-                          {previewPlatform === 'facebook' && <FacebookPreview content={getContent('facebook')} image={cImageUrl} />}
-                          {previewPlatform === 'twitter' && <TwitterPreview content={getContent('twitter')} image={cImageUrl} />}
+                          {previewPlatform === 'linkedin' && <LinkedInPreview content={getContent('linkedin')} image={primaryImage} />}
+                          {previewPlatform === 'instagram' && <InstagramPreview content={getContent('instagram')} image={primaryImage} />}
+                          {previewPlatform === 'facebook' && <FacebookPreview content={getContent('facebook')} image={primaryImage} />}
+                          {previewPlatform === 'twitter' && <TwitterPreview content={getContent('twitter')} image={primaryImage} />}
                         </div>
                         {/* Platform tip */}
                         <div className="mt-3 p-2.5 bg-zinc-800/50 rounded-lg text-[10px] text-zinc-500 flex items-start gap-1.5">
@@ -502,30 +574,59 @@ export default function PostsAndSchedule() {
                   </div>
 
                   {/* Footer - Scheduling */}
-                  <div className="px-6 py-4 border-t border-white/5 flex items-center justify-between bg-zinc-900">
-                    <div className="flex items-center gap-3">
-                      {cError && <span className="text-xs text-red-400">{cError}</span>}
-                      {cResult && cResult._scheduled && <span className="text-xs text-accent-violet flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5" /> Scheduled for {cDate} {cTime}</span>}
-                      {cResult && !cResult._scheduled && Object.entries(cResult).map(([p, r]) => (
-                        <span key={p} className={`text-xs flex items-center gap-1 ${r.success ? 'text-emerald-400' : 'text-red-400'}`}>
-                          {r.success ? <CheckCircle className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />} {p}: {r.success ? 'Done!' : 'Failed'}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2 bg-zinc-800 rounded-lg px-3 py-2 border border-white/10">
+                  <div className="px-6 py-4 border-t border-white/5 bg-zinc-900">
+                    {/* Per-platform scheduling toggle */}
+                    {cPlatforms.length > 1 && (
+                      <div className="flex items-center gap-3 mb-3">
+                        <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer">
+                          <input type="checkbox" checked={cSameTime} onChange={(e) => setCSameTime(e.target.checked)} className="rounded bg-zinc-800 border-white/10 text-accent-violet focus:ring-accent-violet/20" />
+                          Same time for all platforms
+                        </label>
+                      </div>
+                    )}
+
+                    {!cSameTime && cPlatforms.length > 1 ? (
+                      <div className="space-y-2 mb-3">
+                        {cPlatforms.map(p => { const m = platforms.find(x => x.key === p); const s = getSchedule(p); return (
+                          <div key={p} className="flex items-center gap-3 bg-zinc-800/60 rounded-lg px-3 py-2">
+                            <m.icon className="w-3.5 h-3.5" style={{ color: m.color }} />
+                            <span className="text-xs text-white w-20">{m.label}</span>
+                            <input type="date" value={s.date} onChange={(e) => setPlatformSchedule(p, 'date', e.target.value)} className="bg-zinc-950/50 border border-white/10 rounded-lg px-2 py-1 text-xs text-white" />
+                            <input type="time" value={s.time} onChange={(e) => setPlatformSchedule(p, 'time', e.target.value)} className="bg-zinc-950/50 border border-white/10 rounded-lg px-2 py-1 text-xs text-white" />
+                          </div>
+                        ); })}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 bg-zinc-800 rounded-lg px-3 py-2 border border-white/10 mb-3 w-fit">
                         <Clock className="w-4 h-4 text-zinc-400" />
                         <input type="date" value={cDate} onChange={(e) => setCDate(e.target.value)} className="bg-transparent text-xs text-white w-28" />
                         <input type="time" value={cTime} onChange={(e) => setCTime(e.target.value)} className="bg-transparent text-xs text-white w-20" />
                       </div>
-                      <button onClick={() => handleSubmit('schedule')} disabled={cSaving}
-                        className="bg-zinc-800 hover:bg-zinc-700 text-white border border-white/10 rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 transition-all"
-                        data-testid="composer-schedule"
-                      >{cSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clock className="w-4 h-4" />} Schedule</button>
-                      <button onClick={() => handleSubmit('post_now')} disabled={cSaving}
-                        className="bg-accent-violet hover:bg-accent-violet-hover text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 shadow-[0_0_15px_rgba(124,58,237,0.3)] transition-all"
-                        data-testid="composer-publish"
-                      >{cSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />} Publish Now</button>
+                    )}
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {cError && <span className="text-xs text-red-400">{cError}</span>}
+                        {cResult && cResult._scheduled && <span className="text-xs text-accent-violet flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5" /> {editingPost ? 'Updated!' : 'Scheduled!'}</span>}
+                        {cResult && !cResult._scheduled && Object.entries(cResult).map(([p, r]) => (
+                          <span key={p} className={`text-xs flex items-center gap-1 ${r.success ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {r.success ? <CheckCircle className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />} {p}: {r.success ? 'Done!' : 'Failed'}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => handleSubmit('draft')} disabled={cSaving}
+                          className="bg-zinc-800 hover:bg-zinc-700 text-white border border-white/10 rounded-lg font-medium px-4 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 transition-all"
+                        ><FileText className="w-4 h-4" /> Save Draft</button>
+                        <button onClick={() => handleSubmit('schedule')} disabled={cSaving}
+                          className="bg-zinc-700 hover:bg-zinc-600 text-white border border-white/10 rounded-lg font-medium px-4 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 transition-all"
+                          data-testid="composer-schedule"
+                        >{cSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clock className="w-4 h-4" />} Schedule</button>
+                        <button onClick={() => handleSubmit('post_now')} disabled={cSaving}
+                          className="bg-accent-violet hover:bg-accent-violet-hover text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 shadow-[0_0_15px_rgba(124,58,237,0.3)] transition-all"
+                          data-testid="composer-publish"
+                        >{cSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />} Publish Now</button>
+                      </div>
                     </div>
                   </div>
                 </div>
