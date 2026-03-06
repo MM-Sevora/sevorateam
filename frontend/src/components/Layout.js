@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, Wand2, FileText,
-  Link2, LogOut, Zap, Menu, X, ChevronLeft, Bot, Users, BarChart3
+  Link2, LogOut, Zap, Menu, X, ChevronLeft, Bot, Users, BarChart3, FolderOpen
 } from 'lucide-react';
 import { FaYoutube } from 'react-icons/fa';
 
@@ -12,6 +12,7 @@ const navItems = [
   { to: '/studio', label: 'Content Studio', icon: Wand2 },
   { to: '/posts', label: 'Posts & Schedule', icon: FileText },
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },
+  { to: '/library', label: 'Library', icon: FolderOpen },
   { to: '/team', label: 'Team & Voice', icon: Users },
   { to: '/avatar', label: 'AI Avatar', icon: Bot },
   { to: '/youtube', label: 'YouTube', icon: FaYoutube },

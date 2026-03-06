@@ -1061,6 +1061,178 @@ async def get_autopilot_posts(auth: dict = Depends(verify_token)):
 async def health():
     return {"status": "ok", "service": "SocialFlow AI"}
 
+# ===== Content Library (Asset Manager) =====
+
+assets_col = db["content_assets"]
+templates_col = db["saved_templates"]
+
+@app.post("/api/library/upload")
+async def library_upload(file: UploadFile = File(...), auth: dict = Depends(verify_token)):
+    """Upload asset to content library"""
+    ext = file.filename.split(".")[-1] if "." in file.filename else "jpg"
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    filepath = f"/app/backend/uploads/{filename}"
+    contents = await file.read()
+    with open(filepath, "wb") as f:
+        f.write(contents)
+    url = f"{APP_BASE_URL}/api/uploads/{filename}"
+    doc = {
+        "asset_id": str(uuid.uuid4()), "user_id": auth["user_id"],
+        "filename": file.filename, "stored_name": filename, "url": url,
+        "content_type": file.content_type or "", "size": len(contents),
+        "tags": [], "folder": "general",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    assets_col.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+@app.get("/api/library")
+async def get_library(folder: Optional[str] = None, tag: Optional[str] = None, auth: dict = Depends(verify_token)):
+    query = {"user_id": auth["user_id"]}
+    if folder: query["folder"] = folder
+    if tag: query["tags"] = tag
+    docs = list(assets_col.find(query, {"_id": 0}).sort("created_at", -1).limit(100))
+    return docs
+
+@app.put("/api/library/{asset_id}")
+async def update_asset(asset_id: str, auth: dict = Depends(verify_token), tags: Optional[List[str]] = None, folder: Optional[str] = None):
+    update = {}
+    if tags is not None: update["tags"] = tags
+    if folder is not None: update["folder"] = folder
+    if update:
+        assets_col.update_one({"asset_id": asset_id, "user_id": auth["user_id"]}, {"$set": update})
+    return {"message": "Updated"}
+
+@app.delete("/api/library/{asset_id}")
+async def delete_asset(asset_id: str, auth: dict = Depends(verify_token)):
+    asset = assets_col.find_one({"asset_id": asset_id, "user_id": auth["user_id"]})
+    if asset:
+        import os as _os
+        fpath = f"/app/backend/uploads/{asset.get('stored_name', '')}"
+        if _os.path.exists(fpath): _os.remove(fpath)
+        assets_col.delete_one({"asset_id": asset_id})
+    return {"message": "Deleted"}
+
+# ===== Bulk CSV Upload =====
+
+@app.post("/api/posts/bulk-csv")
+async def bulk_csv_upload(file: UploadFile = File(...), auth: dict = Depends(verify_token)):
+    """Upload posts from CSV: platform,content,scheduled_at,status,image_url"""
+    import csv, io
+    contents = await file.read()
+    text = contents.decode("utf-8")
+    reader = csv.DictReader(io.StringIO(text))
+    created = []
+    errors = []
+    for i, row in enumerate(reader):
+        try:
+            post_id = str(uuid.uuid4())
+            doc = {
+                "post_id": post_id, "user_id": auth["user_id"],
+                "platform": row.get("platform", "linkedin").strip().lower(),
+                "content": row.get("content", "").strip(),
+                "scheduled_at": row.get("scheduled_at", "").strip(),
+                "status": row.get("status", "scheduled").strip(),
+                "image_url": row.get("image_url", "").strip(),
+                "tags": [t.strip() for t in row.get("tags", "").split(",") if t.strip()],
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "bulk_imported": True,
+            }
+            if not doc["content"]:
+                errors.append(f"Row {i+1}: empty content")
+                continue
+            posts_col.insert_one(doc)
+            doc.pop("_id", None)
+            created.append(doc)
+        except Exception as e:
+            errors.append(f"Row {i+1}: {str(e)[:50]}")
+    return {"imported": len(created), "errors": errors, "posts": created}
+
+# ===== Post Tags / Campaign Labels =====
+
+class PostTagUpdate(BaseModel):
+    tags: List[str]
+
+@app.put("/api/posts/{post_id}/tags")
+async def update_post_tags(post_id: str, req: PostTagUpdate, auth: dict = Depends(verify_token)):
+    result = posts_col.update_one(
+        {"post_id": post_id, "user_id": auth["user_id"]},
+        {"$set": {"tags": req.tags}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Post not found")
+    return {"message": "Tags updated", "tags": req.tags}
+
+@app.get("/api/posts/tags")
+async def get_all_tags(auth: dict = Depends(verify_token)):
+    """Get all unique tags used across posts"""
+    pipeline = [
+        {"$match": {"user_id": auth["user_id"], "tags": {"$exists": True, "$ne": []}}},
+        {"$unwind": "$tags"},
+        {"$group": {"_id": "$tags", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+    ]
+    tags = list(posts_col.aggregate(pipeline))
+    return [{"tag": t["_id"], "count": t["count"]} for t in tags]
+
+# ===== Saved Templates =====
+
+class TemplateCreate(BaseModel):
+    name: str
+    content: str
+    platform: Optional[str] = ""
+    category: Optional[str] = "general"
+    tags: Optional[List[str]] = []
+
+@app.post("/api/templates")
+async def create_template(req: TemplateCreate, auth: dict = Depends(verify_token)):
+    template_id = str(uuid.uuid4())
+    doc = {
+        "template_id": template_id, "user_id": auth["user_id"],
+        "name": req.name, "content": req.content,
+        "platform": req.platform, "category": req.category,
+        "tags": req.tags,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    templates_col.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+@app.get("/api/templates")
+async def get_templates(category: Optional[str] = None, auth: dict = Depends(verify_token)):
+    query = {"user_id": auth["user_id"]}
+    if category: query["category"] = category
+    docs = list(templates_col.find(query, {"_id": 0}).sort("created_at", -1))
+    return docs
+
+@app.delete("/api/templates/{template_id}")
+async def delete_template(template_id: str, auth: dict = Depends(verify_token)):
+    templates_col.delete_one({"template_id": template_id, "user_id": auth["user_id"]})
+    return {"message": "Deleted"}
+
+# ===== Link Shortener + UTM =====
+
+class ShortenRequest(BaseModel):
+    url: str
+    utm_source: Optional[str] = ""
+    utm_medium: Optional[str] = "social"
+    utm_campaign: Optional[str] = ""
+
+@app.post("/api/tools/shorten-link")
+async def shorten_link(req: ShortenRequest, auth: dict = Depends(verify_token)):
+    """Add UTM parameters and create a trackable link"""
+    from urllib.parse import urlparse, urlencode, urlunparse, parse_qs
+    parsed = urlparse(req.url)
+    params = parse_qs(parsed.query)
+    if req.utm_source: params["utm_source"] = [req.utm_source]
+    if req.utm_medium: params["utm_medium"] = [req.utm_medium]
+    if req.utm_campaign: params["utm_campaign"] = [req.utm_campaign]
+    new_query = urlencode({k: v[0] for k, v in params.items()})
+    utm_url = urlunparse(parsed._replace(query=new_query))
+    short_id = uuid.uuid4().hex[:8]
+    return {"original_url": req.url, "utm_url": utm_url, "short_id": short_id}
+
 # ===== Image Upload =====
 
 @app.post("/api/upload/image")
