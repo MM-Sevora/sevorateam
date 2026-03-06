@@ -1053,6 +1053,235 @@ async def get_autopilot_posts(auth: dict = Depends(verify_token)):
 async def health():
     return {"status": "ok", "service": "SocialFlow AI"}
 
+# ===== AI Power Tools =====
+
+class RepurposeRequest(BaseModel):
+    content: str
+    source_platform: Optional[str] = "general"
+    target_platforms: Optional[List[str]] = ["linkedin", "instagram", "facebook", "twitter"]
+
+class HashtagRequest(BaseModel):
+    topic: str
+    platform: Optional[str] = "instagram"
+    count: Optional[int] = 20
+
+class URLToPostRequest(BaseModel):
+    url: str
+    platforms: Optional[List[str]] = ["linkedin", "instagram", "facebook"]
+    tone: Optional[str] = "professional"
+
+class CopyFrameworkRequest(BaseModel):
+    topic: str
+    framework: str  # aida, pas, bab, fab, star
+    platform: Optional[str] = "linkedin"
+
+class CompetitorRequest(BaseModel):
+    competitor_url: str
+    platform: Optional[str] = ""
+
+@app.post("/api/tools/repurpose")
+async def repurpose_content(req: RepurposeRequest, auth: dict = Depends(verify_token)):
+    """Take one piece of content and adapt it for ALL platforms"""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    session_id = f"repurpose-{auth['user_id']}-{uuid.uuid4()}"
+    chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=session_id,
+        system_message="""You are an expert social media content adapter. Given one piece of content, rewrite it for each target platform with platform-appropriate length, tone, and format.
+Return a JSON object where each key is the platform name and the value is an object with: content (adapted text), hashtags (array), character_count (number), tips (string with platform-specific advice).
+LinkedIn: professional, 1300 chars max, thought leadership. Instagram: visual, casual, emojis ok, 2200 chars max. Facebook: community/conversational, medium length. Twitter: punchy, 280 chars max, threads if needed. YouTube: description-style, keyword-rich.
+Return ONLY the JSON object, no markdown.""")
+    chat.with_model("openai", "gpt-5.2")
+    platforms_str = ", ".join(req.target_platforms)
+    msg = UserMessage(text=f"Repurpose this {req.source_platform} content for [{platforms_str}]:\n\n{req.content}")
+    response = await chat.send_message(msg)
+    import json
+    try:
+        cleaned = response.strip()
+        if cleaned.startswith("```"): cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+        if cleaned.endswith("```"): cleaned = cleaned[:-3]
+        result = json.loads(cleaned.strip())
+    except json.JSONDecodeError:
+        result = {"error": response}
+    return {"repurposed": result, "platforms": req.target_platforms}
+
+@app.post("/api/tools/hashtags")
+async def generate_hashtags(req: HashtagRequest, auth: dict = Depends(verify_token)):
+    """AI-powered hashtag research with trending and performance estimates"""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    session_id = f"hashtags-{auth['user_id']}-{uuid.uuid4()}"
+    chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=session_id,
+        system_message=f"""You are a social media hashtag research expert for {req.platform}.
+Generate exactly {req.count} hashtags organized by category. Return a JSON object with:
+- trending: array of 5 hashtags that are currently trending (high volume)
+- niche: array of 5 hashtags that are niche-specific (lower competition, higher engagement)
+- branded: array of 3 suggested branded hashtags
+- mixed: array of remaining hashtags (mix of reach and engagement)
+Each hashtag should be an object with: tag (string without #), estimated_posts (string like "1.2M" or "45K"), competition ("high"/"medium"/"low"), recommended (boolean)
+Return ONLY the JSON object, no markdown.""")
+    chat.with_model("openai", "gpt-5.2")
+    msg = UserMessage(text=f"Generate {req.count} hashtags for {req.platform} about: {req.topic}")
+    response = await chat.send_message(msg)
+    import json
+    try:
+        cleaned = response.strip()
+        if cleaned.startswith("```"): cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+        if cleaned.endswith("```"): cleaned = cleaned[:-3]
+        result = json.loads(cleaned.strip())
+    except json.JSONDecodeError:
+        result = {"mixed": [{"tag": t.strip().replace("#",""), "estimated_posts": "N/A", "competition": "medium", "recommended": True} for t in response.split() if t.startswith("#")]}
+    return result
+
+@app.post("/api/tools/url-to-post")
+async def url_to_post(req: URLToPostRequest, auth: dict = Depends(verify_token)):
+    """Paste a URL and AI generates social media posts about it"""
+    import httpx
+    # Fetch URL content
+    page_content = ""
+    try:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+            resp = await client.get(req.url, headers={"User-Agent": "Mozilla/5.0"})
+            if resp.status_code == 200:
+                text = resp.text
+                # Extract title and meta description
+                import re
+                title_match = re.search(r"<title[^>]*>(.*?)</title>", text, re.IGNORECASE | re.DOTALL)
+                title = title_match.group(1).strip() if title_match else ""
+                desc_match = re.search(r'<meta[^>]*name=["\']description["\'][^>]*content=["\'](.*?)["\']', text, re.IGNORECASE)
+                desc = desc_match.group(1).strip() if desc_match else ""
+                # Get body text (simplified)
+                body = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL | re.IGNORECASE)
+                body = re.sub(r'<style[^>]*>.*?</style>', '', body, flags=re.DOTALL | re.IGNORECASE)
+                body = re.sub(r'<[^>]+>', ' ', body)
+                body = re.sub(r'\s+', ' ', body).strip()[:2000]
+                page_content = f"Title: {title}\nDescription: {desc}\nContent: {body[:1000]}"
+    except Exception:
+        page_content = f"URL: {req.url}"
+
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    session_id = f"urlpost-{auth['user_id']}-{uuid.uuid4()}"
+    chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=session_id,
+        system_message=f"""You are an expert at turning web content into engaging social media posts.
+Given a webpage's content, create a social post for each requested platform.
+Return a JSON object where each key is the platform name with: content (post text), hashtags (array), call_to_action (string).
+Tone: {req.tone}. Include the URL in the post where appropriate.
+Return ONLY the JSON object, no markdown.""")
+    chat.with_model("openai", "gpt-5.2")
+    msg = UserMessage(text=f"Create social posts for [{', '.join(req.platforms)}] from this webpage:\n\nURL: {req.url}\n\n{page_content}")
+    response = await chat.send_message(msg)
+    import json
+    try:
+        cleaned = response.strip()
+        if cleaned.startswith("```"): cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+        if cleaned.endswith("```"): cleaned = cleaned[:-3]
+        result = json.loads(cleaned.strip())
+    except json.JSONDecodeError:
+        result = {"error": response}
+    return {"posts": result, "source_url": req.url}
+
+@app.post("/api/tools/copywriting")
+async def copywriting_framework(req: CopyFrameworkRequest, auth: dict = Depends(verify_token)):
+    """Generate content using proven copywriting frameworks"""
+    frameworks = {
+        "aida": "AIDA (Attention-Interest-Desire-Action): Start with attention-grabbing hook, build interest with details, create desire showing benefits, end with clear call-to-action.",
+        "pas": "PAS (Problem-Agitate-Solve): Identify the problem, agitate by emphasizing pain points, present your solution.",
+        "bab": "BAB (Before-After-Bridge): Show the before state (problem), paint the after state (desired outcome), bridge with your solution.",
+        "fab": "FAB (Features-Advantages-Benefits): List the features, explain advantages over alternatives, highlight benefits to the user.",
+        "star": "STAR (Situation-Task-Action-Result): Set the situation/context, describe the task/challenge, explain the action taken, share the result/outcome.",
+    }
+    framework_prompt = frameworks.get(req.framework, frameworks["aida"])
+
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    session_id = f"copy-{auth['user_id']}-{uuid.uuid4()}"
+    chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=session_id,
+        system_message=f"""You are an expert copywriter. Create a {req.platform} social media post using the {req.framework.upper()} framework.
+Framework: {framework_prompt}
+Return a JSON object with: framework (name), sections (array of objects with label and text for each framework step), full_post (the complete ready-to-post text), hashtags (array), tips (string with why this framework works for this content).
+Return ONLY the JSON object, no markdown.""")
+    chat.with_model("openai", "gpt-5.2")
+    msg = UserMessage(text=f"Write a {req.platform} post about '{req.topic}' using {req.framework.upper()} framework")
+    response = await chat.send_message(msg)
+    import json
+    try:
+        cleaned = response.strip()
+        if cleaned.startswith("```"): cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+        if cleaned.endswith("```"): cleaned = cleaned[:-3]
+        result = json.loads(cleaned.strip())
+    except json.JSONDecodeError:
+        result = {"full_post": response, "framework": req.framework}
+    return result
+
+@app.post("/api/tools/recycle")
+async def content_recycler(auth: dict = Depends(verify_token)):
+    """Identify top-performing posts to recycle/repost"""
+    published = list(posts_col.find(
+        {"user_id": auth["user_id"], "status": "published"},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(50))
+
+    if not published:
+        return {"recyclable": [], "message": "No published posts to recycle"}
+
+    scored = []
+    for p in published:
+        m = p.get("metrics", {})
+        score = (m.get("likes", 0) * 2) + (m.get("comments", 0) * 3) + (m.get("shares", 0) * 5) + (m.get("reach", 0) * 0.01)
+        scored.append({**p, "recycle_score": round(score, 1)})
+
+    scored.sort(key=lambda x: x["recycle_score"], reverse=True)
+    top = scored[:10]
+
+    return {
+        "recyclable": [{
+            "post_id": p["post_id"],
+            "platform": p["platform"],
+            "content": p["content"][:200],
+            "metrics": p.get("metrics", {}),
+            "recycle_score": p["recycle_score"],
+            "original_date": p.get("created_at", ""),
+            "suggestion": "High engagement - great candidate for reposting" if p["recycle_score"] > 50 else "Moderate engagement - consider refreshing before reposting",
+        } for p in top],
+        "total_analyzed": len(published),
+    }
+
+@app.post("/api/tools/competitor/analyze")
+async def analyze_competitor(req: CompetitorRequest, auth: dict = Depends(verify_token)):
+    """Analyze a competitor's social presence from their URL"""
+    import httpx
+    page_content = ""
+    try:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+            resp = await client.get(req.competitor_url, headers={"User-Agent": "Mozilla/5.0"})
+            if resp.status_code == 200:
+                import re
+                text = resp.text
+                title = ""
+                title_match = re.search(r"<title[^>]*>(.*?)</title>", text, re.IGNORECASE | re.DOTALL)
+                if title_match: title = title_match.group(1).strip()
+                # Find social links
+                social_links = re.findall(r'href=["\']([^"\']*(?:facebook|instagram|twitter|linkedin|youtube|x\.com)[^"\']*)["\']', text, re.IGNORECASE)
+                page_content = f"Title: {title}\nSocial links found: {social_links[:10]}"
+    except Exception:
+        page_content = f"URL: {req.competitor_url}"
+
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    session_id = f"comp-{auth['user_id']}-{uuid.uuid4()}"
+    chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=session_id,
+        system_message="""You are a competitive intelligence analyst for social media. Analyze this competitor and provide actionable insights.
+Return a JSON object with: company_name, industry, social_presence (array of platforms they're likely on), content_strategy (string analysis), strengths (array), weaknesses (array), opportunities (array of content gaps you could exploit), recommended_actions (array of 5 specific things to do to outperform them), estimated_audience (string description).
+Return ONLY the JSON object, no markdown.""")
+    chat.with_model("openai", "gpt-5.2")
+    msg = UserMessage(text=f"Analyze this competitor for social media strategy:\n\nURL: {req.competitor_url}\n{page_content}")
+    response = await chat.send_message(msg)
+    import json
+    try:
+        cleaned = response.strip()
+        if cleaned.startswith("```"): cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+        if cleaned.endswith("```"): cleaned = cleaned[:-3]
+        result = json.loads(cleaned.strip())
+    except json.JSONDecodeError:
+        result = {"analysis": response}
+    result["source_url"] = req.competitor_url
+    return result
+
 # ===== Post Performance Tracking =====
 
 @app.post("/api/tracking/track/{post_id}")

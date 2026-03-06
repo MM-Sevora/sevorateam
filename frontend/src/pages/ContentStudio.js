@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import api from '../api';
 import {
   Lightbulb, Wand2, Zap, BarChart3, Image, Send, Copy, Loader2, Check, Download,
-  Globe, CheckCircle, XCircle, Hash, Clock, TrendingUp, Target, AlertTriangle, Sparkles
+  Globe, CheckCircle, XCircle, Hash, Clock, TrendingUp, Target, AlertTriangle, Sparkles,
+  Link, RefreshCw, Users, Repeat, FileText
 } from 'lucide-react';
 import { FaFacebook, FaInstagram, FaTwitter, FaLinkedin, FaYoutube } from 'react-icons/fa';
 
@@ -144,8 +145,37 @@ export default function ContentStudio() {
 
   const applyIdea = (idea) => { setTopic(idea.title + ' - ' + idea.description); setTab('create'); };
 
+  // AI Tools state
+  const [toolResult, setToolResult] = useState(null);
+  const [toolLoading, setToolLoading] = useState('');
+  const [repurposeInput, setRepurposeInput] = useState('');
+  const [hashtagTopic, setHashtagTopic] = useState('');
+  const [urlInput, setUrlInput] = useState('');
+  const [copyTopic, setCopyTopic] = useState('');
+  const [copyFramework, setCopyFramework] = useState('aida');
+  const [competitorUrl, setCompetitorUrl] = useState('');
+  const [activeTool, setActiveTool] = useState('repurpose');
+
+  const runTool = async (tool, payload) => {
+    setToolLoading(tool); setToolResult(null); setError('');
+    try {
+      const endpoints = {
+        repurpose: '/api/tools/repurpose',
+        hashtags: '/api/tools/hashtags',
+        urlpost: '/api/tools/url-to-post',
+        copywriting: '/api/tools/copywriting',
+        recycle: '/api/tools/recycle',
+        competitor: '/api/tools/competitor/analyze',
+      };
+      const res = await api.post(endpoints[tool], payload);
+      setToolResult({ tool, data: res.data });
+    } catch (err) { setError(err.response?.data?.detail || 'Tool failed'); }
+    finally { setToolLoading(''); }
+  };
+
   const tabs = [
     { key: 'create', label: 'Create & Publish', icon: Wand2 },
+    { key: 'tools', label: 'AI Tools', icon: Sparkles },
     { key: 'ideas', label: 'Ideas', icon: Lightbulb },
     { key: 'autopilot', label: 'Autopilot', icon: Zap },
     { key: 'predict', label: 'Predict', icon: BarChart3 },
@@ -275,6 +305,231 @@ export default function ContentStudio() {
               <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-12 text-center">
                 <Wand2 className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
                 <p className="text-sm text-zinc-500">Enter a topic and click Generate</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* AI TOOLS TAB */}
+      {tab === 'tools' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Tool Selector */}
+          <div className="space-y-2">
+            {[
+              { key: 'repurpose', label: 'Content Repurposer', desc: 'One post → all platforms', icon: Repeat, color: '#7c3aed' },
+              { key: 'hashtags', label: 'Hashtag Generator', desc: 'Trending + niche hashtags', icon: Hash, color: '#ec4899' },
+              { key: 'urlpost', label: 'URL to Post', desc: 'Paste URL → social posts', icon: Link, color: '#06b6d4' },
+              { key: 'copywriting', label: 'Copy Frameworks', desc: 'AIDA, PAS, BAB, FAB, STAR', icon: FileText, color: '#f97316' },
+              { key: 'recycle', label: 'Content Recycler', desc: 'Find top posts to repost', icon: RefreshCw, color: '#10b981' },
+              { key: 'competitor', label: 'Competitor Analysis', desc: 'Analyze competitor strategy', icon: Users, color: '#3b82f6' },
+            ].map(tool => (
+              <button key={tool.key} onClick={() => setActiveTool(tool.key)}
+                className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all border ${activeTool === tool.key ? 'bg-white/5 border-white/15' : 'border-white/5 hover:bg-white/5'}`}
+                data-testid={`tool-${tool.key}`}
+              >
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${tool.color}15` }}>
+                  <tool.icon className="w-4 h-4" style={{ color: tool.color }} />
+                </div>
+                <div><p className="text-sm font-medium text-white">{tool.label}</p><p className="text-[10px] text-zinc-500">{tool.desc}</p></div>
+              </button>
+            ))}
+          </div>
+
+          {/* Tool Input & Output */}
+          <div className="lg:col-span-2 space-y-4">
+            {/* REPURPOSE */}
+            {activeTool === 'repurpose' && (
+              <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-5">
+                <h3 className="text-sm font-heading font-semibold text-white mb-3 flex items-center gap-2"><Repeat className="w-4 h-4 text-accent-violet" /> Content Repurposer</h3>
+                <textarea value={repurposeInput || generatedContent?.content || ''} onChange={(e) => setRepurposeInput(e.target.value)}
+                  className="w-full bg-zinc-950/50 border border-white/10 rounded-lg py-3 px-4 text-sm text-white placeholder-zinc-500 resize-none mb-3" rows={4} placeholder="Paste content to repurpose for all platforms..." />
+                <button onClick={() => runTool('repurpose', { content: repurposeInput || generatedContent?.content || '', source_platform: platform })}
+                  disabled={toolLoading === 'repurpose'} className="bg-accent-violet hover:bg-accent-violet-hover text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50">
+                  {toolLoading === 'repurpose' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Repeat className="w-4 h-4" />} Repurpose for All Platforms
+                </button>
+              </div>
+            )}
+            {/* HASHTAGS */}
+            {activeTool === 'hashtags' && (
+              <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-5">
+                <h3 className="text-sm font-heading font-semibold text-white mb-3 flex items-center gap-2"><Hash className="w-4 h-4 text-pink-400" /> Hashtag Generator</h3>
+                <div className="flex gap-3 mb-3">
+                  <input type="text" value={hashtagTopic} onChange={(e) => setHashtagTopic(e.target.value)}
+                    className="flex-1 bg-zinc-950/50 border border-white/10 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500" placeholder="Topic e.g., fashion styling, tech startup" />
+                  <button onClick={() => runTool('hashtags', { topic: hashtagTopic, platform })}
+                    disabled={toolLoading === 'hashtags' || !hashtagTopic.trim()} className="bg-pink-600 hover:bg-pink-700 text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50">
+                    {toolLoading === 'hashtags' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Hash className="w-4 h-4" />} Generate
+                  </button>
+                </div>
+              </div>
+            )}
+            {/* URL TO POST */}
+            {activeTool === 'urlpost' && (
+              <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-5">
+                <h3 className="text-sm font-heading font-semibold text-white mb-3 flex items-center gap-2"><Link className="w-4 h-4 text-cyan-400" /> URL to Social Posts</h3>
+                <div className="flex gap-3 mb-3">
+                  <input type="text" value={urlInput} onChange={(e) => setUrlInput(e.target.value)}
+                    className="flex-1 bg-zinc-950/50 border border-white/10 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500" placeholder="https://example.com/article" />
+                  <button onClick={() => runTool('urlpost', { url: urlInput, tone })}
+                    disabled={toolLoading === 'urlpost' || !urlInput.trim()} className="bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50">
+                    {toolLoading === 'urlpost' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link className="w-4 h-4" />} Generate Posts
+                  </button>
+                </div>
+              </div>
+            )}
+            {/* COPYWRITING */}
+            {activeTool === 'copywriting' && (
+              <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-5">
+                <h3 className="text-sm font-heading font-semibold text-white mb-3 flex items-center gap-2"><FileText className="w-4 h-4 text-orange-400" /> Copywriting Frameworks</h3>
+                <div className="flex gap-2 mb-3 flex-wrap">
+                  {[{k:'aida',l:'AIDA'},{k:'pas',l:'PAS'},{k:'bab',l:'BAB'},{k:'fab',l:'FAB'},{k:'star',l:'STAR'}].map(f => (
+                    <button key={f.k} onClick={() => setCopyFramework(f.k)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${copyFramework === f.k ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'border-white/10 text-zinc-400 hover:text-white'}`}>{f.l}</button>
+                  ))}
+                </div>
+                <div className="flex gap-3 mb-3">
+                  <input type="text" value={copyTopic} onChange={(e) => setCopyTopic(e.target.value)}
+                    className="flex-1 bg-zinc-950/50 border border-white/10 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500" placeholder="Topic for the copy..." />
+                  <button onClick={() => runTool('copywriting', { topic: copyTopic, framework: copyFramework, platform })}
+                    disabled={toolLoading === 'copywriting' || !copyTopic.trim()} className="bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50">
+                    {toolLoading === 'copywriting' ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} Write
+                  </button>
+                </div>
+              </div>
+            )}
+            {/* RECYCLE */}
+            {activeTool === 'recycle' && (
+              <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-5">
+                <h3 className="text-sm font-heading font-semibold text-white mb-3 flex items-center gap-2"><RefreshCw className="w-4 h-4 text-emerald-400" /> Content Recycler</h3>
+                <p className="text-xs text-zinc-400 mb-3">Find your top-performing posts to repost for maximum engagement</p>
+                <button onClick={() => runTool('recycle', {})}
+                  disabled={toolLoading === 'recycle'} className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50">
+                  {toolLoading === 'recycle' ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} Find Top Posts to Recycle
+                </button>
+              </div>
+            )}
+            {/* COMPETITOR */}
+            {activeTool === 'competitor' && (
+              <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-5">
+                <h3 className="text-sm font-heading font-semibold text-white mb-3 flex items-center gap-2"><Users className="w-4 h-4 text-blue-400" /> Competitor Analysis</h3>
+                <div className="flex gap-3 mb-3">
+                  <input type="text" value={competitorUrl} onChange={(e) => setCompetitorUrl(e.target.value)}
+                    className="flex-1 bg-zinc-950/50 border border-white/10 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500" placeholder="https://competitor-website.com" />
+                  <button onClick={() => runTool('competitor', { competitor_url: competitorUrl })}
+                    disabled={toolLoading === 'competitor' || !competitorUrl.trim()} className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50">
+                    {toolLoading === 'competitor' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />} Analyze
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Tool Results */}
+            {toolResult && (
+              <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-5 animate-slide-up" data-testid="tool-result">
+                {/* Repurpose Results */}
+                {toolResult.tool === 'repurpose' && toolResult.data.repurposed && (
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-heading font-semibold text-white">Repurposed for {Object.keys(toolResult.data.repurposed).length} platforms</h4>
+                    {Object.entries(toolResult.data.repurposed).map(([p, data]) => {
+                      const meta = platformOptions.find(x => x.value === p);
+                      return (
+                        <div key={p} className="bg-zinc-800/80 rounded-lg p-4 border border-white/5">
+                          <div className="flex items-center gap-2 mb-2">{meta?.icon && <meta.icon className="w-4 h-4" style={{ color: meta?.color }} />}<span className="text-xs font-medium text-white capitalize">{p}</span><span className="text-[10px] text-zinc-500">{data.character_count} chars</span></div>
+                          <p className="text-sm text-zinc-300 whitespace-pre-wrap mb-2">{data.content}</p>
+                          {data.hashtags?.length > 0 && <div className="flex flex-wrap gap-1 mb-2">{data.hashtags.map((h,i) => <span key={i} className="text-[10px] bg-accent-violet/10 text-accent-violet px-1.5 py-0.5 rounded">#{h.replace('#','')}</span>)}</div>}
+                          {data.tips && <p className="text-[10px] text-zinc-500 bg-zinc-900/50 p-2 rounded">{data.tips}</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {/* Hashtag Results */}
+                {toolResult.tool === 'hashtags' && (
+                  <div className="space-y-3">
+                    {['trending', 'niche', 'branded', 'mixed'].map(cat => {
+                      const tags = toolResult.data[cat];
+                      if (!tags || !Array.isArray(tags) || tags.length === 0) return null;
+                      return (
+                        <div key={cat}>
+                          <h4 className="text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-2">{cat}</h4>
+                          <div className="flex flex-wrap gap-2">{tags.map((t, i) => (
+                            <div key={i} className={`px-3 py-1.5 rounded-lg text-xs border ${t.competition === 'low' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : t.competition === 'high' ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-zinc-800 border-white/10 text-zinc-300'}`}>
+                              #{t.tag} <span className="text-[9px] text-zinc-500 ml-1">{t.estimated_posts}</span>
+                            </div>
+                          ))}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {/* URL to Post Results */}
+                {toolResult.tool === 'urlpost' && toolResult.data.posts && (
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-heading font-semibold text-white">Posts from URL</h4>
+                    {Object.entries(toolResult.data.posts).map(([p, data]) => {
+                      const meta = platformOptions.find(x => x.value === p);
+                      return (
+                        <div key={p} className="bg-zinc-800/80 rounded-lg p-4 border border-white/5">
+                          <div className="flex items-center gap-2 mb-2">{meta?.icon && <meta.icon className="w-4 h-4" style={{ color: meta?.color }} />}<span className="text-xs font-medium text-white capitalize">{p}</span></div>
+                          <p className="text-sm text-zinc-300 whitespace-pre-wrap">{data.content}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {/* Copywriting Results */}
+                {toolResult.tool === 'copywriting' && (
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-heading font-semibold text-white">{(toolResult.data.framework || '').toUpperCase()} Framework</h4>
+                    {toolResult.data.sections?.map((s, i) => (
+                      <div key={i} className="bg-zinc-800/80 rounded-lg p-3 border border-white/5">
+                        <p className="text-[10px] text-accent-violet font-bold uppercase mb-1">{s.label}</p>
+                        <p className="text-sm text-zinc-300">{s.text}</p>
+                      </div>
+                    ))}
+                    {toolResult.data.full_post && (
+                      <div className="bg-zinc-950/50 rounded-lg p-4 border border-accent-violet/20">
+                        <p className="text-xs text-zinc-500 mb-1">Ready to post:</p>
+                        <p className="text-sm text-zinc-200 whitespace-pre-wrap">{toolResult.data.full_post}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Recycle Results */}
+                {toolResult.tool === 'recycle' && (
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-heading font-semibold text-white">Top Posts to Recycle ({toolResult.data.total_analyzed} analyzed)</h4>
+                    {toolResult.data.recyclable?.map((p, i) => {
+                      const meta = platformOptions.find(x => x.value === p.platform);
+                      return (
+                        <div key={i} className="bg-zinc-800/80 rounded-lg p-3 border border-white/5 flex items-start gap-3">
+                          <span className="text-sm font-bold text-zinc-600">#{i+1}</span>
+                          {meta?.icon && <meta.icon className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: meta?.color }} />}
+                          <div className="flex-1"><p className="text-xs text-zinc-300">{p.content}</p><p className="text-[10px] text-emerald-400 mt-1">Score: {p.recycle_score} - {p.suggestion}</p></div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {/* Competitor Results */}
+                {toolResult.tool === 'competitor' && (
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-heading font-semibold text-white">{toolResult.data.company_name || 'Competitor'} Analysis</h4>
+                    {toolResult.data.content_strategy && <p className="text-xs text-zinc-300 bg-zinc-800/80 p-3 rounded-lg">{toolResult.data.content_strategy}</p>}
+                    {['strengths', 'weaknesses', 'opportunities', 'recommended_actions'].map(key => {
+                      const items = toolResult.data[key];
+                      if (!items?.length) return null;
+                      const colors = { strengths: 'text-emerald-400', weaknesses: 'text-red-400', opportunities: 'text-amber-400', recommended_actions: 'text-accent-violet' };
+                      return (
+                        <div key={key}>
+                          <h5 className={`text-xs font-semibold uppercase tracking-wider mb-1 ${colors[key]}`}>{key.replace('_', ' ')}</h5>
+                          <div className="space-y-1">{items.map((item, i) => <p key={i} className="text-xs text-zinc-400 flex items-start gap-2"><span className="text-zinc-600">-</span>{item}</p>)}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>
