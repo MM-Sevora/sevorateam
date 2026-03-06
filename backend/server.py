@@ -1233,6 +1233,157 @@ async def shorten_link(req: ShortenRequest, auth: dict = Depends(verify_token)):
     short_id = uuid.uuid4().hex[:8]
     return {"original_url": req.url, "utm_url": utm_url, "short_id": short_id}
 
+# ===== RSS Feed Auto-posting =====
+
+rss_feeds_col = db["rss_feeds"]
+
+class RSSFeedAdd(BaseModel):
+    feed_url: str
+    platform: Optional[str] = "linkedin"
+    auto_post: Optional[bool] = False
+    prefix: Optional[str] = ""
+
+@app.post("/api/rss/add")
+async def add_rss_feed(req: RSSFeedAdd, auth: dict = Depends(verify_token)):
+    feed_id = str(uuid.uuid4())
+    doc = {
+        "feed_id": feed_id, "user_id": auth["user_id"],
+        "feed_url": req.feed_url, "platform": req.platform,
+        "auto_post": req.auto_post, "prefix": req.prefix,
+        "last_checked": "", "last_item_id": "",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "status": "active",
+    }
+    rss_feeds_col.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+@app.get("/api/rss/feeds")
+async def get_rss_feeds(auth: dict = Depends(verify_token)):
+    return list(rss_feeds_col.find({"user_id": auth["user_id"]}, {"_id": 0}))
+
+@app.delete("/api/rss/{feed_id}")
+async def delete_rss_feed(feed_id: str, auth: dict = Depends(verify_token)):
+    rss_feeds_col.delete_one({"feed_id": feed_id, "user_id": auth["user_id"]})
+    return {"message": "Deleted"}
+
+@app.post("/api/rss/{feed_id}/check")
+async def check_rss_feed(feed_id: str, auth: dict = Depends(verify_token)):
+    """Fetch RSS feed and return latest items"""
+    import httpx
+    import re
+    feed = rss_feeds_col.find_one({"feed_id": feed_id, "user_id": auth["user_id"]}, {"_id": 0})
+    if not feed:
+        raise HTTPException(status_code=404, detail="Feed not found")
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(feed["feed_url"], headers={"User-Agent": "SocialFlowAI/1.0"})
+            text = resp.text
+        # Simple XML parsing for RSS items
+        items = []
+        for match in re.finditer(r'<item>(.*?)</item>', text, re.DOTALL):
+            item_xml = match.group(1)
+            title = re.search(r'<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</title>', item_xml)
+            link = re.search(r'<link>(.*?)</link>', item_xml)
+            desc = re.search(r'<description>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</description>', item_xml, re.DOTALL)
+            pub = re.search(r'<pubDate>(.*?)</pubDate>', item_xml)
+            items.append({
+                "title": title.group(1).strip() if title else "",
+                "link": link.group(1).strip() if link else "",
+                "description": re.sub(r'<[^>]+>', '', desc.group(1).strip())[:200] if desc else "",
+                "pub_date": pub.group(1).strip() if pub else "",
+            })
+        rss_feeds_col.update_one({"feed_id": feed_id}, {"$set": {"last_checked": datetime.now(timezone.utc).isoformat()}})
+        return {"items": items[:20], "total": len(items)}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to fetch feed: {str(e)[:100]}")
+
+@app.post("/api/rss/{feed_id}/create-post")
+async def rss_to_post(feed_id: str, title: str = "", link: str = "", auth: dict = Depends(verify_token)):
+    """Create a scheduled post from an RSS item"""
+    feed = rss_feeds_col.find_one({"feed_id": feed_id, "user_id": auth["user_id"]}, {"_id": 0})
+    if not feed:
+        raise HTTPException(status_code=404, detail="Feed not found")
+    content = f"{feed.get('prefix', '')} {title}\n\n{link}".strip()
+    post_id = str(uuid.uuid4())
+    doc = {
+        "post_id": post_id, "user_id": auth["user_id"],
+        "platform": feed["platform"], "content": content,
+        "image_url": "", "status": "draft",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "source": "rss", "source_url": link,
+    }
+    posts_col.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+# ===== Unified Inbox (Mentions Monitoring) =====
+
+inbox_col = db["inbox_items"]
+
+@app.post("/api/inbox/fetch")
+async def fetch_inbox(auth: dict = Depends(verify_token)):
+    """Fetch latest mentions/comments from connected platforms"""
+    import httpx
+    items = []
+    now = datetime.now(timezone.utc)
+
+    # Instagram comments on recent media
+    ig_cred = api_credentials_col.find_one({"user_id": auth["user_id"], "platform": "instagram"}, {"_id": 0})
+    if ig_cred and ig_cred.get("credentials", {}).get("access_token"):
+        token = ig_cred["credentials"]["access_token"]
+        ig_id = ig_cred["credentials"].get("instagram_account_id", "")
+        if ig_id:
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    media_resp = await client.get(f"https://graph.facebook.com/v19.0/{ig_id}/media", params={"fields": "id,caption,comments.limit(5){text,username,timestamp}", "limit": 5, "access_token": token})
+                    if media_resp.status_code == 200:
+                        for media in media_resp.json().get("data", []):
+                            for comment in media.get("comments", {}).get("data", []):
+                                items.append({
+                                    "inbox_id": str(uuid.uuid4()),
+                                    "platform": "instagram",
+                                    "type": "comment",
+                                    "author": comment.get("username", ""),
+                                    "text": comment.get("text", ""),
+                                    "timestamp": comment.get("timestamp", ""),
+                                    "post_preview": (media.get("caption", "") or "")[:80],
+                                    "media_id": media.get("id", ""),
+                                })
+            except Exception:
+                pass
+
+    # LinkedIn - limited without r_member_social
+    li_cred = api_credentials_col.find_one({"user_id": auth["user_id"], "platform": "linkedin"}, {"_id": 0})
+    if li_cred and li_cred.get("credentials", {}).get("access_token"):
+        items.append({
+            "inbox_id": str(uuid.uuid4()), "platform": "linkedin", "type": "info",
+            "author": "System", "text": "LinkedIn comment monitoring requires r_member_social scope (restricted). Personal mentions are not available via API.",
+            "timestamp": now.isoformat(),
+        })
+
+    # Save to inbox collection
+    for item in items:
+        item["user_id"] = auth["user_id"]
+        item["fetched_at"] = now.isoformat()
+        item["read"] = False
+        inbox_col.update_one({"user_id": auth["user_id"], "text": item["text"], "author": item["author"]}, {"$set": item}, upsert=True)
+
+    # Return all inbox items
+    all_items = list(inbox_col.find({"user_id": auth["user_id"]}, {"_id": 0}).sort("timestamp", -1).limit(50))
+    return {"items": all_items, "new_count": len(items)}
+
+@app.put("/api/inbox/{inbox_id}/read")
+async def mark_inbox_read(inbox_id: str, auth: dict = Depends(verify_token)):
+    inbox_col.update_one({"inbox_id": inbox_id, "user_id": auth["user_id"]}, {"$set": {"read": True}})
+    return {"message": "Marked as read"}
+
+@app.get("/api/inbox/count")
+async def inbox_count(auth: dict = Depends(verify_token)):
+    unread = inbox_col.count_documents({"user_id": auth["user_id"], "read": False})
+    total = inbox_col.count_documents({"user_id": auth["user_id"]})
+    return {"unread": unread, "total": total}
+
 # ===== Image Upload =====
 
 @app.post("/api/upload/image")

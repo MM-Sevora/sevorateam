@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import api from '../api';
 import {
   Image, Upload, Trash2, Loader2, Plus, X, Search, FolderOpen, Tag, FileText,
-  Copy, Check, Grid3X3, List, Download, Link, Sparkles
+  Copy, Check, Grid3X3, List, Download, Link, Sparkles, Rss, Inbox, RefreshCw, ExternalLink, MessageSquare, Eye
 } from 'lucide-react';
+import { FaFacebook, FaInstagram, FaLinkedin } from 'react-icons/fa';
 
 function formatSize(bytes) {
   if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
@@ -36,9 +37,21 @@ export default function ContentLibrary() {
   const bulkRef = useRef(null);
   // Tags
   const [allTags, setAllTags] = useState([]);
+  // RSS
+  const [rssFeeds, setRssFeeds] = useState([]);
+  const [rssUrl, setRssUrl] = useState('');
+  const [rssPlatform, setRssPlatform] = useState('linkedin');
+  const [rssPrefix, setRssPrefix] = useState('');
+  const [addingRss, setAddingRss] = useState(false);
+  const [rssItems, setRssItems] = useState({});
+  const [checkingRss, setCheckingRss] = useState('');
+  // Inbox
+  const [inboxItems, setInboxItems] = useState([]);
+  const [inboxLoading, setInboxLoading] = useState(false);
+  const [inboxCount, setInboxCount] = useState({ unread: 0, total: 0 });
 
   useEffect(() => {
-    fetchAssets(); fetchTemplates(); fetchTags();
+    fetchAssets(); fetchTemplates(); fetchTags(); fetchRssFeeds(); fetchInboxCount();
   }, []);
 
   const fetchAssets = async () => {
@@ -51,6 +64,42 @@ export default function ContentLibrary() {
   };
   const fetchTags = async () => {
     try { const res = await api.get('/api/posts/tags'); setAllTags(res.data); } catch (err) { console.error(err); }
+  };
+  const fetchRssFeeds = async () => {
+    try { const res = await api.get('/api/rss/feeds'); setRssFeeds(res.data); } catch (err) { console.error(err); }
+  };
+  const fetchInboxCount = async () => {
+    try { const res = await api.get('/api/inbox/count'); setInboxCount(res.data); } catch (err) { console.error(err); }
+  };
+  const fetchInbox = async () => {
+    setInboxLoading(true);
+    try { const res = await api.post('/api/inbox/fetch'); setInboxItems(res.data.items || []); fetchInboxCount(); }
+    catch (err) { console.error(err); }
+    finally { setInboxLoading(false); }
+  };
+  const handleAddRss = async () => {
+    if (!rssUrl.trim()) return;
+    setAddingRss(true);
+    try { const res = await api.post('/api/rss/add', { feed_url: rssUrl, platform: rssPlatform, prefix: rssPrefix }); setRssFeeds(prev => [...prev, res.data]); setRssUrl(''); setRssPrefix(''); }
+    catch (err) { console.error(err); }
+    finally { setAddingRss(false); }
+  };
+  const handleCheckRss = async (feedId) => {
+    setCheckingRss(feedId);
+    try { const res = await api.post(`/api/rss/${feedId}/check`); setRssItems(prev => ({ ...prev, [feedId]: res.data.items })); }
+    catch (err) { alert('Failed to fetch feed'); }
+    finally { setCheckingRss(''); }
+  };
+  const handleRssToPost = async (feedId, title, link) => {
+    try { await api.post(`/api/rss/${feedId}/create-post?title=${encodeURIComponent(title)}&link=${encodeURIComponent(link)}`); alert('Post created as draft!'); }
+    catch (err) { console.error(err); }
+  };
+  const handleDeleteRss = async (feedId) => {
+    try { await api.delete(`/api/rss/${feedId}`); setRssFeeds(prev => prev.filter(f => f.feed_id !== feedId)); } catch (err) { console.error(err); }
+  };
+  const handleMarkRead = async (inboxId) => {
+    try { await api.put(`/api/inbox/${inboxId}/read`); setInboxItems(prev => prev.map(i => i.inbox_id === inboxId ? { ...i, read: true } : i)); fetchInboxCount(); }
+    catch (err) { console.error(err); }
   };
 
   const handleAssetUpload = async (e) => {
@@ -111,9 +160,11 @@ export default function ContentLibrary() {
 
   const tabs = [
     { key: 'assets', label: 'Media Library', icon: Image },
-    { key: 'templates', label: 'Saved Templates', icon: FileText },
+    { key: 'templates', label: 'Templates', icon: FileText },
+    { key: 'rss', label: 'RSS Feeds', icon: Rss },
+    { key: 'inbox', label: 'Inbox', icon: Inbox, badge: inboxCount.unread },
     { key: 'bulk', label: 'Bulk Import', icon: Upload },
-    { key: 'tags', label: 'Campaign Tags', icon: Tag },
+    { key: 'tags', label: 'Tags', icon: Tag },
   ];
 
   return (
@@ -124,8 +175,8 @@ export default function ContentLibrary() {
 
       <div className="flex gap-1 p-1 bg-zinc-900/50 rounded-xl border border-white/5">
         {tabs.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${tab === t.key ? 'bg-accent-violet/15 text-accent-violet' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'}`}>
-            <t.icon className="w-4 h-4" /> {t.label}
+          <button key={t.key} onClick={() => { setTab(t.key); if (t.key === 'inbox') fetchInbox(); }} className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${tab === t.key ? 'bg-accent-violet/15 text-accent-violet' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'}`}>
+            <t.icon className="w-4 h-4" /> {t.label} {t.badge > 0 && <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded-full">{t.badge}</span>}
           </button>
         ))}
       </div>
@@ -289,6 +340,109 @@ export default function ContentLibrary() {
               <p className="text-xs text-zinc-500">No tags yet. Add tags to posts or use them in bulk CSV imports.</p>
             )}
           </div>
+        </div>
+      )}
+
+      {/* RSS TAB */}
+      {tab === 'rss' && (
+        <div className="space-y-4">
+          <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-5">
+            <h3 className="text-sm font-heading font-semibold text-white mb-3 flex items-center gap-2"><Rss className="w-4 h-4 text-orange-400" /> Add RSS Feed</h3>
+            <div className="flex gap-3 flex-wrap">
+              <input type="text" value={rssUrl} onChange={(e) => setRssUrl(e.target.value)} className="flex-1 bg-zinc-950/50 border border-white/10 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500 min-w-[250px]" placeholder="https://blog.example.com/feed" />
+              <select value={rssPlatform} onChange={(e) => setRssPlatform(e.target.value)} className="bg-zinc-950/50 border border-white/10 rounded-lg py-2.5 px-3 text-xs text-white">{['linkedin','facebook','instagram','twitter'].map(p => <option key={p} value={p} className="bg-zinc-900">{p}</option>)}</select>
+              <input type="text" value={rssPrefix} onChange={(e) => setRssPrefix(e.target.value)} className="bg-zinc-950/50 border border-white/10 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500 w-40" placeholder="Post prefix (optional)" />
+              <button onClick={handleAddRss} disabled={addingRss || !rssUrl.trim()} className="bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50">
+                {addingRss ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Add Feed
+              </button>
+            </div>
+          </div>
+          {rssFeeds.length > 0 ? (
+            <div className="space-y-3">
+              {rssFeeds.map(feed => (
+                <div key={feed.feed_id} className="bg-zinc-900/50 border border-white/5 rounded-xl overflow-hidden">
+                  <div className="p-4 flex items-center gap-3">
+                    <Rss className="w-5 h-5 text-orange-400 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-white truncate">{feed.feed_url}</p>
+                      <p className="text-[10px] text-zinc-500">Platform: {feed.platform} {feed.prefix && `| Prefix: "${feed.prefix}"`}</p>
+                    </div>
+                    <button onClick={() => handleCheckRss(feed.feed_id)} disabled={checkingRss === feed.feed_id} className="text-xs bg-zinc-800 hover:bg-zinc-700 text-white border border-white/10 rounded-lg px-3 py-1.5 flex items-center gap-1 disabled:opacity-50">
+                      {checkingRss === feed.feed_id ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />} Fetch
+                    </button>
+                    <button onClick={() => handleDeleteRss(feed.feed_id)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-zinc-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+                  </div>
+                  {rssItems[feed.feed_id] && (
+                    <div className="border-t border-white/5 p-3 space-y-2 max-h-64 overflow-y-auto">
+                      {rssItems[feed.feed_id].map((item, i) => (
+                        <div key={i} className="flex items-start gap-3 p-2.5 bg-zinc-800/60 rounded-lg">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-white">{item.title}</p>
+                            <p className="text-[10px] text-zinc-500 line-clamp-1">{item.description}</p>
+                            {item.link && <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-[10px] text-accent-violet flex items-center gap-1 mt-0.5"><ExternalLink className="w-2.5 h-2.5" /> {item.link.slice(0, 40)}...</a>}
+                          </div>
+                          <button onClick={() => handleRssToPost(feed.feed_id, item.title, item.link)} className="text-[10px] bg-accent-violet/10 text-accent-violet hover:bg-accent-violet/20 px-2.5 py-1.5 rounded-lg flex items-center gap-1 flex-shrink-0"><Plus className="w-3 h-3" /> Draft</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12"><Rss className="w-10 h-10 text-zinc-700 mx-auto mb-3" /><p className="text-sm text-zinc-500">No RSS feeds added. Add a blog feed to auto-create posts.</p></div>
+          )}
+        </div>
+      )}
+
+      {/* INBOX TAB */}
+      {tab === 'inbox' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <h3 className="text-sm font-heading font-semibold text-white flex items-center gap-2"><Inbox className="w-4 h-4 text-accent-cyan" /> Unified Inbox</h3>
+              <span className="text-[10px] bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full">{inboxCount.unread} unread / {inboxCount.total} total</span>
+            </div>
+            <button onClick={fetchInbox} disabled={inboxLoading} className="bg-zinc-800 hover:bg-zinc-700 text-white border border-white/10 rounded-lg font-medium px-4 py-2 text-sm flex items-center gap-2 disabled:opacity-50">
+              {inboxLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />} Refresh
+            </button>
+          </div>
+          {inboxItems.length > 0 ? (
+            <div className="space-y-2">
+              {inboxItems.map(item => {
+                const platformColors = { instagram: '#E4405F', linkedin: '#0A66C2', facebook: '#1877F2' };
+                const PlatformIcons = { instagram: FaInstagram, linkedin: FaLinkedin, facebook: FaFacebook };
+                const PIcon = PlatformIcons[item.platform];
+                return (
+                  <div key={item.inbox_id} className={`bg-zinc-900/50 border rounded-xl p-4 transition-all ${item.read ? 'border-white/5' : 'border-accent-violet/20 bg-accent-violet/5'}`}>
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${platformColors[item.platform] || '#555'}15` }}>
+                        {PIcon ? <PIcon className="w-4 h-4" style={{ color: platformColors[item.platform] }} /> : <MessageSquare className="w-4 h-4 text-zinc-500" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-medium text-white">@{item.author}</span>
+                          <span className="text-[10px] text-zinc-500 capitalize">{item.platform} {item.type}</span>
+                          {!item.read && <span className="w-2 h-2 rounded-full bg-accent-violet" />}
+                          <span className="text-[10px] text-zinc-600 ml-auto">{item.timestamp ? new Date(item.timestamp).toLocaleString() : ''}</span>
+                        </div>
+                        <p className="text-sm text-zinc-300">{item.text}</p>
+                        {item.post_preview && <p className="text-[10px] text-zinc-500 mt-1 bg-zinc-800/50 p-1.5 rounded">On: "{item.post_preview}..."</p>}
+                      </div>
+                      {!item.read && (
+                        <button onClick={() => handleMarkRead(item.inbox_id)} className="p-1.5 rounded-lg hover:bg-white/5 text-zinc-500 hover:text-white" title="Mark as read"><Eye className="w-4 h-4" /></button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <Inbox className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
+              <p className="text-sm text-zinc-500">{inboxLoading ? 'Fetching mentions...' : 'No messages yet. Click Refresh to fetch latest comments and mentions.'}</p>
+            </div>
+          )}
         </div>
       )}
     </div>
