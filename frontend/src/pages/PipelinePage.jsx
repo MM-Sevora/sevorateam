@@ -180,8 +180,8 @@ const PipelinePage = () => {
                     {/* Assignment */}
                     <div className="pt-3 border-t border-border">
                       <Select
-                        value={lead.assigned_to || ''}
-                        onValueChange={(value) => handleAssign(lead.id, value)}
+                        value={lead.assigned_to || 'unassigned'}
+                        onValueChange={(value) => value !== 'unassigned' && handleAssign(lead.id, value)}
                       >
                         <SelectTrigger className="h-8 rounded-none text-xs">
                           <div className="flex items-center gap-2">
@@ -190,6 +190,7 @@ const PipelinePage = () => {
                           </div>
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="unassigned">Unassigned</SelectItem>
                           {users.map((user) => (
                             <SelectItem key={user.id} value={user.id}>
                               {user.name}

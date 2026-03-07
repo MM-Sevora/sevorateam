@@ -40,14 +40,14 @@ try:
         os.environ.get('TWILIO_ACCOUNT_SID'),
         os.environ.get('TWILIO_AUTH_TOKEN')
     )
-except:
+except Exception:
     pass
 
 # SendGrid client
 sg_client = None
 try:
     sg_client = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
-except:
+except Exception:
     pass
 
 app = FastAPI(title="Sevora CRM API")
@@ -479,7 +479,7 @@ async def get_leads(
         ]
     
     leads = await db.leads.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
-    return [LeadResponse(**l) for l in leads]
+    return [LeadResponse(**lead) for lead in leads]
 
 @api_router.get("/leads/{lead_id}", response_model=LeadResponse)
 async def get_lead(lead_id: str, current_user: dict = Depends(get_current_user)):

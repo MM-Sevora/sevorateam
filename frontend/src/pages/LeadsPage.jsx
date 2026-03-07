@@ -279,23 +279,23 @@ const LeadsPage = () => {
               />
             </div>
           </div>
-          <Select value={filterSource} onValueChange={setFilterSource}>
+          <Select value={filterSource || 'all'} onValueChange={(v) => setFilterSource(v === 'all' ? '' : v)}>
             <SelectTrigger data-testid="filter-source" className="w-[180px] rounded-none">
               <SelectValue placeholder="All Sources" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Sources</SelectItem>
+              <SelectItem value="all">All Sources</SelectItem>
               {LEAD_SOURCES.map((source) => (
                 <SelectItem key={source} value={source}>{source}</SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Select value={filterStage} onValueChange={setFilterStage}>
+          <Select value={filterStage || 'all'} onValueChange={(v) => setFilterStage(v === 'all' ? '' : v)}>
             <SelectTrigger data-testid="filter-stage" className="w-[180px] rounded-none">
               <SelectValue placeholder="All Stages" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Stages</SelectItem>
+              <SelectItem value="all">All Stages</SelectItem>
               {PIPELINE_STAGES.map((stage) => (
                 <SelectItem key={stage} value={stage}>{stage}</SelectItem>
               ))}
@@ -373,8 +373,8 @@ const LeadsPage = () => {
                   </td>
                   <td className="py-4">
                     <Select
-                      value={lead.assigned_to || ''}
-                      onValueChange={(value) => handleAssignLead(lead.id, value)}
+                      value={lead.assigned_to || 'unassigned'}
+                      onValueChange={(value) => value !== 'unassigned' && handleAssignLead(lead.id, value)}
                     >
                       <SelectTrigger className="w-[150px] rounded-none h-8 text-xs">
                         <SelectValue placeholder="Unassigned">
@@ -382,6 +382,7 @@ const LeadsPage = () => {
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="unassigned">Unassigned</SelectItem>
                         {users.map((user) => (
                           <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
                         ))}
