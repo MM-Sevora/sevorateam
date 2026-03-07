@@ -2614,6 +2614,22 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Marketing V2 routes: {e}")
 
+# Register Social API routes (Instagram/YouTube integration)
+try:
+    from routes.social_api import social_api_router
+    api_router.include_router(social_api_router)
+    logger.info("Social API routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Social API routes: {e}")
+
+# Register Scheduler routes (Background jobs)
+try:
+    from routes.scheduler import scheduler_router
+    api_router.include_router(scheduler_router)
+    logger.info("Scheduler routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Scheduler routes: {e}")
+
 app.include_router(api_router)
 
 # ============== WEBSOCKET FOR REAL-TIME NOTIFICATIONS ==============

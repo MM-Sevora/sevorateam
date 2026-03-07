@@ -1,0 +1,379 @@
+"""
+APScheduler Service - Background Jobs for Scheduled Discovery & Tasks
+Uses MongoDB for job persistence
+"""
+import os
+import logging
+import asyncio
+from datetime import datetime, timezone
+from typing import Optional, Dict, Any, Callable, List
+from pymongo import MongoClient
+
+logger = logging.getLogger(__name__)
+
+MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+DB_NAME = os.environ.get("DB_NAME", "app_database")
+
+# APScheduler imports
+APSCHEDULER_AVAILABLE = False
+scheduler = None
+
+try:
+    from apscheduler.schedulers.asyncio import AsyncIOScheduler
+    from apscheduler.jobstores.mongodb import MongoDBJobStore
+    from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
+    from apscheduler.triggers.cron import CronTrigger
+    from apscheduler.triggers.interval import IntervalTrigger
+    from apscheduler.triggers.date import DateTrigger
+    APSCHEDULER_AVAILABLE = True
+except ImportError:
+    logger.warning("APScheduler not installed. Background jobs disabled.")
+
+
+def _init_scheduler():
+    """Initialize the scheduler with MongoDB job store"""
+    global scheduler
+    
+    if not APSCHEDULER_AVAILABLE:
+        logger.error("APScheduler not available")
+        return None
+    
+    if scheduler is not None:
+        return scheduler
+    
+    try:
+        # Configure job stores (MongoDB for persistence)
+        jobstores = {
+            'default': MongoDBJobStore(
+                database=DB_NAME,
+                collection='apscheduler_jobs',
+                client=MongoClient(MONGO_URL)
+            )
+        }
+        
+        executors = {
+            'default': ThreadPoolExecutor(10),
+            'processpool': ProcessPoolExecutor(3)
+        }
+        
+        job_defaults = {
+            'coalesce': True,  # Combine missed runs into one
+            'max_instances': 1,  # Only one instance at a time
+            'misfire_grace_time': 3600  # 1 hour grace for missed jobs
+        }
+        
+        scheduler = AsyncIOScheduler(
+            jobstores=jobstores,
+            executors=executors,
+            job_defaults=job_defaults,
+            timezone='UTC'
+        )
+        
+        logger.info("APScheduler initialized with MongoDB job store")
+        return scheduler
+    except Exception as e:
+        logger.error(f"Failed to initialize scheduler: {e}")
+        return None
+
+
+def start_scheduler():
+    """Start the scheduler"""
+    global scheduler
+    
+    if not APSCHEDULER_AVAILABLE:
+        logger.warning("APScheduler not available - skipping start")
+        return False
+    
+    if scheduler is None:
+        scheduler = _init_scheduler()
+    
+    if scheduler and not scheduler.running:
+        try:
+            scheduler.start()
+            logger.info("APScheduler started")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to start scheduler: {e}")
+            return False
+    
+    return scheduler is not None and scheduler.running
+
+
+def shutdown_scheduler():
+    """Shutdown the scheduler gracefully"""
+    global scheduler
+    
+    if scheduler and scheduler.running:
+        try:
+            scheduler.shutdown(wait=True)
+            logger.info("APScheduler shut down")
+            return True
+        except Exception as e:
+            logger.error(f"Error shutting down scheduler: {e}")
+            return False
+    return True
+
+
+def get_scheduler_status() -> Dict[str, Any]:
+    """Get scheduler status and configuration"""
+    global scheduler
+    
+    if not APSCHEDULER_AVAILABLE:
+        return {
+            "available": False,
+            "running": False,
+            "reason": "APScheduler not installed"
+        }
+    
+    if scheduler is None:
+        return {
+            "available": True,
+            "running": False,
+            "reason": "Scheduler not initialized"
+        }
+    
+    return {
+        "available": True,
+        "running": scheduler.running,
+        "job_count": len(scheduler.get_jobs()) if scheduler.running else 0
+    }
+
+
+def add_job(
+    func: Callable,
+    trigger: str,
+    job_id: str,
+    trigger_args: Dict[str, Any] = None,
+    **kwargs
+) -> Optional[Dict[str, Any]]:
+    """
+    Add a new scheduled job
+    
+    Args:
+        func: The function to execute
+        trigger: Type of trigger ('cron', 'interval', 'date')
+        job_id: Unique job identifier
+        trigger_args: Arguments for the trigger
+        **kwargs: Additional arguments for add_job (e.g., args, kwargs for the function)
+    
+    Returns:
+        Job info dict or None if failed
+    
+    Examples:
+        # Daily at 9 AM
+        add_job(my_func, 'cron', 'daily_job', {'hour': 9, 'minute': 0})
+        
+        # Every 30 minutes
+        add_job(my_func, 'interval', 'interval_job', {'minutes': 30})
+        
+        # One-time at specific date
+        add_job(my_func, 'date', 'onetime_job', {'run_date': '2024-03-15 10:00:00'})
+    """
+    global scheduler
+    
+    if not APSCHEDULER_AVAILABLE or scheduler is None:
+        logger.error("Scheduler not available")
+        return None
+    
+    trigger_args = trigger_args or {}
+    
+    try:
+        # Remove existing job if present
+        existing = scheduler.get_job(job_id)
+        if existing:
+            scheduler.remove_job(job_id)
+            logger.info(f"Removed existing job: {job_id}")
+        
+        # Create trigger
+        if trigger == 'cron':
+            trigger_obj = CronTrigger(**trigger_args)
+        elif trigger == 'interval':
+            trigger_obj = IntervalTrigger(**trigger_args)
+        elif trigger == 'date':
+            trigger_obj = DateTrigger(**trigger_args)
+        else:
+            logger.error(f"Unknown trigger type: {trigger}")
+            return None
+        
+        # Add job
+        job = scheduler.add_job(
+            func,
+            trigger=trigger_obj,
+            id=job_id,
+            replace_existing=True,
+            **kwargs
+        )
+        
+        logger.info(f"Job {job_id} added with trigger: {trigger}")
+        
+        return {
+            "id": job.id,
+            "name": job.name,
+            "trigger": str(job.trigger),
+            "next_run": job.next_run_time.isoformat() if job.next_run_time else None
+        }
+    except Exception as e:
+        logger.error(f"Failed to add job {job_id}: {e}")
+        return None
+
+
+def remove_job(job_id: str) -> bool:
+    """Remove a scheduled job"""
+    global scheduler
+    
+    if scheduler is None:
+        return False
+    
+    try:
+        scheduler.remove_job(job_id)
+        logger.info(f"Job {job_id} removed")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to remove job {job_id}: {e}")
+        return False
+
+
+def pause_job(job_id: str) -> bool:
+    """Pause a scheduled job"""
+    global scheduler
+    
+    if scheduler is None:
+        return False
+    
+    try:
+        scheduler.pause_job(job_id)
+        logger.info(f"Job {job_id} paused")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to pause job {job_id}: {e}")
+        return False
+
+
+def resume_job(job_id: str) -> bool:
+    """Resume a paused job"""
+    global scheduler
+    
+    if scheduler is None:
+        return False
+    
+    try:
+        scheduler.resume_job(job_id)
+        logger.info(f"Job {job_id} resumed")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to resume job {job_id}: {e}")
+        return False
+
+
+def get_jobs() -> List[Dict[str, Any]]:
+    """Get all scheduled jobs"""
+    global scheduler
+    
+    if scheduler is None or not scheduler.running:
+        return []
+    
+    jobs = []
+    for job in scheduler.get_jobs():
+        jobs.append({
+            "id": job.id,
+            "name": job.name,
+            "trigger": str(job.trigger),
+            "next_run": job.next_run_time.isoformat() if job.next_run_time else None,
+            "pending": job.pending
+        })
+    
+    return jobs
+
+
+def get_job(job_id: str) -> Optional[Dict[str, Any]]:
+    """Get a specific job by ID"""
+    global scheduler
+    
+    if scheduler is None:
+        return None
+    
+    try:
+        job = scheduler.get_job(job_id)
+        if job:
+            return {
+                "id": job.id,
+                "name": job.name,
+                "trigger": str(job.trigger),
+                "next_run": job.next_run_time.isoformat() if job.next_run_time else None,
+                "pending": job.pending
+            }
+        return None
+    except Exception as e:
+        logger.error(f"Failed to get job {job_id}: {e}")
+        return None
+
+
+# ============== HELPER FUNCTIONS FOR COMMON SCHEDULES ==============
+
+def schedule_daily(func: Callable, job_id: str, hour: int = 9, minute: int = 0, **kwargs) -> Optional[Dict[str, Any]]:
+    """Schedule a job to run daily at specified time (UTC)"""
+    return add_job(
+        func=func,
+        trigger='cron',
+        job_id=job_id,
+        trigger_args={'hour': hour, 'minute': minute},
+        **kwargs
+    )
+
+
+def schedule_weekly(
+    func: Callable, 
+    job_id: str, 
+    day_of_week: str = 'mon', 
+    hour: int = 9, 
+    minute: int = 0,
+    **kwargs
+) -> Optional[Dict[str, Any]]:
+    """Schedule a job to run weekly on specified day (UTC)"""
+    return add_job(
+        func=func,
+        trigger='cron',
+        job_id=job_id,
+        trigger_args={'day_of_week': day_of_week, 'hour': hour, 'minute': minute},
+        **kwargs
+    )
+
+
+def schedule_interval(
+    func: Callable,
+    job_id: str,
+    hours: int = 0,
+    minutes: int = 0,
+    seconds: int = 0,
+    **kwargs
+) -> Optional[Dict[str, Any]]:
+    """Schedule a job to run at regular intervals"""
+    trigger_args = {}
+    if hours > 0:
+        trigger_args['hours'] = hours
+    if minutes > 0:
+        trigger_args['minutes'] = minutes
+    if seconds > 0:
+        trigger_args['seconds'] = seconds
+    
+    if not trigger_args:
+        trigger_args['hours'] = 1  # Default to 1 hour
+    
+    return add_job(
+        func=func,
+        trigger='interval',
+        job_id=job_id,
+        trigger_args=trigger_args,
+        **kwargs
+    )
+
+
+def schedule_once(func: Callable, job_id: str, run_date: str, **kwargs) -> Optional[Dict[str, Any]]:
+    """Schedule a one-time job at specified datetime"""
+    return add_job(
+        func=func,
+        trigger='date',
+        job_id=job_id,
+        trigger_args={'run_date': run_date},
+        **kwargs
+    )

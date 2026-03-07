@@ -5,6 +5,7 @@ aiosignal==1.4.0
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.12.1
+APScheduler==3.10.4
 attrs==25.4.0
 azure-core==1.38.2
 azure-identity==1.25.2
@@ -112,6 +113,7 @@ python-http-client==3.3.7
 python-jose==3.5.0
 python-multipart==0.0.22
 pytokens==0.4.1
+pytz==2026.1.post1
 PyYAML==6.0.3
 qrcode==8.2
 referencing==0.37.0
@@ -139,6 +141,7 @@ typer==0.24.1
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 tzdata==2025.3
+tzlocal==5.3.1
 uritemplate==4.2.0
 urllib3==2.6.3
 uvicorn==0.25.0

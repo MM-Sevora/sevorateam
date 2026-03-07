@@ -37,6 +37,8 @@ Consolidate multiple Sevora applications (Influencer Operations from 'main' bran
 - **Auth**: Microsoft Azure AD, JWT
 - **AI**: GPT-5.2 (text), GPT Image 1 (images), Sora 2 (video) via Emergent LLM Key
 - **Communication**: Twilio (WhatsApp), Microsoft Graph (Email/Outlook)
+- **Social APIs**: Instagram Graph API, YouTube Data API v3
+- **Scheduler**: APScheduler with MongoDB job persistence
 
 ## What's Been Implemented (Jan 2026)
 
@@ -425,6 +427,66 @@ Implementation of 11 advanced features for influencer operations:
 ## Earlier Updates (March 2026)
 - **White/Light Theme Complete**: Applied consistent white background theme across ALL pages
   - Login page: Clean card with purple gradient button
+
+## Live Social Media Integration (COMPLETE - March 2026)
+Implementation of Instagram Graph API, YouTube Data API, and APScheduler for background jobs.
+
+### Services Created
+- `/app/backend/services/social_api.py` - Instagram & YouTube API integration
+- `/app/backend/services/scheduler_service.py` - APScheduler with MongoDB persistence
+
+### API Routes Created
+- `/app/backend/routes/social_api.py` - Social media API endpoints
+- `/app/backend/routes/scheduler.py` - Background job management endpoints
+
+### Instagram Graph API Features
+- `GET /api/social-api/instagram/status` - Connection status check
+- `GET /api/social-api/instagram/profile/{username}` - Fetch influencer profile via Business Discovery
+- `GET /api/social-api/instagram/hashtag/{hashtag}` - Search hashtag media
+- Returns: followers, engagement_rate, avg_likes, avg_comments, recent_media
+
+### YouTube Data API Features
+- `GET /api/social-api/youtube/status` - Connection status check
+- `GET /api/social-api/youtube/channel/{handle}` - Fetch channel by handle
+- `GET /api/social-api/youtube/search?query=` - Search YouTube channels
+- Returns: subscribers, total_views, video_count, engagement_rate, recent_videos
+
+### Unified Profile Fetching
+- `GET /api/social-api/profile/{platform}/{handle}` - Fetch from any platform
+- `POST /api/social-api/profile/bulk` - Fetch from multiple platforms at once
+- `POST /api/social-api/sync/influencer/{contact_id}` - Sync social data for contact
+- `POST /api/social-api/sync/batch` - Batch sync for multiple contacts
+
+### APScheduler Features
+- `GET /api/scheduler/status` - Scheduler status
+- `POST /api/scheduler/start` - Start scheduler
+- `GET /api/scheduler/jobs` - List all jobs
+- `POST /api/scheduler/discovery/schedule` - Schedule recurring influencer discovery
+- `POST /api/scheduler/sync/schedule` - Schedule recurring social media sync
+- `POST /api/scheduler/run/{job_id}` - Manually trigger a job
+- Jobs persist in MongoDB `apscheduler_jobs` collection
+
+### Environment Variables Required
+```env
+INSTAGRAM_ACCESS_TOKEN=   # From Facebook Developer Console
+INSTAGRAM_ACCOUNT_ID=     # Your Instagram Business Account ID
+YOUTUBE_API_KEY=          # From Google Cloud Console
+```
+
+### How to Get API Keys
+**Instagram:**
+1. Create Facebook App at developers.facebook.com
+2. Add "Instagram Graph API" product
+3. Connect Instagram Business/Creator account
+4. Generate Page Access Token with: instagram_basic, instagram_manage_insights, pages_read_engagement
+
+**YouTube:**
+1. Go to Google Cloud Console
+2. Enable "YouTube Data API v3"
+3. Create API Key in Credentials
+4. Restrict key to YouTube Data API v3
+
+
   - Dashboard: White cards with subtle shadows
   - All department dashboards: Marketing, Sales, Social
   - Core pages: Influencers, Leads, Content Studio, etc.
