@@ -39,6 +39,7 @@ export const AuthProvider = ({ children }) => {
             });
             const userData = response.data;
             userData.departments = getUserDepartments(userData.role);
+            // Permissions are now included from backend
             setUser(userData);
             return userData;
         } catch (error) {
@@ -190,6 +191,28 @@ export const AuthProvider = ({ children }) => {
         return userDepts.includes('admin') || userDepts.includes(department);
     };
 
+    // Check if user has specific permission for a module action
+    // Usage: hasPermission('marketing', 'influencers', 'create')
+    const hasPermission = (department, module, action) => {
+        if (!user) return false;
+        
+        // Super admin and admin have all permissions
+        if (user.role === 'super_admin' || user.role === 'admin') {
+            return true;
+        }
+        
+        // Check user's permissions object
+        if (user.permissions) {
+            const deptPerms = user.permissions[department];
+            if (deptPerms && deptPerms[module]) {
+                return deptPerms[module].includes(action);
+            }
+        }
+        
+        // Fallback to department access for backward compatibility
+        return hasAccessToDepartment(department);
+    };
+
     // Initialize auth state on mount and handle Azure redirect
     useEffect(() => {
         const initAuth = async () => {
@@ -268,6 +291,7 @@ export const AuthProvider = ({ children }) => {
         register,
         logout,
         hasAccessToDepartment,
+        hasPermission,
         getUserDepartments,
         ROLE_DEPARTMENTS,
         api

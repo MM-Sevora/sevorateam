@@ -498,6 +498,8 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
         user['departments'] = get_user_departments(user.get('role', 'viewer'))
+        # Include permissions for frontend authorization checks
+        user['permissions'] = get_user_permissions(user)
         return user
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
