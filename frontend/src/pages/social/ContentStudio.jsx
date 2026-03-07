@@ -74,7 +74,7 @@ export default function ContentStudio() {
     if (!topic.trim()) return;
     setLoadingText(true); setError(''); setGeneratedContent(null);
     try {
-      const res = await api.post('/api/content/generate', { platform, topic, tone, content_type: contentType });
+      const res = await api.post('/content/generate', { platform, topic, tone, content_type: contentType });
       setGeneratedContent(res.data);
     } catch (err) { setError(err.response?.data?.detail || 'Failed'); }
     finally { setLoadingText(false); }
@@ -85,7 +85,7 @@ export default function ContentStudio() {
     if (!prompt) return;
     setLoadingImage(true);
     try {
-      const res = await api.post('/api/content/generate-image', { prompt, style: 'modern social media' });
+      const res = await api.post('/content/generate-image', { prompt, style: 'modern social media' });
       setGeneratedImage(res.data.image_data);
     } catch (err) { setError(err.response?.data?.detail || 'Failed'); }
     finally { setLoadingImage(false); }
@@ -98,7 +98,7 @@ export default function ContentStudio() {
   const saveAsPost = async (status) => {
     if (!generatedContent?.content) return;
     setSavingPost(true);
-    try { await api.post('/api/posts', { platform, content: generatedContent.content, image_url: generatedImage || '', status }); alert(`Saved as ${status}! Go to Posts & Schedule to publish.`); }
+    try { await api.post('/posts', { platform, content: generatedContent.content, image_url: generatedImage || '', status }); alert(`Saved as ${status}! Go to Posts & Schedule to publish.`); }
     catch (err) { setError('Failed to save'); }
     finally { setSavingPost(false); }
   };
@@ -107,7 +107,7 @@ export default function ContentStudio() {
     if (!generatedContent?.content) return;
     setRefining(action);
     try {
-      const res = await api.post('/api/content/refine', { content: generatedContent.content, action, platform, ...extra });
+      const res = await api.post('/content/refine', { content: generatedContent.content, action, platform, ...extra });
       setGeneratedContent(prev => ({ ...prev, content: res.data.refined_content || res.data.refined }));
     } catch (err) { setError(err.response?.data?.detail || 'Refine failed'); }
     finally { setRefining(''); }
@@ -117,14 +117,14 @@ export default function ContentStudio() {
     if (!generatedContent?.content) return;
     setCheckingQuality(true); setQualityScore(null);
     try {
-      const res = await api.post('/api/content/quality-check', { platform, topic: generatedContent.content });
+      const res = await api.post('/content/quality-check', { platform, topic: generatedContent.content });
       setQualityScore(res.data);
     } catch (err) { setError('Quality check failed'); }
     finally { setCheckingQuality(false); }
   };
 
   const fetchTemplates = async () => {
-    try { const res = await api.get('/api/templates'); setTemplates(res.data); } catch (err) {}
+    try { const res = await api.get('/templates'); setTemplates(res.data); } catch (err) {}
   };
 
   const applyTemplate = (template) => {
@@ -134,7 +134,7 @@ export default function ContentStudio() {
 
   const generateIdeas = async () => {
     setLoadingIdeas(true); setError('');
-    try { const res = await api.post('/api/content/ideas', { platform, topic: ideaTopic, tone }); setIdeas(res.data.ideas || []); }
+    try { const res = await api.post('/content/ideas', { platform, topic: ideaTopic, tone }); setIdeas(res.data.ideas || []); }
     catch (err) { setError(err.response?.data?.detail || 'Failed'); }
     finally { setLoadingIdeas(false); }
   };
@@ -142,7 +142,7 @@ export default function ContentStudio() {
   const generateAutopilot = async () => {
     setGeneratingAp(true); setError('');
     try {
-      const res = await api.post('/api/autopilot/generate', { industry: apIndustry, topics: apTopics.split(',').map(t => t.trim()).filter(Boolean), tone, platforms: apPlatforms, posts_per_day: apPpd, days: apDays });
+      const res = await api.post('/autopilot/generate', { industry: apIndustry, topics: apTopics.split(',').map(t => t.trim()).filter(Boolean), tone, platforms: apPlatforms, posts_per_day: apPpd, days: apDays });
       setApPosts(res.data.posts || []);
     } catch (err) { setError(err.response?.data?.detail || 'Failed'); }
     finally { setGeneratingAp(false); }
@@ -152,7 +152,7 @@ export default function ContentStudio() {
     const text = predictContent || generatedContent?.content;
     if (!text?.trim()) return;
     setLoadingPredict(true); setPrediction(null);
-    try { const res = await api.post('/api/predict/performance', { content: text, platform }); setPrediction(res.data); }
+    try { const res = await api.post('/predict/performance', { content: text, platform }); setPrediction(res.data); }
     catch (err) { setError(err.response?.data?.detail || 'Failed'); }
     finally { setLoadingPredict(false); }
   };
@@ -174,12 +174,12 @@ export default function ContentStudio() {
     setToolLoading(tool); setToolResult(null); setError('');
     try {
       const endpoints = {
-        repurpose: '/api/tools/repurpose',
-        hashtags: '/api/tools/hashtags',
-        urlpost: '/api/tools/url-to-post',
-        copywriting: '/api/tools/copywriting',
-        recycle: '/api/tools/recycle',
-        competitor: '/api/tools/competitor/analyze',
+        repurpose: '/tools/repurpose',
+        hashtags: '/tools/hashtags',
+        urlpost: '/tools/url-to-post',
+        copywriting: '/tools/copywriting',
+        recycle: '/tools/recycle',
+        competitor: '/tools/competitor/analyze',
       };
       const res = await api.post(endpoints[tool], payload);
       setToolResult({ tool, data: res.data });
@@ -204,14 +204,14 @@ export default function ContentStudio() {
 
   const fetchApprovals = async () => {
     try {
-      const [appRes, statsRes] = await Promise.all([api.get('/api/approvals'), api.get('/api/approvals/stats')]);
+      const [appRes, statsRes] = await Promise.all([api.get('/approvals'), api.get('/approvals/stats')]);
       setApprovals(appRes.data); setApprovalStats(statsRes.data);
     } catch (err) { console.error(err); }
   };
 
   const handleReview = async (approvalId, action) => {
     setReviewing(approvalId);
-    try { await api.post(`/api/approvals/${approvalId}/review`, { action, feedback: reviewFeedback[approvalId] || '' }); await fetchApprovals(); }
+    try { await api.post(`/approvals/${approvalId}/review`, { action, feedback: reviewFeedback[approvalId] || '' }); await fetchApprovals(); }
     catch (err) { console.error(err); }
     finally { setReviewing(''); }
   };
@@ -226,8 +226,8 @@ export default function ContentStudio() {
     setSubmittingReview(true); setSubmitResult(null);
     try {
       // Save as draft first, then submit for review
-      const postRes = await api.post('/api/posts', { platform, content: generatedContent.content, image_url: generatedImage || '', status: 'draft' });
-      const approvalRes = await api.post('/api/approvals/submit', { post_id: postRes.data.post_id, note: reviewNote });
+      const postRes = await api.post('/posts', { platform, content: generatedContent.content, image_url: generatedImage || '', status: 'draft' });
+      const approvalRes = await api.post('/approvals/submit', { post_id: postRes.data.post_id, note: reviewNote });
       setSubmitResult({ success: true, approval_id: approvalRes.data.approval_id });
       setReviewNote('');
     } catch (err) { setSubmitResult({ success: false, error: err.response?.data?.detail || 'Failed' }); }
@@ -495,7 +495,7 @@ function ReviewTab() {
 
   const fetchData = async () => {
     try {
-      const [statsRes, actionRes] = await Promise.all([api.get('/api/approvals/stats'), api.get('/api/approvals/actionable')]);
+      const [statsRes, actionRes] = await Promise.all([api.get('/approvals/stats'), api.get('/approvals/actionable')]);
       setStats(statsRes.data); setActionable(actionRes.data);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
@@ -506,7 +506,7 @@ function ReviewTab() {
   const handleReview = async (id, action) => {
     setReviewing(id);
     try {
-      const res = await api.post(`/api/approvals/${id}/review`, { action, feedback: reviewFeedback[id] || '' });
+      const res = await api.post(`/approvals/${id}/review`, { action, feedback: reviewFeedback[id] || '' });
       if (res.data.auto_queued) alert('Approved! Post automatically moved to Posts & Schedule queue.');
       await fetchData();
     }
@@ -515,12 +515,12 @@ function ReviewTab() {
   };
 
   const handleMoveToQueue = async (id) => {
-    try { await api.post(`/api/approvals/${id}/move-to-queue?status=scheduled`); await fetchData(); alert('Moved to schedule queue!'); }
+    try { await api.post(`/approvals/${id}/move-to-queue?status=scheduled`); await fetchData(); alert('Moved to schedule queue!'); }
     catch (err) { alert(err.response?.data?.detail || 'Failed'); }
   };
 
   const handleResubmit = async (id) => {
-    try { await api.post(`/api/approvals/${id}/resubmit`); await fetchData(); alert('Resubmitted for review!'); }
+    try { await api.post(`/approvals/${id}/resubmit`); await fetchData(); alert('Resubmitted for review!'); }
     catch (err) { alert(err.response?.data?.detail || 'Failed'); }
   };
 
@@ -620,25 +620,25 @@ function IdeasTab({ platform, tone, ideas, setIdeas, loadingIdeas, setLoadingIde
   React.useEffect(() => { fetchPillars(); }, []);
 
   const fetchPillars = async () => {
-    try { const res = await api.get('/api/pillars'); setPillars(res.data); } catch (err) { console.error(err); }
+    try { const res = await api.get('/pillars'); setPillars(res.data); } catch (err) { console.error(err); }
   };
 
   const handleAddPillar = async () => {
     if (!newPillar.name.trim()) return;
     setSavingPillar(true);
-    try { await api.post('/api/pillars', newPillar); await fetchPillars(); setShowAddPillar(false); setNewPillar({ name: '', description: '', color: '#7c3aed', target_percentage: 20 }); }
+    try { await api.post('/pillars', newPillar); await fetchPillars(); setShowAddPillar(false); setNewPillar({ name: '', description: '', color: '#7c3aed', target_percentage: 20 }); }
     catch (err) { console.error(err); }
     finally { setSavingPillar(false); }
   };
 
   const handleDeletePillar = async (id) => {
-    try { await api.delete(`/api/pillars/${id}`); setPillars(prev => prev.filter(p => p.pillar_id !== id)); } catch (err) { console.error(err); }
+    try { await api.delete(`/pillars/${id}`); setPillars(prev => prev.filter(p => p.pillar_id !== id)); } catch (err) { console.error(err); }
   };
 
   const generateByPillar = async () => {
     setLoadingIdeas(true);
     try {
-      const res = await api.post(`/api/content/ideas-by-pillar?pillar=${selectedPillar}`, { platform, topic: ideaTopic, tone });
+      const res = await api.post(`/content/ideas-by-pillar?pillar=${selectedPillar}`, { platform, topic: ideaTopic, tone });
       setIdeas(res.data.ideas || []);
     } catch (err) { console.error(err); }
     finally { setLoadingIdeas(false); }

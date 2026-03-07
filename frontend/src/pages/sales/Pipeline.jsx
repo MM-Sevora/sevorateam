@@ -35,8 +35,8 @@ const PipelinePage = () => {
   const fetchData = async () => {
     try {
       const [leadsRes, usersRes] = await Promise.all([
-        api.get('/leads'),
-        api.get('/users')
+        api.get('/sales/leads'),
+        api.get('/sales/users')
       ]);
       // Filter out closed lost from pipeline view
       setLeads(leadsRes.data.filter(l => l.stage !== 'Closed Lost'));
@@ -66,7 +66,7 @@ const PipelinePage = () => {
     }
 
     try {
-      await api.put(`/leads/${draggedLead.id}`, { stage: newStage });
+      await api.put(`/sales/leads/${draggedLead.id}`, { stage: newStage });
       setLeads(prev =>
         prev.map(l =>
           l.id === draggedLead.id ? { ...l, stage: newStage } : l
@@ -81,7 +81,7 @@ const PipelinePage = () => {
 
   const handleAssign = async (leadId, userId) => {
     try {
-      await api.put(`/leads/${leadId}`, { assigned_to: userId });
+      await api.put(`/sales/leads/${leadId}`, { assigned_to: userId });
       const user = users.find(u => u.id === userId);
       setLeads(prev =>
         prev.map(l =>
