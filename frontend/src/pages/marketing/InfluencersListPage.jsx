@@ -13,7 +13,8 @@ import { Textarea } from '../../components/ui/textarea';
 import { toast } from 'sonner';
 import { 
   RefreshCw, Plus, Search, Filter, Instagram, Youtube, 
-  MoreHorizontal, Users, Sparkles, ChevronUp, ChevronDown, Download, User, AtSign, DollarSign, Building, X
+  MoreHorizontal, Users, Sparkles, ChevronUp, ChevronDown, Download, User, AtSign, DollarSign, Building, X,
+  TrendingUp, Heart, Target, Eye
 } from 'lucide-react';
 
 const InfluencersListPage = () => {
@@ -902,95 +903,166 @@ const InfluencersListPage = () => {
         </div>
       </div>
 
-      {/* Status Funnel Cards */}
-      <div className="grid grid-cols-7 gap-3">
-        {/* All Status Card */}
-        <Card 
-          className={`cursor-pointer transition-all ${filterStatus === 'all' ? 'bg-[#c4a35a] text-white shadow-md' : 'bg-gray-50 hover:bg-gray-100 border-none shadow-sm'}`}
-          onClick={() => setFilterStatus('all')}
-        >
-          <CardContent className="p-4 text-center">
-            <div className={`text-3xl font-light ${filterStatus === 'all' ? 'text-white' : 'text-gray-900'}`}>{influencers.length}</div>
-            <div className={`text-xs uppercase tracking-wider mt-1 ${filterStatus === 'all' ? 'text-white/80' : 'text-gray-500'}`}>All</div>
+      {/* Stats Overview Cards */}
+      <div className="grid grid-cols-4 gap-4">
+        <Card className="bg-gradient-to-br from-pink-50 to-white border-pink-100">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-pink-600 uppercase tracking-wider">Total Influencers</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{influencers.length}</p>
+                <p className="text-xs text-gray-500 mt-1">In database</p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-pink-100 flex items-center justify-center">
+                <Users className="w-6 h-6 text-pink-600" />
+              </div>
+            </div>
           </CardContent>
         </Card>
-        {[
-          { key: 'identified', label: 'Identified' },
-          { key: 'contacted', label: 'Contacted' },
-          { key: 'interested', label: 'Interested' },
-          { key: 'negotiation', label: 'Negotiation' },
-          { key: 'confirmed', label: 'Confirmed' },
-          { key: 'completed', label: 'Completed' }
-        ].map(status => (
-          <Card 
-            key={status.key} 
-            className={`cursor-pointer transition-all ${filterStatus === status.key ? 'bg-[#c4a35a] text-white shadow-md' : 'bg-gray-50 hover:bg-gray-100 border-none shadow-sm'}`}
-            onClick={() => setFilterStatus(filterStatus === status.key ? 'all' : status.key)}
-          >
-            <CardContent className="p-4 text-center">
-              <div className={`text-3xl font-light ${filterStatus === status.key ? 'text-white' : 'text-gray-900'}`}>{statusCounts[status.key]}</div>
-              <div className={`text-xs uppercase tracking-wider mt-1 ${filterStatus === status.key ? 'text-white/80' : 'text-gray-500'}`}>{status.label}</div>
-            </CardContent>
-          </Card>
-        ))}
+        
+        <Card className="bg-gradient-to-br from-purple-50 to-white border-purple-100">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-purple-600 uppercase tracking-wider">Total Reach</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">
+                  {formatNumber(influencers.reduce((sum, inf) => sum + (inf.followers || 0), 0))}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">Combined followers</p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
+                <Eye className="w-6 h-6 text-purple-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-gradient-to-br from-green-50 to-white border-green-100">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-600 uppercase tracking-wider">Avg Engagement</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">
+                  {influencers.length > 0 
+                    ? (influencers.reduce((sum, inf) => sum + (inf.engagement_rate || 0), 0) / influencers.length).toFixed(1) 
+                    : '0.0'}%
+                </p>
+                <p className="text-xs text-gray-500 mt-1">Across all influencers</p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
+                <TrendingUp className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-gradient-to-br from-amber-50 to-white border-amber-100">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-amber-600 uppercase tracking-wider">Active Now</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">
+                  {statusCounts.confirmed + statusCounts.negotiation}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">In negotiation or confirmed</p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
+                <Target className="w-6 h-6 text-amber-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Active Filter Indicator */}
-      {filterStatus !== 'all' && (
-        <div className="flex items-center gap-2">
-          <Badge className="bg-[#c4a35a] text-white capitalize">{filterStatus}</Badge>
-          <button 
-            onClick={() => setFilterStatus('all')}
-            className="text-sm text-gray-500 hover:text-gray-700"
-          >
-            Clear filter
-          </button>
-        </div>
-      )}
-
       {/* Search & Filter Bar */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <Input
-            placeholder="Search name or handle..."
+            placeholder="Search by name or handle..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-10 bg-white border-gray-200"
           />
         </div>
         <Select value={filterPlatform} onValueChange={setFilterPlatform}>
-          <SelectTrigger className="w-32">
-            <SelectValue placeholder="All" />
+          <SelectTrigger className="w-36 bg-white">
+            <SelectValue placeholder="Platform" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="instagram">Instagram</SelectItem>
-            <SelectItem value="youtube">YouTube</SelectItem>
+            <SelectItem value="all">All Platforms</SelectItem>
+            <SelectItem value="instagram">
+              <span className="flex items-center gap-2"><Instagram className="w-4 h-4 text-pink-500" /> Instagram</span>
+            </SelectItem>
+            <SelectItem value="youtube">
+              <span className="flex items-center gap-2"><Youtube className="w-4 h-4 text-red-500" /> YouTube</span>
+            </SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" size="icon">
-          <Filter className="w-4 h-4" />
-        </Button>
-        <Button variant="outline">Search</Button>
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="w-36 bg-white">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="identified">Identified</SelectItem>
+            <SelectItem value="contacted">Contacted</SelectItem>
+            <SelectItem value="interested">Interested</SelectItem>
+            <SelectItem value="negotiation">Negotiation</SelectItem>
+            <SelectItem value="confirmed">Confirmed</SelectItem>
+            <SelectItem value="completed">Completed</SelectItem>
+          </SelectContent>
+        </Select>
+        {(filterStatus !== 'all' || filterPlatform !== 'all' || searchQuery) && (
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => {
+              setFilterStatus('all');
+              setFilterPlatform('all');
+              setSearchQuery('');
+            }}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            <X className="w-4 h-4 mr-1" /> Clear
+          </Button>
+        )}
       </div>
 
       {/* Results Count & Sort */}
-      <div className="flex items-center justify-between text-sm">
+      <div className="flex items-center justify-between text-sm px-1">
         <span className="text-gray-600">
-          Showing {filteredInfluencers.length} of {influencers.length} influencers
+          Showing <span className="font-medium text-gray-900">{filteredInfluencers.length}</span> of {influencers.length} influencers
         </span>
-        <span className="text-gray-600">
-          Sorted by <button onClick={() => toggleSort('score')} className="text-[#c4a35a] font-medium">Score</button> ({sortOrder})
-        </span>
+        <div className="flex items-center gap-4 text-gray-600">
+          <span>Sort by:</span>
+          <button 
+            onClick={() => toggleSort('score')} 
+            className={`font-medium transition-colors ${sortBy === 'score' ? 'text-[#c4a35a]' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Score
+          </button>
+          <button 
+            onClick={() => toggleSort('followers')} 
+            className={`font-medium transition-colors ${sortBy === 'followers' ? 'text-[#c4a35a]' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Followers
+          </button>
+          <button 
+            onClick={() => toggleSort('engagement')} 
+            className={`font-medium transition-colors ${sortBy === 'engagement' ? 'text-[#c4a35a]' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Engagement
+          </button>
+        </div>
       </div>
 
       {/* Influencers Table */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-gray-200 bg-gray-50">
-              <th className="w-10 p-3">
+            <tr className="border-b border-gray-100 bg-gray-50/80">
+              <th className="w-12 p-4">
                 <Checkbox 
                   checked={selectedIds.length === filteredInfluencers.length && filteredInfluencers.length > 0}
                   onCheckedChange={(checked) => {
@@ -998,51 +1070,50 @@ const InfluencersListPage = () => {
                   }}
                 />
               </th>
-              <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="text-left p-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Influencer
               </th>
-              <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="text-left p-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Platform
               </th>
-              <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => toggleSort('followers')}>
+              <th className="text-left p-4 text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:text-gray-900" onClick={() => toggleSort('followers')}>
                 <span className="flex items-center gap-1">Followers <SortIcon field="followers" /></span>
               </th>
-              <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => toggleSort('engagement')}>
-                <span className="flex items-center gap-1">Eng. % <SortIcon field="engagement" /></span>
+              <th className="text-left p-4 text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:text-gray-900" onClick={() => toggleSort('engagement')}>
+                <span className="flex items-center gap-1">Engagement <SortIcon field="engagement" /></span>
               </th>
-              <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="text-left p-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Industry
               </th>
-              <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="text-left p-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Tier
               </th>
-              <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Gender
-              </th>
-              <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="text-left p-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Status
               </th>
-              <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => toggleSort('score')}>
+              <th className="text-left p-4 text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:text-gray-900" onClick={() => toggleSort('score')}>
                 <span className="flex items-center gap-1">Score <SortIcon field="score" /></span>
               </th>
-              <th className="text-left p-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="text-left p-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Updated
               </th>
-              <th className="w-10 p-3"></th>
+              <th className="w-12 p-4"></th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-gray-100">
             {loading ? (
               <tr>
-                <td colSpan={12} className="p-8 text-center text-gray-500">
-                  <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2" />
-                  Loading...
+                <td colSpan={11} className="p-12 text-center text-gray-500">
+                  <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-3 text-[#c4a35a]" />
+                  <p className="font-medium">Loading influencers...</p>
                 </td>
               </tr>
             ) : filteredInfluencers.length === 0 ? (
               <tr>
-                <td colSpan={12} className="p-8 text-center text-gray-500">
-                  No influencers found
+                <td colSpan={11} className="p-12 text-center">
+                  <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p className="text-gray-500 font-medium">No influencers found</p>
+                  <p className="text-gray-400 text-sm mt-1">Try adjusting your filters or add a new influencer</p>
                 </td>
               </tr>
             ) : (
@@ -1054,10 +1125,10 @@ const InfluencersListPage = () => {
                 return (
                   <tr 
                     key={inf.id} 
-                    className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                    className="hover:bg-gray-50/80 cursor-pointer transition-colors group"
                     onClick={() => navigate(`/marketing/influencer/${inf.id}`)}
                   >
-                    <td className="p-3" onClick={e => e.stopPropagation()}>
+                    <td className="p-4" onClick={e => e.stopPropagation()}>
                       <Checkbox 
                         checked={selectedIds.includes(inf.id)}
                         onCheckedChange={(checked) => {
@@ -1067,41 +1138,42 @@ const InfluencersListPage = () => {
                         }}
                       />
                     </td>
-                    <td className="p-3">
+                    <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center">
-                          <PlatformIcon className="w-5 h-5 text-pink-500" />
+                        <div className={`w-11 h-11 rounded-full flex items-center justify-center ${inf.primary_platform === 'youtube' ? 'bg-red-100' : 'bg-gradient-to-br from-pink-100 to-purple-100'}`}>
+                          <PlatformIcon className={`w-5 h-5 ${inf.primary_platform === 'youtube' ? 'text-red-500' : 'text-pink-500'}`} />
                         </div>
                         <div>
-                          <div className="font-medium text-gray-900">{inf.name}</div>
+                          <div className="font-semibold text-gray-900 group-hover:text-[#c4a35a] transition-colors">{inf.name}</div>
                           <div className="text-sm text-gray-500">
                             @{inf.instagram_handle || inf.youtube_handle || 'unknown'} • {inf.city || 'Unknown'}
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td className="p-3">
-                      <Badge className={`${platform.color} font-normal`}>{platform.label}</Badge>
+                    <td className="p-4">
+                      <Badge className={`${platform.color} font-medium border-0`}>{platform.label}</Badge>
                     </td>
-                    <td className="p-3 text-gray-900 font-medium">
-                      {formatNumber(inf.followers)}
+                    <td className="p-4">
+                      <span className="text-gray-900 font-semibold">{formatNumber(inf.followers)}</span>
                     </td>
-                    <td className="p-3 text-gray-900">
-                      {inf.engagement_rate?.toFixed(1) || '0.0'}%
+                    <td className="p-4">
+                      <span className={`font-medium ${(inf.engagement_rate || 0) >= 3 ? 'text-green-600' : (inf.engagement_rate || 0) >= 1.5 ? 'text-amber-600' : 'text-gray-600'}`}>
+                        {inf.engagement_rate?.toFixed(1) || '0.0'}%
+                      </span>
                     </td>
-                    <td className="p-3 text-gray-700 capitalize">
-                      {inf.industry || '-'}
+                    <td className="p-4">
+                      <span className="text-gray-700 capitalize">{inf.industry || '-'}</span>
                     </td>
-                    <td className="p-3">
-                      <Badge className={`${tier.color} font-normal`}>{tier.label}</Badge>
+                    <td className="p-4">
+                      <Badge className={`${tier.color} font-medium border-0`}>{tier.label}</Badge>
                     </td>
-                    <td className="p-3 text-gray-500">-</td>
-                    <td className="p-3" onClick={e => e.stopPropagation()}>
+                    <td className="p-4" onClick={e => e.stopPropagation()}>
                       <Select 
                         value={inf.status || 'identified'} 
                         onValueChange={(v) => handleStatusChange(inf.id, v)}
                       >
-                        <SelectTrigger className={`w-28 h-8 text-xs ${getStatusColor(inf.status)}`}>
+                        <SelectTrigger className={`w-28 h-8 text-xs font-medium ${getStatusColor(inf.status)} border-0`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1114,16 +1186,20 @@ const InfluencersListPage = () => {
                         </SelectContent>
                       </Select>
                     </td>
-                    <td className="p-3">
-                      <div className="w-10 h-8 bg-blue-100 text-blue-700 rounded flex items-center justify-center font-medium">
+                    <td className="p-4">
+                      <div className={`w-11 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
+                        (inf.score || 50) >= 70 ? 'bg-green-100 text-green-700' : 
+                        (inf.score || 50) >= 50 ? 'bg-blue-100 text-blue-700' : 
+                        'bg-gray-100 text-gray-600'
+                      }`}>
                         {inf.score || 50}
                       </div>
                     </td>
-                    <td className="p-3 text-gray-500 text-sm">
+                    <td className="p-4 text-gray-500 text-sm">
                       {formatDate(inf.updated_at)}
                     </td>
-                    <td className="p-3" onClick={e => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <td className="p-4" onClick={e => e.stopPropagation()}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
                         <MoreHorizontal className="w-4 h-4" />
                       </Button>
                     </td>
