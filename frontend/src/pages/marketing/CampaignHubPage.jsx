@@ -6,14 +6,14 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
 import { Label } from '../../components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { toast } from 'sonner';
 import { 
   Calendar, List, ChevronLeft, ChevronRight, Plus, Target, Users, DollarSign,
   Clock, Play, Pause, CheckCircle2, TrendingUp, Filter, Search, RefreshCw,
-  CalendarDays, LayoutGrid, GanttChartSquare
+  CalendarDays, LayoutGrid, GanttChartSquare, MoreHorizontal, ExternalLink
 } from 'lucide-react';
 
 const STATUS_CONFIG = {
@@ -419,73 +419,103 @@ const CampaignHubPage = () => {
             </Select>
           </div>
 
-          {/* Campaign Cards Grid */}
-          <div className="grid grid-cols-3 gap-4">
-            {filteredCampaigns.map(campaign => {
-              const statusCfg = STATUS_CONFIG[campaign.status] || STATUS_CONFIG.planning;
-              const StatusIcon = statusCfg.icon;
-              const typeCfg = CAMPAIGN_TYPES[campaign.campaign_type] || CAMPAIGN_TYPES.influencer;
-              const progress = campaign.budget > 0 ? (campaign.spent / campaign.budget) * 100 : 0;
-              const isPR = campaign.campaign_type === 'pr';
-              
-              return (
-                <Card 
-                  key={campaign.id}
-                  className="bg-white border-gray-200 hover:border-amber-300 transition-all cursor-pointer"
-                  onClick={() => isPR ? navigate(`/marketing/pr?campaign=${campaign.id}`) : navigate(`/marketing/campaign/${campaign.id}`)}
-                  data-testid={`campaign-card-${campaign.id}`}
-                >
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge className={`text-xs ${typeCfg.color}`}>{typeCfg.label}</Badge>
-                        </div>
-                        <h3 className="font-semibold text-gray-900 mb-1">{campaign.name}</h3>
-                        <p className="text-sm text-gray-500 capitalize">{campaign.objective}</p>
-                      </div>
-                      <Badge className={statusCfg.color}>
-                        <StatusIcon className="w-3 h-3 mr-1" />
-                        {statusCfg.label}
-                      </Badge>
-                    </div>
-                    
-                    <div className="space-y-2 mb-4">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Budget</span>
-                        <span className="font-medium">{formatCurrency(campaign.budget)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Spent</span>
-                        <span className="font-medium text-amber-600">{formatCurrency(campaign.spent || 0)}</span>
-                      </div>
-                      <div className="w-full bg-gray-100 rounded-full h-1.5">
-                        <div 
-                          className="bg-amber-500 h-1.5 rounded-full transition-all"
-                          style={{ width: `${Math.min(progress, 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between text-xs text-gray-500 pt-3 border-t border-gray-100">
-                      {isPR ? (
-                        <span className="flex items-center gap-1">
-                          <Users className="w-3 h-3" />
-                          {campaign.journalist_ids?.length || 0} journalists
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1">
-                          <Users className="w-3 h-3" />
-                          {campaign.influencer_count || 0} influencers
-                        </span>
-                      )}
-                      <span>{campaign.start_date || '-'} - {campaign.end_date || '-'}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+          {/* Campaign Table */}
+          <Card className="bg-white border-gray-200">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-gray-50/50 hover:bg-gray-50/50">
+                    <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[280px]">Campaign</TableHead>
+                    <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[100px]">Type</TableHead>
+                    <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[100px]">Status</TableHead>
+                    <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[120px]">Budget</TableHead>
+                    <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[100px]">Spent</TableHead>
+                    <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[80px]">Progress</TableHead>
+                    <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[100px]">Team</TableHead>
+                    <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[150px]">Duration</TableHead>
+                    <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[60px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredCampaigns.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={9} className="text-center py-12 text-gray-500">
+                        No campaigns found. Create your first campaign!
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredCampaigns.map(campaign => {
+                      const statusCfg = STATUS_CONFIG[campaign.status] || STATUS_CONFIG.planning;
+                      const StatusIcon = statusCfg.icon;
+                      const typeCfg = CAMPAIGN_TYPES[campaign.campaign_type] || CAMPAIGN_TYPES.influencer;
+                      const progress = campaign.budget > 0 ? Math.min((campaign.spent / campaign.budget) * 100, 100) : 0;
+                      const isPR = campaign.campaign_type === 'pr';
+                      
+                      return (
+                        <TableRow 
+                          key={campaign.id}
+                          className="cursor-pointer hover:bg-amber-50/50 transition-colors"
+                          onClick={() => isPR ? navigate(`/marketing/pr?campaign=${campaign.id}`) : navigate(`/marketing/campaign/${campaign.id}`)}
+                          data-testid={`campaign-row-${campaign.id}`}
+                        >
+                          <TableCell>
+                            <div>
+                              <div className="font-medium text-gray-900">{campaign.name}</div>
+                              <div className="text-xs text-gray-500 capitalize">{campaign.objective}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={`text-xs ${typeCfg.color}`}>{typeCfg.label}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={`${statusCfg.color} text-xs`}>
+                              <StatusIcon className="w-3 h-3 mr-1" />
+                              {statusCfg.label}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-medium">{formatCurrency(campaign.budget)}</TableCell>
+                          <TableCell className="text-amber-600 font-medium">{formatCurrency(campaign.spent || 0)}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 bg-gray-100 rounded-full h-1.5">
+                                <div 
+                                  className="bg-amber-500 h-1.5 rounded-full transition-all"
+                                  style={{ width: `${progress}%` }}
+                                />
+                              </div>
+                              <span className="text-xs text-gray-500">{Math.round(progress)}%</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1 text-sm text-gray-600">
+                              <Users className="w-3 h-3" />
+                              {isPR ? (campaign.journalist_ids?.length || 0) : (campaign.influencer_count || 0)}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm text-gray-600">
+                            {campaign.start_date || '-'} → {campaign.end_date || '-'}
+                          </TableCell>
+                          <TableCell>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 w-8 p-0"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                isPR ? navigate(`/marketing/pr?campaign=${campaign.id}`) : navigate(`/marketing/campaign/${campaign.id}`);
+                              }}
+                            >
+                              <ExternalLink className="w-4 h-4 text-gray-400" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </>
       )}
 
