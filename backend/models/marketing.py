@@ -293,6 +293,131 @@ class UGCResponse(BaseModel):
 
 # ============== DIGITAL PR MODELS ==============
 
+# PR Campaign
+class PRCampaignStatus(str, Enum):
+    PLANNING = "planning"
+    ACTIVE = "active"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+class PRCampaignCreate(BaseModel):
+    name: str
+    objective: str
+    description: Optional[str] = None
+    story_angle: Optional[str] = None
+    key_messages: List[str] = []
+    target_publications: List[str] = []
+    target_beats: List[str] = []
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    embargo_date: Optional[str] = None
+    budget: float = 0.0
+    owner_id: Optional[str] = None
+
+class PRCampaignResponse(BaseModel):
+    id: str
+    name: str
+    objective: str
+    description: Optional[str] = None
+    story_angle: Optional[str] = None
+    key_messages: List[str] = []
+    target_publications: List[str] = []
+    target_beats: List[str] = []
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    embargo_date: Optional[str] = None
+    budget: float = 0.0
+    spent: float = 0.0
+    status: str = "planning"
+    owner_id: Optional[str] = None
+    owner_name: Optional[str] = None
+    journalist_ids: List[str] = []
+    press_release_ids: List[str] = []
+    pitch_count: int = 0
+    coverage_count: int = 0
+    response_rate: float = 0.0
+    created_at: str
+    updated_at: Optional[str] = None
+
+# Outreach Sequence / Email Template
+class OutreachTemplateType(str, Enum):
+    INITIAL_PITCH = "initial_pitch"
+    FOLLOW_UP_1 = "follow_up_1"
+    FOLLOW_UP_2 = "follow_up_2"
+    FOLLOW_UP_3 = "follow_up_3"
+    THANK_YOU = "thank_you"
+    EXCLUSIVE_OFFER = "exclusive_offer"
+
+class OutreachTemplateCreate(BaseModel):
+    name: str
+    template_type: OutreachTemplateType
+    subject: str
+    body: str
+    delay_days: int = 0  # Days after previous step
+    is_active: bool = True
+
+class OutreachTemplateResponse(BaseModel):
+    id: str
+    name: str
+    template_type: str
+    subject: str
+    body: str
+    delay_days: int = 0
+    is_active: bool = True
+    usage_count: int = 0
+    created_at: str
+
+# Outreach Sequence (Automation)
+class OutreachSequenceCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    pr_campaign_id: Optional[str] = None
+    template_ids: List[str] = []  # Ordered list of template IDs
+    is_active: bool = True
+
+class OutreachSequenceResponse(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
+    pr_campaign_id: Optional[str] = None
+    template_ids: List[str] = []
+    templates: List[dict] = []  # Populated template details
+    is_active: bool = True
+    contacts_enrolled: int = 0
+    created_at: str
+
+# Scheduled Outreach
+class ScheduledOutreachStatus(str, Enum):
+    SCHEDULED = "scheduled"
+    SENT = "sent"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+class ScheduledOutreachCreate(BaseModel):
+    contact_id: str
+    sequence_id: Optional[str] = None
+    template_id: str
+    pr_campaign_id: Optional[str] = None
+    scheduled_at: str
+    channel: str = "email"  # email, linkedin, twitter
+
+class ScheduledOutreachResponse(BaseModel):
+    id: str
+    contact_id: str
+    contact_name: Optional[str] = None
+    contact_email: Optional[str] = None
+    sequence_id: Optional[str] = None
+    template_id: str
+    pr_campaign_id: Optional[str] = None
+    scheduled_at: str
+    sent_at: Optional[str] = None
+    channel: str = "email"
+    status: str = "scheduled"
+    subject: Optional[str] = None
+    error_message: Optional[str] = None
+    created_at: str
+
 # Press Release
 class PressReleaseStatus(str, Enum):
     DRAFT = "draft"

@@ -5,7 +5,7 @@ Marketing Routes - Unified Contacts Hub, Digital PR, Events, Content & Assets
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from models.marketing import (
     # Contact models
@@ -20,12 +20,20 @@ from models.marketing import (
     PaymentCreate, PaymentResponse,
     # UGC models
     UGCCreate, UGCResponse,
+    # PR Campaign models
+    PRCampaignCreate, PRCampaignResponse,
     # Press Release models
     PressReleaseCreate, PressReleaseResponse,
     # Media Coverage models
     MediaCoverageCreate, MediaCoverageResponse,
     # PR Pitch models
     PRPitchCreate, PRPitchResponse,
+    # Outreach Template models
+    OutreachTemplateCreate, OutreachTemplateResponse,
+    # Outreach Sequence models
+    OutreachSequenceCreate, OutreachSequenceResponse,
+    # Scheduled Outreach models
+    ScheduledOutreachCreate, ScheduledOutreachResponse,
     # Event models
     EventCreate, EventResponse, EventAttendeeCreate,
     # Asset models
@@ -929,3 +937,786 @@ async def get_marketing_dashboard_stats():
             "pending": pending_approvals,
         },
     }
+
+
+# ============== PHASE 2: AI MEDIA DISCOVERY ==============
+
+@marketing_v2_router.post("/pr/ai-discover")
+async def ai_discover_journalists(
+    discovery_brief: dict,
+    user: dict = Depends(get_marketing_auth())
+):
+    """AI-powered journalist discovery based on PR brief"""
+    from services.ai_pr_discovery_service import ai_pr_discovery_service
+    
+    db = get_db()
+    
+    # Get all journalists from database
+    journalists = await db.contacts.find(
+        {"contact_type": "journalist"},
+        {"_id": 0}
+    ).to_list(500)
+    
+    if not journalists:
+        return {
+            "success": False,
+            "error": "No journalists in database. Add media contacts first.",
+            "recommendations": []
+        }
+    
+    # Run AI discovery
+    result = await ai_pr_discovery_service.discover_journalists(discovery_brief, journalists)
+    
+    # Save discovery session
+    session_id = str(uuid.uuid4())
+    session_doc = {
+        "id": session_id,
+        "type": "pr_discovery",
+        "brief": discovery_brief,
+        "result": result.get("data", {}),
+        "user_id": user.get("id"),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.discovery_sessions.insert_one(session_doc)
+    
+    return {
+        "session_id": session_id,
+        **result
+    }
+
+@marketing_v2_router.post("/pr/ai-generate-pitch")
+async def ai_generate_pitch(
+    journalist_id: str,
+    press_release_id: Optional[str] = None,
+    tone: str = "professional",
+    user: dict = Depends(get_marketing_auth())
+):
+    """AI-generate personalized pitch for a journalist"""
+    from services.ai_pr_discovery_service import ai_pr_discovery_service
+    
+    db = get_db()
+    
+    journalist = await db.contacts.find_one({"id": journalist_id}, {"_id": 0})
+    if not journalist:
+        raise HTTPException(status_code=404, detail="Journalist not found")
+    
+    press_release = {}
+    if press_release_id:
+        press_release = await db.press_releases.find_one({"id": press_release_id}, {"_id": 0}) or {}
+    
+    result = await ai_pr_discovery_service.generate_pitch_message(journalist, press_release, tone)
+    return result
+
+@marketing_v2_router.post("/pr/ai-generate-followup")
+async def ai_generate_followup(
+    journalist_id: str,
+    original_pitch_id: str,
+    follow_up_number: int = 1,
+    user: dict = Depends(get_marketing_auth())
+):
+    """AI-generate follow-up message for a pitch"""
+    from services.ai_pr_discovery_service import ai_pr_discovery_service
+    
+    db = get_db()
+    
+    journalist = await db.contacts.find_one({"id": journalist_id}, {"_id": 0})
+    if not journalist:
+        raise HTTPException(status_code=404, detail="Journalist not found")
+    
+    original_pitch = await db.pr_pitches.find_one({"id": original_pitch_id}, {"_id": 0})
+    if not original_pitch:
+        raise HTTPException(status_code=404, detail="Original pitch not found")
+    
+    # Calculate days since sent
+    if original_pitch.get("sent_at"):
+        sent_date = datetime.fromisoformat(original_pitch["sent_at"].replace("Z", "+00:00"))
+        days_since = (datetime.now(timezone.utc) - sent_date).days
+        original_pitch["days_since_sent"] = days_since
+    
+    result = await ai_pr_discovery_service.generate_follow_up(journalist, original_pitch, follow_up_number)
+    return result
+
+@marketing_v2_router.post("/pr/ai-analyze-list")
+async def ai_analyze_media_list(
+    journalist_ids: List[str],
+    campaign_objectives: dict,
+    user: dict = Depends(get_marketing_auth())
+):
+    """AI-analyze a media list for coverage potential"""
+    from services.ai_pr_discovery_service import ai_pr_discovery_service
+    
+    db = get_db()
+    
+    journalists = await db.contacts.find(
+        {"id": {"$in": journalist_ids}},
+        {"_id": 0}
+    ).to_list(len(journalist_ids))
+    
+    result = await ai_pr_discovery_service.analyze_media_list(journalists, campaign_objectives)
+    return result
+
+# ============== PHASE 3: PR CAMPAIGN MANAGEMENT ==============
+
+@marketing_v2_router.get("/pr/campaigns", response_model=List[PRCampaignResponse])
+async def get_pr_campaigns(
+    status: Optional[str] = None,
+    limit: int = 50,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get all PR campaigns"""
+    db = get_db()
+    query = {}
+    if status:
+        query["status"] = status
+    
+    campaigns = await db.pr_campaigns.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    return campaigns
+
+@marketing_v2_router.get("/pr/campaigns/{campaign_id}", response_model=PRCampaignResponse)
+async def get_pr_campaign(campaign_id: str, user: dict = Depends(get_marketing_auth())):
+    """Get single PR campaign with details"""
+    db = get_db()
+    
+    campaign = await db.pr_campaigns.find_one({"id": campaign_id}, {"_id": 0})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="PR Campaign not found")
+    
+    # Get pitch and coverage counts
+    pitch_count = await db.pr_pitches.count_documents({"pr_campaign_id": campaign_id})
+    coverage_count = await db.media_coverage.count_documents({"campaign_id": campaign_id})
+    responded_count = await db.pr_pitches.count_documents({
+        "pr_campaign_id": campaign_id,
+        "status": {"$in": ["responded", "interested"]}
+    })
+    
+    campaign["pitch_count"] = pitch_count
+    campaign["coverage_count"] = coverage_count
+    campaign["response_rate"] = (responded_count / pitch_count * 100) if pitch_count > 0 else 0
+    
+    return campaign
+
+@marketing_v2_router.post("/pr/campaigns", response_model=PRCampaignResponse)
+async def create_pr_campaign(
+    data: PRCampaignCreate,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Create a new PR campaign"""
+    db = get_db()
+    
+    campaign_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    owner_name = None
+    if data.owner_id:
+        owner = await db.users.find_one({"id": data.owner_id})
+        owner_name = owner.get("name") if owner else None
+    
+    campaign_doc = {
+        "id": campaign_id,
+        **data.model_dump(),
+        "owner_name": owner_name,
+        "status": "planning",
+        "spent": 0.0,
+        "journalist_ids": [],
+        "press_release_ids": [],
+        "pitch_count": 0,
+        "coverage_count": 0,
+        "response_rate": 0.0,
+        "created_at": now,
+        "updated_at": now,
+    }
+    
+    await db.pr_campaigns.insert_one(campaign_doc)
+    del campaign_doc["_id"]
+    return campaign_doc
+
+@marketing_v2_router.put("/pr/campaigns/{campaign_id}", response_model=PRCampaignResponse)
+async def update_pr_campaign(
+    campaign_id: str,
+    data: PRCampaignCreate,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Update a PR campaign"""
+    db = get_db()
+    
+    existing = await db.pr_campaigns.find_one({"id": campaign_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="PR Campaign not found")
+    
+    update_data = data.model_dump()
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.pr_campaigns.update_one({"id": campaign_id}, {"$set": update_data})
+    
+    updated = await db.pr_campaigns.find_one({"id": campaign_id}, {"_id": 0})
+    return updated
+
+@marketing_v2_router.put("/pr/campaigns/{campaign_id}/status")
+async def update_pr_campaign_status(
+    campaign_id: str,
+    status: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Update PR campaign status"""
+    db = get_db()
+    
+    result = await db.pr_campaigns.update_one(
+        {"id": campaign_id},
+        {"$set": {"status": status, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="PR Campaign not found")
+    
+    return {"message": f"Campaign status updated to {status}"}
+
+@marketing_v2_router.post("/pr/campaigns/{campaign_id}/journalists/{journalist_id}")
+async def add_journalist_to_campaign(
+    campaign_id: str,
+    journalist_id: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Add journalist to PR campaign"""
+    db = get_db()
+    
+    campaign = await db.pr_campaigns.find_one({"id": campaign_id})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="PR Campaign not found")
+    
+    journalist = await db.contacts.find_one({"id": journalist_id})
+    if not journalist:
+        raise HTTPException(status_code=404, detail="Journalist not found")
+    
+    await db.pr_campaigns.update_one(
+        {"id": campaign_id},
+        {"$addToSet": {"journalist_ids": journalist_id}}
+    )
+    
+    return {"message": "Journalist added to campaign"}
+
+@marketing_v2_router.delete("/pr/campaigns/{campaign_id}/journalists/{journalist_id}")
+async def remove_journalist_from_campaign(
+    campaign_id: str,
+    journalist_id: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Remove journalist from PR campaign"""
+    db = get_db()
+    
+    await db.pr_campaigns.update_one(
+        {"id": campaign_id},
+        {"$pull": {"journalist_ids": journalist_id}}
+    )
+    
+    return {"message": "Journalist removed from campaign"}
+
+@marketing_v2_router.post("/pr/campaigns/{campaign_id}/releases/{release_id}")
+async def link_release_to_campaign(
+    campaign_id: str,
+    release_id: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Link press release to PR campaign"""
+    db = get_db()
+    
+    await db.pr_campaigns.update_one(
+        {"id": campaign_id},
+        {"$addToSet": {"press_release_ids": release_id}}
+    )
+    
+    # Also update the press release
+    await db.press_releases.update_one(
+        {"id": release_id},
+        {"$set": {"pr_campaign_id": campaign_id}}
+    )
+    
+    return {"message": "Press release linked to campaign"}
+
+@marketing_v2_router.get("/pr/campaigns/{campaign_id}/journalists")
+async def get_campaign_journalists(
+    campaign_id: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get all journalists in a PR campaign"""
+    db = get_db()
+    
+    campaign = await db.pr_campaigns.find_one({"id": campaign_id}, {"_id": 0})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="PR Campaign not found")
+    
+    journalist_ids = campaign.get("journalist_ids", [])
+    if not journalist_ids:
+        return []
+    
+    journalists = await db.contacts.find(
+        {"id": {"$in": journalist_ids}},
+        {"_id": 0}
+    ).to_list(len(journalist_ids))
+    
+    # Add pitch status for each journalist
+    for j in journalists:
+        pitch = await db.pr_pitches.find_one(
+            {"contact_id": j["id"], "pr_campaign_id": campaign_id},
+            {"_id": 0, "status": 1, "sent_at": 1}
+        )
+        j["pitch_status"] = pitch.get("status") if pitch else "not_pitched"
+        j["pitch_sent_at"] = pitch.get("sent_at") if pitch else None
+    
+    return journalists
+
+# ============== PHASE 4: OUTREACH AUTOMATION ==============
+
+@marketing_v2_router.get("/outreach/templates", response_model=List[OutreachTemplateResponse])
+async def get_outreach_templates(
+    template_type: Optional[str] = None,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get all outreach email templates"""
+    db = get_db()
+    query = {}
+    if template_type:
+        query["template_type"] = template_type
+    
+    templates = await db.outreach_templates.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return templates
+
+@marketing_v2_router.post("/outreach/templates", response_model=OutreachTemplateResponse)
+async def create_outreach_template(
+    data: OutreachTemplateCreate,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Create a new outreach email template"""
+    db = get_db()
+    
+    template_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    template_doc = {
+        "id": template_id,
+        **data.model_dump(),
+        "usage_count": 0,
+        "created_at": now,
+    }
+    
+    await db.outreach_templates.insert_one(template_doc)
+    del template_doc["_id"]
+    return template_doc
+
+@marketing_v2_router.put("/outreach/templates/{template_id}")
+async def update_outreach_template(
+    template_id: str,
+    data: OutreachTemplateCreate,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Update an outreach template"""
+    db = get_db()
+    
+    result = await db.outreach_templates.update_one(
+        {"id": template_id},
+        {"$set": data.model_dump()}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    return {"message": "Template updated"}
+
+@marketing_v2_router.delete("/outreach/templates/{template_id}")
+async def delete_outreach_template(
+    template_id: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Delete an outreach template"""
+    db = get_db()
+    
+    result = await db.outreach_templates.delete_one({"id": template_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    return {"message": "Template deleted"}
+
+@marketing_v2_router.get("/outreach/sequences", response_model=List[OutreachSequenceResponse])
+async def get_outreach_sequences(user: dict = Depends(get_marketing_auth())):
+    """Get all outreach sequences"""
+    db = get_db()
+    
+    sequences = await db.outreach_sequences.find({}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    
+    # Populate template details
+    for seq in sequences:
+        template_ids = seq.get("template_ids", [])
+        if template_ids:
+            templates = await db.outreach_templates.find(
+                {"id": {"$in": template_ids}},
+                {"_id": 0}
+            ).to_list(len(template_ids))
+            seq["templates"] = templates
+    
+    return sequences
+
+@marketing_v2_router.post("/outreach/sequences", response_model=OutreachSequenceResponse)
+async def create_outreach_sequence(
+    data: OutreachSequenceCreate,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Create a new outreach sequence"""
+    db = get_db()
+    
+    sequence_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    sequence_doc = {
+        "id": sequence_id,
+        **data.model_dump(),
+        "contacts_enrolled": 0,
+        "created_at": now,
+    }
+    
+    await db.outreach_sequences.insert_one(sequence_doc)
+    del sequence_doc["_id"]
+    
+    # Get template details
+    if data.template_ids:
+        templates = await db.outreach_templates.find(
+            {"id": {"$in": data.template_ids}},
+            {"_id": 0}
+        ).to_list(len(data.template_ids))
+        sequence_doc["templates"] = templates
+    
+    return sequence_doc
+
+@marketing_v2_router.post("/outreach/schedule", response_model=ScheduledOutreachResponse)
+async def schedule_outreach(
+    data: ScheduledOutreachCreate,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Schedule an outreach email"""
+    db = get_db()
+    
+    contact = await db.contacts.find_one({"id": data.contact_id}, {"_id": 0})
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    template = await db.outreach_templates.find_one({"id": data.template_id}, {"_id": 0})
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    outreach_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Personalize subject with contact name
+    personalized_subject = template.get("subject", "").replace("{{name}}", contact.get("name", ""))
+    
+    outreach_doc = {
+        "id": outreach_id,
+        **data.model_dump(),
+        "contact_name": contact.get("name"),
+        "contact_email": contact.get("email"),
+        "subject": personalized_subject,
+        "status": "scheduled",
+        "created_at": now,
+    }
+    
+    await db.scheduled_outreach.insert_one(outreach_doc)
+    del outreach_doc["_id"]
+    
+    # Update template usage count
+    await db.outreach_templates.update_one(
+        {"id": data.template_id},
+        {"$inc": {"usage_count": 1}}
+    )
+    
+    return outreach_doc
+
+@marketing_v2_router.get("/outreach/scheduled", response_model=List[ScheduledOutreachResponse])
+async def get_scheduled_outreach(
+    status: Optional[str] = None,
+    contact_id: Optional[str] = None,
+    pr_campaign_id: Optional[str] = None,
+    limit: int = 100,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get all scheduled outreach"""
+    db = get_db()
+    query = {}
+    if status:
+        query["status"] = status
+    if contact_id:
+        query["contact_id"] = contact_id
+    if pr_campaign_id:
+        query["pr_campaign_id"] = pr_campaign_id
+    
+    outreach = await db.scheduled_outreach.find(query, {"_id": 0}).sort("scheduled_at", 1).limit(limit).to_list(limit)
+    return outreach
+
+@marketing_v2_router.put("/outreach/scheduled/{outreach_id}/send")
+async def send_scheduled_outreach(
+    outreach_id: str,
+    use_microsoft_graph: bool = False,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Send a scheduled outreach email (manual or via Microsoft Graph)"""
+    db = get_db()
+    
+    outreach = await db.scheduled_outreach.find_one({"id": outreach_id}, {"_id": 0})
+    if not outreach:
+        raise HTTPException(status_code=404, detail="Scheduled outreach not found")
+    
+    contact_email = outreach.get("contact_email")
+    if not contact_email:
+        raise HTTPException(status_code=400, detail="Contact has no email address")
+    
+    # Get template for full message
+    template = await db.outreach_templates.find_one({"id": outreach.get("template_id")}, {"_id": 0})
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    # Personalize message
+    contact_name = outreach.get("contact_name", "")
+    personalized_body = template.get("body", "").replace("{{name}}", contact_name)
+    personalized_subject = outreach.get("subject", template.get("subject", ""))
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    if use_microsoft_graph:
+        # Try to send via Microsoft Graph
+        try:
+            from services.microsoft_service import microsoft_service
+            result = await microsoft_service.send_email(
+                to_email=contact_email,
+                subject=personalized_subject,
+                body=personalized_body,
+                is_html=False
+            )
+            if result.get("success"):
+                await db.scheduled_outreach.update_one(
+                    {"id": outreach_id},
+                    {"$set": {"status": "sent", "sent_at": now}}
+                )
+                
+                # Update contact status
+                await db.contacts.update_one(
+                    {"id": outreach.get("contact_id")},
+                    {"$set": {"status": "contacted", "last_contacted_date": now}}
+                )
+                
+                # Log communication
+                comm_doc = {
+                    "id": str(uuid.uuid4()),
+                    "contact_id": outreach.get("contact_id"),
+                    "contact_name": contact_name,
+                    "comm_type": "email",
+                    "subject": personalized_subject,
+                    "message": personalized_body,
+                    "direction": "outbound",
+                    "status": "sent",
+                    "sent_at": now,
+                    "opened": False,
+                    "replied": False
+                }
+                await db.communications.insert_one(comm_doc)
+                
+                return {"message": "Email sent via Microsoft Graph", "status": "sent"}
+            else:
+                await db.scheduled_outreach.update_one(
+                    {"id": outreach_id},
+                    {"$set": {"status": "failed", "error_message": result.get("error")}}
+                )
+                return {"message": "Failed to send email", "error": result.get("error")}
+        except Exception as e:
+            await db.scheduled_outreach.update_one(
+                {"id": outreach_id},
+                {"$set": {"status": "failed", "error_message": str(e)}}
+            )
+            return {"message": "Failed to send email", "error": str(e)}
+    else:
+        # Manual send - just mark as sent and log
+        await db.scheduled_outreach.update_one(
+            {"id": outreach_id},
+            {"$set": {"status": "sent", "sent_at": now}}
+        )
+        
+        # Update contact status
+        await db.contacts.update_one(
+            {"id": outreach.get("contact_id")},
+            {"$set": {"status": "contacted", "last_contacted_date": now}}
+        )
+        
+        # Log communication
+        comm_doc = {
+            "id": str(uuid.uuid4()),
+            "contact_id": outreach.get("contact_id"),
+            "contact_name": contact_name,
+            "comm_type": "email",
+            "subject": personalized_subject,
+            "message": personalized_body,
+            "direction": "outbound",
+            "status": "sent",
+            "sent_at": now,
+            "opened": False,
+            "replied": False
+        }
+        await db.communications.insert_one(comm_doc)
+        
+        return {
+            "message": "Outreach marked as sent (manual)",
+            "status": "sent",
+            "to": contact_email,
+            "subject": personalized_subject
+        }
+
+@marketing_v2_router.put("/outreach/scheduled/{outreach_id}/cancel")
+async def cancel_scheduled_outreach(
+    outreach_id: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Cancel a scheduled outreach"""
+    db = get_db()
+    
+    result = await db.scheduled_outreach.update_one(
+        {"id": outreach_id},
+        {"$set": {"status": "cancelled"}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Scheduled outreach not found")
+    
+    return {"message": "Outreach cancelled"}
+
+@marketing_v2_router.post("/outreach/enroll-sequence")
+async def enroll_contacts_in_sequence(
+    sequence_id: str,
+    contact_ids: List[str],
+    start_date: Optional[str] = None,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Enroll multiple contacts in an outreach sequence"""
+    db = get_db()
+    
+    sequence = await db.outreach_sequences.find_one({"id": sequence_id}, {"_id": 0})
+    if not sequence:
+        raise HTTPException(status_code=404, detail="Sequence not found")
+    
+    template_ids = sequence.get("template_ids", [])
+    if not template_ids:
+        raise HTTPException(status_code=400, detail="Sequence has no templates")
+    
+    # Get templates with their delays
+    templates = await db.outreach_templates.find(
+        {"id": {"$in": template_ids}},
+        {"_id": 0}
+    ).to_list(len(template_ids))
+    
+    # Sort templates by their position in the sequence
+    template_map = {t["id"]: t for t in templates}
+    sorted_templates = [template_map[tid] for tid in template_ids if tid in template_map]
+    
+    base_date = datetime.fromisoformat(start_date.replace("Z", "+00:00")) if start_date else datetime.now(timezone.utc)
+    
+    scheduled_count = 0
+    for contact_id in contact_ids:
+        contact = await db.contacts.find_one({"id": contact_id}, {"_id": 0})
+        if not contact:
+            continue
+        
+        cumulative_delay = 0
+        for template in sorted_templates:
+            cumulative_delay += template.get("delay_days", 0)
+            scheduled_at = base_date + timedelta(days=cumulative_delay)
+            
+            outreach_doc = {
+                "id": str(uuid.uuid4()),
+                "contact_id": contact_id,
+                "contact_name": contact.get("name"),
+                "contact_email": contact.get("email"),
+                "sequence_id": sequence_id,
+                "template_id": template["id"],
+                "pr_campaign_id": sequence.get("pr_campaign_id"),
+                "scheduled_at": scheduled_at.isoformat(),
+                "channel": "email",
+                "status": "scheduled",
+                "subject": template.get("subject", "").replace("{{name}}", contact.get("name", "")),
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            
+            await db.scheduled_outreach.insert_one(outreach_doc)
+            scheduled_count += 1
+    
+    # Update sequence enrollment count
+    await db.outreach_sequences.update_one(
+        {"id": sequence_id},
+        {"$inc": {"contacts_enrolled": len(contact_ids)}}
+    )
+    
+    return {
+        "message": f"Enrolled {len(contact_ids)} contacts in sequence",
+        "scheduled_emails": scheduled_count
+    }
+
+@marketing_v2_router.get("/outreach/stats")
+async def get_outreach_stats(
+    pr_campaign_id: Optional[str] = None,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get outreach statistics"""
+    db = get_db()
+    
+    query = {}
+    if pr_campaign_id:
+        query["pr_campaign_id"] = pr_campaign_id
+    
+    total_scheduled = await db.scheduled_outreach.count_documents({**query, "status": "scheduled"})
+    total_sent = await db.scheduled_outreach.count_documents({**query, "status": "sent"})
+    total_failed = await db.scheduled_outreach.count_documents({**query, "status": "failed"})
+    total_cancelled = await db.scheduled_outreach.count_documents({**query, "status": "cancelled"})
+    
+    # Get response stats from pitches
+    pitch_query = {"pr_campaign_id": pr_campaign_id} if pr_campaign_id else {}
+    total_pitches = await db.pr_pitches.count_documents(pitch_query)
+    responded_pitches = await db.pr_pitches.count_documents({**pitch_query, "status": {"$in": ["responded", "interested"]}})
+    
+    return {
+        "outreach": {
+            "scheduled": total_scheduled,
+            "sent": total_sent,
+            "failed": total_failed,
+            "cancelled": total_cancelled,
+            "total": total_scheduled + total_sent + total_failed + total_cancelled
+        },
+        "pitches": {
+            "total": total_pitches,
+            "responded": responded_pitches,
+            "response_rate": (responded_pitches / total_pitches * 100) if total_pitches > 0 else 0
+        }
+    }
+
+# Update pitch status
+@marketing_v2_router.put("/pr/pitches/{pitch_id}/status")
+async def update_pitch_status(
+    pitch_id: str,
+    status: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Update PR pitch status"""
+    db = get_db()
+    
+    now = datetime.now(timezone.utc).isoformat()
+    update_data = {"status": status}
+    
+    if status == "sent":
+        update_data["sent_at"] = now
+    elif status == "opened":
+        update_data["opened_at"] = now
+    elif status in ["responded", "interested", "declined"]:
+        update_data["responded_at"] = now
+    
+    result = await db.pr_pitches.update_one({"id": pitch_id}, {"$set": update_data})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Pitch not found")
+    
+    # Update contact status based on pitch response
+    pitch = await db.pr_pitches.find_one({"id": pitch_id})
+    if pitch and status in ["interested"]:
+        await db.contacts.update_one(
+            {"id": pitch["contact_id"]},
+            {"$set": {"status": "interested"}}
+        )
+    
+    return {"message": f"Pitch status updated to {status}"}
