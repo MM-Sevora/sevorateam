@@ -23,9 +23,9 @@ const DEPARTMENT_CONFIG = {
     marketing: {
         name: 'Marketing Ops',
         icon: Target,
-        color: 'from-violet-500 to-purple-600',
-        bgColor: 'bg-violet-500/10',
-        textColor: 'text-violet-400',
+        color: 'from-amber-700 to-amber-800',
+        bgColor: 'bg-amber-50',
+        textColor: 'text-amber-800',
         routes: [
             { path: '/marketing', name: 'Dashboard', icon: LayoutDashboard },
             { path: '/marketing/influencers', name: 'Influencers', icon: Users },
@@ -40,9 +40,9 @@ const DEPARTMENT_CONFIG = {
     sales: {
         name: 'Sales',
         icon: ShoppingBag,
-        color: 'from-emerald-500 to-teal-600',
-        bgColor: 'bg-emerald-500/10',
-        textColor: 'text-emerald-400',
+        color: 'from-stone-600 to-stone-700',
+        bgColor: 'bg-stone-50',
+        textColor: 'text-stone-700',
         routes: [
             { path: '/sales', name: 'Dashboard', icon: LayoutDashboard },
             { path: '/sales/leads', name: 'Leads', icon: UserPlus },
@@ -57,9 +57,9 @@ const DEPARTMENT_CONFIG = {
     social: {
         name: 'Social',
         icon: PenTool,
-        color: 'from-pink-500 to-rose-600',
-        bgColor: 'bg-pink-500/10',
-        textColor: 'text-pink-400',
+        color: 'from-rose-600 to-rose-700',
+        bgColor: 'bg-rose-50',
+        textColor: 'text-rose-700',
         routes: [
             { path: '/social', name: 'Dashboard', icon: LayoutDashboard },
             { path: '/social/studio', name: 'Content Studio', icon: PenTool },
@@ -116,31 +116,31 @@ export const Layout = ({ children }) => {
     };
 
     return (
-        <div className="flex h-screen bg-gray-50 text-gray-900 overflow-hidden">
+        <div className="flex h-screen bg-white text-gray-900 overflow-hidden">
             {/* Sidebar */}
             <aside 
-                className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-white border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out shadow-sm`}
+                className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-[#F5EDE5] border-r border-[#D4BBA6] flex flex-col transition-all duration-300 ease-in-out`}
             >
                 {/* Logo */}
-                <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100">
+                <div className="h-16 flex items-center justify-between px-4 border-b border-[#D4BBA6]">
                     <Link to="/" className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-xl bg-[#4A3728] flex items-center justify-center shadow-md">
                             <Briefcase className="w-5 h-5 text-white" />
                         </div>
                         {sidebarOpen && (
                             <div>
-                                <h1 className="text-lg font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
+                                <h1 className="text-lg font-bold text-[#4A3728]">
                                     SEVORA
                                 </h1>
-                                <p className="text-[10px] text-gray-400 -mt-1">TEAM PLATFORM</p>
+                                <p className="text-[10px] text-[#5D4A3A] -mt-1">TEAM PLATFORM</p>
                             </div>
                         )}
                     </Link>
                     <button 
                         onClick={() => setSidebarOpen(!sidebarOpen)}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        className="p-2 hover:bg-[#E8D5C4] rounded-lg transition-colors"
                     >
-                        {sidebarOpen ? <X className="w-4 h-4 text-gray-500" /> : <Menu className="w-4 h-4 text-gray-500" />}
+                        {sidebarOpen ? <X className="w-4 h-4 text-[#4A3728]" /> : <Menu className="w-4 h-4 text-[#4A3728]" />}
                     </button>
                 </div>
 
@@ -151,8 +151,8 @@ export const Layout = ({ children }) => {
                         to="/"
                         className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
                             location.pathname === '/' 
-                                ? 'bg-violet-50 text-violet-700 font-medium' 
-                                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                                ? 'bg-[#4A3728] text-white font-medium shadow-sm' 
+                                : 'text-[#4A3728] hover:bg-[#E8D5C4]'
                         }`}
                     >
                         <LayoutDashboard className="w-5 h-5" />
@@ -172,8 +172,8 @@ export const Layout = ({ children }) => {
                                     onClick={() => toggleDepartment(deptKey)}
                                     className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all ${
                                         isCurrentDept 
-                                            ? `${dept.bgColor} ${dept.textColor}` 
-                                            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                                            ? `${dept.bgColor} ${dept.textColor} font-medium` 
+                                            : 'text-[#4A3728] hover:bg-[#E8D5C4]'
                                     }`}
                                 >
                                     <div className="flex items-center gap-3">
@@ -191,7 +191,7 @@ export const Layout = ({ children }) => {
 
                                 {/* Department Routes */}
                                 {sidebarOpen && isExpanded && (
-                                    <div className="ml-4 pl-4 border-l border-gray-200 space-y-1">
+                                    <div className="ml-4 pl-4 border-l border-[#D4BBA6] space-y-1">
                                         {dept.routes.map(route => {
                                             const RouteIcon = route.icon;
                                             const isActive = location.pathname === route.path;
@@ -201,8 +201,8 @@ export const Layout = ({ children }) => {
                                                     to={route.path}
                                                     className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${
                                                         isActive 
-                                                            ? `bg-gray-100 ${dept.textColor} font-medium` 
-                                                            : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+                                                            ? `bg-[#E8D5C4] ${dept.textColor} font-medium` 
+                                                            : 'text-[#5D4A3A] hover:bg-[#E8D5C4]/50'
                                                     }`}
                                                 >
                                                     <RouteIcon className="w-4 h-4" />
@@ -218,37 +218,37 @@ export const Layout = ({ children }) => {
                 </nav>
 
                 {/* User Section */}
-                <div className="p-4 border-t border-gray-100">
+                <div className="p-4 border-t border-[#D4BBA6]">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <button className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                            <button className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-[#E8D5C4] transition-colors">
                                 <Avatar className="h-9 w-9">
                                     <AvatarImage src={user?.avatar_url} />
-                                    <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm">
+                                    <AvatarFallback className="bg-[#4A3728] text-white text-sm">
                                         {user?.name?.charAt(0)?.toUpperCase() || 'U'}
                                     </AvatarFallback>
                                 </Avatar>
                                 {sidebarOpen && (
                                     <div className="flex-1 text-left">
-                                        <p className="text-sm font-medium text-gray-900 truncate">{user?.name}</p>
-                                        <p className="text-xs text-gray-500 truncate">{ROLE_LABELS[user?.role] || user?.role}</p>
+                                        <p className="text-sm font-medium text-[#4A3728] truncate">{user?.name}</p>
+                                        <p className="text-xs text-[#5D4A3A] truncate">{ROLE_LABELS[user?.role] || user?.role}</p>
                                     </div>
                                 )}
                             </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-56 bg-white border-gray-200">
-                            <DropdownMenuLabel className="text-gray-600">
+                        <DropdownMenuContent align="end" className="w-56 bg-white border-[#D4BBA6]">
+                            <DropdownMenuLabel className="text-[#5D4A3A]">
                                 <div>
-                                    <p className="font-medium text-gray-900">{user?.name}</p>
-                                    <p className="text-xs text-gray-500">{user?.email}</p>
+                                    <p className="font-medium text-[#4A3728]">{user?.name}</p>
+                                    <p className="text-xs text-[#5D4A3A]">{user?.email}</p>
                                 </div>
                             </DropdownMenuLabel>
-                            <DropdownMenuSeparator className="bg-gray-100" />
-                            <DropdownMenuItem className="text-gray-700 hover:text-gray-900 hover:bg-gray-50 cursor-pointer">
+                            <DropdownMenuSeparator className="bg-[#E8D5C4]" />
+                            <DropdownMenuItem className="text-[#4A3728] hover:bg-[#F5EDE5] cursor-pointer">
                                 <Settings className="w-4 h-4 mr-2" />
                                 Settings
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator className="bg-gray-100" />
+                            <DropdownMenuSeparator className="bg-[#E8D5C4]" />
                             <DropdownMenuItem 
                                 onClick={handleLogout}
                                 className="text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer"
@@ -262,9 +262,9 @@ export const Layout = ({ children }) => {
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-auto bg-gray-50">
+            <main className="flex-1 overflow-auto bg-white">
                 {/* Top Header Bar */}
-                <div className="h-14 border-b border-gray-200 bg-white/80 backdrop-blur-sm flex items-center justify-between px-6 sticky top-0 z-10">
+                <div className="h-14 border-b border-[#E8D5C4] bg-white flex items-center justify-between px-6 sticky top-0 z-10">
                     <OnlineUsersIndicator />
                     <div className="flex items-center gap-2">
                         <NotificationsDropdown />

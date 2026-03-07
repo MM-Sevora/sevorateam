@@ -124,7 +124,7 @@ const AnalyticsPage = () => {
         <Card className="stat-card" data-testid="kpi-conversion">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-emerald-100 flex items-center justify-center">
-              <Target className="w-6 h-6 text-emerald-600" />
+              <Target className="w-6 h-6 text-stone-600" />
             </div>
             <div>
               <p className="text-xs uppercase tracking-wider text-muted-foreground">Conversion Rate</p>
@@ -290,7 +290,7 @@ const AnalyticsPage = () => {
                           variant="outline"
                           className={`rounded-full ${
                             stylist.conversion_rate >= 30
-                              ? 'bg-emerald-100 text-emerald-800'
+                              ? 'bg-emerald-100 text-stone-800'
                               : stylist.conversion_rate >= 15
                               ? 'bg-yellow-100 text-yellow-800'
                               : 'bg-red-100 text-red-800'
@@ -341,10 +341,10 @@ const AnalyticsPage = () => {
                     <Badge
                       className={`rounded-full ${
                         channel.leads > 0 && (channel.converted / channel.leads) >= 0.2
-                          ? 'bg-emerald-100 text-emerald-800'
+                          ? 'bg-emerald-100 text-stone-800'
                           : channel.leads > 0 && (channel.converted / channel.leads) >= 0.1
                           ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-gray-100 text-gray-800'
+                          : 'bg-[#E8D5C4] text-[#4A3728]'
                       }`}
                     >
                       {channel.leads > 0 ? ((channel.converted / channel.leads) * 100).toFixed(1) : 0}%

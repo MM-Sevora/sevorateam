@@ -24,11 +24,11 @@ const NOTIFICATION_ICONS = {
 };
 
 const NOTIFICATION_COLORS = {
-    mention: 'text-violet-600',
-    new_lead: 'text-emerald-600',
-    campaign_update: 'text-purple-600',
-    content_update: 'text-pink-600',
-    default: 'text-gray-500'
+    mention: 'text-amber-700',
+    new_lead: 'text-stone-600',
+    campaign_update: 'text-amber-600',
+    content_update: 'text-rose-600',
+    default: 'text-[#5D4A3A]'
 };
 
 export const NotificationsDropdown = () => {
@@ -64,10 +64,10 @@ export const NotificationsDropdown = () => {
                 <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="relative hover:bg-gray-100"
+                    className="relative hover:bg-[#E8D5C4]"
                     data-testid="notifications-btn"
                 >
-                    <Bell className="w-5 h-5 text-gray-500" />
+                    <Bell className="w-5 h-5 text-[#4A3728]" />
                     {unreadCount > 0 && (
                         <Badge 
                             className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center bg-red-500 text-white text-xs"
@@ -82,15 +82,15 @@ export const NotificationsDropdown = () => {
             </DropdownMenuTrigger>
             <DropdownMenuContent 
                 align="end" 
-                className="w-80 bg-white border-gray-200 shadow-lg"
+                className="w-80 bg-white border-[#D4BBA6] shadow-lg"
             >
                 <DropdownMenuLabel className="flex items-center justify-between">
-                    <span className="text-gray-900">Notifications</span>
+                    <span className="text-[#4A3728]">Notifications</span>
                     {unreadCount > 0 && (
                         <Button 
                             variant="ghost" 
                             size="sm" 
-                            className="h-6 text-xs text-violet-600 hover:text-violet-700"
+                            className="h-6 text-xs text-[#4A3728] hover:text-[#3A2A1E]"
                             onClick={handleMarkAllRead}
                         >
                             <CheckCheck className="w-3 h-3 mr-1" />
@@ -98,11 +98,11 @@ export const NotificationsDropdown = () => {
                         </Button>
                     )}
                 </DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-gray-100" />
+                <DropdownMenuSeparator className="bg-[#E8D5C4]" />
                 
                 <ScrollArea className="h-[300px]">
                     {notifications.length === 0 ? (
-                        <div className="p-4 text-center text-gray-400">
+                        <div className="p-4 text-center text-[#5D4A3A]">
                             <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
                             <p className="text-sm">No notifications yet</p>
                         </div>
@@ -114,28 +114,28 @@ export const NotificationsDropdown = () => {
                             return (
                                 <div 
                                     key={notification.id}
-                                    className={`p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 ${
-                                        !notification.read ? 'bg-violet-50' : ''
+                                    className={`p-3 hover:bg-[#F5EDE5] cursor-pointer border-b border-[#E8D5C4] ${
+                                        !notification.read ? 'bg-[#F5EDE5]' : ''
                                     }`}
                                     onClick={() => !notification.read && handleMarkRead(notification.id)}
                                 >
                                     <div className="flex items-start gap-3">
-                                        <div className={`w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center ${colorClass}`}>
+                                        <div className={`w-8 h-8 rounded-full bg-[#E8D5C4] flex items-center justify-center ${colorClass}`}>
                                             <Icon className="w-4 h-4" />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-sm text-gray-900 font-medium truncate">
+                                            <p className="text-sm text-[#4A3728] font-medium truncate">
                                                 {notification.title}
                                             </p>
-                                            <p className="text-xs text-gray-500 truncate">
+                                            <p className="text-xs text-[#5D4A3A] truncate">
                                                 {notification.message}
                                             </p>
-                                            <p className="text-xs text-gray-400 mt-1">
+                                            <p className="text-xs text-[#D4BBA6] mt-1">
                                                 {formatTime(notification.created_at)}
                                             </p>
                                         </div>
                                         {!notification.read && (
-                                            <span className="w-2 h-2 rounded-full bg-violet-500 flex-shrink-0 mt-2" />
+                                            <span className="w-2 h-2 rounded-full bg-amber-600 flex-shrink-0 mt-2" />
                                         )}
                                     </div>
                                 </div>
@@ -154,7 +154,7 @@ export const OnlineUsersIndicator = () => {
     if (!isConnected) return null;
 
     return (
-        <div className="flex items-center gap-2 text-xs text-gray-500">
+        <div className="flex items-center gap-2 text-xs text-[#5D4A3A]">
             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
             <span>{onlineUsers} online</span>
         </div>

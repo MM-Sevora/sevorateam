@@ -11,21 +11,21 @@ import { Search, Plus, Phone, Mail, MapPin, Calendar, UserPlus } from 'lucide-re
 
 const STAGE_COLORS = {
     'New Lead': 'bg-blue-500',
-    'Contacted': 'bg-cyan-500',
-    'Styling Session Scheduled': 'bg-purple-500',
-    'Styling Completed': 'bg-violet-500',
+    'Contacted': 'bg-stone-700',
+    'Styling Session Scheduled': 'bg-amber-600',
+    'Styling Completed': 'bg-amber-700',
     'Trial / Selection': 'bg-orange-500',
-    'Order Confirmed': 'bg-emerald-500',
-    'Closed Lost': 'bg-gray-500'
+    'Order Confirmed': 'bg-stone-600',
+    'Closed Lost': 'bg-[#F5EDE5]0'
 };
 
 const SOURCE_COLORS = {
-    'Instagram Ads': 'bg-pink-500',
+    'Instagram Ads': 'bg-rose-600',
     'Facebook Ads': 'bg-blue-600',
-    'Influencer': 'bg-purple-500',
+    'Influencer': 'bg-amber-600',
     'Event': 'bg-orange-500',
-    'QR Code': 'bg-cyan-500',
-    'Website': 'bg-green-500',
+    'QR Code': 'bg-stone-700',
+    'Website': 'bg-stone-600',
     'Referral': 'bg-yellow-500'
 };
 
@@ -93,17 +93,17 @@ export const LeadsPage = () => {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
-                    <p className="text-gray-500 mt-1">Manage your sales leads</p>
+                    <h1 className="text-2xl font-bold text-[#4A3728]">Leads</h1>
+                    <p className="text-[#5D4A3A] mt-1">Manage your sales leads</p>
                 </div>
                 <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
                     <DialogTrigger asChild>
-                        <Button className="bg-emerald-500 hover:bg-emerald-600" data-testid="add-lead-btn">
+                        <Button className="bg-stone-600 hover:bg-stone-700" data-testid="add-lead-btn">
                             <Plus className="w-4 h-4 mr-2" />
                             Add Lead
                         </Button>
                     </DialogTrigger>
-                    <DialogContent className="bg-white border-gray-200 text-gray-900 max-w-lg">
+                    <DialogContent className="bg-white border-[#E8D5C4] text-[#4A3728] max-w-lg">
                         <DialogHeader>
                             <DialogTitle>Add New Lead</DialogTitle>
                         </DialogHeader>
@@ -114,7 +114,7 @@ export const LeadsPage = () => {
                                     <Input
                                         value={newLead.name}
                                         onChange={(e) => setNewLead({...newLead, name: e.target.value})}
-                                        className="bg-gray-50 border-gray-300"
+                                        className="bg-[#F5EDE5] border-[#D4BBA6]"
                                         required
                                         data-testid="lead-name-input"
                                     />
@@ -124,7 +124,7 @@ export const LeadsPage = () => {
                                     <Input
                                         value={newLead.phone}
                                         onChange={(e) => setNewLead({...newLead, phone: e.target.value})}
-                                        className="bg-gray-50 border-gray-300"
+                                        className="bg-[#F5EDE5] border-[#D4BBA6]"
                                         required
                                         data-testid="lead-phone-input"
                                     />
@@ -137,7 +137,7 @@ export const LeadsPage = () => {
                                         type="email"
                                         value={newLead.email}
                                         onChange={(e) => setNewLead({...newLead, email: e.target.value})}
-                                        className="bg-gray-50 border-gray-300"
+                                        className="bg-[#F5EDE5] border-[#D4BBA6]"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -145,7 +145,7 @@ export const LeadsPage = () => {
                                     <Input
                                         value={newLead.city}
                                         onChange={(e) => setNewLead({...newLead, city: e.target.value})}
-                                        className="bg-gray-50 border-gray-300"
+                                        className="bg-[#F5EDE5] border-[#D4BBA6]"
                                     />
                                 </div>
                             </div>
@@ -155,7 +155,7 @@ export const LeadsPage = () => {
                                     <select
                                         value={newLead.source}
                                         onChange={(e) => setNewLead({...newLead, source: e.target.value})}
-                                        className="w-full p-2 bg-gray-50 border border-gray-300 rounded-md text-gray-900"
+                                        className="w-full p-2 bg-[#F5EDE5] border border-[#D4BBA6] rounded-md text-[#4A3728]"
                                     >
                                         <option value="Instagram Ads">Instagram Ads</option>
                                         <option value="Facebook Ads">Facebook Ads</option>
@@ -172,7 +172,7 @@ export const LeadsPage = () => {
                                         value={newLead.occasion}
                                         onChange={(e) => setNewLead({...newLead, occasion: e.target.value})}
                                         placeholder="e.g., Wedding, Party"
-                                        className="bg-gray-50 border-gray-300"
+                                        className="bg-[#F5EDE5] border-[#D4BBA6]"
                                     />
                                 </div>
                             </div>
@@ -181,13 +181,13 @@ export const LeadsPage = () => {
                                 <textarea
                                     value={newLead.notes}
                                     onChange={(e) => setNewLead({...newLead, notes: e.target.value})}
-                                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded-md text-gray-900 min-h-[80px]"
+                                    className="w-full p-2 bg-[#F5EDE5] border border-[#D4BBA6] rounded-md text-[#4A3728] min-h-[80px]"
                                     placeholder="Additional notes..."
                                 />
                             </div>
                             <Button 
                                 onClick={handleAddLead} 
-                                className="w-full bg-emerald-500 hover:bg-emerald-600"
+                                className="w-full bg-stone-600 hover:bg-stone-700"
                                 disabled={!newLead.name || !newLead.phone}
                                 data-testid="save-lead-btn"
                             >
@@ -200,12 +200,12 @@ export const LeadsPage = () => {
 
             {/* Search */}
             <div className="relative max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5D4A3A]" />
                 <Input
                     placeholder="Search leads..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="pl-10 bg-white border-gray-300 text-gray-900"
+                    className="pl-10 bg-white border-[#D4BBA6] text-[#4A3728]"
                     data-testid="lead-search-input"
                 />
             </div>
@@ -213,15 +213,15 @@ export const LeadsPage = () => {
             {/* Leads List */}
             {loading ? (
                 <div className="flex items-center justify-center py-20">
-                    <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                    <div className="w-8 h-8 border-2 border-stone-500 border-t-transparent rounded-full animate-spin" />
                 </div>
             ) : leads.length === 0 ? (
                 <div className="text-center py-20">
-                    <UserPlus className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500">No leads found</p>
+                    <UserPlus className="w-12 h-12 text-[#D4BBA6] mx-auto mb-4" />
+                    <p className="text-[#5D4A3A]">No leads found</p>
                     <Button 
                         onClick={() => setShowAddModal(true)} 
-                        className="mt-4 bg-emerald-500 hover:bg-emerald-600"
+                        className="mt-4 bg-stone-600 hover:bg-stone-700"
                     >
                         Add Your First Lead
                     </Button>
@@ -229,16 +229,16 @@ export const LeadsPage = () => {
             ) : (
                 <div className="space-y-3">
                     {leads.map(lead => (
-                        <Card key={lead.id} className="bg-white border-gray-200 hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer" data-testid={`lead-card-${lead.id}`}>
+                        <Card key={lead.id} className="bg-white border-[#E8D5C4] hover:border-stone-300 hover:shadow-md transition-all cursor-pointer" data-testid={`lead-card-${lead.id}`}>
                             <CardContent className="p-5">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold">
+                                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#4A3728] to-[#5D4A3A] flex items-center justify-center text-white font-bold">
                                             {lead.name?.charAt(0)?.toUpperCase()}
                                         </div>
                                         <div>
-                                            <h3 className="text-gray-900 font-semibold">{lead.name}</h3>
-                                            <div className="flex items-center gap-4 mt-1 text-gray-500 text-sm">
+                                            <h3 className="text-[#4A3728] font-semibold">{lead.name}</h3>
+                                            <div className="flex items-center gap-4 mt-1 text-[#5D4A3A] text-sm">
                                                 <span className="flex items-center gap-1">
                                                     <Phone className="w-3 h-3" />
                                                     {lead.phone}
@@ -259,21 +259,21 @@ export const LeadsPage = () => {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <Badge className={`${SOURCE_COLORS[lead.source] || 'bg-gray-500'} text-white text-xs`}>
+                                        <Badge className={`${SOURCE_COLORS[lead.source] || 'bg-[#F5EDE5]0'} text-white text-xs`}>
                                             {lead.source}
                                         </Badge>
-                                        <Badge className={`${STAGE_COLORS[lead.stage] || 'bg-gray-500'} text-white text-xs`}>
+                                        <Badge className={`${STAGE_COLORS[lead.stage] || 'bg-[#F5EDE5]0'} text-white text-xs`}>
                                             {lead.stage}
                                         </Badge>
-                                        <span className="text-gray-400 text-xs flex items-center gap-1">
+                                        <span className="text-[#5D4A3A] text-xs flex items-center gap-1">
                                             <Calendar className="w-3 h-3" />
                                             {formatDate(lead.created_at)}
                                         </span>
                                     </div>
                                 </div>
                                 {(lead.occasion || lead.notes) && (
-                                    <div className="mt-3 pl-16 text-gray-400 text-sm">
-                                        {lead.occasion && <span className="text-emerald-600">{lead.occasion}</span>}
+                                    <div className="mt-3 pl-16 text-[#5D4A3A] text-sm">
+                                        {lead.occasion && <span className="text-stone-600">{lead.occasion}</span>}
                                         {lead.occasion && lead.notes && ' • '}
                                         {lead.notes}
                                     </div>

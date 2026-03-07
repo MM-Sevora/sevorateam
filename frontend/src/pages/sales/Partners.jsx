@@ -34,7 +34,7 @@ import {
 
 const PARTNER_STATUSES = [
   { value: 'Active', label: 'Active', color: 'bg-green-100 text-green-800' },
-  { value: 'Inactive', label: 'Inactive', color: 'bg-gray-100 text-gray-800' },
+  { value: 'Inactive', label: 'Inactive', color: 'bg-[#E8D5C4] text-[#4A3728]' },
   { value: 'Pending', label: 'Pending', color: 'bg-yellow-100 text-yellow-800' },
 ];
 
@@ -128,7 +128,7 @@ const PartnersPage = () => {
 
   const getStatusColor = (status) => {
     const found = PARTNER_STATUSES.find(s => s.value === status);
-    return found?.color || 'bg-gray-100 text-gray-800';
+    return found?.color || 'bg-[#E8D5C4] text-[#4A3728]';
   };
 
   const salons = partners.filter(p => p.partner_type === 'Salon');
@@ -344,7 +344,7 @@ const PartnersPage = () => {
         <Card className="stat-card">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-emerald-100 flex items-center justify-center">
-              <Users className="w-5 h-5 text-emerald-600" />
+              <Users className="w-5 h-5 text-stone-600" />
             </div>
             <div>
               <p className="text-2xl font-heading">{totalLeads}</p>

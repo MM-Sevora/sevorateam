@@ -75,7 +75,7 @@ const LeadCapturePage = () => {
         <Toaster position="top-center" />
         <Card className="max-w-md w-full p-8 text-center border border-border">
           <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle className="w-10 h-10 text-emerald-600" />
+            <CheckCircle className="w-10 h-10 text-stone-600" />
           </div>
           <h1 className="text-2xl font-heading text-foreground mb-2">Thank You!</h1>
           <p className="text-muted-foreground mb-6">
@@ -99,12 +99,12 @@ const LeadCapturePage = () => {
       {/* Header */}
       <div className="bg-primary text-white py-6 px-6">
         <div className="max-w-md mx-auto flex items-center gap-3">
-          <div className="w-10 h-10 bg-gray-100 flex items-center justify-center">
+          <div className="w-10 h-10 bg-[#E8D5C4] flex items-center justify-center">
             <Sparkles className="w-5 h-5" />
           </div>
           <div>
             <h1 className="text-xl font-heading">Sevora</h1>
-            <p className="text-xs text-gray-600 uppercase tracking-widest">Stylist-Led Fashion</p>
+            <p className="text-xs text-[#5D4A3A] uppercase tracking-widest">Stylist-Led Fashion</p>
           </div>
         </div>
       </div>

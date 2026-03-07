@@ -7,12 +7,12 @@ import { Link } from 'react-router-dom';
 
 const StatCard = ({ title, value, icon: Icon, color, link }) => (
     <Link to={link}>
-        <Card className="bg-white border-gray-200 hover:border-gray-300 hover:shadow-md transition-all cursor-pointer group">
+        <Card className="bg-white border-[#E8D5C4] hover:border-[#D4BBA6] hover:shadow-md transition-all cursor-pointer group">
             <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                     <div>
-                        <p className="text-gray-500 text-sm">{title}</p>
-                        <p className="text-3xl font-bold text-gray-900 mt-1">{value}</p>
+                        <p className="text-[#5D4A3A] text-sm">{title}</p>
+                        <p className="text-3xl font-bold text-[#4A3728] mt-1">{value}</p>
                     </div>
                     <div className={`w-12 h-12 rounded-xl ${color} flex items-center justify-center group-hover:scale-110 transition-transform`}>
                         <Icon className="w-6 h-6 text-white" />
@@ -54,7 +54,7 @@ export const DashboardPage = () => {
     if (loading) {
         return (
             <div className="p-8 flex items-center justify-center min-h-screen">
-                <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
             </div>
         );
     }
@@ -67,34 +67,34 @@ export const DashboardPage = () => {
         <div className="p-8 space-y-8" data-testid="dashboard-page">
             {/* Header */}
             <div>
-                <h1 className="text-2xl font-bold text-gray-900">
+                <h1 className="text-2xl font-bold text-[#4A3728]">
                     Welcome back, {user?.name?.split(' ')[0]}
                 </h1>
-                <p className="text-gray-500 mt-1">Here's what's happening across your teams</p>
+                <p className="text-[#5D4A3A] mt-1">Here's what's happening across your teams</p>
             </div>
 
             {/* Marketing Ops Section */}
             {hasAccessToDepartment('marketing') && (
-                <DepartmentSection title="Marketing Ops" color="text-violet-600">
+                <DepartmentSection title="Marketing Ops" color="text-amber-800">
                     <StatCard 
                         title="Influencers" 
                         value={marketingStats.influencers || 0}
                         icon={Users}
-                        color="bg-violet-500"
+                        color="bg-amber-700"
                         link="/marketing/influencers"
                     />
                     <StatCard 
                         title="Active Campaigns" 
                         value={marketingStats.campaigns || 0}
                         icon={Target}
-                        color="bg-purple-500"
+                        color="bg-amber-600"
                         link="/marketing/campaigns"
                     />
                     <StatCard 
                         title="Pending Negotiations" 
                         value={marketingStats.negotiations || 0}
                         icon={MessageSquare}
-                        color="bg-fuchsia-500"
+                        color="bg-amber-500"
                         link="/marketing/negotiations"
                     />
                 </DepartmentSection>
@@ -102,26 +102,26 @@ export const DashboardPage = () => {
 
             {/* Sales Section */}
             {hasAccessToDepartment('sales') && (
-                <DepartmentSection title="Sales" color="text-emerald-600">
+                <DepartmentSection title="Sales" color="text-stone-700">
                     <StatCard 
                         title="Total Leads" 
                         value={salesStats.leads || 0}
                         icon={UserPlus}
-                        color="bg-emerald-500"
+                        color="bg-stone-600"
                         link="/sales/leads"
                     />
                     <StatCard 
                         title="Customers" 
                         value={salesStats.customers || 0}
                         icon={ShoppingBag}
-                        color="bg-teal-500"
+                        color="bg-stone-500"
                         link="/sales/customers"
                     />
                     <StatCard 
                         title="New Today" 
                         value={salesStats.new_leads_today || 0}
                         icon={TrendingUp}
-                        color="bg-cyan-500"
+                        color="bg-stone-700"
                         link="/sales/leads"
                     />
                 </DepartmentSection>
@@ -129,12 +129,12 @@ export const DashboardPage = () => {
 
             {/* Social Section */}
             {hasAccessToDepartment('social') && (
-                <DepartmentSection title="Social Media" color="text-pink-600">
+                <DepartmentSection title="Social Media" color="text-rose-700">
                     <StatCard 
                         title="Total Content" 
                         value={socialStats.content || 0}
                         icon={PenTool}
-                        color="bg-pink-500"
+                        color="bg-rose-600"
                         link="/social/studio"
                     />
                     <StatCard 
@@ -148,7 +148,7 @@ export const DashboardPage = () => {
                         title="Published" 
                         value={socialStats.published || 0}
                         icon={TrendingUp}
-                        color="bg-red-500"
+                        color="bg-rose-700"
                         link="/social/analytics"
                     />
                 </DepartmentSection>
@@ -158,30 +158,30 @@ export const DashboardPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {hasAccessToDepartment('marketing') && (
                     <Link to="/marketing/influencers">
-                        <Card className="bg-gradient-to-br from-violet-50 to-purple-50 border-violet-200 hover:border-violet-300 hover:shadow-md transition-all cursor-pointer">
+                        <Card className="bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200 hover:border-amber-300 hover:shadow-md transition-all cursor-pointer">
                             <CardContent className="p-6">
-                                <h3 className="text-gray-900 font-semibold">Add Influencer</h3>
-                                <p className="text-gray-500 text-sm mt-1">Discover and add new influencers</p>
+                                <h3 className="text-[#4A3728] font-semibold">Add Influencer</h3>
+                                <p className="text-[#5D4A3A] text-sm mt-1">Discover and add new influencers</p>
                             </CardContent>
                         </Card>
                     </Link>
                 )}
                 {hasAccessToDepartment('sales') && (
                     <Link to="/sales/leads">
-                        <Card className="bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200 hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer">
+                        <Card className="bg-gradient-to-br from-stone-50 to-gray-100 border-stone-200 hover:border-stone-300 hover:shadow-md transition-all cursor-pointer">
                             <CardContent className="p-6">
-                                <h3 className="text-gray-900 font-semibold">New Lead</h3>
-                                <p className="text-gray-500 text-sm mt-1">Capture a new sales lead</p>
+                                <h3 className="text-[#4A3728] font-semibold">New Lead</h3>
+                                <p className="text-[#5D4A3A] text-sm mt-1">Capture a new sales lead</p>
                             </CardContent>
                         </Card>
                     </Link>
                 )}
                 {hasAccessToDepartment('social') && (
                     <Link to="/social/studio">
-                        <Card className="bg-gradient-to-br from-pink-50 to-rose-50 border-pink-200 hover:border-pink-300 hover:shadow-md transition-all cursor-pointer">
+                        <Card className="bg-gradient-to-br from-rose-50 to-pink-50 border-rose-200 hover:border-rose-300 hover:shadow-md transition-all cursor-pointer">
                             <CardContent className="p-6">
-                                <h3 className="text-gray-900 font-semibold">Create Content</h3>
-                                <p className="text-gray-500 text-sm mt-1">Generate new social content</p>
+                                <h3 className="text-[#4A3728] font-semibold">Create Content</h3>
+                                <p className="text-[#5D4A3A] text-sm mt-1">Generate new social content</p>
                             </CardContent>
                         </Card>
                     </Link>

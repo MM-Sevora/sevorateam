@@ -54,8 +54,8 @@ const ProtectedRoute = ({ children, requiredDepartment }) => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+            <div className="min-h-screen bg-white flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-[#4A3728] border-t-transparent rounded-full animate-spin" />
             </div>
         );
     }
@@ -77,8 +77,8 @@ const PublicRoute = ({ children }) => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+            <div className="min-h-screen bg-white flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-[#4A3728] border-t-transparent rounded-full animate-spin" />
             </div>
         );
     }

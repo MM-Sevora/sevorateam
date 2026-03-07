@@ -15,10 +15,10 @@ import {
 const PIPELINE_STAGES = [
   { id: 'New Lead', color: 'bg-blue-500' },
   { id: 'Contacted', color: 'bg-yellow-500' },
-  { id: 'Styling Session Scheduled', color: 'bg-purple-500' },
+  { id: 'Styling Session Scheduled', color: 'bg-amber-600' },
   { id: 'Styling Completed', color: 'bg-indigo-500' },
   { id: 'Trial / Selection', color: 'bg-orange-500' },
-  { id: 'Order Confirmed', color: 'bg-emerald-500' },
+  { id: 'Order Confirmed', color: 'bg-stone-600' },
 ];
 
 const PipelinePage = () => {

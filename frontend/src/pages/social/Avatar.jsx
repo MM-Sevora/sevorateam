@@ -145,7 +145,7 @@ export default function AvatarPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64" data-testid="avatar-loading">
-        <div className="w-8 h-8 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-amber-600 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -154,14 +154,14 @@ export default function AvatarPage() {
     <div className="space-y-6 animate-fade-in" data-testid="avatar-page">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-heading font-bold text-gray-900 tracking-tight">AI Avatar</h1>
-          <p className="text-gray-500 mt-1">Your AI-powered brand content creator</p>
+          <h1 className="text-3xl font-heading font-bold text-[#4A3728] tracking-tight">AI Avatar</h1>
+          <p className="text-[#5D4A3A] mt-1">Your AI-powered brand content creator</p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => setTab('chat')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              tab === 'chat' ? 'bg-violet-600/10 text-violet-600' : 'text-gray-500 hover:text-white hover:bg-gray-50'
+              tab === 'chat' ? 'bg-amber-800/10 text-amber-600' : 'text-[#5D4A3A] hover:text-white hover:bg-[#F5EDE5]'
             }`}
             data-testid="avatar-tab-chat"
           >
@@ -170,7 +170,7 @@ export default function AvatarPage() {
           <button
             onClick={() => setTab('setup')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              tab === 'setup' ? 'bg-violet-600/10 text-violet-600' : 'text-gray-500 hover:text-white hover:bg-gray-50'
+              tab === 'setup' ? 'bg-amber-800/10 text-amber-600' : 'text-[#5D4A3A] hover:text-white hover:bg-[#F5EDE5]'
             }`}
             data-testid="avatar-tab-setup"
           >
@@ -181,24 +181,24 @@ export default function AvatarPage() {
 
       {tab === 'setup' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" data-testid="avatar-setup">
-          <div className="lg:col-span-2 bg-white backdrop-blur-md border border-gray-200 rounded-xl p-6">
-            <h3 className="text-lg font-heading font-semibold text-gray-900 mb-4">Avatar Identity</h3>
+          <div className="lg:col-span-2 bg-white backdrop-blur-md border border-[#E8D5C4] rounded-xl p-6">
+            <h3 className="text-lg font-heading font-semibold text-[#4A3728] mb-4">Avatar Identity</h3>
             {formError && (
               <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm" data-testid="avatar-form-error">{formError}</div>
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Avatar Name</label>
+                <label className="block text-sm font-medium text-[#4A3728] mb-2">Avatar Name</label>
                 <input
                   type="text" value={formName} onChange={(e) => setFormName(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-300 focus:border-violet-600/50 focus:ring-2 focus:ring-violet-600/20 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500 transition-all"
+                  className="w-full bg-[#F5EDE5] border border-[#D4BBA6] focus:border-amber-600/50 focus:ring-2 focus:ring-violet-600/20 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500 transition-all"
                   placeholder="e.g., BrandBot, CreativeAI" data-testid="avatar-name-input"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Tone</label>
+                <label className="block text-sm font-medium text-[#4A3728] mb-2">Tone</label>
                 <select value={formTone} onChange={(e) => setFormTone(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-300 rounded-lg py-2.5 px-4 text-sm text-white transition-all"
+                  className="w-full bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white transition-all"
                   data-testid="avatar-tone-select"
                 >
                   {['professional', 'casual', 'humorous', 'inspirational', 'bold', 'friendly', 'authoritative'].map(t => (
@@ -208,38 +208,38 @@ export default function AvatarPage() {
               </div>
             </div>
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Brand Voice Description</label>
+              <label className="block text-sm font-medium text-[#4A3728] mb-2">Brand Voice Description</label>
               <textarea value={formVoice} onChange={(e) => setFormVoice(e.target.value)}
-                className="w-full bg-gray-50 border border-gray-300 focus:border-violet-600/50 focus:ring-2 focus:ring-violet-600/20 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500 transition-all resize-none"
+                className="w-full bg-[#F5EDE5] border border-[#D4BBA6] focus:border-amber-600/50 focus:ring-2 focus:ring-violet-600/20 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500 transition-all resize-none"
                 rows={3} placeholder="Describe your brand's personality and voice... e.g., 'Witty, tech-savvy, and approachable. Uses casual language with industry jargon.'"
                 data-testid="avatar-voice-input"
               />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Industry</label>
+                <label className="block text-sm font-medium text-[#4A3728] mb-2">Industry</label>
                 <input type="text" value={formIndustry} onChange={(e) => setFormIndustry(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-300 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500 transition-all"
+                  className="w-full bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500 transition-all"
                   placeholder="e.g., Technology, Fashion, Food" data-testid="avatar-industry-input"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Target Audience</label>
+                <label className="block text-sm font-medium text-[#4A3728] mb-2">Target Audience</label>
                 <input type="text" value={formAudience} onChange={(e) => setFormAudience(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-300 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500 transition-all"
+                  className="w-full bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500 transition-all"
                   placeholder="e.g., Young professionals, Gen Z" data-testid="avatar-audience-input"
                 />
               </div>
             </div>
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Style Keywords (comma separated)</label>
+              <label className="block text-sm font-medium text-[#4A3728] mb-2">Style Keywords (comma separated)</label>
               <input type="text" value={formKeywords} onChange={(e) => setFormKeywords(e.target.value)}
-                className="w-full bg-gray-50 border border-gray-300 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500 transition-all"
+                className="w-full bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500 transition-all"
                 placeholder="e.g., minimalist, colorful, techy, elegant" data-testid="avatar-keywords-input"
               />
             </div>
             <button onClick={handleSaveAvatar} disabled={saving}
-              className="bg-violet-600 hover:bg-violet-600-hover text-white shadow-[0_0_15px_rgba(124,58,237,0.3)] hover:shadow-[0_0_25px_rgba(124,58,237,0.5)] transition-all duration-300 rounded-lg font-medium px-6 py-2.5 flex items-center gap-2 disabled:opacity-50"
+              className="bg-amber-800 hover:bg-amber-800-hover text-white shadow-[0_0_15px_rgba(124,58,237,0.3)] hover:shadow-[0_0_25px_rgba(124,58,237,0.5)] transition-all duration-300 rounded-lg font-medium px-6 py-2.5 flex items-center gap-2 disabled:opacity-50"
               data-testid="save-avatar-button"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
@@ -247,58 +247,58 @@ export default function AvatarPage() {
             </button>
           </div>
 
-          <div className="bg-white backdrop-blur-md border border-gray-200 rounded-xl p-6 flex flex-col items-center" data-testid="avatar-image-section">
-            <h3 className="text-lg font-heading font-semibold text-gray-900 mb-4 self-start">Avatar Image</h3>
-            <div className="w-40 h-40 rounded-2xl border-2 border-dashed border-gray-300 flex items-center justify-center mb-4 overflow-hidden bg-gray-50">
+          <div className="bg-white backdrop-blur-md border border-[#E8D5C4] rounded-xl p-6 flex flex-col items-center" data-testid="avatar-image-section">
+            <h3 className="text-lg font-heading font-semibold text-[#4A3728] mb-4 self-start">Avatar Image</h3>
+            <div className="w-40 h-40 rounded-2xl border-2 border-dashed border-[#D4BBA6] flex items-center justify-center mb-4 overflow-hidden bg-[#F5EDE5]">
               {avatar?.avatar_image ? (
                 <img src={avatar.avatar_image} alt="Avatar" className="w-full h-full object-cover rounded-2xl" data-testid="avatar-image-display" />
               ) : (
-                <Bot className="w-16 h-16 text-gray-300" />
+                <Bot className="w-16 h-16 text-[#D4BBA6]" />
               )}
             </div>
             <button onClick={handleGenerateImage} disabled={!avatar || generatingImage}
-              className="bg-gray-100 hover:bg-gray-200 text-white border border-gray-300 hover:border-gray-300 transition-all duration-200 rounded-lg font-medium px-4 py-2 text-sm flex items-center gap-2 disabled:opacity-50"
+              className="bg-[#E8D5C4] hover:bg-gray-200 text-white border border-[#D4BBA6] hover:border-[#D4BBA6] transition-all duration-200 rounded-lg font-medium px-4 py-2 text-sm flex items-center gap-2 disabled:opacity-50"
               data-testid="generate-avatar-image-button"
             >
               {generatingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Image className="w-4 h-4" />}
               {generatingImage ? 'Generating...' : 'Generate Image'}
             </button>
-            {!avatar && <p className="text-xs text-gray-400 mt-2">Create avatar first to generate image</p>}
+            {!avatar && <p className="text-xs text-[#5D4A3A] mt-2">Create avatar first to generate image</p>}
           </div>
         </div>
       )}
 
       {tab === 'chat' && (
-        <div className="bg-white backdrop-blur-md border border-gray-200 rounded-xl overflow-hidden" data-testid="avatar-chat">
+        <div className="bg-white backdrop-blur-md border border-[#E8D5C4] rounded-xl overflow-hidden" data-testid="avatar-chat">
           {!avatar ? (
             <div className="p-12 text-center">
-              <Bot className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-heading font-semibold text-gray-500 mb-2">No Avatar Created Yet</h3>
-              <p className="text-sm text-gray-400 mb-4">Set up your AI avatar first to start chatting</p>
+              <Bot className="w-16 h-16 text-[#D4BBA6] mx-auto mb-4" />
+              <h3 className="text-lg font-heading font-semibold text-[#5D4A3A] mb-2">No Avatar Created Yet</h3>
+              <p className="text-sm text-[#5D4A3A] mb-4">Set up your AI avatar first to start chatting</p>
               <button onClick={() => setTab('setup')}
-                className="bg-violet-600 hover:bg-violet-600-hover text-white rounded-lg font-medium px-6 py-2.5 transition-all"
+                className="bg-amber-800 hover:bg-amber-800-hover text-white rounded-lg font-medium px-6 py-2.5 transition-all"
                 data-testid="go-to-setup-button"
               >Create Avatar</button>
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <div className="flex items-center justify-between p-4 border-b border-[#E8D5C4]">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl overflow-hidden bg-violet-600/20 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl overflow-hidden bg-amber-800/20 flex items-center justify-center">
                     {avatar.avatar_image ? (
                       <img src={avatar.avatar_image} alt={avatar.name} className="w-full h-full object-cover" />
                     ) : (
-                      <Bot className="w-5 h-5 text-violet-600" />
+                      <Bot className="w-5 h-5 text-amber-600" />
                     )}
                   </div>
                   <div>
                     <p className="text-sm font-medium text-white">{avatar.name}</p>
-                    <p className="text-xs text-gray-500">{avatar.tone} voice</p>
+                    <p className="text-xs text-[#5D4A3A]">{avatar.tone} voice</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <select value={chatPlatform} onChange={(e) => setChatPlatform(e.target.value)}
-                    className="bg-gray-50 border border-gray-300 rounded-lg py-1.5 px-3 text-xs text-white"
+                    className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-1.5 px-3 text-xs text-white"
                     data-testid="chat-platform-select"
                   >
                     <option value="" className="bg-white">General</option>
@@ -309,7 +309,7 @@ export default function AvatarPage() {
                     <option value="youtube" className="bg-white">YouTube</option>
                   </select>
                   <button onClick={handleClearHistory}
-                    className="p-2 rounded-lg hover:bg-red-500/10 text-gray-500 hover:text-red-400 transition-colors"
+                    className="p-2 rounded-lg hover:bg-red-500/10 text-[#5D4A3A] hover:text-red-400 transition-colors"
                     title="Clear history" data-testid="clear-chat-button"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -320,13 +320,13 @@ export default function AvatarPage() {
               <div className="h-[400px] overflow-y-auto p-4 space-y-4" data-testid="chat-messages">
                 {chatMessages.length === 0 && (
                   <div className="text-center py-12">
-                    <Sparkles className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                    <p className="text-sm text-gray-500">Start chatting with {avatar.name} to create content</p>
+                    <Sparkles className="w-10 h-10 text-[#D4BBA6] mx-auto mb-3" />
+                    <p className="text-sm text-[#5D4A3A]">Start chatting with {avatar.name} to create content</p>
                     <div className="flex flex-wrap gap-2 justify-center mt-4">
                       {['Create an Instagram post about our new product', 'Write a LinkedIn article intro', 'Suggest 3 Twitter thread ideas'].map((suggestion, i) => (
                         <button key={i}
                           onClick={() => { setChatInput(suggestion); }}
-                          className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg transition-colors border border-gray-200"
+                          className="text-xs bg-[#E8D5C4] hover:bg-gray-200 text-[#4A3728] px-3 py-1.5 rounded-lg transition-colors border border-[#E8D5C4]"
                           data-testid={`chat-suggestion-${i}`}
                         >
                           {suggestion}
@@ -339,8 +339,8 @@ export default function AvatarPage() {
                   <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-[80%] rounded-xl px-4 py-3 text-sm ${
                       msg.role === 'user'
-                        ? 'bg-violet-600 text-white rounded-br-sm'
-                        : 'bg-gray-100 text-gray-800 rounded-bl-sm border border-gray-200'
+                        ? 'bg-amber-800 text-white rounded-br-sm'
+                        : 'bg-[#E8D5C4] text-[#4A3728] rounded-bl-sm border border-[#E8D5C4]'
                     }`} data-testid={`chat-message-${i}`}>
                       <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                     </div>
@@ -348,7 +348,7 @@ export default function AvatarPage() {
                 ))}
                 {sending && (
                   <div className="flex justify-start">
-                    <div className="bg-gray-100 rounded-xl px-4 py-3 border border-gray-200">
+                    <div className="bg-[#E8D5C4] rounded-xl px-4 py-3 border border-[#E8D5C4]">
                       <div className="flex gap-1">
                         <div className="w-2 h-2 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: '0ms' }} />
                         <div className="w-2 h-2 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -360,16 +360,16 @@ export default function AvatarPage() {
                 <div ref={chatEndRef} />
               </div>
 
-              <div className="p-4 border-t border-gray-200">
+              <div className="p-4 border-t border-[#E8D5C4]">
                 <div className="flex gap-3">
                   <textarea value={chatInput} onChange={(e) => setChatInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    className="flex-1 bg-gray-50 border border-gray-300 focus:border-violet-600/50 focus:ring-2 focus:ring-violet-600/20 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500 transition-all resize-none"
+                    className="flex-1 bg-[#F5EDE5] border border-[#D4BBA6] focus:border-amber-600/50 focus:ring-2 focus:ring-violet-600/20 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500 transition-all resize-none"
                     rows={1} placeholder={`Ask ${avatar.name} to create content...`}
                     data-testid="chat-input"
                   />
                   <button onClick={handleSendMessage} disabled={!chatInput.trim() || sending}
-                    className="bg-violet-600 hover:bg-violet-600-hover text-white rounded-lg px-4 py-2.5 transition-all disabled:opacity-50 flex items-center justify-center"
+                    className="bg-amber-800 hover:bg-amber-800-hover text-white rounded-lg px-4 py-2.5 transition-all disabled:opacity-50 flex items-center justify-center"
                     data-testid="chat-send-button"
                   >
                     {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

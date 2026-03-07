@@ -87,29 +87,29 @@ export const LoginPage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-gradient-to-br from-[#F5EDE5] to-[#E8D5C4] flex items-center justify-center p-4">
             {/* Background Pattern */}
             <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-violet-200/30 rounded-full blur-3xl" />
-                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-200/30 rounded-full blur-3xl" />
+                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#D4BBA6]/30 rounded-full blur-3xl" />
+                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#E8D5C4]/50 rounded-full blur-3xl" />
             </div>
 
             <div className="relative z-10 w-full max-w-md">
                 {/* Logo */}
                 <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 mb-4 shadow-lg">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#4A3728] mb-4 shadow-lg">
                         <Briefcase className="w-8 h-8 text-white" />
                     </div>
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
+                    <h1 className="text-3xl font-bold text-[#4A3728]">
                         SEVORA TEAM
                     </h1>
-                    <p className="text-gray-500 text-sm mt-1">Unified Operations Platform</p>
+                    <p className="text-[#5D4A3A] text-sm mt-1">Unified Operations Platform</p>
                 </div>
 
-                <Card className="bg-white/90 backdrop-blur-xl border-gray-200 shadow-xl">
+                <Card className="bg-white/95 backdrop-blur-xl border-[#D4BBA6] shadow-xl">
                     <CardHeader className="text-center pb-4">
-                        <CardTitle className="text-gray-900 text-xl">Welcome</CardTitle>
-                        <CardDescription className="text-gray-500">
+                        <CardTitle className="text-[#4A3728] text-xl">Welcome</CardTitle>
+                        <CardDescription className="text-[#5D4A3A]">
                             Sign in to access your dashboard
                         </CardDescription>
                     </CardHeader>
@@ -119,7 +119,7 @@ export const LoginPage = () => {
                             onClick={handleAzureLogin}
                             disabled={loading}
                             variant="outline"
-                            className="w-full h-12 bg-white hover:bg-gray-50 text-gray-800 border-gray-300 font-medium shadow-sm"
+                            className="w-full h-12 bg-white hover:bg-[#F5EDE5] text-[#4A3728] border-[#D4BBA6] font-medium shadow-sm"
                             data-testid="microsoft-login-btn"
                         >
                             <MicrosoftLogo />
@@ -128,24 +128,24 @@ export const LoginPage = () => {
 
                         <div className="relative">
                             <div className="absolute inset-0 flex items-center">
-                                <div className="w-full border-t border-gray-200" />
+                                <div className="w-full border-t border-[#D4BBA6]" />
                             </div>
                             <div className="relative flex justify-center text-xs">
-                                <span className="px-4 bg-white text-gray-500">or continue with email</span>
+                                <span className="px-4 bg-white text-[#5D4A3A]">or continue with email</span>
                             </div>
                         </div>
 
                         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                            <TabsList className="grid w-full grid-cols-2 bg-gray-100">
+                            <TabsList className="grid w-full grid-cols-2 bg-[#F5EDE5]">
                                 <TabsTrigger 
                                     value="login" 
-                                    className="data-[state=active]:bg-violet-500 data-[state=active]:text-white"
+                                    className="data-[state=active]:bg-[#4A3728] data-[state=active]:text-white"
                                 >
                                     Login
                                 </TabsTrigger>
                                 <TabsTrigger 
                                     value="register"
-                                    className="data-[state=active]:bg-violet-500 data-[state=active]:text-white"
+                                    className="data-[state=active]:bg-[#4A3728] data-[state=active]:text-white"
                                 >
                                     Register
                                 </TabsTrigger>
@@ -154,30 +154,30 @@ export const LoginPage = () => {
                             <TabsContent value="login" className="mt-4">
                                 <form onSubmit={handleCredentialsLogin} className="space-y-4">
                                     <div className="space-y-2">
-                                        <Label className="text-gray-700">Email</Label>
+                                        <Label className="text-[#4A3728]">Email</Label>
                                         <div className="relative">
-                                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5D4A3A]" />
                                             <Input
                                                 type="email"
                                                 placeholder="you@company.com"
                                                 value={loginEmail}
                                                 onChange={(e) => setLoginEmail(e.target.value)}
-                                                className="pl-10 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
+                                                className="pl-10 bg-white border-[#D4BBA6] text-[#4A3728] placeholder:text-[#5D4A3A]/50 focus:border-[#4A3728] focus:ring-[#4A3728]"
                                                 required
                                                 data-testid="login-email-input"
                                             />
                                         </div>
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="text-gray-700">Password</Label>
+                                        <Label className="text-[#4A3728]">Password</Label>
                                         <div className="relative">
-                                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5D4A3A]" />
                                             <Input
                                                 type="password"
                                                 placeholder="••••••••"
                                                 value={loginPassword}
                                                 onChange={(e) => setLoginPassword(e.target.value)}
-                                                className="pl-10 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
+                                                className="pl-10 bg-white border-[#D4BBA6] text-[#4A3728] placeholder:text-[#5D4A3A]/50 focus:border-[#4A3728] focus:ring-[#4A3728]"
                                                 required
                                                 data-testid="login-password-input"
                                             />
@@ -186,7 +186,7 @@ export const LoginPage = () => {
                                     <Button 
                                         type="submit" 
                                         disabled={loading}
-                                        className="w-full bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white shadow-md"
+                                        className="w-full bg-[#4A3728] hover:bg-[#3A2A1E] text-white shadow-md"
                                         data-testid="login-submit-btn"
                                     >
                                         {loading ? 'Signing in...' : 'Sign In'}
@@ -197,58 +197,58 @@ export const LoginPage = () => {
                             <TabsContent value="register" className="mt-4">
                                 <form onSubmit={handleRegister} className="space-y-4">
                                     <div className="space-y-2">
-                                        <Label className="text-gray-700">Full Name</Label>
+                                        <Label className="text-[#4A3728]">Full Name</Label>
                                         <div className="relative">
-                                            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5D4A3A]" />
                                             <Input
                                                 type="text"
                                                 placeholder="John Doe"
                                                 value={regName}
                                                 onChange={(e) => setRegName(e.target.value)}
-                                                className="pl-10 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
+                                                className="pl-10 bg-white border-[#D4BBA6] text-[#4A3728] placeholder:text-[#5D4A3A]/50"
                                                 required
                                                 data-testid="register-name-input"
                                             />
                                         </div>
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="text-gray-700">Email</Label>
+                                        <Label className="text-[#4A3728]">Email</Label>
                                         <div className="relative">
-                                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5D4A3A]" />
                                             <Input
                                                 type="email"
                                                 placeholder="you@company.com"
                                                 value={regEmail}
                                                 onChange={(e) => setRegEmail(e.target.value)}
-                                                className="pl-10 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
+                                                className="pl-10 bg-white border-[#D4BBA6] text-[#4A3728] placeholder:text-[#5D4A3A]/50"
                                                 required
                                                 data-testid="register-email-input"
                                             />
                                         </div>
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="text-gray-700">Password</Label>
+                                        <Label className="text-[#4A3728]">Password</Label>
                                         <div className="relative">
-                                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5D4A3A]" />
                                             <Input
                                                 type="password"
                                                 placeholder="••••••••"
                                                 value={regPassword}
                                                 onChange={(e) => setRegPassword(e.target.value)}
-                                                className="pl-10 bg-white border-gray-300 text-gray-900 placeholder:text-gray-400"
+                                                className="pl-10 bg-white border-[#D4BBA6] text-[#4A3728] placeholder:text-[#5D4A3A]/50"
                                                 required
                                                 data-testid="register-password-input"
                                             />
                                         </div>
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="text-gray-700">Department</Label>
+                                        <Label className="text-[#4A3728]">Department</Label>
                                         <div className="relative">
-                                            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5D4A3A]" />
                                             <select
                                                 value={regDepartment}
                                                 onChange={(e) => setRegDepartment(e.target.value)}
-                                                className="w-full pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-md text-gray-900"
+                                                className="w-full pl-10 pr-4 py-2 bg-white border border-[#D4BBA6] rounded-md text-[#4A3728]"
                                                 data-testid="register-department-select"
                                             >
                                                 <option value="marketing">Marketing Ops</option>
@@ -260,7 +260,7 @@ export const LoginPage = () => {
                                     <Button 
                                         type="submit" 
                                         disabled={loading}
-                                        className="w-full bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white shadow-md"
+                                        className="w-full bg-[#4A3728] hover:bg-[#3A2A1E] text-white shadow-md"
                                         data-testid="register-submit-btn"
                                     >
                                         {loading ? 'Creating account...' : 'Create Account'}
@@ -271,7 +271,7 @@ export const LoginPage = () => {
                     </CardContent>
                 </Card>
 
-                <p className="text-center text-gray-500 text-xs mt-6">
+                <p className="text-center text-[#5D4A3A] text-xs mt-6">
                     By signing in, you agree to our Terms of Service and Privacy Policy
                 </p>
             </div>

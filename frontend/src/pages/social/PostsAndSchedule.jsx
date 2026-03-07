@@ -15,9 +15,9 @@ const platforms = [
   { key: 'twitter', icon: FaTwitter, color: '#1DA1F2', label: 'Twitter/X', maxChars: 280, optimalChars: '71-100' },
 ];
 const statusColors = {
-  draft: { bg: 'bg-zinc-500/15', text: 'text-gray-500', label: 'Draft' },
-  scheduled: { bg: 'bg-violet-600/15', text: 'text-violet-600', label: 'Scheduled' },
-  published: { bg: 'bg-emerald-500/15', text: 'text-emerald-400', label: 'Published' },
+  draft: { bg: 'bg-zinc-500/15', text: 'text-[#5D4A3A]', label: 'Draft' },
+  scheduled: { bg: 'bg-amber-800/15', text: 'text-amber-600', label: 'Scheduled' },
+  published: { bg: 'bg-stone-600/15', text: 'text-stone-400', label: 'Published' },
 };
 function formatNum(n) { if (!n) return '0'; if (n >= 1000) return (n/1000).toFixed(1)+'K'; return n.toString(); }
 
@@ -27,11 +27,11 @@ function LinkedInPreview({ content, image, userName }) {
     <div className="bg-white rounded-lg overflow-hidden text-black text-xs" data-testid="preview-linkedin">
       <div className="p-3 flex items-center gap-2">
         <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm">{userName?.charAt(0) || 'S'}</div>
-        <div><p className="font-semibold text-[11px]">{userName || 'Sevora'}</p><p className="text-[9px] text-gray-500">Just now</p></div>
+        <div><p className="font-semibold text-[11px]">{userName || 'Sevora'}</p><p className="text-[9px] text-[#5D4A3A]">Just now</p></div>
       </div>
       <div className="px-3 pb-2"><p className="text-[11px] leading-relaxed whitespace-pre-wrap">{content?.slice(0, 300) || 'Your LinkedIn post preview...'}{content?.length > 300 ? '...more' : ''}</p></div>
       {image && <img src={image} alt="" className="w-full max-h-48 object-cover" />}
-      <div className="px-3 py-2 border-t border-gray-200 flex gap-4 text-[10px] text-gray-500">
+      <div className="px-3 py-2 border-t border-[#E8D5C4] flex gap-4 text-[10px] text-[#5D4A3A]">
         <span>Like</span><span>Comment</span><span>Repost</span><span>Send</span>
       </div>
     </div>
@@ -45,7 +45,7 @@ function InstagramPreview({ content, image, userName }) {
         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-orange-400 flex items-center justify-center text-white font-bold text-[10px]">{userName?.charAt(0) || 'S'}</div>
         <p className="font-semibold text-[11px]">{userName || 'shopsevora'}</p>
       </div>
-      {image ? <img src={image} alt="" className="w-full aspect-square object-cover" /> : <div className="w-full aspect-square bg-gray-100 flex items-center justify-center text-gray-400 text-xs"><Image className="w-8 h-8" /><span className="ml-2">Image required</span></div>}
+      {image ? <img src={image} alt="" className="w-full aspect-square object-cover" /> : <div className="w-full aspect-square bg-[#E8D5C4] flex items-center justify-center text-[#5D4A3A] text-xs"><Image className="w-8 h-8" /><span className="ml-2">Image required</span></div>}
       <div className="p-2.5">
         <div className="flex gap-3 mb-2 text-black"><Heart className="w-4 h-4" /><MessageSquare className="w-4 h-4" /><Send className="w-4 h-4" /></div>
         <p className="text-[11px] leading-relaxed"><span className="font-semibold">{userName || 'shopsevora'}</span> {content?.slice(0, 125) || 'Your Instagram caption...'}{content?.length > 125 ? '...more' : ''}</p>
@@ -59,11 +59,11 @@ function FacebookPreview({ content, image, userName }) {
     <div className="bg-white rounded-lg overflow-hidden text-black text-xs" data-testid="preview-facebook">
       <div className="p-3 flex items-center gap-2">
         <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">{userName?.charAt(0) || 'S'}</div>
-        <div><p className="font-semibold text-[11px]">{userName || 'Sevora'}</p><p className="text-[9px] text-gray-500">Just now · Public</p></div>
+        <div><p className="font-semibold text-[11px]">{userName || 'Sevora'}</p><p className="text-[9px] text-[#5D4A3A]">Just now · Public</p></div>
       </div>
       <div className="px-3 pb-2"><p className="text-[11px] leading-relaxed whitespace-pre-wrap">{content?.slice(0, 200) || 'Your Facebook post preview...'}</p></div>
       {image && <img src={image} alt="" className="w-full max-h-48 object-cover" />}
-      <div className="px-3 py-2 border-t border-gray-200 flex justify-around text-[10px] text-gray-500">
+      <div className="px-3 py-2 border-t border-[#E8D5C4] flex justify-around text-[10px] text-[#5D4A3A]">
         <span>Like</span><span>Comment</span><span>Share</span>
       </div>
     </div>
@@ -76,10 +76,10 @@ function TwitterPreview({ content, image, userName }) {
       <div className="p-3 flex items-start gap-2">
         <div className="w-10 h-10 rounded-full bg-sky-100 flex items-center justify-center text-sky-700 font-bold text-sm flex-shrink-0">{userName?.charAt(0) || 'S'}</div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1"><p className="font-semibold text-[11px]">{userName || 'Sevora'}</p><p className="text-[9px] text-gray-400">@sevora · now</p></div>
+          <div className="flex items-center gap-1"><p className="font-semibold text-[11px]">{userName || 'Sevora'}</p><p className="text-[9px] text-[#5D4A3A]">@sevora · now</p></div>
           <p className="text-[11px] leading-relaxed mt-0.5 whitespace-pre-wrap">{content?.slice(0, 280) || 'Your tweet...'}</p>
           {image && <img src={image} alt="" className="w-full max-h-36 object-cover rounded-xl mt-2" />}
-          <div className="flex gap-8 mt-2 text-[10px] text-gray-400"><MessageSquare className="w-3.5 h-3.5" /><span>Repost</span><Heart className="w-3.5 h-3.5" /><Eye className="w-3.5 h-3.5" /></div>
+          <div className="flex gap-8 mt-2 text-[10px] text-[#5D4A3A]"><MessageSquare className="w-3.5 h-3.5" /><span>Repost</span><Heart className="w-3.5 h-3.5" /><Eye className="w-3.5 h-3.5" /></div>
         </div>
       </div>
     </div>
@@ -286,56 +286,56 @@ export default function PostsAndSchedule() {
   return (
     <div className="space-y-5 animate-fade-in" data-testid="posts-schedule-page">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-3xl font-heading font-bold text-gray-900 tracking-tight">Posts & Schedule</h1><p className="text-gray-500 mt-1">Plan, create, schedule, and publish your content</p></div>
-        <button onClick={() => openComposer(null)} className="bg-violet-600 hover:bg-violet-600-hover text-white shadow-[0_0_15px_rgba(124,58,237,0.3)] rounded-lg font-medium px-5 py-2.5 flex items-center gap-2" data-testid="new-post-btn"><Plus className="w-4 h-4" /> New Post</button>
+        <div><h1 className="text-3xl font-heading font-bold text-[#4A3728] tracking-tight">Posts & Schedule</h1><p className="text-[#5D4A3A] mt-1">Plan, create, schedule, and publish your content</p></div>
+        <button onClick={() => openComposer(null)} className="bg-amber-800 hover:bg-amber-800-hover text-white shadow-[0_0_15px_rgba(124,58,237,0.3)] rounded-lg font-medium px-5 py-2.5 flex items-center gap-2" data-testid="new-post-btn"><Plus className="w-4 h-4" /> New Post</button>
       </div>
 
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-2">
-          <div className="flex bg-white rounded-lg border border-gray-200 p-0.5">
+          <div className="flex bg-white rounded-lg border border-[#E8D5C4] p-0.5">
             {[{ k: 'week', icon: CalendarDays, l: 'Week' }, { k: 'month', icon: Grid3X3, l: 'Month' }, { k: 'list', icon: List, l: 'List' }].map(v => (
-              <button key={v.k} onClick={() => setView(v.k)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${view === v.k ? 'bg-violet-600/15 text-violet-600' : 'text-gray-500 hover:text-white'}`}><v.icon className="w-3.5 h-3.5" /> {v.l}</button>
+              <button key={v.k} onClick={() => setView(v.k)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${view === v.k ? 'bg-amber-800/15 text-amber-600' : 'text-[#5D4A3A] hover:text-white'}`}><v.icon className="w-3.5 h-3.5" /> {v.l}</button>
             ))}
           </div>
-          <button onClick={() => setCurrentDate(view === 'month' ? subMonths(currentDate, 1) : subWeeks(currentDate, 1))} className="p-1.5 rounded-lg hover:bg-gray-50 text-gray-500"><ChevronLeft className="w-4 h-4" /></button>
-          <button onClick={() => setCurrentDate(new Date())} className="text-xs text-violet-600 px-2 py-1 rounded-lg hover:bg-violet-600/5">Today</button>
-          <button onClick={() => setCurrentDate(view === 'month' ? addMonths(currentDate, 1) : addWeeks(currentDate, 1))} className="p-1.5 rounded-lg hover:bg-gray-50 text-gray-500"><ChevronRight className="w-4 h-4" /></button>
-          <span className="text-sm font-heading font-semibold text-gray-900 ml-2">{view === 'month' ? format(currentDate, 'MMMM yyyy') : `${format(weekStart, 'MMM d')} - ${format(addDays(weekStart, 6), 'MMM d, yyyy')}`}</span>
+          <button onClick={() => setCurrentDate(view === 'month' ? subMonths(currentDate, 1) : subWeeks(currentDate, 1))} className="p-1.5 rounded-lg hover:bg-[#F5EDE5] text-[#5D4A3A]"><ChevronLeft className="w-4 h-4" /></button>
+          <button onClick={() => setCurrentDate(new Date())} className="text-xs text-amber-600 px-2 py-1 rounded-lg hover:bg-amber-800/5">Today</button>
+          <button onClick={() => setCurrentDate(view === 'month' ? addMonths(currentDate, 1) : addWeeks(currentDate, 1))} className="p-1.5 rounded-lg hover:bg-[#F5EDE5] text-[#5D4A3A]"><ChevronRight className="w-4 h-4" /></button>
+          <span className="text-sm font-heading font-semibold text-[#4A3728] ml-2">{view === 'month' ? format(currentDate, 'MMMM yyyy') : `${format(weekStart, 'MMM d')} - ${format(addDays(weekStart, 6), 'MMM d, yyyy')}`}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <button onClick={() => setFilterPlatform('')} className={`text-[10px] px-2.5 py-1.5 rounded-lg ${!filterPlatform ? 'bg-gray-100 text-white' : 'text-gray-500'}`}>All</button>
-          {platforms.map(p => <button key={p.key} onClick={() => setFilterPlatform(filterPlatform === p.key ? '' : p.key)} className={`p-1.5 rounded-lg ${filterPlatform === p.key ? 'bg-gray-100' : 'hover:bg-gray-50'}`}><p.icon className="w-3.5 h-3.5" style={{ color: filterPlatform === p.key ? p.color : '#71717a' }} /></button>)}
+          <button onClick={() => setFilterPlatform('')} className={`text-[10px] px-2.5 py-1.5 rounded-lg ${!filterPlatform ? 'bg-[#E8D5C4] text-white' : 'text-[#5D4A3A]'}`}>All</button>
+          {platforms.map(p => <button key={p.key} onClick={() => setFilterPlatform(filterPlatform === p.key ? '' : p.key)} className={`p-1.5 rounded-lg ${filterPlatform === p.key ? 'bg-[#E8D5C4]' : 'hover:bg-[#F5EDE5]'}`}><p.icon className="w-3.5 h-3.5" style={{ color: filterPlatform === p.key ? p.color : '#71717a' }} /></button>)}
         </div>
       </div>
 
       <div className="flex gap-4">
         {/* Calendar/List */}
         <div className="flex-1 min-w-0">
-          {loading ? <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 text-violet-600 animate-spin" /></div> : (
+          {loading ? <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 text-amber-600 animate-spin" /></div> : (
             <>
               {/* WEEK */}
               {view === 'week' && (
-                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                  <div className="grid grid-cols-7 border-b border-gray-200">
-                    {weekDays.map(day => <div key={day.toISOString()} className={`p-3 text-center border-r border-gray-200 last:border-r-0 ${isToday(day) ? 'bg-violet-600/5' : ''}`}><p className="text-[10px] text-gray-500 uppercase">{format(day, 'EEE')}</p><p className={`text-lg font-heading font-bold mt-0.5 ${isToday(day) ? 'text-violet-600' : 'text-white'}`}>{format(day, 'd')}</p></div>)}
+                <div className="bg-white border border-[#E8D5C4] rounded-xl overflow-hidden">
+                  <div className="grid grid-cols-7 border-b border-[#E8D5C4]">
+                    {weekDays.map(day => <div key={day.toISOString()} className={`p-3 text-center border-r border-[#E8D5C4] last:border-r-0 ${isToday(day) ? 'bg-amber-800/5' : ''}`}><p className="text-[10px] text-[#5D4A3A] uppercase">{format(day, 'EEE')}</p><p className={`text-lg font-heading font-bold mt-0.5 ${isToday(day) ? 'text-amber-600' : 'text-white'}`}>{format(day, 'd')}</p></div>)}
                   </div>
                   <div className="grid grid-cols-7 min-h-[350px]">
                     {weekDays.map(day => {
                       const dayPosts = getPostsForDay(day);
                       return (
-                        <div key={day.toISOString()} className={`p-2 border-r border-gray-200 last:border-r-0 ${isToday(day) ? 'bg-violet-600/5' : ''}`}>
+                        <div key={day.toISOString()} className={`p-2 border-r border-[#E8D5C4] last:border-r-0 ${isToday(day) ? 'bg-amber-800/5' : ''}`}>
                           {dayPosts.slice(0, 4).map(post => {
                             const meta = platforms.find(p => p.key === post.platform); const st = statusColors[post.status] || statusColors.draft;
                             return (
-                              <div key={post.post_id} onClick={() => { setSelectedPost(post); setShowComposer(false); }} className="p-2 rounded-lg bg-gray-100/80 border border-gray-200 hover:border-white/15 cursor-pointer mb-1.5">
+                              <div key={post.post_id} onClick={() => { setSelectedPost(post); setShowComposer(false); }} className="p-2 rounded-lg bg-[#E8D5C4]/80 border border-[#E8D5C4] hover:border-white/15 cursor-pointer mb-1.5">
                                 <div className="flex items-center gap-1.5 mb-1">{meta?.icon && <meta.icon className="w-3 h-3" style={{ color: meta?.color }} />}<span className={`text-[9px] px-1.5 py-0.5 rounded-full ${st.bg} ${st.text}`}>{st.label}</span></div>
-                                <p className="text-[10px] text-gray-700 line-clamp-2">{post.content}</p>
+                                <p className="text-[10px] text-[#4A3728] line-clamp-2">{post.content}</p>
                               </div>
                             );
                           })}
-                          {dayPosts.length > 4 && <p className="text-[10px] text-gray-500 text-center">+{dayPosts.length - 4}</p>}
-                          <button onClick={() => openComposer(day)} className="w-full mt-1 p-1.5 rounded-lg border border-dashed border-gray-300 hover:border-violet-600/30 text-gray-400 hover:text-violet-600 text-[10px] flex items-center justify-center gap-1 transition-all"><Plus className="w-3 h-3" /> Add</button>
+                          {dayPosts.length > 4 && <p className="text-[10px] text-[#5D4A3A] text-center">+{dayPosts.length - 4}</p>}
+                          <button onClick={() => openComposer(day)} className="w-full mt-1 p-1.5 rounded-lg border border-dashed border-[#D4BBA6] hover:border-amber-600/30 text-[#5D4A3A] hover:text-amber-600 text-[10px] flex items-center justify-center gap-1 transition-all"><Plus className="w-3 h-3" /> Add</button>
                         </div>
                       );
                     })}
@@ -344,19 +344,19 @@ export default function PostsAndSchedule() {
               )}
               {/* MONTH */}
               {view === 'month' && (
-                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                  <div className="grid grid-cols-7">{['S','M','T','W','T','F','S'].map(d => <div key={d} className="p-2 text-center text-[10px] text-gray-500 border-b border-gray-200">{d}</div>)}</div>
+                <div className="bg-white border border-[#E8D5C4] rounded-xl overflow-hidden">
+                  <div className="grid grid-cols-7">{['S','M','T','W','T','F','S'].map(d => <div key={d} className="p-2 text-center text-[10px] text-[#5D4A3A] border-b border-[#E8D5C4]">{d}</div>)}</div>
                   <div className="grid grid-cols-7">
-                    {Array.from({ length: monthPad }).map((_, i) => <div key={`p-${i}`} className="p-1.5 border-r border-b border-gray-200 min-h-[70px]" />)}
+                    {Array.from({ length: monthPad }).map((_, i) => <div key={`p-${i}`} className="p-1.5 border-r border-b border-[#E8D5C4] min-h-[70px]" />)}
                     {monthDays.map(day => {
                       const dp = getPostsForDay(day);
                       return (
-                        <div key={day.toISOString()} className={`p-1.5 border-r border-b border-gray-200 min-h-[70px] ${isToday(day) ? 'bg-violet-600/5' : ''}`}>
-                          <span className={`text-[10px] ${isToday(day) ? 'text-violet-600 font-bold' : 'text-gray-500'}`}>{format(day, 'd')}</span>
+                        <div key={day.toISOString()} className={`p-1.5 border-r border-b border-[#E8D5C4] min-h-[70px] ${isToday(day) ? 'bg-amber-800/5' : ''}`}>
+                          <span className={`text-[10px] ${isToday(day) ? 'text-amber-600 font-bold' : 'text-[#5D4A3A]'}`}>{format(day, 'd')}</span>
                           {dp.slice(0, 2).map(post => { const m = platforms.find(p => p.key === post.platform); return (
-                            <div key={post.post_id} onClick={() => { setSelectedPost(post); setShowComposer(false); }} className="flex items-center gap-1 p-0.5 rounded bg-gray-50 cursor-pointer mt-0.5">{m?.icon && <m.icon className="w-2.5 h-2.5" style={{ color: m?.color }} />}<span className="text-[9px] text-gray-500 truncate">{post.content?.slice(0, 15)}</span></div>
+                            <div key={post.post_id} onClick={() => { setSelectedPost(post); setShowComposer(false); }} className="flex items-center gap-1 p-0.5 rounded bg-[#F5EDE5] cursor-pointer mt-0.5">{m?.icon && <m.icon className="w-2.5 h-2.5" style={{ color: m?.color }} />}<span className="text-[9px] text-[#5D4A3A] truncate">{post.content?.slice(0, 15)}</span></div>
                           ); })}
-                          {dp.length > 2 && <p className="text-[9px] text-gray-400">+{dp.length - 2}</p>}
+                          {dp.length > 2 && <p className="text-[9px] text-[#5D4A3A]">+{dp.length - 2}</p>}
                         </div>
                       );
                     })}
@@ -369,16 +369,16 @@ export default function PostsAndSchedule() {
                   {filteredPosts.length > 0 ? filteredPosts.map(post => {
                     const meta = platforms.find(p => p.key === post.platform); const st = statusColors[post.status] || statusColors.draft; const m = post.metrics || {};
                     return (
-                      <div key={post.post_id} onClick={() => { setSelectedPost(post); setShowComposer(false); }} className="bg-white border border-gray-200 rounded-xl p-4 hover:border-gray-300 cursor-pointer flex items-start gap-3">
+                      <div key={post.post_id} onClick={() => { setSelectedPost(post); setShowComposer(false); }} className="bg-white border border-[#E8D5C4] rounded-xl p-4 hover:border-[#D4BBA6] cursor-pointer flex items-start gap-3">
                         <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${meta?.color}15` }}>{meta?.icon && <meta.icon className="w-4 h-4" style={{ color: meta?.color }} />}</div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1"><span className="text-xs font-medium text-white capitalize">{post.platform}</span><span className={`text-[10px] px-2 py-0.5 rounded-full ${st.bg} ${st.text}`}>{st.label}</span>{post.is_real_post && <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded-full">Live</span>}<span className="text-[10px] text-gray-400">{new Date(post.scheduled_at || post.created_at).toLocaleString()}</span></div>
-                          <p className="text-sm text-gray-700 line-clamp-2">{post.content}</p>
-                          {post.status === 'published' && (m.likes > 0 || m.comments > 0) && <div className="flex gap-3 mt-1.5 text-[10px] text-gray-500"><span className="flex items-center gap-1"><Heart className="w-3 h-3" />{formatNum(m.likes)}</span><span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" />{formatNum(m.comments)}</span></div>}
+                          <div className="flex items-center gap-2 mb-1"><span className="text-xs font-medium text-white capitalize">{post.platform}</span><span className={`text-[10px] px-2 py-0.5 rounded-full ${st.bg} ${st.text}`}>{st.label}</span>{post.is_real_post && <span className="text-[10px] bg-stone-600/10 text-stone-400 px-1.5 py-0.5 rounded-full">Live</span>}<span className="text-[10px] text-[#5D4A3A]">{new Date(post.scheduled_at || post.created_at).toLocaleString()}</span></div>
+                          <p className="text-sm text-[#4A3728] line-clamp-2">{post.content}</p>
+                          {post.status === 'published' && (m.likes > 0 || m.comments > 0) && <div className="flex gap-3 mt-1.5 text-[10px] text-[#5D4A3A]"><span className="flex items-center gap-1"><Heart className="w-3 h-3" />{formatNum(m.likes)}</span><span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" />{formatNum(m.comments)}</span></div>}
                         </div>
                       </div>
                     );
-                  }) : <div className="text-center py-16"><FileText className="w-10 h-10 text-gray-300 mx-auto mb-3" /><p className="text-sm text-gray-500">No posts yet</p></div>}
+                  }) : <div className="text-center py-16"><FileText className="w-10 h-10 text-[#D4BBA6] mx-auto mb-3" /><p className="text-sm text-[#5D4A3A]">No posts yet</p></div>}
                 </div>
               )}
             </>
@@ -387,11 +387,11 @@ export default function PostsAndSchedule() {
 
         {/* Side Panel - Post Detail Only */}
         {selectedPost && !showComposer && (
-          <div className="w-[420px] flex-shrink-0 bg-white border border-gray-200 rounded-xl overflow-hidden max-h-[calc(100vh-200px)] overflow-y-auto" data-testid="side-panel">
+          <div className="w-[420px] flex-shrink-0 bg-white border border-[#E8D5C4] rounded-xl overflow-hidden max-h-[calc(100vh-200px)] overflow-y-auto" data-testid="side-panel">
             {/* SELECTED POST DETAIL */}
             {selectedPost && (
               <div>
-                <div className="p-3 border-b border-gray-200 flex items-center justify-between">
+                <div className="p-3 border-b border-[#E8D5C4] flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     {(() => { const m = platforms.find(p => p.key === selectedPost.platform); return m?.icon ? <m.icon className="w-4 h-4" style={{ color: m.color }} /> : null; })()}
                     <span className={`text-[10px] px-2 py-0.5 rounded-full ${(statusColors[selectedPost.status]||{}).bg} ${(statusColors[selectedPost.status]||{}).text}`}>{(statusColors[selectedPost.status]||{}).label}</span>
@@ -400,30 +400,30 @@ export default function PostsAndSchedule() {
                     {selectedPost.status !== 'published' && (
                       <>
                         <button onClick={() => openComposer(null, selectedPost)} className="text-xs bg-gray-200 hover:bg-zinc-600 text-white rounded-lg px-3 py-1.5 flex items-center gap-1"><Edit3 className="w-3 h-3" /> Edit</button>
-                        <button onClick={() => handlePublishPost(selectedPost)} disabled={!!publishing} className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-3 py-1.5 flex items-center gap-1 disabled:opacity-50">{publishing === selectedPost.post_id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />} Post now</button>
+                        <button onClick={() => handlePublishPost(selectedPost)} disabled={!!publishing} className="text-xs bg-stone-700 hover:bg-stone-700 text-white rounded-lg px-3 py-1.5 flex items-center gap-1 disabled:opacity-50">{publishing === selectedPost.post_id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />} Post now</button>
                       </>
                     )}
                     {selectedPost.status === 'published' && <button onClick={() => openComposer(null, selectedPost)} className="text-xs bg-gray-200 hover:bg-zinc-600 text-white rounded-lg px-3 py-1.5 flex items-center gap-1"><Edit3 className="w-3 h-3" /> Reuse</button>}
-                    <button onClick={() => handleDeletePost(selectedPost.post_id)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-gray-500 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
-                    <button onClick={() => setSelectedPost(null)} className="p-1.5 rounded-lg hover:bg-gray-50 text-gray-500"><X className="w-4 h-4" /></button>
+                    <button onClick={() => handleDeletePost(selectedPost.post_id)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-[#5D4A3A] hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+                    <button onClick={() => setSelectedPost(null)} className="p-1.5 rounded-lg hover:bg-[#F5EDE5] text-[#5D4A3A]"><X className="w-4 h-4" /></button>
                   </div>
                 </div>
                 {/* Preview */}
                 <div className="p-3">
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Preview</p>
-                  <div className="rounded-xl overflow-hidden border border-gray-300">
+                  <p className="text-[10px] text-[#5D4A3A] uppercase tracking-wider mb-2">Preview</p>
+                  <div className="rounded-xl overflow-hidden border border-[#D4BBA6]">
                     {selectedPost.platform === 'linkedin' && <LinkedInPreview content={selectedPost.content} image={selectedPost.image_url} />}
                     {selectedPost.platform === 'instagram' && <InstagramPreview content={selectedPost.content} image={selectedPost.image_url} />}
                     {selectedPost.platform === 'facebook' && <FacebookPreview content={selectedPost.content} image={selectedPost.image_url} />}
                     {selectedPost.platform === 'twitter' && <TwitterPreview content={selectedPost.content} image={selectedPost.image_url} />}
                   </div>
                   <div className="mt-3 space-y-2 text-xs">
-                    {selectedPost.scheduled_at && <div className="flex justify-between"><span className="text-gray-500">Scheduled</span><span className="text-gray-900">{selectedPost.scheduled_at}</span></div>}
-                    {selectedPost.external_url && <a href={selectedPost.external_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-violet-600"><ExternalLink className="w-3 h-3" /> View live</a>}
+                    {selectedPost.scheduled_at && <div className="flex justify-between"><span className="text-[#5D4A3A]">Scheduled</span><span className="text-[#4A3728]">{selectedPost.scheduled_at}</span></div>}
+                    {selectedPost.external_url && <a href={selectedPost.external_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-amber-600"><ExternalLink className="w-3 h-3" /> View live</a>}
                     {selectedPost.status === 'published' && selectedPost.metrics && (
-                      <div className="grid grid-cols-4 gap-2 pt-2 border-t border-gray-200">
+                      <div className="grid grid-cols-4 gap-2 pt-2 border-t border-[#E8D5C4]">
                         {[{l:'Likes',v:selectedPost.metrics.likes,c:'#ec4899'},{l:'Comments',v:selectedPost.metrics.comments,c:'#06b6d4'},{l:'Shares',v:selectedPost.metrics.shares,c:'#f97316'},{l:'Reach',v:selectedPost.metrics.reach,c:'#7c3aed'}].map(m=>(
-                          <div key={m.l} className="bg-gray-100/80 rounded-lg p-2 text-center"><p className="text-[9px] text-gray-500">{m.l}</p><p className="text-sm font-bold" style={{color:m.c}}>{formatNum(m.v)}</p></div>
+                          <div key={m.l} className="bg-[#E8D5C4]/80 rounded-lg p-2 text-center"><p className="text-[9px] text-[#5D4A3A]">{m.l}</p><p className="text-sm font-bold" style={{color:m.c}}>{formatNum(m.v)}</p></div>
                         ))}
                       </div>
                     )}
@@ -438,32 +438,32 @@ export default function PostsAndSchedule() {
       {/* COMPOSER - FULL SCREEN MODAL (Buffer-style) */}
       {showComposer && (
               <div className="fixed inset-0 z-50 bg-black/70 flex items-start justify-center pt-8" onClick={(e) => { if (e.target === e.currentTarget) setShowComposer(false); }}>
-                <div className="bg-white rounded-2xl border border-gray-300 w-[900px] max-h-[85vh] overflow-hidden flex flex-col shadow-2xl" data-testid="composer-modal">
+                <div className="bg-white rounded-2xl border border-[#D4BBA6] w-[900px] max-h-[85vh] overflow-hidden flex flex-col shadow-2xl" data-testid="composer-modal">
                   {/* Header */}
-                  <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-[#E8D5C4]">
                     <div className="flex items-center gap-4">
-                      <h2 className="text-lg font-heading font-bold text-gray-900">{editingPost ? 'Edit Post' : 'Create Post'}</h2>
-                      <button className="text-xs text-gray-500 hover:text-white border border-gray-300 rounded-lg px-3 py-1.5 flex items-center gap-1.5 hover:bg-gray-50"><Sparkles className="w-3.5 h-3.5" /> AI Assistant</button>
+                      <h2 className="text-lg font-heading font-bold text-[#4A3728]">{editingPost ? 'Edit Post' : 'Create Post'}</h2>
+                      <button className="text-xs text-[#5D4A3A] hover:text-white border border-[#D4BBA6] rounded-lg px-3 py-1.5 flex items-center gap-1.5 hover:bg-[#F5EDE5]"><Sparkles className="w-3.5 h-3.5" /> AI Assistant</button>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button className={`text-xs px-3 py-1.5 rounded-lg transition-all ${previewTab === 'compose' ? 'bg-gray-100 text-white' : 'text-gray-500 hover:text-white'}`} onClick={() => setPreviewTab('compose')}>Compose</button>
-                      <button className={`text-xs px-3 py-1.5 rounded-lg transition-all ${previewTab === 'preview' ? 'bg-violet-600/15 text-violet-600' : 'text-gray-500 hover:text-white'}`} onClick={() => setPreviewTab('preview')}>Preview</button>
-                      <button onClick={() => setShowComposer(false)} className="p-2 rounded-lg hover:bg-gray-50 text-gray-500 ml-2"><X className="w-5 h-5" /></button>
+                      <button className={`text-xs px-3 py-1.5 rounded-lg transition-all ${previewTab === 'compose' ? 'bg-[#E8D5C4] text-white' : 'text-[#5D4A3A] hover:text-white'}`} onClick={() => setPreviewTab('compose')}>Compose</button>
+                      <button className={`text-xs px-3 py-1.5 rounded-lg transition-all ${previewTab === 'preview' ? 'bg-amber-800/15 text-amber-600' : 'text-[#5D4A3A] hover:text-white'}`} onClick={() => setPreviewTab('preview')}>Preview</button>
+                      <button onClick={() => setShowComposer(false)} className="p-2 rounded-lg hover:bg-[#F5EDE5] text-[#5D4A3A] ml-2"><X className="w-5 h-5" /></button>
                     </div>
                   </div>
 
                   {/* Body - Split Layout */}
                   <div className="flex flex-1 overflow-hidden">
                     {/* Left: Compose */}
-                    <div className="flex-1 flex flex-col border-r border-gray-200 overflow-y-auto">
+                    <div className="flex-1 flex flex-col border-r border-[#E8D5C4] overflow-y-auto">
                       {/* Platform Avatars */}
                       <div className="px-6 pt-5 pb-3 flex items-center gap-3">
                         {platforms.map(p => {
                           const active = cPlatforms.includes(p.key);
                           return (
-                            <button key={p.key} onClick={() => togglePlatform(p.key)} className={`relative w-12 h-12 rounded-full border-2 transition-all flex items-center justify-center ${active ? 'border-white/30 bg-gray-100' : 'border-gray-200 opacity-40 hover:opacity-70'}`} title={p.label}>
+                            <button key={p.key} onClick={() => togglePlatform(p.key)} className={`relative w-12 h-12 rounded-full border-2 transition-all flex items-center justify-center ${active ? 'border-white/30 bg-[#E8D5C4]' : 'border-[#E8D5C4] opacity-40 hover:opacity-70'}`} title={p.label}>
                               <p.icon className="w-5 h-5" style={{ color: active ? p.color : '#555' }} />
-                              <div className={`absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold ${active ? 'text-white' : 'bg-gray-200 text-gray-500'}`} style={active ? { backgroundColor: p.color } : {}}>
+                              <div className={`absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold ${active ? 'text-white' : 'bg-gray-200 text-[#5D4A3A]'}`} style={active ? { backgroundColor: p.color } : {}}>
                                 {p.label.charAt(0)}
                               </div>
                             </button>
@@ -477,7 +477,7 @@ export default function PostsAndSchedule() {
                         {cPlatforms.length > 1 && (
                           <div className="flex gap-1 mb-2">
                             {cPlatforms.map(p => { const m = platforms.find(x => x.key === p); return (
-                              <button key={p} onClick={() => setPreviewPlatform(p)} className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${previewPlatform === p ? 'bg-gray-100 text-white' : 'text-gray-500 hover:text-gray-700'}`}>
+                              <button key={p} onClick={() => setPreviewPlatform(p)} className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${previewPlatform === p ? 'bg-[#E8D5C4] text-white' : 'text-[#5D4A3A] hover:text-[#4A3728]'}`}>
                                 <m.icon className="w-3 h-3" style={{ color: previewPlatform === p ? m.color : '#666' }} /> {m.label}
                               </button>
                             ); })}
@@ -491,10 +491,10 @@ export default function PostsAndSchedule() {
                         {/* Char count */}
                         <div className="flex items-center justify-between text-[10px] mt-1">
                           <div className="flex items-center gap-2">
-                            <div className="w-16 h-1 rounded-full bg-gray-100 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${charPercent}%`, backgroundColor: charColor }} /></div>
+                            <div className="w-16 h-1 rounded-full bg-[#E8D5C4] overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${charPercent}%`, backgroundColor: charColor }} /></div>
                             <span style={{ color: charColor }}>{currentContent.length}/{currentPlatformConfig.maxChars}</span>
                           </div>
-                          <span className="text-gray-400">Optimal: {currentPlatformConfig.optimalChars} chars</span>
+                          <span className="text-[#5D4A3A]">Optimal: {currentPlatformConfig.optimalChars} chars</span>
                         </div>
                       </div>
 
@@ -503,14 +503,14 @@ export default function PostsAndSchedule() {
                         {cImages.length > 0 && (
                           <div className="flex gap-2 mb-2 flex-wrap">
                             {cImages.map((img, i) => (
-                              <div key={i} className="relative w-24 h-24 rounded-xl overflow-hidden border border-gray-300 group">
+                              <div key={i} className="relative w-24 h-24 rounded-xl overflow-hidden border border-[#D4BBA6] group">
                                 <img src={img.url} alt="" className="w-full h-full object-cover" />
                                 <button onClick={() => removeImage(i)} className="absolute top-1 right-1 p-1 rounded-full bg-black/70 text-white hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-3 h-3" /></button>
-                                {i === 0 && <span className="absolute bottom-1 left-1 text-[8px] bg-violet-600 text-white px-1.5 py-0.5 rounded">Primary</span>}
+                                {i === 0 && <span className="absolute bottom-1 left-1 text-[8px] bg-amber-800 text-white px-1.5 py-0.5 rounded">Primary</span>}
                               </div>
                             ))}
                             <button onClick={() => fileRef.current?.click()} disabled={uploading}
-                              className="w-24 h-24 rounded-xl border-2 border-dashed border-gray-300 hover:border-violet-600/30 text-gray-400 hover:text-violet-600 flex flex-col items-center justify-center gap-1 transition-all disabled:opacity-50">
+                              className="w-24 h-24 rounded-xl border-2 border-dashed border-[#D4BBA6] hover:border-amber-600/30 text-[#5D4A3A] hover:text-amber-600 flex flex-col items-center justify-center gap-1 transition-all disabled:opacity-50">
                               {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                               <span className="text-[9px]">Add</span>
                             </button>
@@ -518,7 +518,7 @@ export default function PostsAndSchedule() {
                         )}
                         {cImages.length === 0 && (
                           <button onClick={() => fileRef.current?.click()} disabled={uploading}
-                            className="w-32 h-24 rounded-xl border-2 border-dashed border-gray-300 hover:border-violet-600/30 text-gray-400 hover:text-violet-600 flex flex-col items-center justify-center gap-1 transition-all disabled:opacity-50 mb-2">
+                            className="w-32 h-24 rounded-xl border-2 border-dashed border-[#D4BBA6] hover:border-amber-600/30 text-[#5D4A3A] hover:text-amber-600 flex flex-col items-center justify-center gap-1 transition-all disabled:opacity-50 mb-2">
                             {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
                             <span className="text-[10px]">{uploading ? 'Uploading...' : 'Drag & drop or select files'}</span>
                           </button>
@@ -527,14 +527,14 @@ export default function PostsAndSchedule() {
                       </div>
 
                       {/* Bottom Toolbar */}
-                      <div className="px-6 py-3 border-t border-gray-200 flex items-center justify-between">
+                      <div className="px-6 py-3 border-t border-[#E8D5C4] flex items-center justify-between">
                         <div className="flex items-center gap-1">
-                          <button className="p-2 rounded-lg hover:bg-gray-50 text-gray-500 hover:text-white" title="Add media" onClick={() => fileRef.current?.click()}><Plus className="w-4 h-4" /></button>
-                          <span className="w-px h-5 bg-gray-100" />
-                          <button className="p-2 rounded-lg hover:bg-gray-50 text-gray-500 hover:text-white" title="Emoji">
+                          <button className="p-2 rounded-lg hover:bg-[#F5EDE5] text-[#5D4A3A] hover:text-white" title="Add media" onClick={() => fileRef.current?.click()}><Plus className="w-4 h-4" /></button>
+                          <span className="w-px h-5 bg-[#E8D5C4]" />
+                          <button className="p-2 rounded-lg hover:bg-[#F5EDE5] text-[#5D4A3A] hover:text-white" title="Emoji">
                             <span className="text-sm">&#128522;</span>
                           </button>
-                          <button className="p-2 rounded-lg hover:bg-gray-50 text-gray-500 hover:text-white text-sm font-bold" title="Hashtag">#</button>
+                          <button className="p-2 rounded-lg hover:bg-[#F5EDE5] text-[#5D4A3A] hover:text-white text-sm font-bold" title="Hashtag">#</button>
                         </div>
                         {currentPlatformConfig.imageRequired && !primaryImage && (
                           <span className="text-[10px] text-amber-400 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {currentPlatformConfig.label} requires an image</span>
@@ -543,27 +543,27 @@ export default function PostsAndSchedule() {
                     </div>
 
                     {/* Right: Live Preview */}
-                    <div className="w-[360px] flex-shrink-0 bg-gray-50 overflow-y-auto">
+                    <div className="w-[360px] flex-shrink-0 bg-[#F5EDE5] overflow-y-auto">
                       <div className="p-5">
-                        <h3 className="text-sm font-heading font-semibold text-gray-900 mb-4">Post Previews</h3>
+                        <h3 className="text-sm font-heading font-semibold text-[#4A3728] mb-4">Post Previews</h3>
                         {/* Preview tabs */}
                         <div className="flex gap-1 mb-4">
                           {cPlatforms.map(p => { const m = platforms.find(x => x.key === p); return (
-                            <button key={p} onClick={() => setPreviewPlatform(p)} className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-all ${previewPlatform === p ? 'bg-gray-100 text-white' : 'text-gray-500 hover:text-gray-700'}`}>
+                            <button key={p} onClick={() => setPreviewPlatform(p)} className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-all ${previewPlatform === p ? 'bg-[#E8D5C4] text-white' : 'text-[#5D4A3A] hover:text-[#4A3728]'}`}>
                               <m.icon className="w-3.5 h-3.5" style={{ color: previewPlatform === p ? m.color : '#666' }} /> {m.label}
                             </button>
                           ); })}
                         </div>
                         {/* Preview */}
-                        <div className="rounded-xl overflow-hidden border border-gray-300 shadow-lg">
+                        <div className="rounded-xl overflow-hidden border border-[#D4BBA6] shadow-lg">
                           {previewPlatform === 'linkedin' && <LinkedInPreview content={getContent('linkedin')} image={primaryImage} />}
                           {previewPlatform === 'instagram' && <InstagramPreview content={getContent('instagram')} image={primaryImage} />}
                           {previewPlatform === 'facebook' && <FacebookPreview content={getContent('facebook')} image={primaryImage} />}
                           {previewPlatform === 'twitter' && <TwitterPreview content={getContent('twitter')} image={primaryImage} />}
                         </div>
                         {/* Platform tip */}
-                        <div className="mt-3 p-2.5 bg-gray-50 rounded-lg text-[10px] text-gray-500 flex items-start gap-1.5">
-                          <Info className="w-3 h-3 mt-0.5 flex-shrink-0 text-violet-600" />
+                        <div className="mt-3 p-2.5 bg-[#F5EDE5] rounded-lg text-[10px] text-[#5D4A3A] flex items-start gap-1.5">
+                          <Info className="w-3 h-3 mt-0.5 flex-shrink-0 text-amber-600" />
                           {currentPlatformConfig.key === 'twitter' ? 'Keep under 280 chars. Tweets with images get 150% more retweets.' :
                            currentPlatformConfig.key === 'instagram' ? 'First 125 chars visible. Image required. Use up to 30 hashtags.' :
                            currentPlatformConfig.key === 'linkedin' ? 'Start with a hook. Use line breaks for readability. 3-5 hashtags.' :
@@ -574,12 +574,12 @@ export default function PostsAndSchedule() {
                   </div>
 
                   {/* Footer - Scheduling */}
-                  <div className="px-6 py-4 border-t border-gray-200 bg-white">
+                  <div className="px-6 py-4 border-t border-[#E8D5C4] bg-white">
                     {/* Per-platform scheduling toggle */}
                     {cPlatforms.length > 1 && (
                       <div className="flex items-center gap-3 mb-3">
-                        <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
-                          <input type="checkbox" checked={cSameTime} onChange={(e) => setCSameTime(e.target.checked)} className="rounded bg-gray-100 border-gray-300 text-violet-600 focus:ring-violet-600/20" />
+                        <label className="flex items-center gap-2 text-xs text-[#5D4A3A] cursor-pointer">
+                          <input type="checkbox" checked={cSameTime} onChange={(e) => setCSameTime(e.target.checked)} className="rounded bg-[#E8D5C4] border-[#D4BBA6] text-amber-600 focus:ring-violet-600/20" />
                           Same time for all platforms
                         </label>
                       </div>
@@ -588,17 +588,17 @@ export default function PostsAndSchedule() {
                     {!cSameTime && cPlatforms.length > 1 ? (
                       <div className="space-y-2 mb-3">
                         {cPlatforms.map(p => { const m = platforms.find(x => x.key === p); const s = getSchedule(p); return (
-                          <div key={p} className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2">
+                          <div key={p} className="flex items-center gap-3 bg-[#F5EDE5] rounded-lg px-3 py-2">
                             <m.icon className="w-3.5 h-3.5" style={{ color: m.color }} />
                             <span className="text-xs text-white w-20">{m.label}</span>
-                            <input type="date" value={s.date} onChange={(e) => setPlatformSchedule(p, 'date', e.target.value)} className="bg-gray-50 border border-gray-300 rounded-lg px-2 py-1 text-xs text-white" />
-                            <input type="time" value={s.time} onChange={(e) => setPlatformSchedule(p, 'time', e.target.value)} className="bg-gray-50 border border-gray-300 rounded-lg px-2 py-1 text-xs text-white" />
+                            <input type="date" value={s.date} onChange={(e) => setPlatformSchedule(p, 'date', e.target.value)} className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg px-2 py-1 text-xs text-white" />
+                            <input type="time" value={s.time} onChange={(e) => setPlatformSchedule(p, 'time', e.target.value)} className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg px-2 py-1 text-xs text-white" />
                           </div>
                         ); })}
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2 border border-gray-300 mb-3 w-fit">
-                        <Clock className="w-4 h-4 text-gray-500" />
+                      <div className="flex items-center gap-2 bg-[#E8D5C4] rounded-lg px-3 py-2 border border-[#D4BBA6] mb-3 w-fit">
+                        <Clock className="w-4 h-4 text-[#5D4A3A]" />
                         <input type="date" value={cDate} onChange={(e) => setCDate(e.target.value)} className="bg-transparent text-xs text-white w-28" />
                         <input type="time" value={cTime} onChange={(e) => setCTime(e.target.value)} className="bg-transparent text-xs text-white w-20" />
                       </div>
@@ -607,23 +607,23 @@ export default function PostsAndSchedule() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         {cError && <span className="text-xs text-red-400">{cError}</span>}
-                        {cResult && cResult._scheduled && <span className="text-xs text-violet-600 flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5" /> {editingPost ? 'Updated!' : 'Scheduled!'}</span>}
+                        {cResult && cResult._scheduled && <span className="text-xs text-amber-600 flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5" /> {editingPost ? 'Updated!' : 'Scheduled!'}</span>}
                         {cResult && !cResult._scheduled && Object.entries(cResult).map(([p, r]) => (
-                          <span key={p} className={`text-xs flex items-center gap-1 ${r.success ? 'text-emerald-400' : 'text-red-400'}`}>
+                          <span key={p} className={`text-xs flex items-center gap-1 ${r.success ? 'text-stone-400' : 'text-red-400'}`}>
                             {r.success ? <CheckCircle className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />} {p}: {r.success ? 'Done!' : 'Failed'}
                           </span>
                         ))}
                       </div>
                       <div className="flex items-center gap-2">
                         <button onClick={() => handleSubmit('draft')} disabled={cSaving}
-                          className="bg-gray-100 hover:bg-gray-200 text-white border border-gray-300 rounded-lg font-medium px-4 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 transition-all"
+                          className="bg-[#E8D5C4] hover:bg-gray-200 text-white border border-[#D4BBA6] rounded-lg font-medium px-4 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 transition-all"
                         ><FileText className="w-4 h-4" /> Save Draft</button>
                         <button onClick={() => handleSubmit('schedule')} disabled={cSaving}
-                          className="bg-gray-200 hover:bg-zinc-600 text-white border border-gray-300 rounded-lg font-medium px-4 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 transition-all"
+                          className="bg-gray-200 hover:bg-zinc-600 text-white border border-[#D4BBA6] rounded-lg font-medium px-4 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 transition-all"
                           data-testid="composer-schedule"
                         >{cSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clock className="w-4 h-4" />} Schedule</button>
                         <button onClick={() => handleSubmit('post_now')} disabled={cSaving}
-                          className="bg-violet-600 hover:bg-violet-600-hover text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 shadow-[0_0_15px_rgba(124,58,237,0.3)] transition-all"
+                          className="bg-amber-800 hover:bg-amber-800-hover text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 shadow-[0_0_15px_rgba(124,58,237,0.3)] transition-all"
                           data-testid="composer-publish"
                         >{cSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />} Publish Now</button>
                       </div>

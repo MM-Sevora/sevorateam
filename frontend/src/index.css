@@ -4,26 +4,35 @@
 
 @layer base {
   :root {
-    --background: 0 0% 98%;
-    --foreground: 222 47% 11%;
+    --background: 0 0% 100%;
+    --foreground: 24 25% 22%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 24 25% 22%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 263 70% 50%;
+    --popover-foreground: 24 25% 22%;
+    --primary: 24 30% 25%;
     --primary-foreground: 0 0% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 263 70% 50%;
-    --accent-foreground: 222 47% 11%;
+    --secondary: 25 30% 88%;
+    --secondary-foreground: 24 25% 22%;
+    --muted: 25 20% 94%;
+    --muted-foreground: 24 10% 45%;
+    --accent: 24 60% 40%;
+    --accent-foreground: 0 0% 98%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 263 70% 50%;
+    --border: 24 15% 88%;
+    --input: 24 15% 88%;
+    --ring: 24 30% 25%;
     --radius: 0.75rem;
+    
+    /* Custom brand colors */
+    --crater-brown: #4A3728;
+    --crater-brown-light: #5D4A3A;
+    --crater-brown-dark: #3A2A1E;
+    --soft-nude: #E8D5C4;
+    --soft-nude-light: #F5EDE5;
+    --soft-nude-dark: #D4BBA6;
+    --warm-accent: #8B6914;
   }
 }
 

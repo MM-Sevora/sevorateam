@@ -1,6 +1,37 @@
 .App {
   min-height: 100vh;
-  background-color: #fafafa;
+  background-color: #FFFFFF;
+}
+
+/* Brand utility classes */
+.bg-crater-brown { background-color: #4A3728; }
+.bg-crater-brown-light { background-color: #5D4A3A; }
+.bg-crater-brown-dark { background-color: #3A2A1E; }
+.bg-soft-nude { background-color: #E8D5C4; }
+.bg-soft-nude-light { background-color: #F5EDE5; }
+.bg-soft-nude-dark { background-color: #D4BBA6; }
+.bg-warm-accent { background-color: #8B6914; }
+
+.text-crater-brown { color: #4A3728; }
+.text-crater-brown-light { color: #5D4A3A; }
+.text-soft-nude { color: #E8D5C4; }
+.text-warm-accent { color: #8B6914; }
+
+.border-crater-brown { border-color: #4A3728; }
+.border-soft-nude { border-color: #E8D5C4; }
+.border-soft-nude-dark { border-color: #D4BBA6; }
+
+.hover\:bg-crater-brown-light:hover { background-color: #5D4A3A; }
+.hover\:bg-soft-nude:hover { background-color: #E8D5C4; }
+.hover\:bg-soft-nude-light:hover { background-color: #F5EDE5; }
+
+/* Gradient utilities */
+.gradient-brand {
+  background: linear-gradient(135deg, #4A3728 0%, #5D4A3A 100%);
+}
+
+.gradient-soft {
+  background: linear-gradient(135deg, #F5EDE5 0%, #E8D5C4 100%);
 }
 
 /* Remove default styles */

@@ -24,7 +24,7 @@ const STATUS_CONFIG = {
     negotiating: { color: 'bg-blue-100 text-blue-700', icon: MessageSquare, label: 'Negotiating' },
     agreed: { color: 'bg-green-100 text-green-700', icon: CheckCircle, label: 'Agreed' },
     rejected: { color: 'bg-red-100 text-red-700', icon: XCircle, label: 'Rejected' },
-    on_hold: { color: 'bg-gray-100 text-gray-700', icon: AlertCircle, label: 'On Hold' }
+    on_hold: { color: 'bg-[#E8D5C4] text-[#4A3728]', icon: AlertCircle, label: 'On Hold' }
 };
 
 const EVENT_CONFIG = {
@@ -33,7 +33,7 @@ const EVENT_CONFIG = {
     counter_sent: { icon: TrendingDown, color: 'text-blue-500' },
     agreed: { icon: CheckCircle, color: 'text-green-500' },
     rejected: { icon: XCircle, color: 'text-red-500' },
-    note_added: { icon: MessageSquare, color: 'text-gray-500' }
+    note_added: { icon: MessageSquare, color: 'text-[#5D4A3A]' }
 };
 
 const DELIVERABLE_TYPES = [
@@ -654,7 +654,7 @@ export const NegotiationsPage = () => {
                                         <div className="space-y-3">
                                             {selectedNeg.timeline?.map((event, i) => {
                                                 const EventIcon = EVENT_CONFIG[event.event_type]?.icon || MessageSquare;
-                                                const iconColor = EVENT_CONFIG[event.event_type]?.color || 'text-gray-500';
+                                                const iconColor = EVENT_CONFIG[event.event_type]?.color || 'text-[#5D4A3A]';
                                                 return (
                                                     <div key={event.id || i} className="flex gap-3 text-sm">
                                                         <div className={`w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0`}>

@@ -147,7 +147,7 @@ const WeddingPlannerPage = () => {
       'Family Member': 'bg-purple-100 text-purple-800',
       'Guest': 'bg-green-100 text-green-800',
     };
-    return colors[role] || 'bg-gray-100 text-gray-800';
+    return colors[role] || 'bg-[#E8D5C4] text-[#4A3728]';
   };
 
   return (

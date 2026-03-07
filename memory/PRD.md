@@ -196,11 +196,24 @@ Consolidate multiple Sevora applications (Influencer Operations from 'main' bran
 - Updated CSS variables for light theme (index.css, App.css)
 - Batch-updated all zinc/dark colors to gray-based light theme
 
+## Brand Color Palette
+| Color | Hex | Usage |
+|-------|-----|-------|
+| Crater Brown (Primary) | #4A3728 | Logo, buttons, active states, headings |
+| Crater Brown Light | #5D4A3A | Secondary text, hover states |
+| Soft Nude | #E8D5C4 | Sidebar background, hover backgrounds |
+| Soft Nude Light | #F5EDE5 | Page backgrounds, subtle highlights |
+| Soft Nude Dark | #D4BBA6 | Borders, dividers |
+| Amber (Marketing) | amber-700/600/500 | Marketing department accent |
+| Stone (Sales) | stone-700/600/500 | Sales department accent |
+| Rose (Social) | rose-700/600/500 | Social Media department accent |
+
 ## Theme Changes Applied
 | Component | Before | After |
 |-----------|--------|-------|
-| Background | #0a0a0f (dark) | gray-50/white |
-| Cards | #12121a | white + shadow |
-| Text | white/white-50 | gray-900/gray-500 |
-| Borders | white/5, white/10 | gray-200, gray-300 |
-| Sidebar | Dark | White with gray borders |
+| Background | gray-50 | white / #F5EDE5 |
+| Cards | white + gray borders | white + #E8D5C4 borders |
+| Text | gray-900/500 | #4A3728 / #5D4A3A |
+| Sidebar | Gray/White | Soft Nude (#F5EDE5) |
+| Primary buttons | violet/purple | Crater Brown (#4A3728) |
+| Department colors | violet/emerald/pink | amber/stone/rose |

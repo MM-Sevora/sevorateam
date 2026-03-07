@@ -28,9 +28,9 @@ const STATUS_ICONS = {
 
 const STATUS_COLORS = {
     planning: 'bg-blue-500/20 text-blue-400',
-    active: 'bg-green-500/20 text-green-400',
+    active: 'bg-stone-600/20 text-green-400',
     paused: 'bg-yellow-500/20 text-yellow-400',
-    completed: 'bg-violet-500/20 text-violet-400'
+    completed: 'bg-amber-700/20 text-amber-400'
 };
 
 const CampaignsPage = () => {
@@ -98,7 +98,7 @@ const CampaignsPage = () => {
     if (loading) {
         return (
             <div className="p-8 flex items-center justify-center min-h-[50vh]">
-                <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
             </div>
         );
     }
@@ -108,17 +108,17 @@ const CampaignsPage = () => {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Campaigns</h1>
-                    <p className="text-gray-500 mt-1">Manage influencer marketing campaigns</p>
+                    <h1 className="text-2xl font-bold text-[#4A3728]">Campaigns</h1>
+                    <p className="text-[#5D4A3A] mt-1">Manage influencer marketing campaigns</p>
                 </div>
                 <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
                     <DialogTrigger asChild>
-                        <Button className="bg-violet-500 hover:bg-violet-600" data-testid="create-campaign-btn">
+                        <Button className="bg-amber-700 hover:bg-amber-800" data-testid="create-campaign-btn">
                             <Plus className="w-4 h-4 mr-2" />
                             New Campaign
                         </Button>
                     </DialogTrigger>
-                    <DialogContent className="bg-white border-gray-300 text-white max-w-lg">
+                    <DialogContent className="bg-white border-[#D4BBA6] text-white max-w-lg">
                         <DialogHeader>
                             <DialogTitle>Create New Campaign</DialogTitle>
                         </DialogHeader>
@@ -129,7 +129,7 @@ const CampaignsPage = () => {
                                     value={newCampaign.name}
                                     onChange={(e) => setNewCampaign({...newCampaign, name: e.target.value})}
                                     placeholder="Spring Collection 2024"
-                                    className="bg-gray-50 border-gray-300"
+                                    className="bg-[#F5EDE5] border-[#D4BBA6]"
                                     required
                                     data-testid="campaign-name-input"
                                 />
@@ -140,7 +140,7 @@ const CampaignsPage = () => {
                                     <select
                                         value={newCampaign.objective}
                                         onChange={(e) => setNewCampaign({...newCampaign, objective: e.target.value})}
-                                        className="w-full p-2 bg-gray-50 border border-gray-300 rounded-md text-white"
+                                        className="w-full p-2 bg-[#F5EDE5] border border-[#D4BBA6] rounded-md text-white"
                                     >
                                         <option value="branding">Branding</option>
                                         <option value="sales">Sales</option>
@@ -155,7 +155,7 @@ const CampaignsPage = () => {
                                         value={newCampaign.budget}
                                         onChange={(e) => setNewCampaign({...newCampaign, budget: e.target.value})}
                                         placeholder="500000"
-                                        className="bg-gray-50 border-gray-300"
+                                        className="bg-[#F5EDE5] border-[#D4BBA6]"
                                         required
                                     />
                                 </div>
@@ -167,7 +167,7 @@ const CampaignsPage = () => {
                                         type="date"
                                         value={newCampaign.start_date}
                                         onChange={(e) => setNewCampaign({...newCampaign, start_date: e.target.value})}
-                                        className="bg-gray-50 border-gray-300"
+                                        className="bg-[#F5EDE5] border-[#D4BBA6]"
                                         required
                                     />
                                 </div>
@@ -177,7 +177,7 @@ const CampaignsPage = () => {
                                         type="date"
                                         value={newCampaign.end_date}
                                         onChange={(e) => setNewCampaign({...newCampaign, end_date: e.target.value})}
-                                        className="bg-gray-50 border-gray-300"
+                                        className="bg-[#F5EDE5] border-[#D4BBA6]"
                                         required
                                     />
                                 </div>
@@ -188,7 +188,7 @@ const CampaignsPage = () => {
                                     value={newCampaign.target_market}
                                     onChange={(e) => setNewCampaign({...newCampaign, target_market: e.target.value})}
                                     placeholder="Mumbai, Delhi"
-                                    className="bg-gray-50 border-gray-300"
+                                    className="bg-[#F5EDE5] border-[#D4BBA6]"
                                 />
                             </div>
                             <div className="space-y-2">
@@ -197,10 +197,10 @@ const CampaignsPage = () => {
                                     value={newCampaign.description}
                                     onChange={(e) => setNewCampaign({...newCampaign, description: e.target.value})}
                                     placeholder="Campaign description..."
-                                    className="w-full p-2 bg-gray-50 border border-gray-300 rounded-md text-white min-h-[80px]"
+                                    className="w-full p-2 bg-[#F5EDE5] border border-[#D4BBA6] rounded-md text-white min-h-[80px]"
                                 />
                             </div>
-                            <Button type="submit" className="w-full bg-violet-500 hover:bg-violet-600">
+                            <Button type="submit" className="w-full bg-amber-700 hover:bg-amber-800">
                                 Create Campaign
                             </Button>
                         </form>
@@ -212,10 +212,10 @@ const CampaignsPage = () => {
             {campaigns.length === 0 ? (
                 <div className="text-center py-20">
                     <Megaphone className="w-12 h-12 text-white/20 mx-auto mb-4" />
-                    <p className="text-gray-500">No campaigns yet</p>
+                    <p className="text-[#5D4A3A]">No campaigns yet</p>
                     <Button 
                         onClick={() => setShowCreateModal(true)} 
-                        className="mt-4 bg-violet-500 hover:bg-violet-600"
+                        className="mt-4 bg-amber-700 hover:bg-amber-800"
                     >
                         Create Your First Campaign
                     </Button>
@@ -225,12 +225,12 @@ const CampaignsPage = () => {
                     {campaigns.map(campaign => {
                         const StatusIcon = STATUS_ICONS[campaign.status] || Clock;
                         return (
-                            <Card key={campaign.id} className="bg-white border-gray-200 hover:border-violet-500/30 transition-all cursor-pointer">
+                            <Card key={campaign.id} className="bg-white border-[#E8D5C4] hover:border-amber-500/30 transition-all cursor-pointer">
                                 <CardContent className="p-5">
                                     <div className="flex items-start justify-between mb-4">
                                         <div>
                                             <h3 className="text-white font-semibold">{campaign.name}</h3>
-                                            <p className="text-gray-500 text-sm capitalize">{campaign.objective}</p>
+                                            <p className="text-[#5D4A3A] text-sm capitalize">{campaign.objective}</p>
                                         </div>
                                         <Badge className={STATUS_COLORS[campaign.status] || STATUS_COLORS.planning}>
                                             <StatusIcon className="w-3 h-3 mr-1" />
@@ -240,29 +240,29 @@ const CampaignsPage = () => {
 
                                     <div className="space-y-3">
                                         <div className="flex items-center justify-between text-sm">
-                                            <span className="text-gray-500 flex items-center gap-2">
+                                            <span className="text-[#5D4A3A] flex items-center gap-2">
                                                 <DollarSign className="w-4 h-4" />
                                                 Budget
                                             </span>
-                                            <span className="text-gray-900">{formatCurrency(campaign.budget || 0)}</span>
+                                            <span className="text-[#4A3728]">{formatCurrency(campaign.budget || 0)}</span>
                                         </div>
                                         <div className="flex items-center justify-between text-sm">
-                                            <span className="text-gray-500 flex items-center gap-2">
+                                            <span className="text-[#5D4A3A] flex items-center gap-2">
                                                 <Target className="w-4 h-4" />
                                                 Spent
                                             </span>
-                                            <span className="text-gray-900">{formatCurrency(campaign.spent || 0)}</span>
+                                            <span className="text-[#4A3728]">{formatCurrency(campaign.spent || 0)}</span>
                                         </div>
                                         <div className="flex items-center justify-between text-sm">
-                                            <span className="text-gray-500 flex items-center gap-2">
+                                            <span className="text-[#5D4A3A] flex items-center gap-2">
                                                 <Users className="w-4 h-4" />
                                                 Influencers
                                             </span>
-                                            <span className="text-gray-900">{campaign.influencers?.length || 0}</span>
+                                            <span className="text-[#4A3728]">{campaign.influencers?.length || 0}</span>
                                         </div>
                                     </div>
 
-                                    <div className="mt-4 pt-4 border-t border-gray-200 flex justify-between text-xs text-gray-400">
+                                    <div className="mt-4 pt-4 border-t border-[#E8D5C4] flex justify-between text-xs text-[#5D4A3A]">
                                         <span>{campaign.start_date}</span>
                                         <span>to</span>
                                         <span>{campaign.end_date}</span>
