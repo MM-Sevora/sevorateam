@@ -23,6 +23,21 @@ const STATUS_CONFIG = {
   completed: { label: 'Completed', icon: CheckCircle2, color: 'bg-gray-100 text-gray-700 border-gray-200' }
 };
 
+const CAMPAIGN_TYPES = {
+  influencer: { label: 'Influencer', color: 'bg-purple-100 text-purple-700' },
+  pr: { label: 'PR', color: 'bg-blue-100 text-blue-700' },
+  event: { label: 'Event', color: 'bg-amber-100 text-amber-700' },
+  mixed: { label: 'Mixed', color: 'bg-emerald-100 text-emerald-700' }
+};
+
+const PR_CAMPAIGN_TYPES = [
+  { value: 'product_launch', label: 'Product Launch' },
+  { value: 'brand_announcement', label: 'Brand Announcement' },
+  { value: 'event_promotion', label: 'Event Promotion' },
+  { value: 'thought_leadership', label: 'Thought Leadership' },
+  { value: 'industry_story', label: 'Industry Story' }
+];
+
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -37,6 +52,7 @@ const CampaignHubPage = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all'); // influencer, pr, event, mixed
   
   // Calendar state
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -46,17 +62,33 @@ const CampaignHubPage = () => {
   // New campaign modal
   const [showNewCampaign, setShowNewCampaign] = useState(false);
   const [newCampaign, setNewCampaign] = useState({
-    name: '', objective: 'awareness', budget: 0, start_date: '', end_date: '', target_market: '', description: ''
+    name: '', objective: 'awareness', budget: 0, start_date: '', end_date: '', target_market: '', description: '',
+    campaign_type: 'influencer', // influencer, pr, event, mixed
+    pr_campaign_type: '', // For PR: product_launch, brand_announcement, etc.
+    target_media: '' // For PR campaigns
   });
+
+  // PR Campaigns state
+  const [prCampaigns, setPrCampaigns] = useState([]);
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [campaignsRes, eventsRes] = await Promise.all([
+      const [campaignsRes, eventsRes, prCampaignsRes] = await Promise.all([
         api.get('/marketing/campaigns'),
-        api.get('/marketing/v2/events').catch(() => ({ data: [] }))
+        api.get('/marketing/v2/events').catch(() => ({ data: [] })),
+        api.get('/marketing/v2/pr/campaigns').catch(() => ({ data: [] }))
       ]);
-      setCampaigns(campaignsRes.data || []);
+      
+      // Merge influencer campaigns with type
+      const influencerCampaigns = (campaignsRes.data || []).map(c => ({ ...c, campaign_type: c.campaign_type || 'influencer' }));
+      
+      // Merge PR campaigns with type
+      const prCampaignsList = (prCampaignsRes.data || []).map(c => ({ ...c, campaign_type: 'pr' }));
+      setPrCampaigns(prCampaignsList);
+      
+      // Combine all campaigns
+      setCampaigns([...influencerCampaigns, ...prCampaignsList]);
       setEvents(eventsRes.data || []);
       
       // Generate milestones from campaigns
@@ -103,10 +135,30 @@ const CampaignHubPage = () => {
       return;
     }
     try {
-      await api.post('/marketing/campaigns', newCampaign);
+      if (newCampaign.campaign_type === 'pr') {
+        // Create PR campaign
+        const prData = {
+          name: newCampaign.name,
+          objective: newCampaign.objective,
+          description: newCampaign.description,
+          start_date: newCampaign.start_date,
+          end_date: newCampaign.end_date,
+          budget: newCampaign.budget,
+          key_messages: [],
+          target_publications: newCampaign.target_media ? newCampaign.target_media.split(',').map(s => s.trim()) : [],
+          target_beats: []
+        };
+        await api.post('/marketing/v2/pr/campaigns', prData);
+      } else {
+        // Create Influencer/Event campaign
+        await api.post('/marketing/campaigns', {
+          ...newCampaign,
+          campaign_type: newCampaign.campaign_type
+        });
+      }
       toast.success('Campaign created!');
       setShowNewCampaign(false);
-      setNewCampaign({ name: '', objective: 'awareness', budget: 0, start_date: '', end_date: '', target_market: '', description: '' });
+      setNewCampaign({ name: '', objective: 'awareness', budget: 0, start_date: '', end_date: '', target_market: '', description: '', campaign_type: 'influencer', pr_campaign_type: '', target_media: '' });
       fetchData();
     } catch (error) {
       toast.error('Failed to create campaign');
@@ -181,14 +233,16 @@ const CampaignHubPage = () => {
     const matchesSearch = c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          c.objective?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || c.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesType = typeFilter === 'all' || c.campaign_type === typeFilter;
+    return matchesSearch && matchesStatus && matchesType;
   });
 
   // Stats
   const totalBudget = campaigns.reduce((sum, c) => sum + (c.budget || 0), 0);
   const totalSpent = campaigns.reduce((sum, c) => sum + (c.spent || 0), 0);
   const activeCampaigns = campaigns.filter(c => c.status === 'active').length;
-  const totalInfluencers = campaigns.reduce((sum, c) => sum + (c.influencer_count || 0), 0);
+  const totalInfluencers = campaigns.filter(c => c.campaign_type === 'influencer').reduce((sum, c) => sum + (c.influencer_count || 0), 0);
+  const prCampaignCount = campaigns.filter(c => c.campaign_type === 'pr').length;
 
   const renderCalendar = () => {
     const { daysInMonth, startingDay } = getDaysInMonth(currentDate);
@@ -351,6 +405,18 @@ const CampaignHubPage = () => {
                 data-testid="search-campaigns"
               />
             </div>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="influencer">Influencer</SelectItem>
+                <SelectItem value="pr">PR</SelectItem>
+                <SelectItem value="event">Event</SelectItem>
+                <SelectItem value="mixed">Mixed</SelectItem>
+              </SelectContent>
+            </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-40">
                 <Filter className="w-4 h-4 mr-2" />
@@ -371,18 +437,23 @@ const CampaignHubPage = () => {
             {filteredCampaigns.map(campaign => {
               const statusCfg = STATUS_CONFIG[campaign.status] || STATUS_CONFIG.planning;
               const StatusIcon = statusCfg.icon;
+              const typeCfg = CAMPAIGN_TYPES[campaign.campaign_type] || CAMPAIGN_TYPES.influencer;
               const progress = campaign.budget > 0 ? (campaign.spent / campaign.budget) * 100 : 0;
+              const isPR = campaign.campaign_type === 'pr';
               
               return (
                 <Card 
                   key={campaign.id}
                   className="bg-white border-gray-200 hover:border-amber-300 transition-all cursor-pointer"
-                  onClick={() => navigate(`/marketing/campaign/${campaign.id}`)}
+                  onClick={() => isPR ? navigate(`/marketing/pr?campaign=${campaign.id}`) : navigate(`/marketing/campaign/${campaign.id}`)}
                   data-testid={`campaign-card-${campaign.id}`}
                 >
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between mb-3">
                       <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge className={`text-xs ${typeCfg.color}`}>{typeCfg.label}</Badge>
+                        </div>
                         <h3 className="font-semibold text-gray-900 mb-1">{campaign.name}</h3>
                         <p className="text-sm text-gray-500 capitalize">{campaign.objective}</p>
                       </div>
@@ -399,7 +470,7 @@ const CampaignHubPage = () => {
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-500">Spent</span>
-                        <span className="font-medium text-amber-600">{formatCurrency(campaign.spent)}</span>
+                        <span className="font-medium text-amber-600">{formatCurrency(campaign.spent || 0)}</span>
                       </div>
                       <div className="w-full bg-gray-100 rounded-full h-1.5">
                         <div 
@@ -410,11 +481,18 @@ const CampaignHubPage = () => {
                     </div>
                     
                     <div className="flex items-center justify-between text-xs text-gray-500 pt-3 border-t border-gray-100">
-                      <span className="flex items-center gap-1">
-                        <Users className="w-3 h-3" />
-                        {campaign.influencer_count || 0} influencers
-                      </span>
-                      <span>{campaign.start_date} - {campaign.end_date}</span>
+                      {isPR ? (
+                        <span className="flex items-center gap-1">
+                          <Users className="w-3 h-3" />
+                          {campaign.journalist_ids?.length || 0} journalists
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1">
+                          <Users className="w-3 h-3" />
+                          {campaign.influencer_count || 0} influencers
+                        </span>
+                      )}
+                      <span>{campaign.start_date || '-'} - {campaign.end_date || '-'}</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -538,6 +616,18 @@ const CampaignHubPage = () => {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">CAMPAIGN TYPE *</Label>
+              <Select value={newCampaign.campaign_type} onValueChange={v => setNewCampaign(prev => ({ ...prev, campaign_type: v }))}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="influencer">Influencer Campaign</SelectItem>
+                  <SelectItem value="pr">PR Campaign</SelectItem>
+                  <SelectItem value="event">Event Campaign</SelectItem>
+                  <SelectItem value="mixed">Mixed Campaign</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <Label className="text-xs uppercase tracking-wider text-gray-500">CAMPAIGN NAME *</Label>
               <Input 
                 value={newCampaign.name}
@@ -556,6 +646,12 @@ const CampaignHubPage = () => {
                     <SelectItem value="engagement">Engagement</SelectItem>
                     <SelectItem value="sales">Sales</SelectItem>
                     <SelectItem value="launch">Product Launch</SelectItem>
+                    {newCampaign.campaign_type === 'pr' && (
+                      <>
+                        <SelectItem value="media_coverage">Media Coverage</SelectItem>
+                        <SelectItem value="thought_leadership">Thought Leadership</SelectItem>
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -569,6 +665,17 @@ const CampaignHubPage = () => {
                 />
               </div>
             </div>
+            {newCampaign.campaign_type === 'pr' && (
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500">TARGET MEDIA (comma-separated)</Label>
+                <Input 
+                  value={newCampaign.target_media}
+                  onChange={e => setNewCampaign(prev => ({ ...prev, target_media: e.target.value }))}
+                  placeholder="Vogue, Elle, Femina"
+                  className="mt-1"
+                />
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label className="text-xs uppercase tracking-wider text-gray-500">START DATE</Label>
@@ -589,12 +696,23 @@ const CampaignHubPage = () => {
                 />
               </div>
             </div>
+            {newCampaign.campaign_type !== 'pr' && (
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500">TARGET MARKET</Label>
+                <Input 
+                  value={newCampaign.target_market}
+                  onChange={e => setNewCampaign(prev => ({ ...prev, target_market: e.target.value }))}
+                  placeholder="Urban Women 25-35"
+                  className="mt-1"
+                />
+              </div>
+            )}
             <div>
-              <Label className="text-xs uppercase tracking-wider text-gray-500">TARGET MARKET</Label>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">DESCRIPTION</Label>
               <Input 
-                value={newCampaign.target_market}
-                onChange={e => setNewCampaign(prev => ({ ...prev, target_market: e.target.value }))}
-                placeholder="Urban Women 25-35"
+                value={newCampaign.description}
+                onChange={e => setNewCampaign(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Campaign description..."
                 className="mt-1"
               />
             </div>
