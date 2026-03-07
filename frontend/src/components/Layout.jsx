@@ -30,7 +30,6 @@ const DEPARTMENT_CONFIG = {
             { path: '/marketing', name: 'Insights & Analytics', icon: BarChart3 },
             { path: '/marketing/influencers', name: 'Influencers', icon: Users },
             { path: '/marketing/publications', name: 'Publications', icon: Building2 },
-            { path: '/marketing/pr', name: 'Digital PR', icon: MessageSquare },
             { path: '/marketing/campaigns', name: 'Campaign Hub', icon: Target },
             { path: '/marketing/assets', name: 'Content & Assets', icon: Image },
             { path: '/marketing/budget', name: 'Budget Overview', icon: DollarSign },
