@@ -185,7 +185,33 @@ Consolidate multiple Sevora applications (Influencer Operations from 'main' bran
 
 ## Latest Updates (March 7, 2026)
 
-### Email Module Implementation (NEW)
+### User & Access Management Module (NEW - Step 1)
+- **Admin User Management Page** (`/admin/users`): Complete user lifecycle management
+  - User list with filters (Search, Status, Role, Department)
+  - Stats dashboard (Total, Active, Pending, Inactive, Recent Logins)
+  - Add User dialog with role and status assignment
+  - Edit User dialog for updating details
+  - Activate/Deactivate user toggle
+  - Role-based access control (Super Admin, Admin, Marketing Manager, Sales Manager, Social Manager, Viewer)
+  - User status lifecycle: Pending → Active/Inactive
+  
+- **Backend Endpoints**:
+  - `GET /api/admin/users` - List all users with filters
+  - `GET /api/admin/stats` - User statistics
+  - `POST /api/admin/users` - Create new user
+  - `PUT /api/admin/users/{id}` - Update user
+  - `PUT /api/admin/users/{id}/activate` - Activate user
+  - `PUT /api/admin/users/{id}/deactivate` - Deactivate user
+  - `DELETE /api/admin/users/{id}` - Delete user (Super Admin only)
+  - `GET /api/admin/roles` - List available roles
+  - `GET /api/admin/audit-logs` - Admin action audit trail
+
+- **New Seed Users**:
+  - `superadmin@sevora.com` / `admin123` - Super Admin role
+  - `admin@sevora.com` / `admin123` - Admin role  
+  - `pending@sevora.com` / `admin123` - Pending status demo
+
+### Email Module Implementation
 - **Standalone Email Page** (`/marketing/email`): Full Microsoft 365 email integration
   - Folder navigation (Inbox, Sent, Drafts, Archive)
   - Email list with search functionality
