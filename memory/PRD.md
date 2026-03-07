@@ -170,6 +170,12 @@ Consolidate multiple Sevora applications (Influencer Operations from 'main' bran
 - [x] **Sort & Filter Tables** - Sortable columns in Campaign Hub (5 columns), Publications (6 columns), Influencers (3 options) (COMPLETED March 7, 2026)
 - [x] **AI Tools Simplification** - Removed Scheduled Discovery, Caption, Campaign Ideas tabs; kept only CTA cards (COMPLETED March 7, 2026)
 - [x] **Back Button Navigation** - Added back buttons to AI Discovery and other detail pages (COMPLETED March 7, 2026)
+- [x] **Budget & Payment Module Fixes** - 5 improvements (COMPLETED March 7, 2026):
+  - New Payment modal on Budget page (contact + campaign selection)
+  - Contact type badges (Influencer/PR) in payment table
+  - Record Payment button on PublicationDetailPage
+  - Payment filters (type, campaign, status) on Budget page
+  - Edit/Delete actions on payments with campaign budget sync
 
 ### P1 - High Priority
 - [x] Real-time WebSocket notifications
