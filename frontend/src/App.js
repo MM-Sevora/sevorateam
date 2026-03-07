@@ -27,6 +27,7 @@ import CampaignDetailPage from "./pages/marketing/CampaignDetailPage";
 import CampaignHubPage from "./pages/marketing/CampaignHubPage";
 import MarketingInsightsPage from "./pages/marketing/MarketingInsightsPage";
 import AIDiscoveryPage from "./pages/marketing/AIDiscoveryPage";
+import PublicationsListPage from "./pages/marketing/PublicationsListPage";
 
 // Sales Pages
 import { SalesDashboard } from "./pages/sales/Dashboard";
@@ -122,6 +123,8 @@ function AppRoutes() {
             <Route path="/marketing/influencers" element={<ProtectedRoute requiredDepartment="marketing"><InfluencersListPage /></ProtectedRoute>} />
             <Route path="/marketing/influencer/:influencerId" element={<ProtectedRoute requiredDepartment="marketing"><InfluencerDetailPage /></ProtectedRoute>} />
             <Route path="/marketing/pr" element={<ProtectedRoute requiredDepartment="marketing"><DigitalPRPage /></ProtectedRoute>} />
+            {/* Publications (PR equivalent of Influencers) */}
+            <Route path="/marketing/publications" element={<ProtectedRoute requiredDepartment="marketing"><PublicationsListPage /></ProtectedRoute>} />
             {/* Unified Campaign Hub (List + Calendar + Timeline) */}
             <Route path="/marketing/campaigns" element={<ProtectedRoute requiredDepartment="marketing"><CampaignHubPage /></ProtectedRoute>} />
             <Route path="/marketing/campaign/:campaignId" element={<ProtectedRoute requiredDepartment="marketing"><CampaignDetailPage /></ProtectedRoute>} />

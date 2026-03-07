@@ -217,6 +217,45 @@ Consolidate multiple Sevora applications (Influencer Operations from 'main' bran
 
 ### Module Restructuring (COMPLETED March 7, 2026)
 
+#### Unified PR-Influencer Model ✅
+The Digital PR workflow now mirrors the Influencer Marketing workflow for consistency:
+
+| Influencer Marketing | Digital PR | Implementation |
+|---------------------|------------|----------------|
+| **Influencer** | **Publication/Media** | Publications entity at `/marketing/publications` |
+| Followers, Engagement | DA, Traffic, Readership | PublicationCreate model with metrics |
+| Direct contact | **Journalists** (multiple per pub) | Journalists linked via `publication_id` |
+| Campaign → Influencer | Campaign → Publication | Same campaign assignment flow |
+| Outreach → Influencer | Outreach → Journalist(s) | Same outreach workflow |
+| Content Delivery | Media Coverage | Deliverable tracking |
+
+#### Publications List Page ✅
+- Created `/app/frontend/src/pages/marketing/PublicationsListPage.jsx`
+- Table view with columns: Publication, Type, Tier, DA, Traffic, Beats, Journalists, Coverage, Status
+- Stats cards: Total Publications, Tier 1, Tier 2, Linked Journalists, Coverages
+- Add/Edit modal with comprehensive fields:
+  - Basic: Name, Website, Type (newspaper/magazine/online/blog), Tier (1-4)
+  - Metrics: Domain Authority, Monthly Traffic, Readership, Social Followers
+  - Editorial: Beats Covered (multi-select badges)
+  - Pricing: Advertorial Rate, Sponsored Content Rate
+  - Contact: General/Editorial/PR emails, Social handles
+  - Relationship: Status (new/active/dormant/vip)
+
+#### Backend APIs for Publications ✅
+- `GET /api/marketing/v2/publications` - List with filters
+- `POST /api/marketing/v2/publications` - Create
+- `PUT /api/marketing/v2/publications/{id}` - Update
+- `DELETE /api/marketing/v2/publications/{id}` - Delete
+- `GET /api/marketing/v2/publications/{id}/journalists` - Get linked journalists
+- `POST /api/marketing/v2/publications/{id}/journalists/{journalist_id}` - Link journalist
+- `GET /api/marketing/v2/publications/{id}/coverage` - Get coverage from publication
+
+#### Journalist-Publication Linking ✅
+- Added `publication_id` field to Contact model
+- Updated Add Journalist modal to include Publication dropdown
+- Auto-populates publication name when selecting from dropdown
+- Supports manual entry for new publications
+
 #### Events & Exhibition Module - REMOVED ✅
 - Removed from sidebar navigation (`Layout.jsx`)
 - Removed route from `App.js`

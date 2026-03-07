@@ -67,6 +67,7 @@ class ContactCreate(BaseModel):
     
     # For journalists/bloggers
     publication: Optional[str] = None
+    publication_id: Optional[str] = None  # Link to publications collection
     publication_website: Optional[str] = None
     beat: Optional[str] = None  # e.g., "fashion", "lifestyle", "tech"
     editor_level: Optional[str] = None  # e.g., "staff", "senior", "editor-in-chief"
@@ -103,6 +104,7 @@ class ContactResponse(BaseModel):
     rate_per_post: Optional[float] = None
     rate_per_reel: Optional[float] = None
     publication: Optional[str] = None
+    publication_id: Optional[str] = None  # Link to publications collection
     beat: Optional[str] = None
     editor_level: Optional[str] = None
     notes: Optional[str] = None
@@ -878,3 +880,107 @@ class PipelineStageStats(BaseModel):
     stage: str
     count: int
     contacts: List[dict] = []
+
+
+
+# ============== PUBLICATION MODELS (PR equivalent of Influencers) ==============
+
+class PublicationType(str, Enum):
+    NEWSPAPER = "newspaper"
+    MAGAZINE = "magazine"
+    ONLINE_PUBLICATION = "online_publication"
+    BLOG = "blog"
+    NEWS_WIRE = "news_wire"
+    TRADE_PUBLICATION = "trade_publication"
+    BROADCAST = "broadcast"
+
+class PublicationTier(str, Enum):
+    TIER_1 = "tier_1"      # Top national/international (Vogue, Elle, GQ)
+    TIER_2 = "tier_2"      # Major regional/industry (Femina, Grazia)
+    TIER_3 = "tier_3"      # Niche/specialized
+    TIER_4 = "tier_4"      # Local/emerging
+
+class PublicationCreate(BaseModel):
+    """Publication model - PR equivalent of Influencer"""
+    name: str
+    publication_type: PublicationType = PublicationType.ONLINE_PUBLICATION
+    tier: PublicationTier = PublicationTier.TIER_2
+    
+    # Publication info
+    website: Optional[str] = None
+    description: Optional[str] = None
+    logo_url: Optional[str] = None
+    
+    # Metrics (equivalent to influencer followers/engagement)
+    domain_authority: Optional[int] = None  # 1-100
+    monthly_traffic: Optional[int] = None
+    monthly_readership: Optional[int] = None
+    social_followers: Optional[int] = None  # Combined social following
+    
+    # Audience
+    audience_demographics: Optional[str] = None  # e.g., "Women 25-45, urban, affluent"
+    geographic_focus: List[str] = []  # e.g., ["India", "South Asia"]
+    
+    # Editorial
+    beats_covered: List[str] = []  # e.g., ["Fashion", "Lifestyle", "Beauty"]
+    content_types: List[str] = []  # e.g., ["News", "Features", "Interviews", "Reviews"]
+    editorial_calendar: Optional[str] = None  # Notes about their editorial calendar
+    
+    # Pricing (for paid PR)
+    advertorial_rate: Optional[float] = None
+    sponsored_content_rate: Optional[float] = None
+    display_ad_rate: Optional[float] = None
+    
+    # Contact
+    general_email: Optional[str] = None
+    editorial_email: Optional[str] = None
+    pr_email: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    
+    # Social handles
+    instagram_handle: Optional[str] = None
+    twitter_handle: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    
+    # Relationship
+    relationship_status: str = "new"  # new, active, dormant, vip
+    relationship_score: int = 0  # 0-100
+    
+    notes: Optional[str] = None
+
+class PublicationResponse(BaseModel):
+    id: str
+    name: str
+    publication_type: str
+    tier: str
+    website: Optional[str] = None
+    description: Optional[str] = None
+    logo_url: Optional[str] = None
+    domain_authority: Optional[int] = None
+    monthly_traffic: Optional[int] = None
+    monthly_readership: Optional[int] = None
+    social_followers: Optional[int] = None
+    audience_demographics: Optional[str] = None
+    geographic_focus: List[str] = []
+    beats_covered: List[str] = []
+    content_types: List[str] = []
+    editorial_calendar: Optional[str] = None
+    advertorial_rate: Optional[float] = None
+    sponsored_content_rate: Optional[float] = None
+    display_ad_rate: Optional[float] = None
+    general_email: Optional[str] = None
+    editorial_email: Optional[str] = None
+    pr_email: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    instagram_handle: Optional[str] = None
+    twitter_handle: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    relationship_status: str = "new"
+    relationship_score: int = 0
+    notes: Optional[str] = None
+    journalist_count: int = 0  # Number of journalists linked to this publication
+    coverage_count: int = 0  # Number of coverages from this publication
+    created_at: str
+    updated_at: Optional[str] = None

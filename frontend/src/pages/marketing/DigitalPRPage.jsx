@@ -69,14 +69,21 @@ const DigitalPRPage = () => {
   const [selectedJournalist, setSelectedJournalist] = useState(null);
   
   // Forms
-  const [newContact, setNewContact] = useState({ name: '', email: '', publication: '', role: '', beat: 'Fashion', location: '', domain_authority: '', audience_reach: '' });
+  const [newContact, setNewContact] = useState({ name: '', email: '', publication: '', publication_id: 'manual', role: '', beat: 'Fashion', location: '', domain_authority: '', audience_reach: '' });
   const [newPitch, setNewPitch] = useState({ contact_id: '', subject: '', message: '', pr_campaign_id: '' });
   const [newCoverage, setNewCoverage] = useState({ title: '', publication: '', url: '', author: '', published_date: '', coverage_type: 'article', domain_authority: '', estimated_reach: '', sentiment: 'positive', contact_id: '', pr_campaign_id: '' });
   const [newPaidPR, setNewPaidPR] = useState({ publication: '', package_type: '', cost: '', deliverables: '', pr_campaign_id: '' });
 
+  // Publications for linking journalists
+  const [publications, setPublications] = useState([]);
+
   // Fetch functions
   const fetchJournalists = useCallback(async () => {
     try { const r = await api.get('/marketing/v2/contacts', { params: { contact_type: 'journalist', limit: 300 } }); setJournalists(r.data || []); } catch (e) { console.error(e); }
+  }, [api]);
+  
+  const fetchPublications = useCallback(async () => {
+    try { const r = await api.get('/marketing/v2/publications'); setPublications(r.data || []); } catch (e) { console.error(e); }
   }, [api]);
   
   const fetchCampaigns = useCallback(async () => {
@@ -94,11 +101,11 @@ const DigitalPRPage = () => {
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([fetchJournalists(), fetchCampaigns(), fetchPitches(), fetchCoverage()]);
+      await Promise.all([fetchJournalists(), fetchPublications(), fetchCampaigns(), fetchPitches(), fetchCoverage()]);
       setLoading(false);
     };
     loadData();
-  }, [fetchJournalists, fetchCampaigns, fetchPitches, fetchCoverage]);
+  }, [fetchJournalists, fetchPublications, fetchCampaigns, fetchPitches, fetchCoverage]);
 
   useEffect(() => {
     if (campaignIdFromUrl) setSelectedCampaign(campaignIdFromUrl);
@@ -106,10 +113,22 @@ const DigitalPRPage = () => {
 
   // Handlers
   const handleCreateContact = async () => {
-    if (!newContact.name || !newContact.publication) { toast.error('Name and publication required'); return; }
+    if (!newContact.name) { toast.error('Name required'); return; }
     try {
-      await api.post('/marketing/v2/contacts', { ...newContact, contact_type: 'journalist', domain_authority: newContact.domain_authority ? parseInt(newContact.domain_authority) : null, monthly_traffic: newContact.audience_reach ? parseInt(newContact.audience_reach) : null });
-      toast.success('Journalist added'); setShowContactModal(false); setNewContact({ name: '', email: '', publication: '', role: '', beat: 'Fashion', location: '', domain_authority: '', audience_reach: '' }); fetchJournalists();
+      // If publication_id is selected, get the publication name
+      const selectedPub = publications.find(p => p.id === newContact.publication_id);
+      const payload = {
+        ...newContact,
+        contact_type: 'journalist',
+        publication: selectedPub?.name || newContact.publication,
+        domain_authority: newContact.domain_authority ? parseInt(newContact.domain_authority) : null,
+        monthly_traffic: newContact.audience_reach ? parseInt(newContact.audience_reach) : null
+      };
+      await api.post('/marketing/v2/contacts', payload);
+      toast.success('Journalist added'); 
+      setShowContactModal(false); 
+      setNewContact({ name: '', email: '', publication: '', publication_id: 'manual', role: '', beat: 'Fashion', location: '', domain_authority: '', audience_reach: '' }); 
+      fetchJournalists();
     } catch (e) { toast.error('Failed'); }
   };
 
@@ -261,11 +280,30 @@ const DigitalPRPage = () => {
             <Dialog open={showContactModal} onOpenChange={setShowContactModal}>
               <DialogTrigger asChild><Button className="bg-[#c4a35a] hover:bg-[#b39349] text-white"><Plus className="w-4 h-4 mr-2" />Add Journalist</Button></DialogTrigger>
               <DialogContent className="max-w-lg">
-                <DialogHeader><DialogTitle className="flex items-center gap-2"><User className="w-5 h-5 text-amber-500" />Add Media Contact</DialogTitle><DialogDescription>Add journalist to your media database</DialogDescription></DialogHeader>
+                <DialogHeader><DialogTitle className="flex items-center gap-2"><User className="w-5 h-5 text-amber-500" />Add Media Contact</DialogTitle><DialogDescription>Add journalist to your media database and link to a publication</DialogDescription></DialogHeader>
                 <div className="grid grid-cols-2 gap-4 py-4">
                   <div className="col-span-2"><Label className="text-xs uppercase tracking-wider text-gray-500">NAME *</Label><Input value={newContact.name} onChange={e => setNewContact({...newContact, name: e.target.value})} className="mt-1" /></div>
                   <div><Label className="text-xs uppercase tracking-wider text-gray-500">EMAIL</Label><Input value={newContact.email} onChange={e => setNewContact({...newContact, email: e.target.value})} className="mt-1" /></div>
-                  <div><Label className="text-xs uppercase tracking-wider text-gray-500">PUBLICATION *</Label><Input value={newContact.publication} onChange={e => setNewContact({...newContact, publication: e.target.value})} className="mt-1" /></div>
+                  <div>
+                    <Label className="text-xs uppercase tracking-wider text-gray-500">PUBLICATION</Label>
+                    <Select value={newContact.publication_id || 'manual'} onValueChange={v => {
+                      if (v === 'manual') {
+                        setNewContact({...newContact, publication_id: '', publication: ''});
+                      } else {
+                        const pub = publications.find(p => p.id === v);
+                        setNewContact({...newContact, publication_id: v, publication: pub?.name || ''});
+                      }
+                    }}>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select or type below" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="manual">-- Enter manually --</SelectItem>
+                        {publications.map(p => <SelectItem key={p.id} value={p.id}>{p.name} ({p.tier?.replace('_', ' ')})</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    {(!newContact.publication_id || newContact.publication_id === 'manual') && (
+                      <Input value={newContact.publication} onChange={e => setNewContact({...newContact, publication: e.target.value})} placeholder="Or type publication name" className="mt-2" />
+                    )}
+                  </div>
                   <div><Label className="text-xs uppercase tracking-wider text-gray-500">ROLE</Label><Input value={newContact.role} onChange={e => setNewContact({...newContact, role: e.target.value})} placeholder="Fashion Editor" className="mt-1" /></div>
                   <div><Label className="text-xs uppercase tracking-wider text-gray-500">BEAT</Label><Select value={newContact.beat} onValueChange={v => setNewContact({...newContact, beat: v})}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent>{BEAT_OPTIONS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent></Select></div>
                   <div><Label className="text-xs uppercase tracking-wider text-gray-500">LOCATION</Label><Input value={newContact.location} onChange={e => setNewContact({...newContact, location: e.target.value})} placeholder="Mumbai" className="mt-1" /></div>
