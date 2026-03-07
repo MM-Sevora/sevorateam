@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useCallback, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -7,6 +7,7 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Badge } from '../../components/ui/badge';
 import { Textarea } from '../../components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Slider } from '../../components/ui/slider';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
@@ -15,7 +16,8 @@ import {
   Sparkles, Search, Users, Target, MapPin, DollarSign, 
   Instagram, Youtube, TrendingUp, CheckCircle, XCircle,
   Bookmark, RefreshCw, ChevronDown, ChevronUp, Filter,
-  ArrowUpDown, Star, Eye, MessageSquare, Send, Loader2
+  ArrowUpDown, Star, Eye, MessageSquare, Send, Loader2,
+  Newspaper, User, Building2
 } from 'lucide-react';
 
 const INDUSTRIES = [
@@ -26,11 +28,22 @@ const INDUSTRIES = [
 const PLATFORMS = ['Instagram', 'YouTube', 'Both'];
 const OBJECTIVES = ['Brand Awareness', 'Product Launch', 'Engagement', 'Sales', 'Content Creation'];
 
+// PR Discovery Constants
+const BEAT_OPTIONS = ['Fashion', 'Beauty', 'Lifestyle', 'Tech', 'Business', 'Entertainment', 'Startup', 'Luxury'];
+const STORY_TYPES = ['news', 'feature', 'interview'];
+
 const AIDiscoveryPage = () => {
   const { api } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   
-  // Campaign Brief Form
+  // Active tab - check URL param on mount
+  const [activeTab, setActiveTab] = useState(() => {
+    const tabParam = searchParams.get('tab');
+    return tabParam === 'pr' ? 'pr' : 'influencer';
+  });
+  
+  // Campaign Brief Form (Influencer)
   const [brief, setBrief] = useState({
     industry: '',
     target_audience: '',
@@ -45,7 +58,7 @@ const AIDiscoveryPage = () => {
     additional_requirements: ''
   });
   
-  // Discovery State
+  // Discovery State (Influencer)
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
   const [recommendations, setRecommendations] = useState([]);
@@ -68,6 +81,62 @@ const AIDiscoveryPage = () => {
   
   // Influencer data mapping
   const [influencerMap, setInfluencerMap] = useState({});
+
+  // PR Discovery State
+  const [prBrief, setPrBrief] = useState({ topic: '', industry: 'Fashion', story_type: 'news', target_audience: '' });
+  const [prLoading, setPrLoading] = useState(false);
+  const [prResults, setPrResults] = useState(null);
+  const [journalists, setJournalists] = useState([]);
+  const [showPitchModal, setShowPitchModal] = useState(false);
+  const [selectedJournalist, setSelectedJournalist] = useState(null);
+  const [newPitch, setNewPitch] = useState({ contact_id: '', subject: '', message: '', pr_campaign_id: '' });
+  const [prCampaigns, setPrCampaigns] = useState([]);
+
+  // Fetch journalists for PR discovery
+  const fetchJournalists = useCallback(async () => {
+    try {
+      const r = await api.get('/marketing/v2/contacts', { params: { contact_type: 'journalist', limit: 300 } });
+      setJournalists(r.data || []);
+    } catch (e) { console.error(e); }
+  }, [api]);
+
+  const fetchPRCampaigns = useCallback(async () => {
+    try {
+      const r = await api.get('/marketing/v2/pr/campaigns');
+      setPrCampaigns(r.data || []);
+    } catch (e) { console.error(e); }
+  }, [api]);
+
+  // Load journalists when PR tab is active
+  React.useEffect(() => {
+    if (activeTab === 'pr') {
+      fetchJournalists();
+      fetchPRCampaigns();
+    }
+  }, [activeTab, fetchJournalists, fetchPRCampaigns]);
+
+  // PR Discovery Handler
+  const handlePRDiscover = async () => {
+    if (!prBrief.topic) { toast.error('Enter a topic'); return; }
+    setPrLoading(true);
+    try {
+      const r = await api.post('/marketing/v2/pr/ai-discover', prBrief);
+      if (r.data.success) { setPrResults(r.data.data); toast.success('Discovery complete!'); }
+      else { toast.error(r.data.error || 'Failed'); }
+    } catch (e) { toast.error('Failed'); }
+    finally { setPrLoading(false); }
+  };
+
+  // Create Pitch Handler
+  const handleCreatePitch = async () => {
+    if (!newPitch.contact_id || !newPitch.subject || !newPitch.message) { toast.error('All fields required'); return; }
+    try {
+      await api.post('/marketing/v2/pr/pitches', newPitch);
+      toast.success('Pitch created');
+      setShowPitchModal(false);
+      setNewPitch({ contact_id: '', subject: '', message: '', pr_campaign_id: '' });
+    } catch (e) { toast.error('Failed'); }
+  };
 
   const handleDiscover = async () => {
     if (!brief.industry) {
@@ -215,34 +284,52 @@ const AIDiscoveryPage = () => {
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">AI-Powered</p>
           <h1 className="text-3xl font-semibold text-gray-900 flex items-center gap-3">
             <Sparkles className="w-8 h-8 text-amber-500" />
-            Influencer Discovery
+            AI Tools & Discovery
           </h1>
         </div>
-        {results && (
+        {activeTab === 'influencer' && results && (
           <Button variant="outline" onClick={() => { setResults(null); setRecommendations([]); }}>
+            <RefreshCw className="w-4 h-4 mr-2" /> New Search
+          </Button>
+        )}
+        {activeTab === 'pr' && prResults && (
+          <Button variant="outline" onClick={() => setPrResults(null)}>
             <RefreshCw className="w-4 h-4 mr-2" /> New Search
           </Button>
         )}
       </div>
 
-      {/* Campaign Brief Form (shown when no results) */}
-      {!results && (
-        <Card className="bg-white border-gray-200 max-w-4xl mx-auto">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="w-5 h-5 text-amber-500" />
-              Campaign Brief
-            </CardTitle>
-            <p className="text-sm text-gray-500">Tell us about your campaign and we'll find the perfect influencers</p>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Row 1: Industry & Audience */}
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">INDUSTRY / NICHE *</Label>
-                <Select value={brief.industry} onValueChange={v => setBrief(prev => ({ ...prev, industry: v }))}>
-                  <SelectTrigger data-testid="industry-select"><SelectValue placeholder="Select industry" /></SelectTrigger>
-                  <SelectContent>
+      {/* Tabs for Influencer and PR Discovery */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+        <TabsList className="bg-white border border-gray-200 p-1">
+          <TabsTrigger value="influencer" className="data-[state=active]:bg-amber-100 data-[state=active]:text-amber-800">
+            <Users className="w-4 h-4 mr-2" />Influencer Discovery
+          </TabsTrigger>
+          <TabsTrigger value="pr" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800">
+            <Newspaper className="w-4 h-4 mr-2" />PR & Media Discovery
+          </TabsTrigger>
+        </TabsList>
+
+        {/* INFLUENCER DISCOVERY TAB */}
+        <TabsContent value="influencer">
+          {/* Campaign Brief Form (shown when no results) */}
+          {!results && (
+            <Card className="bg-white border-gray-200 max-w-4xl mx-auto">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="w-5 h-5 text-amber-500" />
+                  Campaign Brief
+                </CardTitle>
+                <p className="text-sm text-gray-500">Tell us about your campaign and we'll find the perfect influencers</p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Row 1: Industry & Audience */}
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">INDUSTRY / NICHE *</Label>
+                    <Select value={brief.industry} onValueChange={v => setBrief(prev => ({ ...prev, industry: v }))}>
+                      <SelectTrigger data-testid="industry-select"><SelectValue placeholder="Select industry" /></SelectTrigger>
+                      <SelectContent>
                     {INDUSTRIES.map(i => <SelectItem key={i} value={i}>{i}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -726,6 +813,246 @@ const AIDiscoveryPage = () => {
               Failed to generate message. Please try again.
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+        </TabsContent>
+
+        {/* PR & MEDIA DISCOVERY TAB */}
+        <TabsContent value="pr">
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Discovery Brief */}
+            <Card className="bg-white border-gray-200">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-purple-600" />
+                  PR Discovery Brief
+                </CardTitle>
+                <p className="text-sm text-gray-500">Find the right journalists and media contacts for your story</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label className="text-xs uppercase tracking-wider text-gray-500">STORY TOPIC *</Label>
+                  <Input 
+                    value={prBrief.topic} 
+                    onChange={e => setPrBrief({...prBrief, topic: e.target.value})} 
+                    placeholder="e.g., Sustainable fashion collection launch" 
+                    className="mt-1" 
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs uppercase tracking-wider text-gray-500">INDUSTRY / BEAT</Label>
+                    <Select value={prBrief.industry} onValueChange={v => setPrBrief({...prBrief, industry: v})}>
+                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {BEAT_OPTIONS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs uppercase tracking-wider text-gray-500">STORY TYPE</Label>
+                    <Select value={prBrief.story_type} onValueChange={v => setPrBrief({...prBrief, story_type: v})}>
+                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="news">News</SelectItem>
+                        <SelectItem value="feature">Feature</SelectItem>
+                        <SelectItem value="interview">Interview</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs uppercase tracking-wider text-gray-500">TARGET AUDIENCE</Label>
+                  <Input 
+                    value={prBrief.target_audience} 
+                    onChange={e => setPrBrief({...prBrief, target_audience: e.target.value})} 
+                    placeholder="Fashion-conscious millennials" 
+                    className="mt-1" 
+                  />
+                </div>
+                <Button 
+                  onClick={handlePRDiscover} 
+                  disabled={prLoading} 
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  {prLoading ? (
+                    <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Discovering...</>
+                  ) : (
+                    <><Sparkles className="w-4 h-4 mr-2" />Discover Journalists</>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Discovery Results */}
+            <Card className="bg-white border-gray-200">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Discovery Results</CardTitle>
+              </CardHeader>
+              <CardContent className="max-h-[500px] overflow-y-auto">
+                {!prResults ? (
+                  <div className="py-12 text-center text-gray-500">
+                    <Sparkles className="w-10 h-10 mx-auto mb-3 text-purple-200" />
+                    <p>Fill brief and click Discover</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {prResults.pr_insights && (
+                      <div className="p-3 bg-purple-50 rounded text-sm border border-purple-100">
+                        <strong className="text-purple-700">PR Insights:</strong>
+                        <p className="text-purple-600 mt-1">{prResults.pr_insights.timing_recommendations}</p>
+                      </div>
+                    )}
+                    {prResults.recommendations?.map((rec, i) => {
+                      const j = journalists.find(x => x.id === rec.journalist_id);
+                      if (!j) return null;
+                      return (
+                        <div key={i} className="p-4 border border-gray-200 rounded-lg hover:border-purple-300 transition-colors">
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                                <User className="w-5 h-5 text-purple-600" />
+                              </div>
+                              <div>
+                                <div className="font-medium text-gray-900">{j.name}</div>
+                                <div className="text-sm text-gray-500 flex items-center gap-1">
+                                  <Building2 className="w-3 h-3" />{j.publication}
+                                </div>
+                              </div>
+                            </div>
+                            <Badge className={rec.match_score >= 70 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}>
+                              {rec.match_score}% Match
+                            </Badge>
+                          </div>
+                          {j.beat && (
+                            <Badge variant="outline" className="mb-2 text-xs">{j.beat}</Badge>
+                          )}
+                          {rec.recommended_pitch_angle && (
+                            <p className="text-sm text-gray-600 mb-3">
+                              <strong>Suggested Pitch:</strong> {rec.recommended_pitch_angle}
+                            </p>
+                          )}
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => { 
+                                setSelectedJournalist(j); 
+                                setNewPitch({...newPitch, contact_id: j.id}); 
+                                setShowPitchModal(true); 
+                              }}
+                            >
+                              <Send className="w-3 h-3 mr-1" />Create Pitch
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost"
+                              onClick={() => navigate('/marketing/pr')}
+                            >
+                              <Eye className="w-3 h-3 mr-1" />View in PR
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {prResults.recommendations?.length === 0 && (
+                      <div className="py-8 text-center text-gray-500">
+                        <Newspaper className="w-10 h-10 mx-auto mb-3 text-gray-300" />
+                        <p>No matching journalists found</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* PR Stats */}
+          <div className="grid grid-cols-3 gap-4 mt-6">
+            <Card className="bg-white border-gray-200">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                  <Users className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <div className="text-xl font-bold text-gray-900">{journalists.length}</div>
+                  <div className="text-xs text-gray-500 uppercase">Journalists in DB</div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-white border-gray-200">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                  <Target className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <div className="text-xl font-bold text-gray-900">{prCampaigns.length}</div>
+                  <div className="text-xs text-gray-500 uppercase">PR Campaigns</div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-white border-gray-200">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                </div>
+                <div>
+                  <div className="text-xl font-bold text-gray-900">{prResults?.recommendations?.length || 0}</div>
+                  <div className="text-xs text-gray-500 uppercase">Matches Found</div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      {/* PR Pitch Modal */}
+      <Dialog open={showPitchModal} onOpenChange={setShowPitchModal}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="w-5 h-5 text-purple-500" />
+              Create Pitch for {selectedJournalist?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">CAMPAIGN (optional)</Label>
+              <Select value={newPitch.pr_campaign_id} onValueChange={v => setNewPitch({...newPitch, pr_campaign_id: v})}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Link to campaign" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No campaign</SelectItem>
+                  {prCampaigns.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">SUBJECT *</Label>
+              <Input 
+                value={newPitch.subject} 
+                onChange={e => setNewPitch({...newPitch, subject: e.target.value})} 
+                placeholder="Story pitch subject line"
+                className="mt-1" 
+              />
+            </div>
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">MESSAGE *</Label>
+              <Textarea 
+                rows={6} 
+                value={newPitch.message} 
+                onChange={e => setNewPitch({...newPitch, message: e.target.value})} 
+                placeholder="Your pitch message..."
+                className="mt-1" 
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button variant="outline" onClick={() => setShowPitchModal(false)}>Cancel</Button>
+            <Button onClick={handleCreatePitch} className="bg-purple-600 hover:bg-purple-700 text-white">
+              Create Pitch
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

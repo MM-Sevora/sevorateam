@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { toast } from 'sonner';
 import { 
   Users, Search, Plus, RefreshCw, Mail, Edit2, Trash2, Send, Eye, ExternalLink,
-  Newspaper, TrendingUp, Target, ChevronRight, Sparkles, MessageSquare, Clock,
+  Newspaper, TrendingUp, Target, ChevronRight, MessageSquare, Clock,
   CheckCircle, XCircle, BarChart3, DollarSign, Building2, User, Filter
 } from 'lucide-react';
 
@@ -60,11 +60,6 @@ const DigitalPRPage = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [selectedCampaign, setSelectedCampaign] = useState(campaignIdFromUrl || 'all');
   const [campaigns, setCampaigns] = useState([]);
-  
-  // AI Discovery
-  const [discoveryBrief, setDiscoveryBrief] = useState({ topic: '', industry: 'Fashion', story_type: 'news', target_audience: '' });
-  const [discoveryResults, setDiscoveryResults] = useState(null);
-  const [isDiscovering, setIsDiscovering] = useState(false);
   
   // Modals
   const [showContactModal, setShowContactModal] = useState(false);
@@ -142,17 +137,6 @@ const DigitalPRPage = () => {
       await api.put(`/marketing/v2/pr/pitches/${pitchId}/status`, null, { params: { status } });
       toast.success('Status updated'); fetchPitches();
     } catch (e) { toast.error('Failed'); }
-  };
-
-  const handleAIDiscover = async () => {
-    if (!discoveryBrief.topic) { toast.error('Enter a topic'); return; }
-    setIsDiscovering(true);
-    try {
-      const r = await api.post('/marketing/v2/pr/ai-discover', discoveryBrief);
-      if (r.data.success) { setDiscoveryResults(r.data.data); toast.success('Discovery complete!'); }
-      else { toast.error(r.data.error || 'Failed'); }
-    } catch (e) { toast.error('Failed'); }
-    finally { setIsDiscovering(false); }
   };
 
   const handleAddToCampaign = async (journalistId, campaignId) => {
@@ -258,9 +242,6 @@ const DigitalPRPage = () => {
           </TabsTrigger>
           <TabsTrigger value="paid-pr" className="data-[state=active]:bg-amber-100 data-[state=active]:text-amber-800">
             <DollarSign className="w-4 h-4 mr-2" />Paid PR
-          </TabsTrigger>
-          <TabsTrigger value="ai-discovery" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800">
-            <Sparkles className="w-4 h-4 mr-2" />AI Discovery
           </TabsTrigger>
         </TabsList>
 
@@ -539,44 +520,6 @@ const DigitalPRPage = () => {
               <p className="text-sm">Track paid collaborations with publications</p>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        {/* AI Discovery Tab */}
-        <TabsContent value="ai-discovery" className="space-y-4">
-          <div className="grid md:grid-cols-2 gap-6">
-            <Card className="bg-white border-gray-200">
-              <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Sparkles className="w-4 h-4 text-purple-600" />AI Discovery Brief</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
-                <div><Label className="text-xs uppercase tracking-wider text-gray-500">STORY TOPIC *</Label><Input value={discoveryBrief.topic} onChange={e => setDiscoveryBrief({...discoveryBrief, topic: e.target.value})} placeholder="e.g., Sustainable fashion collection launch" className="mt-1" /></div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div><Label className="text-xs uppercase tracking-wider text-gray-500">INDUSTRY</Label><Select value={discoveryBrief.industry} onValueChange={v => setDiscoveryBrief({...discoveryBrief, industry: v})}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent>{BEAT_OPTIONS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent></Select></div>
-                  <div><Label className="text-xs uppercase tracking-wider text-gray-500">STORY TYPE</Label><Select value={discoveryBrief.story_type} onValueChange={v => setDiscoveryBrief({...discoveryBrief, story_type: v})}><SelectTrigger className="mt-1"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="news">News</SelectItem><SelectItem value="feature">Feature</SelectItem><SelectItem value="interview">Interview</SelectItem></SelectContent></Select></div>
-                </div>
-                <div><Label className="text-xs uppercase tracking-wider text-gray-500">TARGET AUDIENCE</Label><Input value={discoveryBrief.target_audience} onChange={e => setDiscoveryBrief({...discoveryBrief, target_audience: e.target.value})} placeholder="Fashion-conscious millennials" className="mt-1" /></div>
-                <Button onClick={handleAIDiscover} disabled={isDiscovering} className="w-full bg-purple-600 hover:bg-purple-700 text-white">{isDiscovering ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Discovering...</> : <><Sparkles className="w-4 h-4 mr-2" />Discover Journalists</>}</Button>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white border-gray-200">
-              <CardHeader className="pb-2"><CardTitle className="text-sm">Discovery Results</CardTitle></CardHeader>
-              <CardContent className="max-h-[400px] overflow-y-auto">
-                {!discoveryResults ? <div className="py-12 text-center text-gray-500"><Sparkles className="w-10 h-10 mx-auto mb-3 text-purple-200" /><p>Fill brief and click Discover</p></div> : (
-                  <div className="space-y-3">
-                    {discoveryResults.pr_insights && <div className="p-3 bg-purple-50 rounded text-sm border border-purple-100"><strong className="text-purple-700">PR Insights:</strong><p className="text-purple-600 mt-1">{discoveryResults.pr_insights.timing_recommendations}</p></div>}
-                    {discoveryResults.recommendations?.map((rec, i) => {
-                      const j = journalists.find(x => x.id === rec.journalist_id);
-                      if (!j) return null;
-                      return <div key={i} className="p-3 border border-gray-200 rounded hover:border-amber-300">
-                        <div className="flex justify-between items-start mb-2"><div><div className="font-medium text-gray-900">{j.name}</div><div className="text-sm text-gray-500">{j.publication}</div></div><Badge className={rec.match_score >= 70 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}>{rec.match_score}%</Badge></div>
-                        {rec.recommended_pitch_angle && <p className="text-sm text-gray-600"><strong>Pitch:</strong> {rec.recommended_pitch_angle}</p>}
-                        <div className="mt-2"><Button size="sm" variant="outline" onClick={() => { setSelectedJournalist(j); setNewPitch({...newPitch, contact_id: j.id}); setShowPitchModal(true); }}><Send className="w-3 h-3 mr-1" />Create Pitch</Button></div>
-                      </div>;
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
         </TabsContent>
       </Tabs>
     </div>

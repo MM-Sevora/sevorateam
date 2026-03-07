@@ -15,7 +15,7 @@ import { ScrollArea } from '../../components/ui/scroll-area';
 import { toast } from 'sonner';
 import { 
     Sparkles, MessageSquare, Lightbulb, Copy, RefreshCw, Loader2, Calendar, 
-    Plus, Play, Trash2, Clock, Users, CheckCircle
+    Plus, Play, Trash2, Clock, Users, CheckCircle, Newspaper
 } from 'lucide-react';
 
 const CATEGORIES = ['luxury', 'menswear', 'womenswear', 'streetwear', 'ethnic', 'minimal'];
@@ -183,6 +183,29 @@ export const AIToolsPage = () => {
                     </div>
                     <Button className="bg-[#c4a35a] hover:bg-[#b39349] text-white h-12 px-6">
                         <Sparkles className="w-5 h-5 mr-2" /> Start Discovery
+                    </Button>
+                </CardContent>
+            </Card>
+
+            {/* PR & Media Discovery CTA Card */}
+            <Card className="bg-gradient-to-r from-purple-50 via-violet-50 to-indigo-50 border-purple-200 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => window.location.href = '/marketing/ai-discovery?tab=pr'}>
+                <CardContent className="p-6 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="w-16 h-16 rounded-xl bg-purple-100 flex items-center justify-center">
+                            <Newspaper className="w-8 h-8 text-purple-600" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-semibold text-gray-900 mb-1">AI PR & Media Discovery</h3>
+                            <p className="text-gray-600">Find the right journalists and media contacts for your story</p>
+                            <div className="flex items-center gap-2 mt-2">
+                                <Badge className="bg-purple-100 text-purple-700">Beat Matching</Badge>
+                                <Badge className="bg-purple-100 text-purple-700">Pitch Suggestions</Badge>
+                                <Badge className="bg-purple-100 text-purple-700">PR Insights</Badge>
+                            </div>
+                        </div>
+                    </div>
+                    <Button className="bg-purple-600 hover:bg-purple-700 text-white h-12 px-6">
+                        <Sparkles className="w-5 h-5 mr-2" /> Discover Media
                     </Button>
                 </CardContent>
             </Card>

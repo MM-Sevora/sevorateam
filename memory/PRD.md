@@ -215,9 +215,26 @@ Consolidate multiple Sevora applications (Influencer Operations from 'main' bran
    - `outreach.py` - Pitch and outreach tracking
    - `coverage.py` - Media coverage tracking
 
-4. **Module Cleanup (COMPLETED March 7, 2026)**:
-   - ✅ Content Asset module already exists with Press Kit as a tab
-   - ✅ Removed Event & Exhibition module from sidebar and routing
+### Module Restructuring (COMPLETED March 7, 2026)
+
+#### Events & Exhibition Module - REMOVED ✅
+- Removed from sidebar navigation (`Layout.jsx`)
+- Removed route from `App.js`
+- Removed "Event" campaign type from Campaign Hub filters and new campaign modal
+- Cleaned up events API calls and state from `CampaignHubPage.jsx`
+
+#### Content & Assets Module ✅
+- Already exists at `/marketing/assets` with Press Kit as a tab
+- Contains: Brand Assets, Press Kit, Templates, UGC Library, Approval Queue
+
+#### AI Discovery Consolidated ✅
+- **Removed** AI Discovery tab from Digital PR page
+- **Added** PR & Media Discovery tab to AI Tools & Discovery page (`AIDiscoveryPage.jsx`)
+- **Added** PR Discovery CTA card to AI Tools page (`AITools.jsx`)
+- AI Tools page now has TWO discovery paths:
+  1. AI Influencer Discovery (amber/gold) → campaign brief based matching
+  2. AI PR & Media Discovery (purple) → journalist/media contact matching
+- URL parameter support: `/marketing/ai-discovery?tab=pr` opens PR tab directly
 
 ## What's Complete (March 7, 2026)
 
