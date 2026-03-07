@@ -46,8 +46,8 @@ def get_db():
     from server import db
     return db
 
-def require_marketing():
-    """Require marketing department access"""
+def get_marketing_auth():
+    """Get require_department dependency for marketing"""
     from server import require_department
     return require_department(["marketing"])
 
@@ -63,8 +63,9 @@ async def get_contacts(
     search: Optional[str] = None,
     limit: int = Query(default=100, le=500),
     skip: int = 0,
+    user: dict = Depends(get_marketing_auth())
 ):
-    """Get all contacts with filters"""
+    """Get all contacts with filters - requires marketing auth"""
     db = get_db()
     query = {}
     
@@ -90,8 +91,8 @@ async def get_contacts(
     return contacts
 
 @marketing_v2_router.get("/contacts/{contact_id}", response_model=ContactResponse)
-async def get_contact(contact_id: str):
-    """Get single contact by ID"""
+async def get_contact(contact_id: str, user: dict = Depends(get_marketing_auth())):
+    """Get single contact by ID - requires marketing auth"""
     db = get_db()
     contact = await db.contacts.find_one({"id": contact_id}, {"_id": 0})
     if not contact:
@@ -99,8 +100,8 @@ async def get_contact(contact_id: str):
     return contact
 
 @marketing_v2_router.post("/contacts", response_model=ContactResponse)
-async def create_contact(data: ContactCreate):
-    """Create a new contact"""
+async def create_contact(data: ContactCreate, user: dict = Depends(get_marketing_auth())):
+    """Create a new contact - requires marketing auth"""
     db = get_db()
     contact_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
@@ -119,8 +120,8 @@ async def create_contact(data: ContactCreate):
     return contact_doc
 
 @marketing_v2_router.put("/contacts/{contact_id}", response_model=ContactResponse)
-async def update_contact(contact_id: str, data: ContactCreate):
-    """Update a contact"""
+async def update_contact(contact_id: str, data: ContactCreate, user: dict = Depends(get_marketing_auth())):
+    """Update a contact - requires marketing auth"""
     db = get_db()
     existing = await db.contacts.find_one({"id": contact_id})
     if not existing:
@@ -136,8 +137,8 @@ async def update_contact(contact_id: str, data: ContactCreate):
     return updated
 
 @marketing_v2_router.delete("/contacts/{contact_id}")
-async def delete_contact(contact_id: str):
-    """Delete a contact"""
+async def delete_contact(contact_id: str, user: dict = Depends(get_marketing_auth())):
+    """Delete a contact - requires marketing auth"""
     db = get_db()
     result = await db.contacts.delete_one({"id": contact_id})
     if result.deleted_count == 0:
@@ -145,8 +146,8 @@ async def delete_contact(contact_id: str):
     return {"message": "Contact deleted successfully"}
 
 @marketing_v2_router.get("/contacts/{contact_id}/stats")
-async def get_contact_stats(contact_id: str):
-    """Get contact statistics"""
+async def get_contact_stats(contact_id: str, user: dict = Depends(get_marketing_auth())):
+    """Get contact statistics - requires marketing auth"""
     db = get_db()
     contact = await db.contacts.find_one({"id": contact_id})
     if not contact:
