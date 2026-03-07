@@ -505,7 +505,11 @@ function ReviewTab() {
 
   const handleReview = async (id, action) => {
     setReviewing(id);
-    try { await api.post(`/api/approvals/${id}/review`, { action, feedback: reviewFeedback[id] || '' }); await fetchData(); }
+    try {
+      const res = await api.post(`/api/approvals/${id}/review`, { action, feedback: reviewFeedback[id] || '' });
+      if (res.data.auto_queued) alert('Approved! Post automatically moved to Posts & Schedule queue.');
+      await fetchData();
+    }
     catch (err) { console.error(err); }
     finally { setReviewing(''); }
   };
@@ -524,7 +528,7 @@ function ReviewTab() {
 
   const sections = [
     { key: 'needs_review', title: 'Needs Review', color: '#f59e0b', icon: Clock, items: actionable?.needs_review || [] },
-    { key: 'approved_ready', title: 'Approved - Ready to Queue', color: '#10b981', icon: CheckCircle, items: actionable?.approved_ready || [] },
+    { key: 'approved_ready', title: 'Approved - In Schedule Queue', color: '#10b981', icon: CheckCircle, items: actionable?.approved_ready || [] },
     { key: 'needs_edit', title: 'Needs Edit (Rejected/Changes)', color: '#ef4444', icon: XCircle, items: actionable?.needs_edit || [] },
     { key: 'completed', title: 'Completed', color: '#71717a', icon: CheckCircle, items: actionable?.completed || [] },
   ];
@@ -584,7 +588,9 @@ function ReviewTab() {
                       </>
                     )}
                     {section.key === 'approved_ready' && (
-                      <button onClick={() => handleMoveToQueue(a.approval_id)} className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-3 py-2 flex items-center gap-1"><Send className="w-3 h-3" /> Move to Queue</button>
+                      <a href="/posts" className="text-[10px] bg-emerald-600/20 text-emerald-400 rounded-lg px-3 py-2 flex items-center gap-1 hover:bg-emerald-600/30">
+                        <Send className="w-3 h-3" /> View in Schedule
+                      </a>
                     )}
                     {section.key === 'needs_edit' && (
                       <button onClick={() => handleResubmit(a.approval_id)} className="text-[10px] bg-accent-violet hover:bg-accent-violet-hover text-white rounded-lg px-3 py-2 flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Resubmit</button>

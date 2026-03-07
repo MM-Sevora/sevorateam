@@ -1666,11 +1666,18 @@ async def review_approval(approval_id: str, req: ApprovalAction, auth: dict = De
         {"approval_id": approval_id},
         {"$push": {"reviews": review}, "$set": {"status": new_status, "reviewed_at": datetime.now(timezone.utc).isoformat()}}
     )
-    posts_col.update_one(
-        {"post_id": approval["post_id"]},
-        {"$set": {"approval_status": new_status}}
-    )
-    return {"status": new_status, "review": review}
+    # Auto-move approved posts to scheduled queue
+    if new_status == "approved":
+        posts_col.update_one(
+            {"post_id": approval["post_id"]},
+            {"$set": {"approval_status": "approved", "status": "scheduled", "moved_to_queue_at": datetime.now(timezone.utc).isoformat()}}
+        )
+    else:
+        posts_col.update_one(
+            {"post_id": approval["post_id"]},
+            {"$set": {"approval_status": new_status}}
+        )
+    return {"status": new_status, "review": review, "auto_queued": new_status == "approved"}
 
 @app.get("/api/approvals/stats")
 async def approval_stats(auth: dict = Depends(verify_token)):
