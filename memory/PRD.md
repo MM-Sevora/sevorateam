@@ -164,9 +164,11 @@ Consolidate multiple Sevora applications (Influencer Operations from 'main' bran
 - [x] User & Access Management (Phase 1-3)
 - [x] Granular CRUD Permissions
 - [x] **Marketing Module Restructure** - All 8 phases complete
+- [x] **Phase B: Core Workflow** - Campaign assignment, outreach modal, activity timeline (COMPLETED March 7, 2026)
 
 ### P1 - High Priority
 - [x] Real-time WebSocket notifications
+- [ ] **Phase C: AI Discovery Hub** - New page for AI-powered influencer discovery
 - [ ] **Phase 4: Audit Logs UI** - Create frontend page to view admin action logs
 - [ ] **EmailHistoryTab Integration** - Add to Influencer/Contact detail pages
 - [ ] WhatsApp Business API (production - sandbox setup required)
@@ -178,6 +180,7 @@ Consolidate multiple Sevora applications (Influencer Operations from 'main' bran
 - [ ] Mobile responsive optimization
 - [ ] Automated social posting
 - [ ] Refactor server.py into APIRouter modules (currently 3300+ lines)
+- [ ] Refactor InfluencerDetailPage.jsx (1300+ lines) - extract tabs into components
 
 ### P3 - Future
 - [ ] Revenue tracking and ROI calculations
@@ -186,13 +189,45 @@ Consolidate multiple Sevora applications (Influencer Operations from 'main' bran
 - [ ] AI-powered lead scoring
 - [ ] Automatic/scheduled Azure AD sync
 - [ ] Session management (timeout, forced logout)
+- [ ] Rate Card Templates feature
 
 ## Next Tasks
-1. User to verify Azure AD SSO flow in Incognito window
-2. User to complete Twilio WhatsApp Sandbox setup
-3. Refactor server.py into smaller APIRouter files (2500+ lines currently)
+1. Phase C: AI Discovery Hub implementation
+2. User to verify Azure AD SSO flow in Incognito window
+3. User to complete Twilio WhatsApp Sandbox setup
+4. Refactor server.py into smaller APIRouter files (2500+ lines currently)
 
 ## Latest Updates (March 7, 2026)
+
+### Phase B: Core Workflow Complete (March 7, 2026)
+
+**Features Implemented:**
+1. **Campaign Assignment Dropdown** - In influencer detail page header
+   - Lists all campaigns from database
+   - "No Campaign" option to unassign
+   - Real-time assignment via API
+
+2. **Send Outreach Modal** - Email/WhatsApp messaging
+   - Channel selection (Email/WhatsApp buttons)
+   - 4 message templates: Collaboration, Follow Up, Campaign Invite, Custom
+   - Templates auto-fill subject and message with influencer name/platform
+   - Shows recipient info (email or phone)
+   - Saves communication to database
+   - Auto-updates status from "identified" to "contacted" on first outreach
+
+3. **Activity Timeline (History Tab)**
+   - Unified timeline combining communications, deals, and gifts
+   - Color-coded dots: Blue (communications), Green (deals), Purple (gifts)
+   - Vertical timeline line connecting events
+   - Each event shows: type badge, status badge, title, description, date
+   - Quick Stats sidebar with counts and recent items
+
+**Bug Fixes During Implementation:**
+- Fixed infinite loop in fetchHistory by removing state dependencies from useCallback
+- Fixed SelectItem empty string error by using 'none' value for "No Campaign"
+- Added campaign_id to ContactCreate and ContactResponse Pydantic models
+- Fixed communication endpoint from /contacts/{id}/communications to /communications
+- Fixed campaign assignment API payload (added name field)
 
 ### Marketing Module Complete Restructure (March 7, 2026)
 
