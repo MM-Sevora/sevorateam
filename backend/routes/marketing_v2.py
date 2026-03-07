@@ -2,7 +2,7 @@
 Marketing Routes - Unified Contacts Hub, Digital PR, Events, Content & Assets
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -1431,6 +1431,332 @@ async def track_asset_download(asset_id: str):
     db = get_db()
     await db.assets.update_one({"id": asset_id}, {"$inc": {"downloads": 1}})
     return {"message": "Download tracked"}
+
+@marketing_v2_router.put("/assets/{asset_id}")
+async def update_asset(asset_id: str, name: str = None, description: str = None, 
+                       tags: List[str] = None, campaign_id: str = None):
+    """Update asset details"""
+    db = get_db()
+    
+    asset = await db.assets.find_one({"id": asset_id})
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    
+    update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    if name is not None:
+        update_data["name"] = name
+    if description is not None:
+        update_data["description"] = description
+    if tags is not None:
+        update_data["tags"] = tags
+    if campaign_id is not None:
+        update_data["campaign_id"] = campaign_id
+    
+    await db.assets.update_one({"id": asset_id}, {"$set": update_data})
+    updated = await db.assets.find_one({"id": asset_id}, {"_id": 0})
+    return updated
+
+@marketing_v2_router.post("/assets/{asset_id}/version")
+async def create_asset_version(asset_id: str, file_url: str, description: str = None):
+    """Create a new version of an asset"""
+    db = get_db()
+    
+    parent_asset = await db.assets.find_one({"id": asset_id})
+    if not parent_asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    
+    # Get current max version
+    current_version = parent_asset.get("version", 1)
+    new_version = current_version + 1
+    
+    now = datetime.now(timezone.utc).isoformat()
+    new_asset_id = str(uuid.uuid4())
+    
+    # Create new version
+    new_asset_doc = {
+        "id": new_asset_id,
+        "name": parent_asset["name"],
+        "asset_type": parent_asset["asset_type"],
+        "category": parent_asset["category"],
+        "description": description or parent_asset.get("description"),
+        "file_url": file_url,
+        "tags": parent_asset.get("tags", []),
+        "campaign_id": parent_asset.get("campaign_id"),
+        "version": new_version,
+        "parent_asset_id": asset_id,
+        "downloads": 0,
+        "created_at": now,
+        "updated_at": now,
+    }
+    
+    await db.assets.insert_one(new_asset_doc)
+    
+    # Update parent to point to latest version
+    await db.assets.update_one(
+        {"id": asset_id},
+        {"$set": {"latest_version_id": new_asset_id, "version": new_version, "updated_at": now}}
+    )
+    
+    del new_asset_doc["_id"]
+    return new_asset_doc
+
+@marketing_v2_router.get("/assets/{asset_id}/versions")
+async def get_asset_versions(asset_id: str):
+    """Get all versions of an asset"""
+    db = get_db()
+    
+    # Get the original asset and all versions
+    versions = await db.assets.find(
+        {"$or": [{"id": asset_id}, {"parent_asset_id": asset_id}]},
+        {"_id": 0}
+    ).sort("version", -1).to_list(100)
+    
+    return versions
+
+@marketing_v2_router.delete("/assets/{asset_id}")
+async def delete_asset(asset_id: str):
+    """Delete an asset"""
+    db = get_db()
+    result = await db.assets.delete_one({"id": asset_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    return {"message": "Asset deleted", "id": asset_id}
+
+# ============== TEMPLATES ==============
+
+@marketing_v2_router.get("/templates")
+async def get_templates(template_type: str = None, search: str = None, limit: int = 100):
+    """Get all templates"""
+    db = get_db()
+    query = {}
+    if template_type:
+        query["template_type"] = template_type
+    if search:
+        query["$or"] = [
+            {"name": {"$regex": search, "$options": "i"}},
+            {"tags": {"$in": [search]}},
+        ]
+    
+    templates = await db.templates.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    return templates
+
+@marketing_v2_router.post("/templates")
+async def create_template(data: dict = Body(...)):
+    """Create a new template"""
+    db = get_db()
+    
+    template_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    template_doc = {
+        "id": template_id,
+        "name": data.get("name"),
+        "template_type": data.get("template_type", "email"),
+        "subject": data.get("subject"),
+        "content": data.get("content", ""),
+        "variables": data.get("variables", []),
+        "category": data.get("category"),
+        "tags": data.get("tags", []),
+        "usage_count": 0,
+        "created_at": now,
+        "updated_at": now,
+    }
+    
+    await db.templates.insert_one(template_doc)
+    del template_doc["_id"]
+    return template_doc
+
+@marketing_v2_router.get("/templates/{template_id}")
+async def get_template(template_id: str):
+    """Get a single template"""
+    db = get_db()
+    template = await db.templates.find_one({"id": template_id}, {"_id": 0})
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return template
+
+@marketing_v2_router.put("/templates/{template_id}")
+async def update_template(template_id: str, data: dict = Body(...)):
+    """Update a template"""
+    db = get_db()
+    
+    template = await db.templates.find_one({"id": template_id})
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    for field in ["name", "subject", "content", "variables", "category", "tags"]:
+        if field in data:
+            update_data[field] = data[field]
+    
+    await db.templates.update_one({"id": template_id}, {"$set": update_data})
+    updated = await db.templates.find_one({"id": template_id}, {"_id": 0})
+    return updated
+
+@marketing_v2_router.delete("/templates/{template_id}")
+async def delete_template(template_id: str):
+    """Delete a template"""
+    db = get_db()
+    result = await db.templates.delete_one({"id": template_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return {"message": "Template deleted", "id": template_id}
+
+@marketing_v2_router.put("/templates/{template_id}/use")
+async def track_template_usage(template_id: str):
+    """Track template usage"""
+    db = get_db()
+    await db.templates.update_one({"id": template_id}, {"$inc": {"usage_count": 1}})
+    return {"message": "Usage tracked"}
+
+# ============== INFLUENCER DELIVERIES ==============
+
+@marketing_v2_router.get("/deliveries/influencer")
+async def get_influencer_deliveries(
+    contact_id: str = None,
+    campaign_id: str = None,
+    platform: str = None,
+    content_type: str = None,
+    search: str = None,
+    limit: int = 100
+):
+    """Get all influencer deliveries"""
+    db = get_db()
+    query = {}
+    if contact_id:
+        query["contact_id"] = contact_id
+    if campaign_id:
+        query["campaign_id"] = campaign_id
+    if platform:
+        query["platform"] = platform
+    if content_type:
+        query["content_type"] = content_type
+    if search:
+        query["$or"] = [
+            {"title": {"$regex": search, "$options": "i"}},
+            {"contact_name": {"$regex": search, "$options": "i"}},
+        ]
+    
+    deliveries = await db.influencer_deliveries.find(query, {"_id": 0}).sort("publish_date", -1).limit(limit).to_list(limit)
+    
+    # Enrich with contact and campaign names
+    for delivery in deliveries:
+        if delivery.get("contact_id"):
+            contact = await db.contacts.find_one({"id": delivery["contact_id"]}, {"name": 1})
+            delivery["contact_name"] = contact.get("name") if contact else None
+        if delivery.get("campaign_id"):
+            campaign = await db.campaigns.find_one({"id": delivery["campaign_id"]}, {"name": 1})
+            delivery["campaign_name"] = campaign.get("name") if campaign else None
+        
+        # Calculate engagement rate
+        total_engagement = delivery.get("likes", 0) + delivery.get("comments", 0) + delivery.get("shares", 0) + delivery.get("saves", 0)
+        reach = delivery.get("reach", 0) or delivery.get("views", 0) or 1
+        delivery["engagement_rate"] = round((total_engagement / reach) * 100, 2) if reach > 0 else 0
+    
+    return deliveries
+
+@marketing_v2_router.post("/deliveries/influencer")
+async def create_influencer_delivery(data: dict = Body(...)):
+    """Create a new influencer delivery"""
+    db = get_db()
+    
+    delivery_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Get contact name
+    contact_name = None
+    if data.get("contact_id"):
+        contact = await db.contacts.find_one({"id": data["contact_id"]}, {"name": 1})
+        contact_name = contact.get("name") if contact else None
+    
+    delivery_doc = {
+        "id": delivery_id,
+        "contact_id": data.get("contact_id"),
+        "contact_name": contact_name,
+        "campaign_id": data.get("campaign_id"),
+        "platform": data.get("platform", "instagram"),
+        "content_type": data.get("content_type", "post"),
+        "content_url": data.get("content_url"),
+        "title": data.get("title"),
+        "description": data.get("description"),
+        "publish_date": data.get("publish_date"),
+        "views": data.get("views", 0),
+        "likes": data.get("likes", 0),
+        "comments": data.get("comments", 0),
+        "shares": data.get("shares", 0),
+        "saves": data.get("saves", 0),
+        "reach": data.get("reach", 0),
+        "impressions": data.get("impressions", 0),
+        "created_at": now,
+        "updated_at": now,
+    }
+    
+    await db.influencer_deliveries.insert_one(delivery_doc)
+    del delivery_doc["_id"]
+    return delivery_doc
+
+@marketing_v2_router.put("/deliveries/influencer/{delivery_id}")
+async def update_influencer_delivery(delivery_id: str, data: dict = Body(...)):
+    """Update an influencer delivery (mainly for updating metrics)"""
+    db = get_db()
+    
+    delivery = await db.influencer_deliveries.find_one({"id": delivery_id})
+    if not delivery:
+        raise HTTPException(status_code=404, detail="Delivery not found")
+    
+    update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    for field in ["views", "likes", "comments", "shares", "saves", "reach", "impressions", "title", "description", "content_url"]:
+        if field in data:
+            update_data[field] = data[field]
+    
+    await db.influencer_deliveries.update_one({"id": delivery_id}, {"$set": update_data})
+    updated = await db.influencer_deliveries.find_one({"id": delivery_id}, {"_id": 0})
+    return updated
+
+@marketing_v2_router.delete("/deliveries/influencer/{delivery_id}")
+async def delete_influencer_delivery(delivery_id: str):
+    """Delete an influencer delivery"""
+    db = get_db()
+    result = await db.influencer_deliveries.delete_one({"id": delivery_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Delivery not found")
+    return {"message": "Delivery deleted", "id": delivery_id}
+
+# ============== DELIVERIES STATS ==============
+
+@marketing_v2_router.get("/deliveries/stats")
+async def get_deliveries_stats(campaign_id: str = None):
+    """Get delivery statistics"""
+    db = get_db()
+    
+    # Influencer deliveries stats
+    inf_query = {"campaign_id": campaign_id} if campaign_id else {}
+    inf_deliveries = await db.influencer_deliveries.find(inf_query, {"_id": 0}).to_list(10000)
+    
+    total_inf_deliveries = len(inf_deliveries)
+    total_views = sum(d.get("views", 0) for d in inf_deliveries)
+    total_engagement = sum(d.get("likes", 0) + d.get("comments", 0) + d.get("shares", 0) + d.get("saves", 0) for d in inf_deliveries)
+    total_reach = sum(d.get("reach", 0) for d in inf_deliveries)
+    
+    # PR coverage stats
+    coverage_query = {"campaign_id": campaign_id} if campaign_id else {}
+    coverages = await db.media_coverage.find(coverage_query, {"_id": 0}).to_list(10000)
+    total_coverage = len(coverages)
+    total_coverage_reach = sum(c.get("estimated_reach", 0) for c in coverages)
+    
+    return {
+        "influencer_deliveries": {
+            "total": total_inf_deliveries,
+            "total_views": total_views,
+            "total_engagement": total_engagement,
+            "total_reach": total_reach,
+            "avg_engagement_rate": round((total_engagement / total_reach * 100), 2) if total_reach > 0 else 0
+        },
+        "pr_coverage": {
+            "total": total_coverage,
+            "total_reach": total_coverage_reach
+        }
+    }
 
 # ============== APPROVAL WORKFLOW ==============
 

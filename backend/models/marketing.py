@@ -615,6 +615,10 @@ class AssetType(str, Enum):
     DOCUMENT = "document"
     GUIDELINE = "guideline"
     TEMPLATE = "template"
+    PRESS_RELEASE = "press_release"
+    FOUNDER_IMAGE = "founder_image"
+    PRODUCT_IMAGE = "product_image"
+    BRAND_STORY = "brand_story"
 
 class AssetCreate(BaseModel):
     name: str
@@ -625,6 +629,9 @@ class AssetCreate(BaseModel):
     file_size: Optional[int] = None
     file_format: Optional[str] = None
     tags: List[str] = []
+    campaign_id: Optional[str] = None  # Link to campaign
+    version: int = 1
+    parent_asset_id: Optional[str] = None  # For version history
 
 class AssetResponse(BaseModel):
     id: str
@@ -637,6 +644,93 @@ class AssetResponse(BaseModel):
     file_format: Optional[str] = None
     tags: List[str] = []
     downloads: int = 0
+    campaign_id: Optional[str] = None
+    campaign_name: Optional[str] = None
+    version: int = 1
+    parent_asset_id: Optional[str] = None
+    versions: List[dict] = []  # Version history
+    created_at: str
+    updated_at: Optional[str] = None
+
+# ============== TEMPLATE MODEL ==============
+class TemplateType(str, Enum):
+    EMAIL = "email"
+    OUTREACH = "outreach"
+    PRESS_RELEASE = "press_release"
+    CAMPAIGN_BRIEF = "campaign_brief"
+    PITCH = "pitch"
+    CONTRACT = "contract"
+
+class TemplateCreate(BaseModel):
+    name: str
+    template_type: TemplateType
+    subject: Optional[str] = None  # For email templates
+    content: str  # HTML or text content
+    variables: List[str] = []  # Placeholders like {{name}}, {{company}}
+    category: Optional[str] = None
+    tags: List[str] = []
+
+class TemplateResponse(BaseModel):
+    id: str
+    name: str
+    template_type: str
+    subject: Optional[str] = None
+    content: str
+    variables: List[str] = []
+    category: Optional[str] = None
+    tags: List[str] = []
+    usage_count: int = 0
+    created_at: str
+    updated_at: Optional[str] = None
+
+# ============== INFLUENCER DELIVERY MODEL ==============
+class DeliveryContentType(str, Enum):
+    POST = "post"
+    REEL = "reel"
+    STORY = "story"
+    VIDEO = "video"
+    CAROUSEL = "carousel"
+    BLOG = "blog"
+    LIVE = "live"
+
+class InfluencerDeliveryCreate(BaseModel):
+    contact_id: str  # Influencer ID
+    campaign_id: Optional[str] = None
+    platform: str  # instagram, youtube, etc.
+    content_type: DeliveryContentType
+    content_url: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    publish_date: str
+    # Engagement metrics
+    views: int = 0
+    likes: int = 0
+    comments: int = 0
+    shares: int = 0
+    saves: int = 0
+    reach: int = 0
+    impressions: int = 0
+
+class InfluencerDeliveryResponse(BaseModel):
+    id: str
+    contact_id: str
+    contact_name: Optional[str] = None
+    campaign_id: Optional[str] = None
+    campaign_name: Optional[str] = None
+    platform: str
+    content_type: str
+    content_url: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    publish_date: str
+    views: int = 0
+    likes: int = 0
+    comments: int = 0
+    shares: int = 0
+    saves: int = 0
+    reach: int = 0
+    impressions: int = 0
+    engagement_rate: float = 0.0
     created_at: str
     updated_at: Optional[str] = None
 
