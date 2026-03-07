@@ -1077,6 +1077,273 @@ async def update_user_role(user_id: str, role: str, department: str, user: dict 
 async def health_check():
     return {"status": "healthy", "service": "sevora-team"}
 
+# ============== SALES PARTNERS ==============
+@sales_router.get("/partners")
+async def get_partners(
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    user: dict = Depends(require_department(["sales"]))
+):
+    query = {}
+    if status:
+        query["status"] = status
+    if search:
+        query["$or"] = [
+            {"name": {"$regex": search, "$options": "i"}},
+            {"contact_person": {"$regex": search, "$options": "i"}}
+        ]
+    partners = await db.partners.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return partners
+
+@sales_router.post("/partners")
+async def create_partner(data: dict, user: dict = Depends(require_department(["sales"]))):
+    partner_id = str(uuid.uuid4())
+    partner_doc = {
+        "id": partner_id,
+        **data,
+        "status": data.get("status", "Active"),
+        "leads_generated": 0,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.partners.insert_one(partner_doc)
+    if '_id' in partner_doc: del partner_doc['_id']
+    return partner_doc
+
+@sales_router.put("/partners/{partner_id}")
+async def update_partner(partner_id: str, data: dict, user: dict = Depends(require_department(["sales"]))):
+    update_data = {k: v for k, v in data.items() if v is not None}
+    await db.partners.update_one({"id": partner_id}, {"$set": update_data})
+    updated = await db.partners.find_one({"id": partner_id}, {"_id": 0})
+    return updated
+
+@sales_router.delete("/partners/{partner_id}")
+async def delete_partner(partner_id: str, user: dict = Depends(require_department(["sales"]))):
+    await db.partners.delete_one({"id": partner_id})
+    return {"message": "Partner deleted"}
+
+# ============== SALES WEDDING PLANS ==============
+@sales_router.get("/wedding-plans")
+async def get_wedding_plans(user: dict = Depends(require_department(["sales"]))):
+    plans = await db.wedding_plans.find({}, {"_id": 0}).sort("event_date", 1).to_list(500)
+    return plans
+
+@sales_router.post("/wedding-plans")
+async def create_wedding_plan(data: dict, user: dict = Depends(require_department(["sales"]))):
+    plan_id = str(uuid.uuid4())
+    plan_doc = {
+        "id": plan_id,
+        **data,
+        "status": "planning",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.wedding_plans.insert_one(plan_doc)
+    if '_id' in plan_doc: del plan_doc['_id']
+    return plan_doc
+
+@sales_router.put("/wedding-plans/{plan_id}")
+async def update_wedding_plan(plan_id: str, data: dict, user: dict = Depends(require_department(["sales"]))):
+    update_data = {k: v for k, v in data.items() if v is not None}
+    await db.wedding_plans.update_one({"id": plan_id}, {"$set": update_data})
+    updated = await db.wedding_plans.find_one({"id": plan_id}, {"_id": 0})
+    return updated
+
+# ============== SALES USERS (for assignment) ==============
+@sales_router.get("/users")
+async def get_sales_users(user: dict = Depends(require_department(["sales"]))):
+    users = await db.users.find(
+        {"$or": [{"department": "sales"}, {"role": "admin"}]},
+        {"_id": 0, "password": 0}
+    ).to_list(100)
+    return users
+
+# ============== SALES CAMPAIGNS (for QR codes) ==============
+@sales_router.get("/campaigns")
+async def get_sales_campaigns(status: Optional[str] = None, user: dict = Depends(require_department(["sales"]))):
+    query = {}
+    if status:
+        query["status"] = status
+    campaigns = await db.sales_campaigns.find(query, {"_id": 0}).to_list(100)
+    return campaigns
+
+# ============== SOCIAL POSTS ==============
+@social_router.get("/posts")
+async def get_posts(
+    platform: Optional[str] = None,
+    status: Optional[str] = None,
+    user: dict = Depends(require_department(["social"]))
+):
+    query = {}
+    if platform:
+        query["platform"] = platform
+    if status:
+        query["status"] = status
+    posts = await db.social_posts.find(query, {"_id": 0}).sort("scheduled_at", -1).to_list(500)
+    return posts
+
+@social_router.post("/posts")
+async def create_post(data: dict, user: dict = Depends(require_department(["social"]))):
+    post_id = str(uuid.uuid4())
+    post_doc = {
+        "id": post_id,
+        **data,
+        "status": data.get("status", "draft"),
+        "created_by": user['id'],
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.social_posts.insert_one(post_doc)
+    if '_id' in post_doc: del post_doc['_id']
+    return post_doc
+
+@social_router.post("/posts/schedule")
+async def schedule_post(data: dict, user: dict = Depends(require_department(["social"]))):
+    post_id = str(uuid.uuid4())
+    post_doc = {
+        "id": post_id,
+        **data,
+        "status": "scheduled",
+        "created_by": user['id'],
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.social_posts.insert_one(post_doc)
+    if '_id' in post_doc: del post_doc['_id']
+    return post_doc
+
+# ============== SOCIAL AI TOOLS ==============
+@social_router.post("/ai/caption")
+async def generate_caption(data: dict, user: dict = Depends(require_department(["social"]))):
+    # Placeholder for AI caption generation
+    return {
+        "caption": f"Engaging caption for {data.get('topic', 'your post')}",
+        "hashtags": ["#trending", "#content", "#socialmedia"],
+        "score": 85
+    }
+
+@social_router.post("/ai/image")
+async def generate_image(data: dict, user: dict = Depends(require_department(["social"]))):
+    # Placeholder for AI image generation
+    return {
+        "image_url": "https://via.placeholder.com/800x600",
+        "prompt": data.get('prompt', '')
+    }
+
+@social_router.post("/ai/analyze")
+async def analyze_content(data: dict, user: dict = Depends(require_department(["social"]))):
+    return {
+        "score": 78,
+        "suggestions": ["Add more hashtags", "Consider posting at peak hours"],
+        "sentiment": "positive"
+    }
+
+# ============== SOCIAL LIBRARY ==============
+@social_router.get("/library")
+async def get_library(user: dict = Depends(require_department(["social"]))):
+    items = await db.content_library.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return items
+
+@social_router.post("/library")
+async def upload_to_library(data: dict, user: dict = Depends(require_department(["social"]))):
+    item_id = str(uuid.uuid4())
+    item_doc = {
+        "id": item_id,
+        **data,
+        "created_by": user['id'],
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.content_library.insert_one(item_doc)
+    if '_id' in item_doc: del item_doc['_id']
+    return item_doc
+
+# ============== SOCIAL YOUTUBE ==============
+@social_router.get("/youtube")
+async def get_youtube_data(user: dict = Depends(require_department(["social"]))):
+    return {
+        "videos": [],
+        "analytics": {"views": 0, "subscribers": 0}
+    }
+
+# ============== SOCIAL ANALYTICS ==============
+@social_router.get("/analytics")
+async def get_social_analytics(user: dict = Depends(require_department(["social"]))):
+    return {
+        "total_posts": await db.social_posts.count_documents({}),
+        "engagement_rate": 4.5,
+        "reach": 0,
+        "impressions": 0
+    }
+
+# ============== SOCIAL AVATAR ==============
+@social_router.get("/avatar")
+async def get_avatar(user: dict = Depends(require_department(["social"]))):
+    avatar = await db.social_avatars.find_one({"user_id": user['id']}, {"_id": 0})
+    return avatar or {"style": "default", "voice": "neutral"}
+
+@social_router.put("/avatar")
+async def update_avatar(data: dict, user: dict = Depends(require_department(["social"]))):
+    await db.social_avatars.update_one(
+        {"user_id": user['id']},
+        {"$set": {**data, "user_id": user['id']}},
+        upsert=True
+    )
+    return {"message": "Avatar updated"}
+
+# ============== MARKETING ANALYTICS ==============
+@marketing_router.get("/analytics")
+async def get_marketing_analytics(user: dict = Depends(require_department(["marketing"]))):
+    return {
+        "total_reach": 0,
+        "engagement": 0,
+        "roi": 0,
+        "campaigns_performance": []
+    }
+
+# ============== MARKETING PAYMENTS ==============
+@marketing_router.get("/payments")
+async def get_payments(user: dict = Depends(require_department(["marketing"]))):
+    payments = await db.payments.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return payments
+
+@marketing_router.post("/payments")
+async def create_payment(data: dict, user: dict = Depends(require_department(["marketing"]))):
+    payment_id = str(uuid.uuid4())
+    payment_doc = {
+        "id": payment_id,
+        **data,
+        "status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.payments.insert_one(payment_doc)
+    if '_id' in payment_doc: del payment_doc['_id']
+    return payment_doc
+
+# ============== MARKETING SCHEDULED ==============
+@marketing_router.get("/scheduled")
+async def get_scheduled(user: dict = Depends(require_department(["marketing"]))):
+    scheduled = await db.scheduled_content.find({}, {"_id": 0}).sort("scheduled_at", 1).to_list(100)
+    return scheduled
+
+# ============== MARKETING AI ==============
+@marketing_router.post("/ai/discover")
+async def discover_influencers(data: dict, user: dict = Depends(require_department(["marketing"]))):
+    # Placeholder for AI influencer discovery
+    return {
+        "influencers": [],
+        "total": 0
+    }
+
+@marketing_router.get("/ai/analyze/{influencer_id}")
+async def analyze_influencer(influencer_id: str, user: dict = Depends(require_department(["marketing"]))):
+    influencer = await db.influencers.find_one({"id": influencer_id}, {"_id": 0})
+    if not influencer:
+        raise HTTPException(status_code=404, detail="Influencer not found")
+    return {
+        "influencer": influencer,
+        "analysis": {
+            "score": influencer.get("score", 0),
+            "engagement_trend": "stable",
+            "recommended": True
+        }
+    }
+
 # Include routers
 api_router.include_router(auth_router)
 api_router.include_router(marketing_router)

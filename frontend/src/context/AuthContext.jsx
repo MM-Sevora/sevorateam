@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useMsal, useIsAuthenticated } from '@azure/msal-react';
 import { InteractionStatus } from '@azure/msal-browser';
 import { loginRequest } from '../authConfig';
@@ -208,6 +208,24 @@ export const AuthProvider = ({ children }) => {
         }
     }, [fetchUserProfile, accounts, inProgress, processAzureToken]);
 
+    // Create authenticated API instance
+    const api = useMemo(() => {
+        const instance = axios.create({
+            baseURL: `${BACKEND_URL}/api`,
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        instance.interceptors.request.use((config) => {
+            const currentToken = localStorage.getItem('sevora_token');
+            if (currentToken) {
+                config.headers.Authorization = `Bearer ${currentToken}`;
+            }
+            return config;
+        });
+        
+        return instance;
+    }, []);
+
     const value = {
         user,
         token,
@@ -220,7 +238,8 @@ export const AuthProvider = ({ children }) => {
         logout,
         hasAccessToDepartment,
         getUserDepartments,
-        ROLE_DEPARTMENTS
+        ROLE_DEPARTMENTS,
+        api
     };
 
     return (

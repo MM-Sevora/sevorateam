@@ -31,6 +31,8 @@ const DEPARTMENT_CONFIG = {
             { path: '/marketing/campaigns', name: 'Campaigns', icon: Target },
             { path: '/marketing/outreach', name: 'Outreach', icon: MessageSquare },
             { path: '/marketing/negotiations', name: 'Negotiations', icon: DollarSign },
+            { path: '/marketing/budget', name: 'Budget', icon: DollarSign },
+            { path: '/marketing/ai-tools', name: 'AI Tools', icon: Sparkles },
             { path: '/marketing/analytics', name: 'Analytics', icon: BarChart3 },
         ]
     },
@@ -48,6 +50,7 @@ const DEPARTMENT_CONFIG = {
             { path: '/sales/wedding-planner', name: 'Wedding Planner', icon: Calendar },
             { path: '/sales/qrcodes', name: 'QR Codes', icon: QrCode },
             { path: '/sales/partners', name: 'Partners', icon: Building2 },
+            { path: '/sales/analytics', name: 'Analytics', icon: BarChart3 },
         ]
     },
     social: {
@@ -62,9 +65,10 @@ const DEPARTMENT_CONFIG = {
             { path: '/social/ai-tools', name: 'AI Tools', icon: Sparkles },
             { path: '/social/autopilot', name: 'Autopilot', icon: Zap },
             { path: '/social/posts', name: 'Posts & Schedule', icon: Clock },
-            { path: '/social/analytics', name: 'Analytics', icon: BarChart3 },
-            { path: '/social/youtube', name: 'YouTube', icon: Youtube },
             { path: '/social/library', name: 'Content Library', icon: Image },
+            { path: '/social/youtube', name: 'YouTube', icon: Youtube },
+            { path: '/social/avatar', name: 'Avatar', icon: Users },
+            { path: '/social/analytics', name: 'Analytics', icon: BarChart3 },
         ]
     }
 };

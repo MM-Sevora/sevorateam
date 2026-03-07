@@ -14,13 +14,34 @@ import { DashboardPage } from "./pages/DashboardPage";
 // Marketing Pages
 import { MarketingDashboard } from "./pages/marketing/Dashboard";
 import { InfluencersPage } from "./pages/marketing/Influencers";
+import CampaignsPage from "./pages/marketing/Campaigns";
+import OutreachPage from "./pages/marketing/Outreach";
+import NegotiationsPage from "./pages/marketing/Negotiations";
+import MarketingAnalyticsPage from "./pages/marketing/Analytics";
+import AIToolsPage from "./pages/marketing/AITools";
+import BudgetPage from "./pages/marketing/Budget";
 
 // Sales Pages
 import { SalesDashboard } from "./pages/sales/Dashboard";
 import { LeadsPage } from "./pages/sales/Leads";
+import CustomersPage from "./pages/sales/Customers";
+import PipelinePage from "./pages/sales/Pipeline";
+import QRCodesPage from "./pages/sales/QRCodes";
+import PartnersPage from "./pages/sales/Partners";
+import WeddingPlannerPage from "./pages/sales/WeddingPlanner";
+import LeadCapturePage from "./pages/sales/LeadCapture";
+import SalesAnalyticsPage from "./pages/sales/Analytics";
 
 // Social Pages
 import { SocialDashboard } from "./pages/social/Dashboard";
+import ContentStudio from "./pages/social/ContentStudio";
+import SocialAIToolsPage from "./pages/social/AITools";
+import AutopilotPage from "./pages/social/Autopilot";
+import PostsAndSchedulePage from "./pages/social/PostsAndSchedule";
+import SocialAnalyticsPage from "./pages/social/Analytics";
+import YouTubePage from "./pages/social/YouTube";
+import ContentLibraryPage from "./pages/social/ContentLibrary";
+import AvatarPage from "./pages/social/Avatar";
 
 import "./App.css";
 
@@ -69,24 +90,12 @@ const PublicRoute = ({ children }) => {
     return children;
 };
 
-// Placeholder Pages for routes not yet implemented
-const PlaceholderPage = ({ title, department }) => (
-    <div className="p-8">
-        <h1 className="text-2xl font-bold text-white">{title}</h1>
-        <p className="text-white/50 mt-2">This page is coming soon...</p>
-        <div className={`mt-4 w-32 h-1 rounded ${
-            department === 'marketing' ? 'bg-violet-500' :
-            department === 'sales' ? 'bg-emerald-500' :
-            'bg-pink-500'
-        }`} />
-    </div>
-);
-
 function AppRoutes() {
     return (
         <Routes>
             {/* Public Routes */}
             <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+            <Route path="/capture" element={<LeadCapturePage />} />
 
             {/* Main Dashboard */}
             <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
@@ -94,29 +103,33 @@ function AppRoutes() {
             {/* Marketing Routes */}
             <Route path="/marketing" element={<ProtectedRoute requiredDepartment="marketing"><MarketingDashboard /></ProtectedRoute>} />
             <Route path="/marketing/influencers" element={<ProtectedRoute requiredDepartment="marketing"><InfluencersPage /></ProtectedRoute>} />
-            <Route path="/marketing/campaigns" element={<ProtectedRoute requiredDepartment="marketing"><PlaceholderPage title="Campaigns" department="marketing" /></ProtectedRoute>} />
-            <Route path="/marketing/outreach" element={<ProtectedRoute requiredDepartment="marketing"><PlaceholderPage title="Outreach" department="marketing" /></ProtectedRoute>} />
-            <Route path="/marketing/negotiations" element={<ProtectedRoute requiredDepartment="marketing"><PlaceholderPage title="Negotiations" department="marketing" /></ProtectedRoute>} />
-            <Route path="/marketing/analytics" element={<ProtectedRoute requiredDepartment="marketing"><PlaceholderPage title="Marketing Analytics" department="marketing" /></ProtectedRoute>} />
+            <Route path="/marketing/campaigns" element={<ProtectedRoute requiredDepartment="marketing"><CampaignsPage /></ProtectedRoute>} />
+            <Route path="/marketing/outreach" element={<ProtectedRoute requiredDepartment="marketing"><OutreachPage /></ProtectedRoute>} />
+            <Route path="/marketing/negotiations" element={<ProtectedRoute requiredDepartment="marketing"><NegotiationsPage /></ProtectedRoute>} />
+            <Route path="/marketing/analytics" element={<ProtectedRoute requiredDepartment="marketing"><MarketingAnalyticsPage /></ProtectedRoute>} />
+            <Route path="/marketing/ai-tools" element={<ProtectedRoute requiredDepartment="marketing"><AIToolsPage /></ProtectedRoute>} />
+            <Route path="/marketing/budget" element={<ProtectedRoute requiredDepartment="marketing"><BudgetPage /></ProtectedRoute>} />
 
             {/* Sales Routes */}
             <Route path="/sales" element={<ProtectedRoute requiredDepartment="sales"><SalesDashboard /></ProtectedRoute>} />
             <Route path="/sales/leads" element={<ProtectedRoute requiredDepartment="sales"><LeadsPage /></ProtectedRoute>} />
-            <Route path="/sales/customers" element={<ProtectedRoute requiredDepartment="sales"><PlaceholderPage title="Customers" department="sales" /></ProtectedRoute>} />
-            <Route path="/sales/pipeline" element={<ProtectedRoute requiredDepartment="sales"><PlaceholderPage title="Pipeline" department="sales" /></ProtectedRoute>} />
-            <Route path="/sales/wedding-planner" element={<ProtectedRoute requiredDepartment="sales"><PlaceholderPage title="Wedding Planner" department="sales" /></ProtectedRoute>} />
-            <Route path="/sales/qrcodes" element={<ProtectedRoute requiredDepartment="sales"><PlaceholderPage title="QR Codes" department="sales" /></ProtectedRoute>} />
-            <Route path="/sales/partners" element={<ProtectedRoute requiredDepartment="sales"><PlaceholderPage title="Partners" department="sales" /></ProtectedRoute>} />
+            <Route path="/sales/customers" element={<ProtectedRoute requiredDepartment="sales"><CustomersPage /></ProtectedRoute>} />
+            <Route path="/sales/pipeline" element={<ProtectedRoute requiredDepartment="sales"><PipelinePage /></ProtectedRoute>} />
+            <Route path="/sales/wedding-planner" element={<ProtectedRoute requiredDepartment="sales"><WeddingPlannerPage /></ProtectedRoute>} />
+            <Route path="/sales/qrcodes" element={<ProtectedRoute requiredDepartment="sales"><QRCodesPage /></ProtectedRoute>} />
+            <Route path="/sales/partners" element={<ProtectedRoute requiredDepartment="sales"><PartnersPage /></ProtectedRoute>} />
+            <Route path="/sales/analytics" element={<ProtectedRoute requiredDepartment="sales"><SalesAnalyticsPage /></ProtectedRoute>} />
 
             {/* Social Routes */}
             <Route path="/social" element={<ProtectedRoute requiredDepartment="social"><SocialDashboard /></ProtectedRoute>} />
-            <Route path="/social/studio" element={<ProtectedRoute requiredDepartment="social"><PlaceholderPage title="Content Studio" department="social" /></ProtectedRoute>} />
-            <Route path="/social/ai-tools" element={<ProtectedRoute requiredDepartment="social"><PlaceholderPage title="AI Tools" department="social" /></ProtectedRoute>} />
-            <Route path="/social/autopilot" element={<ProtectedRoute requiredDepartment="social"><PlaceholderPage title="Autopilot" department="social" /></ProtectedRoute>} />
-            <Route path="/social/posts" element={<ProtectedRoute requiredDepartment="social"><PlaceholderPage title="Posts & Schedule" department="social" /></ProtectedRoute>} />
-            <Route path="/social/analytics" element={<ProtectedRoute requiredDepartment="social"><PlaceholderPage title="Social Analytics" department="social" /></ProtectedRoute>} />
-            <Route path="/social/youtube" element={<ProtectedRoute requiredDepartment="social"><PlaceholderPage title="YouTube" department="social" /></ProtectedRoute>} />
-            <Route path="/social/library" element={<ProtectedRoute requiredDepartment="social"><PlaceholderPage title="Content Library" department="social" /></ProtectedRoute>} />
+            <Route path="/social/studio" element={<ProtectedRoute requiredDepartment="social"><ContentStudio /></ProtectedRoute>} />
+            <Route path="/social/ai-tools" element={<ProtectedRoute requiredDepartment="social"><SocialAIToolsPage /></ProtectedRoute>} />
+            <Route path="/social/autopilot" element={<ProtectedRoute requiredDepartment="social"><AutopilotPage /></ProtectedRoute>} />
+            <Route path="/social/posts" element={<ProtectedRoute requiredDepartment="social"><PostsAndSchedulePage /></ProtectedRoute>} />
+            <Route path="/social/analytics" element={<ProtectedRoute requiredDepartment="social"><SocialAnalyticsPage /></ProtectedRoute>} />
+            <Route path="/social/youtube" element={<ProtectedRoute requiredDepartment="social"><YouTubePage /></ProtectedRoute>} />
+            <Route path="/social/library" element={<ProtectedRoute requiredDepartment="social"><ContentLibraryPage /></ProtectedRoute>} />
+            <Route path="/social/avatar" element={<ProtectedRoute requiredDepartment="social"><AvatarPage /></ProtectedRoute>} />
 
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" replace />} />
