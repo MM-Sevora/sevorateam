@@ -67,8 +67,12 @@ class ContactCreate(BaseModel):
     
     # For journalists/bloggers
     publication: Optional[str] = None
+    publication_website: Optional[str] = None
     beat: Optional[str] = None  # e.g., "fashion", "lifestyle", "tech"
     editor_level: Optional[str] = None  # e.g., "staff", "senior", "editor-in-chief"
+    domain_authority: Optional[int] = None  # 1-100
+    monthly_traffic: Optional[int] = None
+    preferred_contact_method: Optional[str] = None  # email, phone, linkedin, twitter
     
     notes: Optional[str] = None
     
