@@ -300,8 +300,8 @@ async def create_contract_template(data: ContractTemplateCreate):
 
 # ============== INFLUENCER CONTRACTS ==============
 
-@marketing_extended_router.get("/contracts", response_model=List[InfluencerContractResponse])
-async def get_contracts(
+@marketing_extended_router.get("/influencer-contracts", response_model=List[InfluencerContractResponse])
+async def get_influencer_contracts(
     contact_id: Optional[str] = None,
     campaign_id: Optional[str] = None,
     status: Optional[str] = None,
@@ -320,8 +320,8 @@ async def get_contracts(
     contracts = await db.influencer_contracts.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
     return contracts
 
-@marketing_extended_router.post("/contracts", response_model=InfluencerContractResponse)
-async def create_contract(data: InfluencerContractCreate):
+@marketing_extended_router.post("/influencer-contracts", response_model=InfluencerContractResponse)
+async def create_influencer_contract(data: InfluencerContractCreate):
     """Create a new influencer contract"""
     db = get_db()
     
@@ -350,8 +350,8 @@ async def create_contract(data: InfluencerContractCreate):
     del contract_doc["_id"]
     return contract_doc
 
-@marketing_extended_router.put("/contracts/{contract_id}/acknowledge")
-async def acknowledge_contract(contract_id: str, request: Request):
+@marketing_extended_router.put("/influencer-contracts/{contract_id}/acknowledge")
+async def acknowledge_influencer_contract(contract_id: str, request: Request):
     """Acknowledge/sign contract (simple checkbox acknowledgment)"""
     db = get_db()
     
@@ -373,8 +373,8 @@ async def acknowledge_contract(contract_id: str, request: Request):
     
     return {"message": "Contract acknowledged", "acknowledged_at": now}
 
-@marketing_extended_router.put("/contracts/{contract_id}/send")
-async def send_contract(contract_id: str):
+@marketing_extended_router.put("/influencer-contracts/{contract_id}/send")
+async def send_influencer_contract(contract_id: str):
     """Mark contract as sent"""
     db = get_db()
     

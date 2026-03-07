@@ -361,6 +361,67 @@ Consolidate multiple Sevora applications (Influencer Operations from 'main' bran
 - Backend: 100% endpoints verified via curl
 - All major data fetching errors resolved
 
+## Phase 3: Granular CRUD Permissions (COMPLETE - March 2026)
+- [x] Backend: `/auth/me` returns user permissions object
+- [x] Frontend: `AuthContext` has `hasPermission(module, action)` helper
+- [x] Admin UI: `/admin/permissions` page for role-based permission management
+- [x] Enforcement: Permissions checked on frontend for button/action visibility
+- [x] All tests passed (iteration_6.json)
+
+## Marketing Module V2 Restructure (COMPLETE - March 2026)
+- [x] Backend refactored: `routes/marketing_v2.py` and `models/marketing.py`
+- [x] Unified "Contacts" model for influencers, journalists, bloggers
+- [x] New frontend pages: ContactsHubPage, ContactDetailPage, DigitalPRPage, EventsPage, etc.
+- [x] All tests passed (iteration_7.json)
+
+## Advanced Influencer Marketing Features (COMPLETE - March 2026)
+Implementation of 11 advanced features for influencer operations:
+
+### Backend (marketing_extended.py)
+- [x] **Gifting/Seeding Tracker**: CRUD for product gifting records, status tracking (planned→shipped→delivered→posted)
+- [x] **Promo Code Generator**: Auto-generate unique codes based on influencer name, track usage & revenue
+- [x] **UTM Link Generator**: Build tracked URLs with utm_source, utm_medium, utm_campaign params
+- [x] **Contract Templates**: Create reusable contract templates by category
+- [x] **Influencer Contracts**: Send, acknowledge contracts (checkbox acknowledgment)
+- [x] **Content Approval Workflow**: Submit content for review, approve/reject/request revision
+- [x] **Brand Safety Scanner**: AI-powered influencer safety analysis with fallback mock data
+- [x] **Sentiment Analysis**: AI-powered content sentiment analysis with fallback
+- [x] **Availability Calendar**: Track influencer availability slots
+- [x] **Exclusivity Tracker**: Check active exclusivity agreements by category
+- [x] **Relationship Scoring**: Calculate engagement score based on campaigns, revenue, content quality
+- [x] **Post-Campaign Reports**: Generate ROI reports with reach, engagement, promo code stats
+
+### Frontend (ContactDetailPage.jsx)
+- [x] **Gifting Tab**: View/create gift records with status tracking
+- [x] **Tracking Tab**: Promo codes with copy-to-clipboard, UTM links with full URL display
+- [x] **Contracts Tab**: List influencer contracts with status badges
+- [x] **Performance Tab**: Relationship Score display with tier (ambassador/vip/established/new)
+
+### API Endpoints
+- `GET/POST /api/marketing/v2/gifting` - Gifting records
+- `PUT /api/marketing/v2/gifting/{id}/status` - Update gift status
+- `GET/POST /api/marketing/v2/promo-codes` - Promo codes
+- `PUT /api/marketing/v2/promo-codes/{id}/use` - Record promo code use
+- `GET/POST /api/marketing/v2/utm-links` - UTM links
+- `GET/POST /api/marketing/v2/influencer-contracts` - Influencer contracts
+- `PUT /api/marketing/v2/influencer-contracts/{id}/acknowledge` - Acknowledge contract
+- `GET/POST /api/marketing/v2/contract-templates` - Contract templates
+- `GET/POST /api/marketing/v2/content-approval` - Content submissions
+- `PUT /api/marketing/v2/content-approval/{id}/review` - Review content
+- `POST /api/marketing/v2/brand-safety/scan` - Run brand safety scan
+- `GET /api/marketing/v2/brand-safety/{contact_id}` - Get safety check
+- `POST /api/marketing/v2/sentiment/analyze` - Analyze sentiment
+- `GET/POST /api/marketing/v2/availability` - Availability slots
+- `GET /api/marketing/v2/availability/check/{contact_id}` - Check availability
+- `GET /api/marketing/v2/exclusivity/{contact_id}` - Get exclusivity status
+- `GET /api/marketing/v2/relationship-score/{contact_id}` - Get relationship score
+- `GET /api/marketing/v2/campaign-report/{campaign_id}` - Post-campaign report
+
+### Testing
+- All 23 backend tests passed (iteration_8.json)
+- All frontend tabs and modals working correctly
+- Route conflict fixed: Renamed `/contracts` to `/influencer-contracts` to avoid conflict with deal contracts
+
 ## Earlier Updates (March 2026)
 - **White/Light Theme Complete**: Applied consistent white background theme across ALL pages
   - Login page: Clean card with purple gradient button

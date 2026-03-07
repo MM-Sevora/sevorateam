@@ -137,7 +137,7 @@ const ContactDetailPage = () => {
 
   const fetchContracts = useCallback(async () => {
     try {
-      const response = await api.get(`/marketing/v2/contracts?contact_id=${contactId}`);
+      const response = await api.get(`/marketing/v2/influencer-contracts?contact_id=${contactId}`);
       setContracts(response.data || []);
     } catch (error) {
       console.error('Failed to load contracts:', error);
