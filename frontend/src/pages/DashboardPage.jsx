@@ -7,12 +7,12 @@ import { Link } from 'react-router-dom';
 
 const StatCard = ({ title, value, icon: Icon, color, link }) => (
     <Link to={link}>
-        <Card className="bg-[#12121a] border-white/5 hover:border-white/10 transition-all cursor-pointer group">
+        <Card className="bg-white border-gray-200 hover:border-gray-300 hover:shadow-md transition-all cursor-pointer group">
             <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                     <div>
-                        <p className="text-white/50 text-sm">{title}</p>
-                        <p className="text-3xl font-bold text-white mt-1">{value}</p>
+                        <p className="text-gray-500 text-sm">{title}</p>
+                        <p className="text-3xl font-bold text-gray-900 mt-1">{value}</p>
                     </div>
                     <div className={`w-12 h-12 rounded-xl ${color} flex items-center justify-center group-hover:scale-110 transition-transform`}>
                         <Icon className="w-6 h-6 text-white" />
@@ -67,15 +67,15 @@ export const DashboardPage = () => {
         <div className="p-8 space-y-8" data-testid="dashboard-page">
             {/* Header */}
             <div>
-                <h1 className="text-2xl font-bold text-white">
+                <h1 className="text-2xl font-bold text-gray-900">
                     Welcome back, {user?.name?.split(' ')[0]}
                 </h1>
-                <p className="text-white/50 mt-1">Here's what's happening across your teams</p>
+                <p className="text-gray-500 mt-1">Here's what's happening across your teams</p>
             </div>
 
             {/* Marketing Ops Section */}
             {hasAccessToDepartment('marketing') && (
-                <DepartmentSection title="Marketing Ops" color="text-violet-400">
+                <DepartmentSection title="Marketing Ops" color="text-violet-600">
                     <StatCard 
                         title="Influencers" 
                         value={marketingStats.influencers || 0}
@@ -102,7 +102,7 @@ export const DashboardPage = () => {
 
             {/* Sales Section */}
             {hasAccessToDepartment('sales') && (
-                <DepartmentSection title="Sales" color="text-emerald-400">
+                <DepartmentSection title="Sales" color="text-emerald-600">
                     <StatCard 
                         title="Total Leads" 
                         value={salesStats.leads || 0}
@@ -129,7 +129,7 @@ export const DashboardPage = () => {
 
             {/* Social Section */}
             {hasAccessToDepartment('social') && (
-                <DepartmentSection title="Social Media" color="text-pink-400">
+                <DepartmentSection title="Social Media" color="text-pink-600">
                     <StatCard 
                         title="Total Content" 
                         value={socialStats.content || 0}
@@ -158,30 +158,30 @@ export const DashboardPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {hasAccessToDepartment('marketing') && (
                     <Link to="/marketing/influencers">
-                        <Card className="bg-gradient-to-br from-violet-500/20 to-purple-500/20 border-violet-500/30 hover:border-violet-500/50 transition-all cursor-pointer">
+                        <Card className="bg-gradient-to-br from-violet-50 to-purple-50 border-violet-200 hover:border-violet-300 hover:shadow-md transition-all cursor-pointer">
                             <CardContent className="p-6">
-                                <h3 className="text-white font-semibold">Add Influencer</h3>
-                                <p className="text-white/50 text-sm mt-1">Discover and add new influencers</p>
+                                <h3 className="text-gray-900 font-semibold">Add Influencer</h3>
+                                <p className="text-gray-500 text-sm mt-1">Discover and add new influencers</p>
                             </CardContent>
                         </Card>
                     </Link>
                 )}
                 {hasAccessToDepartment('sales') && (
                     <Link to="/sales/leads">
-                        <Card className="bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border-emerald-500/30 hover:border-emerald-500/50 transition-all cursor-pointer">
+                        <Card className="bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200 hover:border-emerald-300 hover:shadow-md transition-all cursor-pointer">
                             <CardContent className="p-6">
-                                <h3 className="text-white font-semibold">New Lead</h3>
-                                <p className="text-white/50 text-sm mt-1">Capture a new sales lead</p>
+                                <h3 className="text-gray-900 font-semibold">New Lead</h3>
+                                <p className="text-gray-500 text-sm mt-1">Capture a new sales lead</p>
                             </CardContent>
                         </Card>
                     </Link>
                 )}
                 {hasAccessToDepartment('social') && (
                     <Link to="/social/studio">
-                        <Card className="bg-gradient-to-br from-pink-500/20 to-rose-500/20 border-pink-500/30 hover:border-pink-500/50 transition-all cursor-pointer">
+                        <Card className="bg-gradient-to-br from-pink-50 to-rose-50 border-pink-200 hover:border-pink-300 hover:shadow-md transition-all cursor-pointer">
                             <CardContent className="p-6">
-                                <h3 className="text-white font-semibold">Create Content</h3>
-                                <p className="text-white/50 text-sm mt-1">Generate new social content</p>
+                                <h3 className="text-gray-900 font-semibold">Create Content</h3>
+                                <p className="text-gray-500 text-sm mt-1">Generate new social content</p>
                             </CardContent>
                         </Card>
                     </Link>

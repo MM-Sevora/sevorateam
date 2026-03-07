@@ -161,11 +161,13 @@ Consolidate multiple Sevora applications (Influencer Operations from 'main' bran
 - [x] Team collaboration
 
 ### P1 - High Priority
-- [ ] Real-time WebSocket notifications
-- [ ] WhatsApp Business API (production)
+- [x] Real-time WebSocket notifications
+- [ ] WhatsApp Business API (production - sandbox setup required)
 - [ ] Advanced analytics charts
+- [ ] Wire up frontend AI/Outreach UI to backend APIs
 
 ### P2 - Medium Priority
+- [ ] Full CampaignsPage.jsx restoration
 - [ ] Export/Import functionality
 - [ ] Mobile responsive optimization
 - [ ] Automated social posting
@@ -174,9 +176,17 @@ Consolidate multiple Sevora applications (Influencer Operations from 'main' bran
 - [ ] Revenue tracking and ROI calculations
 - [ ] Multi-tenant support
 - [ ] Custom branding per client
+- [ ] AI-powered lead scoring
 
 ## Next Tasks
-1. Set up WhatsApp Business API for production
-2. Add real-time WebSocket notifications
-3. Create analytics dashboards with charts
-4. Add export functionality for reports
+1. User to verify Azure AD SSO flow in Incognito window
+2. User to complete Twilio WhatsApp Sandbox setup
+3. Wire up ContentStudio AI generation UI
+4. Wire up Outreach page to communication APIs
+5. Restore full CampaignsPage.jsx functionality
+
+## Latest Updates (March 2026)
+- Implemented white/light theme across entire application
+- Fixed Azure AD SSO authentication flow with better state persistence
+- Updated all department dashboards to use white theme
+- Updated sidebar, login page, and notifications with light styling

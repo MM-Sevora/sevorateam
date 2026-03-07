@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, BackgroundTasks, Query
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, BackgroundTasks, Query, WebSocket, WebSocketDisconnect
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
@@ -1642,9 +1642,14 @@ async def add_comment(
     
     await db.comments.insert_one(comment_doc)
     
-    # Create notifications for mentioned users
+    # Remove MongoDB _id before returning
+    if '_id' in comment_doc:
+        del comment_doc['_id']
+    
+    # Create notifications for mentioned users and send via WebSocket
+    from services.websocket_service import manager as ws_manager
     for mentioned in mentions:
-        await db.notifications.insert_one({
+        notification_doc = {
             "id": str(uuid.uuid4()),
             "type": "mention",
             "user_id": mentioned['id'],
@@ -1654,10 +1659,16 @@ async def add_comment(
             "entity_id": data.get("entity_id"),
             "read": False,
             "created_at": datetime.now(timezone.utc).isoformat()
-        })
+        }
+        await db.notifications.insert_one(notification_doc)
+        if '_id' in notification_doc:
+            del notification_doc['_id']
+        
+        # Send real-time WebSocket notification
+        await ws_manager.send_personal_notification(mentioned['id'], notification_doc)
     
     # Create activity feed entry
-    await db.activity_feed.insert_one({
+    activity_doc = {
         "id": str(uuid.uuid4()),
         "type": "comment",
         "user_id": user['id'],
@@ -1666,10 +1677,14 @@ async def add_comment(
         "entity_id": data.get("entity_id"),
         "description": f"commented on {data.get('entity_type')}",
         "created_at": datetime.now(timezone.utc).isoformat()
-    })
+    }
+    await db.activity_feed.insert_one(activity_doc)
+    if '_id' in activity_doc:
+        del activity_doc['_id']
     
-    if '_id' in comment_doc:
-        del comment_doc['_id']
+    # Broadcast activity to all connected users
+    await ws_manager.broadcast_activity(activity_doc)
+    
     return comment_doc
 
 @collab_router.get("/comments/{entity_type}/{entity_id}")
@@ -1746,6 +1761,113 @@ api_router.include_router(marketing_router)
 api_router.include_router(sales_router)
 api_router.include_router(social_router)
 app.include_router(api_router)
+
+# ============== WEBSOCKET FOR REAL-TIME NOTIFICATIONS ==============
+from services.websocket_service import manager as ws_manager
+
+@app.websocket("/ws/{token}")
+async def websocket_endpoint(websocket: WebSocket, token: str):
+    """
+    WebSocket endpoint for real-time notifications
+    Connect with: ws://host/ws/{jwt_token}
+    """
+    try:
+        # Verify token
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_id = payload.get("sub")
+        if not user_id:
+            await websocket.close(code=4001, reason="Invalid token")
+            return
+        
+        # Get user's departments
+        user = await db.users.find_one({"id": user_id}, {"_id": 0})
+        if not user:
+            await websocket.close(code=4001, reason="User not found")
+            return
+        
+        departments = get_user_departments(user.get('role', 'viewer'))
+        
+        # Connect
+        await ws_manager.connect(websocket, user_id, departments)
+        
+        # Send initial connection confirmation
+        await websocket.send_json({
+            "type": "connected",
+            "user_id": user_id,
+            "departments": departments,
+            "online_users": ws_manager.get_online_users_count()
+        })
+        
+        # Keep connection alive and handle messages
+        while True:
+            try:
+                data = await websocket.receive_text()
+                message = json.loads(data)
+                
+                # Handle ping
+                if message.get("type") == "ping":
+                    await websocket.send_json({"type": "pong"})
+                
+                # Handle mark notification as read via WebSocket
+                elif message.get("type") == "mark_read":
+                    notification_id = message.get("notification_id")
+                    if notification_id:
+                        await db.notifications.update_one(
+                            {"id": notification_id, "user_id": user_id},
+                            {"$set": {"read": True}}
+                        )
+                        await websocket.send_json({
+                            "type": "notification_marked_read",
+                            "notification_id": notification_id
+                        })
+                        
+            except WebSocketDisconnect:
+                break
+            except json.JSONDecodeError:
+                continue
+            except Exception as e:
+                logger.error(f"WebSocket message error: {e}")
+                continue
+                
+    except jwt.ExpiredSignatureError:
+        await websocket.close(code=4001, reason="Token expired")
+    except jwt.InvalidTokenError:
+        await websocket.close(code=4001, reason="Invalid token")
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+    finally:
+        if 'user_id' in locals():
+            ws_manager.disconnect(websocket, user_id)
+
+@api_router.get("/ws/online-users")
+async def get_online_users(user: dict = Depends(get_current_user)):
+    """Get count and list of online users"""
+    return {
+        "count": ws_manager.get_online_users_count(),
+        "users": ws_manager.get_online_users()
+    }
+
+# Helper function to send notifications via WebSocket
+async def notify_new_lead(lead_name: str, source: str):
+    """Call this when a new lead is created"""
+    await ws_manager.send_lead_notification("sales", lead_name, source)
+
+async def notify_campaign_update(campaign_name: str, action: str):
+    """Call this when a campaign is updated"""
+    await ws_manager.send_campaign_notification(campaign_name, action)
+
+async def notify_content_update(content_title: str, status: str):
+    """Call this when content status changes"""
+    await ws_manager.send_content_notification(content_title, status)
+
+async def notify_mention(mentioned_user_id: str, mentioner_name: str, 
+                        entity_type: str, entity_id: str, comment_text: str):
+    """Call this when user is mentioned"""
+    await ws_manager.send_mention_notification(
+        mentioned_user_id, mentioner_name, entity_type, entity_id, comment_text
+    )
 
 app.add_middleware(
     CORSMiddleware,

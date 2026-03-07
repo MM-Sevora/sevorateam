@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { NotificationsDropdown, OnlineUsersIndicator } from './Notifications';
 import { 
     LayoutDashboard, Users, Target, MessageSquare, DollarSign, BarChart3,
     UserPlus, ShoppingBag, Calendar, QrCode, Building2, Settings,
@@ -115,31 +116,31 @@ export const Layout = ({ children }) => {
     };
 
     return (
-        <div className="flex h-screen bg-[#0a0a0f] text-white overflow-hidden">
+        <div className="flex h-screen bg-gray-50 text-gray-900 overflow-hidden">
             {/* Sidebar */}
             <aside 
-                className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-[#12121a] border-r border-white/5 flex flex-col transition-all duration-300 ease-in-out`}
+                className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-white border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out shadow-sm`}
             >
                 {/* Logo */}
-                <div className="h-16 flex items-center justify-between px-4 border-b border-white/5">
+                <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100">
                     <Link to="/" className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
                             <Briefcase className="w-5 h-5 text-white" />
                         </div>
                         {sidebarOpen && (
                             <div>
-                                <h1 className="text-lg font-bold bg-gradient-to-r from-violet-400 to-purple-400 bg-clip-text text-transparent">
+                                <h1 className="text-lg font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
                                     SEVORA
                                 </h1>
-                                <p className="text-[10px] text-white/40 -mt-1">TEAM PLATFORM</p>
+                                <p className="text-[10px] text-gray-400 -mt-1">TEAM PLATFORM</p>
                             </div>
                         )}
                     </Link>
                     <button 
                         onClick={() => setSidebarOpen(!sidebarOpen)}
-                        className="p-2 hover:bg-white/5 rounded-lg transition-colors"
+                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                     >
-                        {sidebarOpen ? <X className="w-4 h-4 text-white/40" /> : <Menu className="w-4 h-4 text-white/40" />}
+                        {sidebarOpen ? <X className="w-4 h-4 text-gray-500" /> : <Menu className="w-4 h-4 text-gray-500" />}
                     </button>
                 </div>
 
@@ -150,8 +151,8 @@ export const Layout = ({ children }) => {
                         to="/"
                         className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
                             location.pathname === '/' 
-                                ? 'bg-white/10 text-white' 
-                                : 'text-white/60 hover:bg-white/5 hover:text-white'
+                                ? 'bg-violet-50 text-violet-700 font-medium' 
+                                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                         }`}
                     >
                         <LayoutDashboard className="w-5 h-5" />
@@ -172,7 +173,7 @@ export const Layout = ({ children }) => {
                                     className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all ${
                                         isCurrentDept 
                                             ? `${dept.bgColor} ${dept.textColor}` 
-                                            : 'text-white/60 hover:bg-white/5 hover:text-white'
+                                            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                                     }`}
                                 >
                                     <div className="flex items-center gap-3">
@@ -190,7 +191,7 @@ export const Layout = ({ children }) => {
 
                                 {/* Department Routes */}
                                 {sidebarOpen && isExpanded && (
-                                    <div className="ml-4 pl-4 border-l border-white/10 space-y-1">
+                                    <div className="ml-4 pl-4 border-l border-gray-200 space-y-1">
                                         {dept.routes.map(route => {
                                             const RouteIcon = route.icon;
                                             const isActive = location.pathname === route.path;
@@ -200,8 +201,8 @@ export const Layout = ({ children }) => {
                                                     to={route.path}
                                                     className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${
                                                         isActive 
-                                                            ? `bg-white/10 ${dept.textColor}` 
-                                                            : 'text-white/50 hover:bg-white/5 hover:text-white/80'
+                                                            ? `bg-gray-100 ${dept.textColor} font-medium` 
+                                                            : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
                                                     }`}
                                                 >
                                                     <RouteIcon className="w-4 h-4" />
@@ -217,10 +218,10 @@ export const Layout = ({ children }) => {
                 </nav>
 
                 {/* User Section */}
-                <div className="p-4 border-t border-white/5">
+                <div className="p-4 border-t border-gray-100">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <button className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors">
+                            <button className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 transition-colors">
                                 <Avatar className="h-9 w-9">
                                     <AvatarImage src={user?.avatar_url} />
                                     <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm">
@@ -229,28 +230,28 @@ export const Layout = ({ children }) => {
                                 </Avatar>
                                 {sidebarOpen && (
                                     <div className="flex-1 text-left">
-                                        <p className="text-sm font-medium text-white truncate">{user?.name}</p>
-                                        <p className="text-xs text-white/40 truncate">{ROLE_LABELS[user?.role] || user?.role}</p>
+                                        <p className="text-sm font-medium text-gray-900 truncate">{user?.name}</p>
+                                        <p className="text-xs text-gray-500 truncate">{ROLE_LABELS[user?.role] || user?.role}</p>
                                     </div>
                                 )}
                             </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-56 bg-[#1a1a24] border-white/10">
-                            <DropdownMenuLabel className="text-white/60">
+                        <DropdownMenuContent align="end" className="w-56 bg-white border-gray-200">
+                            <DropdownMenuLabel className="text-gray-600">
                                 <div>
-                                    <p className="font-medium text-white">{user?.name}</p>
-                                    <p className="text-xs text-white/40">{user?.email}</p>
+                                    <p className="font-medium text-gray-900">{user?.name}</p>
+                                    <p className="text-xs text-gray-500">{user?.email}</p>
                                 </div>
                             </DropdownMenuLabel>
-                            <DropdownMenuSeparator className="bg-white/10" />
-                            <DropdownMenuItem className="text-white/70 hover:text-white hover:bg-white/5 cursor-pointer">
+                            <DropdownMenuSeparator className="bg-gray-100" />
+                            <DropdownMenuItem className="text-gray-700 hover:text-gray-900 hover:bg-gray-50 cursor-pointer">
                                 <Settings className="w-4 h-4 mr-2" />
                                 Settings
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator className="bg-white/10" />
+                            <DropdownMenuSeparator className="bg-gray-100" />
                             <DropdownMenuItem 
                                 onClick={handleLogout}
-                                className="text-red-400 hover:text-red-300 hover:bg-red-500/10 cursor-pointer"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 cursor-pointer"
                             >
                                 <LogOut className="w-4 h-4 mr-2" />
                                 Logout
@@ -261,7 +262,14 @@ export const Layout = ({ children }) => {
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-auto bg-[#0a0a0f]">
+            <main className="flex-1 overflow-auto bg-gray-50">
+                {/* Top Header Bar */}
+                <div className="h-14 border-b border-gray-200 bg-white/80 backdrop-blur-sm flex items-center justify-between px-6 sticky top-0 z-10">
+                    <OnlineUsersIndicator />
+                    <div className="flex items-center gap-2">
+                        <NotificationsDropdown />
+                    </div>
+                </div>
                 {children}
             </main>
         </div>

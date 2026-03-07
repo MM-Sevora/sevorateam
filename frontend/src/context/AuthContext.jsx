@@ -15,8 +15,9 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(localStorage.getItem('sevora_token'));
     const [loading, setLoading] = useState(true);
-    const [authMethod, setAuthMethod] = useState(null);
+    const [authMethod, setAuthMethod] = useState(localStorage.getItem('sevora_auth_method'));
     const azureLoginProcessed = useRef(false);
+    const initAttempted = useRef(false);
 
     // Department and role management
     const ROLE_DEPARTMENTS = {
@@ -47,17 +48,21 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     // Process Azure token and login to backend
-    const processAzureToken = useCallback(async (account) => {
-        if (azureLoginProcessed.current) return;
+    const processAzureToken = useCallback(async (account, forceProcess = false) => {
+        if (azureLoginProcessed.current && !forceProcess) return null;
         azureLoginProcessed.current = true;
         
         try {
             setLoading(true);
+            console.log('Processing Azure token for account:', account.username);
+            
             // Get access token silently
             const tokenResponse = await instance.acquireTokenSilent({
                 ...loginRequest,
                 account: account
             });
+
+            console.log('Got Azure access token, calling backend...');
 
             // Send Azure token to backend
             const backendResponse = await axios.post(`${API}/auth/azure`, {
@@ -65,11 +70,17 @@ export const AuthProvider = ({ children }) => {
             });
 
             const { access_token, user: userData } = backendResponse.data;
+            
+            // Persist auth state
             localStorage.setItem('sevora_token', access_token);
+            localStorage.setItem('sevora_auth_method', 'azure');
+            
             setToken(access_token);
             userData.departments = getUserDepartments(userData.role);
             setUser(userData);
             setAuthMethod('azure');
+            
+            console.log('Azure login successful, user:', userData.email);
             
             return userData;
         } catch (error) {
@@ -87,15 +98,17 @@ export const AuthProvider = ({ children }) => {
             setLoading(true);
             azureLoginProcessed.current = false;
             
+            console.log('Starting Azure popup login...');
             const response = await instance.loginPopup(loginRequest);
+            console.log('Popup login successful, account:', response.account.username);
             
             // Process the token after successful popup login
-            return await processAzureToken(response.account);
+            const userData = await processAzureToken(response.account, true);
+            return userData;
         } catch (error) {
             console.error('Azure login failed:', error);
-            throw error;
-        } finally {
             setLoading(false);
+            throw error;
         }
     };
 
@@ -107,6 +120,8 @@ export const AuthProvider = ({ children }) => {
             const { access_token, user: userData } = response.data;
             
             localStorage.setItem('sevora_token', access_token);
+            localStorage.setItem('sevora_auth_method', 'local');
+            
             setToken(access_token);
             userData.departments = getUserDepartments(userData.role);
             setUser(userData);
@@ -135,6 +150,8 @@ export const AuthProvider = ({ children }) => {
             const { access_token, user: userData } = response.data;
             
             localStorage.setItem('sevora_token', access_token);
+            localStorage.setItem('sevora_auth_method', 'local');
+            
             setToken(access_token);
             userData.departments = getUserDepartments(userData.role);
             setUser(userData);
@@ -152,9 +169,11 @@ export const AuthProvider = ({ children }) => {
     // Logout
     const logout = useCallback(() => {
         localStorage.removeItem('sevora_token');
+        localStorage.removeItem('sevora_auth_method');
         setToken(null);
         setUser(null);
         setAuthMethod(null);
+        azureLoginProcessed.current = false;
         
         // Also logout from Azure if authenticated via Azure
         if (accounts.length > 0) {
@@ -172,28 +191,38 @@ export const AuthProvider = ({ children }) => {
     // Initialize auth state on mount and handle Azure redirect
     useEffect(() => {
         const initAuth = async () => {
+            if (initAttempted.current) return;
+            initAttempted.current = true;
+            
             setLoading(true);
+            console.log('Initializing auth, inProgress:', inProgress, 'accounts:', accounts.length);
             
             // First check for saved token
             const savedToken = localStorage.getItem('sevora_token');
+            const savedAuthMethod = localStorage.getItem('sevora_auth_method');
             
             if (savedToken) {
                 try {
+                    console.log('Found saved token, verifying...');
                     const userData = await fetchUserProfile(savedToken);
                     if (userData) {
-                        setAuthMethod('local');
+                        setAuthMethod(savedAuthMethod || 'local');
                         setLoading(false);
+                        console.log('Token valid, user restored:', userData.email);
                         return;
                     }
                 } catch (error) {
+                    console.error('Saved token invalid, clearing...');
                     localStorage.removeItem('sevora_token');
+                    localStorage.removeItem('sevora_auth_method');
                     setToken(null);
                 }
             }
             
             // If MSAL has accounts (user already authenticated with Azure)
-            if (accounts.length > 0 && inProgress === InteractionStatus.None && !azureLoginProcessed.current) {
+            if (accounts.length > 0 && !azureLoginProcessed.current) {
                 try {
+                    console.log('Found MSAL account, processing Azure token...');
                     await processAzureToken(accounts[0]);
                 } catch (error) {
                     console.error('Auto Azure login failed:', error);
