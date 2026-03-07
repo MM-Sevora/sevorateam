@@ -157,10 +157,35 @@ export const AIToolsPage = () => {
 
     return (
         <div className="p-6 space-y-6" data-testid="ai-tools-page">
-            <div className="flex items-center gap-3">
-                <h1 className="font-serif text-3xl">AI Tools</h1>
-                <Sparkles className="w-6 h-6 text-gold" />
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <h1 className="font-serif text-3xl">AI Tools & Discovery</h1>
+                    <Sparkles className="w-6 h-6 text-amber-500" />
+                </div>
             </div>
+
+            {/* AI Discovery CTA Card */}
+            <Card className="bg-gradient-to-r from-amber-50 via-orange-50 to-yellow-50 border-amber-200 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => window.location.href = '/marketing/ai-discovery'}>
+                <CardContent className="p-6 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="w-16 h-16 rounded-xl bg-amber-100 flex items-center justify-center">
+                            <Users className="w-8 h-8 text-amber-600" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-semibold text-gray-900 mb-1">AI Influencer Discovery</h3>
+                            <p className="text-gray-600">Input your campaign brief and let AI recommend the perfect influencers</p>
+                            <div className="flex items-center gap-2 mt-2">
+                                <Badge className="bg-amber-100 text-amber-700">Smart Matching</Badge>
+                                <Badge className="bg-amber-100 text-amber-700">Campaign Insights</Badge>
+                                <Badge className="bg-amber-100 text-amber-700">Quick Actions</Badge>
+                            </div>
+                        </div>
+                    </div>
+                    <Button className="bg-[#c4a35a] hover:bg-[#b39349] text-white h-12 px-6">
+                        <Sparkles className="w-5 h-5 mr-2" /> Start Discovery
+                    </Button>
+                </CardContent>
+            </Card>
 
             <Tabs defaultValue="scheduled" className="space-y-4">
                 <TabsList>

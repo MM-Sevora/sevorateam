@@ -27,6 +27,7 @@ import InfluencerDetailPage from "./pages/marketing/InfluencerDetailPage";
 import CampaignDetailPage from "./pages/marketing/CampaignDetailPage";
 import CampaignHubPage from "./pages/marketing/CampaignHubPage";
 import MarketingInsightsPage from "./pages/marketing/MarketingInsightsPage";
+import AIDiscoveryPage from "./pages/marketing/AIDiscoveryPage";
 
 // Sales Pages
 import { SalesDashboard } from "./pages/sales/Dashboard";
@@ -136,6 +137,7 @@ function AppRoutes() {
             <Route path="/marketing/budget" element={<ProtectedRoute requiredDepartment="marketing"><BudgetPage /></ProtectedRoute>} />
             {/* AI Tools with Influencer Discovery */}
             <Route path="/marketing/ai-tools" element={<ProtectedRoute requiredDepartment="marketing"><AIToolsPage /></ProtectedRoute>} />
+            <Route path="/marketing/ai-discovery" element={<ProtectedRoute requiredDepartment="marketing"><AIDiscoveryPage /></ProtectedRoute>} />
             {/* Legacy Marketing Routes - kept for backward compatibility */}
             <Route path="/marketing/outreach" element={<ProtectedRoute requiredDepartment="marketing"><OutreachPage /></ProtectedRoute>} />
             <Route path="/marketing/negotiations" element={<ProtectedRoute requiredDepartment="marketing"><NegotiationsPage /></ProtectedRoute>} />

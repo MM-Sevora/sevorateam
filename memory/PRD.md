@@ -199,6 +199,66 @@ Consolidate multiple Sevora applications (Influencer Operations from 'main' bran
 
 ## Latest Updates (March 7, 2026)
 
+### Enhanced AI Discovery Feature Complete (March 7, 2026)
+
+**AI-Powered Influencer Discovery** (`AIDiscoveryPage.jsx`):
+- **Campaign Brief Form**:
+  - Industry/Niche selection (Fashion, Beauty, Tech, etc.)
+  - Target Audience text input
+  - Platform selection (Instagram/YouTube/Both)
+  - Location targeting
+  - Budget Range slider (₹0 - ₹10L)
+  - Follower Range slider (1K - 5M)
+  - Campaign Objective dropdown
+  - Content Type preference
+  - Additional Requirements textarea
+
+- **AI-Powered Recommendations**:
+  - Uses GPT-4o via Emergent LLM integration
+  - Analyzes existing influencers against campaign brief
+  - Returns match scores (0-100%) with reasoning
+  - Provides concerns/considerations for each match
+  - Suggests collaboration types
+
+- **AI Campaign Insights**:
+  - Target Audience Analysis
+  - Recommended Content Types
+  - Best Posting Times
+  - Budget Allocation Strategy
+
+- **Influencer Result Cards**:
+  - Match score badge (color-coded: green >80%, amber 60-80%)
+  - Key metrics: Followers, Engagement, Avg Likes, Tier
+  - "Why This Match" reasons with checkmarks
+  - Considerations with warning icons
+  - Suggested Collaboration box
+
+- **Quick Actions**:
+  - View Profile → Navigate to influencer detail page
+  - Outreach → AI-generated personalized outreach message
+  - Save → Bookmark to saved list, update status to "shortlisted"
+  - Reject → Remove from results, store rejection
+
+- **Filtering & Sorting**:
+  - Sort by: Match Score, Followers, Engagement
+  - Filter by minimum match score
+  - Ascending/Descending toggle
+
+**New Backend APIs**:
+- `POST /api/ai/discovery/search` - Run AI discovery
+- `POST /api/ai/discovery/save` - Save influencer to list
+- `POST /api/ai/discovery/reject` - Reject influencer
+- `GET /api/ai/discovery/sessions` - Get past discovery sessions
+- `GET /api/ai/discovery/saved` - Get saved influencers
+- `POST /api/ai/discovery/outreach-message` - Generate AI outreach
+
+**New Backend Service**:
+- `ai_discovery_service.py` - LLM integration for discovery & outreach
+
+**Navigation Updates**:
+- AI Tools page has prominent Discovery CTA card
+- New route: `/marketing/ai-discovery`
+
 ### Dashboard + Analytics Merge Complete (March 7, 2026)
 
 **Unified Insights & Analytics Page** (`MarketingInsightsPage.jsx`):

@@ -2560,6 +2560,198 @@ async def generate_email(
         logger.error(f"Email content generation error: {e}")
         return {"success": False, "error": str(e)}
 
+# ============== AI INFLUENCER DISCOVERY ==============
+
+@ai_router.post("/discovery/search")
+async def ai_discovery_search(
+    data: dict,
+    user: dict = Depends(require_department(["marketing"]))
+):
+    """
+    AI-powered influencer discovery based on campaign brief.
+    Analyzes existing influencers and recommends best matches.
+    """
+    try:
+        from services.ai_discovery_service import ai_discovery_service
+        
+        # Get all influencers from database
+        influencers = await db.contacts.find(
+            {"contact_type": "influencer"},
+            {"_id": 0}
+        ).to_list(500)
+        
+        # Run AI discovery
+        campaign_brief = {
+            "industry": data.get("industry", "Any"),
+            "target_audience": data.get("target_audience", "General"),
+            "platform": data.get("platform", "Any"),
+            "location": data.get("location", "Any"),
+            "budget_min": data.get("budget_min", 0),
+            "budget_max": data.get("budget_max", "Unlimited"),
+            "follower_min": data.get("follower_min", 0),
+            "follower_max": data.get("follower_max", "Any"),
+            "objective": data.get("objective", "Brand Awareness"),
+            "content_type": data.get("content_type", "Any"),
+            "additional_requirements": data.get("additional_requirements", "")
+        }
+        
+        result = await ai_discovery_service.discover_influencers(
+            campaign_brief=campaign_brief,
+            existing_influencers=influencers
+        )
+        
+        # Store discovery session
+        session_id = str(uuid.uuid4())
+        await db.discovery_sessions.insert_one({
+            "id": session_id,
+            "campaign_brief": campaign_brief,
+            "result": result,
+            "created_by": user['id'],
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+        
+        return {
+            "session_id": session_id,
+            **result
+        }
+        
+    except Exception as e:
+        logger.error(f"AI Discovery error: {e}")
+        return {"success": False, "error": str(e)}
+
+@ai_router.post("/discovery/save")
+async def save_discovery_result(
+    data: dict,
+    user: dict = Depends(require_department(["marketing"]))
+):
+    """Save an influencer from discovery results to a list"""
+    try:
+        influencer_id = data.get("influencer_id")
+        list_name = data.get("list_name", "Saved from Discovery")
+        notes = data.get("notes", "")
+        
+        # Update influencer status if needed
+        if data.get("update_status"):
+            await db.contacts.update_one(
+                {"id": influencer_id},
+                {"$set": {
+                    "status": "shortlisted",
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+        
+        # Add to saved list
+        saved_record = {
+            "id": str(uuid.uuid4()),
+            "influencer_id": influencer_id,
+            "list_name": list_name,
+            "notes": notes,
+            "source": "ai_discovery",
+            "saved_by": user['id'],
+            "saved_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.saved_influencers.insert_one(saved_record)
+        del saved_record['_id']
+        
+        return {"success": True, "data": saved_record}
+        
+    except Exception as e:
+        logger.error(f"Save discovery result error: {e}")
+        return {"success": False, "error": str(e)}
+
+@ai_router.post("/discovery/reject")
+async def reject_discovery_result(
+    data: dict,
+    user: dict = Depends(require_department(["marketing"]))
+):
+    """Mark an influencer as rejected from discovery results"""
+    try:
+        influencer_id = data.get("influencer_id")
+        reason = data.get("reason", "")
+        
+        # Store rejection
+        rejection_record = {
+            "id": str(uuid.uuid4()),
+            "influencer_id": influencer_id,
+            "reason": reason,
+            "rejected_by": user['id'],
+            "rejected_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.rejected_influencers.insert_one(rejection_record)
+        
+        return {"success": True, "message": "Influencer rejected"}
+        
+    except Exception as e:
+        logger.error(f"Reject discovery result error: {e}")
+        return {"success": False, "error": str(e)}
+
+@ai_router.get("/discovery/sessions")
+async def get_discovery_sessions(
+    user: dict = Depends(require_department(["marketing"]))
+):
+    """Get all discovery sessions"""
+    sessions = await db.discovery_sessions.find(
+        {},
+        {"_id": 0, "result": 0}  # Exclude large result data
+    ).sort("created_at", -1).to_list(50)
+    return sessions
+
+@ai_router.get("/discovery/saved")
+async def get_saved_influencers(
+    list_name: Optional[str] = None,
+    user: dict = Depends(require_department(["marketing"]))
+):
+    """Get saved influencers from discovery"""
+    query = {}
+    if list_name:
+        query["list_name"] = list_name
+    
+    saved = await db.saved_influencers.find(query, {"_id": 0}).sort("saved_at", -1).to_list(200)
+    
+    # Enrich with influencer data
+    for item in saved:
+        influencer = await db.contacts.find_one({"id": item["influencer_id"]}, {"_id": 0})
+        if influencer:
+            item["influencer"] = influencer
+    
+    return saved
+
+@ai_router.post("/discovery/outreach-message")
+async def generate_discovery_outreach(
+    data: dict,
+    user: dict = Depends(require_department(["marketing"]))
+):
+    """Generate personalized outreach message for a discovered influencer"""
+    try:
+        from services.ai_discovery_service import ai_discovery_service
+        
+        # Get influencer data
+        influencer = await db.contacts.find_one({"id": data.get("influencer_id")}, {"_id": 0})
+        if not influencer:
+            raise HTTPException(status_code=404, detail="Influencer not found")
+        
+        # Get campaign data if provided
+        campaign = {}
+        if data.get("campaign_id"):
+            campaign = await db.marketing_campaigns.find_one({"id": data.get("campaign_id")}, {"_id": 0}) or {}
+        
+        campaign.update({
+            "brand_name": data.get("brand_name", "Our Brand"),
+            "key_message": data.get("key_message", "Exciting collaboration opportunity")
+        })
+        
+        result = await ai_discovery_service.generate_outreach_message(
+            influencer=influencer,
+            campaign=campaign,
+            tone=data.get("tone", "professional")
+        )
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Outreach generation error: {e}")
+        return {"success": False, "error": str(e)}
+
 # ============== COMMUNICATION ENDPOINTS ==============
 comm_router = APIRouter(prefix="/communication", tags=["Communication"])
 
