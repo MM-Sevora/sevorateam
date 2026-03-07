@@ -431,6 +431,43 @@ Implementation of 11 advanced features for influencer operations:
 ## Live Social Media Integration (COMPLETE - March 2026)
 Implementation of Instagram Graph API, YouTube Data API, and APScheduler for background jobs.
 
+### New Influencers Module UI (COMPLETE - March 2026)
+Completely redesigned Influencers page based on user's reference design from another workspace.
+
+#### New Files Created:
+- `/app/frontend/src/pages/marketing/InfluencersListPage.jsx` - Redesigned list view
+- `/app/frontend/src/pages/marketing/InfluencerDetailPage.jsx` - New 4-tab detail view
+
+#### Influencers List Page Features:
+- Header with "Refresh All" and gold "Add Influencer" button
+- Tabs: "Database (count)" and "AI Discover"
+- Status funnel cards: Identified, Contacted, Interested, Negotiation, Confirmed, Completed
+- Search bar with platform filter dropdown and filter icon
+- Table columns: Checkbox, Influencer (avatar, name, handle, location), Platform (badge), Followers, Eng. %, Industry, Tier (badge), Gender, Status (dropdown), Score (blue box), Updated, Actions
+- Platform badges: Instagram (pink), YouTube (red)
+- Tier badges: Nano, Micro (blue), Macro (green), Celebrity (purple), Mega (amber)
+- Sortable columns (Followers, Engagement, Score)
+- Click row to navigate to detail page
+
+#### Influencer Detail Page Tabs:
+1. **Overview Tab**: 
+   - Left: Profile card (avatar, name, industry badge, last verified, status, BIO, CONTACT, LOCATION)
+   - Right: Social Profiles card (with Primary badge), Metrics cards (Followers, Engagement, Avg Likes, Score), Classification tags
+
+2. **Core Metrics Tab**:
+   - Platform-specific metrics card with left border (pink for Instagram, red for YouTube)
+   - Shows: Followers/Subscribers, Engagement Rate, Avg Likes, Posts/Videos count
+   - Audience Demographics section (placeholder)
+
+3. **Deliverables & Rates Tab**:
+   - Rate Card with icons: Static Post, Reel/Short, Story, YouTube Video
+   - Accepts Barter toggle
+   - Additional Info: Style Tags, Past Brand Collaborations, Languages, Portfolio URL, Notes
+
+4. **History Tab**:
+   - Communications list with type, date, subject, message preview
+   - Deals list with status, date, quote amounts
+
 ### Services Created
 - `/app/backend/services/social_api.py` - Instagram & YouTube API integration
 - `/app/backend/services/scheduler_service.py` - APScheduler with MongoDB persistence
