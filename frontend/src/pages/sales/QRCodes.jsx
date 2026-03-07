@@ -56,7 +56,7 @@ const QRCodesPage = () => {
 
   const fetchQRCodes = async () => {
     try {
-      const response = await api.get('/qrcodes');
+      const response = await api.get('/sales/qrcodes');
       setQrCodes(response.data);
     } catch (error) {
       toast.error('Failed to fetch QR codes');
@@ -67,7 +67,7 @@ const QRCodesPage = () => {
 
   const fetchPartners = async () => {
     try {
-      const response = await api.get('/partners?status=Active');
+      const response = await api.get('/sales/partners?status=Active');
       setPartners(response.data);
     } catch (error) {
       console.error('Failed to fetch partners');
@@ -76,7 +76,7 @@ const QRCodesPage = () => {
 
   const fetchCampaigns = async () => {
     try {
-      const response = await api.get('/campaigns?status=Active');
+      const response = await api.get('/sales/campaigns?status=Active');
       setCampaigns(response.data);
     } catch (error) {
       console.error('Failed to fetch campaigns');
@@ -91,7 +91,7 @@ const QRCodesPage = () => {
         campaign_id: newQR.campaign_id || null,
         partner_id: newQR.partner_id || null,
       };
-      await api.post('/qrcodes', payload);
+      await api.post('/sales/qrcodes', payload);
       toast.success('QR code created successfully');
       setIsAddOpen(false);
       setNewQR({ name: '', source_type: '', campaign: '', campaign_id: '', partner_id: '', location: '' });

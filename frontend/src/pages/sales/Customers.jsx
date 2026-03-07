@@ -53,7 +53,7 @@ const CustomersPage = () => {
   const fetchCustomers = async () => {
     try {
       const params = search ? `?search=${search}` : '';
-      const response = await api.get(`/customers${params}`);
+      const response = await api.get(`/sales/customers${params}`);
       setCustomers(response.data);
     } catch (error) {
       toast.error('Failed to fetch customers');
@@ -70,7 +70,7 @@ const CustomersPage = () => {
         budget_min: newCustomer.budget_min ? parseInt(newCustomer.budget_min) : null,
         budget_max: newCustomer.budget_max ? parseInt(newCustomer.budget_max) : null,
       };
-      await api.post('/customers', payload);
+      await api.post('/sales/customers', payload);
       toast.success('Customer profile created');
       setIsAddOpen(false);
       setNewCustomer({
