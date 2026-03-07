@@ -191,7 +191,7 @@ export default function AvatarPage() {
                 <label className="block text-sm font-medium text-[#4A3728] mb-2">Avatar Name</label>
                 <input
                   type="text" value={formName} onChange={(e) => setFormName(e.target.value)}
-                  className="w-full bg-[#F5EDE5] border border-[#D4BBA6] focus:border-amber-600/50 focus:ring-2 focus:ring-violet-600/20 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500 transition-all"
+                  className="w-full bg-[#F5EDE5] border border-[#D4BBA6] focus:border-amber-600/50 focus:ring-2 focus:ring-violet-600/20 rounded-lg py-2.5 px-4 text-sm text-white placeholder-[#5D4A3A]/500 transition-all"
                   placeholder="e.g., BrandBot, CreativeAI" data-testid="avatar-name-input"
                 />
               </div>
@@ -210,7 +210,7 @@ export default function AvatarPage() {
             <div className="mb-4">
               <label className="block text-sm font-medium text-[#4A3728] mb-2">Brand Voice Description</label>
               <textarea value={formVoice} onChange={(e) => setFormVoice(e.target.value)}
-                className="w-full bg-[#F5EDE5] border border-[#D4BBA6] focus:border-amber-600/50 focus:ring-2 focus:ring-violet-600/20 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500 transition-all resize-none"
+                className="w-full bg-[#F5EDE5] border border-[#D4BBA6] focus:border-amber-600/50 focus:ring-2 focus:ring-violet-600/20 rounded-lg py-2.5 px-4 text-sm text-white placeholder-[#5D4A3A]/500 transition-all resize-none"
                 rows={3} placeholder="Describe your brand's personality and voice... e.g., 'Witty, tech-savvy, and approachable. Uses casual language with industry jargon.'"
                 data-testid="avatar-voice-input"
               />
@@ -219,14 +219,14 @@ export default function AvatarPage() {
               <div>
                 <label className="block text-sm font-medium text-[#4A3728] mb-2">Industry</label>
                 <input type="text" value={formIndustry} onChange={(e) => setFormIndustry(e.target.value)}
-                  className="w-full bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500 transition-all"
+                  className="w-full bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white placeholder-[#5D4A3A]/500 transition-all"
                   placeholder="e.g., Technology, Fashion, Food" data-testid="avatar-industry-input"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-[#4A3728] mb-2">Target Audience</label>
                 <input type="text" value={formAudience} onChange={(e) => setFormAudience(e.target.value)}
-                  className="w-full bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500 transition-all"
+                  className="w-full bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white placeholder-[#5D4A3A]/500 transition-all"
                   placeholder="e.g., Young professionals, Gen Z" data-testid="avatar-audience-input"
                 />
               </div>
@@ -234,12 +234,12 @@ export default function AvatarPage() {
             <div className="mb-6">
               <label className="block text-sm font-medium text-[#4A3728] mb-2">Style Keywords (comma separated)</label>
               <input type="text" value={formKeywords} onChange={(e) => setFormKeywords(e.target.value)}
-                className="w-full bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500 transition-all"
+                className="w-full bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white placeholder-[#5D4A3A]/500 transition-all"
                 placeholder="e.g., minimalist, colorful, techy, elegant" data-testid="avatar-keywords-input"
               />
             </div>
             <button onClick={handleSaveAvatar} disabled={saving}
-              className="bg-amber-800 hover:bg-amber-800-hover text-white shadow-[0_0_15px_rgba(124,58,237,0.3)] hover:shadow-[0_0_25px_rgba(124,58,237,0.5)] transition-all duration-300 rounded-lg font-medium px-6 py-2.5 flex items-center gap-2 disabled:opacity-50"
+              className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white shadow-[0_0_15px_rgba(124,58,237,0.3)] hover:shadow-[0_0_25px_rgba(124,58,237,0.5)] transition-all duration-300 rounded-lg font-medium px-6 py-2.5 flex items-center gap-2 disabled:opacity-50"
               data-testid="save-avatar-button"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
@@ -276,7 +276,7 @@ export default function AvatarPage() {
               <h3 className="text-lg font-heading font-semibold text-[#5D4A3A] mb-2">No Avatar Created Yet</h3>
               <p className="text-sm text-[#5D4A3A] mb-4">Set up your AI avatar first to start chatting</p>
               <button onClick={() => setTab('setup')}
-                className="bg-amber-800 hover:bg-amber-800-hover text-white rounded-lg font-medium px-6 py-2.5 transition-all"
+                className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white rounded-lg font-medium px-6 py-2.5 transition-all"
                 data-testid="go-to-setup-button"
               >Create Avatar</button>
             </div>
@@ -292,13 +292,13 @@ export default function AvatarPage() {
                     )}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-white">{avatar.name}</p>
+                    <p className="text-sm font-medium text-[#4A3728]">{avatar.name}</p>
                     <p className="text-xs text-[#5D4A3A]">{avatar.tone} voice</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <select value={chatPlatform} onChange={(e) => setChatPlatform(e.target.value)}
-                    className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-1.5 px-3 text-xs text-white"
+                    className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-1.5 px-3 text-xs text-[#4A3728]"
                     data-testid="chat-platform-select"
                   >
                     <option value="" className="bg-white">General</option>
@@ -364,12 +364,12 @@ export default function AvatarPage() {
                 <div className="flex gap-3">
                   <textarea value={chatInput} onChange={(e) => setChatInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    className="flex-1 bg-[#F5EDE5] border border-[#D4BBA6] focus:border-amber-600/50 focus:ring-2 focus:ring-violet-600/20 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500 transition-all resize-none"
+                    className="flex-1 bg-[#F5EDE5] border border-[#D4BBA6] focus:border-amber-600/50 focus:ring-2 focus:ring-violet-600/20 rounded-lg py-2.5 px-4 text-sm text-white placeholder-[#5D4A3A]/500 transition-all resize-none"
                     rows={1} placeholder={`Ask ${avatar.name} to create content...`}
                     data-testid="chat-input"
                   />
                   <button onClick={handleSendMessage} disabled={!chatInput.trim() || sending}
-                    className="bg-amber-800 hover:bg-amber-800-hover text-white rounded-lg px-4 py-2.5 transition-all disabled:opacity-50 flex items-center justify-center"
+                    className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white rounded-lg px-4 py-2.5 transition-all disabled:opacity-50 flex items-center justify-center"
                     data-testid="chat-send-button"
                   >
                     {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

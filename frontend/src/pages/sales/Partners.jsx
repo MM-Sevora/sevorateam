@@ -357,14 +357,14 @@ const PartnersPage = () => {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="rounded-none bg-secondary/50">
-          <TabsTrigger value="all" className="rounded-none data-[state=active]:bg-primary data-[state=active]:text-white">
+          <TabsTrigger value="all" className="rounded-none data-[state=active]:bg-primary data-[state=active]:text-[#4A3728]">
             All Partners
           </TabsTrigger>
-          <TabsTrigger value="Salon" className="rounded-none data-[state=active]:bg-primary data-[state=active]:text-white">
+          <TabsTrigger value="Salon" className="rounded-none data-[state=active]:bg-primary data-[state=active]:text-[#4A3728]">
             <Scissors className="w-4 h-4 mr-2" />
             Salons
           </TabsTrigger>
-          <TabsTrigger value="Boutique" className="rounded-none data-[state=active]:bg-primary data-[state=active]:text-white">
+          <TabsTrigger value="Boutique" className="rounded-none data-[state=active]:bg-primary data-[state=active]:text-[#4A3728]">
             <Store className="w-4 h-4 mr-2" />
             Boutiques
           </TabsTrigger>

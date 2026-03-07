@@ -181,11 +181,11 @@ export default function AnalyticsAndListening() {
             <div className="flex gap-3">
               <input type="text" value={listenQuery} onChange={(e) => setListenQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleListen()}
-                className="flex-1 bg-[#F5EDE5] border border-[#D4BBA6] focus:border-amber-600/50 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500"
+                className="flex-1 bg-[#F5EDE5] border border-[#D4BBA6] focus:border-amber-600/50 rounded-lg py-2.5 px-4 text-sm text-white placeholder-[#5D4A3A]/500"
                 placeholder="Enter brand name, hashtag, or topic to monitor..." data-testid="listen-input"
               />
               <button onClick={handleListen} disabled={listening || !listenQuery.trim()}
-                className="bg-amber-800 hover:bg-amber-800-hover text-white rounded-lg font-medium px-6 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50" data-testid="listen-button"
+                className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white rounded-lg font-medium px-6 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50" data-testid="listen-button"
               >{listening ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />} Analyze</button>
             </div>
           </div>
@@ -249,7 +249,7 @@ export default function AnalyticsAndListening() {
                     <h3 className="text-sm font-heading font-semibold text-[#4A3728] mb-3 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-accent-cyan" /> Trending Topics</h3>
                     <div className="space-y-2">{listenResult.trending_topics.map((t, i) => (
                       <div key={i} className="p-2.5 bg-[#F5EDE5] rounded-lg">
-                        <p className="text-xs font-medium text-white">{typeof t === 'string' ? t : t.topic || t.name}</p>
+                        <p className="text-xs font-medium text-[#4A3728]">{typeof t === 'string' ? t : t.topic || t.name}</p>
                         {t.description && <p className="text-[10px] text-[#5D4A3A] mt-0.5">{t.description}</p>}
                       </div>
                     ))}</div>

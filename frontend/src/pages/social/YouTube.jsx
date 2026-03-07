@@ -115,7 +115,7 @@ export default function YouTubeExplorer() {
             <div className="flex gap-3">
               <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="flex-1 bg-[#F5EDE5] border border-[#D4BBA6] focus:border-red-500/50 focus:ring-2 focus:ring-red-500/20 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500 transition-all"
+                className="flex-1 bg-[#F5EDE5] border border-[#D4BBA6] focus:border-red-500/50 focus:ring-2 focus:ring-red-500/20 rounded-lg py-2.5 px-4 text-sm text-white placeholder-[#5D4A3A]/500 transition-all"
                 placeholder="Search YouTube channels..." data-testid="yt-search-input"
               />
               <button onClick={handleSearch} disabled={loading || !searchQuery.trim()}
@@ -243,7 +243,7 @@ export default function YouTubeExplorer() {
               <div className="flex items-start gap-4 mb-4">
                 {videoAnalytics.thumbnail && <img src={videoAnalytics.thumbnail} alt="" className="w-32 h-20 rounded-lg object-cover" />}
                 <div>
-                  <p className="text-sm font-medium text-white">{videoAnalytics.title}</p>
+                  <p className="text-sm font-medium text-[#4A3728]">{videoAnalytics.title}</p>
                   <p className="text-xs text-[#5D4A3A] mt-1">{videoAnalytics.channel_title} - {new Date(videoAnalytics.published_at).toLocaleDateString()}</p>
                 </div>
               </div>

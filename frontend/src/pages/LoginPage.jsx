@@ -98,7 +98,7 @@ export const LoginPage = () => {
                 {/* Logo */}
                 <div className="text-center mb-8">
                     <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#4A3728] mb-4 shadow-lg">
-                        <Briefcase className="w-8 h-8 text-white" />
+                        <Briefcase className="w-8 h-8 text-[#4A3728]" />
                     </div>
                     <h1 className="text-3xl font-bold text-[#4A3728]">
                         SEVORA TEAM
@@ -139,13 +139,13 @@ export const LoginPage = () => {
                             <TabsList className="grid w-full grid-cols-2 bg-[#F5EDE5]">
                                 <TabsTrigger 
                                     value="login" 
-                                    className="data-[state=active]:bg-[#4A3728] data-[state=active]:text-white"
+                                    className="data-[state=active]:bg-[#4A3728] data-[state=active]:text-[#4A3728]"
                                 >
                                     Login
                                 </TabsTrigger>
                                 <TabsTrigger 
                                     value="register"
-                                    className="data-[state=active]:bg-[#4A3728] data-[state=active]:text-white"
+                                    className="data-[state=active]:bg-[#4A3728] data-[state=active]:text-[#4A3728]"
                                 >
                                     Register
                                 </TabsTrigger>

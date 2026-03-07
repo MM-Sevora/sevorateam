@@ -47,7 +47,7 @@ export const MarketingDashboard = () => {
                                 <p className="text-3xl font-bold text-[#4A3728] mt-1">{stats?.total_influencers || 0}</p>
                             </div>
                             <div className="w-12 h-12 rounded-xl bg-amber-700 flex items-center justify-center">
-                                <Users className="w-6 h-6 text-white" />
+                                <Users className="w-6 h-6 text-[#4A3728]" />
                             </div>
                         </div>
                     </CardContent>
@@ -61,7 +61,7 @@ export const MarketingDashboard = () => {
                                 <p className="text-3xl font-bold text-[#4A3728] mt-1">{stats?.active_campaigns || 0}</p>
                             </div>
                             <div className="w-12 h-12 rounded-xl bg-amber-600 flex items-center justify-center">
-                                <Target className="w-6 h-6 text-white" />
+                                <Target className="w-6 h-6 text-[#4A3728]" />
                             </div>
                         </div>
                     </CardContent>
@@ -75,7 +75,7 @@ export const MarketingDashboard = () => {
                                 <p className="text-3xl font-bold text-[#4A3728] mt-1">{stats?.pending_negotiations || 0}</p>
                             </div>
                             <div className="w-12 h-12 rounded-xl bg-amber-500 flex items-center justify-center">
-                                <MessageSquare className="w-6 h-6 text-white" />
+                                <MessageSquare className="w-6 h-6 text-[#4A3728]" />
                             </div>
                         </div>
                     </CardContent>
@@ -89,7 +89,7 @@ export const MarketingDashboard = () => {
                                 <p className="text-3xl font-bold text-[#4A3728] mt-1">₹{((stats?.budget_remaining || 0) / 100000).toFixed(1)}L</p>
                             </div>
                             <div className="w-12 h-12 rounded-xl bg-stone-600 flex items-center justify-center">
-                                <DollarSign className="w-6 h-6 text-white" />
+                                <DollarSign className="w-6 h-6 text-[#4A3728]" />
                             </div>
                         </div>
                     </CardContent>

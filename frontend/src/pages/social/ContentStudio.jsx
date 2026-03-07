@@ -307,7 +307,7 @@ export default function ContentStudio() {
                 ><Lightbulb className="w-3 h-3" /> {showIdeas ? 'Hide Ideas' : 'Get Ideas'}</button>
               </div>
               <textarea value={topic} onChange={(e) => setTopic(e.target.value)}
-                className="w-full bg-[#F5EDE5] border border-[#D4BBA6] focus:border-amber-600/50 focus:ring-2 focus:ring-violet-600/20 rounded-lg py-3 px-4 text-sm text-white placeholder-zinc-500 resize-none"
+                className="w-full bg-[#F5EDE5] border border-[#D4BBA6] focus:border-amber-600/50 focus:ring-2 focus:ring-violet-600/20 rounded-lg py-3 px-4 text-sm text-white placeholder-[#5D4A3A]/500 resize-none"
                 rows={3} placeholder="What do you want to post about?" data-testid="studio-topic"
               />
               {/* Inline Ideas */}
@@ -326,10 +326,10 @@ export default function ContentStudio() {
               )}
               <div className="flex items-center gap-3 mt-3">
                 <select value={contentType} onChange={(e) => setContentType(e.target.value)}
-                  className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2 px-3 text-xs text-white"
+                  className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2 px-3 text-xs text-[#4A3728]"
                 >{contentTypes.map(t => <option key={t} value={t} className="bg-white">{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}</select>
                 <button onClick={generateContent} disabled={loadingText || !topic.trim()}
-                  className="bg-amber-800 hover:bg-amber-800-hover text-white shadow-[0_0_15px_rgba(124,58,237,0.3)] rounded-lg font-medium px-5 py-2 text-sm flex items-center gap-2 disabled:opacity-50 transition-all"
+                  className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white shadow-[0_0_15px_rgba(124,58,237,0.3)] rounded-lg font-medium px-5 py-2 text-sm flex items-center gap-2 disabled:opacity-50 transition-all"
                   data-testid="studio-generate-text"
                 >{loadingText ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />} Generate</button>
                 <button onClick={generateImage} disabled={loadingImage || !topic.trim()}
@@ -396,7 +396,7 @@ export default function ContentStudio() {
                     </div>
                     <div className="pl-7 flex gap-2">
                       <input type="text" value={reviewNote} onChange={(e) => setReviewNote(e.target.value)}
-                        className="flex-1 bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-1.5 px-3 text-[10px] text-white placeholder-zinc-600"
+                        className="flex-1 bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-1.5 px-3 text-[10px] text-white placeholder-[#5D4A3A]/600"
                         placeholder="Note for reviewer..." />
                       <button onClick={submitForReview} disabled={submittingReview || !generatedContent}
                         className="text-[10px] bg-amber-600/80 hover:bg-amber-600 text-white rounded-lg px-3 py-1.5 flex items-center gap-1 disabled:opacity-50 whitespace-nowrap">
@@ -420,7 +420,7 @@ export default function ContentStudio() {
                       <button onClick={() => saveAsPost('draft')} disabled={savingPost} className="flex-1 bg-[#E8D5C4] hover:bg-gray-200 text-white border border-[#D4BBA6] rounded-lg px-3 py-2 text-[10px] flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all">
                         <Download className="w-3 h-3" /> Save Draft
                       </button>
-                      <button onClick={() => saveAsPost('scheduled')} disabled={savingPost} className="flex-1 bg-amber-800 hover:bg-amber-800-hover text-white rounded-lg px-3 py-2 text-[10px] flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-[0_0_10px_rgba(124,58,237,0.2)] transition-all">
+                      <button onClick={() => saveAsPost('scheduled')} disabled={savingPost} className="flex-1 bg-[#4A3728] hover:bg-[#3A2A1E] text-white rounded-lg px-3 py-2 text-[10px] flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-[0_0_10px_rgba(124,58,237,0.2)] transition-all">
                         <Send className="w-3 h-3" /> Add to Queue
                       </button>
                     </div>
@@ -580,7 +580,7 @@ function ReviewTab() {
                     {section.key === 'needs_review' && (
                       <>
                         <input type="text" value={reviewFeedback[a.approval_id] || ''} onChange={(e) => setReviewFeedback(prev => ({ ...prev, [a.approval_id]: e.target.value }))}
-                          className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-1.5 px-3 text-xs text-white placeholder-zinc-600 w-44" placeholder="Feedback..." />
+                          className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-1.5 px-3 text-xs text-white placeholder-[#5D4A3A]/600 w-44" placeholder="Feedback..." />
                         <div className="flex gap-1">
                           <button onClick={() => handleReview(a.approval_id, 'approve')} disabled={!!reviewing} className="flex-1 text-[10px] bg-stone-700 hover:bg-stone-700 text-white rounded-lg py-1.5 flex items-center justify-center gap-1 disabled:opacity-50"><CheckCircle className="w-3 h-3" /> Approve</button>
                           <button onClick={() => handleReview(a.approval_id, 'reject')} disabled={!!reviewing} className="flex-1 text-[10px] bg-red-600 hover:bg-red-700 text-white rounded-lg py-1.5 flex items-center justify-center gap-1 disabled:opacity-50"><XCircle className="w-3 h-3" /> Reject</button>
@@ -593,7 +593,7 @@ function ReviewTab() {
                       </a>
                     )}
                     {section.key === 'needs_edit' && (
-                      <button onClick={() => handleResubmit(a.approval_id)} className="text-[10px] bg-amber-800 hover:bg-amber-800-hover text-white rounded-lg px-3 py-2 flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Resubmit</button>
+                      <button onClick={() => handleResubmit(a.approval_id)} className="text-[10px] bg-[#4A3728] hover:bg-[#3A2A1E] text-white rounded-lg px-3 py-2 flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Resubmit</button>
                     )}
                   </div>
                 </div>
@@ -654,8 +654,8 @@ function IdeasTab({ platform, tone, ideas, setIdeas, loadingIdeas, setLoadingIde
         </div>
         {showAddPillar && (
           <div className="flex gap-2 mb-3 flex-wrap p-3 bg-[#F5EDE5] rounded-lg">
-            <input type="text" value={newPillar.name} onChange={(e) => setNewPillar(prev => ({ ...prev, name: e.target.value }))} className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2 px-3 text-xs text-white placeholder-zinc-500 w-32" placeholder="Pillar name" />
-            <input type="text" value={newPillar.description} onChange={(e) => setNewPillar(prev => ({ ...prev, description: e.target.value }))} className="flex-1 bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2 px-3 text-xs text-white placeholder-zinc-500 min-w-[150px]" placeholder="Description..." />
+            <input type="text" value={newPillar.name} onChange={(e) => setNewPillar(prev => ({ ...prev, name: e.target.value }))} className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2 px-3 text-xs text-white placeholder-[#5D4A3A]/500 w-32" placeholder="Pillar name" />
+            <input type="text" value={newPillar.description} onChange={(e) => setNewPillar(prev => ({ ...prev, description: e.target.value }))} className="flex-1 bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2 px-3 text-xs text-white placeholder-[#5D4A3A]/500 min-w-[150px]" placeholder="Description..." />
             <input type="number" value={newPillar.target_percentage} onChange={(e) => setNewPillar(prev => ({ ...prev, target_percentage: parseInt(e.target.value) || 0 }))} className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2 px-3 text-xs text-white w-16" />
             <span className="text-[10px] text-[#5D4A3A] self-center">%</span>
             <input type="color" value={newPillar.color} onChange={(e) => setNewPillar(prev => ({ ...prev, color: e.target.value }))} className="w-8 h-8 rounded cursor-pointer" />
@@ -683,11 +683,11 @@ function IdeasTab({ platform, tone, ideas, setIdeas, loadingIdeas, setLoadingIde
       {/* Generate Ideas */}
       <div className="bg-white border border-[#E8D5C4] rounded-xl p-5 flex gap-3">
         <input type="text" value={ideaTopic} onChange={(e) => setIdeaTopic(e.target.value)}
-          className="flex-1 bg-[#F5EDE5] border border-[#D4BBA6] focus:border-amber-600/50 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500"
+          className="flex-1 bg-[#F5EDE5] border border-[#D4BBA6] focus:border-amber-600/50 rounded-lg py-2.5 px-4 text-sm text-white placeholder-[#5D4A3A]/500"
           placeholder={selectedPillar ? `Topic for "${selectedPillar}" pillar...` : "Topic (optional)..."}
         />
         <button onClick={selectedPillar ? generateByPillar : generateIdeas} disabled={loadingIdeas}
-          className="bg-amber-800 hover:bg-amber-800-hover text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50"
+          className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50"
         >{loadingIdeas ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Generate {selectedPillar ? `"${selectedPillar}" Ideas` : 'Ideas'}</button>
       </div>
 

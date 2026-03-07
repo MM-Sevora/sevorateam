@@ -140,7 +140,7 @@ const CampaignsPage = () => {
                                     <select
                                         value={newCampaign.objective}
                                         onChange={(e) => setNewCampaign({...newCampaign, objective: e.target.value})}
-                                        className="w-full p-2 bg-[#F5EDE5] border border-[#D4BBA6] rounded-md text-white"
+                                        className="w-full p-2 bg-[#F5EDE5] border border-[#D4BBA6] rounded-md text-[#4A3728]"
                                     >
                                         <option value="branding">Branding</option>
                                         <option value="sales">Sales</option>

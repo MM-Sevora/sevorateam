@@ -287,7 +287,7 @@ export default function PostsAndSchedule() {
     <div className="space-y-5 animate-fade-in" data-testid="posts-schedule-page">
       <div className="flex items-center justify-between">
         <div><h1 className="text-3xl font-heading font-bold text-[#4A3728] tracking-tight">Posts & Schedule</h1><p className="text-[#5D4A3A] mt-1">Plan, create, schedule, and publish your content</p></div>
-        <button onClick={() => openComposer(null)} className="bg-amber-800 hover:bg-amber-800-hover text-white shadow-[0_0_15px_rgba(124,58,237,0.3)] rounded-lg font-medium px-5 py-2.5 flex items-center gap-2" data-testid="new-post-btn"><Plus className="w-4 h-4" /> New Post</button>
+        <button onClick={() => openComposer(null)} className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white shadow-[0_0_15px_rgba(124,58,237,0.3)] rounded-lg font-medium px-5 py-2.5 flex items-center gap-2" data-testid="new-post-btn"><Plus className="w-4 h-4" /> New Post</button>
       </div>
 
       {/* Toolbar */}
@@ -484,7 +484,7 @@ export default function PostsAndSchedule() {
                           </div>
                         )}
                         <textarea value={getContent(previewPlatform)} onChange={(e) => setContent(previewPlatform, e.target.value)}
-                          className="w-full h-48 bg-transparent text-white text-[15px] leading-relaxed placeholder-zinc-600 resize-none focus:outline-none"
+                          className="w-full h-48 bg-transparent text-white text-[15px] leading-relaxed placeholder-[#5D4A3A]/600 resize-none focus:outline-none"
                           placeholder="What would you like to share?"
                           data-testid="composer-textarea"
                         />
@@ -529,9 +529,9 @@ export default function PostsAndSchedule() {
                       {/* Bottom Toolbar */}
                       <div className="px-6 py-3 border-t border-[#E8D5C4] flex items-center justify-between">
                         <div className="flex items-center gap-1">
-                          <button className="p-2 rounded-lg hover:bg-[#F5EDE5] text-[#5D4A3A] hover:text-white" title="Add media" onClick={() => fileRef.current?.click()}><Plus className="w-4 h-4" /></button>
+                          <button className="p-2 rounded-lg hover:bg-[#F5EDE5] text-[#5D4A3A] hover:text-[#4A3728]" title="Add media" onClick={() => fileRef.current?.click()}><Plus className="w-4 h-4" /></button>
                           <span className="w-px h-5 bg-[#E8D5C4]" />
-                          <button className="p-2 rounded-lg hover:bg-[#F5EDE5] text-[#5D4A3A] hover:text-white" title="Emoji">
+                          <button className="p-2 rounded-lg hover:bg-[#F5EDE5] text-[#5D4A3A] hover:text-[#4A3728]" title="Emoji">
                             <span className="text-sm">&#128522;</span>
                           </button>
                           <button className="p-2 rounded-lg hover:bg-[#F5EDE5] text-[#5D4A3A] hover:text-white text-sm font-bold" title="Hashtag">#</button>
@@ -591,8 +591,8 @@ export default function PostsAndSchedule() {
                           <div key={p} className="flex items-center gap-3 bg-[#F5EDE5] rounded-lg px-3 py-2">
                             <m.icon className="w-3.5 h-3.5" style={{ color: m.color }} />
                             <span className="text-xs text-white w-20">{m.label}</span>
-                            <input type="date" value={s.date} onChange={(e) => setPlatformSchedule(p, 'date', e.target.value)} className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg px-2 py-1 text-xs text-white" />
-                            <input type="time" value={s.time} onChange={(e) => setPlatformSchedule(p, 'time', e.target.value)} className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg px-2 py-1 text-xs text-white" />
+                            <input type="date" value={s.date} onChange={(e) => setPlatformSchedule(p, 'date', e.target.value)} className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg px-2 py-1 text-xs text-[#4A3728]" />
+                            <input type="time" value={s.time} onChange={(e) => setPlatformSchedule(p, 'time', e.target.value)} className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg px-2 py-1 text-xs text-[#4A3728]" />
                           </div>
                         ); })}
                       </div>
@@ -623,7 +623,7 @@ export default function PostsAndSchedule() {
                           data-testid="composer-schedule"
                         >{cSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clock className="w-4 h-4" />} Schedule</button>
                         <button onClick={() => handleSubmit('post_now')} disabled={cSaving}
-                          className="bg-amber-800 hover:bg-amber-800-hover text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 shadow-[0_0_15px_rgba(124,58,237,0.3)] transition-all"
+                          className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 shadow-[0_0_15px_rgba(124,58,237,0.3)] transition-all"
                           data-testid="composer-publish"
                         >{cSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />} Publish Now</button>
                       </div>

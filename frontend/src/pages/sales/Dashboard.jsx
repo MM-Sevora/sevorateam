@@ -47,7 +47,7 @@ export const SalesDashboard = () => {
                                 <p className="text-3xl font-bold text-[#4A3728] mt-1">{stats?.total_leads || 0}</p>
                             </div>
                             <div className="w-12 h-12 rounded-xl bg-stone-600 flex items-center justify-center">
-                                <UserPlus className="w-6 h-6 text-white" />
+                                <UserPlus className="w-6 h-6 text-[#4A3728]" />
                             </div>
                         </div>
                     </CardContent>
@@ -61,7 +61,7 @@ export const SalesDashboard = () => {
                                 <p className="text-3xl font-bold text-[#4A3728] mt-1">{stats?.total_customers || 0}</p>
                             </div>
                             <div className="w-12 h-12 rounded-xl bg-stone-500 flex items-center justify-center">
-                                <ShoppingBag className="w-6 h-6 text-white" />
+                                <ShoppingBag className="w-6 h-6 text-[#4A3728]" />
                             </div>
                         </div>
                     </CardContent>
@@ -75,7 +75,7 @@ export const SalesDashboard = () => {
                                 <p className="text-3xl font-bold text-[#4A3728] mt-1">{stats?.leads_today || 0}</p>
                             </div>
                             <div className="w-12 h-12 rounded-xl bg-stone-700 flex items-center justify-center">
-                                <TrendingUp className="w-6 h-6 text-white" />
+                                <TrendingUp className="w-6 h-6 text-[#4A3728]" />
                             </div>
                         </div>
                     </CardContent>
@@ -89,7 +89,7 @@ export const SalesDashboard = () => {
                                 <p className="text-3xl font-bold text-[#4A3728] mt-1">{stats?.conversion_rate || 0}%</p>
                             </div>
                             <div className="w-12 h-12 rounded-xl bg-stone-500 flex items-center justify-center">
-                                <Target className="w-6 h-6 text-white" />
+                                <Target className="w-6 h-6 text-[#4A3728]" />
                             </div>
                         </div>
                     </CardContent>

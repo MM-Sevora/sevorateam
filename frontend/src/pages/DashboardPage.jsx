@@ -15,7 +15,7 @@ const StatCard = ({ title, value, icon: Icon, color, link }) => (
                         <p className="text-3xl font-bold text-[#4A3728] mt-1">{value}</p>
                     </div>
                     <div className={`w-12 h-12 rounded-xl ${color} flex items-center justify-center group-hover:scale-110 transition-transform`}>
-                        <Icon className="w-6 h-6 text-white" />
+                        <Icon className="w-6 h-6 text-[#4A3728]" />
                     </div>
                 </div>
             </CardContent>

@@ -14,12 +14,12 @@ const platformOptions = [
 ];
 
 const tools = [
-  { key: 'repurpose', label: 'Content Repurposer', desc: 'One post adapted for all platforms', icon: Repeat, color: '#7c3aed' },
-  { key: 'hashtags', label: 'Hashtag Generator', desc: 'Trending + niche hashtags with data', icon: Hash, color: '#ec4899' },
-  { key: 'urlpost', label: 'URL to Post', desc: 'Paste any URL, get social posts', icon: Link, color: '#06b6d4' },
-  { key: 'copywriting', label: 'Copy Frameworks', desc: 'AIDA, PAS, BAB, FAB, STAR', icon: FileText, color: '#f97316' },
-  { key: 'recycle', label: 'Content Recycler', desc: 'Find top posts to repost', icon: RefreshCw, color: '#10b981' },
-  { key: 'competitor', label: 'Competitor Analysis', desc: 'Analyze competitor strategy', icon: Users, color: '#3b82f6' },
+  { key: 'repurpose', label: 'Content Repurposer', desc: 'One post adapted for all platforms', icon: Repeat, color: '#4A3728' },
+  { key: 'hashtags', label: 'Hashtag Generator', desc: 'Trending + niche hashtags with data', icon: Hash, color: '#5D4A3A' },
+  { key: 'urlpost', label: 'URL to Post', desc: 'Paste any URL, get social posts', icon: Link, color: '#8B6914' },
+  { key: 'copywriting', label: 'Copy Frameworks', desc: 'AIDA, PAS, BAB, FAB, STAR', icon: FileText, color: '#B8860B' },
+  { key: 'recycle', label: 'Content Recycler', desc: 'Find top posts to repost', icon: RefreshCw, color: '#4A3728' },
+  { key: 'competitor', label: 'Competitor Analysis', desc: 'Analyze competitor strategy', icon: Users, color: '#5D4A3A' },
 ];
 
 export default function AIToolsPage() {
@@ -58,9 +58,9 @@ export default function AIToolsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
         <div className="space-y-2">
           {tools.map(t => (
-            <button key={t.key} onClick={() => setActiveTool(t.key)} className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all border ${activeTool === t.key ? 'bg-[#F5EDE5] border-white/15' : 'border-[#E8D5C4] hover:bg-[#F5EDE5]'}`}>
+            <button key={t.key} onClick={() => setActiveTool(t.key)} className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all border ${activeTool === t.key ? 'bg-[#F5EDE5] border-[#D4BBA6]' : 'border-[#E8D5C4] hover:bg-[#F5EDE5]'}`}>
               <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${t.color}15` }}><t.icon className="w-4 h-4" style={{ color: t.color }} /></div>
-              <div><p className="text-sm font-medium text-white">{t.label}</p><p className="text-[10px] text-[#5D4A3A]">{t.desc}</p></div>
+              <div><p className="text-sm font-medium text-[#4A3728]">{t.label}</p><p className="text-[10px] text-[#5D4A3A]">{t.desc}</p></div>
             </button>
           ))}
         </div>
@@ -69,21 +69,21 @@ export default function AIToolsPage() {
           {activeTool === 'repurpose' && (
             <div className="bg-white border border-[#E8D5C4] rounded-xl p-5">
               <h3 className="text-sm font-heading font-semibold text-[#4A3728] mb-3">Content Repurposer</h3>
-              <textarea value={repurposeInput} onChange={(e) => setRepurposeInput(e.target.value)} className="w-full bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-3 px-4 text-sm text-white placeholder-zinc-500 resize-none mb-3" rows={4} placeholder="Paste content to repurpose..." />
-              <button onClick={() => runTool('repurpose', { content: repurposeInput, source_platform: platform })} disabled={toolLoading === 'repurpose' || !repurposeInput.trim()} className="bg-amber-800 hover:bg-amber-800-hover text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50">{toolLoading === 'repurpose' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Repeat className="w-4 h-4" />} Repurpose</button>
+              <textarea value={repurposeInput} onChange={(e) => setRepurposeInput(e.target.value)} className="w-full bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-3 px-4 text-sm text-[#4A3728] placeholder-[#5D4A3A]/50 resize-none mb-3" rows={4} placeholder="Paste content to repurpose..." />
+              <button onClick={() => runTool('repurpose', { content: repurposeInput, source_platform: platform })} disabled={toolLoading === 'repurpose' || !repurposeInput.trim()} className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50">{toolLoading === 'repurpose' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Repeat className="w-4 h-4" />} Repurpose</button>
             </div>
           )}
           {activeTool === 'hashtags' && (
             <div className="bg-white border border-[#E8D5C4] rounded-xl p-5">
               <h3 className="text-sm font-heading font-semibold text-[#4A3728] mb-3">Hashtag Generator</h3>
-              <div className="flex gap-3"><input type="text" value={hashtagTopic} onChange={(e) => setHashtagTopic(e.target.value)} className="flex-1 bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500" placeholder="Topic..." />
-              <button onClick={() => runTool('hashtags', { topic: hashtagTopic, platform })} disabled={toolLoading === 'hashtags' || !hashtagTopic.trim()} className="bg-rose-700 hover:bg-pink-700 text-white rounded-lg px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50">{toolLoading === 'hashtags' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Hash className="w-4 h-4" />} Generate</button></div>
+              <div className="flex gap-3"><input type="text" value={hashtagTopic} onChange={(e) => setHashtagTopic(e.target.value)} className="flex-1 bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-[#4A3728] placeholder-[#5D4A3A]/50" placeholder="Topic..." />
+              <button onClick={() => runTool('hashtags', { topic: hashtagTopic, platform })} disabled={toolLoading === 'hashtags' || !hashtagTopic.trim()} className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white rounded-lg px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50">{toolLoading === 'hashtags' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Hash className="w-4 h-4" />} Generate</button></div>
             </div>
           )}
           {activeTool === 'urlpost' && (
             <div className="bg-white border border-[#E8D5C4] rounded-xl p-5">
               <h3 className="text-sm font-heading font-semibold text-[#4A3728] mb-3">URL to Social Posts</h3>
-              <div className="flex gap-3"><input type="text" value={urlInput} onChange={(e) => setUrlInput(e.target.value)} className="flex-1 bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500" placeholder="https://..." />
+              <div className="flex gap-3"><input type="text" value={urlInput} onChange={(e) => setUrlInput(e.target.value)} className="flex-1 bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white placeholder-[#5D4A3A]/500" placeholder="https://..." />
               <button onClick={() => runTool('urlpost', { url: urlInput })} disabled={toolLoading === 'urlpost' || !urlInput.trim()} className="bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50">{toolLoading === 'urlpost' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link className="w-4 h-4" />} Generate</button></div>
             </div>
           )}
@@ -91,7 +91,7 @@ export default function AIToolsPage() {
             <div className="bg-white border border-[#E8D5C4] rounded-xl p-5">
               <h3 className="text-sm font-heading font-semibold text-[#4A3728] mb-3">Copywriting Frameworks</h3>
               <div className="flex gap-2 mb-3">{[{k:'aida',l:'AIDA'},{k:'pas',l:'PAS'},{k:'bab',l:'BAB'},{k:'fab',l:'FAB'},{k:'star',l:'STAR'}].map(f => <button key={f.k} onClick={() => setCopyFramework(f.k)} className={`px-3 py-1.5 rounded-lg text-xs font-medium border ${copyFramework === f.k ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'border-[#D4BBA6] text-[#5D4A3A]'}`}>{f.l}</button>)}</div>
-              <div className="flex gap-3"><input type="text" value={copyTopic} onChange={(e) => setCopyTopic(e.target.value)} className="flex-1 bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500" placeholder="Topic..." />
+              <div className="flex gap-3"><input type="text" value={copyTopic} onChange={(e) => setCopyTopic(e.target.value)} className="flex-1 bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white placeholder-[#5D4A3A]/500" placeholder="Topic..." />
               <button onClick={() => runTool('copywriting', { topic: copyTopic, framework: copyFramework, platform })} disabled={toolLoading === 'copywriting' || !copyTopic.trim()} className="bg-orange-600 hover:bg-orange-700 text-white rounded-lg px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50">{toolLoading === 'copywriting' ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} Write</button></div>
             </div>
           )}
@@ -105,7 +105,7 @@ export default function AIToolsPage() {
           {activeTool === 'competitor' && (
             <div className="bg-white border border-[#E8D5C4] rounded-xl p-5">
               <h3 className="text-sm font-heading font-semibold text-[#4A3728] mb-3">Competitor Analysis</h3>
-              <div className="flex gap-3"><input type="text" value={competitorUrl} onChange={(e) => setCompetitorUrl(e.target.value)} className="flex-1 bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500" placeholder="https://competitor.com" />
+              <div className="flex gap-3"><input type="text" value={competitorUrl} onChange={(e) => setCompetitorUrl(e.target.value)} className="flex-1 bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white placeholder-[#5D4A3A]/500" placeholder="https://competitor.com" />
               <button onClick={() => runTool('competitor', { competitor_url: competitorUrl })} disabled={toolLoading === 'competitor' || !competitorUrl.trim()} className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50">{toolLoading === 'competitor' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />} Analyze</button></div>
             </div>
           )}

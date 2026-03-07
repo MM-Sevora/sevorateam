@@ -92,14 +92,14 @@ export default function Autopilot() {
           <div>
             <label className="block text-sm font-medium text-[#4A3728] mb-2">Industry</label>
             <input type="text" value={industry} onChange={(e) => setIndustry(e.target.value)}
-              className="w-full bg-[#F5EDE5] border border-[#D4BBA6] focus:border-amber-600/50 focus:ring-2 focus:ring-violet-600/20 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500 transition-all"
+              className="w-full bg-[#F5EDE5] border border-[#D4BBA6] focus:border-amber-600/50 focus:ring-2 focus:ring-violet-600/20 rounded-lg py-2.5 px-4 text-sm text-white placeholder-[#5D4A3A]/500 transition-all"
               placeholder="e.g., Fashion, Technology" data-testid="autopilot-industry"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-[#4A3728] mb-2">Topics (comma-separated)</label>
             <input type="text" value={topics} onChange={(e) => setTopics(e.target.value)}
-              className="w-full bg-[#F5EDE5] border border-[#D4BBA6] focus:border-amber-600/50 focus:ring-2 focus:ring-violet-600/20 rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500 transition-all"
+              className="w-full bg-[#F5EDE5] border border-[#D4BBA6] focus:border-amber-600/50 focus:ring-2 focus:ring-violet-600/20 rounded-lg py-2.5 px-4 text-sm text-white placeholder-[#5D4A3A]/500 transition-all"
               placeholder="e.g., styling tips, new arrivals" data-testid="autopilot-topics"
             />
           </div>
@@ -118,13 +118,13 @@ export default function Autopilot() {
           <div>
             <label className="block text-sm font-medium text-[#4A3728] mb-2">Days</label>
             <select value={days} onChange={(e) => setDays(Number(e.target.value))}
-              className="w-full bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white" data-testid="autopilot-days"
+              className="w-full bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-[#4A3728]" data-testid="autopilot-days"
             >{[3,5,7,14].map(d => <option key={d} value={d} className="bg-white">{d} days</option>)}</select>
           </div>
           <div>
             <label className="block text-sm font-medium text-[#4A3728] mb-2">Posts per Day</label>
             <select value={postsPerDay} onChange={(e) => setPostsPerDay(Number(e.target.value))}
-              className="w-full bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white" data-testid="autopilot-ppd"
+              className="w-full bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-[#4A3728]" data-testid="autopilot-ppd"
             >{[1,2,3].map(n => <option key={n} value={n} className="bg-white">{n}/day</option>)}</select>
           </div>
           <div>

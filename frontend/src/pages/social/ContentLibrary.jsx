@@ -188,14 +188,14 @@ export default function ContentLibrary() {
             <div className="flex items-center gap-2 flex-1">
               <div className="relative flex-1 max-w-xs">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5D4A3A]" />
-                <input type="text" value={searchFilter} onChange={(e) => setSearchFilter(e.target.value)} className="w-full bg-white border border-[#D4BBA6] rounded-lg py-2 pl-10 pr-4 text-sm text-white placeholder-zinc-500" placeholder="Search assets..." />
+                <input type="text" value={searchFilter} onChange={(e) => setSearchFilter(e.target.value)} className="w-full bg-white border border-[#D4BBA6] rounded-lg py-2 pl-10 pr-4 text-sm text-white placeholder-[#5D4A3A]/500" placeholder="Search assets..." />
               </div>
               <div className="flex bg-white rounded-lg border border-[#E8D5C4] p-0.5">
                 <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded-md ${viewMode === 'grid' ? 'bg-[#E8D5C4] text-white' : 'text-[#5D4A3A]'}`}><Grid3X3 className="w-4 h-4" /></button>
                 <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-md ${viewMode === 'list' ? 'bg-[#E8D5C4] text-white' : 'text-[#5D4A3A]'}`}><List className="w-4 h-4" /></button>
               </div>
             </div>
-            <button onClick={() => fileRef.current?.click()} disabled={uploading} className="bg-amber-800 hover:bg-amber-800-hover text-white rounded-lg font-medium px-4 py-2 text-sm flex items-center gap-2 disabled:opacity-50">
+            <button onClick={() => fileRef.current?.click()} disabled={uploading} className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white rounded-lg font-medium px-4 py-2 text-sm flex items-center gap-2 disabled:opacity-50">
               {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} Upload Files
             </button>
             <input ref={fileRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={handleAssetUpload} />
@@ -210,10 +210,10 @@ export default function ContentLibrary() {
                     <div className="relative aspect-square bg-[#E8D5C4]">
                       {asset.content_type?.startsWith('image') ? <img src={asset.url} alt={asset.filename} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[#5D4A3A]"><FileText className="w-8 h-8" /></div>}
                       <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                        <button onClick={() => { navigator.clipboard.writeText(asset.url); setCopied(asset.asset_id); setTimeout(() => setCopied(''), 2000); }} className="p-2 rounded-full bg-white/20 hover:bg-white/30 text-white">
+                        <button onClick={() => { navigator.clipboard.writeText(asset.url); setCopied(asset.asset_id); setTimeout(() => setCopied(''), 2000); }} className="p-2 rounded-full bg-white/20 hover:bg-white/30 text-[#4A3728]">
                           {copied === asset.asset_id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                         </button>
-                        <button onClick={() => handleDeleteAsset(asset.asset_id)} className="p-2 rounded-full bg-red-500/30 hover:bg-red-500/50 text-white"><Trash2 className="w-4 h-4" /></button>
+                        <button onClick={() => handleDeleteAsset(asset.asset_id)} className="p-2 rounded-full bg-red-500/30 hover:bg-red-500/50 text-[#4A3728]"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </div>
                     <div className="p-2"><p className="text-[10px] text-[#5D4A3A] truncate">{asset.filename}</p><p className="text-[9px] text-[#5D4A3A]">{formatSize(asset.size)}</p></div>
@@ -228,7 +228,7 @@ export default function ContentLibrary() {
                       {asset.content_type?.startsWith('image') ? <img src={asset.url} alt="" className="w-full h-full object-cover" /> : <FileText className="w-6 h-6 text-[#5D4A3A] m-auto" />}
                     </div>
                     <div className="flex-1 min-w-0"><p className="text-xs text-white truncate">{asset.filename}</p><p className="text-[10px] text-[#5D4A3A]">{formatSize(asset.size)} - {new Date(asset.created_at).toLocaleDateString()}</p></div>
-                    <button onClick={() => { navigator.clipboard.writeText(asset.url); setCopied(asset.asset_id); setTimeout(() => setCopied(''), 2000); }} className="p-1.5 rounded-lg hover:bg-[#F5EDE5] text-[#5D4A3A] hover:text-white">{copied === asset.asset_id ? <Check className="w-4 h-4 text-stone-400" /> : <Copy className="w-4 h-4" />}</button>
+                    <button onClick={() => { navigator.clipboard.writeText(asset.url); setCopied(asset.asset_id); setTimeout(() => setCopied(''), 2000); }} className="p-1.5 rounded-lg hover:bg-[#F5EDE5] text-[#5D4A3A] hover:text-[#4A3728]">{copied === asset.asset_id ? <Check className="w-4 h-4 text-stone-400" /> : <Copy className="w-4 h-4" />}</button>
                     <button onClick={() => handleDeleteAsset(asset.asset_id)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-[#5D4A3A] hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 ))}
@@ -245,18 +245,18 @@ export default function ContentLibrary() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-[#5D4A3A]">{templates.length} templates saved</p>
-            <button onClick={() => setShowTemplateForm(!showTemplateForm)} className="bg-amber-800 hover:bg-amber-800-hover text-white rounded-lg font-medium px-4 py-2 text-sm flex items-center gap-2"><Plus className="w-4 h-4" /> New Template</button>
+            <button onClick={() => setShowTemplateForm(!showTemplateForm)} className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white rounded-lg font-medium px-4 py-2 text-sm flex items-center gap-2"><Plus className="w-4 h-4" /> New Template</button>
           </div>
 
           {showTemplateForm && (
             <div className="bg-white border border-[#E8D5C4] rounded-xl p-5 animate-slide-up">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-                <input type="text" value={tName} onChange={(e) => setTName(e.target.value)} className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500" placeholder="Template name" />
-                <select value={tPlatform} onChange={(e) => setTPlatform(e.target.value)} className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white"><option value="" className="bg-white">Any platform</option>{['linkedin','instagram','facebook','twitter'].map(p => <option key={p} value={p} className="bg-white">{p}</option>)}</select>
-                <select value={tCategory} onChange={(e) => setTCategory(e.target.value)} className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white">{['general','announcement','promotion','engagement','educational','reply'].map(c => <option key={c} value={c} className="bg-white">{c}</option>)}</select>
+                <input type="text" value={tName} onChange={(e) => setTName(e.target.value)} className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white placeholder-[#5D4A3A]/500" placeholder="Template name" />
+                <select value={tPlatform} onChange={(e) => setTPlatform(e.target.value)} className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-[#4A3728]"><option value="" className="bg-white">Any platform</option>{['linkedin','instagram','facebook','twitter'].map(p => <option key={p} value={p} className="bg-white">{p}</option>)}</select>
+                <select value={tCategory} onChange={(e) => setTCategory(e.target.value)} className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-[#4A3728]">{['general','announcement','promotion','engagement','educational','reply'].map(c => <option key={c} value={c} className="bg-white">{c}</option>)}</select>
               </div>
-              <textarea value={tContent} onChange={(e) => setTContent(e.target.value)} className="w-full bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-3 px-4 text-sm text-white placeholder-zinc-500 resize-none mb-3" rows={4} placeholder="Template content... Use {brand}, {product}, {link} as placeholders" />
-              <button onClick={handleSaveTemplate} disabled={savingTemplate || !tName.trim() || !tContent.trim()} className="bg-amber-800 hover:bg-amber-800-hover text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50">
+              <textarea value={tContent} onChange={(e) => setTContent(e.target.value)} className="w-full bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-3 px-4 text-sm text-white placeholder-[#5D4A3A]/500 resize-none mb-3" rows={4} placeholder="Template content... Use {brand}, {product}, {link} as placeholders" />
+              <button onClick={handleSaveTemplate} disabled={savingTemplate || !tName.trim() || !tContent.trim()} className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50">
                 {savingTemplate ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Save Template
               </button>
             </div>
@@ -268,14 +268,14 @@ export default function ContentLibrary() {
                 <div key={t.template_id} className="bg-white border border-[#E8D5C4] rounded-xl p-4 hover:border-[#D4BBA6] transition-all">
                   <div className="flex items-start justify-between mb-2">
                     <div>
-                      <h4 className="text-sm font-medium text-white">{t.name}</h4>
+                      <h4 className="text-sm font-medium text-[#4A3728]">{t.name}</h4>
                       <div className="flex items-center gap-2 mt-0.5">
                         {t.platform && <span className="text-[10px] bg-amber-800/10 text-amber-600 px-1.5 py-0.5 rounded">{t.platform}</span>}
                         <span className="text-[10px] bg-[#E8D5C4] text-[#5D4A3A] px-1.5 py-0.5 rounded">{t.category}</span>
                       </div>
                     </div>
                     <div className="flex gap-1">
-                      <button onClick={() => handleCopyTemplate(t.content, t.template_id)} className="p-1.5 rounded-lg hover:bg-[#F5EDE5] text-[#5D4A3A] hover:text-white">{copied === t.template_id ? <Check className="w-3.5 h-3.5 text-stone-400" /> : <Copy className="w-3.5 h-3.5" />}</button>
+                      <button onClick={() => handleCopyTemplate(t.content, t.template_id)} className="p-1.5 rounded-lg hover:bg-[#F5EDE5] text-[#5D4A3A] hover:text-[#4A3728]">{copied === t.template_id ? <Check className="w-3.5 h-3.5 text-stone-400" /> : <Copy className="w-3.5 h-3.5" />}</button>
                       <button onClick={() => handleDeleteTemplate(t.template_id)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-[#5D4A3A] hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </div>
@@ -299,7 +299,7 @@ export default function ContentLibrary() {
               <p className="text-[10px] text-[#5D4A3A] mb-2">Example CSV:</p>
               <pre className="text-[10px] text-[#4A3728] font-mono">platform,content,scheduled_at,status,tags{'\n'}linkedin,"Check out our new feature!",2026-03-10T09:00,scheduled,"launch,product"{'\n'}instagram,"New arrivals are here!",2026-03-10T12:00,scheduled,"fashion,new"{'\n'}facebook,"Join our community event",2026-03-11T14:00,draft,"event,community"</pre>
             </div>
-            <button onClick={() => bulkRef.current?.click()} disabled={bulkUploading} className="bg-amber-800 hover:bg-amber-800-hover text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50">
+            <button onClick={() => bulkRef.current?.click()} disabled={bulkUploading} className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50">
               {bulkUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} Upload CSV
             </button>
             <input ref={bulkRef} type="file" accept=".csv" className="hidden" onChange={handleBulkUpload} />
@@ -331,7 +331,7 @@ export default function ContentLibrary() {
                 {allTags.map((t, i) => (
                   <div key={i} className="flex items-center gap-2 bg-[#E8D5C4]/80 rounded-lg px-3 py-2 border border-[#E8D5C4]">
                     <Tag className="w-3 h-3 text-amber-600" />
-                    <span className="text-xs text-white">{t.tag}</span>
+                    <span className="text-xs text-[#4A3728]">{t.tag}</span>
                     <span className="text-[10px] text-[#5D4A3A] bg-gray-200 px-1.5 py-0.5 rounded-full">{t.count} posts</span>
                   </div>
                 ))}
@@ -349,9 +349,9 @@ export default function ContentLibrary() {
           <div className="bg-white border border-[#E8D5C4] rounded-xl p-5">
             <h3 className="text-sm font-heading font-semibold text-[#4A3728] mb-3 flex items-center gap-2"><Rss className="w-4 h-4 text-orange-400" /> Add RSS Feed</h3>
             <div className="flex gap-3 flex-wrap">
-              <input type="text" value={rssUrl} onChange={(e) => setRssUrl(e.target.value)} className="flex-1 bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500 min-w-[250px]" placeholder="https://blog.example.com/feed" />
-              <select value={rssPlatform} onChange={(e) => setRssPlatform(e.target.value)} className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-3 text-xs text-white">{['linkedin','facebook','instagram','twitter'].map(p => <option key={p} value={p} className="bg-white">{p}</option>)}</select>
-              <input type="text" value={rssPrefix} onChange={(e) => setRssPrefix(e.target.value)} className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white placeholder-zinc-500 w-40" placeholder="Post prefix (optional)" />
+              <input type="text" value={rssUrl} onChange={(e) => setRssUrl(e.target.value)} className="flex-1 bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white placeholder-[#5D4A3A]/500 min-w-[250px]" placeholder="https://blog.example.com/feed" />
+              <select value={rssPlatform} onChange={(e) => setRssPlatform(e.target.value)} className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-3 text-xs text-[#4A3728]">{['linkedin','facebook','instagram','twitter'].map(p => <option key={p} value={p} className="bg-white">{p}</option>)}</select>
+              <input type="text" value={rssPrefix} onChange={(e) => setRssPrefix(e.target.value)} className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-2.5 px-4 text-sm text-white placeholder-[#5D4A3A]/500 w-40" placeholder="Post prefix (optional)" />
               <button onClick={handleAddRss} disabled={addingRss || !rssUrl.trim()} className="bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50">
                 {addingRss ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Add Feed
               </button>
@@ -377,7 +377,7 @@ export default function ContentLibrary() {
                       {rssItems[feed.feed_id].map((item, i) => (
                         <div key={i} className="flex items-start gap-3 p-2.5 bg-[#F5EDE5] rounded-lg">
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-white">{item.title}</p>
+                            <p className="text-xs font-medium text-[#4A3728]">{item.title}</p>
                             <p className="text-[10px] text-[#5D4A3A] line-clamp-1">{item.description}</p>
                             {item.link && <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-[10px] text-amber-600 flex items-center gap-1 mt-0.5"><ExternalLink className="w-2.5 h-2.5" /> {item.link.slice(0, 40)}...</a>}
                           </div>
@@ -421,7 +421,7 @@ export default function ContentLibrary() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-medium text-white">@{item.author}</span>
+                          <span className="text-xs font-medium text-[#4A3728]">@{item.author}</span>
                           <span className="text-[10px] text-[#5D4A3A] capitalize">{item.platform} {item.type}</span>
                           {!item.read && <span className="w-2 h-2 rounded-full bg-amber-800" />}
                           <span className="text-[10px] text-[#5D4A3A] ml-auto">{item.timestamp ? new Date(item.timestamp).toLocaleString() : ''}</span>
@@ -430,7 +430,7 @@ export default function ContentLibrary() {
                         {item.post_preview && <p className="text-[10px] text-[#5D4A3A] mt-1 bg-[#F5EDE5] p-1.5 rounded">On: "{item.post_preview}..."</p>}
                       </div>
                       {!item.read && (
-                        <button onClick={() => handleMarkRead(item.inbox_id)} className="p-1.5 rounded-lg hover:bg-[#F5EDE5] text-[#5D4A3A] hover:text-white" title="Mark as read"><Eye className="w-4 h-4" /></button>
+                        <button onClick={() => handleMarkRead(item.inbox_id)} className="p-1.5 rounded-lg hover:bg-[#F5EDE5] text-[#5D4A3A] hover:text-[#4A3728]" title="Mark as read"><Eye className="w-4 h-4" /></button>
                       )}
                     </div>
                   </div>

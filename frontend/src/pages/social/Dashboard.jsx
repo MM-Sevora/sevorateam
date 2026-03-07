@@ -47,7 +47,7 @@ export const SocialDashboard = () => {
                                 <p className="text-3xl font-bold text-[#4A3728] mt-1">{stats?.total_content || 0}</p>
                             </div>
                             <div className="w-12 h-12 rounded-xl bg-rose-600 flex items-center justify-center">
-                                <PenTool className="w-6 h-6 text-white" />
+                                <PenTool className="w-6 h-6 text-[#4A3728]" />
                             </div>
                         </div>
                     </CardContent>
@@ -61,7 +61,7 @@ export const SocialDashboard = () => {
                                 <p className="text-3xl font-bold text-[#4A3728] mt-1">{stats?.scheduled || 0}</p>
                             </div>
                             <div className="w-12 h-12 rounded-xl bg-rose-500 flex items-center justify-center">
-                                <Clock className="w-6 h-6 text-white" />
+                                <Clock className="w-6 h-6 text-[#4A3728]" />
                             </div>
                         </div>
                     </CardContent>
@@ -75,7 +75,7 @@ export const SocialDashboard = () => {
                                 <p className="text-3xl font-bold text-[#4A3728] mt-1">{stats?.published || 0}</p>
                             </div>
                             <div className="w-12 h-12 rounded-xl bg-stone-600 flex items-center justify-center">
-                                <TrendingUp className="w-6 h-6 text-white" />
+                                <TrendingUp className="w-6 h-6 text-[#4A3728]" />
                             </div>
                         </div>
                     </CardContent>
@@ -89,7 +89,7 @@ export const SocialDashboard = () => {
                                 <p className="text-3xl font-bold text-[#4A3728] mt-1">{stats?.drafts || 0}</p>
                             </div>
                             <div className="w-12 h-12 rounded-xl bg-yellow-500 flex items-center justify-center">
-                                <Image className="w-6 h-6 text-white" />
+                                <Image className="w-6 h-6 text-[#4A3728]" />
                             </div>
                         </div>
                     </CardContent>
