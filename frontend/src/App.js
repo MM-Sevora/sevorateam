@@ -28,6 +28,7 @@ import DigitalPRPage from "./pages/marketing/DigitalPRPage";
 import EventsPage from "./pages/marketing/EventsPage";
 import MarketingCalendarPage from "./pages/marketing/MarketingCalendarPage";
 import ContentAssetsPage from "./pages/marketing/ContentAssetsPage";
+import InfluencersPageNew from "./pages/marketing/InfluencersPageNew";
 
 // Sales Pages
 import { SalesDashboard } from "./pages/sales/Dashboard";
@@ -117,18 +118,18 @@ function AppRoutes() {
 
             {/* Marketing Routes */}
             <Route path="/marketing" element={<ProtectedRoute requiredDepartment="marketing"><MarketingDashboard /></ProtectedRoute>} />
+            <Route path="/marketing/influencers" element={<ProtectedRoute requiredDepartment="marketing"><InfluencersPageNew /></ProtectedRoute>} />
+            <Route path="/marketing/pr" element={<ProtectedRoute requiredDepartment="marketing"><DigitalPRPage /></ProtectedRoute>} />
+            <Route path="/marketing/events" element={<ProtectedRoute requiredDepartment="marketing"><EventsPage /></ProtectedRoute>} />
+            <Route path="/marketing/campaigns" element={<ProtectedRoute requiredDepartment="marketing"><CampaignsPage /></ProtectedRoute>} />
+            <Route path="/marketing/calendar" element={<ProtectedRoute requiredDepartment="marketing"><MarketingCalendarPage /></ProtectedRoute>} />
             <Route path="/marketing/contacts" element={<ProtectedRoute requiredDepartment="marketing"><ContactsHubPage /></ProtectedRoute>} />
             <Route path="/marketing/contacts/:contactId" element={<ProtectedRoute requiredDepartment="marketing"><ContactDetailPage /></ProtectedRoute>} />
-            <Route path="/marketing/pr" element={<ProtectedRoute requiredDepartment="marketing"><DigitalPRPage /></ProtectedRoute>} />
-            <Route path="/marketing/campaigns" element={<ProtectedRoute requiredDepartment="marketing"><CampaignsPage /></ProtectedRoute>} />
-            <Route path="/marketing/events" element={<ProtectedRoute requiredDepartment="marketing"><EventsPage /></ProtectedRoute>} />
-            <Route path="/marketing/calendar" element={<ProtectedRoute requiredDepartment="marketing"><MarketingCalendarPage /></ProtectedRoute>} />
             <Route path="/marketing/assets" element={<ProtectedRoute requiredDepartment="marketing"><ContentAssetsPage /></ProtectedRoute>} />
             <Route path="/marketing/budget" element={<ProtectedRoute requiredDepartment="marketing"><BudgetPage /></ProtectedRoute>} />
             <Route path="/marketing/ai-tools" element={<ProtectedRoute requiredDepartment="marketing"><AIToolsPage /></ProtectedRoute>} />
             <Route path="/marketing/analytics" element={<ProtectedRoute requiredDepartment="marketing"><MarketingAnalyticsPage /></ProtectedRoute>} />
             {/* Legacy Marketing Routes - kept for backward compatibility */}
-            <Route path="/marketing/influencers" element={<ProtectedRoute requiredDepartment="marketing"><InfluencersPage /></ProtectedRoute>} />
             <Route path="/marketing/outreach" element={<ProtectedRoute requiredDepartment="marketing"><OutreachPage /></ProtectedRoute>} />
             <Route path="/marketing/negotiations" element={<ProtectedRoute requiredDepartment="marketing"><NegotiationsPage /></ProtectedRoute>} />
 
