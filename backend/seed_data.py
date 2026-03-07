@@ -50,11 +50,35 @@ async def seed_users():
     users = [
         {
             "id": str(uuid.uuid4()),
+            "email": "superadmin@sevora.com",
+            "password": "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyNiLXCJzHfO2.", # admin123
+            "name": "Super Administrator",
+            "department": "admin",
+            "role": "super_admin",
+            "status": "active",
+            "departments": ["marketing", "sales", "social", "admin"],
+            "created_at": datetime.now(timezone.utc).isoformat()
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "email": "admin@sevora.com",
+            "password": "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyNiLXCJzHfO2.", # admin123
+            "name": "System Administrator",
+            "department": "admin",
+            "role": "admin",
+            "status": "active",
+            "departments": ["marketing", "sales", "social", "admin"],
+            "created_at": datetime.now(timezone.utc).isoformat()
+        },
+        {
+            "id": str(uuid.uuid4()),
             "email": "marketing@sevora.com",
             "password": "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyNiLXCJzHfO2.", # admin123
             "name": "Marketing Manager",
             "department": "marketing",
             "role": "marketing_manager",
+            "status": "active",
+            "departments": ["marketing"],
             "created_at": datetime.now(timezone.utc).isoformat()
         },
         {
@@ -64,6 +88,8 @@ async def seed_users():
             "name": "Sales Manager",
             "department": "sales",
             "role": "sales_manager",
+            "status": "active",
+            "departments": ["sales"],
             "created_at": datetime.now(timezone.utc).isoformat()
         },
         {
@@ -73,15 +99,30 @@ async def seed_users():
             "name": "Social Media Manager",
             "department": "social",
             "role": "social_manager",
+            "status": "active",
+            "departments": ["social"],
             "created_at": datetime.now(timezone.utc).isoformat()
         },
         {
             "id": str(uuid.uuid4()),
-            "email": "stylist@sevora.com",
+            "email": "viewer@sevora.com",
             "password": "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyNiLXCJzHfO2.",
-            "name": "Priya Stylist",
+            "name": "Read Only User",
             "department": "sales",
-            "role": "stylist",
+            "role": "viewer",
+            "status": "active",
+            "departments": [],
+            "created_at": datetime.now(timezone.utc).isoformat()
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "email": "pending@sevora.com",
+            "password": "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyNiLXCJzHfO2.",
+            "name": "Pending User (Demo)",
+            "department": "marketing",
+            "role": "viewer",
+            "status": "pending",
+            "departments": [],
             "created_at": datetime.now(timezone.utc).isoformat()
         },
     ]
@@ -91,6 +132,16 @@ async def seed_users():
         if not existing:
             await db.users.insert_one(user)
             print(f"Created user: {user['email']}")
+        else:
+            # Update existing user with new fields if missing
+            update_fields = {}
+            if 'status' not in existing:
+                update_fields['status'] = user.get('status', 'active')
+            if 'departments' not in existing:
+                update_fields['departments'] = user.get('departments', [])
+            if update_fields:
+                await db.users.update_one({"email": user["email"]}, {"$set": update_fields})
+                print(f"Updated user: {user['email']}")
 
 async def seed_influencers():
     """Create demo influencers"""

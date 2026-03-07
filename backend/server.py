@@ -65,29 +65,45 @@ class Department(str, Enum):
     ADMIN = "admin"
 
 class UserRole(str, Enum):
+    SUPER_ADMIN = "super_admin"
     ADMIN = "admin"
     MARKETING_MANAGER = "marketing_manager"
     SALES_MANAGER = "sales_manager"
     SOCIAL_MANAGER = "social_manager"
-    STYLIST = "stylist"
     VIEWER = "viewer"
+
+# User status for activation workflow
+class UserStatus(str, Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    PENDING = "pending"
 
 # Department to modules mapping
 DEPARTMENT_MODULES = {
-    "marketing": ["influencers", "campaigns", "negotiations", "outreach", "ai_discovery"],
-    "sales": ["leads", "customers", "wedding_planner", "pipeline", "qr_codes", "partners"],
-    "social": ["content_studio", "ai_tools", "autopilot", "posts", "analytics", "avatar", "youtube"],
+    "marketing": ["influencers", "campaigns", "negotiations", "outreach", "ai_discovery", "email", "budget", "analytics"],
+    "sales": ["leads", "customers", "wedding_planner", "pipeline", "qr_codes", "partners", "analytics"],
+    "social": ["content_studio", "ai_tools", "autopilot", "posts", "analytics", "avatar", "youtube", "content_library"],
     "admin": ["all"]
 }
 
 # Role to department mapping
 ROLE_DEPARTMENTS = {
-    "admin": ["marketing", "sales", "social"],
+    "super_admin": ["marketing", "sales", "social", "admin"],
+    "admin": ["marketing", "sales", "social", "admin"],
     "marketing_manager": ["marketing"],
     "sales_manager": ["sales"],
     "social_manager": ["social"],
-    "stylist": ["sales"],
     "viewer": []
+}
+
+# Role hierarchy for permission checks
+ROLE_HIERARCHY = {
+    "super_admin": 100,
+    "admin": 80,
+    "marketing_manager": 50,
+    "sales_manager": 50,
+    "social_manager": 50,
+    "viewer": 10
 }
 
 # ============== MODELS ==============
@@ -97,6 +113,7 @@ class UserCreate(BaseModel):
     name: str
     department: Department = Department.SALES
     role: UserRole = UserRole.VIEWER
+    status: UserStatus = UserStatus.PENDING
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -109,8 +126,20 @@ class UserResponse(BaseModel):
     department: str
     role: str
     departments: List[str] = []
+    status: str = "active"
     avatar_url: Optional[str] = None
     created_at: Optional[str] = None
+    last_login: Optional[str] = None
+    azure_id: Optional[str] = None
+    employee_id: Optional[str] = None
+
+class UserUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    role: Optional[str] = None
+    department: Optional[str] = None
+    departments: Optional[List[str]] = None
+    status: Optional[str] = None
+    employee_id: Optional[str] = None
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -453,6 +482,19 @@ async def login(credentials: UserLogin):
     if not user or not verify_password(credentials.password, user['password']):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
+    # Check if user is active
+    user_status = user.get('status', 'active')
+    if user_status == 'inactive':
+        raise HTTPException(status_code=403, detail="Your account has been deactivated. Please contact an administrator.")
+    if user_status == 'pending':
+        raise HTTPException(status_code=403, detail="Your account is pending activation. Please contact an administrator.")
+    
+    # Update last login
+    await db.users.update_one(
+        {"id": user['id']},
+        {"$set": {"last_login": datetime.now(timezone.utc).isoformat()}}
+    )
+    
     token = create_access_token({"sub": user['id'], "email": user['email'], "role": user.get('role', 'viewer')})
     departments = get_user_departments(user.get('role', 'viewer'))
     return TokenResponse(
@@ -464,8 +506,10 @@ async def login(credentials: UserLogin):
             department=user.get('department', 'sales'),
             role=user.get('role', 'viewer'),
             departments=departments,
+            status=user.get('status', 'active'),
             avatar_url=user.get('avatar_url'),
-            created_at=user.get('created_at')
+            created_at=user.get('created_at'),
+            last_login=datetime.now(timezone.utc).isoformat()
         )
     )
 
@@ -482,7 +526,7 @@ async def azure_login(request: AzureTokenRequest):
     user = await db.users.find_one({"$or": [{"azure_id": azure_id}, {"email": email}]}, {"_id": 0})
     
     if not user:
-        # Create new user
+        # Create new user with PENDING status (Azure AD sync workflow)
         user_id = str(uuid.uuid4())
         user = {
             "id": user_id,
@@ -491,14 +535,29 @@ async def azure_login(request: AzureTokenRequest):
             "name": name,
             "department": "sales",
             "role": "viewer",
+            "status": "pending",  # New users from Azure AD start as pending
             "avatar_url": None,
-            "created_at": datetime.now(timezone.utc).isoformat()
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "source": "azure_ad"
         }
         await db.users.insert_one(user)
+        raise HTTPException(
+            status_code=403, 
+            detail="Your account has been created but is pending activation. Please contact an administrator."
+        )
     else:
-        # Update Azure ID if not set
+        # Check if user is active
+        user_status = user.get('status', 'active')
+        if user_status == 'inactive':
+            raise HTTPException(status_code=403, detail="Your account has been deactivated. Please contact an administrator.")
+        if user_status == 'pending':
+            raise HTTPException(status_code=403, detail="Your account is pending activation. Please contact an administrator.")
+        
+        # Update Azure ID and last login
+        update_data = {"last_login": datetime.now(timezone.utc).isoformat()}
         if not user.get('azure_id'):
-            await db.users.update_one({"id": user['id']}, {"$set": {"azure_id": azure_id}})
+            update_data["azure_id"] = azure_id
+        await db.users.update_one({"id": user['id']}, {"$set": update_data})
     
     token = create_access_token({"sub": user['id'], "email": email, "role": user.get('role', 'viewer')})
     departments = get_user_departments(user.get('role', 'viewer'))
@@ -512,8 +571,11 @@ async def azure_login(request: AzureTokenRequest):
             department=user.get('department', 'sales'),
             role=user.get('role', 'viewer'),
             departments=departments,
+            status=user.get('status', 'active'),
             avatar_url=user.get('avatar_url'),
-            created_at=user.get('created_at')
+            created_at=user.get('created_at'),
+            last_login=datetime.now(timezone.utc).isoformat(),
+            azure_id=azure_id
         )
     )
 
@@ -1050,27 +1112,304 @@ async def get_unified_dashboard(user: dict = Depends(get_current_user)):
     
     return result
 
-# ============== ADMIN ROUTES ==============
+# ============== ADMIN ROUTES - USER MANAGEMENT ==============
+
+def require_admin():
+    """Dependency to require admin or super_admin role"""
+    async def admin_check(user: dict = Depends(get_current_user)):
+        if user.get('role') not in ['admin', 'super_admin']:
+            raise HTTPException(status_code=403, detail="Admin access required")
+        return user
+    return admin_check
+
+def require_super_admin():
+    """Dependency to require super_admin role only"""
+    async def super_admin_check(user: dict = Depends(get_current_user)):
+        if user.get('role') != 'super_admin':
+            raise HTTPException(status_code=403, detail="Super Admin access required")
+        return user
+    return super_admin_check
+
 @api_router.get("/admin/users", response_model=List[UserResponse])
-async def get_all_users(user: dict = Depends(get_current_user)):
-    if user.get('role') != 'admin':
-        raise HTTPException(status_code=403, detail="Admin access required")
+async def get_all_users(
+    status: Optional[str] = None,
+    role: Optional[str] = None,
+    department: Optional[str] = None,
+    search: Optional[str] = None,
+    user: dict = Depends(require_admin())
+):
+    """Get all users with optional filters"""
+    query = {}
     
-    users = await db.users.find({}, {"_id": 0, "password": 0}).to_list(1000)
+    if status:
+        query["status"] = status
+    if role:
+        query["role"] = role
+    if department:
+        query["$or"] = [
+            {"department": department},
+            {"departments": department}
+        ]
+    if search:
+        query["$or"] = [
+            {"name": {"$regex": search, "$options": "i"}},
+            {"email": {"$regex": search, "$options": "i"}},
+            {"employee_id": {"$regex": search, "$options": "i"}}
+        ]
+    
+    users = await db.users.find(query, {"_id": 0, "password": 0, "hashed_password": 0}).sort("created_at", -1).to_list(1000)
+    
     for u in users:
         u['departments'] = get_user_departments(u.get('role', 'viewer'))
+        # Ensure status field exists
+        if 'status' not in u:
+            u['status'] = 'active'
+    
     return [UserResponse(**u) for u in users]
 
+@api_router.get("/admin/users/{user_id}", response_model=UserResponse)
+async def get_user_by_id(user_id: str, user: dict = Depends(require_admin())):
+    """Get a specific user by ID"""
+    found_user = await db.users.find_one({"id": user_id}, {"_id": 0, "password": 0, "hashed_password": 0})
+    if not found_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    found_user['departments'] = get_user_departments(found_user.get('role', 'viewer'))
+    if 'status' not in found_user:
+        found_user['status'] = 'active'
+    return UserResponse(**found_user)
+
+@api_router.post("/admin/users", response_model=UserResponse)
+async def create_user_admin(data: UserCreate, user: dict = Depends(require_admin())):
+    """Create a new user (admin only)"""
+    # Check if email already exists
+    existing = await db.users.find_one({"email": data.email})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    user_id = str(uuid.uuid4())
+    hashed_pw = bcrypt.hashpw(data.password.encode(), bcrypt.gensalt()).decode()
+    
+    user_doc = {
+        "id": user_id,
+        "email": data.email,
+        "name": data.name,
+        "hashed_password": hashed_pw,
+        "department": data.department.value,
+        "role": data.role.value,
+        "status": data.status.value,
+        "departments": ROLE_DEPARTMENTS.get(data.role.value, []),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_by": user.get('id'),
+        "last_login": None,
+        "azure_id": None,
+        "employee_id": None
+    }
+    
+    await db.users.insert_one(user_doc)
+    
+    # Log the action
+    await log_admin_action(user.get('id'), "create_user", user_id, {"email": data.email, "role": data.role.value})
+    
+    del user_doc['hashed_password']
+    return UserResponse(**user_doc)
+
+@api_router.put("/admin/users/{user_id}")
+async def update_user(user_id: str, data: UserUpdateRequest, user: dict = Depends(require_admin())):
+    """Update user details"""
+    # Prevent editing super_admin unless you are super_admin
+    target_user = await db.users.find_one({"id": user_id})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if target_user.get('role') == 'super_admin' and user.get('role') != 'super_admin':
+        raise HTTPException(status_code=403, detail="Cannot modify Super Admin user")
+    
+    update_data = {}
+    if data.name is not None:
+        update_data["name"] = data.name
+    if data.role is not None:
+        update_data["role"] = data.role
+        update_data["departments"] = ROLE_DEPARTMENTS.get(data.role, [])
+    if data.department is not None:
+        update_data["department"] = data.department
+    if data.departments is not None:
+        update_data["departments"] = data.departments
+    if data.status is not None:
+        update_data["status"] = data.status
+    if data.employee_id is not None:
+        update_data["employee_id"] = data.employee_id
+    
+    if update_data:
+        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+        update_data["updated_by"] = user.get('id')
+        await db.users.update_one({"id": user_id}, {"$set": update_data})
+        
+        # Log the action
+        await log_admin_action(user.get('id'), "update_user", user_id, update_data)
+    
+    return {"success": True, "message": "User updated successfully"}
+
 @api_router.put("/admin/users/{user_id}/role")
-async def update_user_role(user_id: str, role: str, department: str, user: dict = Depends(get_current_user)):
-    if user.get('role') != 'admin':
-        raise HTTPException(status_code=403, detail="Admin access required")
+async def update_user_role(user_id: str, role: str, department: str, user: dict = Depends(require_admin())):
+    """Update user role and department"""
+    target_user = await db.users.find_one({"id": user_id})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if target_user.get('role') == 'super_admin' and user.get('role') != 'super_admin':
+        raise HTTPException(status_code=403, detail="Cannot modify Super Admin user")
     
     await db.users.update_one(
         {"id": user_id},
-        {"$set": {"role": role, "department": department}}
+        {"$set": {
+            "role": role, 
+            "department": department,
+            "departments": ROLE_DEPARTMENTS.get(role, []),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "updated_by": user.get('id')
+        }}
     )
-    return {"message": "User role updated"}
+    
+    await log_admin_action(user.get('id'), "change_role", user_id, {"role": role, "department": department})
+    
+    return {"success": True, "message": "User role updated"}
+
+@api_router.put("/admin/users/{user_id}/activate")
+async def activate_user(user_id: str, user: dict = Depends(require_admin())):
+    """Activate a user account"""
+    result = await db.users.update_one(
+        {"id": user_id},
+        {"$set": {
+            "status": "active",
+            "activated_at": datetime.now(timezone.utc).isoformat(),
+            "activated_by": user.get('id')
+        }}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    await log_admin_action(user.get('id'), "activate_user", user_id, {})
+    
+    return {"success": True, "message": "User activated"}
+
+@api_router.put("/admin/users/{user_id}/deactivate")
+async def deactivate_user(user_id: str, user: dict = Depends(require_admin())):
+    """Deactivate a user account"""
+    target_user = await db.users.find_one({"id": user_id})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if target_user.get('role') == 'super_admin':
+        raise HTTPException(status_code=403, detail="Cannot deactivate Super Admin user")
+    
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {
+            "status": "inactive",
+            "deactivated_at": datetime.now(timezone.utc).isoformat(),
+            "deactivated_by": user.get('id')
+        }}
+    )
+    
+    await log_admin_action(user.get('id'), "deactivate_user", user_id, {})
+    
+    return {"success": True, "message": "User deactivated"}
+
+@api_router.delete("/admin/users/{user_id}")
+async def delete_user(user_id: str, user: dict = Depends(require_super_admin())):
+    """Delete a user (Super Admin only)"""
+    target_user = await db.users.find_one({"id": user_id})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if target_user.get('role') == 'super_admin':
+        raise HTTPException(status_code=403, detail="Cannot delete Super Admin user")
+    
+    await db.users.delete_one({"id": user_id})
+    
+    await log_admin_action(user.get('id'), "delete_user", user_id, {"email": target_user.get('email')})
+    
+    return {"success": True, "message": "User deleted"}
+
+@api_router.get("/admin/roles")
+async def get_available_roles(user: dict = Depends(require_admin())):
+    """Get all available roles and their permissions"""
+    roles = []
+    for role_name, departments in ROLE_DEPARTMENTS.items():
+        roles.append({
+            "id": role_name,
+            "name": role_name.replace("_", " ").title(),
+            "departments": departments,
+            "hierarchy": ROLE_HIERARCHY.get(role_name, 0)
+        })
+    return sorted(roles, key=lambda x: -x['hierarchy'])
+
+@api_router.get("/admin/stats")
+async def get_admin_stats(user: dict = Depends(require_admin())):
+    """Get user statistics for admin dashboard"""
+    total_users = await db.users.count_documents({})
+    active_users = await db.users.count_documents({"status": "active"})
+    inactive_users = await db.users.count_documents({"status": "inactive"})
+    pending_users = await db.users.count_documents({"status": "pending"})
+    
+    # Count by role
+    role_counts = {}
+    for role in UserRole:
+        count = await db.users.count_documents({"role": role.value})
+        role_counts[role.value] = count
+    
+    # Count by department
+    dept_counts = {}
+    for dept in Department:
+        count = await db.users.count_documents({"department": dept.value})
+        dept_counts[dept.value] = count
+    
+    # Recent logins (last 24 hours)
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+    recent_logins = await db.users.count_documents({"last_login": {"$gte": yesterday}})
+    
+    return {
+        "total_users": total_users,
+        "active_users": active_users,
+        "inactive_users": inactive_users,
+        "pending_users": pending_users,
+        "recent_logins": recent_logins,
+        "by_role": role_counts,
+        "by_department": dept_counts
+    }
+
+@api_router.get("/admin/audit-logs")
+async def get_audit_logs(
+    action: Optional[str] = None,
+    user_id: Optional[str] = None,
+    target_id: Optional[str] = None,
+    limit: int = 100,
+    user: dict = Depends(require_admin())
+):
+    """Get admin audit logs"""
+    query = {}
+    if action:
+        query["action"] = action
+    if user_id:
+        query["user_id"] = user_id
+    if target_id:
+        query["target_id"] = target_id
+    
+    logs = await db.admin_audit_logs.find(query, {"_id": 0}).sort("timestamp", -1).limit(limit).to_list(limit)
+    return logs
+
+async def log_admin_action(user_id: str, action: str, target_id: str, details: dict):
+    """Log an admin action for audit trail"""
+    log_entry = {
+        "id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "action": action,
+        "target_id": target_id,
+        "details": details,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+    await db.admin_audit_logs.insert_one(log_entry)
 
 # Health check
 @api_router.get("/health")

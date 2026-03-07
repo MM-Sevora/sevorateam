@@ -46,6 +46,9 @@ import AvatarPage from "./pages/social/Avatar";
 // Email Page
 import EmailPage from "./pages/marketing/EmailPage";
 
+// Admin Pages
+import UserManagementPage from "./pages/admin/UserManagement";
+
 import "./App.css";
 
 // Initialize MSAL
@@ -134,6 +137,9 @@ function AppRoutes() {
             <Route path="/social/youtube" element={<ProtectedRoute requiredDepartment="social"><YouTubePage /></ProtectedRoute>} />
             <Route path="/social/library" element={<ProtectedRoute requiredDepartment="social"><ContentLibraryPage /></ProtectedRoute>} />
             <Route path="/social/avatar" element={<ProtectedRoute requiredDepartment="social"><AvatarPage /></ProtectedRoute>} />
+
+            {/* Admin Routes */}
+            <Route path="/admin/users" element={<ProtectedRoute requiredDepartment="admin"><UserManagementPage /></ProtectedRoute>} />
 
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" replace />} />

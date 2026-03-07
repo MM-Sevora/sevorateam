@@ -21,11 +21,11 @@ export const AuthProvider = ({ children }) => {
 
     // Department and role management
     const ROLE_DEPARTMENTS = {
-        admin: ['marketing', 'sales', 'social'],
+        super_admin: ['marketing', 'sales', 'social', 'admin'],
+        admin: ['marketing', 'sales', 'social', 'admin'],
         marketing_manager: ['marketing'],
         sales_manager: ['sales'],
         social_manager: ['social'],
-        stylist: ['sales'],
         viewer: []
     };
 
@@ -184,7 +184,9 @@ export const AuthProvider = ({ children }) => {
     // Check if user has access to department
     const hasAccessToDepartment = (department) => {
         if (!user) return false;
-        const userDepts = getUserDepartments(user.role);
+        // First check if user has 'admin' in their departments (full access)
+        // Then check if the specific department is in their list
+        const userDepts = user.departments || getUserDepartments(user.role);
         return userDepts.includes('admin') || userDepts.includes(department);
     };
 

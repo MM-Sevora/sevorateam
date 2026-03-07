@@ -72,15 +72,25 @@ const DEPARTMENT_CONFIG = {
             { path: '/social/avatar', name: 'Avatar', icon: Users },
             { path: '/social/analytics', name: 'Analytics', icon: BarChart3 },
         ]
+    },
+    admin: {
+        name: 'Administration',
+        icon: Settings,
+        color: 'from-slate-600 to-slate-700',
+        bgColor: 'bg-slate-50',
+        textColor: 'text-slate-700',
+        routes: [
+            { path: '/admin/users', name: 'User Management', icon: Users },
+        ]
     }
 };
 
 const ROLE_LABELS = {
+    super_admin: 'Super Administrator',
     admin: 'Administrator',
     marketing_manager: 'Marketing Manager',
     sales_manager: 'Sales Manager',
     social_manager: 'Social Manager',
-    stylist: 'Stylist',
     viewer: 'Viewer'
 };
 
@@ -89,7 +99,7 @@ export const Layout = ({ children }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(true);
-    const [expandedDepts, setExpandedDepts] = useState(['marketing', 'sales', 'social']);
+    const [expandedDepts, setExpandedDepts] = useState(['marketing', 'sales', 'social', 'admin']);
 
     const toggleDepartment = (dept) => {
         setExpandedDepts(prev => 
@@ -104,6 +114,7 @@ export const Layout = ({ children }) => {
         if (path.startsWith('/marketing')) return 'marketing';
         if (path.startsWith('/sales')) return 'sales';
         if (path.startsWith('/social')) return 'social';
+        if (path.startsWith('/admin')) return 'admin';
         return null;
     };
 
