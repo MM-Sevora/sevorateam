@@ -27,6 +27,7 @@ import MarketingCalendarPage from "./pages/marketing/MarketingCalendarPage";
 import ContentAssetsPage from "./pages/marketing/ContentAssetsPage";
 import InfluencersListPage from "./pages/marketing/InfluencersListPage";
 import InfluencerDetailPage from "./pages/marketing/InfluencerDetailPage";
+import CampaignDetailPage from "./pages/marketing/CampaignDetailPage";
 
 // Sales Pages
 import { SalesDashboard } from "./pages/sales/Dashboard";
@@ -121,6 +122,7 @@ function AppRoutes() {
             <Route path="/marketing/pr" element={<ProtectedRoute requiredDepartment="marketing"><DigitalPRPage /></ProtectedRoute>} />
             <Route path="/marketing/events" element={<ProtectedRoute requiredDepartment="marketing"><EventsPage /></ProtectedRoute>} />
             <Route path="/marketing/campaigns" element={<ProtectedRoute requiredDepartment="marketing"><CampaignsPage /></ProtectedRoute>} />
+            <Route path="/marketing/campaign/:campaignId" element={<ProtectedRoute requiredDepartment="marketing"><CampaignDetailPage /></ProtectedRoute>} />
             <Route path="/marketing/calendar" element={<ProtectedRoute requiredDepartment="marketing"><MarketingCalendarPage /></ProtectedRoute>} />
             {/* Redirect old contacts routes to influencers */}
             <Route path="/marketing/contacts" element={<Navigate to="/marketing/influencers" replace />} />

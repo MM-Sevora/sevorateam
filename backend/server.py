@@ -808,7 +808,110 @@ async def get_marketing_campaigns(status: Optional[str] = None, user: dict = Dep
     if status:
         query["status"] = status
     campaigns = await db.marketing_campaigns.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
+    
+    # Enrich campaigns with actual influencer counts from contacts collection
+    for campaign in campaigns:
+        influencer_count = await db.contacts.count_documents({"campaign_id": campaign["id"]})
+        campaign["influencer_count"] = influencer_count
+    
     return campaigns
+
+@marketing_router.get("/campaigns/{campaign_id}")
+async def get_campaign_detail(campaign_id: str, user: dict = Depends(require_department(["marketing"]))):
+    """Get single campaign with full details"""
+    campaign = await db.marketing_campaigns.find_one({"id": campaign_id}, {"_id": 0})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Get assigned influencers
+    influencers = await db.contacts.find(
+        {"campaign_id": campaign_id},
+        {"_id": 0, "id": 1, "name": 1, "instagram_handle": 1, "youtube_handle": 1, 
+         "followers": 1, "engagement_rate": 1, "tier": 1, "status": 1, "industry": 1}
+    ).to_list(100)
+    
+    campaign["assigned_influencers"] = influencers
+    campaign["influencer_count"] = len(influencers)
+    
+    # Calculate campaign metrics
+    total_reach = sum(i.get("followers", 0) for i in influencers)
+    avg_engagement = sum(i.get("engagement_rate", 0) for i in influencers) / len(influencers) if influencers else 0
+    
+    campaign["metrics"] = {
+        "total_reach": total_reach,
+        "avg_engagement": round(avg_engagement, 2),
+        "influencer_count": len(influencers)
+    }
+    
+    return campaign
+
+@marketing_router.get("/campaigns/{campaign_id}/influencers")
+async def get_campaign_influencers(campaign_id: str, user: dict = Depends(require_department(["marketing"]))):
+    """Get all influencers assigned to a campaign"""
+    campaign = await db.marketing_campaigns.find_one({"id": campaign_id}, {"_id": 0})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    influencers = await db.contacts.find(
+        {"campaign_id": campaign_id},
+        {"_id": 0}
+    ).to_list(100)
+    
+    return influencers
+
+@marketing_router.post("/campaigns/{campaign_id}/influencers/{contact_id}")
+async def add_influencer_to_campaign(campaign_id: str, contact_id: str, user: dict = Depends(require_department(["marketing"]))):
+    """Add an influencer to a campaign"""
+    campaign = await db.marketing_campaigns.find_one({"id": campaign_id})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    contact = await db.contacts.find_one({"id": contact_id})
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    # Update contact with campaign_id
+    await db.contacts.update_one(
+        {"id": contact_id},
+        {"$set": {"campaign_id": campaign_id, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"message": "Influencer added to campaign", "campaign_id": campaign_id, "contact_id": contact_id}
+
+@marketing_router.delete("/campaigns/{campaign_id}/influencers/{contact_id}")
+async def remove_influencer_from_campaign(campaign_id: str, contact_id: str, user: dict = Depends(require_department(["marketing"]))):
+    """Remove an influencer from a campaign"""
+    contact = await db.contacts.find_one({"id": contact_id, "campaign_id": campaign_id})
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found in this campaign")
+    
+    # Remove campaign_id from contact
+    await db.contacts.update_one(
+        {"id": contact_id},
+        {"$set": {"campaign_id": None, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"message": "Influencer removed from campaign", "campaign_id": campaign_id, "contact_id": contact_id}
+
+@marketing_router.put("/campaigns/{campaign_id}")
+async def update_campaign(campaign_id: str, data: dict, user: dict = Depends(require_department(["marketing"]))):
+    """Update campaign details"""
+    campaign = await db.marketing_campaigns.find_one({"id": campaign_id})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Filter allowed fields
+    allowed_fields = ["name", "objective", "budget", "start_date", "end_date", "target_market", "description", "status"]
+    update_data = {k: v for k, v in data.items() if k in allowed_fields}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.marketing_campaigns.update_one(
+        {"id": campaign_id},
+        {"$set": update_data}
+    )
+    
+    updated = await db.marketing_campaigns.find_one({"id": campaign_id}, {"_id": 0})
+    return updated
 
 @marketing_router.post("/campaigns", response_model=CampaignResponse)
 async def create_marketing_campaign(data: CampaignCreate, user: dict = Depends(require_department(["marketing"]))):

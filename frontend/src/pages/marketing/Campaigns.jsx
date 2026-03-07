@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { marketingAPI } from '../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -34,6 +35,7 @@ const STATUS_COLORS = {
 };
 
 const CampaignsPage = () => {
+    const navigate = useNavigate();
     const [campaigns, setCampaigns] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -225,11 +227,16 @@ const CampaignsPage = () => {
                     {campaigns.map(campaign => {
                         const StatusIcon = STATUS_ICONS[campaign.status] || Clock;
                         return (
-                            <Card key={campaign.id} className="bg-white border-[#E8D5C4] hover:border-amber-500/30 transition-all cursor-pointer">
+                            <Card 
+                                key={campaign.id} 
+                                className="bg-white border-[#E8D5C4] hover:border-amber-500/30 transition-all cursor-pointer"
+                                onClick={() => navigate(`/marketing/campaign/${campaign.id}`)}
+                                data-testid={`campaign-card-${campaign.id}`}
+                            >
                                 <CardContent className="p-5">
                                     <div className="flex items-start justify-between mb-4">
                                         <div>
-                                            <h3 className="text-white font-semibold">{campaign.name}</h3>
+                                            <h3 className="text-[#4A3728] font-semibold">{campaign.name}</h3>
                                             <p className="text-[#5D4A3A] text-sm capitalize">{campaign.objective}</p>
                                         </div>
                                         <Badge className={STATUS_COLORS[campaign.status] || STATUS_COLORS.planning}>
@@ -258,7 +265,7 @@ const CampaignsPage = () => {
                                                 <Users className="w-4 h-4" />
                                                 Influencers
                                             </span>
-                                            <span className="text-[#4A3728]">{campaign.influencers?.length || 0}</span>
+                                            <span className="text-[#4A3728] font-medium">{campaign.influencer_count || 0}</span>
                                         </div>
                                     </div>
 

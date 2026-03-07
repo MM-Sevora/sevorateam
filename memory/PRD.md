@@ -199,6 +199,29 @@ Consolidate multiple Sevora applications (Influencer Operations from 'main' bran
 
 ## Latest Updates (March 7, 2026)
 
+### Campaign-Influencer Alignment Complete (March 7, 2026)
+
+**Quick Fix (Option A):**
+- Added `influencer_count` field to campaign list API (shows real count from contacts)
+- Campaign cards on list page now show actual assigned influencer counts
+
+**Full Campaign Detail Page (Option B):**
+- New `/marketing/campaign/:campaignId` route with `CampaignDetailPage.jsx`
+- Features:
+  - Campaign metrics cards (Influencers, Total Reach, Avg Engagement, Budget)
+  - Assigned Influencers list with click-to-view and remove functionality
+  - "Add Influencer" modal with search and instant assignment
+  - Campaign Details sidebar (edit mode available)
+  - Budget Utilization progress bar
+  - Edit Campaign functionality
+
+**New API Endpoints:**
+- `GET /api/marketing/campaigns/{id}` - Campaign detail with influencers and metrics
+- `GET /api/marketing/campaigns/{id}/influencers` - List campaign influencers
+- `POST /api/marketing/campaigns/{id}/influencers/{contact_id}` - Add influencer to campaign
+- `DELETE /api/marketing/campaigns/{id}/influencers/{contact_id}` - Remove from campaign
+- `PUT /api/marketing/campaigns/{id}` - Update campaign details
+
 ### Phase B: Core Workflow Complete (March 7, 2026)
 
 **Features Implemented:**
