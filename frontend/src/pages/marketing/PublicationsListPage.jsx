@@ -216,9 +216,9 @@ const PublicationsListPage = () => {
   const getStatusConfig = (status) => RELATIONSHIP_STATUS.find(s => s.value === status) || RELATIONSHIP_STATUS[0];
 
   return (
-    <div className="p-8 bg-gray-50 min-h-screen" data-testid="publications-list-page">
+    <div className="p-8 space-y-6" data-testid="publications-list-page">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between">
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">Media Database</p>
           <h1 className="text-3xl font-semibold text-gray-900 flex items-center gap-3">
@@ -242,79 +242,94 @@ const PublicationsListPage = () => {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-5 gap-4 mb-6">
-        <Card className="bg-white border-gray-200">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
-              <Building2 className="w-5 h-5 text-purple-600" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
-              <div className="text-xs text-gray-500 uppercase">Total Publications</div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-white border-gray-200">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-amber-600" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{stats.tier1}</div>
-              <div className="text-xs text-gray-500 uppercase">Tier 1</div>
+      {/* Stats Cards - Gradient Style */}
+      <div className="grid grid-cols-5 gap-4">
+        <Card className="bg-gradient-to-br from-purple-50 to-white border-purple-100">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-purple-600 uppercase tracking-wider">Publications</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{stats.total}</p>
+                <p className="text-xs text-gray-500 mt-1">In database</p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
+                <Building2 className="w-6 h-6 text-purple-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-white border-gray-200">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-              <BarChart3 className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{stats.tier2}</div>
-              <div className="text-xs text-gray-500 uppercase">Tier 2</div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-white border-gray-200">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-              <Users className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{stats.journalists}</div>
-              <div className="text-xs text-gray-500 uppercase">Journalists</div>
+        <Card className="bg-gradient-to-br from-amber-50 to-white border-amber-100">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-amber-600 uppercase tracking-wider">Tier 1</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{stats.tier1}</p>
+                <p className="text-xs text-gray-500 mt-1">Top media</p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
+                <TrendingUp className="w-6 h-6 text-amber-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-white border-gray-200">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
-              <Newspaper className="w-5 h-5 text-emerald-600" />
+        <Card className="bg-gradient-to-br from-blue-50 to-white border-blue-100">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-blue-600 uppercase tracking-wider">Tier 2</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{stats.tier2}</p>
+                <p className="text-xs text-gray-500 mt-1">Major media</p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+                <BarChart3 className="w-6 h-6 text-blue-600" />
+              </div>
             </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{stats.coverage}</div>
-              <div className="text-xs text-gray-500 uppercase">Coverages</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-green-50 to-white border-green-100">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-600 uppercase tracking-wider">Journalists</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{stats.journalists}</p>
+                <p className="text-xs text-gray-500 mt-1">Contacts</p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
+                <Users className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-emerald-50 to-white border-emerald-100">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-emerald-600 uppercase tracking-wider">Coverages</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{stats.coverage}</p>
+                <p className="text-xs text-gray-500 mt-1">Total</p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
+                <Newspaper className="w-6 h-6 text-emerald-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="relative flex-1 max-w-md">
+      {/* Search & Filters */}
+      <div className="flex items-center gap-4 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <Input
             placeholder="Search publications..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-10 bg-white border-gray-200"
             data-testid="search-input"
           />
         </div>
         <Select value={filterType} onValueChange={setFilterType}>
-          <SelectTrigger className="w-44">
+          <SelectTrigger className="w-44 bg-white">
             <SelectValue placeholder="Type" />
           </SelectTrigger>
           <SelectContent>
@@ -325,7 +340,7 @@ const PublicationsListPage = () => {
           </SelectContent>
         </Select>
         <Select value={filterTier} onValueChange={setFilterTier}>
-          <SelectTrigger className="w-36">
+          <SelectTrigger className="w-36 bg-white">
             <SelectValue placeholder="Tier" />
           </SelectTrigger>
           <SelectContent>
@@ -336,7 +351,7 @@ const PublicationsListPage = () => {
           </SelectContent>
         </Select>
         <Select value={filterBeat} onValueChange={setFilterBeat}>
-          <SelectTrigger className="w-36">
+          <SelectTrigger className="w-36 bg-white">
             <SelectValue placeholder="Beat" />
           </SelectTrigger>
           <SelectContent>
@@ -348,36 +363,44 @@ const PublicationsListPage = () => {
         </Select>
       </div>
 
+      {/* Results Count */}
+      <div className="flex items-center justify-between text-sm px-1">
+        <span className="text-gray-600">
+          Showing <span className="font-medium text-gray-900">{publications.length}</span> publications
+        </span>
+      </div>
+
       {/* Publications Table */}
-      <Card className="bg-white border-gray-200">
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-gray-50/50 hover:bg-gray-50/50">
-                <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[250px]">Publication</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[120px]">Type</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[80px]">Tier</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[80px]">DA</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[100px]">Traffic</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[150px]">Beats</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[100px]">Journalists</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[90px]">Coverage</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[90px]">Status</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[100px]"></TableHead>
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
+              <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[250px]">Publication</TableHead>
+              <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[120px]">Type</TableHead>
+              <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[80px]">Tier</TableHead>
+              <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[80px]">DA</TableHead>
+              <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[100px]">Traffic</TableHead>
+              <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[150px]">Beats</TableHead>
+              <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[100px]">Journalists</TableHead>
+              <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[90px]">Coverage</TableHead>
+              <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[90px]">Status</TableHead>
+              <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[100px]"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody className="divide-y divide-gray-100">
+            {publications.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={10} className="text-center py-12">
+                  <Building2 className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p className="text-gray-500 font-medium">{loading ? 'Loading...' : 'No publications found'}</p>
+                  <p className="text-gray-400 text-sm mt-1">Add your first publication to get started</p>
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {publications.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={10} className="text-center py-12 text-gray-500">
-                    {loading ? 'Loading...' : 'No publications found. Add your first publication!'}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                publications.map(pub => {
-                  const tierConfig = getTierConfig(pub.tier);
-                  const statusConfig = getStatusConfig(pub.relationship_status);
-                  return (
+            ) : (
+              publications.map(pub => {
+                const tierConfig = getTierConfig(pub.tier);
+                const statusConfig = getStatusConfig(pub.relationship_status);
+                return (
                     <TableRow 
                       key={pub.id}
                       className="cursor-pointer hover:bg-purple-50/50 transition-colors"
@@ -475,8 +498,7 @@ const PublicationsListPage = () => {
               )}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+        </div>
 
       {/* Add/Edit Modal */}
       <Dialog open={showModal} onOpenChange={setShowModal}>

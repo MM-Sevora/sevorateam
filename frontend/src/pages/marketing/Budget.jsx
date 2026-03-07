@@ -80,77 +80,73 @@ export const BudgetPage = () => {
     }));
 
     return (
-        <div className="p-8 space-y-8" data-testid="budget-page">
+        <div className="p-8 space-y-6" data-testid="budget-page">
             {/* Header */}
             <div>
-                <p className="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2">
+                <p className="font-mono text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">
                     Financial Overview
                 </p>
-                <h1 className="font-serif text-4xl">Budget & Payments</h1>
+                <h1 className="text-3xl font-semibold text-gray-900">Budget & Payments</h1>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <Card className="border border-border">
-                    <CardContent className="p-6">
-                        <div className="flex items-start justify-between">
+            {/* Stats - Gradient Style */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card className="bg-gradient-to-br from-amber-50 to-white border-amber-100">
+                    <CardContent className="p-5">
+                        <div className="flex items-center justify-between">
                             <div>
-                                <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
-                                    Total Budget
-                                </p>
-                                <p className="font-serif text-3xl">₹{(totalBudget / 100000).toFixed(1)}L</p>
+                                <p className="text-sm font-medium text-amber-600 uppercase tracking-wider">Total Budget</p>
+                                <p className="text-3xl font-bold text-gray-900 mt-1">₹{(totalBudget / 100000).toFixed(1)}L</p>
+                                <p className="text-xs text-gray-500 mt-1">Allocated</p>
                             </div>
-                            <div className="w-10 h-10 rounded-full bg-gold/10 flex items-center justify-center">
-                                <Wallet className="w-5 h-5 text-gold" />
+                            <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
+                                <Wallet className="w-6 h-6 text-amber-600" />
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card className="border border-border">
-                    <CardContent className="p-6">
-                        <div className="flex items-start justify-between">
+                <Card className="bg-gradient-to-br from-red-50 to-white border-red-100">
+                    <CardContent className="p-5">
+                        <div className="flex items-center justify-between">
                             <div>
-                                <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
-                                    Total Spent
-                                </p>
-                                <p className="font-serif text-3xl">₹{(totalSpent / 100000).toFixed(1)}L</p>
+                                <p className="text-sm font-medium text-red-600 uppercase tracking-wider">Total Spent</p>
+                                <p className="text-3xl font-bold text-gray-900 mt-1">₹{(totalSpent / 100000).toFixed(1)}L</p>
+                                <p className="text-xs text-gray-500 mt-1">{totalBudget > 0 ? ((totalSpent / totalBudget) * 100).toFixed(0) : 0}% of budget</p>
                             </div>
-                            <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center">
-                                <TrendingDown className="w-5 h-5 text-destructive" />
+                            <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center">
+                                <TrendingDown className="w-6 h-6 text-red-600" />
                             </div>
                         </div>
-                        <Progress value={(totalSpent / totalBudget) * 100} className="h-1.5 mt-4" />
+                        <Progress value={totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0} className="h-1.5 mt-3" />
                     </CardContent>
                 </Card>
 
-                <Card className="border border-border">
-                    <CardContent className="p-6">
-                        <div className="flex items-start justify-between">
+                <Card className="bg-gradient-to-br from-yellow-50 to-white border-yellow-100">
+                    <CardContent className="p-5">
+                        <div className="flex items-center justify-between">
                             <div>
-                                <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
-                                    Pending Payments
-                                </p>
-                                <p className="font-serif text-3xl">₹{(totalPending / 1000).toFixed(0)}K</p>
+                                <p className="text-sm font-medium text-yellow-600 uppercase tracking-wider">Pending</p>
+                                <p className="text-3xl font-bold text-gray-900 mt-1">₹{(totalPending / 1000).toFixed(0)}K</p>
+                                <p className="text-xs text-gray-500 mt-1">Awaiting payment</p>
                             </div>
-                            <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center">
-                                <Clock className="w-5 h-5 text-yellow-700" />
+                            <div className="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center">
+                                <Clock className="w-6 h-6 text-yellow-600" />
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card className="border border-border">
-                    <CardContent className="p-6">
-                        <div className="flex items-start justify-between">
+                <Card className="bg-gradient-to-br from-green-50 to-white border-green-100">
+                    <CardContent className="p-5">
+                        <div className="flex items-center justify-between">
                             <div>
-                                <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
-                                    Completed Payments
-                                </p>
-                                <p className="font-serif text-3xl">₹{(totalCompleted / 1000).toFixed(0)}K</p>
+                                <p className="text-sm font-medium text-green-600 uppercase tracking-wider">Completed</p>
+                                <p className="text-3xl font-bold text-gray-900 mt-1">₹{(totalCompleted / 1000).toFixed(0)}K</p>
+                                <p className="text-xs text-gray-500 mt-1">Payments done</p>
                             </div>
-                            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                                <CheckCircle className="w-5 h-5 text-green-700" />
+                            <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
+                                <CheckCircle className="w-6 h-6 text-green-600" />
                             </div>
                         </div>
                     </CardContent>

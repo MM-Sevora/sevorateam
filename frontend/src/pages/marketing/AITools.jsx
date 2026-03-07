@@ -156,11 +156,14 @@ export const AIToolsPage = () => {
     const copy = (text) => { navigator.clipboard.writeText(text); toast.success('Copied'); };
 
     return (
-        <div className="p-6 space-y-6" data-testid="ai-tools-page">
+        <div className="p-8 space-y-6" data-testid="ai-tools-page">
             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <h1 className="font-serif text-3xl">AI Tools & Discovery</h1>
-                    <Sparkles className="w-6 h-6 text-amber-500" />
+                <div>
+                    <p className="font-mono text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">AI-Powered Features</p>
+                    <h1 className="text-3xl font-semibold text-gray-900 flex items-center gap-3">
+                        AI Tools & Discovery
+                        <Sparkles className="w-6 h-6 text-amber-500" />
+                    </h1>
                 </div>
             </div>
 

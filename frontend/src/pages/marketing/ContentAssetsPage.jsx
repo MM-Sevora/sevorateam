@@ -148,12 +148,13 @@ const ContentAssetsPage = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#4A3728]">Content & Assets</h1>
-          <p className="text-[#5D4A3A] mt-1">Brand assets, press kit, templates, and UGC library</p>
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">Asset Management</p>
+          <h1 className="text-3xl font-semibold text-gray-900">Content & Assets</h1>
+          <p className="text-gray-500 mt-1 text-sm">Brand assets, press kit, templates, and UGC library</p>
         </div>
         <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
           <DialogTrigger asChild>
-            <Button className="bg-amber-700 hover:bg-amber-800">
+            <Button className="bg-[#c4a35a] hover:bg-[#b39349] text-white">
               <Plus className="w-4 h-4 mr-2" /> Upload Asset
             </Button>
           </DialogTrigger>

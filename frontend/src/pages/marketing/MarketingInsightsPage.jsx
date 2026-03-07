@@ -176,9 +176,9 @@ const MarketingInsightsPage = () => {
   }
 
   return (
-    <div className="p-8 bg-gray-50 min-h-screen" data-testid="marketing-insights-page">
+    <div className="p-8 space-y-6" data-testid="marketing-insights-page">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between">
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">Marketing Operations</p>
           <h1 className="text-3xl font-semibold text-gray-900">Insights & Analytics</h1>
@@ -205,7 +205,7 @@ const MarketingInsightsPage = () => {
           </div>
           
           <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="w-32 bg-white">
               <Calendar className="w-4 h-4 mr-2" />
               <SelectValue />
             </SelectTrigger>
@@ -226,71 +226,71 @@ const MarketingInsightsPage = () => {
       {/* Overview View */}
       {activeView === 'overview' && (
         <>
-          {/* Primary Stats */}
-          <div className="grid grid-cols-4 gap-4 mb-6">
-            <Card className="bg-white border-gray-200 hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate('/marketing/influencers')}>
+          {/* Primary Stats - Gradient Style */}
+          <div className="grid grid-cols-4 gap-4">
+            <Card className="bg-gradient-to-br from-amber-50 to-white border-amber-100 hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate('/marketing/influencers')}>
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-500">Total Influencers</p>
+                    <p className="text-sm font-medium text-amber-600 uppercase tracking-wider">Influencers</p>
                     <p className="text-3xl font-bold text-gray-900 mt-1">{stats.total_influencers}</p>
                     <p className="text-xs text-green-600 flex items-center gap-1 mt-2">
                       <ArrowUpRight className="w-3 h-3" /> Active pipeline
                     </p>
                   </div>
-                  <div className="w-14 h-14 rounded-xl bg-amber-100 flex items-center justify-center">
-                    <Users className="w-7 h-7 text-amber-600" />
+                  <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
+                    <Users className="w-6 h-6 text-amber-600" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-white border-gray-200 hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate('/marketing/campaigns')}>
+            <Card className="bg-gradient-to-br from-blue-50 to-white border-blue-100 hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate('/marketing/campaigns')}>
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-500">Active Campaigns</p>
+                    <p className="text-sm font-medium text-blue-600 uppercase tracking-wider">Campaigns</p>
                     <p className="text-3xl font-bold text-gray-900 mt-1">{stats.active_campaigns}</p>
                     <p className="text-xs text-blue-600 flex items-center gap-1 mt-2">
                       <Target className="w-3 h-3" /> {campaigns.length} total
                     </p>
                   </div>
-                  <div className="w-14 h-14 rounded-xl bg-blue-100 flex items-center justify-center">
-                    <Target className="w-7 h-7 text-blue-600" />
+                  <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+                    <Target className="w-6 h-6 text-blue-600" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-white border-gray-200">
+            <Card className="bg-gradient-to-br from-purple-50 to-white border-purple-100">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-500">Negotiations</p>
+                    <p className="text-sm font-medium text-purple-600 uppercase tracking-wider">Negotiations</p>
                     <p className="text-3xl font-bold text-gray-900 mt-1">{stats.pending_negotiations}</p>
-                    <p className="text-xs text-amber-600 flex items-center gap-1 mt-2">
+                    <p className="text-xs text-purple-600 flex items-center gap-1 mt-2">
                       <MessageSquare className="w-3 h-3" /> In progress
                     </p>
                   </div>
-                  <div className="w-14 h-14 rounded-xl bg-amber-100 flex items-center justify-center">
-                    <MessageSquare className="w-7 h-7 text-amber-600" />
+                  <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
+                    <MessageSquare className="w-6 h-6 text-purple-600" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-white border-gray-200">
+            <Card className="bg-gradient-to-br from-green-50 to-white border-green-100">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-500">Budget Utilized</p>
+                    <p className="text-sm font-medium text-green-600 uppercase tracking-wider">Budget Used</p>
                     <p className="text-3xl font-bold text-gray-900 mt-1">{budgetUtilization}%</p>
                     <p className="text-xs text-gray-500 mt-2">
                       {formatCurrency(stats.total_spent)} / {formatCurrency(stats.total_budget)}
                     </p>
                   </div>
-                  <div className="w-14 h-14 rounded-xl bg-green-100 flex items-center justify-center">
-                    <DollarSign className="w-7 h-7 text-green-600" />
+                  <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
+                    <DollarSign className="w-6 h-6 text-green-600" />
                   </div>
                 </div>
               </CardContent>

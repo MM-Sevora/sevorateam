@@ -288,9 +288,9 @@ const CampaignHubPage = () => {
   }
 
   return (
-    <div className="p-8 bg-gray-50 min-h-screen" data-testid="campaign-hub-page">
+    <div className="p-8 space-y-6" data-testid="campaign-hub-page">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between">
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">Campaign Management</p>
           <h1 className="text-3xl font-semibold text-gray-900">Campaign Hub</h1>
@@ -330,49 +330,61 @@ const CampaignHubPage = () => {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        <Card className="bg-white border-gray-200">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
-              <Target className="w-6 h-6 text-amber-600" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{campaigns.length}</div>
-              <div className="text-xs text-gray-500 uppercase tracking-wider">Total Campaigns</div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-white border-gray-200">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-              <Play className="w-6 h-6 text-green-600" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{activeCampaigns}</div>
-              <div className="text-xs text-gray-500 uppercase tracking-wider">Active</div>
+      {/* Stats Cards - Gradient Style */}
+      <div className="grid grid-cols-4 gap-4">
+        <Card className="bg-gradient-to-br from-amber-50 to-white border-amber-100">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-amber-600 uppercase tracking-wider">Campaigns</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{campaigns.length}</p>
+                <p className="text-xs text-gray-500 mt-1">Total campaigns</p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
+                <Target className="w-6 h-6 text-amber-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-white border-gray-200">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-              <Users className="w-6 h-6 text-blue-600" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{totalInfluencers}</div>
-              <div className="text-xs text-gray-500 uppercase tracking-wider">Influencers</div>
+        <Card className="bg-gradient-to-br from-green-50 to-white border-green-100">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-600 uppercase tracking-wider">Active</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{activeCampaigns}</p>
+                <p className="text-xs text-gray-500 mt-1">Running now</p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
+                <Play className="w-6 h-6 text-green-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-white border-gray-200">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-purple-600" />
+        <Card className="bg-gradient-to-br from-blue-50 to-white border-blue-100">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-blue-600 uppercase tracking-wider">Influencers</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{totalInfluencers}</p>
+                <p className="text-xs text-gray-500 mt-1">Assigned</p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+                <Users className="w-6 h-6 text-blue-600" />
+              </div>
             </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{formatCurrency(totalBudget)}</div>
-              <div className="text-xs text-gray-500 uppercase tracking-wider">Total Budget</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-purple-50 to-white border-purple-100">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-purple-600 uppercase tracking-wider">Budget</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{formatCurrency(totalBudget)}</p>
+                <p className="text-xs text-gray-500 mt-1">Total allocated</p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
+                <DollarSign className="w-6 h-6 text-purple-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -382,19 +394,19 @@ const CampaignHubPage = () => {
       {view === 'list' && (
         <>
           {/* Filters */}
-          <div className="flex items-center gap-4 mb-6">
-            <div className="relative flex-1 max-w-md">
+          <div className="flex items-center gap-4 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
                 placeholder="Search campaigns..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="pl-10"
+                className="pl-10 bg-white border-gray-200"
                 data-testid="search-campaigns"
               />
             </div>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-40 bg-white">
                 <SelectValue placeholder="Type" />
               </SelectTrigger>
               <SelectContent>
@@ -405,7 +417,7 @@ const CampaignHubPage = () => {
               </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-40 bg-white">
                 <Filter className="w-4 h-4 mr-2" />
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
@@ -419,43 +431,51 @@ const CampaignHubPage = () => {
             </Select>
           </div>
 
+          {/* Results Count */}
+          <div className="flex items-center justify-between text-sm px-1">
+            <span className="text-gray-600">
+              Showing <span className="font-medium text-gray-900">{filteredCampaigns.length}</span> of {campaigns.length} campaigns
+            </span>
+          </div>
+
           {/* Campaign Table */}
-          <Card className="bg-white border-gray-200">
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gray-50/50 hover:bg-gray-50/50">
-                    <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[280px]">Campaign</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[100px]">Type</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[100px]">Status</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[120px]">Budget</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[100px]">Spent</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[80px]">Progress</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[100px]">Team</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[150px]">Duration</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 w-[60px]"></TableHead>
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
+                  <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[280px]">Campaign</TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[100px]">Type</TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[100px]">Status</TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[120px]">Budget</TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[100px]">Spent</TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[80px]">Progress</TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[100px]">Team</TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[150px]">Duration</TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[60px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-gray-100">
+                {filteredCampaigns.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-12">
+                      <Target className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                      <p className="text-gray-500 font-medium">No campaigns found</p>
+                      <p className="text-gray-400 text-sm mt-1">Create your first campaign to get started</p>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredCampaigns.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={9} className="text-center py-12 text-gray-500">
-                        No campaigns found. Create your first campaign!
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredCampaigns.map(campaign => {
-                      const statusCfg = STATUS_CONFIG[campaign.status] || STATUS_CONFIG.planning;
-                      const StatusIcon = statusCfg.icon;
-                      const typeCfg = CAMPAIGN_TYPES[campaign.campaign_type] || CAMPAIGN_TYPES.influencer;
-                      const progress = campaign.budget > 0 ? Math.min((campaign.spent / campaign.budget) * 100, 100) : 0;
-                      const isPR = campaign.campaign_type === 'pr';
-                      
-                      return (
-                        <TableRow 
-                          key={campaign.id}
-                          className="cursor-pointer hover:bg-amber-50/50 transition-colors"
-                          onClick={() => isPR ? navigate(`/marketing/pr?campaign=${campaign.id}`) : navigate(`/marketing/campaign/${campaign.id}`)}
+                ) : (
+                  filteredCampaigns.map(campaign => {
+                    const statusCfg = STATUS_CONFIG[campaign.status] || STATUS_CONFIG.planning;
+                    const StatusIcon = statusCfg.icon;
+                    const typeCfg = CAMPAIGN_TYPES[campaign.campaign_type] || CAMPAIGN_TYPES.influencer;
+                    const progress = campaign.budget > 0 ? Math.min((campaign.spent / campaign.budget) * 100, 100) : 0;
+                    const isPR = campaign.campaign_type === 'pr';
+                    
+                    return (
+                      <TableRow 
+                        key={campaign.id}
+                        className="cursor-pointer hover:bg-amber-50/50 transition-colors group"
+                        onClick={() => isPR ? navigate(`/marketing/pr?campaign=${campaign.id}`) : navigate(`/marketing/campaign/${campaign.id}`)}
                           data-testid={`campaign-row-${campaign.id}`}
                         >
                           <TableCell>
@@ -499,7 +519,7 @@ const CampaignHubPage = () => {
                             <Button 
                               variant="ghost" 
                               size="sm" 
-                              className="h-8 w-8 p-0"
+                              className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 isPR ? navigate(`/marketing/pr?campaign=${campaign.id}`) : navigate(`/marketing/campaign/${campaign.id}`);
@@ -514,8 +534,7 @@ const CampaignHubPage = () => {
                   )}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
+          </div>
         </>
       )}
 
