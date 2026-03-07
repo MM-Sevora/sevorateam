@@ -492,87 +492,163 @@ const InfluencerDetailPage = () => {
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen" data-testid="influencer-detail-page">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/marketing/influencers')} data-testid="back-btn">
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-serif italic text-gray-900">{form.name || 'New Influencer'}</h1>
-              <Badge className={`${tier.color} border font-normal`}>{tier.label}</Badge>
-            </div>
-            <div className="text-gray-500">@{form.instagram_handle || form.youtube_handle || 'handle'}</div>
+      {/* Header - Matching Publication Style */}
+      <div className="flex items-center gap-4 mb-6">
+        <Button variant="ghost" size="sm" onClick={() => navigate('/marketing/influencers')} className="h-10 w-10 p-0" data-testid="back-btn">
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+        <div className="flex-1">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">Influencer Profile</p>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-semibold text-gray-900">{form.name || 'New Influencer'}</h1>
+            <Badge className={`${tier.color} border font-normal`}>{tier.label}</Badge>
+            <Badge className={form.status === 'confirmed' ? 'bg-green-100 text-green-700' : form.status === 'negotiation' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-700'}>
+              {form.status?.charAt(0).toUpperCase() + form.status?.slice(1)}
+            </Badge>
           </div>
+          <div className="text-sm text-gray-500 mt-1">@{form.instagram_handle || form.youtube_handle || 'handle'}</div>
         </div>
         
-        {/* Campaign Assignment & Actions */}
-        <div className="flex items-center gap-3">
-          {/* Campaign Assignment Dropdown */}
-          <div className="flex items-center gap-2">
-            <Target className="w-4 h-4 text-gray-500" />
-            <Select value={assignedCampaign || 'none'} onValueChange={(val) => handleAssignCampaign(val === 'none' ? '' : val)}>
-              <SelectTrigger className="w-48" data-testid="campaign-select">
-                <SelectValue placeholder="Assign Campaign" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No Campaign</SelectItem>
-                {campaigns.map(campaign => (
-                  <SelectItem key={campaign.id || campaign._id} value={campaign.id || campaign._id}>
-                    {campaign.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          {/* Send Outreach Button */}
+        {/* Actions */}
+        <div className="flex items-center gap-2">
+          <Select value={assignedCampaign || 'none'} onValueChange={(val) => handleAssignCampaign(val === 'none' ? '' : val)}>
+            <SelectTrigger className="w-44" data-testid="campaign-select">
+              <SelectValue placeholder="Assign Campaign" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No Campaign</SelectItem>
+              {campaigns.map(campaign => (
+                <SelectItem key={campaign.id || campaign._id} value={campaign.id || campaign._id}>
+                  {campaign.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button 
             variant="outline" 
             onClick={() => setShowOutreachModal(true)}
-            className="gap-2 border-blue-200 text-blue-600 hover:bg-blue-50"
             data-testid="send-outreach-btn"
           >
-            <Send className="w-4 h-4" /> Send Outreach
+            <Send className="w-4 h-4 mr-2" /> Outreach
           </Button>
-          
-          <Button variant="outline" onClick={handleRefreshData} className="gap-2">
-            <RefreshCw className="w-4 h-4" /> Refresh Data
-          </Button>
-          <Button variant="outline" onClick={handleCancel} className="gap-2">
-            <X className="w-4 h-4" /> Cancel
+          <Button variant="outline" onClick={handleRefreshData}>
+            <RefreshCw className="w-4 h-4 mr-2" /> Refresh
           </Button>
           <Button 
             onClick={handleSave} 
             disabled={!hasChanges || saving}
-            className="bg-[#c4a35a] hover:bg-[#b39349] text-white gap-2"
+            className="bg-[#c4a35a] hover:bg-[#b39349] text-white"
             data-testid="save-changes-btn"
           >
-            <Save className="w-4 h-4" /> Save Changes
+            <Save className="w-4 h-4 mr-2" /> Save
           </Button>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-6 border-b border-gray-200 mb-6 bg-white px-4 rounded-t-lg">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`py-4 px-2 border-b-2 transition-colors ${
-              activeTab === tab.id 
-                ? 'border-gray-900 text-gray-900 font-medium' 
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Stats Cards - Matching Publication Style */}
+      <div className="grid grid-cols-6 gap-4 mb-6">
+        <Card className="bg-white border-gray-200">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center">
+                <Users className="w-5 h-5 text-pink-600" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-gray-900">{formatNumber(form.followers)}</div>
+                <div className="text-xs text-gray-500 uppercase">Followers</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white border-gray-200">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <Heart className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-gray-900">{form.engagement_rate?.toFixed(1) || 0}%</div>
+                <div className="text-xs text-gray-500 uppercase">Engagement</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white border-gray-200">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                <Heart className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-gray-900">{formatNumber(form.avg_likes)}</div>
+                <div className="text-xs text-gray-500 uppercase">Avg Likes</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white border-gray-200">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                <Target className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-gray-900">{assignedCampaign ? '1' : '0'}</div>
+                <div className="text-xs text-gray-500 uppercase">Campaigns</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white border-gray-200">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-gray-900">{formatCurrency(paymentSummary.total_paid)}</div>
+                <div className="text-xs text-gray-500 uppercase">Paid</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white border-gray-200">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                <Clock className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-gray-900">{formatCurrency(paymentSummary.total_pending)}</div>
+                <div className="text-xs text-gray-500 uppercase">Pending</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
+      {/* Tabs - Matching Publication Style */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="bg-white border border-gray-200 p-1 mb-6">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-amber-100 data-[state=active]:text-amber-800">
+            <User className="w-4 h-4 mr-2" />Overview
+          </TabsTrigger>
+          <TabsTrigger value="metrics" className="data-[state=active]:bg-amber-100 data-[state=active]:text-amber-800">
+            <BarChart3 className="w-4 h-4 mr-2" />Core Metrics
+          </TabsTrigger>
+          <TabsTrigger value="rates" className="data-[state=active]:bg-amber-100 data-[state=active]:text-amber-800">
+            <Package className="w-4 h-4 mr-2" />Deliverables & Rates
+          </TabsTrigger>
+          <TabsTrigger value="finance" className="data-[state=active]:bg-amber-100 data-[state=active]:text-amber-800">
+            <DollarSign className="w-4 h-4 mr-2" />Finance ({payments.length})
+          </TabsTrigger>
+          <TabsTrigger value="history" className="data-[state=active]:bg-amber-100 data-[state=active]:text-amber-800">
+            <History className="w-4 h-4 mr-2" />History ({activities.length})
+          </TabsTrigger>
+        </TabsList>
+
       {/* Overview Tab */}
-      {activeTab === 'overview' && (
+      <TabsContent value="overview">
         <div className="grid grid-cols-2 gap-6">
           {/* Left Column - Profile */}
           <Card className="bg-white border-gray-200">

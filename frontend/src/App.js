@@ -22,7 +22,7 @@ import BudgetPage from "./pages/marketing/Budget";
 import DigitalPRPage from "./pages/marketing/DigitalPRPage";
 import ContentAssetsPage from "./pages/marketing/ContentAssetsPage";
 import InfluencersListPage from "./pages/marketing/InfluencersListPage";
-import InfluencerDetailPage from "./pages/marketing/InfluencerDetailPageV2";
+import InfluencerDetailPage from "./pages/marketing/InfluencerDetailPage";
 import CampaignDetailPage from "./pages/marketing/CampaignDetailPage";
 import CampaignHubPage from "./pages/marketing/CampaignHubPage";
 import MarketingInsightsPage from "./pages/marketing/MarketingInsightsPage";
