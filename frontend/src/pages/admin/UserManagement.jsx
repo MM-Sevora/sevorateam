@@ -3,12 +3,14 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { 
   Users, Search, Plus, Edit, Trash2, Shield, ShieldCheck, ShieldOff,
   UserCheck, UserX, MoreVertical, RefreshCw, Filter, Download,
-  CheckCircle, XCircle, Clock, AlertCircle
+  CheckCircle, XCircle, Clock, AlertCircle, Cloud, CloudOff, Building2
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
+import { Checkbox } from '../../components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -101,6 +103,20 @@ const UserManagementPage = () => {
     status: 'pending',
   });
   const [saving, setSaving] = useState(false);
+  
+  // Azure AD Sync state
+  const [activeTab, setActiveTab] = useState('users');
+  const [azureStatus, setAzureStatus] = useState(null);
+  const [azureUsers, setAzureUsers] = useState([]);
+  const [syncHistory, setSyncHistory] = useState([]);
+  const [loadingAzure, setLoadingAzure] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncSettings, setSyncSettings] = useState({
+    createNew: true,
+    updateExisting: false,
+    defaultRole: 'viewer',
+    defaultDepartment: 'sales'
+  });
 
   // Fetch users
   const fetchUsers = useCallback(async () => {
@@ -136,6 +152,102 @@ const UserManagementPage = () => {
     fetchUsers();
     fetchStats();
   }, [fetchUsers, fetchStats]);
+
+  // Fetch Azure AD status
+  const fetchAzureStatus = useCallback(async () => {
+    try {
+      const response = await api.get('/admin/azure-ad/status');
+      setAzureStatus(response.data);
+    } catch (error) {
+      console.error('Failed to fetch Azure AD status:', error);
+      setAzureStatus({ connected: false, status: 'error', message: 'Failed to check connection' });
+    }
+  }, [api]);
+
+  // Fetch Azure AD users preview
+  const fetchAzureUsers = useCallback(async () => {
+    setLoadingAzure(true);
+    try {
+      const response = await api.get('/admin/azure-ad/users?top=100');
+      setAzureUsers(response.data?.users || []);
+    } catch (error) {
+      console.error('Failed to fetch Azure AD users:', error);
+      toast.error('Failed to fetch Azure AD users');
+    } finally {
+      setLoadingAzure(false);
+    }
+  }, [api]);
+
+  // Fetch sync history
+  const fetchSyncHistory = useCallback(async () => {
+    try {
+      const response = await api.get('/admin/azure-ad/sync-history?limit=5');
+      setSyncHistory(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch sync history:', error);
+    }
+  }, [api]);
+
+  // Load Azure data when tab changes
+  useEffect(() => {
+    if (activeTab === 'azure') {
+      fetchAzureStatus();
+      fetchAzureUsers();
+      fetchSyncHistory();
+    }
+  }, [activeTab, fetchAzureStatus, fetchAzureUsers, fetchSyncHistory]);
+
+  // Sync Azure AD users
+  const handleAzureSync = async () => {
+    setSyncing(true);
+    try {
+      const response = await api.post('/admin/azure-ad/sync', null, {
+        params: {
+          create_new: syncSettings.createNew,
+          update_existing: syncSettings.updateExisting,
+          default_role: syncSettings.defaultRole,
+          default_department: syncSettings.defaultDepartment
+        }
+      });
+      
+      const data = response.data;
+      if (data.success) {
+        toast.success(data.message);
+        fetchUsers();
+        fetchStats();
+        fetchAzureUsers();
+        fetchSyncHistory();
+      } else {
+        toast.error(data.message || 'Sync failed');
+      }
+    } catch (error) {
+      console.error('Azure AD sync failed:', error);
+      toast.error('Failed to sync Azure AD users');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  // Sync single user
+  const handleSyncSingleUser = async (azureId) => {
+    try {
+      const response = await api.post(`/admin/azure-ad/sync-user/${azureId}`, null, {
+        params: {
+          default_role: syncSettings.defaultRole,
+          default_department: syncSettings.defaultDepartment
+        }
+      });
+      
+      if (response.data.success) {
+        toast.success(`User ${response.data.action} successfully`);
+        fetchAzureUsers();
+        fetchUsers();
+        fetchStats();
+      }
+    } catch (error) {
+      toast.error('Failed to sync user');
+    }
+  };
 
   // Search with debounce
   useEffect(() => {
@@ -322,8 +434,23 @@ const UserManagementPage = () => {
         </div>
       )}
 
-      {/* Filters */}
-      <Card className="border-[#E8D5C4]">
+      {/* Tabs for Users and Azure AD */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="bg-[#E8D5C4]">
+          <TabsTrigger value="users" className="data-[state=active]:bg-white">
+            <Users className="h-4 w-4 mr-2" />
+            Users
+          </TabsTrigger>
+          <TabsTrigger value="azure" className="data-[state=active]:bg-white">
+            <Cloud className="h-4 w-4 mr-2" />
+            Azure AD Sync
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Users Tab Content */}
+        <TabsContent value="users" className="space-y-4">
+          {/* Filters */}
+          <Card className="border-[#E8D5C4]">
         <CardContent className="p-4">
           <div className="flex flex-wrap gap-4 items-center">
             <div className="flex-1 min-w-[200px]">
@@ -475,6 +602,211 @@ const UserManagementPage = () => {
           </Table>
         </CardContent>
       </Card>
+        </TabsContent>
+
+        {/* Azure AD Sync Tab Content */}
+        <TabsContent value="azure" className="space-y-4">
+          {/* Azure AD Status */}
+          <Card className="border-[#E8D5C4]">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg text-[#4A3728] flex items-center gap-2">
+                  <Building2 className="h-5 w-5" />
+                  Azure Active Directory
+                </CardTitle>
+                {azureStatus && (
+                  <Badge className={azureStatus.connected ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                    {azureStatus.connected ? <Cloud className="h-3 w-3 mr-1" /> : <CloudOff className="h-3 w-3 mr-1" />}
+                    {azureStatus.connected ? 'Connected' : 'Disconnected'}
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Sync Settings */}
+                <div className="space-y-4">
+                  <h4 className="font-medium text-[#4A3728]">Sync Settings</h4>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="createNew"
+                        checked={syncSettings.createNew}
+                        onCheckedChange={(checked) => setSyncSettings({ ...syncSettings, createNew: checked })}
+                      />
+                      <Label htmlFor="createNew" className="text-sm text-[#5D4A3A]">
+                        Create new users (with Pending status)
+                      </Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="updateExisting"
+                        checked={syncSettings.updateExisting}
+                        onCheckedChange={(checked) => setSyncSettings({ ...syncSettings, updateExisting: checked })}
+                      />
+                      <Label htmlFor="updateExisting" className="text-sm text-[#5D4A3A]">
+                        Update existing users' Azure data
+                      </Label>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs text-[#5D4A3A]">Default Role</Label>
+                        <Select value={syncSettings.defaultRole} onValueChange={(v) => setSyncSettings({ ...syncSettings, defaultRole: v })}>
+                          <SelectTrigger className="h-8 border-[#E8D5C4]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ROLES.filter(r => r.id !== 'super_admin').map(role => (
+                              <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-[#5D4A3A]">Default Department</Label>
+                        <Select value={syncSettings.defaultDepartment} onValueChange={(v) => setSyncSettings({ ...syncSettings, defaultDepartment: v })}>
+                          <SelectTrigger className="h-8 border-[#E8D5C4]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {DEPARTMENTS.map(dept => (
+                              <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleAzureSync}
+                    disabled={syncing || !azureStatus?.connected}
+                    className="w-full bg-[#4A3728] hover:bg-[#5D4A3A] text-white"
+                    data-testid="sync-azure-btn"
+                  >
+                    {syncing ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Cloud className="h-4 w-4 mr-2" />}
+                    Sync Users from Azure AD
+                  </Button>
+                </div>
+
+                {/* Sync History */}
+                <div className="space-y-4">
+                  <h4 className="font-medium text-[#4A3728]">Recent Sync History</h4>
+                  {syncHistory.length === 0 ? (
+                    <p className="text-sm text-[#5D4A3A]">No sync history yet</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {syncHistory.map((sync, idx) => (
+                        <div key={idx} className="p-2 bg-[#F5EDE5] rounded-lg text-sm">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[#4A3728] font-medium">
+                              {formatDate(sync.synced_at)}
+                            </span>
+                            <Badge variant="outline" className="text-xs">
+                              {sync.total_azure_users} users
+                            </Badge>
+                          </div>
+                          <div className="flex gap-3 mt-1 text-xs text-[#5D4A3A]">
+                            <span className="text-green-600">+{sync.created_count} created</span>
+                            <span className="text-blue-600">{sync.updated_count} updated</span>
+                            <span className="text-gray-500">{sync.skipped_count} skipped</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Azure AD Users Preview */}
+          <Card className="border-[#E8D5C4]">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg text-[#4A3728]">Azure AD Users Preview</CardTitle>
+                <Button variant="outline" onClick={fetchAzureUsers} disabled={loadingAzure} className="border-[#E8D5C4]">
+                  <RefreshCw className={`h-4 w-4 mr-2 ${loadingAzure ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-[#F5EDE5]">
+                    <TableHead className="text-[#4A3728]">User</TableHead>
+                    <TableHead className="text-[#4A3728]">Azure Department</TableHead>
+                    <TableHead className="text-[#4A3728]">Job Title</TableHead>
+                    <TableHead className="text-[#4A3728]">Status in App</TableHead>
+                    <TableHead className="text-[#4A3728] text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loadingAzure ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-8">
+                        <RefreshCw className="h-6 w-6 animate-spin mx-auto text-[#4A3728]" />
+                      </TableCell>
+                    </TableRow>
+                  ) : azureUsers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-8 text-[#5D4A3A]">
+                        {azureStatus?.connected ? 'No users found in Azure AD' : 'Connect to Azure AD to view users'}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    azureUsers.map((user) => (
+                      <TableRow key={user.azure_id} className="hover:bg-[#F5EDE5]">
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                              <span className="text-blue-700 font-medium text-xs">
+                                {user.name?.charAt(0)?.toUpperCase() || 'U'}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="font-medium text-[#4A3728]">{user.name}</p>
+                              <p className="text-xs text-[#5D4A3A]">{user.email}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm text-[#5D4A3A]">{user.azure_department || '-'}</span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm text-[#5D4A3A]">{user.job_title || '-'}</span>
+                        </TableCell>
+                        <TableCell>
+                          {user.exists_in_app ? (
+                            <Badge className={user.app_status === 'active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
+                              {user.app_status || 'Unknown'}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-gray-500">Not synced</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {!user.exists_in_app && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleSyncSingleUser(user.azure_id)}
+                              className="border-[#E8D5C4]"
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              Import
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Add User Dialog */}
       <Dialog open={showAddUser} onOpenChange={setShowAddUser}>

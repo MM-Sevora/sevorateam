@@ -1411,6 +1411,284 @@ async def log_admin_action(user_id: str, action: str, target_id: str, details: d
     }
     await db.admin_audit_logs.insert_one(log_entry)
 
+# ============== AZURE AD SYNC ENDPOINTS ==============
+from services.azure_ad_sync import azure_ad_sync_service
+
+class AzureSyncResponse(BaseModel):
+    success: bool
+    message: str
+    synced_count: int = 0
+    created_count: int = 0
+    updated_count: int = 0
+    skipped_count: int = 0
+    errors: List[str] = []
+
+@api_router.get("/admin/azure-ad/status")
+async def get_azure_ad_status(user: dict = Depends(require_admin())):
+    """Check Azure AD connection status"""
+    return await azure_ad_sync_service.check_connection()
+
+@api_router.get("/admin/azure-ad/users")
+async def get_azure_ad_users(
+    top: int = 100,
+    user: dict = Depends(require_admin())
+):
+    """Preview users from Azure AD (without syncing)"""
+    try:
+        azure_users = await azure_ad_sync_service.get_all_users(top=top)
+        
+        # Map to app format and check existing status
+        mapped_users = []
+        for azure_user in azure_users:
+            mapped = azure_ad_sync_service.map_azure_user_to_app_user(azure_user)
+            if mapped.get("email"):
+                # Check if user already exists in our system
+                existing = await db.users.find_one(
+                    {"$or": [
+                        {"azure_id": mapped["azure_id"]},
+                        {"email": mapped["email"]}
+                    ]},
+                    {"_id": 0, "id": 1, "status": 1, "role": 1}
+                )
+                mapped["exists_in_app"] = existing is not None
+                mapped["app_status"] = existing.get("status") if existing else None
+                mapped["app_role"] = existing.get("role") if existing else None
+                mapped_users.append(mapped)
+        
+        return {
+            "total": len(mapped_users),
+            "users": mapped_users
+        }
+    except Exception as e:
+        logger.error(f"Failed to fetch Azure AD users: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/admin/azure-ad/sync", response_model=AzureSyncResponse)
+async def sync_azure_ad_users(
+    create_new: bool = True,
+    update_existing: bool = False,
+    default_role: str = "viewer",
+    default_department: str = "sales",
+    user: dict = Depends(require_admin())
+):
+    """
+    Sync users from Azure AD to the application
+    
+    Args:
+        create_new: Create new users in app if they don't exist
+        update_existing: Update existing users with Azure AD data
+        default_role: Default role for new users
+        default_department: Default department for new users
+    """
+    try:
+        azure_users = await azure_ad_sync_service.get_all_users(top=999)
+        
+        synced_count = 0
+        created_count = 0
+        updated_count = 0
+        skipped_count = 0
+        errors = []
+        
+        for azure_user in azure_users:
+            try:
+                mapped = azure_ad_sync_service.map_azure_user_to_app_user(azure_user)
+                
+                if not mapped.get("email"):
+                    skipped_count += 1
+                    continue
+                
+                # Check if user already exists
+                existing = await db.users.find_one({
+                    "$or": [
+                        {"azure_id": mapped["azure_id"]},
+                        {"email": mapped["email"]}
+                    ]
+                })
+                
+                if existing:
+                    if update_existing:
+                        # Update existing user with Azure AD data
+                        update_data = {
+                            "azure_id": mapped["azure_id"],
+                            "employee_id": mapped.get("employee_id") or existing.get("employee_id"),
+                            "azure_department": mapped.get("azure_department"),
+                            "job_title": mapped.get("job_title"),
+                            "synced_at": mapped["synced_at"],
+                            "source": "azure_ad"
+                        }
+                        # Update name only if it's different and not manually changed
+                        if existing.get("source") == "azure_ad" and existing.get("name") != mapped["name"]:
+                            update_data["name"] = mapped["name"]
+                        
+                        await db.users.update_one(
+                            {"id": existing["id"]},
+                            {"$set": update_data}
+                        )
+                        updated_count += 1
+                    else:
+                        skipped_count += 1
+                else:
+                    if create_new:
+                        # Create new user with pending status
+                        user_id = str(uuid.uuid4())
+                        new_user = {
+                            "id": user_id,
+                            "azure_id": mapped["azure_id"],
+                            "email": mapped["email"],
+                            "name": mapped["name"],
+                            "department": default_department,
+                            "role": default_role,
+                            "status": "pending",  # New users from Azure AD start as pending
+                            "departments": ROLE_DEPARTMENTS.get(default_role, []),
+                            "employee_id": mapped.get("employee_id"),
+                            "job_title": mapped.get("job_title"),
+                            "azure_department": mapped.get("azure_department"),
+                            "source": "azure_ad",
+                            "created_at": datetime.now(timezone.utc).isoformat(),
+                            "synced_at": mapped["synced_at"]
+                        }
+                        await db.users.insert_one(new_user)
+                        created_count += 1
+                    else:
+                        skipped_count += 1
+                
+                synced_count += 1
+                
+            except Exception as e:
+                errors.append(f"Error syncing {azure_user.get('mail', 'unknown')}: {str(e)}")
+        
+        # Log the sync action
+        await log_admin_action(
+            user.get('id'),
+            "azure_ad_sync",
+            "bulk",
+            {
+                "synced": synced_count,
+                "created": created_count,
+                "updated": updated_count,
+                "skipped": skipped_count,
+                "errors": len(errors)
+            }
+        )
+        
+        # Record sync history
+        await db.azure_sync_history.insert_one({
+            "id": str(uuid.uuid4()),
+            "synced_by": user.get('id'),
+            "synced_at": datetime.now(timezone.utc).isoformat(),
+            "total_azure_users": len(azure_users),
+            "synced_count": synced_count,
+            "created_count": created_count,
+            "updated_count": updated_count,
+            "skipped_count": skipped_count,
+            "errors": errors
+        })
+        
+        return AzureSyncResponse(
+            success=True,
+            message=f"Sync completed. Created: {created_count}, Updated: {updated_count}, Skipped: {skipped_count}",
+            synced_count=synced_count,
+            created_count=created_count,
+            updated_count=updated_count,
+            skipped_count=skipped_count,
+            errors=errors[:10]  # Limit errors to first 10
+        )
+        
+    except Exception as e:
+        logger.error(f"Azure AD sync failed: {e}")
+        return AzureSyncResponse(
+            success=False,
+            message=str(e),
+            errors=[str(e)]
+        )
+
+@api_router.get("/admin/azure-ad/sync-history")
+async def get_azure_sync_history(
+    limit: int = 10,
+    user: dict = Depends(require_admin())
+):
+    """Get history of Azure AD sync operations"""
+    history = await db.azure_sync_history.find(
+        {},
+        {"_id": 0}
+    ).sort("synced_at", -1).limit(limit).to_list(limit)
+    return history
+
+@api_router.post("/admin/azure-ad/sync-user/{azure_id}")
+async def sync_single_azure_user(
+    azure_id: str,
+    default_role: str = "viewer",
+    default_department: str = "sales",
+    user: dict = Depends(require_admin())
+):
+    """Sync a single user from Azure AD by their Azure ID"""
+    try:
+        azure_user = await azure_ad_sync_service.get_user_by_id(azure_id)
+        
+        if not azure_user:
+            raise HTTPException(status_code=404, detail="User not found in Azure AD")
+        
+        mapped = azure_ad_sync_service.map_azure_user_to_app_user(azure_user)
+        
+        if not mapped.get("email"):
+            raise HTTPException(status_code=400, detail="User has no email address")
+        
+        # Check if user already exists
+        existing = await db.users.find_one({
+            "$or": [
+                {"azure_id": mapped["azure_id"]},
+                {"email": mapped["email"]}
+            ]
+        })
+        
+        if existing:
+            # Update existing user
+            await db.users.update_one(
+                {"id": existing["id"]},
+                {"$set": {
+                    "azure_id": mapped["azure_id"],
+                    "employee_id": mapped.get("employee_id") or existing.get("employee_id"),
+                    "azure_department": mapped.get("azure_department"),
+                    "job_title": mapped.get("job_title"),
+                    "synced_at": mapped["synced_at"],
+                    "source": "azure_ad"
+                }}
+            )
+            
+            await log_admin_action(user.get('id'), "sync_azure_user", existing["id"], {"action": "updated"})
+            
+            return {"success": True, "action": "updated", "user_id": existing["id"]}
+        else:
+            # Create new user
+            user_id = str(uuid.uuid4())
+            new_user = {
+                "id": user_id,
+                "azure_id": mapped["azure_id"],
+                "email": mapped["email"],
+                "name": mapped["name"],
+                "department": default_department,
+                "role": default_role,
+                "status": "pending",
+                "departments": ROLE_DEPARTMENTS.get(default_role, []),
+                "employee_id": mapped.get("employee_id"),
+                "job_title": mapped.get("job_title"),
+                "azure_department": mapped.get("azure_department"),
+                "source": "azure_ad",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "synced_at": mapped["synced_at"]
+            }
+            await db.users.insert_one(new_user)
+            
+            await log_admin_action(user.get('id'), "sync_azure_user", user_id, {"action": "created", "email": mapped["email"]})
+            
+            return {"success": True, "action": "created", "user_id": user_id}
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Single user sync failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Health check
 @api_router.get("/health")
 async def health_check():

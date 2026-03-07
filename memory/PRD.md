@@ -185,31 +185,40 @@ Consolidate multiple Sevora applications (Influencer Operations from 'main' bran
 
 ## Latest Updates (March 7, 2026)
 
-### User & Access Management Module (NEW - Step 1)
-- **Admin User Management Page** (`/admin/users`): Complete user lifecycle management
-  - User list with filters (Search, Status, Role, Department)
-  - Stats dashboard (Total, Active, Pending, Inactive, Recent Logins)
-  - Add User dialog with role and status assignment
-  - Edit User dialog for updating details
-  - Activate/Deactivate user toggle
-  - Role-based access control (Super Admin, Admin, Marketing Manager, Sales Manager, Social Manager, Viewer)
-  - User status lifecycle: Pending → Active/Inactive
-  
-- **Backend Endpoints**:
-  - `GET /api/admin/users` - List all users with filters
-  - `GET /api/admin/stats` - User statistics
-  - `POST /api/admin/users` - Create new user
-  - `PUT /api/admin/users/{id}` - Update user
-  - `PUT /api/admin/users/{id}/activate` - Activate user
-  - `PUT /api/admin/users/{id}/deactivate` - Deactivate user
-  - `DELETE /api/admin/users/{id}` - Delete user (Super Admin only)
-  - `GET /api/admin/roles` - List available roles
-  - `GET /api/admin/audit-logs` - Admin action audit trail
+### User & Access Management Module (NEW - Step 1 & 2)
 
-- **New Seed Users**:
-  - `superadmin@sevora.com` / `admin123` - Super Admin role
-  - `admin@sevora.com` / `admin123` - Admin role  
-  - `pending@sevora.com` / `admin123` - Pending status demo
+**Step 1: Admin User Management Page** (`/admin/users`)
+- User list with filters (Search, Status, Role, Department)
+- Stats dashboard (Total, Active, Pending, Inactive, Recent Logins)
+- Add User dialog with role and status assignment
+- Edit User dialog for updating details
+- Activate/Deactivate user toggle
+- Role-based access control (Super Admin, Admin, Marketing Manager, Sales Manager, Social Manager, Viewer)
+
+**Step 2: Azure AD User Sync** (NEW)
+- Azure AD connection status check
+- Manual "Sync Users from Azure AD" button
+- Sync settings: Create new users, Update existing, Default role/department
+- Azure AD Users Preview table
+- Sync history tracking
+- Single user import functionality
+
+- **Backend Endpoints**:
+  - `GET /api/admin/azure-ad/status` - Check Azure AD connection
+  - `GET /api/admin/azure-ad/users` - Preview Azure AD users
+  - `POST /api/admin/azure-ad/sync` - Bulk sync users from Azure AD
+  - `POST /api/admin/azure-ad/sync-user/{azure_id}` - Sync single user
+  - `GET /api/admin/azure-ad/sync-history` - Get sync history
+
+- **Azure AD Service** (`/app/backend/services/azure_ad_sync.py`):
+  - Full Microsoft Graph API integration
+  - User field mapping (Azure → App)
+  - Token caching with expiration
+  - Connection status monitoring
+
+**Note**: Azure AD sync requires additional API permissions to be configured:
+  - `User.Read.All` - To list all users
+  - `Directory.Read.All` - To read directory data
 
 ### Email Module Implementation
 - **Standalone Email Page** (`/marketing/email`): Full Microsoft 365 email integration
