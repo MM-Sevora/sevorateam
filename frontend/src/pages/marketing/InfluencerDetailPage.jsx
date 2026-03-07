@@ -7,7 +7,7 @@ import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
 import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Switch } from '../../components/ui/switch';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
@@ -1590,6 +1590,9 @@ const InfluencerDetailPage = () => {
               <Send className="w-5 h-5 text-blue-500" />
               Send Outreach to {form.name}
             </DialogTitle>
+            <DialogDescription className="text-sm text-gray-500">
+              Send a collaboration message via email or WhatsApp
+            </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
@@ -1723,6 +1726,9 @@ const InfluencerDetailPage = () => {
               <DollarSign className="w-5 h-5 text-green-500" />
               Create Payment for {form.name}
             </DialogTitle>
+            <DialogDescription className="text-sm text-gray-500">
+              Record a payment for this influencer
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
