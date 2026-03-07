@@ -99,12 +99,12 @@ const LeadCapturePage = () => {
       {/* Header */}
       <div className="bg-primary text-white py-6 px-6">
         <div className="max-w-md mx-auto flex items-center gap-3">
-          <div className="w-10 h-10 bg-white/10 flex items-center justify-center">
+          <div className="w-10 h-10 bg-gray-100 flex items-center justify-center">
             <Sparkles className="w-5 h-5" />
           </div>
           <div>
             <h1 className="text-xl font-heading">Sevora</h1>
-            <p className="text-xs text-white/70 uppercase tracking-widest">Stylist-Led Fashion</p>
+            <p className="text-xs text-gray-600 uppercase tracking-widest">Stylist-Led Fashion</p>
           </div>
         </div>
       </div>
