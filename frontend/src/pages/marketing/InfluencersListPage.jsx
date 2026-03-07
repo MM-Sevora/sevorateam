@@ -13,7 +13,7 @@ import { Textarea } from '../../components/ui/textarea';
 import { toast } from 'sonner';
 import { 
   RefreshCw, Plus, Search, Filter, Instagram, Youtube, 
-  MoreHorizontal, Users, Sparkles, ChevronUp, ChevronDown, Download, User, AtSign, DollarSign, Building
+  MoreHorizontal, Users, Sparkles, ChevronUp, ChevronDown, Download, User, AtSign, DollarSign, Building, X
 } from 'lucide-react';
 
 const InfluencersListPage = () => {
@@ -40,11 +40,18 @@ const InfluencersListPage = () => {
     audience_focus: 'unisex', email: '', phone: '', bio: '', style_tags: '',
     instagram_handle: '', youtube_handle: '', primary_platform: 'instagram',
     followers: '', engagement_rate: '', avg_likes: '', avg_comments: '',
-    rate_per_post: '', rate_per_reel: '', rate_per_story: '', rate_per_youtube: '',
     manager_name: '', manager_email: '', manager_phone: '', agency: '',
     turnaround_days: '', payment_terms: 'not_specified', exclusivity_terms: '',
-    accepts_barter: false, notes: ''
+    accepts_barter: false, notes: '',
+    deliverables: [
+      { id: '1', name: 'Static Post', description: 'Feed image post', price: '' },
+      { id: '2', name: 'Reel / Short', description: '15-60 sec video', price: '' },
+      { id: '3', name: 'Story', description: '24hr story post', price: '' },
+      { id: '4', name: 'YouTube Video', description: 'Dedicated/integrated video', price: '' }
+    ]
   });
+  
+  const [newDeliverable, setNewDeliverable] = useState({ name: '', description: '', price: '' });
 
   const fetchInfluencers = useCallback(async () => {
     try {
@@ -116,6 +123,37 @@ const InfluencersListPage = () => {
   const handleFetchAll = async () => {
     if (newInfluencer.instagram_handle) await handleFetchSocial('instagram');
     if (newInfluencer.youtube_handle) await handleFetchSocial('youtube');
+  };
+
+  const addDeliverable = () => {
+    if (!newDeliverable.name) {
+      toast.error('Deliverable name is required');
+      return;
+    }
+    setNewInfluencer(prev => ({
+      ...prev,
+      deliverables: [
+        ...prev.deliverables,
+        { id: Date.now().toString(), ...newDeliverable }
+      ]
+    }));
+    setNewDeliverable({ name: '', description: '', price: '' });
+  };
+
+  const removeDeliverable = (id) => {
+    setNewInfluencer(prev => ({
+      ...prev,
+      deliverables: prev.deliverables.filter(d => d.id !== id)
+    }));
+  };
+
+  const updateDeliverablePrice = (id, price) => {
+    setNewInfluencer(prev => ({
+      ...prev,
+      deliverables: prev.deliverables.map(d => 
+        d.id === id ? { ...d, price } : d
+      )
+    }));
   };
 
   const handleAddInfluencer = async () => {
@@ -758,36 +796,72 @@ const InfluencersListPage = () => {
                 {/* Rates Tab */}
                 {addModalTab === 'rates' && (
                   <div className="space-y-6">
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <Label className="text-xs uppercase tracking-wider text-gray-500">PER POST (₹)</Label>
-                        <Input 
-                          type="number"
-                          placeholder="15000"
-                          value={newInfluencer.rate_per_post}
-                          onChange={e => setNewInfluencer({...newInfluencer, rate_per_post: e.target.value})}
-                          className="mt-1"
-                        />
+                    {/* Existing Deliverables */}
+                    <div>
+                      <Label className="text-xs uppercase tracking-wider text-gray-500 mb-3 block">SERVICE DELIVERABLES</Label>
+                      <div className="space-y-3">
+                        {newInfluencer.deliverables.map((deliverable) => (
+                          <div key={deliverable.id} className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg bg-gray-50">
+                            <div className="flex-1">
+                              <div className="font-medium text-gray-900">{deliverable.name}</div>
+                              <div className="text-xs text-gray-500">{deliverable.description}</div>
+                            </div>
+                            <div className="w-32">
+                              <Input 
+                                type="number"
+                                placeholder="₹ Price"
+                                value={deliverable.price}
+                                onChange={e => updateDeliverablePrice(deliverable.id, e.target.value)}
+                              />
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => removeDeliverable(deliverable.id)}
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))}
                       </div>
-                      <div>
-                        <Label className="text-xs uppercase tracking-wider text-gray-500">PER REEL (₹)</Label>
-                        <Input 
-                          type="number"
-                          placeholder="25000"
-                          value={newInfluencer.rate_per_reel}
-                          onChange={e => setNewInfluencer({...newInfluencer, rate_per_reel: e.target.value})}
-                          className="mt-1"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs uppercase tracking-wider text-gray-500">PER STORY (₹)</Label>
-                        <Input 
-                          type="number"
-                          placeholder="5000"
-                          value={newInfluencer.rate_per_story}
-                          onChange={e => setNewInfluencer({...newInfluencer, rate_per_story: e.target.value})}
-                          className="mt-1"
-                        />
+                    </div>
+
+                    {/* Add New Deliverable */}
+                    <div className="border-t border-gray-200 pt-4">
+                      <Label className="text-xs uppercase tracking-wider text-gray-500 mb-3 block">ADD CUSTOM DELIVERABLE</Label>
+                      <div className="flex items-end gap-3">
+                        <div className="flex-1">
+                          <Label className="text-xs text-gray-500">Name</Label>
+                          <Input 
+                            placeholder="e.g., Brand Integration"
+                            value={newDeliverable.name}
+                            onChange={e => setNewDeliverable({...newDeliverable, name: e.target.value})}
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <Label className="text-xs text-gray-500">Description</Label>
+                          <Input 
+                            placeholder="e.g., Mention in video"
+                            value={newDeliverable.description}
+                            onChange={e => setNewDeliverable({...newDeliverable, description: e.target.value})}
+                          />
+                        </div>
+                        <div className="w-28">
+                          <Label className="text-xs text-gray-500">Price (₹)</Label>
+                          <Input 
+                            type="number"
+                            placeholder="10000"
+                            value={newDeliverable.price}
+                            onChange={e => setNewDeliverable({...newDeliverable, price: e.target.value})}
+                          />
+                        </div>
+                        <Button 
+                          onClick={addDeliverable}
+                          className="bg-[#c4a35a] hover:bg-[#b39349] text-white"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
                     

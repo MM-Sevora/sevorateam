@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { 
   ArrowLeft, RefreshCw, X, Save, CheckCircle, MapPin, 
   Instagram, Youtube, Download, Users, TrendingUp, Heart, Star,
-  Globe, Image, Film, Clock, DollarSign, Sparkles
+  Globe, Image, Film, Clock, DollarSign, Sparkles, Plus, Trash2
 } from 'lucide-react';
 
 const InfluencerDetailPage = () => {
@@ -26,6 +26,7 @@ const InfluencerDetailPage = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [hasChanges, setHasChanges] = useState(false);
   const [originalData, setOriginalData] = useState(null);
+  const [newDeliverable, setNewDeliverable] = useState({ name: '', description: '', price: '' });
   
   // Form state
   const [form, setForm] = useState({
@@ -34,9 +35,9 @@ const InfluencerDetailPage = () => {
     followers: 0, engagement_rate: 0, avg_likes: 0, avg_comments: 0,
     youtube_subscribers: 0, youtube_avg_views: 0, youtube_avg_likes: 0, youtube_total_videos: 0,
     industry: 'fashion', tier: 'micro', gender: 'not_specified', audience_focus: 'unisex', content_types: '',
-    rate_per_post: '', rate_per_reel: '', rate_per_story: '', rate_per_youtube: '',
     accepts_barter: false, style_tags: '', past_collaborations: '', languages: '', portfolio_url: '', notes: '',
-    status: 'identified'
+    status: 'identified',
+    deliverables: []
   });
 
   const fetchInfluencer = useCallback(async () => {
@@ -44,6 +45,15 @@ const InfluencerDetailPage = () => {
       setLoading(true);
       const response = await api.get(`/marketing/v2/contacts/${influencerId}`);
       const data = response.data;
+      
+      // Default deliverables if none exist
+      const defaultDeliverables = [
+        { id: '1', name: 'Static Post', description: 'Feed image post', price: data.rate_per_post || '' },
+        { id: '2', name: 'Reel / Short', description: '15-60 sec video', price: data.rate_per_reel || '' },
+        { id: '3', name: 'Story', description: '24hr story post', price: data.rate_per_story || '' },
+        { id: '4', name: 'YouTube Video', description: 'Dedicated/integrated video', price: data.rate_per_youtube || '' }
+      ];
+      
       setForm({
         name: data.name || '',
         bio: data.bio || '',
@@ -67,10 +77,6 @@ const InfluencerDetailPage = () => {
         gender: data.gender || 'not_specified',
         audience_focus: data.audience_focus || 'unisex',
         content_types: data.content_types || '',
-        rate_per_post: data.rate_per_post || '',
-        rate_per_reel: data.rate_per_reel || '',
-        rate_per_story: data.rate_per_story || '',
-        rate_per_youtube: data.rate_per_youtube || '',
         accepts_barter: data.accepts_barter || false,
         style_tags: data.style_tags || '',
         past_collaborations: data.past_collaborations || '',
@@ -79,7 +85,8 @@ const InfluencerDetailPage = () => {
         notes: data.notes || '',
         status: data.status || 'identified',
         score: data.score || 50,
-        social_synced_at: data.social_synced_at
+        social_synced_at: data.social_synced_at,
+        deliverables: data.deliverables || defaultDeliverables
       });
       setOriginalData(data);
     } catch (error) {
@@ -164,6 +171,41 @@ const InfluencerDetailPage = () => {
     } else {
       navigate('/marketing/influencers');
     }
+  };
+
+  // Deliverable helper functions
+  const addDeliverable = () => {
+    if (!newDeliverable.name) {
+      toast.error('Deliverable name is required');
+      return;
+    }
+    setForm(prev => ({
+      ...prev,
+      deliverables: [
+        ...prev.deliverables,
+        { id: Date.now().toString(), ...newDeliverable }
+      ]
+    }));
+    setNewDeliverable({ name: '', description: '', price: '' });
+    setHasChanges(true);
+  };
+
+  const removeDeliverable = (id) => {
+    setForm(prev => ({
+      ...prev,
+      deliverables: prev.deliverables.filter(d => d.id !== id)
+    }));
+    setHasChanges(true);
+  };
+
+  const updateDeliverablePrice = (id, price) => {
+    setForm(prev => ({
+      ...prev,
+      deliverables: prev.deliverables.map(d => 
+        d.id === id ? { ...d, price } : d
+      )
+    }));
+    setHasChanges(true);
   };
 
   const formatNumber = (num) => {
@@ -640,95 +682,82 @@ const InfluencerDetailPage = () => {
       {/* Deliverables & Rates Tab */}
       {activeTab === 'rates' && (
         <div className="grid grid-cols-2 gap-6">
-          {/* Rate Card */}
+          {/* Rate Card - Dynamic Deliverables */}
           <Card className="bg-white border-gray-200">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-amber-500" /> Rate Card
+                <DollarSign className="w-5 h-5 text-amber-500" /> Service Deliverables
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Static Post */}
-              <div className="flex items-center justify-between p-3 border border-gray-100 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Image className="w-5 h-5 text-blue-500" />
+              {/* Existing Deliverables */}
+              {form.deliverables?.map((deliverable) => (
+                <div key={deliverable.id} className="flex items-center justify-between p-3 border border-gray-100 rounded-lg hover:bg-gray-50">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <DollarSign className="w-5 h-5 text-blue-500" />
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-900">{deliverable.name}</div>
+                      <div className="text-xs text-gray-500">{deliverable.description}</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="font-medium text-gray-900">Static Post</div>
-                    <div className="text-xs text-gray-500">Feed image post</div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-28">
+                      <Input 
+                        type="number"
+                        placeholder="₹ Price"
+                        value={deliverable.price || ''}
+                        onChange={e => updateDeliverablePrice(deliverable.id, e.target.value)}
+                      />
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => removeDeliverable(deliverable.id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
-                <div className="w-32">
-                  <Input 
-                    type="number"
-                    placeholder="₹"
-                    value={form.rate_per_post || ''}
-                    onChange={e => updateForm('rate_per_post', e.target.value)}
-                  />
-                </div>
-              </div>
+              ))}
 
-              {/* Reel / Short */}
-              <div className="flex items-center justify-between p-3 border border-gray-100 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center">
-                    <Film className="w-5 h-5 text-pink-500" />
+              {/* Add New Deliverable */}
+              <div className="border-t border-gray-200 pt-4 mt-4">
+                <Label className="text-xs uppercase tracking-wider text-gray-500 mb-3 block">ADD CUSTOM DELIVERABLE</Label>
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <Label className="text-xs text-gray-500">Name</Label>
+                    <Input 
+                      placeholder="e.g., Brand Integration"
+                      value={newDeliverable.name}
+                      onChange={e => setNewDeliverable({...newDeliverable, name: e.target.value})}
+                    />
                   </div>
-                  <div>
-                    <div className="font-medium text-gray-900">Reel / Short</div>
-                    <div className="text-xs text-gray-500">15-60 sec video</div>
+                  <div className="flex-1">
+                    <Label className="text-xs text-gray-500">Description</Label>
+                    <Input 
+                      placeholder="e.g., Mention in video"
+                      value={newDeliverable.description}
+                      onChange={e => setNewDeliverable({...newDeliverable, description: e.target.value})}
+                    />
                   </div>
-                </div>
-                <div className="w-32">
-                  <Input 
-                    type="number"
-                    placeholder="₹"
-                    value={form.rate_per_reel || ''}
-                    onChange={e => updateForm('rate_per_reel', e.target.value)}
-                  />
-                </div>
-              </div>
-
-              {/* Story */}
-              <div className="flex items-center justify-between p-3 border border-gray-100 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-purple-500" />
+                  <div className="w-24">
+                    <Label className="text-xs text-gray-500">Price (₹)</Label>
+                    <Input 
+                      type="number"
+                      placeholder="10000"
+                      value={newDeliverable.price}
+                      onChange={e => setNewDeliverable({...newDeliverable, price: e.target.value})}
+                    />
                   </div>
-                  <div>
-                    <div className="font-medium text-gray-900">Story</div>
-                    <div className="text-xs text-gray-500">24hr story post</div>
-                  </div>
-                </div>
-                <div className="w-32">
-                  <Input 
-                    type="number"
-                    placeholder="₹"
-                    value={form.rate_per_story || ''}
-                    onChange={e => updateForm('rate_per_story', e.target.value)}
-                  />
-                </div>
-              </div>
-
-              {/* YouTube Video */}
-              <div className="flex items-center justify-between p-3 border border-gray-100 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                    <Youtube className="w-5 h-5 text-red-500" />
-                  </div>
-                  <div>
-                    <div className="font-medium text-gray-900">YouTube Video</div>
-                    <div className="text-xs text-gray-500">Dedicated/integrated</div>
-                  </div>
-                </div>
-                <div className="w-32">
-                  <Input 
-                    type="number"
-                    placeholder="₹"
-                    value={form.rate_per_youtube || ''}
-                    onChange={e => updateForm('rate_per_youtube', e.target.value)}
-                  />
+                  <Button 
+                    onClick={addDeliverable}
+                    className="bg-[#c4a35a] hover:bg-[#b39349] text-white"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
 
