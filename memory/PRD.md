@@ -159,24 +159,30 @@ Consolidate multiple Sevora applications (Influencer Operations from 'main' bran
 - [x] All department pages imported
 - [x] AI content generation
 - [x] Team collaboration
+- [x] User & Access Management (Phase 1-3)
+- [x] Granular CRUD Permissions
 
 ### P1 - High Priority
 - [x] Real-time WebSocket notifications
+- [ ] **Phase 4: Audit Logs UI** - Create frontend page to view admin action logs
+- [ ] **EmailHistoryTab Integration** - Add to Influencer/Contact detail pages
 - [ ] WhatsApp Business API (production - sandbox setup required)
 - [ ] Advanced analytics charts
-- [ ] Wire up frontend AI/Outreach UI to backend APIs
 
 ### P2 - Medium Priority
 - [ ] Full CampaignsPage.jsx restoration
 - [ ] Export/Import functionality
 - [ ] Mobile responsive optimization
 - [ ] Automated social posting
+- [ ] Refactor server.py into APIRouter modules (currently 3300+ lines)
 
 ### P3 - Future
 - [ ] Revenue tracking and ROI calculations
 - [ ] Multi-tenant support
 - [ ] Custom branding per client
 - [ ] AI-powered lead scoring
+- [ ] Automatic/scheduled Azure AD sync
+- [ ] Session management (timeout, forced logout)
 
 ## Next Tasks
 1. User to verify Azure AD SSO flow in Incognito window
@@ -185,7 +191,32 @@ Consolidate multiple Sevora applications (Influencer Operations from 'main' bran
 
 ## Latest Updates (March 7, 2026)
 
-### User & Access Management Module (NEW - Step 1 & 2)
+### User & Access Management Module - Phase 3 Complete (March 7, 2026)
+
+**Phase 3: Granular CRUD Permissions** ✅
+- Permission Management page (`/admin/permissions`) with full matrix UI
+- User selector dropdown showing all active users with roles
+- Permission matrix showing all 5 departments (Marketing, Sales, Social, Mail, Admin)
+- Each module row has CRUD checkboxes (View, Create, Edit, Delete, Export)
+- Unsaved changes detection with visual badge
+- Save/Reset to Defaults functionality with success toasts
+- Custom Permissions badge for users with modified permissions
+- `hasPermission(department, module, action)` helper in AuthContext for frontend permission checks
+- User `/api/auth/me` endpoint now returns permissions object
+
+**Backend Endpoints**:
+- `GET /api/admin/modules` - List all modules grouped by department
+- `GET /api/admin/permissions/default/{role}` - Get default permissions for a role
+- `GET /api/admin/users/{id}/permissions` - Get user's effective permissions
+- `PUT /api/admin/users/{id}/permissions` - Save custom permissions
+- `DELETE /api/admin/users/{id}/permissions` - Reset to role defaults
+- `POST /api/admin/permissions/check` - Check specific permission
+
+**Mail Module Separation**:
+- Mail is now a separate top-level module in sidebar (between Marketing Ops and Sales)
+- Route: `/mail/inbox`
+
+### User & Access Management Module - Step 1 & 2 (Earlier)
 
 **Step 1: Admin User Management Page** (`/admin/users`)
 - User list with filters (Search, Status, Role, Department)
