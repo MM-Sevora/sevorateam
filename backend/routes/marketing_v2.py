@@ -966,6 +966,55 @@ async def update_payment_status(payment_id: str, status: str):
     
     return {"message": f"Payment status updated to {status}", "campaign_synced": bool(campaign_id)}
 
+@marketing_v2_router.put("/payments/{payment_id}")
+async def update_payment(payment_id: str, amount: float = None, description: str = None, 
+                         payment_type: str = None, payment_method: str = None, due_date: str = None):
+    """Update payment details"""
+    db = get_db()
+    
+    payment = await db.payments.find_one({"id": payment_id})
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    
+    update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    if amount is not None:
+        update_data["amount"] = amount
+    if description is not None:
+        update_data["description"] = description
+    if payment_type is not None:
+        update_data["payment_type"] = payment_type
+    if payment_method is not None:
+        update_data["payment_method"] = payment_method
+    if due_date is not None:
+        update_data["due_date"] = due_date
+    
+    await db.payments.update_one({"id": payment_id}, {"$set": update_data})
+    return {"message": "Payment updated", "id": payment_id}
+
+@marketing_v2_router.delete("/payments/{payment_id}")
+async def delete_payment(payment_id: str):
+    """Delete a payment - also adjusts campaign spent if payment was paid"""
+    db = get_db()
+    
+    payment = await db.payments.find_one({"id": payment_id})
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    
+    # If payment was paid, we need to decrement campaign spent
+    if payment.get("status") == "paid":
+        campaign_id = payment.get("campaign_id")
+        amount = payment.get("amount", 0)
+        if campaign_id and amount > 0:
+            campaign = await db.campaigns.find_one({"id": campaign_id})
+            collection = db.campaigns if campaign else db.pr_campaigns
+            await collection.update_one(
+                {"id": campaign_id},
+                {"$inc": {"spent": -amount}}
+            )
+    
+    await db.payments.delete_one({"id": payment_id})
+    return {"message": "Payment deleted", "id": payment_id}
+
 # ============== UGC (User Generated Content) ==============
 
 @marketing_v2_router.get("/ugc", response_model=List[UGCResponse])

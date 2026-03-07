@@ -266,7 +266,7 @@ class PaymentResponse(BaseModel):
     amount: float
     description: str
     payment_type: str = "influencer_fee"
-    payment_method: str
+    payment_method: Optional[str] = "bank_transfer"
     invoice_number: Optional[str] = None
     due_date: Optional[str] = None
     status: str = "pending"

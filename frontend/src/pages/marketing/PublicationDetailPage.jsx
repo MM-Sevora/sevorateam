@@ -71,12 +71,15 @@ const PublicationDetailPage = () => {
   const [campaigns, setCampaigns] = useState([]);
   const [advertorials, setAdvertorials] = useState([]);
   const [advertorialStats, setAdvertorialStats] = useState({});
+  const [payments, setPayments] = useState([]);
+  const [paymentSummary, setPaymentSummary] = useState({ total_paid: 0, total_pending: 0 });
   
   // Modals
   const [showJournalistModal, setShowJournalistModal] = useState(false);
   const [showPitchModal, setShowPitchModal] = useState(false);
   const [showCoverageModal, setShowCoverageModal] = useState(false);
   const [showAdvertorialModal, setShowAdvertorialModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedJournalist, setSelectedJournalist] = useState(null);
   
   // Forms
@@ -93,6 +96,14 @@ const PublicationDetailPage = () => {
     publish_date: '',
     deliverables: '',
     requirements: ''
+  });
+  const [newPayment, setNewPayment] = useState({
+    contact_id: '',
+    amount: '',
+    description: '',
+    payment_type: 'pr_placement',
+    payment_method: 'bank_transfer',
+    due_date: ''
   });
 
   // Fetch publication details
@@ -152,6 +163,36 @@ const PublicationDetailPage = () => {
     }
   }, [api]);
 
+  // Fetch payments for journalists at this publication
+  const fetchPayments = useCallback(async () => {
+    if (journalists.length === 0) return;
+    try {
+      const allPayments = [];
+      let totalPaid = 0;
+      let totalPending = 0;
+      
+      for (const journalist of journalists) {
+        try {
+          const response = await api.get(`/marketing/payments/summary/by-contact/${journalist.id}`);
+          const journalistPayments = (response.data.payments || []).map(p => ({
+            ...p,
+            journalist_name: journalist.name
+          }));
+          allPayments.push(...journalistPayments);
+          totalPaid += response.data.total_paid || 0;
+          totalPending += response.data.total_pending || 0;
+        } catch (err) {
+          // No payments for this journalist
+        }
+      }
+      
+      setPayments(allPayments);
+      setPaymentSummary({ total_paid: totalPaid, total_pending: totalPending });
+    } catch (error) {
+      console.error('Failed to fetch payments:', error);
+    }
+  }, [api, journalists]);
+
   useEffect(() => {
     fetchPublication();
     fetchJournalists();
@@ -161,9 +202,10 @@ const PublicationDetailPage = () => {
   useEffect(() => {
     if (journalists.length > 0) {
       fetchPitches();
+      fetchPayments();
     }
     fetchCoverage();
-  }, [journalists, fetchPitches, fetchCoverage]);
+  }, [journalists, fetchPitches, fetchCoverage, fetchPayments]);
 
   // Handlers
   const handleAddJournalist = async () => {
@@ -240,6 +282,31 @@ const PublicationDetailPage = () => {
   const formatCurrency = (amount) => {
     if (!amount) return '-';
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
+  };
+
+  const handleCreatePayment = async () => {
+    if (!newPayment.contact_id || !newPayment.amount) {
+      toast.error('Journalist and amount required');
+      return;
+    }
+    try {
+      const journalist = journalists.find(j => j.id === newPayment.contact_id);
+      await api.post('/marketing/v2/payments', {
+        contact_id: newPayment.contact_id,
+        campaign_id: newPayment.campaign_id || null,
+        amount: parseFloat(newPayment.amount),
+        description: newPayment.description || `Payment to ${journalist?.name || 'journalist'} for ${publication.name}`,
+        payment_type: newPayment.payment_type,
+        payment_method: newPayment.payment_method,
+        due_date: newPayment.due_date || null
+      });
+      toast.success('Payment recorded');
+      setShowPaymentModal(false);
+      setNewPayment({ contact_id: '', amount: '', description: '', payment_type: 'pr_placement', payment_method: 'bank_transfer', due_date: '' });
+      fetchPayments();
+    } catch (error) {
+      toast.error('Failed to create payment');
+    }
   };
 
   const getPitchStatusConfig = (status) => PITCH_STATUS.find(s => s.id === status) || PITCH_STATUS[0];
@@ -767,26 +834,129 @@ const PublicationDetailPage = () => {
 
         {/* Paid PR Tab */}
         <TabsContent value="paid">
-          <Card className="bg-white border-gray-200">
-            <CardHeader className="pb-2 flex flex-row items-center justify-between">
-              <CardTitle className="text-sm">Paid PR Collaborations</CardTitle>
-              <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white">
-                <Plus className="w-4 h-4 mr-2" />New Paid Placement
-              </Button>
-            </CardHeader>
-            <CardContent className="py-12 text-center text-gray-500">
-              <DollarSign className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-              <p className="mb-2">No paid PR collaborations with {publication.name}</p>
-              <p className="text-sm">Track advertorials, sponsored content, and display ads</p>
-              {(publication.advertorial_rate || publication.sponsored_content_rate) && (
-                <div className="mt-4 text-sm">
-                  <p className="text-gray-600">Available Rates:</p>
-                  {publication.advertorial_rate && <p>Advertorial: {formatCurrency(publication.advertorial_rate)}</p>}
-                  {publication.sponsored_content_rate && <p>Sponsored Content: {formatCurrency(publication.sponsored_content_rate)}</p>}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            {/* Payment Summary Cards */}
+            <div className="grid grid-cols-3 gap-4">
+              <Card className="bg-white border-gray-200">
+                <CardContent className="p-4 text-center">
+                  <DollarSign className="w-6 h-6 text-green-500 mx-auto mb-2" />
+                  <div className="text-2xl font-bold text-green-600">{formatCurrency(paymentSummary.total_paid)}</div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wider">Total Paid</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-white border-gray-200">
+                <CardContent className="p-4 text-center">
+                  <Clock className="w-6 h-6 text-amber-500 mx-auto mb-2" />
+                  <div className="text-2xl font-bold text-amber-600">{formatCurrency(paymentSummary.total_pending)}</div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wider">Pending</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-white border-gray-200">
+                <CardContent className="p-4 text-center">
+                  <Newspaper className="w-6 h-6 text-purple-500 mx-auto mb-2" />
+                  <div className="text-2xl font-bold text-gray-900">{payments.length}</div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wider">Transactions</div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Payment History */}
+            <Card className="bg-white border-gray-200">
+              <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-purple-600" />
+                  Payment History
+                </CardTitle>
+                <Button 
+                  size="sm" 
+                  onClick={() => setShowPaymentModal(true)}
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                  data-testid="record-payment-btn"
+                >
+                  <Plus className="w-4 h-4 mr-2" />Record Payment
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {payments.length === 0 ? (
+                  <div className="py-8 text-center text-gray-500">
+                    <DollarSign className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p className="mb-2">No payments recorded for journalists at {publication.name}</p>
+                    <p className="text-sm">Record payments for PR placements, advertorials, and sponsored content</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {payments.map(payment => (
+                      <div key={payment.id} className="p-4 border border-gray-100 rounded-lg hover:bg-gray-50">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                              payment.status === 'paid' ? 'bg-green-100' : 'bg-amber-100'
+                            }`}>
+                              <DollarSign className={`w-5 h-5 ${
+                                payment.status === 'paid' ? 'text-green-600' : 'text-amber-600'
+                              }`} />
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-900">
+                                {formatCurrency(payment.amount)}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {payment.journalist_name || payment.contact_name} • {payment.payment_type?.replace(/_/g, ' ')}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <Badge className={payment.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}>
+                              {payment.status}
+                            </Badge>
+                            <div className="text-xs text-gray-400 mt-1">
+                              {new Date(payment.created_at).toLocaleDateString('en-IN')}
+                            </div>
+                          </div>
+                        </div>
+                        {payment.description && (
+                          <div className="mt-2 text-sm text-gray-600 pl-13">
+                            {payment.description}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Rate Card Info */}
+            {(publication.advertorial_rate || publication.sponsored_content_rate || publication.display_ad_rate) && (
+              <Card className="bg-white border-gray-200">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Standard Rate Card</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    {publication.advertorial_rate && (
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <div className="text-lg font-bold text-gray-900">{formatCurrency(publication.advertorial_rate)}</div>
+                        <div className="text-xs text-gray-500">Advertorial</div>
+                      </div>
+                    )}
+                    {publication.sponsored_content_rate && (
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <div className="text-lg font-bold text-gray-900">{formatCurrency(publication.sponsored_content_rate)}</div>
+                        <div className="text-xs text-gray-500">Sponsored Content</div>
+                      </div>
+                    )}
+                    {publication.display_ad_rate && (
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <div className="text-lg font-bold text-gray-900">{formatCurrency(publication.display_ad_rate)}</div>
+                        <div className="text-xs text-gray-500">Display Ad</div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -879,10 +1049,10 @@ const PublicationDetailPage = () => {
             </div>
             <div>
               <Label className="text-xs uppercase tracking-wider text-gray-500">Campaign (Optional)</Label>
-              <Select value={newPitch.pr_campaign_id} onValueChange={(v) => setNewPitch({ ...newPitch, pr_campaign_id: v })}>
+              <Select value={newPitch.pr_campaign_id || "none"} onValueChange={(v) => setNewPitch({ ...newPitch, pr_campaign_id: v === "none" ? "" : v })}>
                 <SelectTrigger className="mt-1"><SelectValue placeholder="Link to campaign" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No campaign</SelectItem>
+                  <SelectItem value="none">No campaign</SelectItem>
                   {campaigns.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -1001,6 +1171,100 @@ const PublicationDetailPage = () => {
             <Button variant="outline" onClick={() => setShowCoverageModal(false)}>Cancel</Button>
             <Button onClick={handleRecordCoverage} className="bg-purple-600 hover:bg-purple-700 text-white">
               Record Coverage
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Record Payment Modal */}
+      <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
+        <DialogContent className="max-w-lg" data-testid="record-payment-modal">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-green-500" />
+              Record Payment for {publication.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">JOURNALIST *</Label>
+              <Select value={newPayment.contact_id} onValueChange={(v) => setNewPayment({ ...newPayment, contact_id: v })}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select journalist..." /></SelectTrigger>
+                <SelectContent>
+                  {journalists.map(j => <SelectItem key={j.id} value={j.id}>{j.name} - {j.role || j.beat}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">CAMPAIGN (Optional)</Label>
+              <Select value={newPayment.campaign_id || "none"} onValueChange={(v) => setNewPayment({ ...newPayment, campaign_id: v === "none" ? "" : v })}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Link to campaign..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No campaign</SelectItem>
+                  {campaigns.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500">AMOUNT (₹) *</Label>
+                <Input 
+                  type="number"
+                  value={newPayment.amount}
+                  onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
+                  placeholder="50000"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500">PAYMENT TYPE</Label>
+                <Select value={newPayment.payment_type} onValueChange={(v) => setNewPayment({ ...newPayment, payment_type: v })}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pr_placement">PR Placement</SelectItem>
+                    <SelectItem value="advertorial">Advertorial</SelectItem>
+                    <SelectItem value="sponsored_content">Sponsored Content</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500">PAYMENT METHOD</Label>
+                <Select value={newPayment.payment_method} onValueChange={(v) => setNewPayment({ ...newPayment, payment_method: v })}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                    <SelectItem value="upi">UPI</SelectItem>
+                    <SelectItem value="cheque">Cheque</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500">DUE DATE</Label>
+                <Input 
+                  type="date"
+                  value={newPayment.due_date}
+                  onChange={(e) => setNewPayment({ ...newPayment, due_date: e.target.value })}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">DESCRIPTION</Label>
+              <Input 
+                value={newPayment.description}
+                onChange={(e) => setNewPayment({ ...newPayment, description: e.target.value })}
+                placeholder="Sponsored article placement..."
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button variant="outline" onClick={() => setShowPaymentModal(false)}>Cancel</Button>
+            <Button onClick={handleCreatePayment} className="bg-purple-600 hover:bg-purple-700 text-white">
+              <Plus className="w-4 h-4 mr-2" /> Record Payment
             </Button>
           </div>
         </DialogContent>
