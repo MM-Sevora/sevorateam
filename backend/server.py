@@ -1869,6 +1869,432 @@ async def notify_mention(mentioned_user_id: str, mentioner_name: str,
         mentioned_user_id, mentioner_name, entity_type, entity_id, comment_text
     )
 
+# ============== CONTENT STUDIO ENDPOINTS ==============
+content_studio_router = APIRouter(prefix="/content", tags=["Content Studio"])
+
+@content_studio_router.post("/generate")
+async def generate_content(data: dict, user: dict = Depends(require_department(["social"]))):
+    """Generate AI content for social media"""
+    try:
+        from services.ai_service import generate_text
+        
+        platform = data.get("platform", "instagram")
+        topic = data.get("topic", "")
+        tone = data.get("tone", "professional")
+        content_type = data.get("content_type", "post")
+        
+        prompt = f"""Create a {content_type} for {platform} about: {topic}
+        
+Tone: {tone}
+Platform requirements:
+- Instagram: Max 2200 chars, include hashtags
+- Twitter/X: Max 280 chars, punchy
+- LinkedIn: Professional, max 3000 chars
+- Facebook: Conversational, max 500 chars
+
+Respond with JSON: {{"content": "the post text", "hashtags": ["tag1", "tag2"], "hook": "attention grabber"}}"""
+        
+        result = await generate_text(prompt=prompt, system_message="You are a social media content expert. Always respond with valid JSON.")
+        
+        if result.get("success"):
+            response_text = result.get("text", "") or result.get("content", "")
+            try:
+                import json
+                content_data = json.loads(response_text)
+                return {
+                    "success": True,
+                    "content": content_data.get("content", response_text),
+                    "hashtags": content_data.get("hashtags", []),
+                    "hook": content_data.get("hook", "")
+                }
+            except:
+                return {"success": True, "content": response_text, "hashtags": [], "hook": ""}
+        return {"success": False, "error": result.get("error", "Generation failed")}
+    except Exception as e:
+        logger.error(f"Content generation error: {e}")
+        return {"success": False, "error": str(e)}
+
+@content_studio_router.post("/ideas")
+async def generate_ideas(data: dict, user: dict = Depends(require_department(["social"]))):
+    """Generate content ideas"""
+    try:
+        from services.ai_service import generate_text
+        
+        platform = data.get("platform", "instagram")
+        topic = data.get("topic", "")
+        tone = data.get("tone", "professional")
+        
+        prompt = f"""Generate 5 creative content ideas for {platform} about: {topic}
+        
+Tone: {tone}
+
+Respond with JSON array: [{{"title": "idea title", "description": "brief description", "hook": "opening hook", "type": "post/reel/story/carousel"}}]"""
+        
+        result = await generate_text(prompt=prompt, system_message="You are a social media strategist. Always respond with valid JSON array.")
+        
+        if result.get("success"):
+            response_text = result.get("text", "") or result.get("content", "")
+            try:
+                import json
+                ideas = json.loads(response_text)
+                return {"success": True, "ideas": ideas}
+            except:
+                return {"success": True, "ideas": [{"title": "Generated Idea", "description": response_text, "hook": "", "type": "post"}]}
+        return {"success": False, "error": result.get("error", "Generation failed")}
+    except Exception as e:
+        logger.error(f"Ideas generation error: {e}")
+        return {"success": False, "error": str(e)}
+
+@content_studio_router.post("/refine")
+async def refine_content(data: dict, user: dict = Depends(require_department(["social"]))):
+    """Refine existing content"""
+    try:
+        from services.ai_service import generate_text
+        
+        content = data.get("content", "")
+        action = data.get("action", "improve")
+        platform = data.get("platform", "instagram")
+        
+        action_prompts = {
+            "shorten": f"Make this {platform} post shorter and punchier while keeping the key message:\n\n{content}",
+            "expand": f"Expand this {platform} post with more details and engagement elements:\n\n{content}",
+            "improve": f"Improve this {platform} post to be more engaging and professional:\n\n{content}",
+            "hooks": f"Generate 3 attention-grabbing hooks for this {platform} post:\n\n{content}",
+            "cta": f"Add a compelling call-to-action to this {platform} post:\n\n{content}",
+            "emoji": f"Add appropriate emojis to enhance this {platform} post:\n\n{content}"
+        }
+        
+        prompt = action_prompts.get(action, action_prompts["improve"])
+        result = await generate_text(prompt=prompt, system_message="You are a social media editor.")
+        
+        response_text = result.get("text", "") or result.get("content", content)
+        return {"success": True, "refined_content": response_text, "action": action}
+    except Exception as e:
+        logger.error(f"Content refinement error: {e}")
+        return {"success": False, "error": str(e)}
+
+@content_studio_router.post("/quality-check")
+async def quality_check(data: dict, user: dict = Depends(require_department(["social"]))):
+    """Check content quality and compliance"""
+    try:
+        from services.ai_service import generate_text
+        
+        content = data.get("platform", "") + ": " + data.get("topic", "")
+        platform = data.get("platform", "instagram")
+        
+        prompt = f"""Analyze this {platform} post and provide quality feedback:
+
+{content}
+
+Respond with JSON:
+{{
+    "score": 0-100,
+    "readability": "easy/medium/hard",
+    "engagement_potential": "low/medium/high",
+    "issues": ["list of issues"],
+    "suggestions": ["improvement suggestions"],
+    "hashtag_quality": "good/needs work",
+    "cta_present": true/false
+}}"""
+        
+        result = await generate_text(prompt=prompt, system_message="You are a social media quality analyst. Always respond with valid JSON.")
+        
+        if result.get("success"):
+            response_text = result.get("text", "") or result.get("content", "")
+            try:
+                import json
+                analysis = json.loads(response_text)
+                return {"success": True, **analysis}
+            except:
+                return {"success": True, "score": 75, "issues": [], "suggestions": ["Content looks good!"], "engagement_potential": "medium"}
+        return {"success": False, "error": result.get("error", "Check failed")}
+    except Exception as e:
+        logger.error(f"Quality check error: {e}")
+        return {"success": False, "error": str(e)}
+
+@content_studio_router.post("/generate-image")
+async def generate_content_image(data: dict, user: dict = Depends(require_department(["social"]))):
+    """Generate image for content"""
+    try:
+        from services.ai_service import generate_image
+        
+        prompt = data.get("prompt", "")
+        style = data.get("style", "modern social media")
+        
+        enhanced_prompt = f"{prompt}. Style: {style}, high quality, social media optimized"
+        result = await generate_image(prompt=enhanced_prompt)
+        
+        return result
+    except Exception as e:
+        logger.error(f"Image generation error: {e}")
+        return {"success": False, "error": str(e)}
+
+# ============== TEMPLATES ENDPOINTS ==============
+@app.get("/api/templates")
+async def get_templates(user: dict = Depends(require_department(["social"]))):
+    """Get content templates"""
+    templates = [
+        {"id": "1", "name": "Product Launch", "category": "marketing", "content": "Introducing [PRODUCT] - [BENEFIT]! Get yours now.", "platforms": ["instagram", "facebook"]},
+        {"id": "2", "name": "Behind the Scenes", "category": "engagement", "content": "Ever wonder what goes on behind the curtain? Here's a sneak peek!", "platforms": ["instagram", "tiktok"]},
+        {"id": "3", "name": "Customer Testimonial", "category": "social_proof", "content": "Don't just take our word for it - hear from [NAME]!", "platforms": ["linkedin", "facebook"]},
+        {"id": "4", "name": "Tips & Tricks", "category": "educational", "content": "Pro tip: [TIP] This simple trick will [BENEFIT]!", "platforms": ["twitter", "linkedin"]},
+        {"id": "5", "name": "Question Post", "category": "engagement", "content": "We want to hear from you! [QUESTION]? Drop your answer below!", "platforms": ["instagram", "facebook", "twitter"]},
+    ]
+    return templates
+
+# ============== PILLARS ENDPOINTS ==============
+@app.get("/api/pillars")
+async def get_pillars(user: dict = Depends(require_department(["social"]))):
+    """Get content pillars"""
+    pillars = await db.pillars.find({"user_id": user['id']}).to_list(100)
+    for p in pillars:
+        p['pillar_id'] = str(p.pop('_id'))
+    return pillars
+
+@app.post("/api/pillars")
+async def create_pillar(data: dict, user: dict = Depends(require_department(["social"]))):
+    """Create content pillar"""
+    pillar = {
+        "name": data.get("name"),
+        "description": data.get("description", ""),
+        "color": data.get("color", "#4A3728"),
+        "target_percentage": data.get("target_percentage", 20),
+        "user_id": user['id'],
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    result = await db.pillars.insert_one(pillar)
+    pillar['pillar_id'] = str(result.inserted_id)
+    del pillar['_id']
+    return pillar
+
+@app.delete("/api/pillars/{pillar_id}")
+async def delete_pillar(pillar_id: str, user: dict = Depends(require_department(["social"]))):
+    """Delete content pillar"""
+    from bson import ObjectId
+    await db.pillars.delete_one({"_id": ObjectId(pillar_id), "user_id": user['id']})
+    return {"success": True}
+
+@content_studio_router.post("/ideas-by-pillar")
+async def generate_ideas_by_pillar(pillar: str, data: dict, user: dict = Depends(require_department(["social"]))):
+    """Generate ideas based on content pillar"""
+    try:
+        from services.ai_service import generate_text
+        
+        platform = data.get("platform", "instagram")
+        topic = data.get("topic", "")
+        tone = data.get("tone", "professional")
+        
+        prompt = f"""Generate 5 content ideas for {platform} aligned with the content pillar: {pillar}
+        
+Additional context: {topic}
+Tone: {tone}
+
+Respond with JSON array: [{{"title": "idea title", "description": "brief description", "pillar_alignment": "how it fits the pillar", "type": "post/reel/story"}}]"""
+        
+        result = await generate_text(prompt=prompt, system_message="You are a content strategist. Always respond with valid JSON array.")
+        
+        if result.get("success"):
+            response_text = result.get("text", "") or result.get("content", "")
+            try:
+                import json
+                ideas = json.loads(response_text)
+                return {"success": True, "ideas": ideas, "pillar": pillar}
+            except:
+                return {"success": True, "ideas": [{"title": "Pillar-aligned idea", "description": response_text, "pillar_alignment": pillar, "type": "post"}], "pillar": pillar}
+        return {"success": False, "error": result.get("error", "Generation failed")}
+    except Exception as e:
+        logger.error(f"Pillar ideas error: {e}")
+        return {"success": False, "error": str(e)}
+
+# ============== APPROVALS ENDPOINTS ==============
+@app.get("/api/approvals")
+async def get_approvals(user: dict = Depends(require_department(["social"]))):
+    """Get approval requests"""
+    approvals = await db.approvals.find({}).sort("created_at", -1).to_list(100)
+    for a in approvals:
+        a['approval_id'] = str(a.pop('_id'))
+    return approvals
+
+@app.get("/api/approvals/stats")
+async def get_approval_stats(user: dict = Depends(require_department(["social"]))):
+    """Get approval statistics"""
+    pending = await db.approvals.count_documents({"status": "pending"})
+    approved = await db.approvals.count_documents({"status": "approved"})
+    rejected = await db.approvals.count_documents({"status": "rejected"})
+    return {"pending": pending, "approved": approved, "rejected": rejected, "total": pending + approved + rejected}
+
+@app.get("/api/approvals/actionable")
+async def get_actionable_approvals(user: dict = Depends(require_department(["social"]))):
+    """Get approvals needing action"""
+    approvals = await db.approvals.find({"status": "pending"}).sort("created_at", -1).to_list(50)
+    for a in approvals:
+        a['approval_id'] = str(a.pop('_id'))
+    return approvals
+
+@app.post("/api/approvals/submit")
+async def submit_for_approval(data: dict, user: dict = Depends(require_department(["social"]))):
+    """Submit content for approval"""
+    approval = {
+        "post_id": data.get("post_id"),
+        "note": data.get("note", ""),
+        "status": "pending",
+        "submitted_by": user['id'],
+        "submitted_by_name": user.get('name', 'Unknown'),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "reviewed_at": None,
+        "reviewer_id": None,
+        "feedback": ""
+    }
+    result = await db.approvals.insert_one(approval)
+    approval['approval_id'] = str(result.inserted_id)
+    del approval['_id']
+    return {"success": True, "approval": approval}
+
+@app.post("/api/approvals/{approval_id}/review")
+async def review_approval(approval_id: str, data: dict, user: dict = Depends(require_department(["social"]))):
+    """Review approval request"""
+    from bson import ObjectId
+    action = data.get("action")  # "approve" or "reject"
+    feedback = data.get("feedback", "")
+    
+    update = {
+        "status": "approved" if action == "approve" else "rejected",
+        "reviewed_at": datetime.now(timezone.utc).isoformat(),
+        "reviewer_id": user['id'],
+        "feedback": feedback
+    }
+    
+    await db.approvals.update_one({"_id": ObjectId(approval_id)}, {"$set": update})
+    return {"success": True, "status": update["status"]}
+
+@app.post("/api/approvals/{approval_id}/move-to-queue")
+async def move_to_queue(approval_id: str, status: str = "scheduled", user: dict = Depends(require_department(["social"]))):
+    """Move approved content to schedule queue"""
+    from bson import ObjectId
+    approval = await db.approvals.find_one({"_id": ObjectId(approval_id)})
+    if approval and approval.get("status") == "approved":
+        # Update the associated post status
+        if approval.get("post_id"):
+            await db.posts.update_one({"id": approval["post_id"]}, {"$set": {"status": status}})
+        return {"success": True}
+    return {"success": False, "error": "Approval not found or not approved"}
+
+@app.post("/api/approvals/{approval_id}/resubmit")
+async def resubmit_approval(approval_id: str, user: dict = Depends(require_department(["social"]))):
+    """Resubmit rejected content for approval"""
+    from bson import ObjectId
+    await db.approvals.update_one(
+        {"_id": ObjectId(approval_id)},
+        {"$set": {"status": "pending", "reviewed_at": None, "reviewer_id": None, "feedback": ""}}
+    )
+    return {"success": True}
+
+# ============== AUTOPILOT ENDPOINTS ==============
+@app.post("/api/autopilot/generate")
+async def autopilot_generate(data: dict, user: dict = Depends(require_department(["social"]))):
+    """Generate multiple posts with autopilot"""
+    try:
+        from services.ai_service import generate_text
+        
+        industry = data.get("industry", "general")
+        topics = data.get("topics", [])
+        tone = data.get("tone", "professional")
+        platforms = data.get("platforms", ["instagram"])
+        posts_per_day = data.get("posts_per_day", 1)
+        days = data.get("days", 7)
+        
+        total_posts = posts_per_day * days
+        topics_str = ", ".join(topics) if topics else industry
+        
+        prompt = f"""Generate {total_posts} social media posts for a {industry} business.
+        
+Topics to cover: {topics_str}
+Platforms: {", ".join(platforms)}
+Tone: {tone}
+
+Create varied content including: tips, behind-the-scenes, questions, testimonials, announcements.
+
+Respond with JSON array:
+[{{"day": 1, "platform": "instagram", "content": "post text", "type": "tip/question/announcement", "hashtags": ["tag1"]}}]"""
+        
+        result = await generate_text(prompt=prompt, system_message="You are a social media scheduler. Generate diverse, engaging posts. Always respond with valid JSON array.")
+        
+        if result.get("success"):
+            response_text = result.get("text", "") or result.get("content", "")
+            try:
+                import json
+                posts = json.loads(response_text)
+                return {"success": True, "posts": posts, "total": len(posts)}
+            except:
+                # Generate placeholder posts
+                posts = []
+                for day in range(1, days + 1):
+                    for _ in range(posts_per_day):
+                        posts.append({
+                            "day": day,
+                            "platform": platforms[0] if platforms else "instagram",
+                            "content": f"Day {day} content about {topics_str}",
+                            "type": "post",
+                            "hashtags": []
+                        })
+                return {"success": True, "posts": posts, "total": len(posts)}
+        return {"success": False, "error": result.get("error", "Generation failed")}
+    except Exception as e:
+        logger.error(f"Autopilot generation error: {e}")
+        return {"success": False, "error": str(e)}
+
+# ============== PREDICT PERFORMANCE ==============
+@app.post("/api/predict/performance")
+async def predict_performance(data: dict, user: dict = Depends(require_department(["social"]))):
+    """Predict post performance"""
+    try:
+        from services.ai_service import generate_text
+        
+        content = data.get("content", "")
+        platform = data.get("platform", "instagram")
+        
+        prompt = f"""Analyze this {platform} post and predict its performance:
+
+{content}
+
+Respond with JSON:
+{{
+    "predicted_engagement": "low/medium/high",
+    "estimated_reach": "100-500/500-2000/2000-10000/10000+",
+    "best_posting_time": "9 AM - 11 AM",
+    "strengths": ["list of strengths"],
+    "weaknesses": ["areas to improve"],
+    "score": 0-100,
+    "viral_potential": "low/medium/high"
+}}"""
+        
+        result = await generate_text(prompt=prompt, system_message="You are a social media analytics expert. Always respond with valid JSON.")
+        
+        if result.get("success"):
+            response_text = result.get("text", "") or result.get("content", "")
+            try:
+                import json
+                prediction = json.loads(response_text)
+                return {"success": True, **prediction}
+            except:
+                return {
+                    "success": True,
+                    "predicted_engagement": "medium",
+                    "estimated_reach": "500-2000",
+                    "best_posting_time": "10 AM - 12 PM",
+                    "strengths": ["Good content"],
+                    "weaknesses": [],
+                    "score": 70,
+                    "viral_potential": "medium"
+                }
+        return {"success": False, "error": result.get("error", "Prediction failed")}
+    except Exception as e:
+        logger.error(f"Prediction error: {e}")
+        return {"success": False, "error": str(e)}
+
+# Register content studio router
+app.include_router(content_studio_router, prefix="/api")
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,

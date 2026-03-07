@@ -372,12 +372,12 @@ export const OutreachPage = () => {
                                                 )}
                                                 <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                                                     <Clock className="w-3 h-3" />
-                                                    {new Date(item.sent_at).toLocaleDateString('en-IN', {
+                                                    {item.sent_at ? new Date(item.sent_at).toLocaleDateString('en-IN', {
                                                         day: 'numeric',
                                                         month: 'short',
                                                         hour: '2-digit',
                                                         minute: '2-digit'
-                                                    })}
+                                                    }) : 'Just now'}
                                                 </p>
                                             </div>
                                         </div>

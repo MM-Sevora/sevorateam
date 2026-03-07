@@ -108,7 +108,7 @@ export default function ContentStudio() {
     setRefining(action);
     try {
       const res = await api.post('/api/content/refine', { content: generatedContent.content, action, platform, ...extra });
-      setGeneratedContent(prev => ({ ...prev, content: res.data.refined }));
+      setGeneratedContent(prev => ({ ...prev, content: res.data.refined_content || res.data.refined }));
     } catch (err) { setError(err.response?.data?.detail || 'Refine failed'); }
     finally { setRefining(''); }
   };
