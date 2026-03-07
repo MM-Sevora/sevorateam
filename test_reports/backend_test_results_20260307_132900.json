@@ -1,0 +1,155 @@
+{
+  "total_tests": 21,
+  "passed_tests": 21,
+  "failed_tests": [],
+  "success_rate": 100.0,
+  "detailed_results": [
+    {
+      "name": "Health Check",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": null
+    },
+    {
+      "name": "User Registration",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": "{'access_token': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhMzRkZGIxYy02YjM2LTRhMmMtOWIzOS1mYmZiOWNkYmM5ODQiLCJlbWFpbCI6InRlc3R1c2VyMTMyODU3QHRlc3QuY29tIiwicm9sZSI6InZpZXdlciIsImV4cCI6MTc3Mjk3N"
+    },
+    {
+      "name": "User Login",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": "{'access_token': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhMzRkZGIxYy02YjM2LTRhMmMtOWIzOS1mYmZiOWNkYmM5ODQiLCJlbWFpbCI6InRlc3R1c2VyMTMyODU3QHRlc3QuY29tIiwicm9sZSI6InZpZXdlciIsImV4cCI6MTc3Mjk3N"
+    },
+    {
+      "name": "Get User Profile",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": "{'id': 'a34ddb1c-6b36-4a2c-9b39-fbfb9cdbc984', 'email': 'testuser132857@test.com', 'name': 'Test User 132857', 'department': 'sales', 'role': 'viewer', 'departments': [], 'avatar_url': None, 'created_"
+    },
+    {
+      "name": "Admin Login",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": "{'access_token': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTZkZTI2ZC00MWViLTQyZjctOWJmNy0zY2I5OWNhNzljNzMiLCJlbWFpbCI6ImFkbWluQHNldm9yYS5jb20iLCJyb2xlIjoiYWRtaW4iLCJleHAiOjE3NzI5NzY1Mzh9.Dv04"
+    },
+    {
+      "name": "Unified Dashboard",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": "{'user': {'name': 'Admin User', 'role': 'admin', 'departments': ['marketing', 'sales', 'social']}, 'stats': {'marketing': {'influencers': 0, 'campaigns': 0, 'negotiations': 0}, 'sales': {'leads': 0, '"
+    },
+    {
+      "name": "Marketing Dashboard",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": "{'total_influencers': 0, 'active_campaigns': 0, 'pending_negotiations': 0, 'total_budget': 0, 'total_spent': 0, 'budget_remaining': 0, 'status_distribution': {}}"
+    },
+    {
+      "name": "Marketing - Get Influencers",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": null
+    },
+    {
+      "name": "Marketing - Create Influencer",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": "{'id': 'b747b3b7-7bc5-48d2-9fea-552a50d547e9', 'name': 'Test Influencer', 'bio': None, 'instagram_handle': 'test_influencer_123', 'youtube_handle': None, 'primary_platform': 'instagram', 'email': None"
+    },
+    {
+      "name": "Marketing - Get Campaigns",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": null
+    },
+    {
+      "name": "Sales Dashboard",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": "{'total_leads': 0, 'total_customers': 0, 'leads_by_source': {}, 'leads_by_stage': {}, 'conversion_rate': 0, 'leads_today': 0}"
+    },
+    {
+      "name": "Sales - Get Leads",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": null
+    },
+    {
+      "name": "Sales - Create Lead",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": "{'id': '1dd65893-3bfe-4c51-b09f-65fa0d1a6466', 'name': 'Test Customer', 'phone': '+919876543210', 'email': 'testcustomer@test.com', 'source': 'Website', 'source_details': None, 'stage': 'New Lead', 'o"
+    },
+    {
+      "name": "Sales - Get Customers",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": null
+    },
+    {
+      "name": "Sales - Get Pipeline",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": "{'New Lead': {'count': 1, 'leads': [{'id': '1dd65893-3bfe-4c51-b09f-65fa0d1a6466', 'name': 'Test Customer', 'phone': '+919876543210', 'email': 'testcustomer@test.com', 'source': 'Website', 'source_det"
+    },
+    {
+      "name": "Social Dashboard",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": "{'total_content': 0, 'scheduled': 0, 'published': 0, 'drafts': 0, 'by_platform': {}}"
+    },
+    {
+      "name": "Social - Get Content",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": null
+    },
+    {
+      "name": "Social - Create Content",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": "{'id': 'c2018bbd-d934-490d-8fbd-bb28987ae3bc', 'title': 'Test Post', 'content_type': 'image', 'platform': 'instagram', 'caption': 'Test caption for social media post', 'hashtags': ['#test', '#sevora']"
+    },
+    {
+      "name": "Role Based Access - Admin Endpoint Blocked",
+      "passed": true,
+      "status_code": 403,
+      "error": null,
+      "response": null
+    },
+    {
+      "name": "Role Based Access - User Profile Access",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": null
+    },
+    {
+      "name": "Invalid Token Access",
+      "passed": true,
+      "status_code": 401,
+      "error": null,
+      "response": null
+    }
+  ]
+}

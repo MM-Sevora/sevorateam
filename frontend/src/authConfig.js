@@ -1,0 +1,21 @@
+// Azure AD Configuration
+export const msalConfig = {
+    auth: {
+        clientId: process.env.REACT_APP_AZURE_CLIENT_ID || "ec50e216-1abe-4c0f-af5c-1f4d50d51234",
+        authority: `https://login.microsoftonline.com/${process.env.REACT_APP_AZURE_TENANT_ID || "bbe9ab04-36a1-4b03-833b-a798ddb2f232"}`,
+        redirectUri: window.location.origin,
+        postLogoutRedirectUri: window.location.origin,
+    },
+    cache: {
+        cacheLocation: "sessionStorage",
+        storeAuthStateInCookie: false,
+    },
+};
+
+export const loginRequest = {
+    scopes: ["User.Read", "openid", "profile", "email"],
+};
+
+export const graphConfig = {
+    graphMeEndpoint: "https://graph.microsoft.com/v1.0/me",
+};
