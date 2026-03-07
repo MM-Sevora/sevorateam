@@ -2295,6 +2295,167 @@ Respond with JSON:
 # Register content studio router
 app.include_router(content_studio_router, prefix="/api")
 
+# ============== MICROSOFT EMAIL ENDPOINTS ==============
+from services.microsoft_email import microsoft_email_service
+
+# Default sender email for the organization
+DEFAULT_SENDER_EMAIL = os.environ.get('MICROSOFT_SENDER_EMAIL', 'admin@sevora.com')
+
+microsoft_router = APIRouter(prefix="/api/microsoft", tags=["Microsoft Email"])
+
+@microsoft_router.get("/status")
+async def get_microsoft_status():
+    """Check Microsoft 365 connection status"""
+    return await microsoft_email_service.get_connection_status()
+
+@microsoft_router.get("/emails")
+async def get_microsoft_emails(
+    folder: str = "inbox",
+    top: int = 50,
+    skip: int = 0,
+    search: str = None,
+    user_email: str = None
+):
+    """Get emails from a specific folder"""
+    sender = user_email or DEFAULT_SENDER_EMAIL
+    return await microsoft_email_service.get_emails(
+        user_email=sender,
+        folder=folder,
+        top=top,
+        skip=skip,
+        search_query=search
+    )
+
+@microsoft_router.get("/emails-for-contact")
+async def get_emails_for_contact(
+    email: str,
+    additional_emails: str = None,
+    top: int = 100,
+    user_email: str = None
+):
+    """Get all emails exchanged with a specific contact"""
+    sender = user_email or DEFAULT_SENDER_EMAIL
+    contact_emails = [email]
+    if additional_emails:
+        contact_emails.extend(additional_emails.split(","))
+    return await microsoft_email_service.get_emails_for_contact(
+        user_email=sender,
+        contact_emails=contact_emails,
+        top=top
+    )
+
+@microsoft_router.get("/message/{message_id}")
+async def get_microsoft_message(message_id: str, user_email: str = None):
+    """Get full email message content"""
+    sender = user_email or DEFAULT_SENDER_EMAIL
+    return await microsoft_email_service.get_message(
+        user_email=sender,
+        message_id=message_id
+    )
+
+@microsoft_router.get("/message/{message_id}/attachments")
+async def get_microsoft_attachments(message_id: str, user_email: str = None):
+    """Get email attachments"""
+    sender = user_email or DEFAULT_SENDER_EMAIL
+    return await microsoft_email_service.get_attachments(
+        user_email=sender,
+        message_id=message_id
+    )
+
+class MicrosoftSendEmailRequest(BaseModel):
+    to_recipients: List[str]
+    subject: str
+    body: str
+    is_html: bool = True
+    cc_recipients: Optional[List[str]] = None
+    bcc_recipients: Optional[List[str]] = None
+    reply_to_message_id: Optional[str] = None
+    is_reply_all: bool = False
+
+@microsoft_router.post("/send")
+async def send_microsoft_email(request: MicrosoftSendEmailRequest, user_email: str = None):
+    """Send a new email or reply to existing"""
+    sender = user_email or DEFAULT_SENDER_EMAIL
+    return await microsoft_email_service.send_email(
+        sender_email=sender,
+        to_recipients=request.to_recipients,
+        subject=request.subject,
+        body=request.body,
+        is_html=request.is_html,
+        cc_recipients=request.cc_recipients,
+        bcc_recipients=request.bcc_recipients,
+        reply_to_message_id=request.reply_to_message_id,
+        is_reply_all=request.is_reply_all
+    )
+
+class MicrosoftForwardEmailRequest(BaseModel):
+    to_recipients: List[str]
+    comment: str = ""
+
+@microsoft_router.post("/message/{message_id}/forward")
+async def forward_microsoft_email(
+    message_id: str,
+    request: MicrosoftForwardEmailRequest,
+    user_email: str = None
+):
+    """Forward an email"""
+    sender = user_email or DEFAULT_SENDER_EMAIL
+    return await microsoft_email_service.forward_email(
+        sender_email=sender,
+        message_id=message_id,
+        to_recipients=request.to_recipients,
+        comment=request.comment
+    )
+
+@microsoft_router.post("/message/{message_id}/read")
+async def mark_microsoft_message_read(
+    message_id: str,
+    is_read: bool = True,
+    user_email: str = None
+):
+    """Mark email as read or unread"""
+    sender = user_email or DEFAULT_SENDER_EMAIL
+    return await microsoft_email_service.mark_as_read(
+        user_email=sender,
+        message_id=message_id,
+        is_read=is_read
+    )
+
+@microsoft_router.post("/message/{message_id}/flag")
+async def set_microsoft_message_flag(
+    message_id: str,
+    flag_status: str = "flagged",
+    user_email: str = None
+):
+    """Set email flag status (flagged, notFlagged, complete)"""
+    sender = user_email or DEFAULT_SENDER_EMAIL
+    return await microsoft_email_service.set_flag(
+        user_email=sender,
+        message_id=message_id,
+        flag_status=flag_status
+    )
+
+@microsoft_router.post("/message/{message_id}/archive")
+async def archive_microsoft_message(message_id: str, user_email: str = None):
+    """Move email to archive folder"""
+    sender = user_email or DEFAULT_SENDER_EMAIL
+    return await microsoft_email_service.archive_message(
+        user_email=sender,
+        message_id=message_id
+    )
+
+@microsoft_router.delete("/message/{message_id}")
+async def delete_microsoft_message(message_id: str, user_email: str = None):
+    """Delete an email message"""
+    sender = user_email or DEFAULT_SENDER_EMAIL
+    return await microsoft_email_service.delete_message(
+        user_email=sender,
+        message_id=message_id
+    )
+
+# Register Microsoft router
+app.include_router(microsoft_router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,

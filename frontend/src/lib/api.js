@@ -178,3 +178,26 @@ export const adminAPI = {
 export const dashboardAPI = {
     getUnified: () => api.get('/dashboard/unified'),
 };
+
+// Microsoft Email APIs
+export const microsoftAPI = {
+    getStatus: () => api.get('/microsoft/status'),
+    getEmails: (folder = 'inbox', top = 50, skip = 0, search = null) => {
+        let url = `/microsoft/emails?folder=${folder}&top=${top}&skip=${skip}`;
+        if (search) url += `&search=${encodeURIComponent(search)}`;
+        return api.get(url);
+    },
+    getEmailsForContact: (email, additionalEmails = null, top = 100) => {
+        let url = `/microsoft/emails-for-contact?email=${encodeURIComponent(email)}&top=${top}`;
+        if (additionalEmails) url += `&additional_emails=${encodeURIComponent(additionalEmails.join(','))}`;
+        return api.get(url);
+    },
+    getMessage: (messageId) => api.get(`/microsoft/message/${messageId}`),
+    getAttachments: (messageId) => api.get(`/microsoft/message/${messageId}/attachments`),
+    sendEmail: (data) => api.post('/microsoft/send', data),
+    forwardEmail: (messageId, data) => api.post(`/microsoft/message/${messageId}/forward`, data),
+    markAsRead: (messageId, isRead = true) => api.post(`/microsoft/message/${messageId}/read?is_read=${isRead}`),
+    setFlag: (messageId, flagStatus = 'flagged') => api.post(`/microsoft/message/${messageId}/flag?flag_status=${flagStatus}`),
+    archiveMessage: (messageId) => api.post(`/microsoft/message/${messageId}/archive`),
+    deleteMessage: (messageId) => api.delete(`/microsoft/message/${messageId}`),
+};

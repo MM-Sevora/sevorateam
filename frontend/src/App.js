@@ -43,6 +43,9 @@ import YouTubePage from "./pages/social/YouTube";
 import ContentLibraryPage from "./pages/social/ContentLibrary";
 import AvatarPage from "./pages/social/Avatar";
 
+// Email Page
+import EmailPage from "./pages/marketing/EmailPage";
+
 import "./App.css";
 
 // Initialize MSAL
@@ -105,6 +108,7 @@ function AppRoutes() {
             <Route path="/marketing/influencers" element={<ProtectedRoute requiredDepartment="marketing"><InfluencersPage /></ProtectedRoute>} />
             <Route path="/marketing/campaigns" element={<ProtectedRoute requiredDepartment="marketing"><CampaignsPage /></ProtectedRoute>} />
             <Route path="/marketing/outreach" element={<ProtectedRoute requiredDepartment="marketing"><OutreachPage /></ProtectedRoute>} />
+            <Route path="/marketing/email" element={<ProtectedRoute requiredDepartment="marketing"><EmailPage /></ProtectedRoute>} />
             <Route path="/marketing/negotiations" element={<ProtectedRoute requiredDepartment="marketing"><NegotiationsPage /></ProtectedRoute>} />
             <Route path="/marketing/analytics" element={<ProtectedRoute requiredDepartment="marketing"><MarketingAnalyticsPage /></ProtectedRoute>} />
             <Route path="/marketing/ai-tools" element={<ProtectedRoute requiredDepartment="marketing"><AIToolsPage /></ProtectedRoute>} />
