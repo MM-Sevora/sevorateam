@@ -473,7 +473,7 @@ class MediaCoverageCreate(BaseModel):
     contact_id: Optional[str] = None  # Journalist who wrote it
     press_release_id: Optional[str] = None
     campaign_id: Optional[str] = None
-    published_date: str
+    published_date: Optional[str] = None
     sentiment: CoverageSentiment = CoverageSentiment.NEUTRAL
     reach: Optional[int] = None  # Estimated reach
     notes: Optional[str] = None
@@ -488,7 +488,7 @@ class MediaCoverageResponse(BaseModel):
     contact_name: Optional[str] = None
     press_release_id: Optional[str] = None
     campaign_id: Optional[str] = None
-    published_date: str
+    published_date: Optional[str] = None
     sentiment: str
     reach: Optional[int] = None
     notes: Optional[str] = None

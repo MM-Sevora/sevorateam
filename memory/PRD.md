@@ -165,6 +165,7 @@ Consolidate multiple Sevora applications (Influencer Operations from 'main' bran
 - [x] Granular CRUD Permissions
 - [x] **Marketing Module Restructure** - All 8 phases complete
 - [x] **Phase B: Core Workflow** - Campaign assignment, outreach modal, activity timeline (COMPLETED March 7, 2026)
+- [x] **Marketing Operating System Restructure** - Unified Campaign Hub with type filters, PR Journey restructure (COMPLETED March 7, 2026)
 
 ### P1 - High Priority
 - [x] Real-time WebSocket notifications
@@ -196,8 +197,51 @@ Consolidate multiple Sevora applications (Influencer Operations from 'main' bran
 - [ ] Rate Card Templates feature
 
 ## Next Tasks
-1. **Digital PR Platform Phases 6-7** - Remaining modules:
-   - Phase 6: Coverage Tracking Dashboard (enhanced metrics)
+1. **PR Analytics Dashboard (P1)** - Create dedicated analytics dashboard tracking:
+   - Pitches sent, response rate, articles published, estimated reach
+   - Campaign-level PR performance metrics
+   - Historical trend charts
+
+2. **Refactor DigitalPRPage.jsx (P2)** - Break down monolithic file into:
+   - `MediaResearch.jsx` - Journalist database and search
+   - `Outreach.jsx` - Pitch management and status funnel  
+   - `Coverage.jsx` - Media coverage tracking
+   - `PaidPR.jsx` - Paid collaboration management
+   - `AIDiscovery.jsx` - AI-powered journalist discovery
+
+3. **Refactor Backend Routes (P2)** - Decompose `/app/backend/routes/marketing_v2.py` (2000+ lines) into:
+   - `pr_campaigns.py` - PR campaign management
+   - `contacts.py` - Journalist/influencer contacts
+   - `outreach.py` - Pitch and outreach tracking
+   - `coverage.py` - Media coverage tracking
+
+4. **Module Cleanup (P3)**:
+   - Create Content Asset module and move Press Kit functionality
+   - Remove Event & Exhibition module from UI
+
+## What's Complete (March 7, 2026)
+
+### Marketing Operating System Restructure ✅
+- **Unified Campaign Hub**: Single page showing all campaign types (Influencer, PR, Event, Mixed) with type filter
+- **Campaign Type Filter**: Dropdown filter with All Types, Influencer, PR, Event, Mixed options
+- **Status Filter**: Filter by Planning, Active, Paused, Completed status
+- **New Campaign Modal**: Campaign type selector showing PR-specific fields (TARGET MEDIA) vs Influencer fields (TARGET MARKET)
+- **Dual API Routing**: PR campaigns → `/api/v2/marketing/pr/campaigns`, Influencer → `/api/marketing/campaigns`
+- **PR Navigation**: Clicking PR campaign navigates to `/marketing/pr?campaign={id}`
+
+### Digital PR Journey Restructure ✅
+- **5 Journey Tabs**: Media Research, Outreach, Coverage, Paid PR, AI Discovery
+- **Stats Dashboard**: Journalists count, Pitches Sent, Responses, Articles, Est. Reach, Response Rate
+- **Media Research**: Journalist database with search, beat filter, quick filter lists
+- **Outreach Tab**: 8-stage pitch funnel (Identified → Pitch Prepared → Pitch Sent → Follow Up → Responded → Interested → Story in Progress → Declined)
+- **Coverage Tab**: Coverage type summary cards (Article, Mention, Feature, Interview, Review), Record Coverage modal
+- **Coverage Types Fixed**: Frontend now uses backend enum values (article, mention, feature, interview, review)
+- **Paid PR Tab**: Paid collaboration tracking
+- **AI Discovery Tab**: AI-powered journalist discovery with brief form
+
+### Bug Fixes ✅
+- Fixed coverage type enum mismatch between frontend and backend
+- Made `published_date` optional in coverage model for better UX
    - Phase 7: Performance Analytics (ROI, response rates)
 2. Phase C: AI Discovery Hub implementation
 3. User to verify Azure AD SSO flow in Incognito window

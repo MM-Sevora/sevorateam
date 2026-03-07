@@ -31,10 +31,11 @@ const OUTREACH_STATUS = [
 ];
 
 const COVERAGE_TYPES = [
-  { value: 'earned', label: 'Earned' },
-  { value: 'paid', label: 'Paid' },
-  { value: 'sponsored', label: 'Sponsored' },
-  { value: 'partnership', label: 'Partnership' },
+  { value: 'article', label: 'Article' },
+  { value: 'mention', label: 'Mention' },
+  { value: 'feature', label: 'Feature' },
+  { value: 'interview', label: 'Interview' },
+  { value: 'review', label: 'Review' },
 ];
 
 const BEAT_OPTIONS = ['Fashion', 'Beauty', 'Lifestyle', 'Tech', 'Business', 'Entertainment', 'Startup', 'Luxury'];
@@ -75,7 +76,7 @@ const DigitalPRPage = () => {
   // Forms
   const [newContact, setNewContact] = useState({ name: '', email: '', publication: '', role: '', beat: 'Fashion', location: '', domain_authority: '', audience_reach: '' });
   const [newPitch, setNewPitch] = useState({ contact_id: '', subject: '', message: '', pr_campaign_id: '' });
-  const [newCoverage, setNewCoverage] = useState({ title: '', publication: '', url: '', author: '', published_date: '', coverage_type: 'earned', domain_authority: '', estimated_reach: '', sentiment: 'positive', contact_id: '', pr_campaign_id: '' });
+  const [newCoverage, setNewCoverage] = useState({ title: '', publication: '', url: '', author: '', published_date: '', coverage_type: 'article', domain_authority: '', estimated_reach: '', sentiment: 'positive', contact_id: '', pr_campaign_id: '' });
   const [newPaidPR, setNewPaidPR] = useState({ publication: '', package_type: '', cost: '', deliverables: '', pr_campaign_id: '' });
 
   // Fetch functions
