@@ -14,7 +14,8 @@ import { toast } from 'sonner';
 import { 
   ArrowLeft, Star, MapPin, Instagram, Youtube, Twitter, Linkedin, Mail, Phone,
   MessageSquare, Handshake, FileText, CreditCard, Image, BarChart3, Send,
-  Plus, Clock, CheckCircle, XCircle, DollarSign, RefreshCw, Building2, Edit
+  Plus, Clock, CheckCircle, XCircle, DollarSign, RefreshCw, Building2, Edit,
+  Gift, Link, Shield, Calendar, TrendingUp, Award, Package, Copy
 } from 'lucide-react';
 
 const ContactDetailPage = () => {
@@ -28,6 +29,11 @@ const ContactDetailPage = () => {
   const [deals, setDeals] = useState([]);
   const [payments, setPayments] = useState([]);
   const [ugc, setUgc] = useState([]);
+  const [gifting, setGifting] = useState([]);
+  const [promoCodes, setPromoCodes] = useState([]);
+  const [utmLinks, setUtmLinks] = useState([]);
+  const [contracts, setContracts] = useState([]);
+  const [relationshipScore, setRelationshipScore] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('profile');
   
@@ -35,13 +41,17 @@ const ContactDetailPage = () => {
   const [showCommModal, setShowCommModal] = useState(false);
   const [showDealModal, setShowDealModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showGiftModal, setShowGiftModal] = useState(false);
+  const [showPromoModal, setShowPromoModal] = useState(false);
+  const [showUtmModal, setShowUtmModal] = useState(false);
   
-  // New communication form
+  // Forms
   const [newComm, setNewComm] = useState({ comm_type: 'email', subject: '', message: '' });
-  // New deal form
   const [newDeal, setNewDeal] = useState({ initial_quote: '', our_budget: '', deadline: '', notes: '' });
-  // New payment form
   const [newPayment, setNewPayment] = useState({ amount: '', description: '', payment_method: 'bank_transfer' });
+  const [newGift, setNewGift] = useState({ product_name: '', product_value: '', quantity: 1, expected_post_date: '' });
+  const [newPromo, setNewPromo] = useState({ discount_type: 'percentage', discount_value: 10 });
+  const [newUtm, setNewUtm] = useState({ base_url: '', utm_source: 'influencer', utm_medium: 'instagram' });
 
   const fetchContact = useCallback(async () => {
     try {
@@ -98,15 +108,64 @@ const ContactDetailPage = () => {
     }
   }, [api, contactId]);
 
+  const fetchGifting = useCallback(async () => {
+    try {
+      const response = await api.get(`/marketing/v2/gifting?contact_id=${contactId}`);
+      setGifting(response.data || []);
+    } catch (error) {
+      console.error('Failed to load gifting:', error);
+    }
+  }, [api, contactId]);
+
+  const fetchPromoCodes = useCallback(async () => {
+    try {
+      const response = await api.get(`/marketing/v2/promo-codes?contact_id=${contactId}`);
+      setPromoCodes(response.data || []);
+    } catch (error) {
+      console.error('Failed to load promo codes:', error);
+    }
+  }, [api, contactId]);
+
+  const fetchUtmLinks = useCallback(async () => {
+    try {
+      const response = await api.get(`/marketing/v2/utm-links?contact_id=${contactId}`);
+      setUtmLinks(response.data || []);
+    } catch (error) {
+      console.error('Failed to load UTM links:', error);
+    }
+  }, [api, contactId]);
+
+  const fetchContracts = useCallback(async () => {
+    try {
+      const response = await api.get(`/marketing/v2/contracts?contact_id=${contactId}`);
+      setContracts(response.data || []);
+    } catch (error) {
+      console.error('Failed to load contracts:', error);
+    }
+  }, [api, contactId]);
+
+  const fetchRelationshipScore = useCallback(async () => {
+    try {
+      const response = await api.get(`/marketing/v2/relationship-score/${contactId}`);
+      setRelationshipScore(response.data);
+    } catch (error) {
+      console.error('Failed to load relationship score:', error);
+    }
+  }, [api, contactId]);
+
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       await fetchContact();
-      await Promise.all([fetchStats(), fetchCommunications(), fetchDeals(), fetchPayments(), fetchUGC()]);
+      await Promise.all([
+        fetchStats(), fetchCommunications(), fetchDeals(), fetchPayments(), fetchUGC(),
+        fetchGifting(), fetchPromoCodes(), fetchUtmLinks(), fetchContracts(), fetchRelationshipScore()
+      ]);
       setLoading(false);
     };
     loadData();
-  }, [fetchContact, fetchStats, fetchCommunications, fetchDeals, fetchPayments, fetchUGC]);
+  }, [fetchContact, fetchStats, fetchCommunications, fetchDeals, fetchPayments, fetchUGC, 
+      fetchGifting, fetchPromoCodes, fetchUtmLinks, fetchContracts, fetchRelationshipScore]);
 
   const handleAddCommunication = async () => {
     try {
@@ -158,6 +217,62 @@ const ContactDetailPage = () => {
     } catch (error) {
       toast.error('Failed to record payment');
     }
+  };
+
+  const handleAddGift = async () => {
+    try {
+      await api.post('/marketing/v2/gifting', {
+        contact_id: contactId,
+        product_name: newGift.product_name,
+        product_value: parseFloat(newGift.product_value) || 0,
+        quantity: parseInt(newGift.quantity) || 1,
+        expected_post_date: newGift.expected_post_date || null,
+      });
+      toast.success('Gift/Seeding record created');
+      setShowGiftModal(false);
+      setNewGift({ product_name: '', product_value: '', quantity: 1, expected_post_date: '' });
+      fetchGifting();
+    } catch (error) {
+      toast.error('Failed to create gift record');
+    }
+  };
+
+  const handleAddPromoCode = async () => {
+    try {
+      await api.post('/marketing/v2/promo-codes', {
+        contact_id: contactId,
+        discount_type: newPromo.discount_type,
+        discount_value: parseFloat(newPromo.discount_value),
+      });
+      toast.success('Promo code generated');
+      setShowPromoModal(false);
+      setNewPromo({ discount_type: 'percentage', discount_value: 10 });
+      fetchPromoCodes();
+    } catch (error) {
+      toast.error('Failed to generate promo code');
+    }
+  };
+
+  const handleAddUtmLink = async () => {
+    try {
+      await api.post('/marketing/v2/utm-links', {
+        contact_id: contactId,
+        base_url: newUtm.base_url,
+        utm_source: newUtm.utm_source,
+        utm_medium: newUtm.utm_medium,
+      });
+      toast.success('UTM link created');
+      setShowUtmModal(false);
+      setNewUtm({ base_url: '', utm_source: 'influencer', utm_medium: 'instagram' });
+      fetchUtmLinks();
+    } catch (error) {
+      toast.error('Failed to create UTM link');
+    }
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Copied to clipboard');
   };
 
   const formatNumber = (num) => {
@@ -283,11 +398,14 @@ const ContactDetailPage = () => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-[#F5EDE5]">
+        <TabsList className="bg-[#F5EDE5] flex-wrap">
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="communications">Communications ({communications.length})</TabsTrigger>
           <TabsTrigger value="deals">Deals ({deals.length})</TabsTrigger>
+          <TabsTrigger value="contracts">Contracts ({contracts.length})</TabsTrigger>
           <TabsTrigger value="payments">Payments ({payments.length})</TabsTrigger>
+          <TabsTrigger value="gifting">Gifting ({gifting.length})</TabsTrigger>
+          <TabsTrigger value="tracking">Tracking ({promoCodes.length + utmLinks.length})</TabsTrigger>
           <TabsTrigger value="content">Content ({ugc.length})</TabsTrigger>
           <TabsTrigger value="performance">Performance</TabsTrigger>
         </TabsList>
@@ -599,8 +717,274 @@ const ContactDetailPage = () => {
                   <div className="text-sm text-[#5D4A3A]">Contact Score</div>
                 </div>
               </div>
+              
+              {/* Relationship Score */}
+              {relationshipScore && (
+                <div className="mt-6 p-4 border border-amber-200 bg-amber-50 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-[#4A3728] flex items-center gap-2">
+                        <Award className="w-5 h-5 text-amber-600" /> Relationship Score
+                      </h4>
+                      <p className="text-sm text-[#5D4A3A]">Based on collaboration history and engagement</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-3xl font-bold text-amber-600">{relationshipScore.overall_score}</div>
+                      <Badge className="bg-amber-100 text-amber-700 capitalize">{relationshipScore.tier}</Badge>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 gap-4 mt-4">
+                    <div className="text-center">
+                      <div className="font-semibold text-[#4A3728]">{relationshipScore.total_campaigns}</div>
+                      <div className="text-xs text-[#5D4A3A]">Campaigns</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-semibold text-[#4A3728]">{formatCurrency(relationshipScore.total_revenue)}</div>
+                      <div className="text-xs text-[#5D4A3A]">Revenue</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-semibold text-[#4A3728]">{relationshipScore.content_quality_avg}%</div>
+                      <div className="text-xs text-[#5D4A3A]">Content Quality</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-semibold text-[#4A3728]">{relationshipScore.reliability_score}%</div>
+                      <div className="text-xs text-[#5D4A3A]">Reliability</div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Contracts Tab */}
+        <TabsContent value="contracts">
+          <Card className="border-[#E8D5C4]">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-[#4A3728]">Contracts</CardTitle>
+              <Button size="sm" className="bg-amber-700 hover:bg-amber-800">
+                <Plus className="w-4 h-4 mr-1" /> New Contract
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {contracts.length === 0 ? (
+                <div className="text-center py-8 text-[#5D4A3A]">No contracts yet</div>
+              ) : (
+                <div className="space-y-3">
+                  {contracts.map(contract => (
+                    <div key={contract.id} className="p-4 border border-[#E8D5C4] rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium text-[#4A3728]">{contract.title}</h4>
+                        <Badge variant={contract.status === 'acknowledged' ? 'default' : 'outline'}>{contract.status}</Badge>
+                      </div>
+                      <div className="text-sm text-[#5D4A3A]">
+                        Value: {formatCurrency(contract.total_value)} • {formatDate(contract.created_at)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Gifting Tab */}
+        <TabsContent value="gifting">
+          <Card className="border-[#E8D5C4]">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-[#4A3728]">Gifting & Seeding</CardTitle>
+              <Dialog open={showGiftModal} onOpenChange={setShowGiftModal}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="bg-amber-700 hover:bg-amber-800">
+                    <Gift className="w-4 h-4 mr-1" /> Send Gift
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>Send Gift/Sample</DialogTitle></DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div>
+                      <Label>Product Name *</Label>
+                      <Input value={newGift.product_name} onChange={e => setNewGift({...newGift, product_name: e.target.value})} placeholder="Spring Collection Sample Kit" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Value (₹)</Label>
+                        <Input type="number" value={newGift.product_value} onChange={e => setNewGift({...newGift, product_value: e.target.value})} />
+                      </div>
+                      <div>
+                        <Label>Quantity</Label>
+                        <Input type="number" value={newGift.quantity} onChange={e => setNewGift({...newGift, quantity: e.target.value})} />
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Expected Post Date</Label>
+                      <Input type="date" value={newGift.expected_post_date} onChange={e => setNewGift({...newGift, expected_post_date: e.target.value})} />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setShowGiftModal(false)}>Cancel</Button>
+                    <Button onClick={handleAddGift} className="bg-amber-700 hover:bg-amber-800">Send</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </CardHeader>
+            <CardContent>
+              {gifting.length === 0 ? (
+                <div className="text-center py-8 text-[#5D4A3A]">
+                  <Gift className="w-12 h-12 mx-auto mb-2 text-[#5D4A3A]" />
+                  No gifts sent yet
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {gifting.map(gift => (
+                    <div key={gift.id} className="p-4 border border-[#E8D5C4] rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Package className="w-4 h-4 text-amber-600" />
+                          <span className="font-medium text-[#4A3728]">{gift.product_name}</span>
+                        </div>
+                        <Badge variant={gift.status === 'posted' ? 'default' : 'outline'} className={gift.status === 'posted' ? 'bg-green-100 text-green-700' : ''}>
+                          {gift.status}
+                        </Badge>
+                      </div>
+                      <div className="text-sm text-[#5D4A3A]">
+                        Value: {formatCurrency(gift.product_value)} • Qty: {gift.quantity}
+                        {gift.expected_post_date && ` • Expected: ${formatDate(gift.expected_post_date)}`}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tracking Tab (Promo Codes + UTM Links) */}
+        <TabsContent value="tracking">
+          <div className="grid grid-cols-2 gap-4">
+            {/* Promo Codes */}
+            <Card className="border-[#E8D5C4]">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-[#4A3728] text-lg">Promo Codes</CardTitle>
+                <Dialog open={showPromoModal} onOpenChange={setShowPromoModal}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="bg-amber-700 hover:bg-amber-800">
+                      <Plus className="w-4 h-4 mr-1" /> Generate
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader><DialogTitle>Generate Promo Code</DialogTitle></DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div>
+                        <Label>Discount Type</Label>
+                        <Select value={newPromo.discount_type} onValueChange={v => setNewPromo({...newPromo, discount_type: v})}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="percentage">Percentage (%)</SelectItem>
+                            <SelectItem value="fixed">Fixed Amount (₹)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Discount Value</Label>
+                        <Input type="number" value={newPromo.discount_value} onChange={e => setNewPromo({...newPromo, discount_value: e.target.value})} />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setShowPromoModal(false)}>Cancel</Button>
+                      <Button onClick={handleAddPromoCode} className="bg-amber-700 hover:bg-amber-800">Generate</Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </CardHeader>
+              <CardContent>
+                {promoCodes.length === 0 ? (
+                  <div className="text-center py-6 text-[#5D4A3A]">No promo codes</div>
+                ) : (
+                  <div className="space-y-2">
+                    {promoCodes.map(code => (
+                      <div key={code.id} className="p-3 border border-[#E8D5C4] rounded-lg flex items-center justify-between">
+                        <div>
+                          <div className="font-mono font-bold text-[#4A3728]">{code.code}</div>
+                          <div className="text-xs text-[#5D4A3A]">
+                            {code.discount_value}{code.discount_type === 'percentage' ? '%' : '₹'} off • {code.current_uses} uses
+                          </div>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => copyToClipboard(code.code)}>
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* UTM Links */}
+            <Card className="border-[#E8D5C4]">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-[#4A3728] text-lg">UTM Links</CardTitle>
+                <Dialog open={showUtmModal} onOpenChange={setShowUtmModal}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="bg-amber-700 hover:bg-amber-800">
+                      <Link className="w-4 h-4 mr-1" /> Create
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader><DialogTitle>Create UTM Link</DialogTitle></DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div>
+                        <Label>Base URL *</Label>
+                        <Input value={newUtm.base_url} onChange={e => setNewUtm({...newUtm, base_url: e.target.value})} placeholder="https://sevora.com/collection" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>UTM Source</Label>
+                          <Input value={newUtm.utm_source} onChange={e => setNewUtm({...newUtm, utm_source: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label>UTM Medium</Label>
+                          <Select value={newUtm.utm_medium} onValueChange={v => setNewUtm({...newUtm, utm_medium: v})}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="instagram">Instagram</SelectItem>
+                              <SelectItem value="youtube">YouTube</SelectItem>
+                              <SelectItem value="twitter">Twitter</SelectItem>
+                              <SelectItem value="email">Email</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setShowUtmModal(false)}>Cancel</Button>
+                      <Button onClick={handleAddUtmLink} className="bg-amber-700 hover:bg-amber-800">Create</Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </CardHeader>
+              <CardContent>
+                {utmLinks.length === 0 ? (
+                  <div className="text-center py-6 text-[#5D4A3A]">No UTM links</div>
+                ) : (
+                  <div className="space-y-2">
+                    {utmLinks.map(link => (
+                      <div key={link.id} className="p-3 border border-[#E8D5C4] rounded-lg">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm text-[#5D4A3A]">{link.utm_medium}</span>
+                          <Button variant="ghost" size="sm" onClick={() => copyToClipboard(link.full_url)}>
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        <div className="text-xs text-[#4A3728] truncate font-mono">{link.full_url}</div>
+                        <div className="text-xs text-[#5D4A3A] mt-1">{link.clicks} clicks</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

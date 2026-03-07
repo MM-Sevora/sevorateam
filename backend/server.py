@@ -2607,8 +2607,10 @@ try:
     import sys
     sys.path.insert(0, str(ROOT_DIR))
     from routes.marketing_v2 import marketing_v2_router
+    from routes.marketing_extended import marketing_extended_router
     api_router.include_router(marketing_v2_router)
-    logger.info("Marketing V2 routes loaded successfully")
+    api_router.include_router(marketing_extended_router)
+    logger.info("Marketing V2 and Extended routes loaded successfully")
 except Exception as e:
     logger.error(f"Failed to load Marketing V2 routes: {e}")
 
