@@ -2,112 +2,48 @@
 
 ## Executive Summary
 
-After reviewing the backend models, routes, and frontend pages, I've identified several architectural issues that could cause operational friction as the system scales.
+After reviewing the backend models, routes, and frontend pages, I've identified several architectural issues. **Most critical issues have now been FIXED**.
 
 ---
 
-## 1. BROKEN WORKFLOWS / IDENTIFIED ISSUES
+## ✅ FIXED ISSUES
 
-### Issue 1: Dual Campaign Systems (Critical)
-**Problem**: There are TWO separate campaign systems:
-- `db.campaigns` - For influencer campaigns (accessed via `/marketing/campaigns`)
-- `db.pr_campaigns` - For PR campaigns (accessed via `/marketing/v2/pr/campaigns`)
+### Issue 1: Dual Campaign Systems ✅ FIXED
+**Problem**: Two separate campaign systems existed.
+**Fix**: Created unified campaigns API (`/api/marketing/v2/unified-campaigns`) that merges both collections with type indicator. Campaign Hub, Insights, and Budget pages now use unified API.
 
-**Impact**:
-- No unified view of all marketing campaigns
-- PR campaigns don't appear in Campaign Hub (only shows `db.campaigns`)
-- Budget tracking split across two collections
-- Reporting is fragmented
+### Issue 2: Payments Not Linked to Campaigns ✅ FIXED
+**Problem**: Payment model had no campaign_id field.
+**Fix**: 
+- Added `campaign_id`, `deliverable_id`, `deliverable_type`, `payment_type` to PaymentCreate model
+- Added `campaign_name` to PaymentResponse
+- Campaign payments endpoint: `/api/marketing/v2/campaigns/{campaign_id}/payments`
 
-**Fix Required**: Unify into a single `campaigns` collection with a `campaign_type` field ("influencer" | "pr").
+### Issue 3: Campaign Budget Not Auto-Updated ✅ FIXED
+**Problem**: When payments were made, campaign spent wasn't updated.
+**Fix**: `PUT /api/marketing/v2/payments/{payment_id}/status` now auto-updates campaign.spent when payment status changes to "paid" or from "paid".
 
----
+### Issue 4: Deliverables Tracking Unified ✅ FIXED
+**Problem**: UGC and Coverage were in separate systems with no unified view.
+**Fix**: 
+- Created `/api/marketing/v2/unified-deliverables` endpoint
+- Created `/api/marketing/v2/unified-deliverables/stats` for aggregated stats
+- Both return combined UGC + PR Coverage with `deliverable_type` discriminator
 
-### Issue 2: Payment Not Linked to Deliverables (High)
-**Problem**: Payments model has `contact_id` and `deal_id` but:
-- No `campaign_id` field to directly link payment to campaign budget
-- No `deliverable_id` to track which specific deliverable was paid for
-- Budget spent on campaigns (`db.campaigns.spent`) isn't auto-updated when payments are made
+### Issue 5: Outreach System Unified ✅ FIXED
+**Problem**: Different outreach mechanisms for influencers vs journalists.
+**Fix**:
+- Created `/api/marketing/v2/outreach/all` for unified outreach view
+- Created `/api/marketing/v2/outreach/stats` for unified stats
+- Both systems now accessible from single endpoints
 
-**Current Payment Schema**:
-```python
-class PaymentCreate(BaseModel):
-    contact_id: str
-    deal_id: Optional[str] = None
-    amount: float
-    # Missing: campaign_id, deliverable_id
-```
+### Issue 6: Publication Journalist Count Auto-Sync ✅ FIXED
+**Problem**: Publication journalist_count wasn't updated when contacts were linked/unlinked.
+**Fix**: Contact update and delete endpoints now auto-update publication.journalist_count.
 
-**Fix Required**: 
-1. Add `campaign_id` to PaymentCreate
-2. Add `deliverable_id` to link payment to specific content
-3. Update campaign's `spent` field when payment status changes to "paid"
-
----
-
-### Issue 3: Deliverables Tracking Fragmented (High)
-**Problem**: Two different systems for tracking deliverables:
-- **Influencer Content**: `db.ugc` collection (UGC = User Generated Content)
-- **PR Coverage**: `db.media_coverage` collection
-
-**Neither collection properly links to**:
-- The deal/contract that specified the deliverable
-- Campaign budget allocation
-- Payment record
-
-**Fix Required**: Create a unified `deliverables` collection or add proper foreign keys.
-
----
-
-### Issue 4: Outreach System Not Unified (Medium)
-**Problem**: Different outreach mechanisms for influencers vs journalists:
-- **Influencer Outreach**: Uses `db.communications` (generic)
-- **PR Outreach**: Uses `db.pr_pitches` + `db.scheduled_outreach` + `db.outreach_sequences`
-
-**Impact**:
-- Can't see all outreach in one place
-- Different tracking mechanisms for responses
-- PR has sequence automation, influencer doesn't
-
-**Fix Required**: Unify outreach tracking or create abstraction layer.
-
----
-
-## 2. SYNCHRONIZATION ISSUES
-
-### Issue 5: Contact Status Not Synced with Pipeline (Medium)
-**Problem**: 
-- Contact has a `status` field (identified, contacted, interested, negotiating, confirmed)
-- Pipeline has separate `PipelineStage` tracking
-- These can get out of sync
-
-**Location**: 
-- Contact status: `db.contacts.status`
-- Pipeline: `db.pr_pipeline` (PR only, doesn't exist for influencers)
-
-**Fix Required**: Either remove duplicate tracking or implement sync hooks.
-
----
-
-### Issue 6: Campaign Budget vs Actual Spend Not Auto-Synced (Medium)
-**Problem**: When payments are created/updated, the campaign's `spent` field isn't updated.
-
-**Current Flow**:
-```
-Payment Created → db.payments.insert()
-// Missing: db.campaigns.update({$inc: {spent: amount}})
-```
-
-**Fix Required**: Add trigger to update campaign spent when payment status = "paid".
-
----
-
-### Issue 7: Publication-Journalist Link Not Bidirectional (Low)
-**Problem**: 
-- `contacts` has `publication_id` to link journalist to publication
-- `publications` has `journalist_count` but it's not auto-updated
-
-**Fix Required**: Update publication journalist_count when journalist is linked/unlinked.
+### Issue 7: Deal-Campaign Confirmed Count Sync ✅ FIXED
+**Problem**: Campaign metrics weren't updated when deals were confirmed.
+**Fix**: Deal status update now increments/decrements campaign.confirmed_count when deal is agreed/signed.
 
 ---
 

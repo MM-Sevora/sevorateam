@@ -72,20 +72,14 @@ const CampaignHubPage = () => {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [campaignsRes, prCampaignsRes] = await Promise.all([
-        api.get('/marketing/campaigns'),
-        api.get('/marketing/v2/pr/campaigns').catch(() => ({ data: [] }))
-      ]);
+      // Use the unified campaigns API
+      const campaignsRes = await api.get('/marketing/v2/unified-campaigns');
       
-      // Merge influencer campaigns with type
-      const influencerCampaigns = (campaignsRes.data || []).map(c => ({ ...c, campaign_type: c.campaign_type || 'influencer' }));
+      setCampaigns(campaignsRes.data || []);
       
-      // Merge PR campaigns with type
-      const prCampaignsList = (prCampaignsRes.data || []).map(c => ({ ...c, campaign_type: 'pr' }));
+      // Separate PR campaigns for state
+      const prCampaignsList = (campaignsRes.data || []).filter(c => c.campaign_type === 'pr');
       setPrCampaigns(prCampaignsList);
-      
-      // Combine all campaigns
-      setCampaigns([...influencerCampaigns, ...prCampaignsList]);
       
       // Generate milestones from campaigns
       const allMilestones = [];

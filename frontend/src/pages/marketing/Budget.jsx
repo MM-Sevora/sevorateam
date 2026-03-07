@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { marketingAPI } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -26,12 +26,15 @@ const STATUS_COLORS = {
     pending: 'bg-yellow-100 text-yellow-700',
     processing: 'bg-blue-100 text-blue-700',
     completed: 'bg-green-100 text-green-700',
+    paid: 'bg-green-100 text-green-700',
     failed: 'bg-red-100 text-red-700'
 };
 
 export const BudgetPage = () => {
+    const { api } = useAuth();
     const [payments, setPayments] = useState([]);
     const [campaigns, setCampaigns] = useState([]);
+    const [unifiedStats, setUnifiedStats] = useState({});
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -40,12 +43,14 @@ export const BudgetPage = () => {
 
     const fetchData = async () => {
         try {
-            const [paymentsRes, campaignsRes] = await Promise.all([
-                marketingAPI.getAll(),
-                marketingAPI.getAll()
+            const [paymentsRes, campaignsRes, statsRes] = await Promise.all([
+                api.get('/marketing/payments'),
+                api.get('/marketing/v2/unified-campaigns'),
+                api.get('/marketing/v2/unified-campaigns/stats')
             ]);
-            setPayments(paymentsRes.data);
-            setCampaigns(campaignsRes.data);
+            setPayments(paymentsRes.data || []);
+            setCampaigns(campaignsRes.data || []);
+            setUnifiedStats(statsRes.data || {});
         } catch (error) {
             toast.error('Failed to fetch data');
         } finally {
@@ -55,7 +60,7 @@ export const BudgetPage = () => {
 
     const handlePaymentStatusUpdate = async (id, status) => {
         try {
-            await marketingAPI.updateStatus(id, status);
+            await api.put(`/marketing/v2/payments/${id}/status?status=${status}`);
             toast.success('Payment status updated');
             fetchData();
         } catch (error) {
@@ -63,10 +68,11 @@ export const BudgetPage = () => {
         }
     };
 
-    const totalBudget = campaigns.reduce((sum, c) => sum + (c.budget || 0), 0);
-    const totalSpent = campaigns.reduce((sum, c) => sum + (c.spent || 0), 0);
-    const totalPending = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0);
-    const totalCompleted = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0);
+    // Use unified stats when available
+    const totalBudget = unifiedStats.total_budget || campaigns.reduce((sum, c) => sum + (c.budget || 0), 0);
+    const totalSpent = unifiedStats.total_spent || campaigns.reduce((sum, c) => sum + (c.spent || 0), 0);
+    const totalPending = unifiedStats.total_pending || payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0);
+    const totalCompleted = unifiedStats.total_paid || payments.filter(p => p.status === 'paid').reduce((sum, p) => sum + p.amount, 0);
 
     const budgetByStatus = [
         { name: 'Spent', value: totalSpent },

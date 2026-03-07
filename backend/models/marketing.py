@@ -232,23 +232,43 @@ class PaymentStatus(str, Enum):
     FAILED = "failed"
     REFUNDED = "refunded"
 
+class PaymentType(str, Enum):
+    INFLUENCER_FEE = "influencer_fee"
+    PR_PLACEMENT = "pr_placement"
+    ADVERTORIAL = "advertorial"
+    BONUS = "bonus"
+    REIMBURSEMENT = "reimbursement"
+    ADVANCE = "advance"
+    OTHER = "other"
+
 class PaymentCreate(BaseModel):
     contact_id: str
     deal_id: Optional[str] = None
+    campaign_id: Optional[str] = None  # Links to campaign budget
+    deliverable_id: Optional[str] = None  # ID of UGC or MediaCoverage
+    deliverable_type: Optional[str] = None  # "ugc" or "coverage" or "deal"
     amount: float
     description: str
+    payment_type: str = "influencer_fee"
     payment_method: str = "bank_transfer"
     invoice_number: Optional[str] = None
+    due_date: Optional[str] = None
 
 class PaymentResponse(BaseModel):
     id: str
     contact_id: str
     contact_name: Optional[str] = None
     deal_id: Optional[str] = None
+    campaign_id: Optional[str] = None
+    campaign_name: Optional[str] = None
+    deliverable_id: Optional[str] = None
+    deliverable_type: Optional[str] = None
     amount: float
     description: str
+    payment_type: str = "influencer_fee"
     payment_method: str
     invoice_number: Optional[str] = None
+    due_date: Optional[str] = None
     status: str = "pending"
     paid_at: Optional[str] = None
     created_at: str

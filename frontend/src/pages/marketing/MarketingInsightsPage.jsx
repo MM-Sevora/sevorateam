@@ -56,23 +56,25 @@ const MarketingInsightsPage = () => {
     try {
       setLoading(true);
       
-      // Fetch dashboard stats
-      const [dashboardRes, campaignsRes, contactsRes, paymentsRes] = await Promise.all([
+      // Fetch unified dashboard stats
+      const [dashboardRes, unifiedCampaignsRes, unifiedStatsRes, contactsRes, paymentsRes] = await Promise.all([
         api.get('/dashboard/unified').catch(() => ({ data: {} })),
-        api.get('/marketing/campaigns').catch(() => ({ data: [] })),
+        api.get('/marketing/v2/unified-campaigns').catch(() => ({ data: [] })),
+        api.get('/marketing/v2/unified-campaigns/stats').catch(() => ({ data: {} })),
         api.get('/marketing/v2/contacts?contact_type=influencer').catch(() => ({ data: [] })),
         api.get('/marketing/payments').catch(() => ({ data: [] }))
       ]);
       
       const dashboard = dashboardRes.data || {};
-      const campaignsList = campaignsRes.data || [];
+      const campaignsList = unifiedCampaignsRes.data || [];
+      const unifiedStats = unifiedStatsRes.data || {};
       const contacts = contactsRes.data || [];
       const payments = paymentsRes.data || [];
       
-      // Calculate stats
-      const totalBudget = campaignsList.reduce((sum, c) => sum + (c.budget || 0), 0);
-      const totalSpent = campaignsList.reduce((sum, c) => sum + (c.spent || 0), 0);
-      const activeCampaigns = campaignsList.filter(c => c.status === 'active').length;
+      // Use unified stats for budget
+      const totalBudget = unifiedStats.total_budget || campaignsList.reduce((sum, c) => sum + (c.budget || 0), 0);
+      const totalSpent = unifiedStats.total_spent || campaignsList.reduce((sum, c) => sum + (c.spent || 0), 0);
+      const activeCampaigns = unifiedStats.active_campaigns || campaignsList.filter(c => c.status === 'active').length;
       const pendingPayments = payments.filter(p => p.status === 'pending').length;
       
       // Status distribution
@@ -91,12 +93,13 @@ const MarketingInsightsPage = () => {
       });
       const categoryData = Object.entries(categoryCounts).map(([name, value]) => ({ name, value }));
       
-      // Campaign performance
+      // Campaign performance (both types)
       const perfData = campaignsList.slice(0, 6).map(c => ({
         name: c.name?.substring(0, 15) || 'Campaign',
         budget: c.budget || 0,
         spent: c.spent || 0,
-        influencers: c.influencer_count || 0
+        influencers: c.influencer_count || c.journalist_count || 0,
+        type: c.campaign_type
       }));
       
       // Recent activity from multiple sources

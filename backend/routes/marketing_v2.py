@@ -69,6 +69,107 @@ def get_marketing_auth():
     from server import require_department
     return require_department(["marketing"])
 
+
+# ============== UNIFIED CAMPAIGNS (Both Influencer + PR) ==============
+
+@marketing_v2_router.get("/unified-campaigns")
+async def get_unified_campaigns(
+    campaign_type: Optional[str] = None,  # "influencer", "pr", or None for all
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    limit: int = 100,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get all campaigns (both influencer and PR) in a unified view"""
+    db = get_db()
+    
+    campaigns = []
+    
+    # Fetch influencer campaigns
+    if not campaign_type or campaign_type == "influencer":
+        inf_query = {}
+        if status:
+            inf_query["status"] = status
+        if search:
+            inf_query["name"] = {"$regex": search, "$options": "i"}
+        
+        inf_campaigns = await db.campaigns.find(inf_query, {"_id": 0}).limit(limit).to_list(limit)
+        for c in inf_campaigns:
+            c["campaign_type"] = "influencer"
+            c["influencer_count"] = len(c.get("assigned_influencers", []))
+            campaigns.append(c)
+    
+    # Fetch PR campaigns
+    if not campaign_type or campaign_type == "pr":
+        pr_query = {}
+        if status:
+            pr_query["status"] = status
+        if search:
+            pr_query["name"] = {"$regex": search, "$options": "i"}
+        
+        pr_campaigns = await db.pr_campaigns.find(pr_query, {"_id": 0}).limit(limit).to_list(limit)
+        for c in pr_campaigns:
+            c["campaign_type"] = "pr"
+            c["journalist_count"] = len(c.get("journalist_ids", []))
+            # Get coverage count
+            coverage_count = await db.media_coverage.count_documents({"campaign_id": c["id"]})
+            c["coverage_count"] = coverage_count
+            campaigns.append(c)
+    
+    # Sort by created_at descending
+    campaigns.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+    
+    return campaigns
+
+@marketing_v2_router.get("/unified-campaigns/stats")
+async def get_unified_campaign_stats(user: dict = Depends(get_marketing_auth())):
+    """Get aggregate stats across all campaign types"""
+    db = get_db()
+    
+    # Influencer campaign stats
+    inf_count = await db.campaigns.count_documents({})
+    inf_active = await db.campaigns.count_documents({"status": "active"})
+    inf_campaigns = await db.campaigns.find({}, {"_id": 0, "budget": 1, "spent": 1}).to_list(1000)
+    inf_budget = sum(c.get("budget", 0) for c in inf_campaigns)
+    inf_spent = sum(c.get("spent", 0) for c in inf_campaigns)
+    
+    # PR campaign stats
+    pr_count = await db.pr_campaigns.count_documents({})
+    pr_active = await db.pr_campaigns.count_documents({"status": "active"})
+    pr_campaigns = await db.pr_campaigns.find({}, {"_id": 0, "budget": 1, "spent": 1}).to_list(1000)
+    pr_budget = sum(c.get("budget", 0) for c in pr_campaigns)
+    pr_spent = sum(c.get("spent", 0) for c in pr_campaigns)
+    
+    # Deliverables stats
+    ugc_count = await db.ugc.count_documents({})
+    coverage_count = await db.media_coverage.count_documents({})
+    
+    # Payment stats
+    total_paid = 0
+    total_pending = 0
+    payments = await db.payments.find({}, {"_id": 0, "amount": 1, "status": 1}).to_list(10000)
+    for p in payments:
+        if p.get("status") == "paid":
+            total_paid += p.get("amount", 0)
+        elif p.get("status") == "pending":
+            total_pending += p.get("amount", 0)
+    
+    return {
+        "total_campaigns": inf_count + pr_count,
+        "influencer_campaigns": inf_count,
+        "pr_campaigns": pr_count,
+        "active_campaigns": inf_active + pr_active,
+        "total_budget": inf_budget + pr_budget,
+        "total_spent": inf_spent + pr_spent,
+        "budget_utilization": round((inf_spent + pr_spent) / (inf_budget + pr_budget) * 100, 1) if (inf_budget + pr_budget) > 0 else 0,
+        "total_deliverables": ugc_count + coverage_count,
+        "ugc_count": ugc_count,
+        "coverage_count": coverage_count,
+        "total_paid": total_paid,
+        "total_pending": total_pending,
+    }
+
+
 # ============== CONTACTS HUB ==============
 
 @marketing_v2_router.get("/contacts", response_model=List[ContactResponse])
@@ -139,11 +240,14 @@ async def create_contact(data: ContactCreate, user: dict = Depends(get_marketing
 
 @marketing_v2_router.put("/contacts/{contact_id}", response_model=ContactResponse)
 async def update_contact(contact_id: str, data: ContactCreate, user: dict = Depends(get_marketing_auth())):
-    """Update a contact - requires marketing auth"""
+    """Update a contact - syncs publication journalist count when publication_id changes"""
     db = get_db()
     existing = await db.contacts.find_one({"id": contact_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Contact not found")
+    
+    old_publication_id = existing.get("publication_id")
+    new_publication_id = data.publication_id
     
     update_data = data.model_dump()
     update_data["score"] = calculate_contact_score(update_data)
@@ -151,16 +255,45 @@ async def update_contact(contact_id: str, data: ContactCreate, user: dict = Depe
     
     await db.contacts.update_one({"id": contact_id}, {"$set": update_data})
     
+    # SYNC: Update publication journalist counts when publication_id changes
+    if old_publication_id != new_publication_id:
+        if old_publication_id:
+            # Decrement old publication's journalist count
+            await db.publications.update_one(
+                {"id": old_publication_id},
+                {"$inc": {"journalist_count": -1}}
+            )
+        if new_publication_id:
+            # Increment new publication's journalist count
+            await db.publications.update_one(
+                {"id": new_publication_id},
+                {"$inc": {"journalist_count": 1}}
+            )
+    
     updated = await db.contacts.find_one({"id": contact_id}, {"_id": 0})
     return updated
 
 @marketing_v2_router.delete("/contacts/{contact_id}")
 async def delete_contact(contact_id: str, user: dict = Depends(get_marketing_auth())):
-    """Delete a contact - requires marketing auth"""
+    """Delete a contact - syncs publication journalist count"""
     db = get_db()
-    result = await db.contacts.delete_one({"id": contact_id})
-    if result.deleted_count == 0:
+    
+    # Get contact first to check publication_id
+    contact = await db.contacts.find_one({"id": contact_id})
+    if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
+    
+    publication_id = contact.get("publication_id")
+    
+    await db.contacts.delete_one({"id": contact_id})
+    
+    # SYNC: Decrement publication journalist count if linked
+    if publication_id:
+        await db.publications.update_one(
+            {"id": publication_id},
+            {"$inc": {"journalist_count": -1}}
+        )
+    
     return {"message": "Contact deleted successfully"}
 
 @marketing_v2_router.get("/contacts/{contact_id}/stats")
@@ -470,6 +603,110 @@ async def create_communication(data: CommunicationCreate):
     del comm_doc["_id"]
     return comm_doc
 
+@marketing_v2_router.get("/outreach/all")
+async def get_all_outreach(
+    contact_type: Optional[str] = None,  # "influencer" or "journalist"
+    status: Optional[str] = None,
+    campaign_id: Optional[str] = None,
+    limit: int = 100,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get unified outreach view (both communications and PR pitches)"""
+    db = get_db()
+    
+    outreach = []
+    
+    # Get communications (used for influencers)
+    comm_query = {}
+    if status:
+        comm_query["status"] = status
+    if campaign_id:
+        comm_query["campaign_id"] = campaign_id
+    
+    comms = await db.communications.find(comm_query, {"_id": 0}).sort("sent_at", -1).limit(limit).to_list(limit)
+    
+    # Enrich with contact type
+    for comm in comms:
+        contact = await db.contacts.find_one({"id": comm.get("contact_id")})
+        if contact:
+            comm["contact_type"] = contact.get("contact_type", "influencer")
+            comm["outreach_type"] = "communication"
+            
+            # Filter by contact_type if specified
+            if not contact_type or comm["contact_type"] == contact_type:
+                outreach.append(comm)
+    
+    # Get PR pitches (used for journalists)
+    if not contact_type or contact_type == "journalist":
+        pitch_query = {}
+        if status:
+            pitch_query["status"] = status
+        if campaign_id:
+            pitch_query["campaign_id"] = campaign_id
+        
+        pitches = await db.pr_pitches.find(pitch_query, {"_id": 0}).sort("sent_at", -1).limit(limit).to_list(limit)
+        
+        for pitch in pitches:
+            pitch["contact_type"] = "journalist"
+            pitch["outreach_type"] = "pitch"
+            outreach.append(pitch)
+    
+    # Sort all by sent_at
+    outreach.sort(key=lambda x: x.get("sent_at", ""), reverse=True)
+    
+    return outreach[:limit]
+
+@marketing_v2_router.get("/outreach/stats")
+async def get_outreach_stats(
+    campaign_id: Optional[str] = None,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get unified outreach statistics"""
+    db = get_db()
+    
+    # Communication stats
+    comm_query = {}
+    if campaign_id:
+        comm_query["campaign_id"] = campaign_id
+    
+    total_comms = await db.communications.count_documents(comm_query)
+    sent_comms = await db.communications.count_documents({**comm_query, "status": "sent"})
+    opened_comms = await db.communications.count_documents({**comm_query, "opened": True})
+    replied_comms = await db.communications.count_documents({**comm_query, "replied": True})
+    
+    # PR pitch stats
+    pitch_query = {}
+    if campaign_id:
+        pitch_query["campaign_id"] = campaign_id
+    
+    total_pitches = await db.pr_pitches.count_documents(pitch_query)
+    sent_pitches = await db.pr_pitches.count_documents({**pitch_query, "status": "sent"})
+    opened_pitches = await db.pr_pitches.count_documents({**pitch_query, "status": "opened"})
+    replied_pitches = await db.pr_pitches.count_documents({**pitch_query, "status": "replied"})
+    interested_pitches = await db.pr_pitches.count_documents({**pitch_query, "status": "interested"})
+    
+    return {
+        "total_outreach": total_comms + total_pitches,
+        "total_sent": sent_comms + sent_pitches,
+        "total_opened": opened_comms + opened_pitches,
+        "total_replied": replied_comms + replied_pitches,
+        "influencer_outreach": {
+            "total": total_comms,
+            "sent": sent_comms,
+            "opened": opened_comms,
+            "replied": replied_comms,
+            "response_rate": round(replied_comms / total_comms * 100, 1) if total_comms > 0 else 0
+        },
+        "journalist_outreach": {
+            "total": total_pitches,
+            "sent": sent_pitches,
+            "opened": opened_pitches,
+            "replied": replied_pitches,
+            "interested": interested_pitches,
+            "response_rate": round((replied_pitches + interested_pitches) / total_pitches * 100, 1) if total_pitches > 0 else 0
+        }
+    }
+
 # ============== DEALS & CONTRACTS ==============
 
 @marketing_v2_router.get("/contacts/{contact_id}/deals", response_model=List[DealResponse])
@@ -518,13 +755,14 @@ async def create_deal(data: DealCreate):
 
 @marketing_v2_router.put("/deals/{deal_id}/status")
 async def update_deal_status(deal_id: str, status: str, note: Optional[str] = None, amount: Optional[float] = None):
-    """Update deal status"""
+    """Update deal status - syncs contact status and campaign metrics"""
     db = get_db()
     
     deal = await db.deals.find_one({"id": deal_id})
     if not deal:
         raise HTTPException(status_code=404, detail="Deal not found")
     
+    old_status = deal.get("status")
     now = datetime.now(timezone.utc).isoformat()
     timeline_entry = {"event": f"status_changed_to_{status}", "date": now}
     if note:
@@ -548,11 +786,14 @@ async def update_deal_status(deal_id: str, status: str, note: Optional[str] = No
         }
     )
     
-    # Update contact status based on deal status
+    # SYNC: Update contact status based on deal status
     contact_status_map = {
+        "proposed": "interested",
+        "negotiating": "negotiation",
         "agreed": "confirmed",
         "rejected": "identified",
         "signed": "confirmed",
+        "completed": "completed",
     }
     if status in contact_status_map:
         await db.contacts.update_one(
@@ -560,7 +801,23 @@ async def update_deal_status(deal_id: str, status: str, note: Optional[str] = No
             {"$set": {"status": contact_status_map[status]}}
         )
     
-    return {"message": f"Deal status updated to {status}"}
+    # SYNC: Update campaign confirmed count when deal is signed/agreed
+    campaign_id = deal.get("campaign_id")
+    if campaign_id:
+        if status in ["agreed", "signed"] and old_status not in ["agreed", "signed"]:
+            # Deal just got confirmed - increment confirmed count
+            await db.campaigns.update_one(
+                {"id": campaign_id},
+                {"$inc": {"confirmed_count": 1}}
+            )
+        elif old_status in ["agreed", "signed"] and status not in ["agreed", "signed"]:
+            # Deal was confirmed but now changed - decrement
+            await db.campaigns.update_one(
+                {"id": campaign_id},
+                {"$inc": {"confirmed_count": -1}}
+            )
+    
+    return {"message": f"Deal status updated to {status}", "contact_synced": True}
 
 # ============== CONTRACTS ==============
 
@@ -604,16 +861,41 @@ async def get_contact_payments(contact_id: str):
     """Get all payments for a contact"""
     db = get_db()
     payments = await db.payments.find({"contact_id": contact_id}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    
+    # Enrich with campaign names
+    for payment in payments:
+        if payment.get("campaign_id"):
+            campaign = await db.campaigns.find_one({"id": payment["campaign_id"]})
+            if not campaign:
+                campaign = await db.pr_campaigns.find_one({"id": payment["campaign_id"]})
+            payment["campaign_name"] = campaign.get("name") if campaign else None
+    
+    return payments
+
+@marketing_v2_router.get("/campaigns/{campaign_id}/payments", response_model=List[PaymentResponse])
+async def get_campaign_payments(campaign_id: str):
+    """Get all payments for a campaign"""
+    db = get_db()
+    payments = await db.payments.find({"campaign_id": campaign_id}, {"_id": 0}).sort("created_at", -1).to_list(100)
     return payments
 
 @marketing_v2_router.post("/payments", response_model=PaymentResponse)
 async def create_payment(data: PaymentCreate):
-    """Create a new payment record"""
+    """Create a new payment record - linked to campaign budget"""
     db = get_db()
     
     contact = await db.contacts.find_one({"id": data.contact_id})
     if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
+    
+    # Get campaign name if campaign_id provided
+    campaign_name = None
+    if data.campaign_id:
+        campaign = await db.campaigns.find_one({"id": data.campaign_id})
+        if not campaign:
+            campaign = await db.pr_campaigns.find_one({"id": data.campaign_id})
+        if campaign:
+            campaign_name = campaign.get("name")
     
     payment_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
@@ -629,6 +911,7 @@ async def create_payment(data: PaymentCreate):
         **data.model_dump(),
         "invoice_number": invoice_number,
         "contact_name": contact.get("name"),
+        "campaign_name": campaign_name,
         "status": "pending",
         "created_at": now,
     }
@@ -639,18 +922,45 @@ async def create_payment(data: PaymentCreate):
 
 @marketing_v2_router.put("/payments/{payment_id}/status")
 async def update_payment_status(payment_id: str, status: str):
-    """Update payment status"""
+    """Update payment status - auto-syncs campaign budget when paid"""
     db = get_db()
+    
+    # Get the payment first
+    payment = await db.payments.find_one({"id": payment_id})
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    
+    old_status = payment.get("status")
     
     update_data = {"status": status}
     if status == "paid":
         update_data["paid_at"] = datetime.now(timezone.utc).isoformat()
     
-    result = await db.payments.update_one({"id": payment_id}, {"$set": update_data})
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Payment not found")
+    await db.payments.update_one({"id": payment_id}, {"$set": update_data})
     
-    return {"message": f"Payment status updated to {status}"}
+    # SYNC: Update campaign spent when payment status changes
+    campaign_id = payment.get("campaign_id")
+    amount = payment.get("amount", 0)
+    
+    if campaign_id and amount > 0:
+        # Determine which collection the campaign is in
+        campaign = await db.campaigns.find_one({"id": campaign_id})
+        collection = db.campaigns if campaign else db.pr_campaigns
+        
+        if status == "paid" and old_status != "paid":
+            # Payment just marked as paid - increment spent
+            await collection.update_one(
+                {"id": campaign_id},
+                {"$inc": {"spent": amount}}
+            )
+        elif old_status == "paid" and status != "paid":
+            # Payment was paid but now changed to something else - decrement spent
+            await collection.update_one(
+                {"id": campaign_id},
+                {"$inc": {"spent": -amount}}
+            )
+    
+    return {"message": f"Payment status updated to {status}", "campaign_synced": bool(campaign_id)}
 
 # ============== UGC (User Generated Content) ==============
 
@@ -701,6 +1011,98 @@ async def create_ugc(data: UGCCreate):
     await db.ugc.insert_one(ugc_doc)
     del ugc_doc["_id"]
     return ugc_doc
+
+
+# ============== UNIFIED DELIVERABLES (UGC + PR Coverage) ==============
+
+@marketing_v2_router.get("/unified-deliverables")
+async def get_unified_deliverables(
+    campaign_id: Optional[str] = None,
+    deliverable_type: Optional[str] = None,  # "ugc" or "coverage"
+    status: Optional[str] = None,
+    limit: int = 100,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get all deliverables (UGC + PR Coverage) in a unified view"""
+    db = get_db()
+    
+    deliverables = []
+    
+    # Fetch UGC (Influencer content)
+    if not deliverable_type or deliverable_type == "ugc":
+        ugc_query = {}
+        if campaign_id:
+            ugc_query["campaign_id"] = campaign_id
+        if status:
+            ugc_query["status"] = status
+        
+        ugc_items = await db.ugc.find(ugc_query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+        for item in ugc_items:
+            item["deliverable_type"] = "ugc"
+            item["deliverable_category"] = "influencer_content"
+            deliverables.append(item)
+    
+    # Fetch PR Coverage
+    if not deliverable_type or deliverable_type == "coverage":
+        coverage_query = {}
+        if campaign_id:
+            coverage_query["campaign_id"] = campaign_id
+        if status:
+            coverage_query["status"] = status
+        
+        coverage_items = await db.media_coverage.find(coverage_query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+        for item in coverage_items:
+            item["deliverable_type"] = "coverage"
+            item["deliverable_category"] = "pr_coverage"
+            deliverables.append(item)
+    
+    # Sort by created_at descending
+    deliverables.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+    
+    return deliverables[:limit]
+
+@marketing_v2_router.get("/unified-deliverables/stats")
+async def get_deliverables_stats(
+    campaign_id: Optional[str] = None,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get deliverables statistics"""
+    db = get_db()
+    
+    ugc_query = {} if not campaign_id else {"campaign_id": campaign_id}
+    coverage_query = {} if not campaign_id else {"campaign_id": campaign_id}
+    
+    # UGC stats
+    total_ugc = await db.ugc.count_documents(ugc_query)
+    ugc_approved = await db.ugc.count_documents({**ugc_query, "status": "approved"})
+    ugc_published = await db.ugc.count_documents({**ugc_query, "status": "published"})
+    ugc_pending = await db.ugc.count_documents({**ugc_query, "status": "pending_approval"})
+    
+    # Coverage stats
+    total_coverage = await db.media_coverage.count_documents(coverage_query)
+    coverage_published = await db.media_coverage.count_documents({**coverage_query, "status": "published"})
+    coverage_pending = await db.media_coverage.count_documents({**coverage_query, "status": "pending"})
+    
+    # Calculate estimated media value from coverage
+    coverage_items = await db.media_coverage.find(coverage_query, {"_id": 0, "estimated_media_value": 1}).to_list(10000)
+    total_media_value = sum(c.get("estimated_media_value", 0) for c in coverage_items)
+    
+    return {
+        "total_deliverables": total_ugc + total_coverage,
+        "ugc": {
+            "total": total_ugc,
+            "approved": ugc_approved,
+            "published": ugc_published,
+            "pending": ugc_pending
+        },
+        "coverage": {
+            "total": total_coverage,
+            "published": coverage_published,
+            "pending": coverage_pending,
+            "estimated_media_value": total_media_value
+        }
+    }
+
 
 # ============== DIGITAL PR - PRESS RELEASES ==============
 
@@ -1863,12 +2265,12 @@ async def enroll_contacts_in_sequence(
         "scheduled_emails": scheduled_count
     }
 
-@marketing_v2_router.get("/outreach/stats")
-async def get_outreach_stats(
+@marketing_v2_router.get("/pr/outreach/stats")
+async def get_pr_outreach_stats(
     pr_campaign_id: Optional[str] = None,
     user: dict = Depends(get_marketing_auth())
 ):
-    """Get outreach statistics"""
+    """Get PR-specific outreach statistics"""
     db = get_db()
     
     query = {}
