@@ -111,13 +111,13 @@ export const AuthProvider = ({ children }) => {
             userData.departments = getUserDepartments(userData.role);
             setUser(userData);
             setAuthMethod('local');
+            setLoading(false);
             
             return userData;
         } catch (error) {
             console.error('Login failed:', error);
-            throw error;
-        } finally {
             setLoading(false);
+            throw error;
         }
     };
 
@@ -139,13 +139,13 @@ export const AuthProvider = ({ children }) => {
             userData.departments = getUserDepartments(userData.role);
             setUser(userData);
             setAuthMethod('local');
+            setLoading(false);
             
             return userData;
         } catch (error) {
             console.error('Registration failed:', error);
-            throw error;
-        } finally {
             setLoading(false);
+            throw error;
         }
     };
 
