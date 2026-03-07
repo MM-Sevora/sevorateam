@@ -41,7 +41,9 @@ const InfluencersListPage = () => {
     instagram_handle: '', youtube_handle: '', primary_platform: 'instagram',
     followers: '', engagement_rate: '', avg_likes: '', avg_comments: '',
     rate_per_post: '', rate_per_reel: '', rate_per_story: '', rate_per_youtube: '',
-    manager_name: '', manager_email: '', manager_phone: '', agency: ''
+    manager_name: '', manager_email: '', manager_phone: '', agency: '',
+    turnaround_days: '', payment_terms: 'not_specified', exclusivity_terms: '',
+    accepts_barter: false, notes: ''
   });
 
   const fetchInfluencers = useCallback(async () => {
@@ -139,7 +141,9 @@ const InfluencersListPage = () => {
         instagram_handle: '', youtube_handle: '', primary_platform: 'instagram',
         followers: '', engagement_rate: '', avg_likes: '', avg_comments: '',
         rate_per_post: '', rate_per_reel: '', rate_per_story: '', rate_per_youtube: '',
-        manager_name: '', manager_email: '', manager_phone: '', agency: ''
+        manager_name: '', manager_email: '', manager_phone: '', agency: '',
+        turnaround_days: '', payment_terms: 'not_specified', exclusivity_terms: '',
+        accepts_barter: false, notes: ''
       });
       setAddModalTab('basic');
       fetchInfluencers();
@@ -561,37 +565,134 @@ const InfluencersListPage = () => {
 
                 {/* Audience Tab */}
                 {addModalTab === 'audience' && (
-                  <div className="space-y-4">
-                    <p className="text-gray-500 italic">Audience demographics data will be populated after fetching social data or can be added manually later.</p>
+                  <div className="space-y-6">
+                    {/* Instagram Audience */}
+                    <div className="border border-pink-200 bg-pink-50/50 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Instagram className="w-5 h-5 text-pink-500" />
+                        <span className="font-medium text-gray-900">Instagram Audience</span>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <Label className="text-xs uppercase tracking-wider text-gray-500">AGE DISTRIBUTION</Label>
+                            <span className="text-xs text-gray-400">Total: 0%</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {['13-17', '18-24', '25-34', '35-44', '45-54', '55+'].map(age => (
+                              <button key={age} className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-100 flex items-center gap-1">
+                                <Plus className="w-3 h-3" /> {age}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <Label className="text-xs uppercase tracking-wider text-gray-500">GENDER DISTRIBUTION</Label>
+                            <span className="text-xs text-gray-400">Total: 0%</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {['Male', 'Female', 'Other'].map(gender => (
+                              <button key={gender} className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-100 flex items-center gap-1">
+                                <Plus className="w-3 h-3" /> {gender}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <Label className="text-xs uppercase tracking-wider text-gray-500">TOP CITIES</Label>
+                            <span className="text-xs text-gray-400">Total: 0%</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {['Mumbai', 'Delhi', 'Bangalore', 'Kolkata', 'Chennai', 'Hyderabad', 'Pune', 'Jaipur', 'Ahmedabad', 'Lucknow', 'Other Indian', 'International'].map(city => (
+                              <button key={city} className={`px-3 py-1 border rounded text-sm hover:bg-gray-100 flex items-center gap-1 ${city === 'Other Indian' ? 'border-pink-400 text-pink-600' : 'border-gray-300'}`}>
+                                <Plus className="w-3 h-3" /> {city}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* YouTube Audience */}
+                    <div className="border border-red-200 bg-red-50/30 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Youtube className="w-5 h-5 text-red-500" />
+                        <span className="font-medium text-gray-900">YouTube Audience</span>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <Label className="text-xs uppercase tracking-wider text-gray-500">AGE DISTRIBUTION</Label>
+                            <span className="text-xs text-gray-400">Total: 0%</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {['13-17', '18-24', '25-34', '35-44', '45-54', '55+'].map(age => (
+                              <button key={`yt-${age}`} className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-100 flex items-center gap-1">
+                                <Plus className="w-3 h-3" /> {age}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <Label className="text-xs uppercase tracking-wider text-gray-500">GENDER DISTRIBUTION</Label>
+                            <span className="text-xs text-gray-400">Total: 0%</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {['Male', 'Female', 'Other'].map(gender => (
+                              <button key={`yt-${gender}`} className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-100 flex items-center gap-1">
+                                <Plus className="w-3 h-3" /> {gender}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <Label className="text-xs uppercase tracking-wider text-gray-500">TOP CITIES</Label>
+                            <span className="text-xs text-gray-400">Total: 0%</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {['Mumbai', 'Delhi', 'Bangalore', 'Kolkata', 'Chennai', 'Hyderabad', 'Pune', 'Jaipur', 'Ahmedabad', 'Lucknow', 'Other Indian', 'International'].map(city => (
+                              <button key={`yt-${city}`} className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-100 flex items-center gap-1">
+                                <Plus className="w-3 h-3" /> {city}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
 
                 {/* Manager Tab */}
                 {addModalTab === 'manager' && (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-xs uppercase tracking-wider text-gray-500">MANAGER NAME</Label>
-                        <Input 
-                          value={newInfluencer.manager_name}
-                          onChange={e => setNewInfluencer({...newInfluencer, manager_name: e.target.value})}
-                          className="mt-1"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs uppercase tracking-wider text-gray-500">AGENCY</Label>
-                        <Input 
-                          value={newInfluencer.agency}
-                          onChange={e => setNewInfluencer({...newInfluencer, agency: e.target.value})}
-                          className="mt-1"
-                        />
-                      </div>
+                  <div className="space-y-6">
+                    <p className="text-gray-600">Contact details for influencer's manager or talent agency (if applicable).</p>
+                    
+                    <div>
+                      <Label className="text-xs uppercase tracking-wider text-gray-500">MANAGER / AGENT NAME</Label>
+                      <Input 
+                        placeholder="John Doe"
+                        value={newInfluencer.manager_name}
+                        onChange={e => setNewInfluencer({...newInfluencer, manager_name: e.target.value})}
+                        className="mt-1"
+                      />
                     </div>
+                    
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label className="text-xs uppercase tracking-wider text-gray-500">MANAGER EMAIL</Label>
                         <Input 
                           type="email"
+                          placeholder="manager@agency.com"
                           value={newInfluencer.manager_email}
                           onChange={e => setNewInfluencer({...newInfluencer, manager_email: e.target.value})}
                           className="mt-1"
@@ -600,9 +701,54 @@ const InfluencersListPage = () => {
                       <div>
                         <Label className="text-xs uppercase tracking-wider text-gray-500">MANAGER PHONE</Label>
                         <Input 
+                          placeholder="+91 98765 43210"
                           value={newInfluencer.manager_phone}
                           onChange={e => setNewInfluencer({...newInfluencer, manager_phone: e.target.value})}
                           className="mt-1"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="border-t border-gray-200 pt-4">
+                      <h4 className="font-medium text-gray-900 mb-4">Commercial Terms</h4>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs uppercase tracking-wider text-gray-500">TURNAROUND (DAYS)</Label>
+                          <Input 
+                            type="number"
+                            placeholder="7"
+                            value={newInfluencer.turnaround_days}
+                            onChange={e => setNewInfluencer({...newInfluencer, turnaround_days: e.target.value})}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs uppercase tracking-wider text-gray-500">PAYMENT TERMS</Label>
+                          <Select 
+                            value={newInfluencer.payment_terms || 'not_specified'} 
+                            onValueChange={v => setNewInfluencer({...newInfluencer, payment_terms: v})}
+                          >
+                            <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="not_specified">Not specified</SelectItem>
+                              <SelectItem value="advance">100% Advance</SelectItem>
+                              <SelectItem value="50_50">50% Advance, 50% After</SelectItem>
+                              <SelectItem value="after_delivery">After Delivery</SelectItem>
+                              <SelectItem value="net_30">Net 30</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-4">
+                        <Label className="text-xs uppercase tracking-wider text-gray-500">EXCLUSIVITY TERMS</Label>
+                        <Textarea 
+                          placeholder="e.g., No competing brand posts for 30 days"
+                          value={newInfluencer.exclusivity_terms}
+                          onChange={e => setNewInfluencer({...newInfluencer, exclusivity_terms: e.target.value})}
+                          className="mt-1"
+                          rows={2}
                         />
                       </div>
                     </div>
@@ -611,50 +757,59 @@ const InfluencersListPage = () => {
 
                 {/* Rates Tab */}
                 {addModalTab === 'rates' && (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-3 gap-4">
                       <div>
-                        <Label className="text-xs uppercase tracking-wider text-gray-500">STATIC POST (₹)</Label>
+                        <Label className="text-xs uppercase tracking-wider text-gray-500">PER POST (₹)</Label>
                         <Input 
                           type="number"
-                          placeholder="Rate per post"
+                          placeholder="15000"
                           value={newInfluencer.rate_per_post}
                           onChange={e => setNewInfluencer({...newInfluencer, rate_per_post: e.target.value})}
                           className="mt-1"
                         />
                       </div>
                       <div>
-                        <Label className="text-xs uppercase tracking-wider text-gray-500">REEL / SHORT (₹)</Label>
+                        <Label className="text-xs uppercase tracking-wider text-gray-500">PER REEL (₹)</Label>
                         <Input 
                           type="number"
-                          placeholder="Rate per reel"
+                          placeholder="25000"
                           value={newInfluencer.rate_per_reel}
                           onChange={e => setNewInfluencer({...newInfluencer, rate_per_reel: e.target.value})}
                           className="mt-1"
                         />
                       </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label className="text-xs uppercase tracking-wider text-gray-500">STORY (₹)</Label>
+                        <Label className="text-xs uppercase tracking-wider text-gray-500">PER STORY (₹)</Label>
                         <Input 
                           type="number"
-                          placeholder="Rate per story"
+                          placeholder="5000"
                           value={newInfluencer.rate_per_story}
                           onChange={e => setNewInfluencer({...newInfluencer, rate_per_story: e.target.value})}
                           className="mt-1"
                         />
                       </div>
-                      <div>
-                        <Label className="text-xs uppercase tracking-wider text-gray-500">YOUTUBE VIDEO (₹)</Label>
-                        <Input 
-                          type="number"
-                          placeholder="Rate per video"
-                          value={newInfluencer.rate_per_youtube}
-                          onChange={e => setNewInfluencer({...newInfluencer, rate_per_youtube: e.target.value})}
-                          className="mt-1"
-                        />
-                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 py-3 border-y border-gray-100">
+                      <input 
+                        type="checkbox"
+                        checked={newInfluencer.accepts_barter || false}
+                        onChange={e => setNewInfluencer({...newInfluencer, accepts_barter: e.target.checked})}
+                        className="w-4 h-4 rounded border-gray-300"
+                      />
+                      <Label className="mb-0">Accepts Barter</Label>
+                    </div>
+                    
+                    <div>
+                      <Label className="text-xs uppercase tracking-wider text-gray-500">NOTES</Label>
+                      <Textarea 
+                        placeholder="e.g., Preferred payment method, special requirements..."
+                        value={newInfluencer.notes}
+                        onChange={e => setNewInfluencer({...newInfluencer, notes: e.target.value})}
+                        className="mt-1"
+                        rows={3}
+                      />
                     </div>
                   </div>
                 )}
