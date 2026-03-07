@@ -698,6 +698,129 @@ class CalendarItemResponse(BaseModel):
     created_at: str
 
 
+# ============== UNIFIED OUTREACH SEQUENCE MODELS ==============
+class SequenceStepType(str, Enum):
+    EMAIL = "email"
+    WHATSAPP = "whatsapp"
+    LINKEDIN = "linkedin"
+    CALL = "call"
+    WAIT = "wait"
+
+class UnifiedSequenceCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    target_type: str  # "influencer" or "journalist" or "both"
+    steps: List[dict]  # [{step_type, delay_days, template_id, message, subject}]
+    is_active: bool = True
+    campaign_id: Optional[str] = None
+
+class UnifiedSequenceResponse(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
+    target_type: str
+    steps: List[dict]
+    is_active: bool = True
+    campaign_id: Optional[str] = None
+    enrolled_count: int = 0
+    completed_count: int = 0
+    response_count: int = 0
+    created_at: str
+    updated_at: Optional[str] = None
+
+class SequenceEnrollmentCreate(BaseModel):
+    sequence_id: str
+    contact_id: str
+    campaign_id: Optional[str] = None
+    start_immediately: bool = True
+
+class SequenceEnrollmentResponse(BaseModel):
+    id: str
+    sequence_id: str
+    sequence_name: Optional[str] = None
+    contact_id: str
+    contact_name: Optional[str] = None
+    contact_type: Optional[str] = None
+    campaign_id: Optional[str] = None
+    current_step: int = 0
+    status: str = "active"  # active, paused, completed, stopped
+    next_action_at: Optional[str] = None
+    enrolled_at: str
+    completed_at: Optional[str] = None
+
+# ============== UNIFIED ACTIVITY FEED MODELS ==============
+class ActivityType(str, Enum):
+    COMMUNICATION = "communication"
+    DEAL = "deal"
+    PAYMENT = "payment"
+    PITCH = "pitch"
+    COVERAGE = "coverage"
+    INTERACTION = "interaction"
+    STATUS_CHANGE = "status_change"
+    SEQUENCE = "sequence"
+    CAMPAIGN = "campaign"
+
+class ActivityResponse(BaseModel):
+    id: str
+    activity_type: str
+    title: str
+    description: Optional[str] = None
+    contact_id: Optional[str] = None
+    contact_name: Optional[str] = None
+    campaign_id: Optional[str] = None
+    campaign_name: Optional[str] = None
+    reference_id: Optional[str] = None  # ID of the related entity
+    metadata: Optional[dict] = None
+    created_at: str
+    created_by: Optional[str] = None
+
+# ============== PUBLICATION ADVERTORIAL/PAID PLACEMENT MODELS ==============
+class AdvertorialType(str, Enum):
+    SPONSORED_ARTICLE = "sponsored_article"
+    NATIVE_AD = "native_ad"
+    BRANDED_CONTENT = "branded_content"
+    PRESS_RELEASE = "press_release"
+    INTERVIEW = "interview"
+    FEATURE = "feature"
+    PRODUCT_REVIEW = "product_review"
+
+class AdvertorialCreate(BaseModel):
+    publication_id: str
+    journalist_id: Optional[str] = None  # Contact ID of journalist handling it
+    campaign_id: Optional[str] = None
+    advertorial_type: AdvertorialType
+    title: str
+    description: Optional[str] = None
+    proposed_amount: float
+    final_amount: Optional[float] = None
+    publish_date: Optional[str] = None
+    deliverables: List[str] = []  # ["1x feature article", "2x social posts"]
+    requirements: Optional[str] = None
+
+class AdvertorialResponse(BaseModel):
+    id: str
+    publication_id: str
+    publication_name: Optional[str] = None
+    journalist_id: Optional[str] = None
+    journalist_name: Optional[str] = None
+    campaign_id: Optional[str] = None
+    campaign_name: Optional[str] = None
+    advertorial_type: str
+    title: str
+    description: Optional[str] = None
+    proposed_amount: float
+    final_amount: Optional[float] = None
+    publish_date: Optional[str] = None
+    deliverables: List[str] = []
+    requirements: Optional[str] = None
+    status: str = "proposed"  # proposed, negotiating, confirmed, in_progress, published, cancelled
+    payment_status: str = "pending"  # pending, partial, paid
+    timeline: List[dict] = []
+    created_at: str
+    updated_at: Optional[str] = None
+
+
+
 # ============== PHASE 5: RELATIONSHIP CRM ==============
 
 class InteractionType(str, Enum):

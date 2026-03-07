@@ -52,6 +52,10 @@ from models.marketing import (
     PipelineContactUpdate, PipelineContactResponse, PipelineStageStats,
     # Publication models (PR equivalent of Influencers)
     PublicationCreate, PublicationResponse,
+    # Unified Sequence & Activity models
+    UnifiedSequenceCreate, UnifiedSequenceResponse, SequenceEnrollmentCreate, SequenceEnrollmentResponse, ActivityResponse,
+    # Advertorial/Paid Placement models
+    AdvertorialCreate, AdvertorialResponse,
 )
 
 marketing_v2_router = APIRouter(prefix="/marketing/v2", tags=["Marketing V2"])
@@ -3122,3 +3126,537 @@ async def get_pipeline_stats(
             "publish_rate": (published / total * 100) if total > 0 else 0
         }
     }
+
+
+# ============== UNIFIED OUTREACH SEQUENCES ==============
+
+@marketing_v2_router.get("/sequences")
+async def get_sequences(
+    target_type: Optional[str] = None,
+    is_active: Optional[bool] = None,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get all outreach sequences (for both influencers and journalists)"""
+    db = get_db()
+    
+    query = {}
+    if target_type:
+        query["target_type"] = {"$in": [target_type, "both"]}
+    if is_active is not None:
+        query["is_active"] = is_active
+    
+    sequences = await db.outreach_sequences.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
+    
+    # Enrich with enrollment stats
+    for seq in sequences:
+        seq["enrolled_count"] = await db.sequence_enrollments.count_documents({"sequence_id": seq["id"]})
+        seq["completed_count"] = await db.sequence_enrollments.count_documents({"sequence_id": seq["id"], "status": "completed"})
+        seq["response_count"] = await db.sequence_enrollments.count_documents({"sequence_id": seq["id"], "has_response": True})
+    
+    return sequences
+
+@marketing_v2_router.post("/sequences")
+async def create_sequence(data: UnifiedSequenceCreate, user: dict = Depends(get_marketing_auth())):
+    """Create a new outreach sequence"""
+    db = get_db()
+    
+    sequence_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    sequence_doc = {
+        "id": sequence_id,
+        **data.model_dump(),
+        "enrolled_count": 0,
+        "completed_count": 0,
+        "response_count": 0,
+        "created_by": user.get("id"),
+        "created_at": now,
+    }
+    
+    await db.outreach_sequences.insert_one(sequence_doc)
+    del sequence_doc["_id"]
+    return sequence_doc
+
+@marketing_v2_router.get("/sequences/{sequence_id}")
+async def get_sequence(sequence_id: str, user: dict = Depends(get_marketing_auth())):
+    """Get a single sequence with enrollments"""
+    db = get_db()
+    
+    sequence = await db.outreach_sequences.find_one({"id": sequence_id}, {"_id": 0})
+    if not sequence:
+        raise HTTPException(status_code=404, detail="Sequence not found")
+    
+    # Get enrollments
+    enrollments = await db.sequence_enrollments.find({"sequence_id": sequence_id}, {"_id": 0}).to_list(500)
+    
+    # Enrich enrollments with contact info
+    for enrollment in enrollments:
+        contact = await db.contacts.find_one({"id": enrollment.get("contact_id")})
+        if contact:
+            enrollment["contact_name"] = contact.get("name")
+            enrollment["contact_type"] = contact.get("contact_type")
+    
+    sequence["enrollments"] = enrollments
+    return sequence
+
+@marketing_v2_router.post("/sequences/{sequence_id}/enroll")
+async def enroll_in_sequence(sequence_id: str, data: SequenceEnrollmentCreate, user: dict = Depends(get_marketing_auth())):
+    """Enroll a contact in an outreach sequence"""
+    db = get_db()
+    
+    # Verify sequence exists
+    sequence = await db.outreach_sequences.find_one({"id": sequence_id})
+    if not sequence:
+        raise HTTPException(status_code=404, detail="Sequence not found")
+    
+    # Verify contact exists
+    contact = await db.contacts.find_one({"id": data.contact_id})
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    # Check if already enrolled
+    existing = await db.sequence_enrollments.find_one({
+        "sequence_id": sequence_id,
+        "contact_id": data.contact_id,
+        "status": {"$in": ["active", "paused"]}
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="Contact already enrolled in this sequence")
+    
+    enrollment_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Calculate next action time based on first step
+    steps = sequence.get("steps", [])
+    first_step = steps[0] if steps else {}
+    delay_days = first_step.get("delay_days", 0)
+    next_action = (datetime.now(timezone.utc) + timedelta(days=delay_days)).isoformat() if data.start_immediately else None
+    
+    enrollment_doc = {
+        "id": enrollment_id,
+        "sequence_id": sequence_id,
+        "sequence_name": sequence.get("name"),
+        "contact_id": data.contact_id,
+        "contact_name": contact.get("name"),
+        "contact_type": contact.get("contact_type"),
+        "campaign_id": data.campaign_id,
+        "current_step": 0,
+        "status": "active",
+        "has_response": False,
+        "next_action_at": next_action,
+        "enrolled_at": now,
+        "enrolled_by": user.get("id"),
+    }
+    
+    await db.sequence_enrollments.insert_one(enrollment_doc)
+    
+    # Update sequence enrolled count
+    await db.outreach_sequences.update_one(
+        {"id": sequence_id},
+        {"$inc": {"enrolled_count": 1}}
+    )
+    
+    del enrollment_doc["_id"]
+    return enrollment_doc
+
+@marketing_v2_router.put("/sequences/enrollments/{enrollment_id}/status")
+async def update_enrollment_status(enrollment_id: str, status: str, user: dict = Depends(get_marketing_auth())):
+    """Update enrollment status (pause, resume, stop)"""
+    db = get_db()
+    
+    enrollment = await db.sequence_enrollments.find_one({"id": enrollment_id})
+    if not enrollment:
+        raise HTTPException(status_code=404, detail="Enrollment not found")
+    
+    update_data = {"status": status}
+    if status == "completed":
+        update_data["completed_at"] = datetime.now(timezone.utc).isoformat()
+        # Update sequence completed count
+        await db.outreach_sequences.update_one(
+            {"id": enrollment["sequence_id"]},
+            {"$inc": {"completed_count": 1}}
+        )
+    
+    await db.sequence_enrollments.update_one({"id": enrollment_id}, {"$set": update_data})
+    return {"message": f"Enrollment status updated to {status}"}
+
+@marketing_v2_router.post("/sequences/enrollments/{enrollment_id}/advance")
+async def advance_enrollment_step(enrollment_id: str, user: dict = Depends(get_marketing_auth())):
+    """Advance enrollment to next step in sequence"""
+    db = get_db()
+    
+    enrollment = await db.sequence_enrollments.find_one({"id": enrollment_id})
+    if not enrollment:
+        raise HTTPException(status_code=404, detail="Enrollment not found")
+    
+    sequence = await db.outreach_sequences.find_one({"id": enrollment["sequence_id"]})
+    if not sequence:
+        raise HTTPException(status_code=404, detail="Sequence not found")
+    
+    steps = sequence.get("steps", [])
+    current_step = enrollment.get("current_step", 0)
+    
+    if current_step >= len(steps) - 1:
+        # Complete the sequence
+        await db.sequence_enrollments.update_one(
+            {"id": enrollment_id},
+            {"$set": {"status": "completed", "completed_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        await db.outreach_sequences.update_one(
+            {"id": enrollment["sequence_id"]},
+            {"$inc": {"completed_count": 1}}
+        )
+        return {"message": "Sequence completed", "completed": True}
+    
+    # Advance to next step
+    next_step = current_step + 1
+    next_step_data = steps[next_step] if next_step < len(steps) else {}
+    delay_days = next_step_data.get("delay_days", 1)
+    next_action = (datetime.now(timezone.utc) + timedelta(days=delay_days)).isoformat()
+    
+    await db.sequence_enrollments.update_one(
+        {"id": enrollment_id},
+        {"$set": {"current_step": next_step, "next_action_at": next_action}}
+    )
+    
+    return {"message": f"Advanced to step {next_step + 1}", "next_step": next_step, "next_action_at": next_action}
+
+# ============== UNIFIED ACTIVITY FEED ==============
+
+@marketing_v2_router.get("/activity-feed")
+async def get_activity_feed(
+    contact_id: Optional[str] = None,
+    campaign_id: Optional[str] = None,
+    activity_type: Optional[str] = None,
+    limit: int = 50,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get unified activity feed from all modules"""
+    db = get_db()
+    
+    activities = []
+    
+    # Build query filters
+    comm_query = {}
+    deal_query = {}
+    payment_query = {}
+    pitch_query = {}
+    interaction_query = {}
+    
+    if contact_id:
+        comm_query["contact_id"] = contact_id
+        deal_query["contact_id"] = contact_id
+        payment_query["contact_id"] = contact_id
+        pitch_query["journalist_id"] = contact_id
+        interaction_query["contact_id"] = contact_id
+    
+    if campaign_id:
+        comm_query["campaign_id"] = campaign_id
+        deal_query["campaign_id"] = campaign_id
+        payment_query["campaign_id"] = campaign_id
+        pitch_query["campaign_id"] = campaign_id
+        interaction_query["related_campaign_id"] = campaign_id
+    
+    # Communications
+    if not activity_type or activity_type == "communication":
+        comms = await db.communications.find(comm_query, {"_id": 0}).sort("sent_at", -1).limit(limit).to_list(limit)
+        for c in comms:
+            activities.append({
+                "id": c.get("id"),
+                "activity_type": "communication",
+                "title": f"Outreach sent via {c.get('channel', 'email')}",
+                "description": c.get("subject") or c.get("message", "")[:100],
+                "contact_id": c.get("contact_id"),
+                "contact_name": c.get("contact_name"),
+                "campaign_id": c.get("campaign_id"),
+                "reference_id": c.get("id"),
+                "metadata": {"channel": c.get("channel"), "status": c.get("status")},
+                "created_at": c.get("sent_at")
+            })
+    
+    # Deals
+    if not activity_type or activity_type == "deal":
+        deals = await db.deals.find(deal_query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+        for d in deals:
+            contact = await db.contacts.find_one({"id": d.get("contact_id")})
+            activities.append({
+                "id": d.get("id"),
+                "activity_type": "deal",
+                "title": f"Deal {d.get('status', 'created')}",
+                "description": f"₹{d.get('proposed_amount', 0):,.0f} - {d.get('deliverables', [])}",
+                "contact_id": d.get("contact_id"),
+                "contact_name": contact.get("name") if contact else None,
+                "campaign_id": d.get("campaign_id"),
+                "reference_id": d.get("id"),
+                "metadata": {"status": d.get("status"), "amount": d.get("final_amount") or d.get("proposed_amount")},
+                "created_at": d.get("created_at")
+            })
+    
+    # Payments
+    if not activity_type or activity_type == "payment":
+        payments = await db.payments.find(payment_query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+        for p in payments:
+            activities.append({
+                "id": p.get("id"),
+                "activity_type": "payment",
+                "title": f"Payment {p.get('status', 'created')}",
+                "description": f"₹{p.get('amount', 0):,.0f} - {p.get('description', '')}",
+                "contact_id": p.get("contact_id"),
+                "contact_name": p.get("contact_name"),
+                "campaign_id": p.get("campaign_id"),
+                "campaign_name": p.get("campaign_name"),
+                "reference_id": p.get("id"),
+                "metadata": {"status": p.get("status"), "amount": p.get("amount")},
+                "created_at": p.get("created_at")
+            })
+    
+    # PR Pitches
+    if not activity_type or activity_type == "pitch":
+        pitches = await db.pr_pitches.find(pitch_query, {"_id": 0}).sort("sent_at", -1).limit(limit).to_list(limit)
+        for p in pitches:
+            activities.append({
+                "id": p.get("id"),
+                "activity_type": "pitch",
+                "title": f"PR Pitch {p.get('status', 'sent')}",
+                "description": p.get("subject", ""),
+                "contact_id": p.get("journalist_id"),
+                "contact_name": p.get("journalist_name"),
+                "campaign_id": p.get("campaign_id"),
+                "reference_id": p.get("id"),
+                "metadata": {"status": p.get("status"), "publication": p.get("publication_name")},
+                "created_at": p.get("sent_at")
+            })
+    
+    # Interactions
+    if not activity_type or activity_type == "interaction":
+        interactions = await db.interactions.find(interaction_query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+        for i in interactions:
+            activities.append({
+                "id": i.get("id"),
+                "activity_type": "interaction",
+                "title": f"{i.get('interaction_type', 'note').title()} logged",
+                "description": i.get("notes", "")[:100],
+                "contact_id": i.get("contact_id"),
+                "contact_name": i.get("contact_name"),
+                "campaign_id": i.get("related_campaign_id"),
+                "reference_id": i.get("id"),
+                "metadata": {"type": i.get("interaction_type"), "outcome": i.get("outcome")},
+                "created_at": i.get("created_at")
+            })
+    
+    # Media Coverage
+    if not activity_type or activity_type == "coverage":
+        coverages = await db.media_coverage.find({} if not campaign_id else {"campaign_id": campaign_id}, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+        for c in coverages:
+            activities.append({
+                "id": c.get("id"),
+                "activity_type": "coverage",
+                "title": f"Media Coverage: {c.get('title', '')}",
+                "description": f"{c.get('publication_name', '')} - {c.get('coverage_type', '')}",
+                "contact_id": c.get("journalist_id"),
+                "campaign_id": c.get("campaign_id"),
+                "reference_id": c.get("id"),
+                "metadata": {"type": c.get("coverage_type"), "sentiment": c.get("sentiment")},
+                "created_at": c.get("created_at")
+            })
+    
+    # Sort all by created_at descending (handle None values)
+    activities.sort(key=lambda x: x.get("created_at") or "", reverse=True)
+    
+    return activities[:limit]
+
+@marketing_v2_router.get("/activity-feed/stats")
+async def get_activity_stats(
+    campaign_id: Optional[str] = None,
+    days: int = 30,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get activity statistics for dashboard"""
+    db = get_db()
+    
+    cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    
+    query_base = {"created_at": {"$gte": cutoff_date}}
+    if campaign_id:
+        query_base["campaign_id"] = campaign_id
+    
+    # Count activities by type
+    comms_count = await db.communications.count_documents({**query_base} if "campaign_id" not in query_base else {"campaign_id": campaign_id, "sent_at": {"$gte": cutoff_date}})
+    deals_count = await db.deals.count_documents(query_base)
+    payments_count = await db.payments.count_documents(query_base)
+    pitches_count = await db.pr_pitches.count_documents({**query_base} if "campaign_id" not in query_base else {"campaign_id": campaign_id, "sent_at": {"$gte": cutoff_date}})
+    interactions_count = await db.interactions.count_documents(query_base)
+    coverages_count = await db.media_coverage.count_documents(query_base)
+    
+    return {
+        "period_days": days,
+        "total_activities": comms_count + deals_count + payments_count + pitches_count + interactions_count + coverages_count,
+        "by_type": {
+            "communications": comms_count,
+            "deals": deals_count,
+            "payments": payments_count,
+            "pitches": pitches_count,
+            "interactions": interactions_count,
+            "coverages": coverages_count
+        }
+    }
+
+# ============== ADVERTORIALS / PAID PLACEMENTS ==============
+
+@marketing_v2_router.get("/advertorials")
+async def get_advertorials(
+    publication_id: Optional[str] = None,
+    campaign_id: Optional[str] = None,
+    status: Optional[str] = None,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get all advertorial/paid placement deals"""
+    db = get_db()
+    
+    query = {}
+    if publication_id:
+        query["publication_id"] = publication_id
+    if campaign_id:
+        query["campaign_id"] = campaign_id
+    if status:
+        query["status"] = status
+    
+    advertorials = await db.advertorials.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
+    
+    # Enrich with publication and campaign names
+    for ad in advertorials:
+        pub = await db.publications.find_one({"id": ad.get("publication_id")})
+        if pub:
+            ad["publication_name"] = pub.get("name")
+        
+        if ad.get("campaign_id"):
+            campaign = await db.pr_campaigns.find_one({"id": ad["campaign_id"]})
+            if not campaign:
+                campaign = await db.campaigns.find_one({"id": ad["campaign_id"]})
+            if campaign:
+                ad["campaign_name"] = campaign.get("name")
+        
+        if ad.get("journalist_id"):
+            journalist = await db.contacts.find_one({"id": ad["journalist_id"]})
+            if journalist:
+                ad["journalist_name"] = journalist.get("name")
+    
+    return advertorials
+
+@marketing_v2_router.post("/advertorials", response_model=AdvertorialResponse)
+async def create_advertorial(data: AdvertorialCreate, user: dict = Depends(get_marketing_auth())):
+    """Create a new advertorial/paid placement deal"""
+    db = get_db()
+    
+    # Verify publication exists
+    publication = await db.publications.find_one({"id": data.publication_id})
+    if not publication:
+        raise HTTPException(status_code=404, detail="Publication not found")
+    
+    advertorial_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    advertorial_doc = {
+        "id": advertorial_id,
+        **data.model_dump(),
+        "publication_name": publication.get("name"),
+        "status": "proposed",
+        "payment_status": "pending",
+        "timeline": [{"event": "created", "date": now, "by": user.get("email")}],
+        "created_by": user.get("id"),
+        "created_at": now,
+    }
+    
+    # Get journalist name if provided
+    if data.journalist_id:
+        journalist = await db.contacts.find_one({"id": data.journalist_id})
+        if journalist:
+            advertorial_doc["journalist_name"] = journalist.get("name")
+    
+    # Get campaign name if provided
+    if data.campaign_id:
+        campaign = await db.pr_campaigns.find_one({"id": data.campaign_id})
+        if not campaign:
+            campaign = await db.campaigns.find_one({"id": data.campaign_id})
+        if campaign:
+            advertorial_doc["campaign_name"] = campaign.get("name")
+    
+    await db.advertorials.insert_one(advertorial_doc)
+    del advertorial_doc["_id"]
+    return advertorial_doc
+
+@marketing_v2_router.get("/advertorials/{advertorial_id}")
+async def get_advertorial(advertorial_id: str, user: dict = Depends(get_marketing_auth())):
+    """Get a single advertorial with full details"""
+    db = get_db()
+    
+    advertorial = await db.advertorials.find_one({"id": advertorial_id}, {"_id": 0})
+    if not advertorial:
+        raise HTTPException(status_code=404, detail="Advertorial not found")
+    
+    # Get related payments
+    payments = await db.payments.find({"deliverable_id": advertorial_id, "deliverable_type": "advertorial"}, {"_id": 0}).to_list(100)
+    advertorial["payments"] = payments
+    
+    return advertorial
+
+@marketing_v2_router.put("/advertorials/{advertorial_id}/status")
+async def update_advertorial_status(
+    advertorial_id: str, 
+    status: str, 
+    note: Optional[str] = None,
+    final_amount: Optional[float] = None,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Update advertorial status"""
+    db = get_db()
+    
+    advertorial = await db.advertorials.find_one({"id": advertorial_id})
+    if not advertorial:
+        raise HTTPException(status_code=404, detail="Advertorial not found")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    timeline_entry = {"event": f"status_changed_to_{status}", "date": now, "by": user.get("email")}
+    if note:
+        timeline_entry["note"] = note
+    
+    update_data = {"status": status, "updated_at": now}
+    if final_amount:
+        update_data["final_amount"] = final_amount
+    if status == "published":
+        update_data["published_at"] = now
+    
+    await db.advertorials.update_one(
+        {"id": advertorial_id},
+        {"$set": update_data, "$push": {"timeline": timeline_entry}}
+    )
+    
+    return {"message": f"Advertorial status updated to {status}"}
+
+@marketing_v2_router.get("/publications/{publication_id}/advertorials")
+async def get_publication_advertorials(publication_id: str, user: dict = Depends(get_marketing_auth())):
+    """Get all advertorials for a specific publication"""
+    db = get_db()
+    
+    advertorials = await db.advertorials.find({"publication_id": publication_id}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    
+    # Calculate totals
+    total_value = sum(ad.get("final_amount") or ad.get("proposed_amount", 0) for ad in advertorials)
+    confirmed_value = sum(ad.get("final_amount") or ad.get("proposed_amount", 0) for ad in advertorials if ad.get("status") in ["confirmed", "in_progress", "published"])
+    
+    return {
+        "advertorials": advertorials,
+        "stats": {
+            "total_count": len(advertorials),
+            "total_value": total_value,
+            "confirmed_value": confirmed_value,
+            "by_status": {
+                "proposed": len([a for a in advertorials if a.get("status") == "proposed"]),
+                "negotiating": len([a for a in advertorials if a.get("status") == "negotiating"]),
+                "confirmed": len([a for a in advertorials if a.get("status") == "confirmed"]),
+                "in_progress": len([a for a in advertorials if a.get("status") == "in_progress"]),
+                "published": len([a for a in advertorials if a.get("status") == "published"]),
+            }
+        }
+    }
+

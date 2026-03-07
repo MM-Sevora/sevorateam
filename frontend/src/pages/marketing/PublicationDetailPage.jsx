@@ -69,17 +69,31 @@ const PublicationDetailPage = () => {
   const [pitches, setPitches] = useState([]);
   const [coverage, setCoverage] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
+  const [advertorials, setAdvertorials] = useState([]);
+  const [advertorialStats, setAdvertorialStats] = useState({});
   
   // Modals
   const [showJournalistModal, setShowJournalistModal] = useState(false);
   const [showPitchModal, setShowPitchModal] = useState(false);
   const [showCoverageModal, setShowCoverageModal] = useState(false);
+  const [showAdvertorialModal, setShowAdvertorialModal] = useState(false);
   const [selectedJournalist, setSelectedJournalist] = useState(null);
   
   // Forms
   const [newJournalist, setNewJournalist] = useState({ name: '', email: '', role: '', beat: 'Fashion', phone: '' });
   const [newPitch, setNewPitch] = useState({ contact_id: '', subject: '', message: '', pr_campaign_id: '' });
   const [newCoverage, setNewCoverage] = useState({ title: '', url: '', coverage_type: 'article', sentiment: 'positive', author: '', published_date: '', estimated_reach: '' });
+  const [newAdvertorial, setNewAdvertorial] = useState({ 
+    advertorial_type: 'sponsored_article', 
+    title: '', 
+    description: '', 
+    proposed_amount: '', 
+    journalist_id: '',
+    campaign_id: '',
+    publish_date: '',
+    deliverables: '',
+    requirements: ''
+  });
 
   // Fetch publication details
   const fetchPublication = useCallback(async () => {
