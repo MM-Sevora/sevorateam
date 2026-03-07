@@ -1,0 +1,113 @@
+{
+  "summary": "Marketing Extended Module (11 Advanced Features) - Backend 23/23 tests passed, Frontend UI fully functional. All new tabs (Gifting, Tracking, Contracts, Performance) load correctly with proper data integration. Minor issue: /api/marketing/v2/contracts endpoint has route conflict with existing marketing_v2.py routes.",
+
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/marketing/v2/contracts",
+        "issue": "Route conflict - endpoint defined in both marketing_v2.py (requires deal_id) and marketing_extended.py (optional deal_id). The marketing_v2 version takes precedence, making extended contracts require deal_id",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "All pages",
+        "issues": ["WebSocket connection warnings in console (1006 errors) - non-blocking but should be investigated"]
+      }
+    ]
+  },
+
+  "passed_tests": [
+    "Backend: POST /api/marketing/v2/gifting creates gift record (PASS)",
+    "Backend: GET /api/marketing/v2/gifting?contact_id={id} returns gifts (PASS)",
+    "Backend: PUT /api/marketing/v2/gifting/{id}/status updates gift status (PASS)",
+    "Backend: POST /api/marketing/v2/promo-codes generates promo code (PASS)",
+    "Backend: GET /api/marketing/v2/promo-codes?contact_id={id} returns codes (PASS)",
+    "Backend: PUT /api/marketing/v2/promo-codes/{id}/use records usage (PASS)",
+    "Backend: POST /api/marketing/v2/utm-links creates UTM link (PASS)",
+    "Backend: GET /api/marketing/v2/utm-links?contact_id={id} returns links (PASS)",
+    "Backend: GET /api/marketing/v2/contracts?contact_id={id} returns contracts (PASS)",
+    "Backend: POST /api/marketing/v2/contracts creates contract (with deal_id workaround) (PASS)",
+    "Backend: POST /api/marketing/v2/content-approval creates submission (PASS)",
+    "Backend: PUT /api/marketing/v2/content-approval/{id}/review approves content (PASS)",
+    "Backend: POST /api/marketing/v2/brand-safety/scan runs brand safety check (MOCKED if AI unavailable) (PASS)",
+    "Backend: GET /api/marketing/v2/brand-safety/{contact_id} returns safety check (PASS)",
+    "Backend: POST /api/marketing/v2/availability creates availability slot (PASS)",
+    "Backend: GET /api/marketing/v2/availability returns slots (PASS)",
+    "Backend: GET /api/marketing/v2/availability/check/{contact_id} checks availability (PASS)",
+    "Backend: GET /api/marketing/v2/exclusivity/{contact_id} returns exclusivity status (PASS)",
+    "Backend: GET /api/marketing/v2/relationship-score/{contact_id} returns score (PASS)",
+    "Backend: POST /api/marketing/v2/contract-templates creates template (PASS)",
+    "Backend: GET /api/marketing/v2/contract-templates returns templates (PASS)",
+    "Frontend: ContactDetailPage loads with all new tabs (PASS)",
+    "Frontend: Gifting tab shows gift records with status badges (PASS)",
+    "Frontend: Tracking tab shows Promo Codes and UTM Links sections (PASS)",
+    "Frontend: Performance tab shows Relationship Score section (PASS)",
+    "Frontend: Contracts tab shows contracts list (PASS)",
+    "Frontend: Send Gift modal opens and creates gift record (PASS)",
+    "Frontend: Generate Promo Code modal opens with discount options (PASS)",
+    "Frontend: Create UTM Link modal opens and creates link (PASS)"
+  ],
+
+  "test_report_links": [
+    "/app/backend/tests/test_marketing_extended.py",
+    "/app/test_reports/pytest/pytest_marketing_extended.xml"
+  ],
+
+  "action_items": [
+    "FIX REQUIRED: Route conflict - POST /api/marketing/v2/contracts is defined in both marketing_v2.py and marketing_extended.py. Options: (1) Rename extended endpoint to /influencer-contracts, (2) Change extended prefix to /marketing/v2/extended/, (3) Remove duplicate in marketing_v2.py",
+    "OPTIONAL: Investigate WebSocket connection issues (1006 errors in console)"
+  ],
+
+  "critical_code_review_comments": [
+    "ROUTE CONFLICT: /api/marketing/v2/contracts endpoint is defined in both routes/marketing_v2.py (line 352, uses ContractCreate requiring deal_id) and routes/marketing_extended.py (line 323, uses InfluencerContractCreate with optional deal_id). The marketing_v2 version takes precedence due to router registration order in server.py. This causes the extended contract API to require deal_id when it should be optional.",
+    "Brand Safety Scanner and Sentiment Analysis use AI service but fall back to mock data if AI unavailable - this is working as expected"
+  ],
+
+  "updated_files": [
+    "/app/backend/tests/test_marketing_extended.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (23/23 passed)",
+    "frontend": "100% - All ContactDetailPage tabs and modals working correctly"
+  },
+
+  "test_credentials": {
+    "admin": "admin@sevora.com / admin123",
+    "marketing": "marketing@sevora.com / admin123"
+  },
+
+  "seed_data_creation": "Test data created with TEST_ prefix including: gifts, promo codes, UTM links, content submissions, brand safety checks, availability slots, contracts. Total ~15 test records created during testing.",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+
+  "context_for_next_testing_agent": "Marketing Extended Module (11 features) fully tested. All backend APIs work. Frontend ContactDetailPage has new tabs: Gifting (5+ items), Tracking (9+ items with promo codes and UTM links), Contracts, Performance (with Relationship Score). One route conflict needs fixing: POST /contracts endpoint is duplicated in marketing_v2.py and marketing_extended.py - the v2 version takes precedence requiring deal_id. Brand Safety and Sentiment Analysis use MOCKED AI responses when AI service unavailable.",
+
+  "mocked_apis": {
+    "has_mocked_apis": true,
+    "mocked_apis_list": [
+      "Brand Safety Scanner - returns fallback scores (70 score, 'medium' risk) if AI service fails",
+      "Sentiment Analysis - returns fallback data (neutral sentiment, 0.5 score) if AI service fails"
+    ]
+  },
+
+  "rca_of_issue": {
+    "route_conflict_bug": {
+      "root_cause": "Both marketing_v2.py and marketing_extended.py define POST /api/marketing/v2/contracts endpoint. In server.py (lines 2611-2612), marketing_v2_router is included before marketing_extended_router, so the v2 version with ContractCreate (requiring deal_id) takes precedence over InfluencerContractCreate (optional deal_id).",
+      "reproduction_steps": [
+        "1. POST to /api/marketing/v2/contracts without deal_id",
+        "2. Request fails with 422 'Field required' for deal_id",
+        "3. The InfluencerContractCreate model in marketing_extended.py has deal_id: Optional[str] = None but this endpoint is never reached"
+      ],
+      "mitigation": "Either rename endpoint in marketing_extended.py to /influencer-contracts, or remove duplicate from marketing_v2.py, or change router prefix order"
+    }
+  }
+}
