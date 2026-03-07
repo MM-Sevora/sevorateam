@@ -13,8 +13,10 @@ import { toast } from 'sonner';
 import { 
   Calendar, List, ChevronLeft, ChevronRight, Plus, Target, Users, DollarSign,
   Clock, Play, Pause, CheckCircle2, TrendingUp, Filter, Search, RefreshCw,
-  CalendarDays, LayoutGrid, GanttChartSquare, MoreHorizontal, ExternalLink
+  CalendarDays, LayoutGrid, GanttChartSquare, MoreHorizontal, ExternalLink,
+  Edit2, Trash2, ArrowUpDown, ChevronUp, ChevronDown, Save
 } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 
 const STATUS_CONFIG = {
   planning: { label: 'Planning', icon: Clock, color: 'bg-blue-100 text-blue-700 border-blue-200' },
@@ -65,6 +67,14 @@ const CampaignHubPage = () => {
     pr_campaign_type: '', // For PR: product_launch, brand_announcement, etc.
     target_media: '' // For PR campaigns
   });
+
+  // Edit campaign modal
+  const [showEditCampaign, setShowEditCampaign] = useState(false);
+  const [editingCampaign, setEditingCampaign] = useState(null);
+  
+  // Sort state
+  const [sortBy, setSortBy] = useState('name');
+  const [sortOrder, setSortOrder] = useState('asc');
 
   // PR Campaigns state
   const [prCampaigns, setPrCampaigns] = useState([]);
@@ -155,6 +165,108 @@ const CampaignHubPage = () => {
     }
   };
 
+  const handleEditCampaign = (campaign, e) => {
+    e?.stopPropagation();
+    setEditingCampaign({
+      ...campaign,
+      budget: campaign.budget || 0,
+      start_date: campaign.start_date || '',
+      end_date: campaign.end_date || '',
+      target_market: campaign.target_market || '',
+      description: campaign.description || '',
+      target_media: campaign.target_publications?.join(', ') || ''
+    });
+    setShowEditCampaign(true);
+  };
+
+  const handleUpdateCampaign = async () => {
+    if (!editingCampaign?.name) {
+      toast.error('Campaign name is required');
+      return;
+    }
+    try {
+      const isPR = editingCampaign.campaign_type === 'pr';
+      if (isPR) {
+        await api.put(`/marketing/v2/pr/campaigns/${editingCampaign.id}`, {
+          name: editingCampaign.name,
+          objective: editingCampaign.objective,
+          description: editingCampaign.description,
+          start_date: editingCampaign.start_date,
+          end_date: editingCampaign.end_date,
+          budget: editingCampaign.budget,
+          status: editingCampaign.status,
+          target_publications: editingCampaign.target_media ? editingCampaign.target_media.split(',').map(s => s.trim()) : []
+        });
+      } else {
+        await api.put(`/marketing/campaigns/${editingCampaign.id}`, {
+          name: editingCampaign.name,
+          objective: editingCampaign.objective,
+          description: editingCampaign.description,
+          start_date: editingCampaign.start_date,
+          end_date: editingCampaign.end_date,
+          budget: editingCampaign.budget,
+          status: editingCampaign.status,
+          target_market: editingCampaign.target_market
+        });
+      }
+      toast.success('Campaign updated!');
+      setShowEditCampaign(false);
+      setEditingCampaign(null);
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to update campaign');
+    }
+  };
+
+  const handleDeleteCampaign = async (campaign, e) => {
+    e?.stopPropagation();
+    if (!window.confirm(`Delete campaign "${campaign.name}"? This action cannot be undone.`)) return;
+    try {
+      const isPR = campaign.campaign_type === 'pr';
+      if (isPR) {
+        await api.delete(`/marketing/v2/pr/campaigns/${campaign.id}`);
+      } else {
+        await api.delete(`/marketing/campaigns/${campaign.id}`);
+      }
+      toast.success('Campaign deleted');
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to delete campaign');
+    }
+  };
+
+  const handleToggleStatus = async (campaign, newStatus, e) => {
+    e?.stopPropagation();
+    try {
+      const isPR = campaign.campaign_type === 'pr';
+      if (isPR) {
+        await api.put(`/marketing/v2/pr/campaigns/${campaign.id}`, { status: newStatus });
+      } else {
+        await api.put(`/marketing/campaigns/${campaign.id}`, { status: newStatus });
+      }
+      toast.success(`Campaign ${newStatus === 'paused' ? 'paused' : newStatus === 'active' ? 'activated' : 'updated'}`);
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to update status');
+    }
+  };
+
+  const toggleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
+    } else {
+      setSortBy(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const SortIcon = ({ field }) => {
+    if (sortBy !== field) return <ArrowUpDown className="w-3 h-3 text-gray-300" />;
+    return sortOrder === 'desc' ? 
+      <ChevronDown className="w-3 h-3 text-gray-600" /> : 
+      <ChevronUp className="w-3 h-3 text-gray-600" />;
+  };
+
   // Calendar helpers
   const getDaysInMonth = (date) => {
     const year = date.getFullYear();
@@ -218,6 +330,14 @@ const CampaignHubPage = () => {
     const matchesStatus = statusFilter === 'all' || c.status === statusFilter;
     const matchesType = typeFilter === 'all' || c.campaign_type === typeFilter;
     return matchesSearch && matchesStatus && matchesType;
+  }).sort((a, b) => {
+    const multiplier = sortOrder === 'desc' ? -1 : 1;
+    if (sortBy === 'name') return multiplier * (a.name || '').localeCompare(b.name || '');
+    if (sortBy === 'budget') return multiplier * ((a.budget || 0) - (b.budget || 0));
+    if (sortBy === 'spent') return multiplier * ((a.spent || 0) - (b.spent || 0));
+    if (sortBy === 'status') return multiplier * (a.status || '').localeCompare(b.status || '');
+    if (sortBy === 'start_date') return multiplier * (a.start_date || '').localeCompare(b.start_date || '');
+    return 0;
   });
 
   // Stats
@@ -437,15 +557,25 @@ const CampaignHubPage = () => {
             <Table>
               <TableHeader>
                 <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
-                  <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[280px]">Campaign</TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[280px] cursor-pointer hover:text-gray-900" onClick={() => toggleSort('name')}>
+                    <span className="flex items-center gap-1">Campaign <SortIcon field="name" /></span>
+                  </TableHead>
                   <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[100px]">Type</TableHead>
-                  <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[100px]">Status</TableHead>
-                  <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[120px]">Budget</TableHead>
-                  <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[100px]">Spent</TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[100px] cursor-pointer hover:text-gray-900" onClick={() => toggleSort('status')}>
+                    <span className="flex items-center gap-1">Status <SortIcon field="status" /></span>
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[120px] cursor-pointer hover:text-gray-900" onClick={() => toggleSort('budget')}>
+                    <span className="flex items-center gap-1">Budget <SortIcon field="budget" /></span>
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[100px] cursor-pointer hover:text-gray-900" onClick={() => toggleSort('spent')}>
+                    <span className="flex items-center gap-1">Spent <SortIcon field="spent" /></span>
+                  </TableHead>
                   <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[80px]">Progress</TableHead>
                   <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[100px]">Team</TableHead>
-                  <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[150px]">Duration</TableHead>
-                  <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[60px]"></TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[150px] cursor-pointer hover:text-gray-900" onClick={() => toggleSort('start_date')}>
+                    <span className="flex items-center gap-1">Duration <SortIcon field="start_date" /></span>
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[80px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody className="divide-y divide-gray-100">
@@ -510,17 +640,43 @@ const CampaignHubPage = () => {
                             {campaign.start_date || '-'} → {campaign.end_date || '-'}
                           </TableCell>
                           <TableCell>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                isPR ? navigate(`/marketing/pr?campaign=${campaign.id}`) : navigate(`/marketing/campaign/${campaign.id}`);
-                              }}
-                            >
-                              <ExternalLink className="w-4 h-4 text-gray-400" />
-                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="h-8 w-8 p-0"
+                                  onClick={(e) => e.stopPropagation()}
+                                  data-testid={`campaign-actions-${campaign.id}`}
+                                >
+                                  <MoreHorizontal className="w-4 h-4 text-gray-400" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-40">
+                                <DropdownMenuItem onClick={(e) => handleEditCampaign(campaign, e)}>
+                                  <Edit2 className="w-4 h-4 mr-2" /> Edit
+                                </DropdownMenuItem>
+                                {campaign.status === 'active' ? (
+                                  <DropdownMenuItem onClick={(e) => handleToggleStatus(campaign, 'paused', e)}>
+                                    <Pause className="w-4 h-4 mr-2" /> Hold
+                                  </DropdownMenuItem>
+                                ) : campaign.status === 'paused' ? (
+                                  <DropdownMenuItem onClick={(e) => handleToggleStatus(campaign, 'active', e)}>
+                                    <Play className="w-4 h-4 mr-2" /> Activate
+                                  </DropdownMenuItem>
+                                ) : campaign.status === 'planning' ? (
+                                  <DropdownMenuItem onClick={(e) => handleToggleStatus(campaign, 'active', e)}>
+                                    <Play className="w-4 h-4 mr-2" /> Start
+                                  </DropdownMenuItem>
+                                ) : null}
+                                <DropdownMenuItem 
+                                  onClick={(e) => handleDeleteCampaign(campaign, e)}
+                                  className="text-red-600 focus:text-red-600"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" /> Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                         </TableRow>
                       );
@@ -750,6 +906,125 @@ const CampaignHubPage = () => {
             <Button variant="outline" onClick={() => setShowNewCampaign(false)}>Cancel</Button>
             <Button onClick={handleCreateCampaign} className="bg-[#c4a35a] hover:bg-[#b39349] text-white">
               <Plus className="w-4 h-4 mr-2" /> Create Campaign
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Campaign Modal */}
+      <Dialog open={showEditCampaign} onOpenChange={setShowEditCampaign}>
+        <DialogContent className="max-w-lg" data-testid="edit-campaign-modal">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit2 className="w-5 h-5 text-amber-500" />
+              Edit Campaign
+            </DialogTitle>
+          </DialogHeader>
+          {editingCampaign && (
+            <div className="space-y-4 py-4">
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500">CAMPAIGN NAME *</Label>
+                <Input 
+                  value={editingCampaign.name}
+                  onChange={e => setEditingCampaign(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Campaign name"
+                  className="mt-1"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs uppercase tracking-wider text-gray-500">OBJECTIVE</Label>
+                  <Select value={editingCampaign.objective || 'awareness'} onValueChange={v => setEditingCampaign(prev => ({ ...prev, objective: v }))}>
+                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="awareness">Brand Awareness</SelectItem>
+                      <SelectItem value="engagement">Engagement</SelectItem>
+                      <SelectItem value="sales">Sales</SelectItem>
+                      <SelectItem value="launch">Product Launch</SelectItem>
+                      <SelectItem value="media_coverage">Media Coverage</SelectItem>
+                      <SelectItem value="thought_leadership">Thought Leadership</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs uppercase tracking-wider text-gray-500">STATUS</Label>
+                  <Select value={editingCampaign.status || 'planning'} onValueChange={v => setEditingCampaign(prev => ({ ...prev, status: v }))}>
+                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="planning">Planning</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="paused">Paused (On Hold)</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500">BUDGET (₹)</Label>
+                <Input 
+                  type="number"
+                  value={editingCampaign.budget}
+                  onChange={e => setEditingCampaign(prev => ({ ...prev, budget: parseFloat(e.target.value) || 0 }))}
+                  className="mt-1"
+                />
+              </div>
+              {editingCampaign.campaign_type === 'pr' && (
+                <div>
+                  <Label className="text-xs uppercase tracking-wider text-gray-500">TARGET MEDIA (comma-separated)</Label>
+                  <Input 
+                    value={editingCampaign.target_media || ''}
+                    onChange={e => setEditingCampaign(prev => ({ ...prev, target_media: e.target.value }))}
+                    placeholder="Vogue, Elle, Femina"
+                    className="mt-1"
+                  />
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs uppercase tracking-wider text-gray-500">START DATE</Label>
+                  <Input 
+                    type="date"
+                    value={editingCampaign.start_date}
+                    onChange={e => setEditingCampaign(prev => ({ ...prev, start_date: e.target.value }))}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs uppercase tracking-wider text-gray-500">END DATE</Label>
+                  <Input 
+                    type="date"
+                    value={editingCampaign.end_date}
+                    onChange={e => setEditingCampaign(prev => ({ ...prev, end_date: e.target.value }))}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+              {editingCampaign.campaign_type !== 'pr' && (
+                <div>
+                  <Label className="text-xs uppercase tracking-wider text-gray-500">TARGET MARKET</Label>
+                  <Input 
+                    value={editingCampaign.target_market || ''}
+                    onChange={e => setEditingCampaign(prev => ({ ...prev, target_market: e.target.value }))}
+                    placeholder="Urban Women 25-35"
+                    className="mt-1"
+                  />
+                </div>
+              )}
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500">DESCRIPTION</Label>
+                <Input 
+                  value={editingCampaign.description || ''}
+                  onChange={e => setEditingCampaign(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Campaign description..."
+                  className="mt-1"
+                />
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button variant="outline" onClick={() => { setShowEditCampaign(false); setEditingCampaign(null); }}>Cancel</Button>
+            <Button onClick={handleUpdateCampaign} className="bg-[#c4a35a] hover:bg-[#b39349] text-white">
+              <Save className="w-4 h-4 mr-2" /> Save Changes
             </Button>
           </div>
         </DialogContent>

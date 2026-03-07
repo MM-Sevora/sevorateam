@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import { 
   RefreshCw, Plus, Search, Filter, Building2, Globe, Users, 
   TrendingUp, ExternalLink, Edit2, Trash2, ChevronRight, Newspaper,
-  DollarSign, Mail, BarChart3
+  DollarSign, Mail, BarChart3, ArrowUpDown, ChevronUp, ChevronDown
 } from 'lucide-react';
 
 const PUBLICATION_TYPES = [
@@ -53,6 +53,10 @@ const PublicationsListPage = () => {
   const [filterType, setFilterType] = useState('all');
   const [filterTier, setFilterTier] = useState('all');
   const [filterBeat, setFilterBeat] = useState('all');
+  
+  // Sort state
+  const [sortBy, setSortBy] = useState('name');
+  const [sortOrder, setSortOrder] = useState('asc');
   
   // Stats
   const [stats, setStats] = useState({ total: 0, tier1: 0, tier2: 0, journalists: 0, coverage: 0 });
@@ -215,6 +219,34 @@ const PublicationsListPage = () => {
   const getTierConfig = (tier) => PUBLICATION_TIERS.find(t => t.value === tier) || PUBLICATION_TIERS[1];
   const getStatusConfig = (status) => RELATIONSHIP_STATUS.find(s => s.value === status) || RELATIONSHIP_STATUS[0];
 
+  const toggleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
+    } else {
+      setSortBy(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const SortIcon = ({ field }) => {
+    if (sortBy !== field) return <ArrowUpDown className="w-3 h-3 text-gray-300" />;
+    return sortOrder === 'desc' ? 
+      <ChevronDown className="w-3 h-3 text-gray-600" /> : 
+      <ChevronUp className="w-3 h-3 text-gray-600" />;
+  };
+
+  // Sort publications
+  const sortedPublications = [...publications].sort((a, b) => {
+    const multiplier = sortOrder === 'desc' ? -1 : 1;
+    if (sortBy === 'name') return multiplier * (a.name || '').localeCompare(b.name || '');
+    if (sortBy === 'tier') return multiplier * (a.tier || '').localeCompare(b.tier || '');
+    if (sortBy === 'da') return multiplier * ((a.domain_authority || 0) - (b.domain_authority || 0));
+    if (sortBy === 'traffic') return multiplier * ((a.monthly_traffic || 0) - (b.monthly_traffic || 0));
+    if (sortBy === 'journalists') return multiplier * ((a.journalist_count || 0) - (b.journalist_count || 0));
+    if (sortBy === 'coverage') return multiplier * ((a.coverage_count || 0) - (b.coverage_count || 0));
+    return 0;
+  });
+
   return (
     <div className="p-8 space-y-6" data-testid="publications-list-page">
       {/* Header */}
@@ -375,20 +407,32 @@ const PublicationsListPage = () => {
         <Table>
           <TableHeader>
             <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
-              <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[250px]">Publication</TableHead>
+              <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[250px] cursor-pointer hover:text-gray-900" onClick={() => toggleSort('name')}>
+                <span className="flex items-center gap-1">Publication <SortIcon field="name" /></span>
+              </TableHead>
               <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[120px]">Type</TableHead>
-              <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[80px]">Tier</TableHead>
-              <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[80px]">DA</TableHead>
-              <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[100px]">Traffic</TableHead>
+              <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[80px] cursor-pointer hover:text-gray-900" onClick={() => toggleSort('tier')}>
+                <span className="flex items-center gap-1">Tier <SortIcon field="tier" /></span>
+              </TableHead>
+              <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[80px] cursor-pointer hover:text-gray-900" onClick={() => toggleSort('da')}>
+                <span className="flex items-center gap-1">DA <SortIcon field="da" /></span>
+              </TableHead>
+              <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[100px] cursor-pointer hover:text-gray-900" onClick={() => toggleSort('traffic')}>
+                <span className="flex items-center gap-1">Traffic <SortIcon field="traffic" /></span>
+              </TableHead>
               <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[150px]">Beats</TableHead>
-              <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[100px]">Journalists</TableHead>
-              <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[90px]">Coverage</TableHead>
+              <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[100px] cursor-pointer hover:text-gray-900" onClick={() => toggleSort('journalists')}>
+                <span className="flex items-center gap-1">Journalists <SortIcon field="journalists" /></span>
+              </TableHead>
+              <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[90px] cursor-pointer hover:text-gray-900" onClick={() => toggleSort('coverage')}>
+                <span className="flex items-center gap-1">Coverage <SortIcon field="coverage" /></span>
+              </TableHead>
               <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[90px]">Status</TableHead>
               <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[100px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="divide-y divide-gray-100">
-            {publications.length === 0 ? (
+            {sortedPublications.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={10} className="text-center py-12">
                   <Building2 className="w-12 h-12 mx-auto mb-3 text-gray-300" />
@@ -397,7 +441,7 @@ const PublicationsListPage = () => {
                 </TableCell>
               </TableRow>
             ) : (
-              publications.map(pub => {
+              sortedPublications.map(pub => {
                 const tierConfig = getTierConfig(pub.tier);
                 const statusConfig = getStatusConfig(pub.relationship_status);
                 return (

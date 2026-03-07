@@ -17,7 +17,7 @@ import {
   Instagram, Youtube, TrendingUp, CheckCircle, XCircle,
   Bookmark, RefreshCw, ChevronDown, ChevronUp, Filter,
   ArrowUpDown, Star, Eye, MessageSquare, Send, Loader2,
-  Newspaper, User, Building2
+  Newspaper, User, Building2, ArrowLeft
 } from 'lucide-react';
 
 const INDUSTRIES = [
@@ -280,23 +280,30 @@ const AIDiscoveryPage = () => {
     <div className="p-8 bg-gray-50 min-h-screen" data-testid="ai-discovery-page">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">AI-Powered</p>
-          <h1 className="text-3xl font-semibold text-gray-900 flex items-center gap-3">
-            <Sparkles className="w-8 h-8 text-amber-500" />
-            AI Tools & Discovery
-          </h1>
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/marketing/ai-tools')} className="h-10 w-10 p-0" data-testid="back-btn">
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div>
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">AI-Powered</p>
+            <h1 className="text-3xl font-semibold text-gray-900 flex items-center gap-3">
+              <Sparkles className="w-8 h-8 text-amber-500" />
+              AI Tools & Discovery
+            </h1>
+          </div>
         </div>
-        {activeTab === 'influencer' && results && (
-          <Button variant="outline" onClick={() => { setResults(null); setRecommendations([]); }}>
-            <RefreshCw className="w-4 h-4 mr-2" /> New Search
-          </Button>
-        )}
-        {activeTab === 'pr' && prResults && (
-          <Button variant="outline" onClick={() => setPrResults(null)}>
-            <RefreshCw className="w-4 h-4 mr-2" /> New Search
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {activeTab === 'influencer' && results && (
+            <Button variant="outline" onClick={() => { setResults(null); setRecommendations([]); }}>
+              <RefreshCw className="w-4 h-4 mr-2" /> New Search
+            </Button>
+          )}
+          {activeTab === 'pr' && prResults && (
+            <Button variant="outline" onClick={() => setPrResults(null)}>
+              <RefreshCw className="w-4 h-4 mr-2" /> New Search
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Tabs for Influencer and PR Discovery */}
