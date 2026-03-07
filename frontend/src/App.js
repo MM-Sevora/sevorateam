@@ -1,53 +1,97 @@
-import { useEffect } from "react";
-import "@/App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { Toaster } from './components/ui/sonner';
+import Sidebar from './components/Sidebar';
+import LoginPage from './pages/LoginPage';
+import Dashboard from './pages/Dashboard';
+import LeadsPage from './pages/LeadsPage';
+import CustomersPage from './pages/CustomersPage';
+import WeddingPlannerPage from './pages/WeddingPlannerPage';
+import PipelinePage from './pages/PipelinePage';
+import AnalyticsPage from './pages/AnalyticsPage';
+import QRCodesPage from './pages/QRCodesPage';
+import SettingsPage from './pages/SettingsPage';
+import LeadCapturePage from './pages/LeadCapturePage';
+import './App.css';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+const ProtectedRoute = () => {
+  const { user, loading } = useAuth();
 
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
 
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
-    <div>
-      <header className="App-header">
-        <a
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
+    <div className="flex h-screen bg-background">
+      <Sidebar />
+      <main className="flex-1 overflow-auto paper-texture">
+        <Outlet />
+      </main>
     </div>
   );
 };
 
+const PublicRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (user) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+};
+
 function App() {
   return (
-    <div className="App">
-      <BrowserRouter>
+    <BrowserRouter>
+      <AuthProvider>
+        <Toaster position="top-right" richColors />
         <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
+          {/* Public Routes */}
+          <Route
+            path="/login"
+            element={
+              <PublicRoute>
+                <LoginPage />
+              </PublicRoute>
+            }
+          />
+          <Route path="/capture" element={<LeadCapturePage />} />
+
+          {/* Protected Routes */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/leads" element={<LeadsPage />} />
+            <Route path="/customers" element={<CustomersPage />} />
+            <Route path="/wedding-planner" element={<WeddingPlannerPage />} />
+            <Route path="/pipeline" element={<PipelinePage />} />
+            <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route path="/qr-codes" element={<QRCodesPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Route>
+
+          {/* Catch all */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </BrowserRouter>
-    </div>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 
