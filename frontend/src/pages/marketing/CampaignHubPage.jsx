@@ -26,7 +26,6 @@ const STATUS_CONFIG = {
 const CAMPAIGN_TYPES = {
   influencer: { label: 'Influencer', color: 'bg-purple-100 text-purple-700' },
   pr: { label: 'PR', color: 'bg-blue-100 text-blue-700' },
-  event: { label: 'Event', color: 'bg-amber-100 text-amber-700' },
   mixed: { label: 'Mixed', color: 'bg-emerald-100 text-emerald-700' }
 };
 
@@ -47,23 +46,22 @@ const CampaignHubPage = () => {
   
   const [view, setView] = useState('list'); // list, calendar, timeline
   const [campaigns, setCampaigns] = useState([]);
-  const [events, setEvents] = useState([]);
   const [milestones, setMilestones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [typeFilter, setTypeFilter] = useState('all'); // influencer, pr, event, mixed
+  const [typeFilter, setTypeFilter] = useState('all'); // influencer, pr, mixed
   
   // Calendar state
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
-  const [showEventModal, setShowEventModal] = useState(false);
+  const [showDateModal, setShowDateModal] = useState(false);
   
   // New campaign modal
   const [showNewCampaign, setShowNewCampaign] = useState(false);
   const [newCampaign, setNewCampaign] = useState({
     name: '', objective: 'awareness', budget: 0, start_date: '', end_date: '', target_market: '', description: '',
-    campaign_type: 'influencer', // influencer, pr, event, mixed
+    campaign_type: 'influencer', // influencer, pr, mixed
     pr_campaign_type: '', // For PR: product_launch, brand_announcement, etc.
     target_media: '' // For PR campaigns
   });
@@ -74,9 +72,8 @@ const CampaignHubPage = () => {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [campaignsRes, eventsRes, prCampaignsRes] = await Promise.all([
+      const [campaignsRes, prCampaignsRes] = await Promise.all([
         api.get('/marketing/campaigns'),
-        api.get('/marketing/v2/events').catch(() => ({ data: [] })),
         api.get('/marketing/v2/pr/campaigns').catch(() => ({ data: [] }))
       ]);
       
@@ -89,7 +86,6 @@ const CampaignHubPage = () => {
       
       // Combine all campaigns
       setCampaigns([...influencerCampaigns, ...prCampaignsList]);
-      setEvents(eventsRes.data || []);
       
       // Generate milestones from campaigns
       const allMilestones = [];
@@ -176,7 +172,7 @@ const CampaignHubPage = () => {
     return { daysInMonth, startingDay };
   };
 
-  const getEventsForDate = (date) => {
+  const getItemsForDate = (date) => {
     const dateStr = date.toISOString().split('T')[0];
     const items = [];
     
@@ -184,13 +180,6 @@ const CampaignHubPage = () => {
     milestones.forEach(m => {
       if (m.date === dateStr) {
         items.push({ ...m, itemType: 'milestone' });
-      }
-    });
-    
-    // Add events
-    events.forEach(e => {
-      if (e.start_date === dateStr || e.end_date === dateStr) {
-        items.push({ ...e, itemType: 'event', title: e.name });
       }
     });
     
@@ -256,32 +245,31 @@ const CampaignHubPage = () => {
     // Days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-      const dateEvents = getEventsForDate(date);
+      const dateItems = getItemsForDate(date);
       const isToday = new Date().toDateString() === date.toDateString();
       
       days.push(
         <div 
           key={day}
           className={`h-24 border border-gray-100 p-1 hover:bg-gray-50 cursor-pointer overflow-hidden ${isToday ? 'bg-amber-50 border-amber-200' : ''}`}
-          onClick={() => { setSelectedDate(date); setShowEventModal(true); }}
+          onClick={() => { setSelectedDate(date); setShowDateModal(true); }}
         >
           <div className={`text-sm font-medium mb-1 ${isToday ? 'text-amber-600' : 'text-gray-700'}`}>{day}</div>
           <div className="space-y-0.5">
-            {dateEvents.slice(0, 3).map((event, idx) => (
+            {dateItems.slice(0, 3).map((item, idx) => (
               <div 
                 key={idx}
                 className={`text-xs px-1 py-0.5 rounded truncate ${
-                  event.type === 'campaign_start' ? 'bg-green-100 text-green-700' :
-                  event.type === 'campaign_end' ? 'bg-red-100 text-red-700' :
-                  event.itemType === 'event' ? 'bg-purple-100 text-purple-700' :
+                  item.type === 'campaign_start' ? 'bg-green-100 text-green-700' :
+                  item.type === 'campaign_end' ? 'bg-red-100 text-red-700' :
                   'bg-blue-50 text-blue-600'
                 }`}
               >
-                {event.title}
+                {item.title}
               </div>
             ))}
-            {dateEvents.length > 3 && (
-              <div className="text-xs text-gray-400">+{dateEvents.length - 3} more</div>
+            {dateItems.length > 3 && (
+              <div className="text-xs text-gray-400">+{dateItems.length - 3} more</div>
             )}
           </div>
         </div>
@@ -413,7 +401,6 @@ const CampaignHubPage = () => {
                 <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="influencer">Influencer</SelectItem>
                 <SelectItem value="pr">PR</SelectItem>
-                <SelectItem value="event">Event</SelectItem>
                 <SelectItem value="mixed">Mixed</SelectItem>
               </SelectContent>
             </Select>
@@ -520,7 +507,7 @@ const CampaignHubPage = () => {
             <div className="flex items-center gap-2 text-xs">
               <span className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-green-100" /> Start</span>
               <span className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-red-100" /> End</span>
-              <span className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-purple-100" /> Event</span>
+              <span className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-blue-100" /> Active</span>
             </div>
           </CardHeader>
           <CardContent>
@@ -622,7 +609,6 @@ const CampaignHubPage = () => {
                 <SelectContent>
                   <SelectItem value="influencer">Influencer Campaign</SelectItem>
                   <SelectItem value="pr">PR Campaign</SelectItem>
-                  <SelectItem value="event">Event Campaign</SelectItem>
                   <SelectItem value="mixed">Mixed Campaign</SelectItem>
                 </SelectContent>
               </Select>
@@ -727,7 +713,7 @@ const CampaignHubPage = () => {
       </Dialog>
 
       {/* Date Detail Modal */}
-      <Dialog open={showEventModal} onOpenChange={setShowEventModal}>
+      <Dialog open={showDateModal} onOpenChange={setShowDateModal}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -736,29 +722,28 @@ const CampaignHubPage = () => {
             </DialogTitle>
           </DialogHeader>
           <div className="py-4">
-            {selectedDate && getEventsForDate(selectedDate).length === 0 ? (
-              <p className="text-gray-500 text-center py-4">No events on this date</p>
+            {selectedDate && getItemsForDate(selectedDate).length === 0 ? (
+              <p className="text-gray-500 text-center py-4">No campaigns on this date</p>
             ) : (
               <div className="space-y-2">
-                {selectedDate && getEventsForDate(selectedDate).map((event, idx) => (
+                {selectedDate && getItemsForDate(selectedDate).map((item, idx) => (
                   <div 
                     key={idx}
                     className={`p-3 rounded-lg border cursor-pointer hover:bg-gray-50 ${
-                      event.type === 'campaign_start' ? 'border-green-200 bg-green-50' :
-                      event.type === 'campaign_end' ? 'border-red-200 bg-red-50' :
-                      event.itemType === 'event' ? 'border-purple-200 bg-purple-50' :
+                      item.type === 'campaign_start' ? 'border-green-200 bg-green-50' :
+                      item.type === 'campaign_end' ? 'border-red-200 bg-red-50' :
                       'border-blue-200 bg-blue-50'
                     }`}
                     onClick={() => {
-                      if (event.campaign_id) {
-                        navigate(`/marketing/campaign/${event.campaign_id}`);
-                        setShowEventModal(false);
+                      if (item.campaign_id) {
+                        navigate(`/marketing/campaign/${item.campaign_id}`);
+                        setShowDateModal(false);
                       }
                     }}
                   >
-                    <div className="font-medium">{event.title}</div>
-                    {event.campaign_name && <div className="text-sm text-gray-500">{event.campaign_name}</div>}
-                    <Badge className="mt-2 capitalize">{event.type?.replace('_', ' ') || 'Event'}</Badge>
+                    <div className="font-medium">{item.title}</div>
+                    {item.campaign_name && <div className="text-sm text-gray-500">{item.campaign_name}</div>}
+                    <Badge className="mt-2 capitalize">{item.type?.replace('_', ' ') || 'Campaign'}</Badge>
                   </div>
                 ))}
               </div>

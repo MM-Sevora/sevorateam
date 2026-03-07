@@ -20,7 +20,6 @@ import BudgetPage from "./pages/marketing/Budget";
 
 // Marketing V2 Pages (Current)
 import DigitalPRPage from "./pages/marketing/DigitalPRPage";
-import EventsPage from "./pages/marketing/EventsPage";
 import ContentAssetsPage from "./pages/marketing/ContentAssetsPage";
 import InfluencersListPage from "./pages/marketing/InfluencersListPage";
 import InfluencerDetailPage from "./pages/marketing/InfluencerDetailPage";
@@ -123,7 +122,6 @@ function AppRoutes() {
             <Route path="/marketing/influencers" element={<ProtectedRoute requiredDepartment="marketing"><InfluencersListPage /></ProtectedRoute>} />
             <Route path="/marketing/influencer/:influencerId" element={<ProtectedRoute requiredDepartment="marketing"><InfluencerDetailPage /></ProtectedRoute>} />
             <Route path="/marketing/pr" element={<ProtectedRoute requiredDepartment="marketing"><DigitalPRPage /></ProtectedRoute>} />
-            <Route path="/marketing/events" element={<ProtectedRoute requiredDepartment="marketing"><EventsPage /></ProtectedRoute>} />
             {/* Unified Campaign Hub (List + Calendar + Timeline) */}
             <Route path="/marketing/campaigns" element={<ProtectedRoute requiredDepartment="marketing"><CampaignHubPage /></ProtectedRoute>} />
             <Route path="/marketing/campaign/:campaignId" element={<ProtectedRoute requiredDepartment="marketing"><CampaignDetailPage /></ProtectedRoute>} />
