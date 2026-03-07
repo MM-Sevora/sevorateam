@@ -1,0 +1,1 @@
+from routes.marketing_v2 import marketing_v2_router

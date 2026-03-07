@@ -28,11 +28,13 @@ const DEPARTMENT_CONFIG = {
         textColor: 'text-amber-800',
         routes: [
             { path: '/marketing', name: 'Dashboard', icon: LayoutDashboard },
-            { path: '/marketing/influencers', name: 'Influencers', icon: Users },
+            { path: '/marketing/contacts', name: 'Contacts Hub', icon: Users },
+            { path: '/marketing/pr', name: 'Digital PR', icon: MessageSquare },
             { path: '/marketing/campaigns', name: 'Campaigns', icon: Target },
-            { path: '/marketing/outreach', name: 'Outreach', icon: MessageSquare },
-            { path: '/marketing/negotiations', name: 'Negotiations', icon: DollarSign },
-            { path: '/marketing/budget', name: 'Budget', icon: DollarSign },
+            { path: '/marketing/events', name: 'Events', icon: Calendar },
+            { path: '/marketing/calendar', name: 'Calendar', icon: Calendar },
+            { path: '/marketing/assets', name: 'Content & Assets', icon: Image },
+            { path: '/marketing/budget', name: 'Budget & Payments', icon: DollarSign },
             { path: '/marketing/ai-tools', name: 'AI Tools', icon: Sparkles },
             { path: '/marketing/analytics', name: 'Analytics', icon: BarChart3 },
         ]

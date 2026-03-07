@@ -89,11 +89,13 @@ class PermissionAction(str, Enum):
 # All modules in the system
 ALL_MODULES = {
     "marketing": [
-        {"id": "influencers", "name": "Influencers", "description": "Manage influencer profiles and partnerships"},
+        {"id": "contacts_hub", "name": "Contacts Hub", "description": "Unified contact management (influencers, journalists, bloggers)"},
+        {"id": "digital_pr", "name": "Digital PR", "description": "Press releases, media coverage, PR outreach"},
         {"id": "campaigns", "name": "Campaigns", "description": "Marketing campaign management"},
-        {"id": "outreach", "name": "Outreach", "description": "Communication and outreach tracking"},
-        {"id": "negotiations", "name": "Negotiations", "description": "Deal and negotiation management"},
-        {"id": "budget", "name": "Budget", "description": "Budget tracking and allocation"},
+        {"id": "events", "name": "Events", "description": "Brand launches, press events, influencer meetups"},
+        {"id": "calendar", "name": "Marketing Calendar", "description": "Unified marketing calendar"},
+        {"id": "content_assets", "name": "Content & Assets", "description": "Brand assets, press kit, UGC library, templates"},
+        {"id": "budget", "name": "Budget & Payments", "description": "Budget tracking, payments, invoices"},
         {"id": "ai_tools", "name": "AI Tools", "description": "AI-powered marketing tools"},
         {"id": "analytics", "name": "Analytics", "description": "Marketing analytics and reports"},
     ],
@@ -133,21 +135,21 @@ ALL_MODULES = {
 DEFAULT_ROLE_PERMISSIONS = {
     "super_admin": {
         # Full access to everything
-        "marketing": {"influencers": ["view", "create", "edit", "delete", "export"], "campaigns": ["view", "create", "edit", "delete", "export"], "outreach": ["view", "create", "edit", "delete", "export"], "negotiations": ["view", "create", "edit", "delete", "export"], "budget": ["view", "create", "edit", "delete", "export"], "ai_tools": ["view", "create", "edit", "delete"], "analytics": ["view", "export"]},
+        "marketing": {"contacts_hub": ["view", "create", "edit", "delete", "export"], "digital_pr": ["view", "create", "edit", "delete", "export"], "campaigns": ["view", "create", "edit", "delete", "export"], "events": ["view", "create", "edit", "delete", "export"], "calendar": ["view", "create", "edit", "delete"], "content_assets": ["view", "create", "edit", "delete", "export"], "budget": ["view", "create", "edit", "delete", "export"], "ai_tools": ["view", "create", "edit", "delete"], "analytics": ["view", "export"]},
         "sales": {"leads": ["view", "create", "edit", "delete", "export"], "customers": ["view", "create", "edit", "delete", "export"], "pipeline": ["view", "create", "edit", "delete"], "qr_codes": ["view", "create", "edit", "delete"], "partners": ["view", "create", "edit", "delete", "export"], "wedding_planner": ["view", "create", "edit", "delete"], "analytics": ["view", "export"]},
         "social": {"content_studio": ["view", "create", "edit", "delete"], "posts": ["view", "create", "edit", "delete"], "autopilot": ["view", "create", "edit", "delete"], "content_library": ["view", "create", "edit", "delete"], "ai_tools": ["view", "create", "edit", "delete"], "youtube": ["view", "create", "edit", "delete"], "avatar": ["view", "create", "edit", "delete"], "analytics": ["view", "export"]},
         "mail": {"inbox": ["view", "create", "edit", "delete"], "compose": ["view", "create"], "contacts": ["view"]},
         "admin": {"users": ["view", "create", "edit", "delete"], "azure_sync": ["view", "create"], "audit_logs": ["view"], "permissions": ["view", "edit"]},
     },
     "admin": {
-        "marketing": {"influencers": ["view", "create", "edit", "delete", "export"], "campaigns": ["view", "create", "edit", "delete", "export"], "outreach": ["view", "create", "edit", "delete", "export"], "negotiations": ["view", "create", "edit", "delete", "export"], "budget": ["view", "create", "edit", "delete", "export"], "ai_tools": ["view", "create", "edit", "delete"], "analytics": ["view", "export"]},
+        "marketing": {"contacts_hub": ["view", "create", "edit", "delete", "export"], "digital_pr": ["view", "create", "edit", "delete", "export"], "campaigns": ["view", "create", "edit", "delete", "export"], "events": ["view", "create", "edit", "delete", "export"], "calendar": ["view", "create", "edit", "delete"], "content_assets": ["view", "create", "edit", "delete", "export"], "budget": ["view", "create", "edit", "delete", "export"], "ai_tools": ["view", "create", "edit", "delete"], "analytics": ["view", "export"]},
         "sales": {"leads": ["view", "create", "edit", "delete", "export"], "customers": ["view", "create", "edit", "delete", "export"], "pipeline": ["view", "create", "edit", "delete"], "qr_codes": ["view", "create", "edit", "delete"], "partners": ["view", "create", "edit", "delete", "export"], "wedding_planner": ["view", "create", "edit", "delete"], "analytics": ["view", "export"]},
         "social": {"content_studio": ["view", "create", "edit", "delete"], "posts": ["view", "create", "edit", "delete"], "autopilot": ["view", "create", "edit", "delete"], "content_library": ["view", "create", "edit", "delete"], "ai_tools": ["view", "create", "edit", "delete"], "youtube": ["view", "create", "edit", "delete"], "avatar": ["view", "create", "edit", "delete"], "analytics": ["view", "export"]},
         "mail": {"inbox": ["view", "create", "edit", "delete"], "compose": ["view", "create"], "contacts": ["view"]},
         "admin": {"users": ["view", "create", "edit"], "azure_sync": ["view", "create"], "audit_logs": ["view"], "permissions": ["view", "edit"]},
     },
     "marketing_manager": {
-        "marketing": {"influencers": ["view", "create", "edit", "delete", "export"], "campaigns": ["view", "create", "edit", "delete", "export"], "outreach": ["view", "create", "edit", "delete", "export"], "negotiations": ["view", "create", "edit", "delete", "export"], "budget": ["view", "edit"], "ai_tools": ["view", "create", "edit"], "analytics": ["view", "export"]},
+        "marketing": {"contacts_hub": ["view", "create", "edit", "delete", "export"], "digital_pr": ["view", "create", "edit", "delete", "export"], "campaigns": ["view", "create", "edit", "delete", "export"], "events": ["view", "create", "edit", "delete", "export"], "calendar": ["view", "create", "edit", "delete"], "content_assets": ["view", "create", "edit", "delete", "export"], "budget": ["view", "edit"], "ai_tools": ["view", "create", "edit"], "analytics": ["view", "export"]},
         "mail": {"inbox": ["view"], "compose": ["view", "create"], "contacts": ["view"]},
     },
     "sales_manager": {
@@ -159,7 +161,7 @@ DEFAULT_ROLE_PERMISSIONS = {
         "mail": {"inbox": ["view"], "compose": ["view", "create"], "contacts": ["view"]},
     },
     "viewer": {
-        "marketing": {"influencers": ["view"], "campaigns": ["view"], "outreach": ["view"], "negotiations": ["view"], "budget": ["view"], "ai_tools": ["view"], "analytics": ["view"]},
+        "marketing": {"contacts_hub": ["view"], "digital_pr": ["view"], "campaigns": ["view"], "events": ["view"], "calendar": ["view"], "content_assets": ["view"], "budget": ["view"], "ai_tools": ["view"], "analytics": ["view"]},
         "sales": {"leads": ["view"], "customers": ["view"], "pipeline": ["view"], "qr_codes": ["view"], "partners": ["view"], "wedding_planner": ["view"], "analytics": ["view"]},
         "social": {"content_studio": ["view"], "posts": ["view"], "autopilot": ["view"], "content_library": ["view"], "ai_tools": ["view"], "youtube": ["view"], "avatar": ["view"], "analytics": ["view"]},
         "mail": {"inbox": ["view"], "contacts": ["view"]},
@@ -2599,6 +2601,17 @@ api_router.include_router(auth_router)
 api_router.include_router(marketing_router)
 api_router.include_router(sales_router)
 api_router.include_router(social_router)
+
+# Register Marketing V2 routes (new unified contacts hub)
+try:
+    import sys
+    sys.path.insert(0, str(ROOT_DIR))
+    from routes.marketing_v2 import marketing_v2_router
+    api_router.include_router(marketing_v2_router)
+    logger.info("Marketing V2 routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Marketing V2 routes: {e}")
+
 app.include_router(api_router)
 
 # ============== WEBSOCKET FOR REAL-TIME NOTIFICATIONS ==============
