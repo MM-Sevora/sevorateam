@@ -42,6 +42,14 @@ from models.marketing import (
     ApprovalCreate, ApprovalResponse,
     # Calendar models
     CalendarItemCreate, CalendarItemResponse,
+    # Phase 5: Relationship CRM models
+    InteractionCreate, InteractionResponse, RelationshipScoreUpdate,
+    # Phase 8: Press Kit models
+    PressKitAssetCreate, PressKitAssetResponse, PressKitCreate, PressKitResponse,
+    # Phase 9: Alerts & Monitoring models
+    MonitoringAlertCreate, MonitoringAlertResponse, AlertTriggerCreate, AlertTriggerResponse,
+    # Phase 10: Pipeline models
+    PipelineContactUpdate, PipelineContactResponse, PipelineStageStats,
 )
 
 marketing_v2_router = APIRouter(prefix="/marketing/v2", tags=["Marketing V2"])
@@ -1720,3 +1728,790 @@ async def update_pitch_status(
         )
     
     return {"message": f"Pitch status updated to {status}"}
+
+
+# ============== PHASE 5: RELATIONSHIP CRM ==============
+
+@marketing_v2_router.get("/relationships/interactions", response_model=List[InteractionResponse])
+async def get_interactions(
+    contact_id: Optional[str] = None,
+    interaction_type: Optional[str] = None,
+    limit: int = 50,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get interaction history"""
+    db = get_db()
+    query = {}
+    if contact_id:
+        query["contact_id"] = contact_id
+    if interaction_type:
+        query["interaction_type"] = interaction_type
+    
+    interactions = await db.interactions.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    return interactions
+
+@marketing_v2_router.post("/relationships/interactions", response_model=InteractionResponse)
+async def create_interaction(
+    data: InteractionCreate,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Log an interaction with a contact"""
+    db = get_db()
+    
+    contact = await db.contacts.find_one({"id": data.contact_id}, {"_id": 0})
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    interaction_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    interaction_doc = {
+        "id": interaction_id,
+        **data.model_dump(),
+        "contact_name": contact.get("name"),
+        "created_by": user.get("id"),
+        "created_by_name": user.get("name"),
+        "created_at": now,
+    }
+    
+    await db.interactions.insert_one(interaction_doc)
+    del interaction_doc["_id"]
+    
+    # Update contact's last_contacted_date
+    await db.contacts.update_one(
+        {"id": data.contact_id},
+        {"$set": {"last_contacted_date": now}}
+    )
+    
+    # Adjust relationship score based on interaction type
+    score_adjustments = {
+        "email": 1, "call": 2, "meeting": 5, "event": 3,
+        "pitch": 1, "follow_up": 1, "coverage": 10, "note": 0
+    }
+    adjustment = score_adjustments.get(data.interaction_type, 0)
+    if data.outcome == "positive":
+        adjustment += 2
+    elif data.outcome == "negative":
+        adjustment -= 2
+    
+    if adjustment != 0:
+        await db.contacts.update_one(
+            {"id": data.contact_id},
+            {"$inc": {"relationship_score": adjustment}}
+        )
+    
+    return interaction_doc
+
+@marketing_v2_router.get("/relationships/contacts/{contact_id}/history")
+async def get_contact_relationship_history(
+    contact_id: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get full relationship history for a contact"""
+    db = get_db()
+    
+    contact = await db.contacts.find_one({"id": contact_id}, {"_id": 0})
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    # Get interactions
+    interactions = await db.interactions.find(
+        {"contact_id": contact_id}, {"_id": 0}
+    ).sort("created_at", -1).limit(50).to_list(50)
+    
+    # Get pitches
+    pitches = await db.pr_pitches.find(
+        {"contact_id": contact_id}, {"_id": 0}
+    ).sort("created_at", -1).limit(20).to_list(20)
+    
+    # Get coverage
+    coverage = await db.media_coverage.find(
+        {"contact_id": contact_id}, {"_id": 0}
+    ).sort("created_at", -1).limit(20).to_list(20)
+    
+    # Get communications
+    communications = await db.communications.find(
+        {"contact_id": contact_id}, {"_id": 0}
+    ).sort("created_at", -1).limit(20).to_list(20)
+    
+    return {
+        "contact": contact,
+        "relationship_score": contact.get("relationship_score", 0),
+        "interactions": interactions,
+        "pitches": pitches,
+        "coverage": coverage,
+        "communications": communications,
+        "stats": {
+            "total_interactions": len(interactions),
+            "total_pitches": len(pitches),
+            "total_coverage": len(coverage),
+            "response_rate": len([p for p in pitches if p.get("status") in ["responded", "interested"]]) / len(pitches) * 100 if pitches else 0
+        }
+    }
+
+@marketing_v2_router.put("/relationships/contacts/{contact_id}/score")
+async def update_relationship_score(
+    contact_id: str,
+    adjustment: int,
+    reason: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Manually adjust relationship score"""
+    db = get_db()
+    
+    adjustment = max(-10, min(10, adjustment))  # Clamp to -10 to +10
+    
+    result = await db.contacts.update_one(
+        {"id": contact_id},
+        {"$inc": {"relationship_score": adjustment}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    # Log the adjustment
+    await db.interactions.insert_one({
+        "id": str(uuid.uuid4()),
+        "contact_id": contact_id,
+        "interaction_type": "note",
+        "notes": f"Relationship score adjusted by {adjustment}: {reason}",
+        "created_by": user.get("id"),
+        "created_by_name": user.get("name"),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    return {"message": f"Relationship score adjusted by {adjustment}"}
+
+@marketing_v2_router.get("/relationships/top-contacts")
+async def get_top_contacts(
+    limit: int = 10,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get contacts with highest relationship scores"""
+    db = get_db()
+    
+    contacts = await db.contacts.find(
+        {"contact_type": "journalist"},
+        {"_id": 0}
+    ).sort("relationship_score", -1).limit(limit).to_list(limit)
+    
+    return contacts
+
+# ============== PHASE 8: PRESS KIT MANAGEMENT ==============
+
+@marketing_v2_router.get("/press-kits/assets", response_model=List[PressKitAssetResponse])
+async def get_press_kit_assets(
+    asset_type: Optional[str] = None,
+    category: Optional[str] = None,
+    is_public: Optional[bool] = None,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get all press kit assets"""
+    db = get_db()
+    query = {}
+    if asset_type:
+        query["asset_type"] = asset_type
+    if category:
+        query["category"] = category
+    if is_public is not None:
+        query["is_public"] = is_public
+    
+    assets = await db.press_kit_assets.find(query, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return assets
+
+@marketing_v2_router.post("/press-kits/assets", response_model=PressKitAssetResponse)
+async def create_press_kit_asset(
+    data: PressKitAssetCreate,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Add a new asset to the press kit library"""
+    db = get_db()
+    
+    asset_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    asset_doc = {
+        "id": asset_id,
+        **data.model_dump(),
+        "download_count": 0,
+        "created_at": now,
+        "updated_at": now,
+    }
+    
+    await db.press_kit_assets.insert_one(asset_doc)
+    del asset_doc["_id"]
+    return asset_doc
+
+@marketing_v2_router.put("/press-kits/assets/{asset_id}")
+async def update_press_kit_asset(
+    asset_id: str,
+    data: PressKitAssetCreate,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Update a press kit asset"""
+    db = get_db()
+    
+    update_data = data.model_dump()
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.press_kit_assets.update_one({"id": asset_id}, {"$set": update_data})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    
+    return {"message": "Asset updated"}
+
+@marketing_v2_router.delete("/press-kits/assets/{asset_id}")
+async def delete_press_kit_asset(
+    asset_id: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Delete a press kit asset"""
+    db = get_db()
+    
+    result = await db.press_kit_assets.delete_one({"id": asset_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    
+    # Remove from any press kits
+    await db.press_kits.update_many(
+        {"asset_ids": asset_id},
+        {"$pull": {"asset_ids": asset_id}}
+    )
+    
+    return {"message": "Asset deleted"}
+
+@marketing_v2_router.get("/press-kits", response_model=List[PressKitResponse])
+async def get_press_kits(
+    is_active: Optional[bool] = None,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get all press kits"""
+    db = get_db()
+    query = {}
+    if is_active is not None:
+        query["is_active"] = is_active
+    
+    kits = await db.press_kits.find(query, {"_id": 0}).sort("created_at", -1).to_list(50)
+    
+    # Populate assets
+    for kit in kits:
+        asset_ids = kit.get("asset_ids", [])
+        if asset_ids:
+            assets = await db.press_kit_assets.find(
+                {"id": {"$in": asset_ids}}, {"_id": 0}
+            ).to_list(len(asset_ids))
+            kit["assets"] = assets
+    
+    return kits
+
+@marketing_v2_router.post("/press-kits", response_model=PressKitResponse)
+async def create_press_kit(
+    data: PressKitCreate,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Create a new press kit"""
+    db = get_db()
+    
+    kit_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Generate share URL
+    share_token = str(uuid.uuid4())[:8]
+    
+    kit_doc = {
+        "id": kit_id,
+        **data.model_dump(),
+        "share_url": f"/press-kit/{share_token}",
+        "share_token": share_token,
+        "view_count": 0,
+        "download_count": 0,
+        "created_at": now,
+    }
+    
+    await db.press_kits.insert_one(kit_doc)
+    del kit_doc["_id"]
+    
+    # Populate assets
+    if data.asset_ids:
+        assets = await db.press_kit_assets.find(
+            {"id": {"$in": data.asset_ids}}, {"_id": 0}
+        ).to_list(len(data.asset_ids))
+        kit_doc["assets"] = assets
+    
+    return kit_doc
+
+@marketing_v2_router.get("/press-kits/{kit_id}", response_model=PressKitResponse)
+async def get_press_kit(
+    kit_id: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get a specific press kit"""
+    db = get_db()
+    
+    kit = await db.press_kits.find_one({"id": kit_id}, {"_id": 0})
+    if not kit:
+        raise HTTPException(status_code=404, detail="Press kit not found")
+    
+    # Populate assets
+    asset_ids = kit.get("asset_ids", [])
+    if asset_ids:
+        assets = await db.press_kit_assets.find(
+            {"id": {"$in": asset_ids}}, {"_id": 0}
+        ).to_list(len(asset_ids))
+        kit["assets"] = assets
+    
+    return kit
+
+@marketing_v2_router.put("/press-kits/{kit_id}/assets")
+async def update_press_kit_assets(
+    kit_id: str,
+    asset_ids: List[str],
+    user: dict = Depends(get_marketing_auth())
+):
+    """Update assets in a press kit"""
+    db = get_db()
+    
+    result = await db.press_kits.update_one(
+        {"id": kit_id},
+        {"$set": {"asset_ids": asset_ids}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Press kit not found")
+    
+    return {"message": "Press kit assets updated"}
+
+@marketing_v2_router.get("/press-kits/public/{share_token}")
+async def get_public_press_kit(share_token: str):
+    """Get public press kit by share token (no auth required)"""
+    db = get_db()
+    
+    kit = await db.press_kits.find_one(
+        {"share_token": share_token, "is_active": True},
+        {"_id": 0, "password": 0}
+    )
+    if not kit:
+        raise HTTPException(status_code=404, detail="Press kit not found")
+    
+    # Check expiry
+    if kit.get("expiry_date"):
+        expiry = datetime.fromisoformat(kit["expiry_date"].replace("Z", "+00:00"))
+        if datetime.now(timezone.utc) > expiry:
+            raise HTTPException(status_code=410, detail="Press kit has expired")
+    
+    # Increment view count
+    await db.press_kits.update_one({"id": kit["id"]}, {"$inc": {"view_count": 1}})
+    
+    # Get public assets only
+    asset_ids = kit.get("asset_ids", [])
+    if asset_ids:
+        assets = await db.press_kit_assets.find(
+            {"id": {"$in": asset_ids}, "is_public": True},
+            {"_id": 0}
+        ).to_list(len(asset_ids))
+        kit["assets"] = assets
+    
+    return kit
+
+# ============== PHASE 9: ALERTS & MONITORING ==============
+
+@marketing_v2_router.get("/monitoring/alerts", response_model=List[MonitoringAlertResponse])
+async def get_monitoring_alerts(
+    alert_type: Optional[str] = None,
+    is_active: Optional[bool] = None,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get all monitoring alerts"""
+    db = get_db()
+    query = {}
+    if alert_type:
+        query["alert_type"] = alert_type
+    if is_active is not None:
+        query["is_active"] = is_active
+    
+    alerts = await db.monitoring_alerts.find(query, {"_id": 0}).sort("created_at", -1).to_list(50)
+    return alerts
+
+@marketing_v2_router.post("/monitoring/alerts", response_model=MonitoringAlertResponse)
+async def create_monitoring_alert(
+    data: MonitoringAlertCreate,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Create a new monitoring alert"""
+    db = get_db()
+    
+    alert_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    alert_doc = {
+        "id": alert_id,
+        **data.model_dump(),
+        "trigger_count": 0,
+        "created_at": now,
+    }
+    
+    await db.monitoring_alerts.insert_one(alert_doc)
+    del alert_doc["_id"]
+    return alert_doc
+
+@marketing_v2_router.put("/monitoring/alerts/{alert_id}")
+async def update_monitoring_alert(
+    alert_id: str,
+    data: MonitoringAlertCreate,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Update a monitoring alert"""
+    db = get_db()
+    
+    result = await db.monitoring_alerts.update_one({"id": alert_id}, {"$set": data.model_dump()})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    
+    return {"message": "Alert updated"}
+
+@marketing_v2_router.delete("/monitoring/alerts/{alert_id}")
+async def delete_monitoring_alert(
+    alert_id: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Delete a monitoring alert"""
+    db = get_db()
+    
+    result = await db.monitoring_alerts.delete_one({"id": alert_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    
+    return {"message": "Alert deleted"}
+
+@marketing_v2_router.put("/monitoring/alerts/{alert_id}/toggle")
+async def toggle_monitoring_alert(
+    alert_id: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Toggle alert active status"""
+    db = get_db()
+    
+    alert = await db.monitoring_alerts.find_one({"id": alert_id})
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    
+    new_status = not alert.get("is_active", True)
+    await db.monitoring_alerts.update_one({"id": alert_id}, {"$set": {"is_active": new_status}})
+    
+    return {"message": f"Alert {'activated' if new_status else 'deactivated'}"}
+
+@marketing_v2_router.get("/monitoring/triggers", response_model=List[AlertTriggerResponse])
+async def get_alert_triggers(
+    alert_id: Optional[str] = None,
+    is_read: Optional[bool] = None,
+    limit: int = 50,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get alert triggers/mentions"""
+    db = get_db()
+    query = {}
+    if alert_id:
+        query["alert_id"] = alert_id
+    if is_read is not None:
+        query["is_read"] = is_read
+    
+    triggers = await db.alert_triggers.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    return triggers
+
+@marketing_v2_router.post("/monitoring/triggers", response_model=AlertTriggerResponse)
+async def create_alert_trigger(
+    data: AlertTriggerCreate,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Manually log an alert trigger/mention"""
+    db = get_db()
+    
+    alert = await db.monitoring_alerts.find_one({"id": data.alert_id}, {"_id": 0})
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    
+    trigger_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    trigger_doc = {
+        "id": trigger_id,
+        **data.model_dump(),
+        "alert_name": alert.get("name"),
+        "is_read": False,
+        "is_actioned": False,
+        "created_at": now,
+    }
+    
+    await db.alert_triggers.insert_one(trigger_doc)
+    del trigger_doc["_id"]
+    
+    # Update alert stats
+    await db.monitoring_alerts.update_one(
+        {"id": data.alert_id},
+        {"$inc": {"trigger_count": 1}, "$set": {"last_triggered": now}}
+    )
+    
+    return trigger_doc
+
+@marketing_v2_router.put("/monitoring/triggers/{trigger_id}/read")
+async def mark_trigger_read(
+    trigger_id: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Mark a trigger as read"""
+    db = get_db()
+    
+    result = await db.alert_triggers.update_one({"id": trigger_id}, {"$set": {"is_read": True}})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Trigger not found")
+    
+    return {"message": "Marked as read"}
+
+@marketing_v2_router.put("/monitoring/triggers/{trigger_id}/action")
+async def mark_trigger_actioned(
+    trigger_id: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Mark a trigger as actioned"""
+    db = get_db()
+    
+    result = await db.alert_triggers.update_one(
+        {"id": trigger_id},
+        {"$set": {"is_read": True, "is_actioned": True}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Trigger not found")
+    
+    return {"message": "Marked as actioned"}
+
+@marketing_v2_router.get("/monitoring/stats")
+async def get_monitoring_stats(user: dict = Depends(get_marketing_auth())):
+    """Get monitoring statistics"""
+    db = get_db()
+    
+    total_alerts = await db.monitoring_alerts.count_documents({})
+    active_alerts = await db.monitoring_alerts.count_documents({"is_active": True})
+    total_triggers = await db.alert_triggers.count_documents({})
+    unread_triggers = await db.alert_triggers.count_documents({"is_read": False})
+    
+    # Triggers by sentiment
+    positive_triggers = await db.alert_triggers.count_documents({"sentiment": "positive"})
+    negative_triggers = await db.alert_triggers.count_documents({"sentiment": "negative"})
+    
+    # Recent triggers
+    recent = await db.alert_triggers.find({}, {"_id": 0}).sort("created_at", -1).limit(5).to_list(5)
+    
+    return {
+        "alerts": {
+            "total": total_alerts,
+            "active": active_alerts
+        },
+        "triggers": {
+            "total": total_triggers,
+            "unread": unread_triggers,
+            "positive": positive_triggers,
+            "negative": negative_triggers
+        },
+        "recent_triggers": recent
+    }
+
+# ============== PHASE 10: PIPELINE VIEW ==============
+
+@marketing_v2_router.get("/pipeline/contacts")
+async def get_pipeline_contacts(
+    pr_campaign_id: Optional[str] = None,
+    stage: Optional[str] = None,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get contacts in pipeline format"""
+    db = get_db()
+    
+    query = {"contact_type": "journalist"}
+    if stage:
+        query["pipeline_stage"] = stage
+    
+    # If campaign specified, only get journalists in that campaign
+    if pr_campaign_id:
+        campaign = await db.pr_campaigns.find_one({"id": pr_campaign_id})
+        if campaign:
+            journalist_ids = campaign.get("journalist_ids", [])
+            if journalist_ids:
+                query["id"] = {"$in": journalist_ids}
+    
+    contacts = await db.contacts.find(query, {"_id": 0}).to_list(500)
+    
+    # Group by stage
+    stages = ["prospect", "researching", "contacted", "replied", "interested", "negotiating", "confirmed", "published", "declined"]
+    pipeline = {}
+    
+    for stage_name in stages:
+        stage_contacts = [c for c in contacts if c.get("pipeline_stage", "prospect") == stage_name]
+        pipeline[stage_name] = {
+            "count": len(stage_contacts),
+            "contacts": stage_contacts
+        }
+    
+    return pipeline
+
+@marketing_v2_router.get("/pipeline/board")
+async def get_pipeline_board(
+    pr_campaign_id: Optional[str] = None,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get Kanban-style pipeline board"""
+    db = get_db()
+    
+    query = {"contact_type": "journalist"}
+    
+    if pr_campaign_id:
+        campaign = await db.pr_campaigns.find_one({"id": pr_campaign_id})
+        if campaign:
+            journalist_ids = campaign.get("journalist_ids", [])
+            if journalist_ids:
+                query["id"] = {"$in": journalist_ids}
+    
+    contacts = await db.contacts.find(query, {"_id": 0}).to_list(500)
+    
+    # Define stages with display names
+    stages = [
+        {"id": "prospect", "name": "Prospect", "color": "gray"},
+        {"id": "researching", "name": "Researching", "color": "blue"},
+        {"id": "contacted", "name": "Contacted", "color": "purple"},
+        {"id": "replied", "name": "Replied", "color": "amber"},
+        {"id": "interested", "name": "Interested", "color": "green"},
+        {"id": "negotiating", "name": "Negotiating", "color": "orange"},
+        {"id": "confirmed", "name": "Confirmed", "color": "emerald"},
+        {"id": "published", "name": "Published", "color": "teal"},
+        {"id": "declined", "name": "Declined", "color": "red"},
+    ]
+    
+    board = []
+    for stage in stages:
+        stage_contacts = [c for c in contacts if c.get("pipeline_stage", "prospect") == stage["id"]]
+        
+        # Calculate days in stage for each contact
+        for c in stage_contacts:
+            if c.get("stage_entered_at"):
+                entered = datetime.fromisoformat(c["stage_entered_at"].replace("Z", "+00:00"))
+                days = (datetime.now(timezone.utc) - entered).days
+                c["days_in_stage"] = days
+            else:
+                c["days_in_stage"] = 0
+        
+        board.append({
+            **stage,
+            "count": len(stage_contacts),
+            "contacts": stage_contacts
+        })
+    
+    return board
+
+@marketing_v2_router.put("/pipeline/contacts/{contact_id}/stage")
+async def update_pipeline_stage(
+    contact_id: str,
+    stage: str,
+    notes: Optional[str] = None,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Move contact to a different pipeline stage"""
+    db = get_db()
+    
+    valid_stages = ["prospect", "researching", "contacted", "replied", "interested", "negotiating", "confirmed", "published", "declined"]
+    if stage not in valid_stages:
+        raise HTTPException(status_code=400, detail=f"Invalid stage. Must be one of: {valid_stages}")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    update_data = {
+        "pipeline_stage": stage,
+        "stage_entered_at": now,
+    }
+    
+    # Also update the contact status to match certain stages
+    status_mapping = {
+        "contacted": "contacted",
+        "replied": "contacted",
+        "interested": "interested",
+        "confirmed": "confirmed",
+    }
+    if stage in status_mapping:
+        update_data["status"] = status_mapping[stage]
+    
+    result = await db.contacts.update_one({"id": contact_id}, {"$set": update_data})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    # Log the stage change as an interaction
+    contact = await db.contacts.find_one({"id": contact_id})
+    await db.interactions.insert_one({
+        "id": str(uuid.uuid4()),
+        "contact_id": contact_id,
+        "contact_name": contact.get("name") if contact else None,
+        "interaction_type": "note",
+        "notes": f"Moved to '{stage}' stage" + (f": {notes}" if notes else ""),
+        "created_by": user.get("id"),
+        "created_by_name": user.get("name"),
+        "created_at": now
+    })
+    
+    return {"message": f"Contact moved to {stage}"}
+
+@marketing_v2_router.post("/pipeline/bulk-move")
+async def bulk_move_pipeline(
+    contact_ids: List[str],
+    stage: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Move multiple contacts to a pipeline stage"""
+    db = get_db()
+    
+    valid_stages = ["prospect", "researching", "contacted", "replied", "interested", "negotiating", "confirmed", "published", "declined"]
+    if stage not in valid_stages:
+        raise HTTPException(status_code=400, detail=f"Invalid stage")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.contacts.update_many(
+        {"id": {"$in": contact_ids}},
+        {"$set": {"pipeline_stage": stage, "stage_entered_at": now}}
+    )
+    
+    return {"message": f"Moved {result.modified_count} contacts to {stage}"}
+
+@marketing_v2_router.get("/pipeline/stats")
+async def get_pipeline_stats(
+    pr_campaign_id: Optional[str] = None,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get pipeline statistics"""
+    db = get_db()
+    
+    query = {"contact_type": "journalist"}
+    
+    if pr_campaign_id:
+        campaign = await db.pr_campaigns.find_one({"id": pr_campaign_id})
+        if campaign:
+            journalist_ids = campaign.get("journalist_ids", [])
+            if journalist_ids:
+                query["id"] = {"$in": journalist_ids}
+    
+    contacts = await db.contacts.find(query, {"_id": 0}).to_list(500)
+    
+    total = len(contacts)
+    stage_counts = {}
+    for c in contacts:
+        stage = c.get("pipeline_stage", "prospect")
+        stage_counts[stage] = stage_counts.get(stage, 0) + 1
+    
+    # Calculate conversion rates
+    contacted = stage_counts.get("contacted", 0) + stage_counts.get("replied", 0) + stage_counts.get("interested", 0) + stage_counts.get("negotiating", 0) + stage_counts.get("confirmed", 0) + stage_counts.get("published", 0)
+    responded = stage_counts.get("replied", 0) + stage_counts.get("interested", 0) + stage_counts.get("negotiating", 0) + stage_counts.get("confirmed", 0) + stage_counts.get("published", 0)
+    published = stage_counts.get("published", 0)
+    
+    return {
+        "total": total,
+        "by_stage": stage_counts,
+        "conversion": {
+            "contact_rate": (contacted / total * 100) if total > 0 else 0,
+            "response_rate": (responded / contacted * 100) if contacted > 0 else 0,
+            "publish_rate": (published / total * 100) if total > 0 else 0
+        }
+    }

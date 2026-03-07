@@ -674,3 +674,207 @@ class CalendarItemResponse(BaseModel):
     color: Optional[str] = None
     description: Optional[str] = None
     created_at: str
+
+
+# ============== PHASE 5: RELATIONSHIP CRM ==============
+
+class InteractionType(str, Enum):
+    EMAIL = "email"
+    CALL = "call"
+    MEETING = "meeting"
+    SOCIAL = "social"
+    EVENT = "event"
+    PITCH = "pitch"
+    FOLLOW_UP = "follow_up"
+    COVERAGE = "coverage"
+    NOTE = "note"
+
+class InteractionCreate(BaseModel):
+    contact_id: str
+    interaction_type: InteractionType
+    subject: Optional[str] = None
+    notes: str
+    outcome: Optional[str] = None  # positive, neutral, negative, pending
+    follow_up_date: Optional[str] = None
+    related_campaign_id: Optional[str] = None
+
+class InteractionResponse(BaseModel):
+    id: str
+    contact_id: str
+    contact_name: Optional[str] = None
+    interaction_type: str
+    subject: Optional[str] = None
+    notes: str
+    outcome: Optional[str] = None
+    follow_up_date: Optional[str] = None
+    related_campaign_id: Optional[str] = None
+    created_by: Optional[str] = None
+    created_by_name: Optional[str] = None
+    created_at: str
+
+class RelationshipScoreUpdate(BaseModel):
+    contact_id: str
+    score_adjustment: int  # -10 to +10
+    reason: str
+
+# ============== PHASE 8: PRESS KIT MANAGEMENT ==============
+
+class PressKitAssetType(str, Enum):
+    LOGO = "logo"
+    BRAND_GUIDELINES = "brand_guidelines"
+    PRODUCT_IMAGE = "product_image"
+    FOUNDER_BIO = "founder_bio"
+    COMPANY_FACT_SHEET = "company_fact_sheet"
+    PRESS_RELEASE = "press_release"
+    VIDEO = "video"
+    PRESENTATION = "presentation"
+    OTHER = "other"
+
+class PressKitAssetCreate(BaseModel):
+    name: str
+    asset_type: PressKitAssetType
+    description: Optional[str] = None
+    file_url: str
+    file_size: Optional[int] = None  # in bytes
+    file_format: Optional[str] = None  # jpg, png, pdf, mp4
+    is_public: bool = True  # Available for press kit download
+    tags: List[str] = []
+    category: Optional[str] = None  # Products, Company, Leadership, Events
+
+class PressKitAssetResponse(BaseModel):
+    id: str
+    name: str
+    asset_type: str
+    description: Optional[str] = None
+    file_url: str
+    file_size: Optional[int] = None
+    file_format: Optional[str] = None
+    is_public: bool = True
+    tags: List[str] = []
+    category: Optional[str] = None
+    download_count: int = 0
+    created_at: str
+    updated_at: Optional[str] = None
+
+class PressKitCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    asset_ids: List[str] = []
+    is_active: bool = True
+    password_protected: bool = False
+    password: Optional[str] = None
+    expiry_date: Optional[str] = None
+
+class PressKitResponse(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
+    asset_ids: List[str] = []
+    assets: List[dict] = []  # Populated asset details
+    is_active: bool = True
+    password_protected: bool = False
+    expiry_date: Optional[str] = None
+    share_url: Optional[str] = None
+    view_count: int = 0
+    download_count: int = 0
+    created_at: str
+
+# ============== PHASE 9: ALERTS & MONITORING ==============
+
+class AlertType(str, Enum):
+    BRAND_MENTION = "brand_mention"
+    KEYWORD = "keyword"
+    COMPETITOR = "competitor"
+    JOURNALIST = "journalist"
+    PUBLICATION = "publication"
+
+class AlertPriority(str, Enum):
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+class MonitoringAlertCreate(BaseModel):
+    name: str
+    alert_type: AlertType
+    keywords: List[str]  # Keywords to monitor
+    sources: List[str] = []  # Specific publications/platforms to monitor
+    is_active: bool = True
+    notify_email: bool = True
+    notify_in_app: bool = True
+    priority: AlertPriority = AlertPriority.MEDIUM
+
+class MonitoringAlertResponse(BaseModel):
+    id: str
+    name: str
+    alert_type: str
+    keywords: List[str]
+    sources: List[str] = []
+    is_active: bool = True
+    notify_email: bool = True
+    notify_in_app: bool = True
+    priority: str = "medium"
+    last_triggered: Optional[str] = None
+    trigger_count: int = 0
+    created_at: str
+
+class AlertTriggerCreate(BaseModel):
+    alert_id: str
+    title: str
+    source: str
+    url: Optional[str] = None
+    snippet: Optional[str] = None
+    sentiment: Optional[str] = None  # positive, neutral, negative
+    matched_keywords: List[str] = []
+
+class AlertTriggerResponse(BaseModel):
+    id: str
+    alert_id: str
+    alert_name: Optional[str] = None
+    title: str
+    source: str
+    url: Optional[str] = None
+    snippet: Optional[str] = None
+    sentiment: Optional[str] = None
+    matched_keywords: List[str] = []
+    is_read: bool = False
+    is_actioned: bool = False
+    created_at: str
+
+# ============== PHASE 10: PIPELINE VIEW ==============
+
+class PipelineStage(str, Enum):
+    PROSPECT = "prospect"
+    RESEARCHING = "researching"
+    CONTACTED = "contacted"
+    REPLIED = "replied"
+    INTERESTED = "interested"
+    NEGOTIATING = "negotiating"
+    CONFIRMED = "confirmed"
+    PUBLISHED = "published"
+    DECLINED = "declined"
+
+class PipelineContactUpdate(BaseModel):
+    contact_id: str
+    stage: PipelineStage
+    notes: Optional[str] = None
+    pr_campaign_id: Optional[str] = None
+
+class PipelineContactResponse(BaseModel):
+    id: str
+    contact_id: str
+    contact_name: str
+    contact_email: Optional[str] = None
+    publication: Optional[str] = None
+    beat: Optional[str] = None
+    stage: str
+    notes: Optional[str] = None
+    pr_campaign_id: Optional[str] = None
+    days_in_stage: int = 0
+    last_activity: Optional[str] = None
+    created_at: str
+    updated_at: Optional[str] = None
+
+class PipelineStageStats(BaseModel):
+    stage: str
+    count: int
+    contacts: List[dict] = []
