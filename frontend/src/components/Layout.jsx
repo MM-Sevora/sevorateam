@@ -31,11 +31,20 @@ const DEPARTMENT_CONFIG = {
             { path: '/marketing/influencers', name: 'Influencers', icon: Users },
             { path: '/marketing/campaigns', name: 'Campaigns', icon: Target },
             { path: '/marketing/outreach', name: 'Outreach', icon: MessageSquare },
-            { path: '/marketing/email', name: 'Email', icon: Mail },
             { path: '/marketing/negotiations', name: 'Negotiations', icon: DollarSign },
             { path: '/marketing/budget', name: 'Budget', icon: DollarSign },
             { path: '/marketing/ai-tools', name: 'AI Tools', icon: Sparkles },
             { path: '/marketing/analytics', name: 'Analytics', icon: BarChart3 },
+        ]
+    },
+    mail: {
+        name: 'Mail',
+        icon: Mail,
+        color: 'from-blue-600 to-blue-700',
+        bgColor: 'bg-blue-50',
+        textColor: 'text-blue-700',
+        routes: [
+            { path: '/mail/inbox', name: 'Inbox', icon: Mail },
         ]
     },
     sales: {
@@ -81,6 +90,7 @@ const DEPARTMENT_CONFIG = {
         textColor: 'text-slate-700',
         routes: [
             { path: '/admin/users', name: 'User Management', icon: Users },
+            { path: '/admin/permissions', name: 'Permissions', icon: Settings },
         ]
     }
 };
@@ -99,7 +109,7 @@ export const Layout = ({ children }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(true);
-    const [expandedDepts, setExpandedDepts] = useState(['marketing', 'sales', 'social', 'admin']);
+    const [expandedDepts, setExpandedDepts] = useState(['marketing', 'mail', 'sales', 'social', 'admin']);
 
     const toggleDepartment = (dept) => {
         setExpandedDepts(prev => 
@@ -112,6 +122,7 @@ export const Layout = ({ children }) => {
     const getCurrentDepartment = () => {
         const path = location.pathname;
         if (path.startsWith('/marketing')) return 'marketing';
+        if (path.startsWith('/mail')) return 'mail';
         if (path.startsWith('/sales')) return 'sales';
         if (path.startsWith('/social')) return 'social';
         if (path.startsWith('/admin')) return 'admin';

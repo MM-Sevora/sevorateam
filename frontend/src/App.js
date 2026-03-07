@@ -48,6 +48,7 @@ import EmailPage from "./pages/marketing/EmailPage";
 
 // Admin Pages
 import UserManagementPage from "./pages/admin/UserManagement";
+import PermissionsPage from "./pages/admin/PermissionsPage";
 
 import "./App.css";
 
@@ -111,11 +112,13 @@ function AppRoutes() {
             <Route path="/marketing/influencers" element={<ProtectedRoute requiredDepartment="marketing"><InfluencersPage /></ProtectedRoute>} />
             <Route path="/marketing/campaigns" element={<ProtectedRoute requiredDepartment="marketing"><CampaignsPage /></ProtectedRoute>} />
             <Route path="/marketing/outreach" element={<ProtectedRoute requiredDepartment="marketing"><OutreachPage /></ProtectedRoute>} />
-            <Route path="/marketing/email" element={<ProtectedRoute requiredDepartment="marketing"><EmailPage /></ProtectedRoute>} />
             <Route path="/marketing/negotiations" element={<ProtectedRoute requiredDepartment="marketing"><NegotiationsPage /></ProtectedRoute>} />
             <Route path="/marketing/analytics" element={<ProtectedRoute requiredDepartment="marketing"><MarketingAnalyticsPage /></ProtectedRoute>} />
             <Route path="/marketing/ai-tools" element={<ProtectedRoute requiredDepartment="marketing"><AIToolsPage /></ProtectedRoute>} />
             <Route path="/marketing/budget" element={<ProtectedRoute requiredDepartment="marketing"><BudgetPage /></ProtectedRoute>} />
+
+            {/* Mail Routes */}
+            <Route path="/mail/inbox" element={<ProtectedRoute requiredDepartment="mail"><EmailPage /></ProtectedRoute>} />
 
             {/* Sales Routes */}
             <Route path="/sales" element={<ProtectedRoute requiredDepartment="sales"><SalesDashboard /></ProtectedRoute>} />
@@ -140,6 +143,7 @@ function AppRoutes() {
 
             {/* Admin Routes */}
             <Route path="/admin/users" element={<ProtectedRoute requiredDepartment="admin"><UserManagementPage /></ProtectedRoute>} />
+            <Route path="/admin/permissions" element={<ProtectedRoute requiredDepartment="admin"><PermissionsPage /></ProtectedRoute>} />
 
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" replace />} />

@@ -78,21 +78,110 @@ class UserStatus(str, Enum):
     INACTIVE = "inactive"
     PENDING = "pending"
 
-# Department to modules mapping
+# Permission actions
+class PermissionAction(str, Enum):
+    VIEW = "view"
+    CREATE = "create"
+    EDIT = "edit"
+    DELETE = "delete"
+    EXPORT = "export"
+
+# All modules in the system
+ALL_MODULES = {
+    "marketing": [
+        {"id": "influencers", "name": "Influencers", "description": "Manage influencer profiles and partnerships"},
+        {"id": "campaigns", "name": "Campaigns", "description": "Marketing campaign management"},
+        {"id": "outreach", "name": "Outreach", "description": "Communication and outreach tracking"},
+        {"id": "negotiations", "name": "Negotiations", "description": "Deal and negotiation management"},
+        {"id": "budget", "name": "Budget", "description": "Budget tracking and allocation"},
+        {"id": "ai_tools", "name": "AI Tools", "description": "AI-powered marketing tools"},
+        {"id": "analytics", "name": "Analytics", "description": "Marketing analytics and reports"},
+    ],
+    "sales": [
+        {"id": "leads", "name": "Leads", "description": "Lead management and tracking"},
+        {"id": "customers", "name": "Customers", "description": "Customer profiles and history"},
+        {"id": "pipeline", "name": "Pipeline", "description": "Sales pipeline management"},
+        {"id": "qr_codes", "name": "QR Codes", "description": "QR code generation and tracking"},
+        {"id": "partners", "name": "Partners", "description": "Partner management"},
+        {"id": "wedding_planner", "name": "Wedding Planner", "description": "Wedding planning tools"},
+        {"id": "analytics", "name": "Analytics", "description": "Sales analytics and reports"},
+    ],
+    "social": [
+        {"id": "content_studio", "name": "Content Studio", "description": "AI content creation"},
+        {"id": "posts", "name": "Posts & Schedule", "description": "Post scheduling and management"},
+        {"id": "autopilot", "name": "Autopilot", "description": "Automated posting"},
+        {"id": "content_library", "name": "Content Library", "description": "Media and content storage"},
+        {"id": "ai_tools", "name": "AI Tools", "description": "AI-powered social tools"},
+        {"id": "youtube", "name": "YouTube", "description": "YouTube integration"},
+        {"id": "avatar", "name": "Avatar", "description": "AI avatar management"},
+        {"id": "analytics", "name": "Analytics", "description": "Social media analytics"},
+    ],
+    "mail": [
+        {"id": "inbox", "name": "Inbox", "description": "Email inbox management"},
+        {"id": "compose", "name": "Compose", "description": "Send and compose emails"},
+        {"id": "contacts", "name": "Contact Emails", "description": "View email history per contact"},
+    ],
+    "admin": [
+        {"id": "users", "name": "User Management", "description": "Manage user accounts"},
+        {"id": "azure_sync", "name": "Azure AD Sync", "description": "Sync users from Azure AD"},
+        {"id": "audit_logs", "name": "Audit Logs", "description": "View admin action logs"},
+        {"id": "permissions", "name": "Permissions", "description": "Manage user permissions"},
+    ],
+}
+
+# Default permissions by role
+DEFAULT_ROLE_PERMISSIONS = {
+    "super_admin": {
+        # Full access to everything
+        "marketing": {"influencers": ["view", "create", "edit", "delete", "export"], "campaigns": ["view", "create", "edit", "delete", "export"], "outreach": ["view", "create", "edit", "delete", "export"], "negotiations": ["view", "create", "edit", "delete", "export"], "budget": ["view", "create", "edit", "delete", "export"], "ai_tools": ["view", "create", "edit", "delete"], "analytics": ["view", "export"]},
+        "sales": {"leads": ["view", "create", "edit", "delete", "export"], "customers": ["view", "create", "edit", "delete", "export"], "pipeline": ["view", "create", "edit", "delete"], "qr_codes": ["view", "create", "edit", "delete"], "partners": ["view", "create", "edit", "delete", "export"], "wedding_planner": ["view", "create", "edit", "delete"], "analytics": ["view", "export"]},
+        "social": {"content_studio": ["view", "create", "edit", "delete"], "posts": ["view", "create", "edit", "delete"], "autopilot": ["view", "create", "edit", "delete"], "content_library": ["view", "create", "edit", "delete"], "ai_tools": ["view", "create", "edit", "delete"], "youtube": ["view", "create", "edit", "delete"], "avatar": ["view", "create", "edit", "delete"], "analytics": ["view", "export"]},
+        "mail": {"inbox": ["view", "create", "edit", "delete"], "compose": ["view", "create"], "contacts": ["view"]},
+        "admin": {"users": ["view", "create", "edit", "delete"], "azure_sync": ["view", "create"], "audit_logs": ["view"], "permissions": ["view", "edit"]},
+    },
+    "admin": {
+        "marketing": {"influencers": ["view", "create", "edit", "delete", "export"], "campaigns": ["view", "create", "edit", "delete", "export"], "outreach": ["view", "create", "edit", "delete", "export"], "negotiations": ["view", "create", "edit", "delete", "export"], "budget": ["view", "create", "edit", "delete", "export"], "ai_tools": ["view", "create", "edit", "delete"], "analytics": ["view", "export"]},
+        "sales": {"leads": ["view", "create", "edit", "delete", "export"], "customers": ["view", "create", "edit", "delete", "export"], "pipeline": ["view", "create", "edit", "delete"], "qr_codes": ["view", "create", "edit", "delete"], "partners": ["view", "create", "edit", "delete", "export"], "wedding_planner": ["view", "create", "edit", "delete"], "analytics": ["view", "export"]},
+        "social": {"content_studio": ["view", "create", "edit", "delete"], "posts": ["view", "create", "edit", "delete"], "autopilot": ["view", "create", "edit", "delete"], "content_library": ["view", "create", "edit", "delete"], "ai_tools": ["view", "create", "edit", "delete"], "youtube": ["view", "create", "edit", "delete"], "avatar": ["view", "create", "edit", "delete"], "analytics": ["view", "export"]},
+        "mail": {"inbox": ["view", "create", "edit", "delete"], "compose": ["view", "create"], "contacts": ["view"]},
+        "admin": {"users": ["view", "create", "edit"], "azure_sync": ["view", "create"], "audit_logs": ["view"], "permissions": ["view", "edit"]},
+    },
+    "marketing_manager": {
+        "marketing": {"influencers": ["view", "create", "edit", "delete", "export"], "campaigns": ["view", "create", "edit", "delete", "export"], "outreach": ["view", "create", "edit", "delete", "export"], "negotiations": ["view", "create", "edit", "delete", "export"], "budget": ["view", "edit"], "ai_tools": ["view", "create", "edit"], "analytics": ["view", "export"]},
+        "mail": {"inbox": ["view"], "compose": ["view", "create"], "contacts": ["view"]},
+    },
+    "sales_manager": {
+        "sales": {"leads": ["view", "create", "edit", "delete", "export"], "customers": ["view", "create", "edit", "delete", "export"], "pipeline": ["view", "create", "edit", "delete"], "qr_codes": ["view", "create", "edit", "delete"], "partners": ["view", "create", "edit", "delete", "export"], "wedding_planner": ["view", "create", "edit", "delete"], "analytics": ["view", "export"]},
+        "mail": {"inbox": ["view"], "compose": ["view", "create"], "contacts": ["view"]},
+    },
+    "social_manager": {
+        "social": {"content_studio": ["view", "create", "edit", "delete"], "posts": ["view", "create", "edit", "delete"], "autopilot": ["view", "create", "edit", "delete"], "content_library": ["view", "create", "edit", "delete"], "ai_tools": ["view", "create", "edit", "delete"], "youtube": ["view", "create", "edit", "delete"], "avatar": ["view", "create", "edit", "delete"], "analytics": ["view", "export"]},
+        "mail": {"inbox": ["view"], "compose": ["view", "create"], "contacts": ["view"]},
+    },
+    "viewer": {
+        "marketing": {"influencers": ["view"], "campaigns": ["view"], "outreach": ["view"], "negotiations": ["view"], "budget": ["view"], "ai_tools": ["view"], "analytics": ["view"]},
+        "sales": {"leads": ["view"], "customers": ["view"], "pipeline": ["view"], "qr_codes": ["view"], "partners": ["view"], "wedding_planner": ["view"], "analytics": ["view"]},
+        "social": {"content_studio": ["view"], "posts": ["view"], "autopilot": ["view"], "content_library": ["view"], "ai_tools": ["view"], "youtube": ["view"], "avatar": ["view"], "analytics": ["view"]},
+        "mail": {"inbox": ["view"], "contacts": ["view"]},
+    },
+}
+
+# Department to modules mapping (for backward compatibility)
 DEPARTMENT_MODULES = {
     "marketing": ["influencers", "campaigns", "negotiations", "outreach", "ai_discovery", "email", "budget", "analytics"],
     "sales": ["leads", "customers", "wedding_planner", "pipeline", "qr_codes", "partners", "analytics"],
     "social": ["content_studio", "ai_tools", "autopilot", "posts", "analytics", "avatar", "youtube", "content_library"],
-    "admin": ["all"]
+    "mail": ["inbox", "compose", "contacts"],
+    "admin": ["users", "azure_sync", "audit_logs", "permissions"]
 }
 
 # Role to department mapping
 ROLE_DEPARTMENTS = {
-    "super_admin": ["marketing", "sales", "social", "admin"],
-    "admin": ["marketing", "sales", "social", "admin"],
-    "marketing_manager": ["marketing"],
-    "sales_manager": ["sales"],
-    "social_manager": ["social"],
+    "super_admin": ["marketing", "sales", "social", "mail", "admin"],
+    "admin": ["marketing", "sales", "social", "mail", "admin"],
+    "marketing_manager": ["marketing", "mail"],
+    "sales_manager": ["sales", "mail"],
+    "social_manager": ["social", "mail"],
     "viewer": []
 }
 
@@ -105,6 +194,25 @@ ROLE_HIERARCHY = {
     "social_manager": 50,
     "viewer": 10
 }
+
+def get_default_permissions(role: str) -> dict:
+    """Get default permissions for a role"""
+    return DEFAULT_ROLE_PERMISSIONS.get(role, DEFAULT_ROLE_PERMISSIONS["viewer"])
+
+def get_user_permissions(user: dict) -> dict:
+    """Get effective permissions for a user (custom or default based on role)"""
+    # If user has custom permissions, use those
+    if user.get("custom_permissions"):
+        return user["custom_permissions"]
+    # Otherwise, return default permissions for their role
+    return get_default_permissions(user.get("role", "viewer"))
+
+def check_permission(user: dict, department: str, module: str, action: str) -> bool:
+    """Check if user has permission for a specific action on a module"""
+    permissions = get_user_permissions(user)
+    dept_perms = permissions.get(department, {})
+    module_perms = dept_perms.get(module, [])
+    return action in module_perms
 
 # ============== MODELS ==============
 class UserCreate(BaseModel):
@@ -132,6 +240,8 @@ class UserResponse(BaseModel):
     last_login: Optional[str] = None
     azure_id: Optional[str] = None
     employee_id: Optional[str] = None
+    permissions: Optional[dict] = None
+    has_custom_permissions: bool = False
 
 class UserUpdateRequest(BaseModel):
     name: Optional[str] = None
@@ -497,6 +607,8 @@ async def login(credentials: UserLogin):
     
     token = create_access_token({"sub": user['id'], "email": user['email'], "role": user.get('role', 'viewer')})
     departments = get_user_departments(user.get('role', 'viewer'))
+    permissions = get_user_permissions(user)
+    
     return TokenResponse(
         access_token=token,
         user=UserResponse(
@@ -509,7 +621,9 @@ async def login(credentials: UserLogin):
             status=user.get('status', 'active'),
             avatar_url=user.get('avatar_url'),
             created_at=user.get('created_at'),
-            last_login=datetime.now(timezone.utc).isoformat()
+            last_login=datetime.now(timezone.utc).isoformat(),
+            permissions=permissions,
+            has_custom_permissions=bool(user.get('custom_permissions'))
         )
     )
 
@@ -1688,6 +1802,112 @@ async def sync_single_azure_user(
     except Exception as e:
         logger.error(f"Single user sync failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# ============== PERMISSION MANAGEMENT ENDPOINTS ==============
+
+@api_router.get("/admin/modules")
+async def get_all_modules(user: dict = Depends(require_admin())):
+    """Get all available modules organized by department"""
+    return ALL_MODULES
+
+@api_router.get("/admin/permissions/default/{role}")
+async def get_default_role_permissions(role: str, user: dict = Depends(require_admin())):
+    """Get default permissions for a specific role"""
+    if role not in DEFAULT_ROLE_PERMISSIONS:
+        raise HTTPException(status_code=404, detail="Role not found")
+    return {
+        "role": role,
+        "permissions": DEFAULT_ROLE_PERMISSIONS[role]
+    }
+
+@api_router.get("/admin/users/{user_id}/permissions")
+async def get_user_permissions_endpoint(user_id: str, user: dict = Depends(require_admin())):
+    """Get effective permissions for a specific user"""
+    target_user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    has_custom = bool(target_user.get("custom_permissions"))
+    permissions = get_user_permissions(target_user)
+    
+    return {
+        "user_id": user_id,
+        "role": target_user.get("role"),
+        "has_custom_permissions": has_custom,
+        "permissions": permissions
+    }
+
+class UpdatePermissionsRequest(BaseModel):
+    permissions: dict
+    use_custom: bool = True
+
+@api_router.put("/admin/users/{user_id}/permissions")
+async def update_user_permissions(
+    user_id: str, 
+    request: UpdatePermissionsRequest,
+    user: dict = Depends(require_admin())
+):
+    """Update permissions for a specific user"""
+    target_user = await db.users.find_one({"id": user_id})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Prevent non-super_admin from modifying super_admin permissions
+    if target_user.get("role") == "super_admin" and user.get("role") != "super_admin":
+        raise HTTPException(status_code=403, detail="Cannot modify Super Admin permissions")
+    
+    if request.use_custom:
+        # Set custom permissions
+        await db.users.update_one(
+            {"id": user_id},
+            {"$set": {
+                "custom_permissions": request.permissions,
+                "permissions_updated_at": datetime.now(timezone.utc).isoformat(),
+                "permissions_updated_by": user.get("id")
+            }}
+        )
+        await log_admin_action(user.get("id"), "update_permissions", user_id, {"custom": True})
+    else:
+        # Remove custom permissions (revert to role default)
+        await db.users.update_one(
+            {"id": user_id},
+            {"$unset": {"custom_permissions": ""}}
+        )
+        await log_admin_action(user.get("id"), "reset_permissions", user_id, {"custom": False})
+    
+    return {"success": True, "message": "Permissions updated"}
+
+@api_router.delete("/admin/users/{user_id}/permissions")
+async def reset_user_permissions(user_id: str, user: dict = Depends(require_admin())):
+    """Reset user permissions to role defaults"""
+    target_user = await db.users.find_one({"id": user_id})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    await db.users.update_one(
+        {"id": user_id},
+        {"$unset": {"custom_permissions": ""}}
+    )
+    
+    await log_admin_action(user.get("id"), "reset_permissions", user_id, {})
+    
+    return {"success": True, "message": "Permissions reset to role defaults"}
+
+@api_router.post("/admin/permissions/check")
+async def check_user_permission(
+    department: str,
+    module: str,
+    action: str,
+    user: dict = Depends(get_current_user)
+):
+    """Check if current user has a specific permission"""
+    has_permission = check_permission(user, department, module, action)
+    return {
+        "has_permission": has_permission,
+        "department": department,
+        "module": module,
+        "action": action
+    }
 
 # Health check
 @api_router.get("/health")

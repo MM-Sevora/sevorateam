@@ -21,11 +21,11 @@ export const AuthProvider = ({ children }) => {
 
     // Department and role management
     const ROLE_DEPARTMENTS = {
-        super_admin: ['marketing', 'sales', 'social', 'admin'],
-        admin: ['marketing', 'sales', 'social', 'admin'],
-        marketing_manager: ['marketing'],
-        sales_manager: ['sales'],
-        social_manager: ['social'],
+        super_admin: ['marketing', 'sales', 'social', 'mail', 'admin'],
+        admin: ['marketing', 'sales', 'social', 'mail', 'admin'],
+        marketing_manager: ['marketing', 'mail'],
+        sales_manager: ['sales', 'mail'],
+        social_manager: ['social', 'mail'],
         viewer: []
     };
 
