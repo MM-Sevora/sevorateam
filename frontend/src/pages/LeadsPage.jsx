@@ -57,6 +57,7 @@ const LeadsPage = () => {
   const { api } = useAuth();
   const [leads, setLeads] = useState([]);
   const [users, setUsers] = useState([]);
+  const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterSource, setFilterSource] = useState('');
@@ -72,11 +73,13 @@ const LeadsPage = () => {
     occasion: '',
     city: '',
     notes: '',
+    campaign_id: '',
   });
 
   useEffect(() => {
     fetchLeads();
     fetchUsers();
+    fetchCampaigns();
   }, [search, filterSource, filterStage]);
 
   const fetchLeads = async () => {
@@ -104,13 +107,26 @@ const LeadsPage = () => {
     }
   };
 
+  const fetchCampaigns = async () => {
+    try {
+      const response = await api.get('/campaigns?status=Active');
+      setCampaigns(response.data);
+    } catch (error) {
+      console.error('Failed to fetch campaigns');
+    }
+  };
+
   const handleAddLead = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/leads', newLead);
+      const payload = {
+        ...newLead,
+        campaign_id: newLead.campaign_id || null,
+      };
+      await api.post('/leads', payload);
       toast.success('Lead created successfully');
       setIsAddOpen(false);
-      setNewLead({ name: '', phone: '', email: '', source: '', source_details: '', occasion: '', city: '', notes: '' });
+      setNewLead({ name: '', phone: '', email: '', source: '', source_details: '', occasion: '', city: '', notes: '', campaign_id: '' });
       fetchLeads();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to create lead');
@@ -246,6 +262,29 @@ const LeadsPage = () => {
                   onChange={(e) => setNewLead({ ...newLead, occasion: e.target.value })}
                 />
               </div>
+              {/* Campaign Selection */}
+              {campaigns.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-xs uppercase tracking-wider">Campaign (Optional)</Label>
+                  <Select
+                    value={newLead.campaign_id || 'none'}
+                    onValueChange={(value) => setNewLead({ ...newLead, campaign_id: value === 'none' ? '' : value })}
+                  >
+                    <SelectTrigger data-testid="lead-campaign-select" className="rounded-none">
+                      <SelectValue placeholder="Link to campaign" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Campaign</SelectItem>
+                      {campaigns.map((campaign) => (
+                        <SelectItem key={campaign.id} value={campaign.id}>
+                          {campaign.name} ({campaign.campaign_type})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">Link lead to an active marketing campaign</p>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label className="text-xs uppercase tracking-wider">Notes</Label>
                 <Textarea

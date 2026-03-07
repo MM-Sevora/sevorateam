@@ -11,6 +11,7 @@ import WeddingPlannerPage from './pages/WeddingPlannerPage';
 import PipelinePage from './pages/PipelinePage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import QRCodesPage from './pages/QRCodesPage';
+import CampaignsPage from './pages/CampaignsPage';
 import SettingsPage from './pages/SettingsPage';
 import LeadCapturePage from './pages/LeadCapturePage';
 import './App.css';
@@ -84,6 +85,7 @@ function App() {
             <Route path="/pipeline" element={<PipelinePage />} />
             <Route path="/analytics" element={<AnalyticsPage />} />
             <Route path="/qr-codes" element={<QRCodesPage />} />
+            <Route path="/campaigns" element={<CampaignsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
 

@@ -115,6 +115,24 @@ class OutfitCategory(str, Enum):
     GOWN = "Gown"
     KURTA_SET = "Kurta Set"
 
+class CampaignType(str, Enum):
+    MALL_ACTIVATION = "Mall Activation"
+    RESIDENTIAL_POPUP = "Residential Popup"
+    WEDDING_EXPO = "Wedding Expo"
+    FASHION_EVENT = "Fashion Event"
+    SALON_PARTNERSHIP = "Salon Partnership"
+    BOUTIQUE_PARTNERSHIP = "Boutique Partnership"
+    INFLUENCER_CAMPAIGN = "Influencer Campaign"
+    DIGITAL_ADS = "Digital Ads"
+    HOARDING = "Hoarding"
+    OTHER = "Other"
+
+class CampaignStatus(str, Enum):
+    PLANNED = "Planned"
+    ACTIVE = "Active"
+    COMPLETED = "Completed"
+    CANCELLED = "Cancelled"
+
 # Models
 class UserCreate(BaseModel):
     email: EmailStr
@@ -170,10 +188,52 @@ class LeadResponse(BaseModel):
     assigned_to: Optional[str] = None
     assigned_to_name: Optional[str] = None
     campaign_id: Optional[str] = None
+    campaign_name: Optional[str] = None
     influencer_id: Optional[str] = None
     created_at: str
     updated_at: str
     whatsapp_sent: bool = False
+
+# Campaign Models
+class CampaignCreate(BaseModel):
+    name: str
+    campaign_type: CampaignType
+    location: Optional[str] = None
+    venue: Optional[str] = None
+    start_date: str
+    end_date: Optional[str] = None
+    budget: Optional[float] = None
+    target_leads: Optional[int] = None
+    description: Optional[str] = None
+    status: CampaignStatus = CampaignStatus.PLANNED
+
+class CampaignUpdate(BaseModel):
+    name: Optional[str] = None
+    location: Optional[str] = None
+    venue: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    budget: Optional[float] = None
+    target_leads: Optional[int] = None
+    description: Optional[str] = None
+    status: Optional[CampaignStatus] = None
+
+class CampaignResponse(BaseModel):
+    id: str
+    name: str
+    campaign_type: str
+    location: Optional[str] = None
+    venue: Optional[str] = None
+    start_date: str
+    end_date: Optional[str] = None
+    budget: Optional[float] = None
+    target_leads: Optional[int] = None
+    description: Optional[str] = None
+    status: str
+    leads_count: int = 0
+    conversions: int = 0
+    revenue: float = 0
+    created_at: str
 
 class CustomerCreate(BaseModel):
     lead_id: Optional[str] = None
@@ -424,6 +484,13 @@ async def get_stylists(current_user: dict = Depends(get_current_user)):
 # Lead Routes
 @api_router.post("/leads", response_model=LeadResponse)
 async def create_lead(lead: LeadCreate, background_tasks: BackgroundTasks, qr_code_id: Optional[str] = None):
+    # Get campaign name if campaign_id provided
+    campaign_name = None
+    if lead.campaign_id:
+        campaign = await db.campaigns.find_one({"id": lead.campaign_id}, {"_id": 0})
+        if campaign:
+            campaign_name = campaign.get("name")
+    
     lead_doc = {
         "id": str(uuid.uuid4()),
         "name": lead.name,
@@ -436,6 +503,7 @@ async def create_lead(lead: LeadCreate, background_tasks: BackgroundTasks, qr_co
         "city": lead.city,
         "notes": lead.notes,
         "campaign_id": lead.campaign_id,
+        "campaign_name": campaign_name,
         "influencer_id": lead.influencer_id,
         "assigned_to": None,
         "assigned_to_name": None,
@@ -629,6 +697,96 @@ async def update_wedding_plan(plan_id: str, update: WeddingPlanCreate, current_u
     await db.wedding_plans.update_one({"id": plan_id}, {"$set": update_data})
     updated = await db.wedding_plans.find_one({"id": plan_id}, {"_id": 0})
     return WeddingPlanResponse(**updated)
+
+# Campaign Routes
+@api_router.post("/campaigns", response_model=CampaignResponse)
+async def create_campaign(campaign: CampaignCreate, current_user: dict = Depends(get_current_user)):
+    campaign_doc = {
+        "id": str(uuid.uuid4()),
+        "name": campaign.name,
+        "campaign_type": campaign.campaign_type.value,
+        "location": campaign.location,
+        "venue": campaign.venue,
+        "start_date": campaign.start_date,
+        "end_date": campaign.end_date,
+        "budget": campaign.budget,
+        "target_leads": campaign.target_leads,
+        "description": campaign.description,
+        "status": campaign.status.value,
+        "leads_count": 0,
+        "conversions": 0,
+        "revenue": 0,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.campaigns.insert_one(campaign_doc)
+    return CampaignResponse(**{k: v for k, v in campaign_doc.items() if k != "_id"})
+
+@api_router.get("/campaigns", response_model=List[CampaignResponse])
+async def get_campaigns(
+    status: Optional[str] = None,
+    campaign_type: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    query = {}
+    if status:
+        query["status"] = status
+    if campaign_type:
+        query["campaign_type"] = campaign_type
+    
+    campaigns = await db.campaigns.find(query, {"_id": 0}).sort("start_date", -1).to_list(1000)
+    
+    # Update leads count and conversions for each campaign
+    result = []
+    for c in campaigns:
+        leads_count = await db.leads.count_documents({"campaign_id": c["id"]})
+        conversions = await db.leads.count_documents({"campaign_id": c["id"], "stage": "Order Confirmed"})
+        c["leads_count"] = leads_count
+        c["conversions"] = conversions
+        result.append(CampaignResponse(**c))
+    
+    return result
+
+@api_router.get("/campaigns/{campaign_id}", response_model=CampaignResponse)
+async def get_campaign(campaign_id: str, current_user: dict = Depends(get_current_user)):
+    campaign = await db.campaigns.find_one({"id": campaign_id}, {"_id": 0})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Get real-time stats
+    leads_count = await db.leads.count_documents({"campaign_id": campaign_id})
+    conversions = await db.leads.count_documents({"campaign_id": campaign_id, "stage": "Order Confirmed"})
+    campaign["leads_count"] = leads_count
+    campaign["conversions"] = conversions
+    
+    return CampaignResponse(**campaign)
+
+@api_router.put("/campaigns/{campaign_id}", response_model=CampaignResponse)
+async def update_campaign(campaign_id: str, update: CampaignUpdate, current_user: dict = Depends(get_current_user)):
+    campaign = await db.campaigns.find_one({"id": campaign_id})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    update_data = {k: v for k, v in update.model_dump().items() if v is not None}
+    if "status" in update_data and update_data["status"]:
+        update_data["status"] = update_data["status"].value if hasattr(update_data["status"], 'value') else update_data["status"]
+    
+    await db.campaigns.update_one({"id": campaign_id}, {"$set": update_data})
+    updated = await db.campaigns.find_one({"id": campaign_id}, {"_id": 0})
+    
+    # Get real-time stats
+    leads_count = await db.leads.count_documents({"campaign_id": campaign_id})
+    conversions = await db.leads.count_documents({"campaign_id": campaign_id, "stage": "Order Confirmed"})
+    updated["leads_count"] = leads_count
+    updated["conversions"] = conversions
+    
+    return CampaignResponse(**updated)
+
+@api_router.delete("/campaigns/{campaign_id}")
+async def delete_campaign(campaign_id: str, current_user: dict = Depends(get_current_user)):
+    result = await db.campaigns.delete_one({"id": campaign_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return {"message": "Campaign deleted"}
 
 # QR Code Routes
 @api_router.post("/qrcodes", response_model=QRCodeResponse)
