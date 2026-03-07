@@ -1344,6 +1344,402 @@ async def analyze_influencer(influencer_id: str, user: dict = Depends(require_de
         }
     }
 
+# ============== AI GENERATION ENDPOINTS ==============
+ai_router = APIRouter(prefix="/ai", tags=["AI Generation"])
+
+@ai_router.post("/text")
+async def generate_ai_text(
+    data: dict,
+    user: dict = Depends(get_current_user)
+):
+    """Generate text using GPT-5.2"""
+    try:
+        from services.ai_service import generate_text
+        result = await generate_text(
+            prompt=data.get("prompt", ""),
+            system_message=data.get("system_message"),
+            model=data.get("model", "gpt-5.2")
+        )
+        return result
+    except Exception as e:
+        logger.error(f"AI text generation error: {e}")
+        return {"success": False, "error": str(e)}
+
+@ai_router.post("/image")
+async def generate_ai_image(
+    data: dict,
+    user: dict = Depends(get_current_user)
+):
+    """Generate images using GPT Image 1"""
+    try:
+        from services.ai_service import generate_image
+        result = await generate_image(
+            prompt=data.get("prompt", ""),
+            model=data.get("model", "gpt-image-1"),
+            num_images=data.get("num_images", 1)
+        )
+        return result
+    except Exception as e:
+        logger.error(f"AI image generation error: {e}")
+        return {"success": False, "error": str(e)}
+
+@ai_router.post("/video")
+async def generate_ai_video(
+    data: dict,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user)
+):
+    """Generate video using Sora 2 (background task)"""
+    try:
+        from services.ai_service import generate_video_sync
+        
+        # Video generation is slow, run in background
+        video_id = str(uuid.uuid4())
+        
+        # Store pending video job
+        await db.video_jobs.insert_one({
+            "id": video_id,
+            "prompt": data.get("prompt", ""),
+            "status": "pending",
+            "user_id": user['id'],
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+        
+        # Run in background
+        def generate_and_store():
+            result = generate_video_sync(
+                prompt=data.get("prompt", ""),
+                model=data.get("model", "sora-2"),
+                size=data.get("size", "1280x720"),
+                duration=data.get("duration", 4)
+            )
+            # Update job status (sync update since we're in background)
+            import asyncio
+            loop = asyncio.new_event_loop()
+            loop.run_until_complete(
+                db.video_jobs.update_one(
+                    {"id": video_id},
+                    {"$set": {
+                        "status": "completed" if result.get("success") else "failed",
+                        "result": result,
+                        "completed_at": datetime.now(timezone.utc).isoformat()
+                    }}
+                )
+            )
+            loop.close()
+        
+        background_tasks.add_task(generate_and_store)
+        
+        return {
+            "success": True,
+            "job_id": video_id,
+            "status": "pending",
+            "message": "Video generation started. Check status with GET /api/ai/video/{job_id}"
+        }
+    except Exception as e:
+        logger.error(f"AI video generation error: {e}")
+        return {"success": False, "error": str(e)}
+
+@ai_router.get("/video/{job_id}")
+async def get_video_job_status(
+    job_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Get video generation job status"""
+    job = await db.video_jobs.find_one({"id": job_id}, {"_id": 0})
+    if not job:
+        raise HTTPException(status_code=404, detail="Video job not found")
+    return job
+
+@ai_router.post("/caption")
+async def generate_caption(
+    data: dict,
+    user: dict = Depends(get_current_user)
+):
+    """Generate social media caption with AI"""
+    try:
+        from services.ai_service import generate_social_caption
+        result = await generate_social_caption(
+            topic=data.get("topic", ""),
+            platform=data.get("platform", "instagram"),
+            tone=data.get("tone", "engaging")
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Caption generation error: {e}")
+        return {"success": False, "error": str(e)}
+
+@ai_router.post("/email-content")
+async def generate_email(
+    data: dict,
+    user: dict = Depends(get_current_user)
+):
+    """Generate email content with AI"""
+    try:
+        from services.ai_service import generate_email_content
+        result = await generate_email_content(
+            subject_hint=data.get("subject", ""),
+            recipient_type=data.get("recipient_type", "customer"),
+            tone=data.get("tone", "professional")
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Email content generation error: {e}")
+        return {"success": False, "error": str(e)}
+
+# ============== COMMUNICATION ENDPOINTS ==============
+comm_router = APIRouter(prefix="/communication", tags=["Communication"])
+
+@comm_router.post("/whatsapp/send")
+async def send_whatsapp_message(
+    data: dict,
+    user: dict = Depends(get_current_user)
+):
+    """Send WhatsApp message via Twilio"""
+    try:
+        from services.communication_service import whatsapp_service
+        
+        result = whatsapp_service.send_message(
+            to_number=data.get("to"),
+            message=data.get("message")
+        )
+        
+        # Log the message
+        if result.get("success"):
+            await db.communication_logs.insert_one({
+                "id": str(uuid.uuid4()),
+                "type": "whatsapp",
+                "to": data.get("to"),
+                "message": data.get("message"),
+                "status": result.get("status"),
+                "message_sid": result.get("message_sid"),
+                "sent_by": user['id'],
+                "sent_at": datetime.now(timezone.utc).isoformat()
+            })
+        
+        return result
+    except Exception as e:
+        logger.error(f"WhatsApp send error: {e}")
+        return {"success": False, "error": str(e)}
+
+@comm_router.post("/whatsapp/template")
+async def send_whatsapp_template(
+    data: dict,
+    user: dict = Depends(get_current_user)
+):
+    """Send WhatsApp template message"""
+    try:
+        from services.communication_service import whatsapp_service
+        
+        result = whatsapp_service.send_template_message(
+            to_number=data.get("to"),
+            template_name=data.get("template"),
+            variables=data.get("variables", {})
+        )
+        
+        if result.get("success"):
+            await db.communication_logs.insert_one({
+                "id": str(uuid.uuid4()),
+                "type": "whatsapp_template",
+                "to": data.get("to"),
+                "template": data.get("template"),
+                "variables": data.get("variables"),
+                "status": result.get("status"),
+                "sent_by": user['id'],
+                "sent_at": datetime.now(timezone.utc).isoformat()
+            })
+        
+        return result
+    except Exception as e:
+        logger.error(f"WhatsApp template error: {e}")
+        return {"success": False, "error": str(e)}
+
+@comm_router.post("/email/send")
+async def send_outlook_email(
+    data: dict,
+    user: dict = Depends(get_current_user)
+):
+    """Send email via Microsoft Outlook/Graph"""
+    try:
+        from services.communication_service import email_service
+        
+        result = await email_service.send_email(
+            sender_email=data.get("from", user.get("email")),
+            to_recipients=data.get("to", []),
+            subject=data.get("subject", ""),
+            body=data.get("body", ""),
+            content_type=data.get("content_type", "html"),
+            cc_recipients=data.get("cc", [])
+        )
+        
+        if result.get("success"):
+            await db.communication_logs.insert_one({
+                "id": str(uuid.uuid4()),
+                "type": "email",
+                "to": data.get("to"),
+                "subject": data.get("subject"),
+                "status": "sent",
+                "sent_by": user['id'],
+                "sent_at": datetime.now(timezone.utc).isoformat()
+            })
+        
+        return result
+    except Exception as e:
+        logger.error(f"Email send error: {e}")
+        return {"success": False, "error": str(e)}
+
+@comm_router.get("/logs")
+async def get_communication_logs(
+    type: Optional[str] = None,
+    limit: int = 50,
+    user: dict = Depends(get_current_user)
+):
+    """Get communication logs"""
+    query = {}
+    if type:
+        query["type"] = type
+    
+    logs = await db.communication_logs.find(query, {"_id": 0}).sort("sent_at", -1).limit(limit).to_list(limit)
+    return logs
+
+# ============== TEAM COLLABORATION ENDPOINTS ==============
+collab_router = APIRouter(prefix="/collaboration", tags=["Team Collaboration"])
+
+@collab_router.post("/comments")
+async def add_comment(
+    data: dict,
+    user: dict = Depends(get_current_user)
+):
+    """Add a comment to any entity (campaign, lead, content, etc.)"""
+    comment_id = str(uuid.uuid4())
+    
+    # Parse mentions from comment text
+    mentions = []
+    import re
+    mention_pattern = r'@(\w+)'
+    matches = re.findall(mention_pattern, data.get("text", ""))
+    
+    if matches:
+        # Find mentioned users
+        for mention in matches:
+            mentioned_user = await db.users.find_one(
+                {"$or": [{"name": {"$regex": mention, "$options": "i"}}, {"email": {"$regex": mention, "$options": "i"}}]},
+                {"_id": 0, "id": 1, "name": 1, "email": 1}
+            )
+            if mentioned_user:
+                mentions.append(mentioned_user)
+    
+    comment_doc = {
+        "id": comment_id,
+        "entity_type": data.get("entity_type"),  # campaign, lead, content, etc.
+        "entity_id": data.get("entity_id"),
+        "text": data.get("text"),
+        "mentions": mentions,
+        "author_id": user['id'],
+        "author_name": user['name'],
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.comments.insert_one(comment_doc)
+    
+    # Create notifications for mentioned users
+    for mentioned in mentions:
+        await db.notifications.insert_one({
+            "id": str(uuid.uuid4()),
+            "type": "mention",
+            "user_id": mentioned['id'],
+            "title": f"{user['name']} mentioned you",
+            "message": f"{user['name']} mentioned you in a comment on {data.get('entity_type')}",
+            "entity_type": data.get("entity_type"),
+            "entity_id": data.get("entity_id"),
+            "read": False,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+    
+    # Create activity feed entry
+    await db.activity_feed.insert_one({
+        "id": str(uuid.uuid4()),
+        "type": "comment",
+        "user_id": user['id'],
+        "user_name": user['name'],
+        "entity_type": data.get("entity_type"),
+        "entity_id": data.get("entity_id"),
+        "description": f"commented on {data.get('entity_type')}",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    if '_id' in comment_doc:
+        del comment_doc['_id']
+    return comment_doc
+
+@collab_router.get("/comments/{entity_type}/{entity_id}")
+async def get_comments(
+    entity_type: str,
+    entity_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Get comments for an entity"""
+    comments = await db.comments.find(
+        {"entity_type": entity_type, "entity_id": entity_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    return comments
+
+@collab_router.get("/activity-feed")
+async def get_activity_feed(
+    department: Optional[str] = None,
+    limit: int = 50,
+    user: dict = Depends(get_current_user)
+):
+    """Get activity feed for team"""
+    query = {}
+    if department:
+        query["department"] = department
+    
+    activities = await db.activity_feed.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    return activities
+
+@collab_router.get("/notifications")
+async def get_notifications(
+    unread_only: bool = False,
+    user: dict = Depends(get_current_user)
+):
+    """Get notifications for current user"""
+    query = {"user_id": user['id']}
+    if unread_only:
+        query["read"] = False
+    
+    notifications = await db.notifications.find(query, {"_id": 0}).sort("created_at", -1).limit(50).to_list(50)
+    return notifications
+
+@collab_router.put("/notifications/{notification_id}/read")
+async def mark_notification_read(
+    notification_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Mark notification as read"""
+    await db.notifications.update_one(
+        {"id": notification_id, "user_id": user['id']},
+        {"$set": {"read": True}}
+    )
+    return {"message": "Notification marked as read"}
+
+@collab_router.put("/notifications/read-all")
+async def mark_all_notifications_read(
+    user: dict = Depends(get_current_user)
+):
+    """Mark all notifications as read"""
+    await db.notifications.update_many(
+        {"user_id": user['id'], "read": False},
+        {"$set": {"read": True}}
+    )
+    return {"message": "All notifications marked as read"}
+
+# Include new routers
+api_router.include_router(ai_router)
+api_router.include_router(comm_router)
+api_router.include_router(collab_router)
+
 # Include routers
 api_router.include_router(auth_router)
 api_router.include_router(marketing_router)

@@ -1,0 +1,96 @@
+{
+  "total_tests": 11,
+  "passed_tests": 9,
+  "failed_tests": [
+    {
+      "test": "Marketing User - Marketing Access",
+      "error": "No marketing token",
+      "status": null
+    },
+    {
+      "test": "Sales User - Sales Access",
+      "error": "No sales token",
+      "status": null
+    }
+  ],
+  "success_rate": 81.81818181818183,
+  "detailed_results": [
+    {
+      "name": "Seed Data - Influencers Count",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": null
+    },
+    {
+      "name": "Seed Data - Leads Count",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": null
+    },
+    {
+      "name": "Seed Data - Content Count",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": null
+    },
+    {
+      "name": "AI Caption Generation",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": "{'success': True, 'text': '{\\n  \"hook\": \"Stop scrolling\u2014these fashion trends are about to take over your feed \ud83d\udc40\",\\n  \"caption\": \"Stop scrolling\u2014these fashion trends are about to take over your feed \ud83d\udc40 "
+    },
+    {
+      "name": "Collaboration - Add Comment with @mention",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": "{'id': '8f9b6871-0906-4e0c-9d9e-bc145da6269a', 'entity_type': 'lead', 'entity_id': '916fcd33-b3ad-46a4-9207-a6c07ef8f00f', 'text': 'Following up on this lead. @marketing please check the campaign sour"
+    },
+    {
+      "name": "Collaboration - Get Comments",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": null
+    },
+    {
+      "name": "Activity Feed Endpoint",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": "[{'id': '028c2134-e090-4120-942e-c130db1d45f3', 'type': 'comment', 'user_id': '696de26d-41eb-42f7-9bf7-3cb99ca79c73', 'user_name': 'Admin User', 'entity_type': 'lead', 'entity_id': '916fcd33-b3ad-46a4"
+    },
+    {
+      "name": "Notifications - Get List",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": null
+    },
+    {
+      "name": "Notifications - Mark All Read",
+      "passed": true,
+      "status_code": 200,
+      "error": null,
+      "response": null
+    },
+    {
+      "name": "Marketing User - Marketing Access",
+      "passed": false,
+      "status_code": null,
+      "error": "No marketing token",
+      "response": null
+    },
+    {
+      "name": "Sales User - Sales Access",
+      "passed": false,
+      "status_code": null,
+      "error": "No sales token",
+      "response": null
+    }
+  ]
+}
