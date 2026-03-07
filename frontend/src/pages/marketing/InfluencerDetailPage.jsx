@@ -37,6 +37,16 @@ const InfluencerDetailPage = () => {
   const [gifts, setGifts] = useState([]);
   const [activities, setActivities] = useState([]);
   
+  // Finance/Payments data
+  const [payments, setPayments] = useState([]);
+  const [paymentSummary, setPaymentSummary] = useState({ total_paid: 0, total_pending: 0 });
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [newPayment, setNewPayment] = useState({
+    amount: '', description: '', payment_type: 'influencer_fee', 
+    deliverables: [], due_date: '', invoice_number: ''
+  });
+  const [creatingPayment, setCreatingPayment] = useState(false);
+  
   // Campaigns
   const [campaigns, setCampaigns] = useState([]);
   const [assignedCampaign, setAssignedCampaign] = useState('');
@@ -157,11 +167,26 @@ const InfluencerDetailPage = () => {
     }
   }, [api, influencerId]);
 
+  // Fetch payments for finance tab
+  const fetchPayments = useCallback(async () => {
+    try {
+      const response = await api.get(`/marketing/payments/summary/by-contact/${influencerId}`);
+      setPayments(response.data.payments || []);
+      setPaymentSummary({
+        total_paid: response.data.total_paid || 0,
+        total_pending: response.data.total_pending || 0
+      });
+    } catch (error) {
+      console.log('No payments found');
+    }
+  }, [api, influencerId]);
+
   useEffect(() => {
     fetchInfluencer();
     fetchCampaigns();
     fetchHistory();
-  }, [fetchInfluencer, fetchCampaigns, fetchHistory]);
+    fetchPayments();
+  }, [fetchInfluencer, fetchCampaigns, fetchHistory, fetchPayments]);
 
   // Build activities when history data changes
   useEffect(() => {
@@ -389,9 +414,55 @@ const InfluencerDetailPage = () => {
     return num.toString();
   };
 
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount || 0);
+  };
+
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  // Payment handlers
+  const handleCreatePayment = async () => {
+    if (!newPayment.amount || parseFloat(newPayment.amount) <= 0) {
+      toast.error('Please enter a valid amount');
+      return;
+    }
+    
+    setCreatingPayment(true);
+    try {
+      const campaignData = campaigns.find(c => c.id === assignedCampaign);
+      await api.post('/marketing/payments', {
+        contact_id: influencerId,
+        campaign_id: assignedCampaign || null,
+        campaign_name: campaignData?.name || null,
+        amount: parseFloat(newPayment.amount),
+        description: newPayment.description,
+        payment_type: newPayment.payment_type,
+        deliverables: newPayment.deliverables,
+        due_date: newPayment.due_date,
+        invoice_number: newPayment.invoice_number
+      });
+      toast.success('Payment created!');
+      setShowPaymentModal(false);
+      setNewPayment({ amount: '', description: '', payment_type: 'influencer_fee', deliverables: [], due_date: '', invoice_number: '' });
+      fetchPayments();
+    } catch (error) {
+      toast.error('Failed to create payment');
+    } finally {
+      setCreatingPayment(false);
+    }
+  };
+
+  const handleUpdatePaymentStatus = async (paymentId, newStatus) => {
+    try {
+      await api.put(`/marketing/payments/${paymentId}`, { status: newStatus });
+      toast.success(`Payment ${newStatus}`);
+      fetchPayments();
+    } catch (error) {
+      toast.error('Failed to update payment');
+    }
   };
 
   const getTierBadge = () => {
@@ -415,6 +486,7 @@ const InfluencerDetailPage = () => {
     { id: 'overview', label: 'Overview' },
     { id: 'metrics', label: 'Core Metrics' },
     { id: 'rates', label: 'Deliverables & Rates' },
+    { id: 'finance', label: 'Finance & Payments' },
     { id: 'history', label: 'History' }
   ];
 
@@ -1168,6 +1240,308 @@ const InfluencerDetailPage = () => {
                   <Send className="w-4 h-4" /> Send {outreachChannel === 'email' ? 'Email' : 'WhatsApp'}
                 </>
               )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Finance & Payments Tab */}
+      {activeTab === 'finance' && (
+        <div className="grid grid-cols-3 gap-6">
+          {/* Payment Summary & Actions */}
+          <div className="col-span-2 space-y-6">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-3 gap-4">
+              <Card className="bg-white border-gray-200">
+                <CardContent className="p-4 text-center">
+                  <DollarSign className="w-6 h-6 text-green-500 mx-auto mb-2" />
+                  <div className="text-2xl font-bold text-green-600">{formatCurrency(paymentSummary.total_paid)}</div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wider">Total Paid</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-white border-gray-200">
+                <CardContent className="p-4 text-center">
+                  <Clock className="w-6 h-6 text-amber-500 mx-auto mb-2" />
+                  <div className="text-2xl font-bold text-amber-600">{formatCurrency(paymentSummary.total_pending)}</div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wider">Pending</div>
+                </CardContent>
+              </Card>
+              <Card className="bg-white border-gray-200">
+                <CardContent className="p-4 text-center">
+                  <TrendingUp className="w-6 h-6 text-blue-500 mx-auto mb-2" />
+                  <div className="text-2xl font-bold text-gray-900">{payments.length}</div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wider">Transactions</div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Payments List */}
+            <Card className="bg-white border-gray-200">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-amber-500" />
+                  Payment History
+                </CardTitle>
+                <Button 
+                  onClick={() => setShowPaymentModal(true)}
+                  className="bg-[#c4a35a] hover:bg-[#b39349] text-white"
+                  data-testid="create-payment-btn"
+                >
+                  <Plus className="w-4 h-4 mr-2" /> New Payment
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {payments.length === 0 ? (
+                  <div className="text-center py-8">
+                    <DollarSign className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+                    <p className="text-gray-500">No payment records yet</p>
+                    <p className="text-gray-400 text-sm mt-1">Create a payment to track financial transactions</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {payments.map(payment => (
+                      <div key={payment.id} className="p-4 border border-gray-100 rounded-lg hover:bg-gray-50" data-testid={`payment-row-${payment.id}`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                              payment.status === 'completed' ? 'bg-green-100' :
+                              payment.status === 'processing' ? 'bg-blue-100' :
+                              payment.status === 'approved' ? 'bg-purple-100' :
+                              'bg-amber-100'
+                            }`}>
+                              <DollarSign className={`w-5 h-5 ${
+                                payment.status === 'completed' ? 'text-green-600' :
+                                payment.status === 'processing' ? 'text-blue-600' :
+                                payment.status === 'approved' ? 'text-purple-600' :
+                                'text-amber-600'
+                              }`} />
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-900">{formatCurrency(payment.amount)}</div>
+                              <div className="text-sm text-gray-500 capitalize">{payment.payment_type?.replace('_', ' ')}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Badge className={
+                              payment.status === 'completed' ? 'bg-green-100 text-green-700' :
+                              payment.status === 'processing' ? 'bg-blue-100 text-blue-700' :
+                              payment.status === 'approved' ? 'bg-purple-100 text-purple-700' :
+                              payment.status === 'failed' ? 'bg-red-100 text-red-700' :
+                              'bg-amber-100 text-amber-700'
+                            }>
+                              {payment.status}
+                            </Badge>
+                            <span className="text-xs text-gray-400">{formatDate(payment.created_at)}</span>
+                          </div>
+                        </div>
+                        {payment.description && (
+                          <p className="text-sm text-gray-600 mb-2">{payment.description}</p>
+                        )}
+                        {payment.campaign_name && (
+                          <div className="text-xs text-gray-500 mb-2">
+                            <Target className="w-3 h-3 inline mr-1" />
+                            Campaign: {payment.campaign_name}
+                          </div>
+                        )}
+                        {/* Payment Actions */}
+                        {payment.status === 'pending' && (
+                          <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
+                            <Button size="sm" variant="outline" onClick={() => handleUpdatePaymentStatus(payment.id, 'approved')} className="text-purple-600 border-purple-200 hover:bg-purple-50">
+                              Approve
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => handleUpdatePaymentStatus(payment.id, 'completed')} className="text-green-600 border-green-200 hover:bg-green-50">
+                              Mark Paid
+                            </Button>
+                          </div>
+                        )}
+                        {payment.status === 'approved' && (
+                          <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
+                            <Button size="sm" variant="outline" onClick={() => handleUpdatePaymentStatus(payment.id, 'processing')} className="text-blue-600 border-blue-200 hover:bg-blue-50">
+                              Start Processing
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => handleUpdatePaymentStatus(payment.id, 'completed')} className="text-green-600 border-green-200 hover:bg-green-50">
+                              Mark Paid
+                            </Button>
+                          </div>
+                        )}
+                        {payment.status === 'processing' && (
+                          <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
+                            <Button size="sm" variant="outline" onClick={() => handleUpdatePaymentStatus(payment.id, 'completed')} className="text-green-600 border-green-200 hover:bg-green-50">
+                              Mark Completed
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Sidebar - Campaign Budget & Quick Stats */}
+          <div className="space-y-4">
+            {/* Campaign Budget */}
+            {assignedCampaign && campaigns.find(c => c.id === assignedCampaign) && (
+              <Card className="bg-white border-gray-200">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Target className="w-4 h-4 text-amber-500" />
+                    Campaign Budget
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const campaign = campaigns.find(c => c.id === assignedCampaign);
+                    const budgetUsed = (campaign.spent / campaign.budget) * 100;
+                    return (
+                      <div className="space-y-3">
+                        <div>
+                          <div className="text-lg font-semibold text-gray-900">{campaign.name}</div>
+                          <Badge className="mt-1 capitalize">{campaign.status}</Badge>
+                        </div>
+                        <div className="pt-2 border-t border-gray-100">
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-gray-500">Budget</span>
+                            <span className="font-medium">{formatCurrency(campaign.budget)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm mb-2">
+                            <span className="text-gray-500">Spent</span>
+                            <span className="font-medium text-amber-600">{formatCurrency(campaign.spent)}</span>
+                          </div>
+                          <div className="w-full bg-gray-100 rounded-full h-2">
+                            <div 
+                              className="bg-amber-500 h-2 rounded-full transition-all"
+                              style={{ width: `${Math.min(budgetUsed, 100)}%` }}
+                            />
+                          </div>
+                          <div className="text-xs text-gray-400 mt-1 text-right">{Math.round(budgetUsed)}% used</div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Rate Card Summary */}
+            <Card className="bg-white border-gray-200">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Rate Card Summary</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {form.deliverables.slice(0, 4).map(d => (
+                    <div key={d.id} className="flex justify-between text-sm">
+                      <span className="text-gray-500">{d.name}</span>
+                      <span className="font-medium">{d.price ? formatCurrency(parseFloat(d.price)) : '-'}</span>
+                    </div>
+                  ))}
+                </div>
+                {form.deliverables.length > 4 && (
+                  <p className="text-xs text-gray-400 mt-2">+{form.deliverables.length - 4} more deliverables</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Quick Actions */}
+            <Card className="bg-white border-gray-200">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Quick Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Button variant="outline" className="w-full justify-start" onClick={() => setShowPaymentModal(true)}>
+                  <Plus className="w-4 h-4 mr-2" /> Create Payment
+                </Button>
+                <Button variant="outline" className="w-full justify-start" onClick={() => setActiveTab('rates')}>
+                  <DollarSign className="w-4 h-4 mr-2" /> Edit Rate Card
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Create Payment Modal */}
+      <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
+        <DialogContent className="max-w-md" data-testid="create-payment-modal">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-green-500" />
+              Create Payment for {form.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">AMOUNT (₹) *</Label>
+              <Input 
+                type="number"
+                value={newPayment.amount}
+                onChange={e => setNewPayment(prev => ({ ...prev, amount: e.target.value }))}
+                placeholder="50000"
+                className="mt-1"
+                data-testid="payment-amount-input"
+              />
+            </div>
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">PAYMENT TYPE</Label>
+              <Select value={newPayment.payment_type} onValueChange={v => setNewPayment(prev => ({ ...prev, payment_type: v }))}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="influencer_fee">Influencer Fee</SelectItem>
+                  <SelectItem value="bonus">Performance Bonus</SelectItem>
+                  <SelectItem value="reimbursement">Reimbursement</SelectItem>
+                  <SelectItem value="advance">Advance Payment</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">DESCRIPTION</Label>
+              <Textarea 
+                value={newPayment.description}
+                onChange={e => setNewPayment(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Payment for Instagram posts..."
+                className="mt-1"
+                rows={2}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500">INVOICE #</Label>
+                <Input 
+                  value={newPayment.invoice_number}
+                  onChange={e => setNewPayment(prev => ({ ...prev, invoice_number: e.target.value }))}
+                  placeholder="INV-001"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500">DUE DATE</Label>
+                <Input 
+                  type="date"
+                  value={newPayment.due_date}
+                  onChange={e => setNewPayment(prev => ({ ...prev, due_date: e.target.value }))}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+            {assignedCampaign && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="text-xs text-amber-600 uppercase tracking-wider mb-1">Linked to Campaign</div>
+                <div className="font-medium text-amber-800">{campaigns.find(c => c.id === assignedCampaign)?.name}</div>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button variant="outline" onClick={() => setShowPaymentModal(false)}>Cancel</Button>
+            <Button 
+              onClick={handleCreatePayment}
+              disabled={creatingPayment || !newPayment.amount}
+              className="bg-green-600 hover:bg-green-700 text-white"
+              data-testid="submit-payment-btn"
+            >
+              {creatingPayment ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+              Create Payment
             </Button>
           </div>
         </DialogContent>

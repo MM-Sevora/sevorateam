@@ -930,6 +930,154 @@ async def create_marketing_campaign(data: CampaignCreate, user: dict = Depends(r
         del campaign_doc['_id']
     return campaign_doc
 
+# ========== PAYMENT TRACKING APIs ==========
+
+@marketing_router.get("/payments")
+async def get_payments(
+    contact_id: Optional[str] = None, 
+    campaign_id: Optional[str] = None,
+    status: Optional[str] = None,
+    user: dict = Depends(require_department(["marketing"]))
+):
+    """Get all payments with optional filters"""
+    query = {}
+    if contact_id:
+        query["contact_id"] = contact_id
+    if campaign_id:
+        query["campaign_id"] = campaign_id
+    if status:
+        query["status"] = status
+    
+    payments = await db.payments.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return payments
+
+@marketing_router.post("/payments")
+async def create_payment(data: dict, user: dict = Depends(require_department(["marketing"]))):
+    """Create a new payment record"""
+    payment_id = str(uuid.uuid4())
+    
+    # Validate contact exists
+    contact = await db.contacts.find_one({"id": data.get("contact_id")})
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    payment_doc = {
+        "id": payment_id,
+        "contact_id": data.get("contact_id"),
+        "contact_name": contact.get("name"),
+        "campaign_id": data.get("campaign_id"),
+        "campaign_name": data.get("campaign_name"),
+        "amount": data.get("amount", 0),
+        "currency": data.get("currency", "INR"),
+        "payment_type": data.get("payment_type", "influencer_fee"),  # influencer_fee, bonus, reimbursement
+        "description": data.get("description", ""),
+        "deliverables": data.get("deliverables", []),
+        "invoice_number": data.get("invoice_number"),
+        "due_date": data.get("due_date"),
+        "status": "pending",  # pending, approved, processing, completed, failed
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_by": user['id'],
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.payments.insert_one(payment_doc)
+    del payment_doc['_id']
+    return payment_doc
+
+@marketing_router.get("/payments/{payment_id}")
+async def get_payment(payment_id: str, user: dict = Depends(require_department(["marketing"]))):
+    """Get single payment by ID"""
+    payment = await db.payments.find_one({"id": payment_id}, {"_id": 0})
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    return payment
+
+@marketing_router.put("/payments/{payment_id}")
+async def update_payment(payment_id: str, data: dict, user: dict = Depends(require_department(["marketing"]))):
+    """Update payment details"""
+    payment = await db.payments.find_one({"id": payment_id})
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    
+    allowed_fields = ["amount", "description", "deliverables", "invoice_number", "due_date", "status", "payment_date", "notes"]
+    update_data = {k: v for k, v in data.items() if k in allowed_fields}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    # If status changed to completed, update campaign spent
+    if data.get("status") == "completed" and payment.get("status") != "completed":
+        update_data["payment_date"] = datetime.now(timezone.utc).isoformat()
+        # Update campaign spent amount
+        if payment.get("campaign_id"):
+            await db.marketing_campaigns.update_one(
+                {"id": payment["campaign_id"]},
+                {"$inc": {"spent": payment.get("amount", 0)}}
+            )
+    
+    await db.payments.update_one({"id": payment_id}, {"$set": update_data})
+    updated = await db.payments.find_one({"id": payment_id}, {"_id": 0})
+    return updated
+
+@marketing_router.delete("/payments/{payment_id}")
+async def delete_payment(payment_id: str, user: dict = Depends(require_department(["marketing"]))):
+    """Delete a payment record"""
+    payment = await db.payments.find_one({"id": payment_id})
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    
+    # If payment was completed, deduct from campaign spent
+    if payment.get("status") == "completed" and payment.get("campaign_id"):
+        await db.marketing_campaigns.update_one(
+            {"id": payment["campaign_id"]},
+            {"$inc": {"spent": -payment.get("amount", 0)}}
+        )
+    
+    await db.payments.delete_one({"id": payment_id})
+    return {"message": "Payment deleted"}
+
+@marketing_router.get("/payments/summary/by-contact/{contact_id}")
+async def get_contact_payment_summary(contact_id: str, user: dict = Depends(require_department(["marketing"]))):
+    """Get payment summary for a specific contact/influencer"""
+    payments = await db.payments.find({"contact_id": contact_id}, {"_id": 0}).to_list(500)
+    
+    total_paid = sum(p.get("amount", 0) for p in payments if p.get("status") == "completed")
+    total_pending = sum(p.get("amount", 0) for p in payments if p.get("status") in ["pending", "approved", "processing"])
+    
+    return {
+        "contact_id": contact_id,
+        "total_paid": total_paid,
+        "total_pending": total_pending,
+        "total_payments": len(payments),
+        "payments": payments
+    }
+
+@marketing_router.get("/payments/summary/by-campaign/{campaign_id}")
+async def get_campaign_payment_summary(campaign_id: str, user: dict = Depends(require_department(["marketing"]))):
+    """Get payment summary for a specific campaign"""
+    payments = await db.payments.find({"campaign_id": campaign_id}, {"_id": 0}).to_list(500)
+    
+    total_paid = sum(p.get("amount", 0) for p in payments if p.get("status") == "completed")
+    total_pending = sum(p.get("amount", 0) for p in payments if p.get("status") in ["pending", "approved", "processing"])
+    
+    # Group by contact
+    by_contact = {}
+    for p in payments:
+        cid = p.get("contact_id")
+        if cid not in by_contact:
+            by_contact[cid] = {"contact_name": p.get("contact_name"), "paid": 0, "pending": 0}
+        if p.get("status") == "completed":
+            by_contact[cid]["paid"] += p.get("amount", 0)
+        else:
+            by_contact[cid]["pending"] += p.get("amount", 0)
+    
+    return {
+        "campaign_id": campaign_id,
+        "total_paid": total_paid,
+        "total_pending": total_pending,
+        "total_payments": len(payments),
+        "by_influencer": list(by_contact.values()),
+        "payments": payments
+    }
+
 # Marketing Outreach
 @marketing_router.get("/outreach", response_model=List[OutreachResponse])
 async def get_outreach(influencer_id: Optional[str] = None, user: dict = Depends(require_department(["marketing"]))):
@@ -2239,25 +2387,6 @@ async def get_marketing_analytics(user: dict = Depends(require_department(["mark
         "roi": 0,
         "campaigns_performance": []
     }
-
-# ============== MARKETING PAYMENTS ==============
-@marketing_router.get("/payments")
-async def get_payments(user: dict = Depends(require_department(["marketing"]))):
-    payments = await db.payments.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
-    return payments
-
-@marketing_router.post("/payments")
-async def create_payment(data: dict, user: dict = Depends(require_department(["marketing"]))):
-    payment_id = str(uuid.uuid4())
-    payment_doc = {
-        "id": payment_id,
-        **data,
-        "status": "pending",
-        "created_at": datetime.now(timezone.utc).isoformat()
-    }
-    await db.payments.insert_one(payment_doc)
-    if '_id' in payment_doc: del payment_doc['_id']
-    return payment_doc
 
 # ============== MARKETING SCHEDULED ==============
 @marketing_router.get("/scheduled")

@@ -1,0 +1,655 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Badge } from '../../components/ui/badge';
+import { Label } from '../../components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { toast } from 'sonner';
+import { 
+  Calendar, List, ChevronLeft, ChevronRight, Plus, Target, Users, DollarSign,
+  Clock, Play, Pause, CheckCircle2, TrendingUp, Filter, Search, RefreshCw,
+  CalendarDays, LayoutGrid, GanttChartSquare
+} from 'lucide-react';
+
+const STATUS_CONFIG = {
+  planning: { label: 'Planning', icon: Clock, color: 'bg-blue-100 text-blue-700 border-blue-200' },
+  active: { label: 'Active', icon: Play, color: 'bg-green-100 text-green-700 border-green-200' },
+  paused: { label: 'Paused', icon: Pause, color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+  completed: { label: 'Completed', icon: CheckCircle2, color: 'bg-gray-100 text-gray-700 border-gray-200' }
+};
+
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+const CampaignHubPage = () => {
+  const { api } = useAuth();
+  const navigate = useNavigate();
+  
+  const [view, setView] = useState('list'); // list, calendar, timeline
+  const [campaigns, setCampaigns] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [milestones, setMilestones] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  
+  // Calendar state
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [showEventModal, setShowEventModal] = useState(false);
+  
+  // New campaign modal
+  const [showNewCampaign, setShowNewCampaign] = useState(false);
+  const [newCampaign, setNewCampaign] = useState({
+    name: '', objective: 'awareness', budget: 0, start_date: '', end_date: '', target_market: '', description: ''
+  });
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [campaignsRes, eventsRes] = await Promise.all([
+        api.get('/marketing/campaigns'),
+        api.get('/marketing/v2/events').catch(() => ({ data: [] }))
+      ]);
+      setCampaigns(campaignsRes.data || []);
+      setEvents(eventsRes.data || []);
+      
+      // Generate milestones from campaigns
+      const allMilestones = [];
+      (campaignsRes.data || []).forEach(campaign => {
+        if (campaign.start_date) {
+          allMilestones.push({
+            id: `start-${campaign.id}`,
+            campaign_id: campaign.id,
+            campaign_name: campaign.name,
+            title: `${campaign.name} - Start`,
+            date: campaign.start_date,
+            type: 'campaign_start',
+            status: campaign.status
+          });
+        }
+        if (campaign.end_date) {
+          allMilestones.push({
+            id: `end-${campaign.id}`,
+            campaign_id: campaign.id,
+            campaign_name: campaign.name,
+            title: `${campaign.name} - End`,
+            date: campaign.end_date,
+            type: 'campaign_end',
+            status: campaign.status
+          });
+        }
+      });
+      setMilestones(allMilestones);
+    } catch (error) {
+      toast.error('Failed to load campaigns');
+    } finally {
+      setLoading(false);
+    }
+  }, [api]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const handleCreateCampaign = async () => {
+    if (!newCampaign.name) {
+      toast.error('Campaign name is required');
+      return;
+    }
+    try {
+      await api.post('/marketing/campaigns', newCampaign);
+      toast.success('Campaign created!');
+      setShowNewCampaign(false);
+      setNewCampaign({ name: '', objective: 'awareness', budget: 0, start_date: '', end_date: '', target_market: '', description: '' });
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to create campaign');
+    }
+  };
+
+  // Calendar helpers
+  const getDaysInMonth = (date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDay = firstDay.getDay();
+    return { daysInMonth, startingDay };
+  };
+
+  const getEventsForDate = (date) => {
+    const dateStr = date.toISOString().split('T')[0];
+    const items = [];
+    
+    // Add campaign milestones
+    milestones.forEach(m => {
+      if (m.date === dateStr) {
+        items.push({ ...m, itemType: 'milestone' });
+      }
+    });
+    
+    // Add events
+    events.forEach(e => {
+      if (e.start_date === dateStr || e.end_date === dateStr) {
+        items.push({ ...e, itemType: 'event', title: e.name });
+      }
+    });
+    
+    // Check if date falls within campaign range
+    campaigns.forEach(c => {
+      if (c.start_date && c.end_date) {
+        const start = new Date(c.start_date);
+        const end = new Date(c.end_date);
+        if (date >= start && date <= end) {
+          items.push({
+            id: `range-${c.id}-${dateStr}`,
+            campaign_id: c.id,
+            campaign_name: c.name,
+            title: c.name,
+            type: 'campaign_range',
+            status: c.status,
+            itemType: 'range'
+          });
+        }
+      }
+    });
+    
+    return items;
+  };
+
+  const prevMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+  };
+
+  const nextMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+  };
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount || 0);
+  };
+
+  // Filtered campaigns
+  const filteredCampaigns = campaigns.filter(c => {
+    const matchesSearch = c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         c.objective?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || c.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  // Stats
+  const totalBudget = campaigns.reduce((sum, c) => sum + (c.budget || 0), 0);
+  const totalSpent = campaigns.reduce((sum, c) => sum + (c.spent || 0), 0);
+  const activeCampaigns = campaigns.filter(c => c.status === 'active').length;
+  const totalInfluencers = campaigns.reduce((sum, c) => sum + (c.influencer_count || 0), 0);
+
+  const renderCalendar = () => {
+    const { daysInMonth, startingDay } = getDaysInMonth(currentDate);
+    const days = [];
+    
+    // Empty cells for days before the month starts
+    for (let i = 0; i < startingDay; i++) {
+      days.push(<div key={`empty-${i}`} className="h-24 bg-gray-50" />);
+    }
+    
+    // Days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+      const dateEvents = getEventsForDate(date);
+      const isToday = new Date().toDateString() === date.toDateString();
+      
+      days.push(
+        <div 
+          key={day}
+          className={`h-24 border border-gray-100 p-1 hover:bg-gray-50 cursor-pointer overflow-hidden ${isToday ? 'bg-amber-50 border-amber-200' : ''}`}
+          onClick={() => { setSelectedDate(date); setShowEventModal(true); }}
+        >
+          <div className={`text-sm font-medium mb-1 ${isToday ? 'text-amber-600' : 'text-gray-700'}`}>{day}</div>
+          <div className="space-y-0.5">
+            {dateEvents.slice(0, 3).map((event, idx) => (
+              <div 
+                key={idx}
+                className={`text-xs px-1 py-0.5 rounded truncate ${
+                  event.type === 'campaign_start' ? 'bg-green-100 text-green-700' :
+                  event.type === 'campaign_end' ? 'bg-red-100 text-red-700' :
+                  event.itemType === 'event' ? 'bg-purple-100 text-purple-700' :
+                  'bg-blue-50 text-blue-600'
+                }`}
+              >
+                {event.title}
+              </div>
+            ))}
+            {dateEvents.length > 3 && (
+              <div className="text-xs text-gray-400">+{dateEvents.length - 3} more</div>
+            )}
+          </div>
+        </div>
+      );
+    }
+    
+    return days;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <RefreshCw className="w-8 h-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-8 bg-gray-50 min-h-screen" data-testid="campaign-hub-page">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">Campaign Management</p>
+          <h1 className="text-3xl font-semibold text-gray-900">Campaign Hub</h1>
+        </div>
+        <div className="flex items-center gap-3">
+          {/* View Toggle */}
+          <div className="bg-white border border-gray-200 rounded-lg p-1 flex">
+            <Button
+              variant={view === 'list' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setView('list')}
+              className={view === 'list' ? 'bg-[#c4a35a] text-white' : ''}
+            >
+              <LayoutGrid className="w-4 h-4 mr-1" /> List
+            </Button>
+            <Button
+              variant={view === 'calendar' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setView('calendar')}
+              className={view === 'calendar' ? 'bg-[#c4a35a] text-white' : ''}
+            >
+              <CalendarDays className="w-4 h-4 mr-1" /> Calendar
+            </Button>
+            <Button
+              variant={view === 'timeline' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setView('timeline')}
+              className={view === 'timeline' ? 'bg-[#c4a35a] text-white' : ''}
+            >
+              <GanttChartSquare className="w-4 h-4 mr-1" /> Timeline
+            </Button>
+          </div>
+          
+          <Button onClick={() => setShowNewCampaign(true)} className="bg-[#c4a35a] hover:bg-[#b39349] text-white" data-testid="new-campaign-btn">
+            <Plus className="w-4 h-4 mr-2" /> New Campaign
+          </Button>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        <Card className="bg-white border-gray-200">
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+              <Target className="w-6 h-6 text-amber-600" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-gray-900">{campaigns.length}</div>
+              <div className="text-xs text-gray-500 uppercase tracking-wider">Total Campaigns</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white border-gray-200">
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+              <Play className="w-6 h-6 text-green-600" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-gray-900">{activeCampaigns}</div>
+              <div className="text-xs text-gray-500 uppercase tracking-wider">Active</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white border-gray-200">
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+              <Users className="w-6 h-6 text-blue-600" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-gray-900">{totalInfluencers}</div>
+              <div className="text-xs text-gray-500 uppercase tracking-wider">Influencers</div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white border-gray-200">
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
+              <DollarSign className="w-6 h-6 text-purple-600" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-gray-900">{formatCurrency(totalBudget)}</div>
+              <div className="text-xs text-gray-500 uppercase tracking-wider">Total Budget</div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* List View */}
+      {view === 'list' && (
+        <>
+          {/* Filters */}
+          <div className="flex items-center gap-4 mb-6">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                placeholder="Search campaigns..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="pl-10"
+                data-testid="search-campaigns"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-40">
+                <Filter className="w-4 h-4 mr-2" />
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="planning">Planning</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="paused">Paused</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Campaign Cards Grid */}
+          <div className="grid grid-cols-3 gap-4">
+            {filteredCampaigns.map(campaign => {
+              const statusCfg = STATUS_CONFIG[campaign.status] || STATUS_CONFIG.planning;
+              const StatusIcon = statusCfg.icon;
+              const progress = campaign.budget > 0 ? (campaign.spent / campaign.budget) * 100 : 0;
+              
+              return (
+                <Card 
+                  key={campaign.id}
+                  className="bg-white border-gray-200 hover:border-amber-300 transition-all cursor-pointer"
+                  onClick={() => navigate(`/marketing/campaign/${campaign.id}`)}
+                  data-testid={`campaign-card-${campaign.id}`}
+                >
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h3 className="font-semibold text-gray-900 mb-1">{campaign.name}</h3>
+                        <p className="text-sm text-gray-500 capitalize">{campaign.objective}</p>
+                      </div>
+                      <Badge className={statusCfg.color}>
+                        <StatusIcon className="w-3 h-3 mr-1" />
+                        {statusCfg.label}
+                      </Badge>
+                    </div>
+                    
+                    <div className="space-y-2 mb-4">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Budget</span>
+                        <span className="font-medium">{formatCurrency(campaign.budget)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Spent</span>
+                        <span className="font-medium text-amber-600">{formatCurrency(campaign.spent)}</span>
+                      </div>
+                      <div className="w-full bg-gray-100 rounded-full h-1.5">
+                        <div 
+                          className="bg-amber-500 h-1.5 rounded-full transition-all"
+                          style={{ width: `${Math.min(progress, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between text-xs text-gray-500 pt-3 border-t border-gray-100">
+                      <span className="flex items-center gap-1">
+                        <Users className="w-3 h-3" />
+                        {campaign.influencer_count || 0} influencers
+                      </span>
+                      <span>{campaign.start_date} - {campaign.end_date}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {/* Calendar View */}
+      {view === 'calendar' && (
+        <Card className="bg-white border-gray-200">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="icon" onClick={prevMonth}>
+                <ChevronLeft className="w-5 h-5" />
+              </Button>
+              <CardTitle className="text-xl">
+                {MONTHS[currentDate.getMonth()]} {currentDate.getFullYear()}
+              </CardTitle>
+              <Button variant="ghost" size="icon" onClick={nextMonth}>
+                <ChevronRight className="w-5 h-5" />
+              </Button>
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-green-100" /> Start</span>
+              <span className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-red-100" /> End</span>
+              <span className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-purple-100" /> Event</span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {/* Day headers */}
+            <div className="grid grid-cols-7 mb-2">
+              {DAYS.map(day => (
+                <div key={day} className="text-center text-sm font-medium text-gray-500 py-2">
+                  {day}
+                </div>
+              ))}
+            </div>
+            {/* Calendar grid */}
+            <div className="grid grid-cols-7 border border-gray-200 rounded-lg overflow-hidden">
+              {renderCalendar()}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Timeline View */}
+      {view === 'timeline' && (
+        <Card className="bg-white border-gray-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <GanttChartSquare className="w-5 h-5 text-amber-500" />
+              Campaign Timeline
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {campaigns.filter(c => c.start_date && c.end_date).map(campaign => {
+                const start = new Date(campaign.start_date);
+                const end = new Date(campaign.end_date);
+                const today = new Date();
+                const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+                const elapsedDays = Math.ceil((today - start) / (1000 * 60 * 60 * 24));
+                const progress = Math.max(0, Math.min(100, (elapsedDays / totalDays) * 100));
+                const statusCfg = STATUS_CONFIG[campaign.status] || STATUS_CONFIG.planning;
+                
+                return (
+                  <div 
+                    key={campaign.id}
+                    className="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer"
+                    onClick={() => navigate(`/marketing/campaign/${campaign.id}`)}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <h3 className="font-medium text-gray-900">{campaign.name}</h3>
+                        <Badge className={statusCfg.color}>{statusCfg.label}</Badge>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-gray-500">
+                        <span>{campaign.start_date}</span>
+                        <span>→</span>
+                        <span>{campaign.end_date}</span>
+                      </div>
+                    </div>
+                    <div className="relative h-8 bg-gray-100 rounded-full overflow-hidden">
+                      <div 
+                        className={`absolute h-full rounded-full transition-all ${
+                          campaign.status === 'completed' ? 'bg-gray-400' :
+                          campaign.status === 'active' ? 'bg-green-500' :
+                          campaign.status === 'paused' ? 'bg-yellow-500' :
+                          'bg-blue-500'
+                        }`}
+                        style={{ width: `${progress}%` }}
+                      />
+                      <div className="absolute inset-0 flex items-center justify-between px-3">
+                        <span className="text-xs font-medium text-white drop-shadow">{campaign.name}</span>
+                        <span className="text-xs text-gray-600">{Math.round(progress)}%</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                      <span><Users className="w-3 h-3 inline mr-1" />{campaign.influencer_count || 0} influencers</span>
+                      <span><DollarSign className="w-3 h-3 inline mr-1" />{formatCurrency(campaign.budget)} budget</span>
+                      <span><TrendingUp className="w-3 h-3 inline mr-1" />{formatCurrency(campaign.spent)} spent</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* New Campaign Modal */}
+      <Dialog open={showNewCampaign} onOpenChange={setShowNewCampaign}>
+        <DialogContent className="max-w-lg" data-testid="new-campaign-modal">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Target className="w-5 h-5 text-amber-500" />
+              Create New Campaign
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">CAMPAIGN NAME *</Label>
+              <Input 
+                value={newCampaign.name}
+                onChange={e => setNewCampaign(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Summer Collection 2026"
+                className="mt-1"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500">OBJECTIVE</Label>
+                <Select value={newCampaign.objective} onValueChange={v => setNewCampaign(prev => ({ ...prev, objective: v }))}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="awareness">Brand Awareness</SelectItem>
+                    <SelectItem value="engagement">Engagement</SelectItem>
+                    <SelectItem value="sales">Sales</SelectItem>
+                    <SelectItem value="launch">Product Launch</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500">BUDGET (₹)</Label>
+                <Input 
+                  type="number"
+                  value={newCampaign.budget}
+                  onChange={e => setNewCampaign(prev => ({ ...prev, budget: parseFloat(e.target.value) || 0 }))}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500">START DATE</Label>
+                <Input 
+                  type="date"
+                  value={newCampaign.start_date}
+                  onChange={e => setNewCampaign(prev => ({ ...prev, start_date: e.target.value }))}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500">END DATE</Label>
+                <Input 
+                  type="date"
+                  value={newCampaign.end_date}
+                  onChange={e => setNewCampaign(prev => ({ ...prev, end_date: e.target.value }))}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">TARGET MARKET</Label>
+              <Input 
+                value={newCampaign.target_market}
+                onChange={e => setNewCampaign(prev => ({ ...prev, target_market: e.target.value }))}
+                placeholder="Urban Women 25-35"
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button variant="outline" onClick={() => setShowNewCampaign(false)}>Cancel</Button>
+            <Button onClick={handleCreateCampaign} className="bg-[#c4a35a] hover:bg-[#b39349] text-white">
+              <Plus className="w-4 h-4 mr-2" /> Create Campaign
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Date Detail Modal */}
+      <Dialog open={showEventModal} onOpenChange={setShowEventModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-amber-500" />
+              {selectedDate?.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            {selectedDate && getEventsForDate(selectedDate).length === 0 ? (
+              <p className="text-gray-500 text-center py-4">No events on this date</p>
+            ) : (
+              <div className="space-y-2">
+                {selectedDate && getEventsForDate(selectedDate).map((event, idx) => (
+                  <div 
+                    key={idx}
+                    className={`p-3 rounded-lg border cursor-pointer hover:bg-gray-50 ${
+                      event.type === 'campaign_start' ? 'border-green-200 bg-green-50' :
+                      event.type === 'campaign_end' ? 'border-red-200 bg-red-50' :
+                      event.itemType === 'event' ? 'border-purple-200 bg-purple-50' :
+                      'border-blue-200 bg-blue-50'
+                    }`}
+                    onClick={() => {
+                      if (event.campaign_id) {
+                        navigate(`/marketing/campaign/${event.campaign_id}`);
+                        setShowEventModal(false);
+                      }
+                    }}
+                  >
+                    <div className="font-medium">{event.title}</div>
+                    {event.campaign_name && <div className="text-sm text-gray-500">{event.campaign_name}</div>}
+                    <Badge className="mt-2 capitalize">{event.type?.replace('_', ' ') || 'Event'}</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default CampaignHubPage;

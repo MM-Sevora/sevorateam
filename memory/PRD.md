@@ -199,6 +199,55 @@ Consolidate multiple Sevora applications (Influencer Operations from 'main' bran
 
 ## Latest Updates (March 7, 2026)
 
+### Module Merge Complete (March 7, 2026)
+
+**Module 1: Campaign Hub** (Campaigns + Calendar merged)
+- New unified `CampaignHubPage.jsx` with three views:
+  - **List View**: Campaign cards with budget progress, status badges, influencer counts
+  - **Calendar View**: Monthly calendar showing campaign start/end dates, events
+  - **Timeline View**: Gantt-style progress visualization with percentage completion
+- Stats dashboard: Total campaigns, Active count, Influencers, Total Budget
+- Create new campaigns via modal
+- Click campaigns to access detailed view
+- Calendar route now redirects to Campaign Hub
+
+**Module 2: Influencer Finance** (Contacts + Budget + Payments merged)
+- New **Finance & Payments** tab on Influencer Detail Page
+- Features:
+  - Payment summary cards (Total Paid, Pending, Transactions)
+  - Payment history list with status badges
+  - Payment workflow: Pending → Approved → Processing → Completed
+  - Linked Campaign Budget sidebar (shows budget utilization)
+  - Rate Card Summary from deliverables
+  - Quick Actions: Create Payment, Edit Rate Card
+- Create Payment modal with:
+  - Amount, Payment Type (Fee/Bonus/Reimbursement/Advance)
+  - Description, Invoice Number, Due Date
+  - Auto-links to assigned campaign
+
+**New Payment APIs:**
+- `GET /api/marketing/payments` - List all payments with filters
+- `POST /api/marketing/payments` - Create payment
+- `GET /api/marketing/payments/{id}` - Get single payment
+- `PUT /api/marketing/payments/{id}` - Update status/details
+- `DELETE /api/marketing/payments/{id}` - Delete payment
+- `GET /api/marketing/payments/summary/by-contact/{id}` - Contact payment summary
+- `GET /api/marketing/payments/summary/by-campaign/{id}` - Campaign payment summary
+
+**Data Flow (Dependencies):**
+```
+Campaign → Influencers → Deliverables → Payments
+    ↓           ↓             ↓            ↓
+ Budget → Allocation → Invoices → Status
+    ↓
+ Calendar → Milestones → Deadlines
+```
+
+**Sidebar Updated:**
+- "Campaigns" → "Campaign Hub"
+- "Calendar" removed (merged into Campaign Hub)
+- "Budget & Payments" → "Budget Overview" (standalone overview)
+
 ### Campaign-Influencer Alignment Complete (March 7, 2026)
 
 **Quick Fix (Option A):**

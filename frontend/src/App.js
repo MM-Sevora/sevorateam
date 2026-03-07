@@ -28,6 +28,7 @@ import ContentAssetsPage from "./pages/marketing/ContentAssetsPage";
 import InfluencersListPage from "./pages/marketing/InfluencersListPage";
 import InfluencerDetailPage from "./pages/marketing/InfluencerDetailPage";
 import CampaignDetailPage from "./pages/marketing/CampaignDetailPage";
+import CampaignHubPage from "./pages/marketing/CampaignHubPage";
 
 // Sales Pages
 import { SalesDashboard } from "./pages/sales/Dashboard";
@@ -121,13 +122,16 @@ function AppRoutes() {
             <Route path="/marketing/influencer/:influencerId" element={<ProtectedRoute requiredDepartment="marketing"><InfluencerDetailPage /></ProtectedRoute>} />
             <Route path="/marketing/pr" element={<ProtectedRoute requiredDepartment="marketing"><DigitalPRPage /></ProtectedRoute>} />
             <Route path="/marketing/events" element={<ProtectedRoute requiredDepartment="marketing"><EventsPage /></ProtectedRoute>} />
-            <Route path="/marketing/campaigns" element={<ProtectedRoute requiredDepartment="marketing"><CampaignsPage /></ProtectedRoute>} />
+            {/* Unified Campaign Hub (List + Calendar + Timeline) */}
+            <Route path="/marketing/campaigns" element={<ProtectedRoute requiredDepartment="marketing"><CampaignHubPage /></ProtectedRoute>} />
             <Route path="/marketing/campaign/:campaignId" element={<ProtectedRoute requiredDepartment="marketing"><CampaignDetailPage /></ProtectedRoute>} />
-            <Route path="/marketing/calendar" element={<ProtectedRoute requiredDepartment="marketing"><MarketingCalendarPage /></ProtectedRoute>} />
+            {/* Legacy calendar route redirects to Campaign Hub */}
+            <Route path="/marketing/calendar" element={<Navigate to="/marketing/campaigns" replace />} />
             {/* Redirect old contacts routes to influencers */}
             <Route path="/marketing/contacts" element={<Navigate to="/marketing/influencers" replace />} />
             <Route path="/marketing/contacts/:contactId" element={<Navigate to="/marketing/influencers" replace />} />
             <Route path="/marketing/assets" element={<ProtectedRoute requiredDepartment="marketing"><ContentAssetsPage /></ProtectedRoute>} />
+            {/* Budget now linked from Influencer Finance tab, keeping standalone for overview */}
             <Route path="/marketing/budget" element={<ProtectedRoute requiredDepartment="marketing"><BudgetPage /></ProtectedRoute>} />
             <Route path="/marketing/ai-tools" element={<ProtectedRoute requiredDepartment="marketing"><AIToolsPage /></ProtectedRoute>} />
             <Route path="/marketing/analytics" element={<ProtectedRoute requiredDepartment="marketing"><MarketingAnalyticsPage /></ProtectedRoute>} />
