@@ -7,13 +7,16 @@ import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
 import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Switch } from '../../components/ui/switch';
+import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { toast } from 'sonner';
 import { 
   ArrowLeft, RefreshCw, X, Save, CheckCircle, MapPin, 
   Instagram, Youtube, Download, Users, TrendingUp, Heart, Star,
-  Globe, Image, Film, Clock, DollarSign, Sparkles, Plus, Trash2
+  Globe, Image, Film, Clock, DollarSign, Sparkles, Plus, Trash2,
+  Send, Mail, MessageSquare, Target, Calendar, Phone
 } from 'lucide-react';
 
 const InfluencerDetailPage = () => {
@@ -32,6 +35,21 @@ const InfluencerDetailPage = () => {
   const [communications, setCommunications] = useState([]);
   const [deals, setDeals] = useState([]);
   const [gifts, setGifts] = useState([]);
+  const [activities, setActivities] = useState([]);
+  
+  // Campaigns
+  const [campaigns, setCampaigns] = useState([]);
+  const [assignedCampaign, setAssignedCampaign] = useState('');
+  
+  // Outreach Modal
+  const [showOutreachModal, setShowOutreachModal] = useState(false);
+  const [outreachChannel, setOutreachChannel] = useState('email');
+  const [outreachForm, setOutreachForm] = useState({
+    subject: '',
+    message: '',
+    template: 'custom'
+  });
+  const [sendingOutreach, setSendingOutreach] = useState(false);
   
   // Form state
   const [form, setForm] = useState({
@@ -41,7 +59,7 @@ const InfluencerDetailPage = () => {
     youtube_subscribers: 0, youtube_avg_views: 0, youtube_avg_likes: 0, youtube_total_videos: 0,
     industry: 'fashion', tier: 'micro', gender: 'not_specified', audience_focus: 'unisex', content_types: '',
     accepts_barter: false, style_tags: '', past_collaborations: '', languages: '', portfolio_url: '', notes: '',
-    status: 'identified',
+    status: 'identified', campaign_id: '',
     deliverables: []
   });
 
@@ -91,8 +109,10 @@ const InfluencerDetailPage = () => {
         status: data.status || 'identified',
         score: data.score || 50,
         social_synced_at: data.social_synced_at,
+        campaign_id: data.campaign_id || '',
         deliverables: data.deliverables || defaultDeliverables
       });
+      setAssignedCampaign(data.campaign_id || '');
       setOriginalData(data);
     } catch (error) {
       toast.error('Failed to load influencer');
@@ -101,6 +121,15 @@ const InfluencerDetailPage = () => {
       setLoading(false);
     }
   }, [api, influencerId, navigate]);
+
+  const fetchCampaigns = useCallback(async () => {
+    try {
+      const response = await api.get('/marketing/campaigns');
+      setCampaigns(response.data || []);
+    } catch (error) {
+      console.log('No campaigns found');
+    }
+  }, [api]);
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -126,12 +155,82 @@ const InfluencerDetailPage = () => {
     } catch (error) {
       console.log('No gifts found');
     }
-  }, [api, influencerId]);
+    
+    // Build combined activity timeline
+    const allActivities = [];
+    
+    communications.forEach(c => allActivities.push({
+      type: 'communication',
+      icon: c.comm_type === 'whatsapp' ? 'whatsapp' : 'email',
+      title: c.subject || 'Message sent',
+      description: c.message?.substring(0, 100) + '...',
+      date: c.sent_at || c.created_at,
+      status: c.status
+    }));
+    
+    deals.forEach(d => allActivities.push({
+      type: 'deal',
+      icon: 'deal',
+      title: `Deal ${d.status}`,
+      description: `Quote: ₹${(d.initial_quote || d.quote_amount || 0).toLocaleString()}`,
+      date: d.created_at,
+      status: d.status
+    }));
+    
+    gifts.forEach(g => allActivities.push({
+      type: 'gift',
+      icon: 'gift',
+      title: g.product_name,
+      description: `Status: ${g.status}`,
+      date: g.sent_date || g.created_at,
+      status: g.status
+    }));
+    
+    // Sort by date descending
+    allActivities.sort((a, b) => new Date(b.date) - new Date(a.date));
+    setActivities(allActivities);
+  }, [api, influencerId, communications, deals, gifts]);
 
   useEffect(() => {
     fetchInfluencer();
+    fetchCampaigns();
     fetchHistory();
-  }, [fetchInfluencer, fetchHistory]);
+  }, [fetchInfluencer, fetchCampaigns, fetchHistory]);
+
+  // Build activities when history data changes
+  useEffect(() => {
+    const allActivities = [];
+    
+    communications.forEach(c => allActivities.push({
+      type: 'communication',
+      icon: c.comm_type === 'whatsapp' ? 'whatsapp' : 'email',
+      title: c.subject || 'Message sent',
+      description: c.message?.substring(0, 100),
+      date: c.sent_at || c.created_at,
+      status: c.status
+    }));
+    
+    deals.forEach(d => allActivities.push({
+      type: 'deal',
+      icon: 'deal',
+      title: `Deal ${d.status || 'created'}`,
+      description: `Quote: ₹${(d.initial_quote || d.quote_amount || 0).toLocaleString()}`,
+      date: d.created_at,
+      status: d.status
+    }));
+    
+    gifts.forEach(g => allActivities.push({
+      type: 'gift',
+      icon: 'gift',
+      title: g.product_name,
+      description: `Status: ${g.status}`,
+      date: g.sent_date || g.created_at,
+      status: g.status
+    }));
+    
+    allActivities.sort((a, b) => new Date(b.date) - new Date(a.date));
+    setActivities(allActivities);
+  }, [communications, deals, gifts]);
 
   const updateForm = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -191,6 +290,80 @@ const InfluencerDetailPage = () => {
       toast.error('Failed to save changes');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleAssignCampaign = async (campaignId) => {
+    try {
+      await api.put(`/marketing/v2/contacts/${influencerId}`, { campaign_id: campaignId });
+      setAssignedCampaign(campaignId);
+      updateForm('campaign_id', campaignId);
+      toast.success('Campaign assigned!');
+    } catch (error) {
+      toast.error('Failed to assign campaign');
+    }
+  };
+
+  const handleSendOutreach = async () => {
+    if (!outreachForm.message) {
+      toast.error('Message is required');
+      return;
+    }
+    
+    setSendingOutreach(true);
+    try {
+      const payload = {
+        contact_id: influencerId,
+        comm_type: outreachChannel,
+        subject: outreachForm.subject,
+        message: outreachForm.message,
+        recipient_email: form.email,
+        recipient_phone: form.phone
+      };
+      
+      await api.post(`/marketing/v2/contacts/${influencerId}/communications`, payload);
+      
+      toast.success(`${outreachChannel === 'email' ? 'Email' : 'WhatsApp'} sent successfully!`);
+      setShowOutreachModal(false);
+      setOutreachForm({ subject: '', message: '', template: 'custom' });
+      
+      // Refresh history
+      fetchHistory();
+      
+      // Update status if it's "identified"
+      if (form.status === 'identified') {
+        await api.put(`/marketing/v2/contacts/${influencerId}`, { status: 'contacted' });
+        updateForm('status', 'contacted');
+      }
+    } catch (error) {
+      toast.error('Failed to send message');
+    } finally {
+      setSendingOutreach(false);
+    }
+  };
+
+  const applyTemplate = (templateType) => {
+    const templates = {
+      collaboration: {
+        subject: `Collaboration Opportunity with ${form.name}`,
+        message: `Hi ${form.name},\n\nWe've been following your amazing work on ${form.primary_platform === 'youtube' ? 'YouTube' : 'Instagram'} and love your unique style!\n\nWe'd love to explore a potential collaboration opportunity. We think your audience would be a perfect fit for our brand.\n\nWould you be interested in discussing this further?\n\nBest regards`
+      },
+      followup: {
+        subject: `Following up - Collaboration Opportunity`,
+        message: `Hi ${form.name},\n\nI wanted to follow up on my previous message about a potential collaboration.\n\nWe're very excited about the possibility of working together. Please let me know if you have any questions or would like to schedule a call.\n\nLooking forward to hearing from you!\n\nBest regards`
+      },
+      campaign: {
+        subject: `Campaign Invitation`,
+        message: `Hi ${form.name},\n\nWe're launching an exciting new campaign and would love for you to be part of it!\n\nBased on your content style and audience, we believe this would be a great fit. Here are the details:\n\n[Campaign details here]\n\nLet us know if you're interested!\n\nBest regards`
+      }
+    };
+    
+    if (templates[templateType]) {
+      setOutreachForm(prev => ({
+        ...prev,
+        ...templates[templateType],
+        template: templateType
+      }));
     }
   };
 
