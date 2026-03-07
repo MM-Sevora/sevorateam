@@ -1089,37 +1089,86 @@ const InfluencerDetailPage = () => {
               </CardContent>
             </Card>
 
-            {/* Performance Metrics */}
+            {/* Performance Metrics - Both Platforms */}
             <Card className="bg-white border-gray-200">
               <CardHeader className="pb-3 border-b">
                 <CardTitle className="text-base flex items-center gap-2">
                   <TrendingUp className="w-4 h-4" /> Performance
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-5 space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 bg-pink-50 rounded-lg text-center">
-                    <Users className="w-5 h-5 text-pink-500 mx-auto mb-1" />
-                    <div className="text-lg font-bold text-gray-900">{formatNumber(form.followers)}</div>
-                    <div className="text-xs text-gray-500">Followers</div>
+              <CardContent className="p-4 space-y-4">
+                {/* Instagram Metrics */}
+                <div className="p-3 bg-gradient-to-r from-pink-50 to-purple-50 rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center">
+                      <Instagram className="w-3 h-3 text-white" />
+                    </div>
+                    <span className="text-sm font-medium text-gray-700">Instagram</span>
+                    {form.primary_platform === 'instagram' && (
+                      <Badge className="bg-pink-100 text-pink-600 text-xs">Primary</Badge>
+                    )}
                   </div>
-                  <div className="p-3 bg-green-50 rounded-lg text-center">
-                    <TrendingUp className="w-5 h-5 text-green-500 mx-auto mb-1" />
-                    <div className="text-lg font-bold text-gray-900">{form.engagement_rate?.toFixed(2) || '0.00'}%</div>
-                    <div className="text-xs text-gray-500">Engagement</div>
-                  </div>
-                  <div className="p-3 bg-red-50 rounded-lg text-center">
-                    <Heart className="w-5 h-5 text-red-500 mx-auto mb-1" />
-                    <div className="text-lg font-bold text-gray-900">{formatNumber(form.avg_likes)}</div>
-                    <div className="text-xs text-gray-500">Avg Likes</div>
-                  </div>
-                  <div className="p-3 bg-amber-50 rounded-lg text-center">
-                    <Star className="w-5 h-5 text-amber-500 mx-auto mb-1" />
-                    <div className="text-lg font-bold text-gray-900">{form.score || 50}</div>
-                    <div className="text-xs text-gray-500">Score</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="text-center p-2 bg-white/60 rounded">
+                      <div className="text-sm font-bold text-gray-900">{formatNumber(form.followers)}</div>
+                      <div className="text-xs text-gray-500">Followers</div>
+                    </div>
+                    <div className="text-center p-2 bg-white/60 rounded">
+                      <div className="text-sm font-bold text-gray-900">{form.engagement_rate?.toFixed(1) || '0.0'}%</div>
+                      <div className="text-xs text-gray-500">Engagement</div>
+                    </div>
+                    <div className="text-center p-2 bg-white/60 rounded">
+                      <div className="text-sm font-bold text-gray-900">{formatNumber(form.avg_likes)}</div>
+                      <div className="text-xs text-gray-500">Avg Likes</div>
+                    </div>
+                    <div className="text-center p-2 bg-white/60 rounded">
+                      <div className="text-sm font-bold text-gray-900">{formatNumber(form.avg_comments)}</div>
+                      <div className="text-xs text-gray-500">Avg Comments</div>
+                    </div>
                   </div>
                 </div>
-                <div className="text-xs text-gray-400 text-center mt-2">
+
+                {/* YouTube Metrics */}
+                <div className="p-3 bg-red-50 rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center">
+                      <Youtube className="w-3 h-3 text-white" />
+                    </div>
+                    <span className="text-sm font-medium text-gray-700">YouTube</span>
+                    {form.primary_platform === 'youtube' && (
+                      <Badge className="bg-red-100 text-red-600 text-xs">Primary</Badge>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="text-center p-2 bg-white/60 rounded">
+                      <div className="text-sm font-bold text-gray-900">{formatNumber(form.youtube_subscribers)}</div>
+                      <div className="text-xs text-gray-500">Subscribers</div>
+                    </div>
+                    <div className="text-center p-2 bg-white/60 rounded">
+                      <div className="text-sm font-bold text-gray-900">{formatNumber(form.youtube_avg_views)}</div>
+                      <div className="text-xs text-gray-500">Avg Views</div>
+                    </div>
+                    <div className="text-center p-2 bg-white/60 rounded">
+                      <div className="text-sm font-bold text-gray-900">{formatNumber(form.youtube_avg_likes)}</div>
+                      <div className="text-xs text-gray-500">Avg Likes</div>
+                    </div>
+                    <div className="text-center p-2 bg-white/60 rounded">
+                      <div className="text-sm font-bold text-gray-900">{form.youtube_total_videos || 0}</div>
+                      <div className="text-xs text-gray-500">Videos</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Score */}
+                <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Star className="w-4 h-4 text-amber-500" />
+                    <span className="text-sm text-gray-600">Influence Score</span>
+                  </div>
+                  <span className="text-lg font-bold text-amber-700">{form.score || 50}</span>
+                </div>
+
+                <div className="text-xs text-gray-400 text-center">
                   Last synced: {formatDate(form.social_synced_at) || 'Never'}
                 </div>
               </CardContent>
