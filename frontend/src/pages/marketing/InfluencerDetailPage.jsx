@@ -10,13 +10,14 @@ import { Textarea } from '../../components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Switch } from '../../components/ui/switch';
-import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
 import { toast } from 'sonner';
 import { 
   ArrowLeft, RefreshCw, X, Save, CheckCircle, MapPin, 
   Instagram, Youtube, Download, Users, TrendingUp, Heart, Star,
   Globe, Image, Film, Clock, DollarSign, Sparkles, Plus, Trash2,
-  Send, Mail, MessageSquare, Target, Calendar, Phone
+  Send, Mail, MessageSquare, Target, Calendar, Phone, User,
+  BarChart3, Package, History
 } from 'lucide-react';
 
 const InfluencerDetailPage = () => {
@@ -908,10 +909,10 @@ const InfluencerDetailPage = () => {
             </Card>
           </div>
         </div>
-      )}
+        </TabsContent>
 
-      {/* Core Metrics Tab */}
-      {activeTab === 'metrics' && (
+        {/* Core Metrics Tab */}
+        <TabsContent value="metrics">
         <div className="space-y-6">
           {/* YouTube Metrics */}
           <Card className="bg-white border-l-4 border-l-red-300 border-gray-200">
@@ -1030,10 +1031,10 @@ const InfluencerDetailPage = () => {
             </CardContent>
           </Card>
         </div>
-      )}
+        </TabsContent>
 
-      {/* Deliverables & Rates Tab */}
-      {activeTab === 'rates' && (
+        {/* Deliverables & Rates Tab */}
+        <TabsContent value="rates">
         <div className="grid grid-cols-2 gap-6">
           {/* Rate Card - Dynamic Deliverables */}
           <Card className="bg-white border-gray-200">
@@ -1186,143 +1187,10 @@ const InfluencerDetailPage = () => {
             </CardContent>
           </Card>
         </div>
-      )}
+        </TabsContent>
 
-      {/* Send Outreach Modal */}
-      <Dialog open={showOutreachModal} onOpenChange={setShowOutreachModal}>
-        <DialogContent className="max-w-lg" data-testid="outreach-modal">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Send className="w-5 h-5 text-blue-500" />
-              Send Outreach to {form.name}
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            {/* Channel Selection */}
-            <div>
-              <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">CHANNEL</Label>
-              <div className="flex gap-2">
-                <Button
-                  variant={outreachChannel === 'email' ? 'default' : 'outline'}
-                  className={outreachChannel === 'email' ? 'bg-blue-500 hover:bg-blue-600' : ''}
-                  onClick={() => setOutreachChannel('email')}
-                  data-testid="channel-email-btn"
-                >
-                  <Mail className="w-4 h-4 mr-2" /> Email
-                </Button>
-                <Button
-                  variant={outreachChannel === 'whatsapp' ? 'default' : 'outline'}
-                  className={outreachChannel === 'whatsapp' ? 'bg-green-500 hover:bg-green-600' : ''}
-                  onClick={() => setOutreachChannel('whatsapp')}
-                  data-testid="channel-whatsapp-btn"
-                >
-                  <MessageSquare className="w-4 h-4 mr-2" /> WhatsApp
-                </Button>
-              </div>
-              <p className="text-xs text-gray-400 mt-1">
-                {outreachChannel === 'email' 
-                  ? `Will send to: ${form.email || 'No email on file'}` 
-                  : `Will send to: ${form.phone || 'No phone on file'}`}
-              </p>
-            </div>
-            
-            {/* Template Selection */}
-            <div>
-              <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">TEMPLATE</Label>
-              <div className="flex gap-2 flex-wrap">
-                <Button
-                  size="sm"
-                  variant={outreachForm.template === 'collaboration' ? 'default' : 'outline'}
-                  onClick={() => applyTemplate('collaboration')}
-                  className="text-xs"
-                  data-testid="template-collaboration-btn"
-                >
-                  Collaboration
-                </Button>
-                <Button
-                  size="sm"
-                  variant={outreachForm.template === 'followup' ? 'default' : 'outline'}
-                  onClick={() => applyTemplate('followup')}
-                  className="text-xs"
-                  data-testid="template-followup-btn"
-                >
-                  Follow Up
-                </Button>
-                <Button
-                  size="sm"
-                  variant={outreachForm.template === 'campaign' ? 'default' : 'outline'}
-                  onClick={() => applyTemplate('campaign')}
-                  className="text-xs"
-                  data-testid="template-campaign-btn"
-                >
-                  Campaign Invite
-                </Button>
-                <Button
-                  size="sm"
-                  variant={outreachForm.template === 'custom' ? 'default' : 'outline'}
-                  onClick={() => setOutreachForm(prev => ({ ...prev, template: 'custom', subject: '', message: '' }))}
-                  className="text-xs"
-                  data-testid="template-custom-btn"
-                >
-                  Custom
-                </Button>
-              </div>
-            </div>
-            
-            {/* Subject (Email only) */}
-            {outreachChannel === 'email' && (
-              <div>
-                <Label className="text-xs uppercase tracking-wider text-gray-500 mb-1 block">SUBJECT</Label>
-                <Input
-                  placeholder="Email subject line..."
-                  value={outreachForm.subject}
-                  onChange={e => setOutreachForm(prev => ({ ...prev, subject: e.target.value }))}
-                  data-testid="outreach-subject-input"
-                />
-              </div>
-            )}
-            
-            {/* Message */}
-            <div>
-              <Label className="text-xs uppercase tracking-wider text-gray-500 mb-1 block">MESSAGE</Label>
-              <Textarea
-                placeholder="Type your message..."
-                value={outreachForm.message}
-                onChange={e => setOutreachForm(prev => ({ ...prev, message: e.target.value }))}
-                rows={6}
-                data-testid="outreach-message-input"
-              />
-            </div>
-          </div>
-          
-          {/* Actions */}
-          <div className="flex justify-end gap-2 pt-2 border-t">
-            <Button variant="outline" onClick={() => setShowOutreachModal(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleSendOutreach}
-              disabled={sendingOutreach || !outreachForm.message || (outreachChannel === 'email' && !form.email) || (outreachChannel === 'whatsapp' && !form.phone)}
-              className="bg-blue-500 hover:bg-blue-600 text-white gap-2"
-              data-testid="send-outreach-submit-btn"
-            >
-              {sendingOutreach ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" /> Sending...
-                </>
-              ) : (
-                <>
-                  <Send className="w-4 h-4" /> Send {outreachChannel === 'email' ? 'Email' : 'WhatsApp'}
-                </>
-              )}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Finance & Payments Tab */}
-      {activeTab === 'finance' && (
+        {/* Finance & Payments Tab */}
+        <TabsContent value="finance">
         <div className="grid grid-cols-3 gap-6">
           {/* Payment Summary & Actions */}
           <div className="col-span-2 space-y-6">
@@ -1536,95 +1404,10 @@ const InfluencerDetailPage = () => {
             </Card>
           </div>
         </div>
-      )}
+        </TabsContent>
 
-      {/* Create Payment Modal */}
-      <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
-        <DialogContent className="max-w-md" data-testid="create-payment-modal">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <DollarSign className="w-5 h-5 text-green-500" />
-              Create Payment for {form.name}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <Label className="text-xs uppercase tracking-wider text-gray-500">AMOUNT (₹) *</Label>
-              <Input 
-                type="number"
-                value={newPayment.amount}
-                onChange={e => setNewPayment(prev => ({ ...prev, amount: e.target.value }))}
-                placeholder="50000"
-                className="mt-1"
-                data-testid="payment-amount-input"
-              />
-            </div>
-            <div>
-              <Label className="text-xs uppercase tracking-wider text-gray-500">PAYMENT TYPE</Label>
-              <Select value={newPayment.payment_type} onValueChange={v => setNewPayment(prev => ({ ...prev, payment_type: v }))}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="influencer_fee">Influencer Fee</SelectItem>
-                  <SelectItem value="bonus">Performance Bonus</SelectItem>
-                  <SelectItem value="reimbursement">Reimbursement</SelectItem>
-                  <SelectItem value="advance">Advance Payment</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs uppercase tracking-wider text-gray-500">DESCRIPTION</Label>
-              <Textarea 
-                value={newPayment.description}
-                onChange={e => setNewPayment(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Payment for Instagram posts..."
-                className="mt-1"
-                rows={2}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-xs uppercase tracking-wider text-gray-500">INVOICE #</Label>
-                <Input 
-                  value={newPayment.invoice_number}
-                  onChange={e => setNewPayment(prev => ({ ...prev, invoice_number: e.target.value }))}
-                  placeholder="INV-001"
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label className="text-xs uppercase tracking-wider text-gray-500">DUE DATE</Label>
-                <Input 
-                  type="date"
-                  value={newPayment.due_date}
-                  onChange={e => setNewPayment(prev => ({ ...prev, due_date: e.target.value }))}
-                  className="mt-1"
-                />
-              </div>
-            </div>
-            {assignedCampaign && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                <div className="text-xs text-amber-600 uppercase tracking-wider mb-1">Linked to Campaign</div>
-                <div className="font-medium text-amber-800">{campaigns.find(c => c.id === assignedCampaign)?.name}</div>
-              </div>
-            )}
-          </div>
-          <div className="flex justify-end gap-2 pt-2 border-t">
-            <Button variant="outline" onClick={() => setShowPaymentModal(false)}>Cancel</Button>
-            <Button 
-              onClick={handleCreatePayment}
-              disabled={creatingPayment || !newPayment.amount}
-              className="bg-green-600 hover:bg-green-700 text-white"
-              data-testid="submit-payment-btn"
-            >
-              {creatingPayment ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-              Create Payment
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* History Tab */}
-      {activeTab === 'history' && (
+        {/* History Tab */}
+        <TabsContent value="history">
         <div className="grid grid-cols-3 gap-6">
           {/* Unified Activity Timeline */}
           <Card className="col-span-2 bg-white border-gray-200">
@@ -1796,7 +1579,226 @@ const InfluencerDetailPage = () => {
             </Card>
           </div>
         </div>
-      )}
+        </TabsContent>
+      </Tabs>
+
+      {/* Send Outreach Modal */}
+      <Dialog open={showOutreachModal} onOpenChange={setShowOutreachModal}>
+        <DialogContent className="max-w-lg" data-testid="outreach-modal">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="w-5 h-5 text-blue-500" />
+              Send Outreach to {form.name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Channel Selection */}
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">CHANNEL</Label>
+              <div className="flex gap-2">
+                <Button
+                  variant={outreachChannel === 'email' ? 'default' : 'outline'}
+                  className={outreachChannel === 'email' ? 'bg-blue-500 hover:bg-blue-600' : ''}
+                  onClick={() => setOutreachChannel('email')}
+                  data-testid="channel-email-btn"
+                >
+                  <Mail className="w-4 h-4 mr-2" /> Email
+                </Button>
+                <Button
+                  variant={outreachChannel === 'whatsapp' ? 'default' : 'outline'}
+                  className={outreachChannel === 'whatsapp' ? 'bg-green-500 hover:bg-green-600' : ''}
+                  onClick={() => setOutreachChannel('whatsapp')}
+                  data-testid="channel-whatsapp-btn"
+                >
+                  <MessageSquare className="w-4 h-4 mr-2" /> WhatsApp
+                </Button>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">
+                {outreachChannel === 'email' 
+                  ? `Will send to: ${form.email || 'No email on file'}` 
+                  : `Will send to: ${form.phone || 'No phone on file'}`}
+              </p>
+            </div>
+            
+            {/* Template Selection */}
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">TEMPLATE</Label>
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  size="sm"
+                  variant={outreachForm.template === 'collaboration' ? 'default' : 'outline'}
+                  onClick={() => applyTemplate('collaboration')}
+                  className="text-xs"
+                  data-testid="template-collaboration-btn"
+                >
+                  Collaboration
+                </Button>
+                <Button
+                  size="sm"
+                  variant={outreachForm.template === 'followup' ? 'default' : 'outline'}
+                  onClick={() => applyTemplate('followup')}
+                  className="text-xs"
+                  data-testid="template-followup-btn"
+                >
+                  Follow Up
+                </Button>
+                <Button
+                  size="sm"
+                  variant={outreachForm.template === 'campaign' ? 'default' : 'outline'}
+                  onClick={() => applyTemplate('campaign')}
+                  className="text-xs"
+                  data-testid="template-campaign-btn"
+                >
+                  Campaign Invite
+                </Button>
+                <Button
+                  size="sm"
+                  variant={outreachForm.template === 'custom' ? 'default' : 'outline'}
+                  onClick={() => setOutreachForm(prev => ({ ...prev, template: 'custom', subject: '', message: '' }))}
+                  className="text-xs"
+                  data-testid="template-custom-btn"
+                >
+                  Custom
+                </Button>
+              </div>
+            </div>
+            
+            {/* Subject (Email only) */}
+            {outreachChannel === 'email' && (
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500 mb-1 block">SUBJECT</Label>
+                <Input
+                  placeholder="Email subject line..."
+                  value={outreachForm.subject}
+                  onChange={e => setOutreachForm(prev => ({ ...prev, subject: e.target.value }))}
+                  data-testid="outreach-subject-input"
+                />
+              </div>
+            )}
+            
+            {/* Message */}
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500 mb-1 block">MESSAGE</Label>
+              <Textarea
+                placeholder="Type your message..."
+                value={outreachForm.message}
+                onChange={e => setOutreachForm(prev => ({ ...prev, message: e.target.value }))}
+                rows={6}
+                data-testid="outreach-message-input"
+              />
+            </div>
+          </div>
+          
+          {/* Actions */}
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button variant="outline" onClick={() => setShowOutreachModal(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSendOutreach}
+              disabled={sendingOutreach || !outreachForm.message || (outreachChannel === 'email' && !form.email) || (outreachChannel === 'whatsapp' && !form.phone)}
+              className="bg-blue-500 hover:bg-blue-600 text-white gap-2"
+              data-testid="send-outreach-submit-btn"
+            >
+              {sendingOutreach ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" /> Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4" /> Send {outreachChannel === 'email' ? 'Email' : 'WhatsApp'}
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Payment Modal */}
+      <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
+        <DialogContent className="max-w-md" data-testid="create-payment-modal">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-green-500" />
+              Create Payment for {form.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">AMOUNT (₹) *</Label>
+              <Input 
+                type="number"
+                value={newPayment.amount}
+                onChange={e => setNewPayment(prev => ({ ...prev, amount: e.target.value }))}
+                placeholder="50000"
+                className="mt-1"
+                data-testid="payment-amount-input"
+              />
+            </div>
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">PAYMENT TYPE</Label>
+              <Select value={newPayment.payment_type} onValueChange={v => setNewPayment(prev => ({ ...prev, payment_type: v }))}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="influencer_fee">Influencer Fee</SelectItem>
+                  <SelectItem value="bonus">Performance Bonus</SelectItem>
+                  <SelectItem value="reimbursement">Reimbursement</SelectItem>
+                  <SelectItem value="advance">Advance Payment</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">DESCRIPTION</Label>
+              <Textarea 
+                value={newPayment.description}
+                onChange={e => setNewPayment(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Payment for Instagram posts..."
+                className="mt-1"
+                rows={2}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500">INVOICE #</Label>
+                <Input 
+                  value={newPayment.invoice_number}
+                  onChange={e => setNewPayment(prev => ({ ...prev, invoice_number: e.target.value }))}
+                  placeholder="INV-001"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500">DUE DATE</Label>
+                <Input 
+                  type="date"
+                  value={newPayment.due_date}
+                  onChange={e => setNewPayment(prev => ({ ...prev, due_date: e.target.value }))}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+            {assignedCampaign && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="text-xs text-amber-600 uppercase tracking-wider mb-1">Linked to Campaign</div>
+                <div className="font-medium text-amber-800">{campaigns.find(c => c.id === assignedCampaign)?.name}</div>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button variant="outline" onClick={() => setShowPaymentModal(false)}>Cancel</Button>
+            <Button 
+              onClick={handleCreatePayment}
+              disabled={creatingPayment || !newPayment.amount}
+              className="bg-green-600 hover:bg-green-700 text-white"
+              data-testid="submit-payment-btn"
+            >
+              {creatingPayment ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+              Create Payment
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
