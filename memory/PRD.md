@@ -256,6 +256,27 @@ The Digital PR workflow now mirrors the Influencer Marketing workflow for consis
 - Auto-populates publication name when selecting from dropdown
 - Supports manual entry for new publications
 
+#### Publication Detail Page (PR Journey) ✅
+Created `/app/frontend/src/pages/marketing/PublicationDetailPage.jsx` with 5 PR Journey tabs:
+
+| Tab | Content |
+|-----|---------|
+| **Overview** | Publication info, metrics (DA, traffic, readership), beats covered, contact info, paid PR rates |
+| **Journalists** | All journalists at this publication with Name, Role, Beat, Email, Status; Add Journalist modal |
+| **Outreach** | Pitch funnel (Sent → Responded → In Progress → Published), Pitch history table, status updates |
+| **Coverage** | Media coverage from this publication with Title, Type, Author, Sentiment, Reach; Record Coverage modal |
+| **Paid PR** | Paid collaborations tracking (advertorials, sponsored content) |
+
+**Flow:**
+```
+Publications List → Click Publication → Publication Detail with PR Journey Tabs
+```
+
+This mirrors the Influencer workflow:
+```
+Influencers List → Click Influencer → Influencer Detail with Campaign/Content/Outreach Tabs
+```
+
 #### Events & Exhibition Module - REMOVED ✅
 - Removed from sidebar navigation (`Layout.jsx`)
 - Removed route from `App.js`

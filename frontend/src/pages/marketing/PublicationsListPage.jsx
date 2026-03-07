@@ -382,6 +382,7 @@ const PublicationsListPage = () => {
                       key={pub.id}
                       className="cursor-pointer hover:bg-purple-50/50 transition-colors"
                       data-testid={`publication-row-${pub.id}`}
+                      onClick={() => navigate(`/marketing/publication/${pub.id}`)}
                     >
                       <TableCell>
                         <div className="flex items-center gap-3">
