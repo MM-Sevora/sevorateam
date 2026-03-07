@@ -120,8 +120,6 @@ class CampaignType(str, Enum):
     RESIDENTIAL_POPUP = "Residential Popup"
     WEDDING_EXPO = "Wedding Expo"
     FASHION_EVENT = "Fashion Event"
-    SALON_PARTNERSHIP = "Salon Partnership"
-    BOUTIQUE_PARTNERSHIP = "Boutique Partnership"
     INFLUENCER_CAMPAIGN = "Influencer Campaign"
     DIGITAL_ADS = "Digital Ads"
     HOARDING = "Hoarding"
@@ -132,6 +130,15 @@ class CampaignStatus(str, Enum):
     ACTIVE = "Active"
     COMPLETED = "Completed"
     CANCELLED = "Cancelled"
+
+class PartnerType(str, Enum):
+    SALON = "Salon"
+    BOUTIQUE = "Boutique"
+
+class PartnerStatus(str, Enum):
+    ACTIVE = "Active"
+    INACTIVE = "Inactive"
+    PENDING = "Pending"
 
 # Models
 class UserCreate(BaseModel):
@@ -163,6 +170,7 @@ class LeadCreate(BaseModel):
     city: Optional[str] = None
     notes: Optional[str] = None
     campaign_id: Optional[str] = None
+    partner_id: Optional[str] = None
     influencer_id: Optional[str] = None
 
 class LeadUpdate(BaseModel):
@@ -189,6 +197,8 @@ class LeadResponse(BaseModel):
     assigned_to_name: Optional[str] = None
     campaign_id: Optional[str] = None
     campaign_name: Optional[str] = None
+    partner_id: Optional[str] = None
+    partner_name: Optional[str] = None
     influencer_id: Optional[str] = None
     created_at: str
     updated_at: str
@@ -229,6 +239,50 @@ class CampaignResponse(BaseModel):
     budget: Optional[float] = None
     target_leads: Optional[int] = None
     description: Optional[str] = None
+    status: str
+    leads_count: int = 0
+    conversions: int = 0
+    revenue: float = 0
+    created_at: str
+
+# Partnership Models
+class PartnerCreate(BaseModel):
+    name: str
+    partner_type: PartnerType
+    address: Optional[str] = None
+    city: str
+    area: Optional[str] = None
+    contact_person: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_email: Optional[EmailStr] = None
+    commission_percent: Optional[float] = None
+    notes: Optional[str] = None
+    status: PartnerStatus = PartnerStatus.ACTIVE
+
+class PartnerUpdate(BaseModel):
+    name: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    area: Optional[str] = None
+    contact_person: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_email: Optional[EmailStr] = None
+    commission_percent: Optional[float] = None
+    notes: Optional[str] = None
+    status: Optional[PartnerStatus] = None
+
+class PartnerResponse(BaseModel):
+    id: str
+    name: str
+    partner_type: str
+    address: Optional[str] = None
+    city: str
+    area: Optional[str] = None
+    contact_person: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
+    commission_percent: Optional[float] = None
+    notes: Optional[str] = None
     status: str
     leads_count: int = 0
     conversions: int = 0
@@ -491,6 +545,13 @@ async def create_lead(lead: LeadCreate, background_tasks: BackgroundTasks, qr_co
         if campaign:
             campaign_name = campaign.get("name")
     
+    # Get partner name if partner_id provided
+    partner_name = None
+    if lead.partner_id:
+        partner = await db.partners.find_one({"id": lead.partner_id}, {"_id": 0})
+        if partner:
+            partner_name = partner.get("name")
+    
     lead_doc = {
         "id": str(uuid.uuid4()),
         "name": lead.name,
@@ -504,6 +565,8 @@ async def create_lead(lead: LeadCreate, background_tasks: BackgroundTasks, qr_co
         "notes": lead.notes,
         "campaign_id": lead.campaign_id,
         "campaign_name": campaign_name,
+        "partner_id": lead.partner_id,
+        "partner_name": partner_name,
         "influencer_id": lead.influencer_id,
         "assigned_to": None,
         "assigned_to_name": None,
@@ -787,6 +850,100 @@ async def delete_campaign(campaign_id: str, current_user: dict = Depends(get_cur
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Campaign not found")
     return {"message": "Campaign deleted"}
+
+# Partner Routes (Salon & Boutique Partnerships)
+@api_router.post("/partners", response_model=PartnerResponse)
+async def create_partner(partner: PartnerCreate, current_user: dict = Depends(get_current_user)):
+    partner_doc = {
+        "id": str(uuid.uuid4()),
+        "name": partner.name,
+        "partner_type": partner.partner_type.value,
+        "address": partner.address,
+        "city": partner.city,
+        "area": partner.area,
+        "contact_person": partner.contact_person,
+        "contact_phone": partner.contact_phone,
+        "contact_email": partner.contact_email,
+        "commission_percent": partner.commission_percent,
+        "notes": partner.notes,
+        "status": partner.status.value,
+        "leads_count": 0,
+        "conversions": 0,
+        "revenue": 0,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.partners.insert_one(partner_doc)
+    return PartnerResponse(**{k: v for k, v in partner_doc.items() if k != "_id"})
+
+@api_router.get("/partners", response_model=List[PartnerResponse])
+async def get_partners(
+    partner_type: Optional[str] = None,
+    status: Optional[str] = None,
+    city: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    query = {}
+    if partner_type:
+        query["partner_type"] = partner_type
+    if status:
+        query["status"] = status
+    if city:
+        query["city"] = city
+    
+    partners = await db.partners.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    
+    # Update leads count and conversions for each partner
+    result = []
+    for p in partners:
+        leads_count = await db.leads.count_documents({"partner_id": p["id"]})
+        conversions = await db.leads.count_documents({"partner_id": p["id"], "stage": "Order Confirmed"})
+        p["leads_count"] = leads_count
+        p["conversions"] = conversions
+        result.append(PartnerResponse(**p))
+    
+    return result
+
+@api_router.get("/partners/{partner_id}", response_model=PartnerResponse)
+async def get_partner(partner_id: str, current_user: dict = Depends(get_current_user)):
+    partner = await db.partners.find_one({"id": partner_id}, {"_id": 0})
+    if not partner:
+        raise HTTPException(status_code=404, detail="Partner not found")
+    
+    # Get real-time stats
+    leads_count = await db.leads.count_documents({"partner_id": partner_id})
+    conversions = await db.leads.count_documents({"partner_id": partner_id, "stage": "Order Confirmed"})
+    partner["leads_count"] = leads_count
+    partner["conversions"] = conversions
+    
+    return PartnerResponse(**partner)
+
+@api_router.put("/partners/{partner_id}", response_model=PartnerResponse)
+async def update_partner(partner_id: str, update: PartnerUpdate, current_user: dict = Depends(get_current_user)):
+    partner = await db.partners.find_one({"id": partner_id})
+    if not partner:
+        raise HTTPException(status_code=404, detail="Partner not found")
+    
+    update_data = {k: v for k, v in update.model_dump().items() if v is not None}
+    if "status" in update_data and update_data["status"]:
+        update_data["status"] = update_data["status"].value if hasattr(update_data["status"], 'value') else update_data["status"]
+    
+    await db.partners.update_one({"id": partner_id}, {"$set": update_data})
+    updated = await db.partners.find_one({"id": partner_id}, {"_id": 0})
+    
+    # Get real-time stats
+    leads_count = await db.leads.count_documents({"partner_id": partner_id})
+    conversions = await db.leads.count_documents({"partner_id": partner_id, "stage": "Order Confirmed"})
+    updated["leads_count"] = leads_count
+    updated["conversions"] = conversions
+    
+    return PartnerResponse(**updated)
+
+@api_router.delete("/partners/{partner_id}")
+async def delete_partner(partner_id: str, current_user: dict = Depends(get_current_user)):
+    result = await db.partners.delete_one({"id": partner_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Partner not found")
+    return {"message": "Partner deleted"}
 
 # QR Code Routes
 @api_router.post("/qrcodes", response_model=QRCodeResponse)

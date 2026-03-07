@@ -12,7 +12,8 @@ import {
   Settings,
   LogOut,
   Sparkles,
-  Megaphone
+  Megaphone,
+  Handshake
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { ScrollArea } from '../components/ui/scroll-area';
@@ -34,6 +35,7 @@ const Sidebar = () => {
     { to: '/wedding-planner', icon: Calendar, label: 'Wedding Planner' },
     { to: '/pipeline', icon: Kanban, label: 'Pipeline' },
     { to: '/campaigns', icon: Megaphone, label: 'Campaigns' },
+    { to: '/partners', icon: Handshake, label: 'Partnerships' },
     { to: '/analytics', icon: BarChart3, label: 'Analytics' },
     { to: '/qr-codes', icon: QrCode, label: 'QR Codes' },
   ];

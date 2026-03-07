@@ -58,6 +58,7 @@ const LeadsPage = () => {
   const [leads, setLeads] = useState([]);
   const [users, setUsers] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
+  const [partners, setPartners] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterSource, setFilterSource] = useState('');
@@ -74,12 +75,14 @@ const LeadsPage = () => {
     city: '',
     notes: '',
     campaign_id: '',
+    partner_id: '',
   });
 
   useEffect(() => {
     fetchLeads();
     fetchUsers();
     fetchCampaigns();
+    fetchPartners();
   }, [search, filterSource, filterStage]);
 
   const fetchLeads = async () => {
@@ -116,17 +119,27 @@ const LeadsPage = () => {
     }
   };
 
+  const fetchPartners = async () => {
+    try {
+      const response = await api.get('/partners?status=Active');
+      setPartners(response.data);
+    } catch (error) {
+      console.error('Failed to fetch partners');
+    }
+  };
+
   const handleAddLead = async (e) => {
     e.preventDefault();
     try {
       const payload = {
         ...newLead,
         campaign_id: newLead.campaign_id || null,
+        partner_id: newLead.partner_id || null,
       };
       await api.post('/leads', payload);
       toast.success('Lead created successfully');
       setIsAddOpen(false);
-      setNewLead({ name: '', phone: '', email: '', source: '', source_details: '', occasion: '', city: '', notes: '', campaign_id: '' });
+      setNewLead({ name: '', phone: '', email: '', source: '', source_details: '', occasion: '', city: '', notes: '', campaign_id: '', partner_id: '' });
       fetchLeads();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to create lead');
@@ -283,6 +296,29 @@ const LeadsPage = () => {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">Link lead to an active marketing campaign</p>
+                </div>
+              )}
+              {/* Partner Selection */}
+              {partners.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-xs uppercase tracking-wider">Partner (Optional)</Label>
+                  <Select
+                    value={newLead.partner_id || 'none'}
+                    onValueChange={(value) => setNewLead({ ...newLead, partner_id: value === 'none' ? '' : value })}
+                  >
+                    <SelectTrigger data-testid="lead-partner-select" className="rounded-none">
+                      <SelectValue placeholder="Link to partner" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Partner</SelectItem>
+                      {partners.map((partner) => (
+                        <SelectItem key={partner.id} value={partner.id}>
+                          {partner.name} ({partner.partner_type})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">Link lead to salon/boutique partnership</p>
                 </div>
               )}
               <div className="space-y-2">

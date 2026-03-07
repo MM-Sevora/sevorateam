@@ -12,6 +12,7 @@ import PipelinePage from './pages/PipelinePage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import QRCodesPage from './pages/QRCodesPage';
 import CampaignsPage from './pages/CampaignsPage';
+import PartnersPage from './pages/PartnersPage';
 import SettingsPage from './pages/SettingsPage';
 import LeadCapturePage from './pages/LeadCapturePage';
 import './App.css';
@@ -86,6 +87,7 @@ function App() {
             <Route path="/analytics" element={<AnalyticsPage />} />
             <Route path="/qr-codes" element={<QRCodesPage />} />
             <Route path="/campaigns" element={<CampaignsPage />} />
+            <Route path="/partners" element={<PartnersPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
 
