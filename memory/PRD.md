@@ -166,6 +166,10 @@ Consolidate multiple Sevora applications (Influencer Operations from 'main' bran
 - [x] **Marketing Module Restructure** - All 8 phases complete
 - [x] **Phase B: Core Workflow** - Campaign assignment, outreach modal, activity timeline (COMPLETED March 7, 2026)
 - [x] **Marketing Operating System Restructure** - Unified Campaign Hub with type filters, PR Journey restructure (COMPLETED March 7, 2026)
+- [x] **Campaign Hub CRUD** - Add/Edit/Delete/Hold functionality with actions dropdown (COMPLETED March 7, 2026)
+- [x] **Sort & Filter Tables** - Sortable columns in Campaign Hub (5 columns), Publications (6 columns), Influencers (3 options) (COMPLETED March 7, 2026)
+- [x] **AI Tools Simplification** - Removed Scheduled Discovery, Caption, Campaign Ideas tabs; kept only CTA cards (COMPLETED March 7, 2026)
+- [x] **Back Button Navigation** - Added back buttons to AI Discovery and other detail pages (COMPLETED March 7, 2026)
 
 ### P1 - High Priority
 - [x] Real-time WebSocket notifications
