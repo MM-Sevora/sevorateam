@@ -71,6 +71,9 @@ class ContactCreate(BaseModel):
     editor_level: Optional[str] = None  # e.g., "staff", "senior", "editor-in-chief"
     
     notes: Optional[str] = None
+    
+    # Campaign assignment
+    campaign_id: Optional[str] = None
 
 class ContactResponse(BaseModel):
     id: str
@@ -101,6 +104,7 @@ class ContactResponse(BaseModel):
     notes: Optional[str] = None
     status: str = "identified"
     score: float = 0.0
+    campaign_id: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 

@@ -155,41 +155,7 @@ const InfluencerDetailPage = () => {
     } catch (error) {
       console.log('No gifts found');
     }
-    
-    // Build combined activity timeline
-    const allActivities = [];
-    
-    communications.forEach(c => allActivities.push({
-      type: 'communication',
-      icon: c.comm_type === 'whatsapp' ? 'whatsapp' : 'email',
-      title: c.subject || 'Message sent',
-      description: c.message?.substring(0, 100) + '...',
-      date: c.sent_at || c.created_at,
-      status: c.status
-    }));
-    
-    deals.forEach(d => allActivities.push({
-      type: 'deal',
-      icon: 'deal',
-      title: `Deal ${d.status}`,
-      description: `Quote: ₹${(d.initial_quote || d.quote_amount || 0).toLocaleString()}`,
-      date: d.created_at,
-      status: d.status
-    }));
-    
-    gifts.forEach(g => allActivities.push({
-      type: 'gift',
-      icon: 'gift',
-      title: g.product_name,
-      description: `Status: ${g.status}`,
-      date: g.sent_date || g.created_at,
-      status: g.status
-    }));
-    
-    // Sort by date descending
-    allActivities.sort((a, b) => new Date(b.date) - new Date(a.date));
-    setActivities(allActivities);
-  }, [api, influencerId, communications, deals, gifts]);
+  }, [api, influencerId]);
 
   useEffect(() => {
     fetchInfluencer();
@@ -295,7 +261,10 @@ const InfluencerDetailPage = () => {
 
   const handleAssignCampaign = async (campaignId) => {
     try {
-      await api.put(`/marketing/v2/contacts/${influencerId}`, { campaign_id: campaignId });
+      await api.put(`/marketing/v2/contacts/${influencerId}`, { 
+        name: form.name,
+        campaign_id: campaignId 
+      });
       setAssignedCampaign(campaignId);
       updateForm('campaign_id', campaignId);
       toast.success('Campaign assigned!');
@@ -321,7 +290,7 @@ const InfluencerDetailPage = () => {
         recipient_phone: form.phone
       };
       
-      await api.post(`/marketing/v2/contacts/${influencerId}/communications`, payload);
+      await api.post(`/marketing/v2/communications`, payload);
       
       toast.success(`${outreachChannel === 'email' ? 'Email' : 'WhatsApp'} sent successfully!`);
       setShowOutreachModal(false);
@@ -454,7 +423,7 @@ const InfluencerDetailPage = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/marketing/influencers')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/marketing/influencers')} data-testid="back-btn">
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
@@ -465,7 +434,37 @@ const InfluencerDetailPage = () => {
             <div className="text-gray-500">@{form.instagram_handle || form.youtube_handle || 'handle'}</div>
           </div>
         </div>
+        
+        {/* Campaign Assignment & Actions */}
         <div className="flex items-center gap-3">
+          {/* Campaign Assignment Dropdown */}
+          <div className="flex items-center gap-2">
+            <Target className="w-4 h-4 text-gray-500" />
+            <Select value={assignedCampaign || 'none'} onValueChange={(val) => handleAssignCampaign(val === 'none' ? '' : val)}>
+              <SelectTrigger className="w-48" data-testid="campaign-select">
+                <SelectValue placeholder="Assign Campaign" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No Campaign</SelectItem>
+                {campaigns.map(campaign => (
+                  <SelectItem key={campaign.id || campaign._id} value={campaign.id || campaign._id}>
+                    {campaign.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {/* Send Outreach Button */}
+          <Button 
+            variant="outline" 
+            onClick={() => setShowOutreachModal(true)}
+            className="gap-2 border-blue-200 text-blue-600 hover:bg-blue-50"
+            data-testid="send-outreach-btn"
+          >
+            <Send className="w-4 h-4" /> Send Outreach
+          </Button>
+          
           <Button variant="outline" onClick={handleRefreshData} className="gap-2">
             <RefreshCw className="w-4 h-4" /> Refresh Data
           </Button>
@@ -476,6 +475,7 @@ const InfluencerDetailPage = () => {
             onClick={handleSave} 
             disabled={!hasChanges || saving}
             className="bg-[#c4a35a] hover:bg-[#b39349] text-white gap-2"
+            data-testid="save-changes-btn"
           >
             <Save className="w-4 h-4" /> Save Changes
           </Button>
@@ -1040,108 +1040,311 @@ const InfluencerDetailPage = () => {
         </div>
       )}
 
+      {/* Send Outreach Modal */}
+      <Dialog open={showOutreachModal} onOpenChange={setShowOutreachModal}>
+        <DialogContent className="max-w-lg" data-testid="outreach-modal">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="w-5 h-5 text-blue-500" />
+              Send Outreach to {form.name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Channel Selection */}
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">CHANNEL</Label>
+              <div className="flex gap-2">
+                <Button
+                  variant={outreachChannel === 'email' ? 'default' : 'outline'}
+                  className={outreachChannel === 'email' ? 'bg-blue-500 hover:bg-blue-600' : ''}
+                  onClick={() => setOutreachChannel('email')}
+                  data-testid="channel-email-btn"
+                >
+                  <Mail className="w-4 h-4 mr-2" /> Email
+                </Button>
+                <Button
+                  variant={outreachChannel === 'whatsapp' ? 'default' : 'outline'}
+                  className={outreachChannel === 'whatsapp' ? 'bg-green-500 hover:bg-green-600' : ''}
+                  onClick={() => setOutreachChannel('whatsapp')}
+                  data-testid="channel-whatsapp-btn"
+                >
+                  <MessageSquare className="w-4 h-4 mr-2" /> WhatsApp
+                </Button>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">
+                {outreachChannel === 'email' 
+                  ? `Will send to: ${form.email || 'No email on file'}` 
+                  : `Will send to: ${form.phone || 'No phone on file'}`}
+              </p>
+            </div>
+            
+            {/* Template Selection */}
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">TEMPLATE</Label>
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  size="sm"
+                  variant={outreachForm.template === 'collaboration' ? 'default' : 'outline'}
+                  onClick={() => applyTemplate('collaboration')}
+                  className="text-xs"
+                  data-testid="template-collaboration-btn"
+                >
+                  Collaboration
+                </Button>
+                <Button
+                  size="sm"
+                  variant={outreachForm.template === 'followup' ? 'default' : 'outline'}
+                  onClick={() => applyTemplate('followup')}
+                  className="text-xs"
+                  data-testid="template-followup-btn"
+                >
+                  Follow Up
+                </Button>
+                <Button
+                  size="sm"
+                  variant={outreachForm.template === 'campaign' ? 'default' : 'outline'}
+                  onClick={() => applyTemplate('campaign')}
+                  className="text-xs"
+                  data-testid="template-campaign-btn"
+                >
+                  Campaign Invite
+                </Button>
+                <Button
+                  size="sm"
+                  variant={outreachForm.template === 'custom' ? 'default' : 'outline'}
+                  onClick={() => setOutreachForm(prev => ({ ...prev, template: 'custom', subject: '', message: '' }))}
+                  className="text-xs"
+                  data-testid="template-custom-btn"
+                >
+                  Custom
+                </Button>
+              </div>
+            </div>
+            
+            {/* Subject (Email only) */}
+            {outreachChannel === 'email' && (
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500 mb-1 block">SUBJECT</Label>
+                <Input
+                  placeholder="Email subject line..."
+                  value={outreachForm.subject}
+                  onChange={e => setOutreachForm(prev => ({ ...prev, subject: e.target.value }))}
+                  data-testid="outreach-subject-input"
+                />
+              </div>
+            )}
+            
+            {/* Message */}
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500 mb-1 block">MESSAGE</Label>
+              <Textarea
+                placeholder="Type your message..."
+                value={outreachForm.message}
+                onChange={e => setOutreachForm(prev => ({ ...prev, message: e.target.value }))}
+                rows={6}
+                data-testid="outreach-message-input"
+              />
+            </div>
+          </div>
+          
+          {/* Actions */}
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button variant="outline" onClick={() => setShowOutreachModal(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSendOutreach}
+              disabled={sendingOutreach || !outreachForm.message || (outreachChannel === 'email' && !form.email) || (outreachChannel === 'whatsapp' && !form.phone)}
+              className="bg-blue-500 hover:bg-blue-600 text-white gap-2"
+              data-testid="send-outreach-submit-btn"
+            >
+              {sendingOutreach ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" /> Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4" /> Send {outreachChannel === 'email' ? 'Email' : 'WhatsApp'}
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* History Tab */}
       {activeTab === 'history' && (
         <div className="grid grid-cols-3 gap-6">
-          {/* Communications */}
-          <Card className="bg-white border-gray-200">
+          {/* Unified Activity Timeline */}
+          <Card className="col-span-2 bg-white border-gray-200">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center justify-between">
-                <span>Communications</span>
-                <Badge variant="outline">{communications.length}</Badge>
+                <span className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-amber-500" />
+                  Activity Timeline
+                </span>
+                <Badge variant="outline">{activities.length} events</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {communications.length === 0 ? (
-                <p className="text-gray-500 text-sm italic">No communications yet</p>
+              {activities.length === 0 ? (
+                <div className="text-center py-8">
+                  <Clock className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+                  <p className="text-gray-500 text-sm">No activity recorded yet</p>
+                  <p className="text-gray-400 text-xs mt-1">Send an outreach message to get started</p>
+                </div>
               ) : (
-                <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                  {communications.map(comm => (
-                    <div key={comm.id} className="p-3 border border-gray-100 rounded-lg hover:bg-gray-50">
-                      <div className="flex items-center justify-between mb-1">
-                        <Badge variant="outline" className="capitalize text-xs">{comm.comm_type || 'message'}</Badge>
-                        <span className="text-xs text-gray-400">{formatDate(comm.sent_at || comm.created_at)}</span>
+                <div className="relative">
+                  {/* Timeline Line */}
+                  <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200" />
+                  
+                  <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+                    {activities.map((activity, idx) => (
+                      <div key={idx} className="relative flex gap-4 pl-10" data-testid={`activity-item-${idx}`}>
+                        {/* Timeline Dot */}
+                        <div className={`absolute left-2 w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm ${
+                          activity.type === 'communication' ? 'bg-blue-500' :
+                          activity.type === 'deal' ? 'bg-green-500' :
+                          activity.type === 'gift' ? 'bg-purple-500' :
+                          'bg-gray-400'
+                        }`}>
+                          {activity.type === 'communication' && (
+                            activity.icon === 'whatsapp' ? 
+                              <MessageSquare className="w-3 h-3 text-white" /> : 
+                              <Mail className="w-3 h-3 text-white" />
+                          )}
+                          {activity.type === 'deal' && <DollarSign className="w-3 h-3 text-white" />}
+                          {activity.type === 'gift' && <Sparkles className="w-3 h-3 text-white" />}
+                        </div>
+                        
+                        {/* Activity Content */}
+                        <div className="flex-1 bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition-colors">
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className={`text-xs capitalize ${
+                                activity.type === 'communication' ? 'border-blue-200 text-blue-600' :
+                                activity.type === 'deal' ? 'border-green-200 text-green-600' :
+                                'border-purple-200 text-purple-600'
+                              }`}>
+                                {activity.type}
+                              </Badge>
+                              {activity.status && (
+                                <Badge className="text-xs bg-gray-100 text-gray-600">{activity.status}</Badge>
+                              )}
+                            </div>
+                            <span className="text-xs text-gray-400">{formatDate(activity.date)}</span>
+                          </div>
+                          <div className="font-medium text-gray-900 text-sm">{activity.title}</div>
+                          {activity.description && (
+                            <p className="text-xs text-gray-500 mt-1 line-clamp-2">{activity.description}</p>
+                          )}
+                        </div>
                       </div>
-                      <div className="font-medium text-gray-900 text-sm">{comm.subject || '(No subject)'}</div>
-                      <p className="text-xs text-gray-500 line-clamp-2 mt-1">{comm.message || comm.content}</p>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Deals */}
-          <Card className="bg-white border-gray-200">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center justify-between">
-                <span>Deals & Negotiations</span>
-                <Badge variant="outline">{deals.length}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {deals.length === 0 ? (
-                <p className="text-gray-500 text-sm italic">No deals yet</p>
-              ) : (
-                <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                  {deals.map(deal => (
-                    <div key={deal.id} className="p-3 border border-gray-100 rounded-lg hover:bg-gray-50">
-                      <div className="flex items-center justify-between mb-1">
-                        <Badge className={deal.status === 'agreed' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'} >{deal.status || 'pending'}</Badge>
-                        <span className="text-xs text-gray-400">{formatDate(deal.created_at)}</span>
+          {/* Quick Stats Sidebar */}
+          <div className="space-y-4">
+            {/* Communications Summary */}
+            <Card className="bg-white border-gray-200">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-blue-500" />
+                    Communications
+                  </span>
+                  <Badge variant="outline">{communications.length}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {communications.length === 0 ? (
+                  <p className="text-gray-500 text-sm italic">No messages sent</p>
+                ) : (
+                  <div className="space-y-2">
+                    {communications.slice(0, 3).map(comm => (
+                      <div key={comm.id} className="p-2 border border-gray-100 rounded hover:bg-gray-50">
+                        <div className="flex items-center justify-between">
+                          <Badge variant="outline" className="capitalize text-xs">{comm.comm_type || 'email'}</Badge>
+                          <span className="text-xs text-gray-400">{formatDate(comm.sent_at || comm.created_at)}</span>
+                        </div>
+                        <p className="text-xs text-gray-600 mt-1 truncate">{comm.subject || comm.message?.substring(0, 40)}</p>
                       </div>
-                      <div className="text-sm text-gray-700 mt-1">
-                        Quote: <span className="font-medium">₹{(deal.initial_quote || deal.quote_amount || 0).toLocaleString()}</span>
-                        {deal.final_amount && (
-                          <span className="text-green-600 ml-2">Final: ₹{deal.final_amount.toLocaleString()}</span>
-                        )}
-                      </div>
-                      {deal.deliverables && typeof deal.deliverables === 'string' && (
-                        <p className="text-xs text-gray-500 mt-1">{deal.deliverables}</p>
-                      )}
-                      {deal.deliverables && Array.isArray(deal.deliverables) && (
-                        <p className="text-xs text-gray-500 mt-1">{deal.deliverables.length} deliverables</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    ))}
+                    {communications.length > 3 && (
+                      <p className="text-xs text-gray-400 text-center">+{communications.length - 3} more</p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-          {/* Gifts & Seeding */}
-          <Card className="bg-white border-gray-200">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center justify-between">
-                <span>Gifts & Seeding</span>
-                <Badge variant="outline">{gifts.length}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {gifts.length === 0 ? (
-                <p className="text-gray-500 text-sm italic">No gifts sent yet</p>
-              ) : (
-                <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                  {gifts.map(gift => (
-                    <div key={gift.id} className="p-3 border border-gray-100 rounded-lg hover:bg-gray-50">
-                      <div className="flex items-center justify-between mb-1">
-                        <Badge className={
-                          gift.status === 'posted' ? 'bg-green-100 text-green-700' : 
-                          gift.status === 'delivered' ? 'bg-blue-100 text-blue-700' : 
-                          'bg-gray-100 text-gray-700'
-                        }>{gift.status}</Badge>
-                        <span className="text-xs text-gray-400">{formatDate(gift.sent_date || gift.created_at)}</span>
+            {/* Deals Summary */}
+            <Card className="bg-white border-gray-200">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-green-500" />
+                    Deals
+                  </span>
+                  <Badge variant="outline">{deals.length}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {deals.length === 0 ? (
+                  <p className="text-gray-500 text-sm italic">No deals yet</p>
+                ) : (
+                  <div className="space-y-2">
+                    {deals.slice(0, 3).map(deal => (
+                      <div key={deal.id} className="p-2 border border-gray-100 rounded hover:bg-gray-50">
+                        <div className="flex items-center justify-between">
+                          <Badge className={deal.status === 'agreed' ? 'bg-green-100 text-green-700 text-xs' : 'bg-gray-100 text-gray-700 text-xs'}>{deal.status || 'pending'}</Badge>
+                          <span className="text-xs font-medium">₹{(deal.initial_quote || 0).toLocaleString()}</span>
+                        </div>
                       </div>
-                      <div className="font-medium text-gray-900 text-sm">{gift.product_name}</div>
-                      {gift.tracking_number && (
-                        <p className="text-xs text-gray-500 mt-1">Tracking: {gift.tracking_number}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Gifts Summary */}
+            <Card className="bg-white border-gray-200">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-purple-500" />
+                    Gifts
+                  </span>
+                  <Badge variant="outline">{gifts.length}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {gifts.length === 0 ? (
+                  <p className="text-gray-500 text-sm italic">No gifts sent</p>
+                ) : (
+                  <div className="space-y-2">
+                    {gifts.slice(0, 3).map(gift => (
+                      <div key={gift.id} className="p-2 border border-gray-100 rounded hover:bg-gray-50">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-gray-700 truncate">{gift.product_name}</span>
+                          <Badge className={
+                            gift.status === 'posted' ? 'bg-green-100 text-green-700 text-xs' : 
+                            gift.status === 'delivered' ? 'bg-blue-100 text-blue-700 text-xs' : 
+                            'bg-gray-100 text-gray-700 text-xs'
+                          }>{gift.status}</Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </div>
       )}
     </div>
