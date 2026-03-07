@@ -1,0 +1,165 @@
+{
+  "brand_identity": {
+    "name": "Sevora",
+    "theme_mode": "light",
+    "archetype": "Jewel & Luxury",
+    "emotional_tone": "Professional, Elegant, Efficient, Editorial",
+    "design_principles": [
+      "Precision over Decoration: Every pixel must serve the data or the aesthetic.",
+      "Editorial Density: High information density, but styled like a magazine spread.",
+      "Sharpness: 0px or 2px border radius. No friendly round blobs.",
+      "The 'Vogue' Grid: Asymmetrical layouts for dashboards, strict tables for data.",
+      "Texture: Subtle noise or paper grain on backgrounds to avoid digital sterility."
+    ]
+  },
+  "typography": {
+    "headings": {
+      "family": "Playfair Display, serif",
+      "weights": ["400", "600", "700"],
+      "usage": "Page titles, Hero sections, Key metrics",
+      "letter_spacing": "tracking-tight"
+    },
+    "body": {
+      "family": "Manrope, sans-serif",
+      "weights": ["400", "500", "600"],
+      "usage": "UI elements, tables, forms, buttons",
+      "letter_spacing": "tracking-normal"
+    },
+    "mono": {
+      "family": "JetBrains Mono, monospace",
+      "usage": "IDs, Codes, Technical data"
+    }
+  },
+  "colors": {
+    "background": {
+      "default": "#FDFCFA",
+      "paper": "#FFFFFF",
+      "subtle": "#F5F5F4"
+    },
+    "foreground": {
+      "default": "#1C1917",
+      "muted": "#57534E",
+      "inverse": "#FFFFFF"
+    },
+    "primary": {
+      "default": "#064E3B",
+      "hover": "#065F46",
+      "foreground": "#FFFFFF",
+      "description": "Deep Emerald - Represents wealth, growth, and style."
+    },
+    "secondary": {
+      "default": "#F5F5F4",
+      "foreground": "#1C1917"
+    },
+    "accent": {
+      "default": "#D4AF37",
+      "foreground": "#FFFFFF",
+      "description": "Metallic Gold - Used for high-value borders or active states."
+    },
+    "border": {
+      "default": "#E7E5E4",
+      "active": "#D4AF37"
+    },
+    "status": {
+      "success": "#065F46",
+      "warning": "#B45309",
+      "error": "#9F1239",
+      "info": "#1E3A8A"
+    }
+  },
+  "visual_enhancers": {
+    "radius": {
+      "default": "0px",
+      "sm": "2px",
+      "md": "4px",
+      "full": "9999px",
+      "instruction": "Use sharp edges (0px) for cards and containers. Use small radius (2px) for buttons. Use full radius only for status badges."
+    },
+    "shadows": {
+      "soft": "0 4px 24px rgba(0,0,0,0.04)",
+      "medium": "0 8px 32px rgba(0,0,0,0.08)",
+      "sharp": "4px 4px 0px rgba(6, 78, 59, 0.1)"
+    },
+    "borders": {
+      "default": "1px solid #E7E5E4",
+      "active": "1px solid #D4AF37"
+    },
+    "textures": {
+      "noise": "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E\")"
+    }
+  },
+  "layout_strategies": {
+    "dashboard_grid": "grid-cols-1 md:grid-cols-4 lg:grid-cols-12 gap-4 p-6",
+    "bento_grid": {
+      "hero": "col-span-full md:col-span-8 row-span-2",
+      "standard": "col-span-4 row-span-1",
+      "tall": "col-span-4 row-span-2"
+    },
+    "spacing": {
+      "page_padding": "p-6 md:p-8 lg:p-12",
+      "section_gap": "gap-8"
+    }
+  },
+  "component_rules": {
+    "buttons": {
+      "style": "sharp",
+      "primary": "bg-primary text-primary-foreground hover:bg-primary/90 rounded-sm font-medium tracking-wide uppercase text-xs px-6 py-3",
+      "secondary": "border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-sm font-medium tracking-wide uppercase text-xs px-6 py-3"
+    },
+    "cards": {
+      "style": "flat",
+      "classes": "bg-white border border-border shadow-sm rounded-none p-6"
+    },
+    "inputs": {
+      "style": "minimal",
+      "classes": "rounded-none border-x-0 border-t-0 border-b border-input bg-transparent px-0 focus-visible:ring-0 focus-visible:border-primary placeholder:text-muted-foreground/50"
+    },
+    "tables": {
+      "style": "editorial",
+      "header": "text-xs uppercase tracking-wider font-semibold text-muted-foreground border-b border-border pb-4",
+      "row": "border-b border-border/50 hover:bg-secondary/50 transition-colors"
+    }
+  },
+  "media": {
+    "image_urls": {
+      "stylist_avatars": [
+        "https://images.unsplash.com/photo-1563481048455-47f30665058f?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "https://images.unsplash.com/photo-1581977325979-80749e97b0c7?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "https://images.unsplash.com/photo-1741604703016-f8e96872fa3b?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "https://images.unsplash.com/photo-1694046078505-7486ffcf88f9?crop=entropy&cs=srgb&fm=jpg&q=85"
+      ],
+      "wedding_outfits": [
+        "https://images.unsplash.com/photo-1757598079169-b8655dc3e933?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "https://images.unsplash.com/photo-1735052713246-cacc89997ecf?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "https://images.unsplash.com/photo-1576470189712-50fe3ec06b04?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "https://images.unsplash.com/photo-1645856052181-64e9dfd9ae03?crop=entropy&cs=srgb&fm=jpg&q=85"
+      ],
+      "placeholders": {
+        "event_cover": "https://images.unsplash.com/photo-1511285560982-1351cdeb9821?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80",
+        "fashion_hero": "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80"
+      }
+    }
+  },
+  "charts_and_viz": {
+    "library": "Recharts",
+    "style": "Minimalist, thin lines, no grid lines",
+    "colors": ["#064E3B", "#D4AF37", "#1E3A8A", "#B45309", "#78350F"]
+  },
+  "instructions_to_main_agent": [
+    "1. INSTALL FONTS: Add Playfair Display and Manrope from Google Fonts in index.css immediately.",
+    "2. CONFIGURE TAILWIND: Update tailwind.config.js with the specified colors (emerald, gold) and radius (0px/2px).",
+    "3. OVERRIDE SHADCN: Modify ui/button.tsx, ui/card.tsx, ui/input.tsx to match the 'Sharp & Luxury' aesthetic defined in component_rules.",
+    "4. LAYOUT: Build the sidebar to be sleek and dark (Emerald #064E3B) or Stark White with a border. Prefer Stark White with a simplified logo.",
+    "5. FORMS: Use the 'Underline' input style for a cleaner, high-fashion look instead of standard boxed inputs.",
+    "6. TABLES: Ensure table headers are uppercase and tracked-out (letter-spacing: wider).",
+    "7. IMAGES: Use the provided image URLs for mock data in the Stylist and Wedding Planner modules."
+  ],
+  "universal_guidelines": [
+    "Do not use gradients for backgrounds. Use flat colors or subtle textures.",
+    "Do not use 'Inter' font for headings.",
+    "Do not use rounded-xl or rounded-2xl. Keep it sharp.",
+    "Always use data-testid attributes.",
+    "Use 'sonner' for toasts.",
+    "Use 'lucide-react' for icons."
+  ]
+}
