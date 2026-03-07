@@ -12,23 +12,21 @@ import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
 
 // Marketing Pages
-import { MarketingDashboard } from "./pages/marketing/Dashboard";
 import CampaignsPage from "./pages/marketing/Campaigns";
 import OutreachPage from "./pages/marketing/Outreach";
 import NegotiationsPage from "./pages/marketing/Negotiations";
-import MarketingAnalyticsPage from "./pages/marketing/Analytics";
 import AIToolsPage from "./pages/marketing/AITools";
 import BudgetPage from "./pages/marketing/Budget";
 
 // Marketing V2 Pages (Current)
 import DigitalPRPage from "./pages/marketing/DigitalPRPage";
 import EventsPage from "./pages/marketing/EventsPage";
-import MarketingCalendarPage from "./pages/marketing/MarketingCalendarPage";
 import ContentAssetsPage from "./pages/marketing/ContentAssetsPage";
 import InfluencersListPage from "./pages/marketing/InfluencersListPage";
 import InfluencerDetailPage from "./pages/marketing/InfluencerDetailPage";
 import CampaignDetailPage from "./pages/marketing/CampaignDetailPage";
 import CampaignHubPage from "./pages/marketing/CampaignHubPage";
+import MarketingInsightsPage from "./pages/marketing/MarketingInsightsPage";
 
 // Sales Pages
 import { SalesDashboard } from "./pages/sales/Dashboard";
@@ -117,7 +115,10 @@ function AppRoutes() {
             <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
 
             {/* Marketing Routes */}
-            <Route path="/marketing" element={<ProtectedRoute requiredDepartment="marketing"><MarketingDashboard /></ProtectedRoute>} />
+            {/* Unified Insights & Analytics (Dashboard + Analytics merged) */}
+            <Route path="/marketing" element={<ProtectedRoute requiredDepartment="marketing"><MarketingInsightsPage /></ProtectedRoute>} />
+            <Route path="/marketing/dashboard" element={<Navigate to="/marketing" replace />} />
+            <Route path="/marketing/analytics" element={<Navigate to="/marketing" replace />} />
             <Route path="/marketing/influencers" element={<ProtectedRoute requiredDepartment="marketing"><InfluencersListPage /></ProtectedRoute>} />
             <Route path="/marketing/influencer/:influencerId" element={<ProtectedRoute requiredDepartment="marketing"><InfluencerDetailPage /></ProtectedRoute>} />
             <Route path="/marketing/pr" element={<ProtectedRoute requiredDepartment="marketing"><DigitalPRPage /></ProtectedRoute>} />
@@ -133,8 +134,8 @@ function AppRoutes() {
             <Route path="/marketing/assets" element={<ProtectedRoute requiredDepartment="marketing"><ContentAssetsPage /></ProtectedRoute>} />
             {/* Budget now linked from Influencer Finance tab, keeping standalone for overview */}
             <Route path="/marketing/budget" element={<ProtectedRoute requiredDepartment="marketing"><BudgetPage /></ProtectedRoute>} />
+            {/* AI Tools with Influencer Discovery */}
             <Route path="/marketing/ai-tools" element={<ProtectedRoute requiredDepartment="marketing"><AIToolsPage /></ProtectedRoute>} />
-            <Route path="/marketing/analytics" element={<ProtectedRoute requiredDepartment="marketing"><MarketingAnalyticsPage /></ProtectedRoute>} />
             {/* Legacy Marketing Routes - kept for backward compatibility */}
             <Route path="/marketing/outreach" element={<ProtectedRoute requiredDepartment="marketing"><OutreachPage /></ProtectedRoute>} />
             <Route path="/marketing/negotiations" element={<ProtectedRoute requiredDepartment="marketing"><NegotiationsPage /></ProtectedRoute>} />

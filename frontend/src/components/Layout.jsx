@@ -27,15 +27,14 @@ const DEPARTMENT_CONFIG = {
         bgColor: 'bg-amber-50',
         textColor: 'text-amber-800',
         routes: [
-            { path: '/marketing', name: 'Dashboard', icon: LayoutDashboard },
+            { path: '/marketing', name: 'Insights & Analytics', icon: BarChart3 },
             { path: '/marketing/influencers', name: 'Influencers', icon: Users },
             { path: '/marketing/pr', name: 'Digital PR', icon: MessageSquare },
             { path: '/marketing/events', name: 'Events & Exhibition', icon: Calendar },
             { path: '/marketing/campaigns', name: 'Campaign Hub', icon: Target },
             { path: '/marketing/assets', name: 'Content & Assets', icon: Image },
             { path: '/marketing/budget', name: 'Budget Overview', icon: DollarSign },
-            { path: '/marketing/ai-tools', name: 'AI Tools', icon: Sparkles },
-            { path: '/marketing/analytics', name: 'Analytics', icon: BarChart3 },
+            { path: '/marketing/ai-tools', name: 'AI Tools & Discovery', icon: Sparkles },
         ]
     },
     mail: {

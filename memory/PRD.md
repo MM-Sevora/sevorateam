@@ -199,6 +199,37 @@ Consolidate multiple Sevora applications (Influencer Operations from 'main' bran
 
 ## Latest Updates (March 7, 2026)
 
+### Dashboard + Analytics Merge Complete (March 7, 2026)
+
+**Unified Insights & Analytics Page** (`MarketingInsightsPage.jsx`):
+- Single page with Overview/Analytics view toggle
+- **Overview View**:
+  - Primary stats: Total Influencers, Active Campaigns, Negotiations, Budget Utilized
+  - Pipeline Status (donut chart)
+  - By Industry (bar chart)
+  - Recent Activity feed
+  - Campaign Budget Overview (bar chart)
+- **Analytics View**:
+  - KPIs: Total Reach, Avg Engagement, Click-throughs, Est. ROI
+  - Engagement Trend (area chart)
+  - Clicks & Conversions (line chart)
+  - Campaign Performance table with utilization progress bars
+
+**AI Discovery Relocated**:
+- Removed "AI Discover" tab from InfluencersListPage
+- Discovery functionality now in "AI Tools & Discovery" (existing AITools page)
+- Sidebar updated: "AI Tools" → "AI Tools & Discovery"
+
+**Route Changes**:
+- `/marketing` → Unified Insights & Analytics
+- `/marketing/dashboard` → Redirects to `/marketing`
+- `/marketing/analytics` → Redirects to `/marketing`
+
+**Sidebar Updated**:
+- "Dashboard" → "Insights & Analytics"
+- "Analytics" removed (merged)
+- "AI Tools" → "AI Tools & Discovery"
+
 ### Module Merge Complete (March 7, 2026)
 
 **Module 1: Campaign Hub** (Campaigns + Calendar merged)

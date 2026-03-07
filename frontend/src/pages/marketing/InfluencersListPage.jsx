@@ -22,7 +22,6 @@ const InfluencersListPage = () => {
   
   const [influencers, setInfluencers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('database');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPlatform, setFilterPlatform] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -901,32 +900,6 @@ const InfluencersListPage = () => {
             </DialogContent>
           </Dialog>
         </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex items-center gap-6 border-b border-gray-200">
-        <button
-          onClick={() => setActiveTab('database')}
-          className={`flex items-center gap-2 pb-3 px-1 border-b-2 transition-colors ${
-            activeTab === 'database' 
-              ? 'border-[#c4a35a] text-gray-900 font-medium' 
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          Database ({influencers.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('discover')}
-          className={`flex items-center gap-2 pb-3 px-1 border-b-2 transition-colors ${
-            activeTab === 'discover' 
-              ? 'border-[#c4a35a] text-gray-900 font-medium' 
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <Sparkles className="w-4 h-4" />
-          AI Discover
-        </button>
       </div>
 
       {/* Status Funnel Cards */}
