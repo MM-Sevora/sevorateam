@@ -15,7 +15,10 @@ import {
   Copy,
   ExternalLink,
   Scan,
-  Users
+  Users,
+  Store,
+  Scissors,
+  Megaphone
 } from 'lucide-react';
 
 const LEAD_SOURCES = [
@@ -32,17 +35,23 @@ const LEAD_SOURCES = [
 const QRCodesPage = () => {
   const { api } = useAuth();
   const [qrCodes, setQrCodes] = useState([]);
+  const [partners, setPartners] = useState([]);
+  const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newQR, setNewQR] = useState({
     name: '',
     source_type: '',
     campaign: '',
+    campaign_id: '',
+    partner_id: '',
     location: '',
   });
 
   useEffect(() => {
     fetchQRCodes();
+    fetchPartners();
+    fetchCampaigns();
   }, []);
 
   const fetchQRCodes = async () => {
@@ -56,13 +65,36 @@ const QRCodesPage = () => {
     }
   };
 
+  const fetchPartners = async () => {
+    try {
+      const response = await api.get('/partners?status=Active');
+      setPartners(response.data);
+    } catch (error) {
+      console.error('Failed to fetch partners');
+    }
+  };
+
+  const fetchCampaigns = async () => {
+    try {
+      const response = await api.get('/campaigns?status=Active');
+      setCampaigns(response.data);
+    } catch (error) {
+      console.error('Failed to fetch campaigns');
+    }
+  };
+
   const handleCreateQR = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/qrcodes', newQR);
+      const payload = {
+        ...newQR,
+        campaign_id: newQR.campaign_id || null,
+        partner_id: newQR.partner_id || null,
+      };
+      await api.post('/qrcodes', payload);
       toast.success('QR code created successfully');
       setIsAddOpen(false);
-      setNewQR({ name: '', source_type: '', campaign: '', location: '' });
+      setNewQR({ name: '', source_type: '', campaign: '', campaign_id: '', partner_id: '', location: '' });
       fetchQRCodes();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to create QR code');
@@ -107,7 +139,7 @@ const QRCodesPage = () => {
                 <Input
                   data-testid="qr-name-input"
                   className="rounded-none"
-                  placeholder="e.g., Wedding Expo Delhi"
+                  placeholder="e.g., Lakme Salon Bandra QR"
                   value={newQR.name}
                   onChange={(e) => setNewQR({ ...newQR, name: e.target.value })}
                   required
@@ -131,22 +163,71 @@ const QRCodesPage = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label className="text-xs uppercase tracking-wider">Campaign (Optional)</Label>
-                <Input
-                  data-testid="qr-campaign-input"
-                  className="rounded-none"
-                  placeholder="e.g., Summer Wedding Collection"
-                  value={newQR.campaign}
-                  onChange={(e) => setNewQR({ ...newQR, campaign: e.target.value })}
-                />
-              </div>
+
+              {/* Link to Partner */}
+              {partners.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-xs uppercase tracking-wider">Link to Partner</Label>
+                  <Select
+                    value={newQR.partner_id || 'none'}
+                    onValueChange={(value) => setNewQR({ ...newQR, partner_id: value === 'none' ? '' : value })}
+                  >
+                    <SelectTrigger data-testid="qr-partner-select" className="rounded-none">
+                      <SelectValue placeholder="Select partner" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Partner</SelectItem>
+                      {partners.map((partner) => (
+                        <SelectItem key={partner.id} value={partner.id}>
+                          <div className="flex items-center gap-2">
+                            {partner.partner_type === 'Salon' ? (
+                              <Scissors className="w-3 h-3" />
+                            ) : (
+                              <Store className="w-3 h-3" />
+                            )}
+                            {partner.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">Leads from this QR will be tagged to the partner</p>
+                </div>
+              )}
+
+              {/* Link to Campaign */}
+              {campaigns.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-xs uppercase tracking-wider">Link to Campaign</Label>
+                  <Select
+                    value={newQR.campaign_id || 'none'}
+                    onValueChange={(value) => setNewQR({ ...newQR, campaign_id: value === 'none' ? '' : value })}
+                  >
+                    <SelectTrigger data-testid="qr-campaign-select" className="rounded-none">
+                      <SelectValue placeholder="Select campaign" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Campaign</SelectItem>
+                      {campaigns.map((campaign) => (
+                        <SelectItem key={campaign.id} value={campaign.id}>
+                          <div className="flex items-center gap-2">
+                            <Megaphone className="w-3 h-3" />
+                            {campaign.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">Leads from this QR will be tagged to the campaign</p>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label className="text-xs uppercase tracking-wider">Location (Optional)</Label>
                 <Input
                   data-testid="qr-location-input"
                   className="rounded-none"
-                  placeholder="e.g., Phoenix Mall, Mumbai"
+                  placeholder="e.g., Bandra West, Mumbai"
                   value={newQR.location}
                   onChange={(e) => setNewQR({ ...newQR, location: e.target.value })}
                 />
@@ -186,10 +267,19 @@ const QRCodesPage = () => {
                 </Badge>
               </div>
 
-              {qr.campaign && (
-                <div className="text-sm">
-                  <span className="text-muted-foreground">Campaign:</span>{' '}
-                  <span className="font-medium">{qr.campaign}</span>
+              {/* Partner Link */}
+              {qr.partner_name && (
+                <div className="flex items-center gap-2 text-sm bg-pink-50 p-2 border border-pink-200">
+                  <Scissors className="w-4 h-4 text-pink-600" />
+                  <span className="font-medium">{qr.partner_name}</span>
+                </div>
+              )}
+
+              {/* Campaign Link */}
+              {qr.campaign_name && (
+                <div className="flex items-center gap-2 text-sm bg-blue-50 p-2 border border-blue-200">
+                  <Megaphone className="w-4 h-4 text-blue-600" />
+                  <span className="font-medium">{qr.campaign_name}</span>
                 </div>
               )}
 

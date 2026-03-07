@@ -19,6 +19,7 @@ const LeadCapturePage = () => {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [qrData, setQrData] = useState(null);
+  const [partnerData, setPartnerData] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -30,6 +31,8 @@ const LeadCapturePage = () => {
 
   const qrId = searchParams.get('qr');
   const source = searchParams.get('source') || 'Website';
+  const partnerId = searchParams.get('partner');
+  const campaignId = searchParams.get('campaign');
 
   useEffect(() => {
     if (qrId) {
@@ -54,7 +57,8 @@ const LeadCapturePage = () => {
         ...formData,
         source: qrData?.source_type || source,
         source_details: qrData?.name || null,
-        campaign_id: qrData?.campaign || null,
+        campaign_id: qrData?.campaign_id || campaignId || null,
+        partner_id: qrData?.partner_id || partnerId || null,
       });
       setSubmitted(true);
       toast.success('Thank you! Our stylist will contact you soon.');

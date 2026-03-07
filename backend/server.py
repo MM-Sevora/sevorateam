@@ -350,6 +350,8 @@ class QRCodeCreate(BaseModel):
     name: str
     source_type: LeadSource
     campaign: Optional[str] = None
+    campaign_id: Optional[str] = None
+    partner_id: Optional[str] = None
     location: Optional[str] = None
 
 class QRCodeResponse(BaseModel):
@@ -357,6 +359,10 @@ class QRCodeResponse(BaseModel):
     name: str
     source_type: str
     campaign: Optional[str] = None
+    campaign_id: Optional[str] = None
+    campaign_name: Optional[str] = None
+    partner_id: Optional[str] = None
+    partner_name: Optional[str] = None
     location: Optional[str] = None
     url: str
     qr_image: str
@@ -950,7 +956,26 @@ async def delete_partner(partner_id: str, current_user: dict = Depends(get_curre
 async def create_qrcode(qr: QRCodeCreate, current_user: dict = Depends(get_current_user)):
     qr_id = str(uuid.uuid4())
     frontend_url = os.environ.get('FRONTEND_URL', 'https://style-leads.preview.emergentagent.com')
-    lead_url = f"{frontend_url}/capture?qr={qr_id}&source={qr.source_type.value}"
+    
+    # Build URL with optional partner/campaign params
+    url_params = [f"qr={qr_id}", f"source={qr.source_type.value}"]
+    if qr.partner_id:
+        url_params.append(f"partner={qr.partner_id}")
+    if qr.campaign_id:
+        url_params.append(f"campaign={qr.campaign_id}")
+    lead_url = f"{frontend_url}/capture?{'&'.join(url_params)}"
+    
+    # Get partner/campaign names
+    partner_name = None
+    campaign_name = None
+    if qr.partner_id:
+        partner = await db.partners.find_one({"id": qr.partner_id}, {"_id": 0})
+        if partner:
+            partner_name = partner.get("name")
+    if qr.campaign_id:
+        campaign = await db.campaigns.find_one({"id": qr.campaign_id}, {"_id": 0})
+        if campaign:
+            campaign_name = campaign.get("name")
     
     # Generate QR code image
     qr_img = qrcode.QRCode(version=1, box_size=10, border=5)
@@ -967,6 +992,10 @@ async def create_qrcode(qr: QRCodeCreate, current_user: dict = Depends(get_curre
         "name": qr.name,
         "source_type": qr.source_type.value,
         "campaign": qr.campaign,
+        "campaign_id": qr.campaign_id,
+        "campaign_name": campaign_name,
+        "partner_id": qr.partner_id,
+        "partner_name": partner_name,
         "location": qr.location,
         "url": lead_url,
         "qr_image": f"data:image/png;base64,{qr_base64}",
