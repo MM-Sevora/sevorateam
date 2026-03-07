@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useMsal, useIsAuthenticated } from '@azure/msal-react';
+import { InteractionStatus } from '@azure/msal-browser';
 import { loginRequest } from '../authConfig';
 import axios from 'axios';
 
@@ -9,12 +10,13 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 export const AuthProvider = ({ children }) => {
-    const { instance, accounts } = useMsal();
+    const { instance, accounts, inProgress } = useMsal();
     const isAzureAuthenticated = useIsAuthenticated();
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(localStorage.getItem('sevora_token'));
     const [loading, setLoading] = useState(true);
-    const [authMethod, setAuthMethod] = useState(null); // 'azure' or 'local'
+    const [authMethod, setAuthMethod] = useState(null);
+    const azureLoginProcessed = useRef(false);
 
     // Department and role management
     const ROLE_DEPARTMENTS = {
@@ -40,21 +42,21 @@ export const AuthProvider = ({ children }) => {
             return userData;
         } catch (error) {
             console.error('Failed to fetch user profile:', error);
-            logout();
             return null;
         }
     }, []);
 
-    // Azure AD Login
-    const loginWithAzure = async () => {
+    // Process Azure token and login to backend
+    const processAzureToken = useCallback(async (account) => {
+        if (azureLoginProcessed.current) return;
+        azureLoginProcessed.current = true;
+        
         try {
             setLoading(true);
-            const response = await instance.loginPopup(loginRequest);
-            
-            // Get access token for Microsoft Graph
+            // Get access token silently
             const tokenResponse = await instance.acquireTokenSilent({
                 ...loginRequest,
-                account: response.account
+                account: account
             });
 
             // Send Azure token to backend
@@ -70,6 +72,25 @@ export const AuthProvider = ({ children }) => {
             setAuthMethod('azure');
             
             return userData;
+        } catch (error) {
+            console.error('Azure token processing failed:', error);
+            azureLoginProcessed.current = false;
+            throw error;
+        } finally {
+            setLoading(false);
+        }
+    }, [instance]);
+
+    // Azure AD Login with popup
+    const loginWithAzure = async () => {
+        try {
+            setLoading(true);
+            azureLoginProcessed.current = false;
+            
+            const response = await instance.loginPopup(loginRequest);
+            
+            // Process the token after successful popup login
+            return await processAzureToken(response.account);
         } catch (error) {
             console.error('Azure login failed:', error);
             throw error;
@@ -148,26 +169,44 @@ export const AuthProvider = ({ children }) => {
         return userDepts.includes('admin') || userDepts.includes(department);
     };
 
-    // Initialize auth state on mount
+    // Initialize auth state on mount and handle Azure redirect
     useEffect(() => {
         const initAuth = async () => {
             setLoading(true);
+            
+            // First check for saved token
             const savedToken = localStorage.getItem('sevora_token');
             
             if (savedToken) {
                 try {
-                    await fetchUserProfile(savedToken);
-                    setAuthMethod('local');
+                    const userData = await fetchUserProfile(savedToken);
+                    if (userData) {
+                        setAuthMethod('local');
+                        setLoading(false);
+                        return;
+                    }
                 } catch (error) {
                     localStorage.removeItem('sevora_token');
                     setToken(null);
                 }
             }
+            
+            // If MSAL has accounts (user already authenticated with Azure)
+            if (accounts.length > 0 && inProgress === InteractionStatus.None && !azureLoginProcessed.current) {
+                try {
+                    await processAzureToken(accounts[0]);
+                } catch (error) {
+                    console.error('Auto Azure login failed:', error);
+                }
+            }
+            
             setLoading(false);
         };
 
-        initAuth();
-    }, [fetchUserProfile]);
+        if (inProgress === InteractionStatus.None) {
+            initAuth();
+        }
+    }, [fetchUserProfile, accounts, inProgress, processAzureToken]);
 
     const value = {
         user,

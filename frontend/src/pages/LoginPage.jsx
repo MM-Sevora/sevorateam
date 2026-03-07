@@ -38,11 +38,21 @@ export const LoginPage = () => {
     const handleAzureLogin = async () => {
         try {
             setLoading(true);
-            await loginWithAzure();
-            toast.success('Welcome to Sevora Team!');
-            navigate('/');
+            const userData = await loginWithAzure();
+            if (userData) {
+                toast.success('Welcome to Sevora Team!');
+                navigate('/');
+            }
         } catch (error) {
-            toast.error(error.message || 'Microsoft login failed');
+            console.error('Azure login error:', error);
+            // Check for specific error types
+            if (error.errorCode === 'user_cancelled') {
+                toast.info('Login cancelled');
+            } else if (error.errorCode === 'popup_window_error') {
+                toast.error('Popup blocked. Please allow popups for this site.');
+            } else {
+                toast.error(error.message || 'Microsoft login failed');
+            }
         } finally {
             setLoading(false);
         }
