@@ -17,7 +17,7 @@ import {
   Instagram, Youtube, Download, Users, TrendingUp, Heart, Star,
   Globe, Image, Film, Clock, DollarSign, Sparkles, Plus, Trash2,
   Send, Mail, MessageSquare, Target, Calendar, Phone, User,
-  BarChart3, Package, History
+  BarChart3, Package, History, Edit3, ExternalLink, Building2
 } from 'lucide-react';
 
 const InfluencerDetailPage = () => {
@@ -31,6 +31,7 @@ const InfluencerDetailPage = () => {
   const [hasChanges, setHasChanges] = useState(false);
   const [originalData, setOriginalData] = useState(null);
   const [newDeliverable, setNewDeliverable] = useState({ name: '', description: '', price: '' });
+  const [isEditMode, setIsEditMode] = useState(false);
   
   // History data
   const [communications, setCommunications] = useState([]);
@@ -512,19 +513,6 @@ const InfluencerDetailPage = () => {
         
         {/* Actions */}
         <div className="flex items-center gap-2">
-          <Select value={assignedCampaign || 'none'} onValueChange={(val) => handleAssignCampaign(val === 'none' ? '' : val)}>
-            <SelectTrigger className="w-44" data-testid="campaign-select">
-              <SelectValue placeholder="Assign Campaign" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No Campaign</SelectItem>
-              {campaigns.map(campaign => (
-                <SelectItem key={campaign.id || campaign._id} value={campaign.id || campaign._id}>
-                  {campaign.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           <Button 
             variant="outline" 
             onClick={() => setShowOutreachModal(true)}
@@ -535,14 +523,41 @@ const InfluencerDetailPage = () => {
           <Button variant="outline" onClick={handleRefreshData}>
             <RefreshCw className="w-4 h-4 mr-2" /> Refresh
           </Button>
-          <Button 
-            onClick={handleSave} 
-            disabled={!hasChanges || saving}
-            className="bg-[#c4a35a] hover:bg-[#b39349] text-white"
-            data-testid="save-changes-btn"
-          >
-            <Save className="w-4 h-4 mr-2" /> Save
-          </Button>
+          {isEditMode ? (
+            <>
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  setIsEditMode(false);
+                  if (hasChanges) {
+                    // Reset to original data
+                    if (originalData) {
+                      setForm(prev => ({ ...prev, ...originalData }));
+                      setHasChanges(false);
+                    }
+                  }
+                }}
+              >
+                <X className="w-4 h-4 mr-2" /> Cancel
+              </Button>
+              <Button 
+                onClick={handleSave} 
+                disabled={!hasChanges || saving}
+                className="bg-[#c4a35a] hover:bg-[#b39349] text-white"
+                data-testid="save-changes-btn"
+              >
+                <Save className="w-4 h-4 mr-2" /> {saving ? 'Saving...' : 'Save'}
+              </Button>
+            </>
+          ) : (
+            <Button 
+              variant="outline"
+              onClick={() => setIsEditMode(true)}
+              data-testid="edit-mode-btn"
+            >
+              <Edit3 className="w-4 h-4 mr-2" /> Edit
+            </Button>
+          )}
         </div>
       </div>
 
@@ -650,252 +665,335 @@ const InfluencerDetailPage = () => {
 
       {/* Overview Tab */}
       <TabsContent value="overview">
-        <div className="grid grid-cols-2 gap-6">
-          {/* Left Column - Profile */}
-          <Card className="bg-white border-gray-200">
-            <CardContent className="p-6">
-              {/* Profile Header */}
-              <div className="text-center mb-6">
-                <div className="relative inline-block">
-                  <div className="w-28 h-28 rounded-full bg-amber-100 flex items-center justify-center text-5xl font-serif text-amber-700 mx-auto">
-                    {form.name?.charAt(0).toUpperCase() || 'M'}
-                  </div>
-                  <div className="absolute bottom-1 right-1 w-7 h-7 bg-green-500 rounded-full flex items-center justify-center border-2 border-white">
-                    <CheckCircle className="w-4 h-4 text-white" />
-                  </div>
-                </div>
-                <h2 className="text-xl font-serif text-gray-900 mt-4">{form.name}</h2>
-                <Badge className="mt-2 bg-gray-900 text-white capitalize">{form.industry}</Badge>
-                <div className="text-xs text-gray-500 mt-2">Last verified: {formatDate(form.social_synced_at)}</div>
-                <Select value={form.status} onValueChange={v => updateForm('status', v)}>
-                  <SelectTrigger className="w-36 mx-auto mt-2">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="identified">Identified</SelectItem>
-                    <SelectItem value="contacted">Contacted</SelectItem>
-                    <SelectItem value="interested">Interested</SelectItem>
-                    <SelectItem value="negotiation">Negotiation</SelectItem>
-                    <SelectItem value="confirmed">Confirmed</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-4 border-t border-gray-100 pt-4">
-                {/* Bio */}
-                <div>
-                  <Label className="text-xs uppercase tracking-wider text-gray-500">BIO</Label>
-                  <Textarea 
-                    value={form.bio} 
-                    onChange={e => updateForm('bio', e.target.value)}
-                    placeholder="Influencer bio..."
-                    rows={4}
-                    className="mt-1"
-                  />
-                </div>
-
-                {/* Contact */}
-                <div>
-                  <Label className="text-xs uppercase tracking-wider text-gray-500">CONTACT</Label>
-                  <div className="grid grid-cols-1 gap-2 mt-1">
-                    <Input 
-                      placeholder="Email" 
-                      value={form.email} 
-                      onChange={e => updateForm('email', e.target.value)}
-                    />
-                    <Input 
-                      placeholder="Phone" 
-                      value={form.phone} 
-                      onChange={e => updateForm('phone', e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                {/* Location */}
-                <div>
-                  <Label className="text-xs uppercase tracking-wider text-gray-500">LOCATION</Label>
-                  <div className="grid grid-cols-2 gap-2 mt-1">
-                    <Input 
-                      placeholder="City" 
-                      value={form.city} 
-                      onChange={e => updateForm('city', e.target.value)}
-                    />
-                    <Input 
-                      placeholder="State" 
-                      value={form.state} 
-                      onChange={e => updateForm('state', e.target.value)}
-                    />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Right Column - Social & Metrics */}
-          <div className="space-y-6">
-            {/* Social Profiles */}
+        <div className="grid grid-cols-3 gap-6">
+          {/* Left Column - Profile & Contact */}
+          <div className="col-span-2 space-y-6">
+            {/* Profile Card */}
             <Card className="bg-white border-gray-200">
-              <CardHeader className="pb-2">
+              <CardHeader className="pb-3 border-b">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Globe className="w-4 h-4" /> Social Profiles
+                  <User className="w-4 h-4" /> Profile Information
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Primary Platform */}
-                <div>
-                  <Label className="text-xs uppercase tracking-wider text-gray-500">PRIMARY PLATFORM</Label>
-                  <Select value={form.primary_platform} onValueChange={v => updateForm('primary_platform', v)}>
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="instagram">Instagram</SelectItem>
-                      <SelectItem value="youtube">YouTube</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Social Handles */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-xs uppercase tracking-wider text-gray-500 flex items-center gap-1">
-                      <Instagram className="w-3 h-3 text-pink-500" /> INSTAGRAM
-                    </Label>
-                    <div className="flex gap-2 mt-1">
-                      <Input 
-                        placeholder="@handle" 
-                        value={form.instagram_handle} 
-                        onChange={e => updateForm('instagram_handle', e.target.value)}
-                      />
-                      <Button 
-                        size="sm" 
-                        onClick={() => handleFetchSocial('instagram')}
-                        className="bg-pink-500 hover:bg-pink-600 text-white"
-                      >
-                        <Download className="w-4 h-4" />
-                      </Button>
+              <CardContent className="p-6">
+                <div className="flex gap-6">
+                  {/* Avatar */}
+                  <div className="flex-shrink-0">
+                    <div className="relative">
+                      <div className="w-24 h-24 rounded-full bg-gradient-to-br from-amber-100 to-amber-200 flex items-center justify-center text-4xl font-serif text-amber-700">
+                        {form.name?.charAt(0).toUpperCase() || 'I'}
+                      </div>
+                      {form.status === 'confirmed' && (
+                        <div className="absolute bottom-0 right-0 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center border-2 border-white">
+                          <CheckCircle className="w-3 h-3 text-white" />
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div>
-                    <Label className="text-xs uppercase tracking-wider text-gray-500 flex items-center gap-1">
-                      <Youtube className="w-3 h-3 text-red-500" /> YOUTUBE
-                    </Label>
-                    <div className="flex gap-2 mt-1">
-                      <Input 
-                        placeholder="@channel" 
-                        value={form.youtube_handle} 
-                        onChange={e => updateForm('youtube_handle', e.target.value)}
-                      />
-                      <Button 
-                        size="sm" 
-                        onClick={() => handleFetchSocial('youtube')}
-                        className="bg-red-500 hover:bg-red-600 text-white"
-                      >
-                        <Download className="w-4 h-4" />
-                      </Button>
-                    </div>
+                  
+                  {/* Profile Details */}
+                  <div className="flex-1 space-y-4">
+                    {isEditMode ? (
+                      <div className="space-y-3">
+                        <div>
+                          <Label className="text-xs uppercase tracking-wider text-gray-500">NAME</Label>
+                          <Input 
+                            value={form.name} 
+                            onChange={e => updateForm('name', e.target.value)}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs uppercase tracking-wider text-gray-500">BIO</Label>
+                          <Textarea 
+                            value={form.bio} 
+                            onChange={e => updateForm('bio', e.target.value)}
+                            placeholder="Influencer bio..."
+                            rows={3}
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div>
+                          <h3 className="text-xl font-semibold text-gray-900">{form.name}</h3>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge className="bg-gray-900 text-white capitalize">{form.industry}</Badge>
+                            <span className="text-gray-400">•</span>
+                            <span className="text-sm text-gray-500">{form.city || 'Location not set'}{form.state ? `, ${form.state}` : ''}</span>
+                          </div>
+                        </div>
+                        <p className="text-gray-600 text-sm leading-relaxed">
+                          {form.bio || <span className="text-gray-400 italic">No bio added yet</span>}
+                        </p>
+                      </>
+                    )}
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Metrics Cards */}
-            <div className="grid grid-cols-4 gap-3">
-              <Card className="bg-white border-gray-200">
-                <CardContent className="p-4 text-center">
-                  <Users className="w-5 h-5 text-amber-500 mx-auto mb-2" />
-                  <div className="text-xl font-bold text-gray-900">{formatNumber(form.followers)}</div>
-                  <div className="text-xs text-gray-500 uppercase tracking-wider">Followers</div>
-                </CardContent>
-              </Card>
-              <Card className="bg-white border-gray-200">
-                <CardContent className="p-4 text-center">
-                  <TrendingUp className="w-5 h-5 text-green-500 mx-auto mb-2" />
-                  <div className="text-xl font-bold text-gray-900">{form.engagement_rate?.toFixed(2) || '0.00'}%</div>
-                  <div className="text-xs text-gray-500 uppercase tracking-wider">Engagement</div>
-                </CardContent>
-              </Card>
-              <Card className="bg-white border-gray-200">
-                <CardContent className="p-4 text-center">
-                  <Heart className="w-5 h-5 text-red-500 mx-auto mb-2" />
-                  <div className="text-xl font-bold text-gray-900">{formatNumber(form.avg_likes)}</div>
-                  <div className="text-xs text-gray-500 uppercase tracking-wider">Avg Likes</div>
-                </CardContent>
-              </Card>
-              <Card className="bg-white border-gray-200">
-                <CardContent className="p-4 text-center">
-                  <Star className="w-5 h-5 text-amber-500 mx-auto mb-2" />
-                  <div className="text-xl font-bold text-gray-900">{form.score || 50}</div>
-                  <div className="text-xs text-gray-500 uppercase tracking-wider">Score</div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Classification */}
+            {/* Contact & Social Card */}
             <Card className="bg-white border-gray-200">
-              <CardHeader className="pb-2">
+              <CardHeader className="pb-3 border-b">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Globe className="w-4 h-4" /> Contact & Social
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="grid grid-cols-2 gap-6">
+                  {/* Contact Info */}
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-medium text-gray-900 uppercase tracking-wider">Contact</h4>
+                    {isEditMode ? (
+                      <div className="space-y-3">
+                        <div>
+                          <Label className="text-xs text-gray-500">Email</Label>
+                          <Input 
+                            placeholder="email@example.com" 
+                            value={form.email} 
+                            onChange={e => updateForm('email', e.target.value)}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-gray-500">Phone</Label>
+                          <Input 
+                            placeholder="+91 98765 43210" 
+                            value={form.phone} 
+                            onChange={e => updateForm('phone', e.target.value)}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-xs text-gray-500">City</Label>
+                            <Input 
+                              placeholder="City" 
+                              value={form.city} 
+                              onChange={e => updateForm('city', e.target.value)}
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-gray-500">State</Label>
+                            <Input 
+                              placeholder="State" 
+                              value={form.state} 
+                              onChange={e => updateForm('state', e.target.value)}
+                              className="mt-1"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3 text-sm">
+                          <Mail className="w-4 h-4 text-gray-400" />
+                          <span className={form.email ? 'text-gray-700' : 'text-gray-400 italic'}>
+                            {form.email || 'No email'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm">
+                          <Phone className="w-4 h-4 text-gray-400" />
+                          <span className={form.phone ? 'text-gray-700' : 'text-gray-400 italic'}>
+                            {form.phone || 'No phone'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm">
+                          <MapPin className="w-4 h-4 text-gray-400" />
+                          <span className={form.city ? 'text-gray-700' : 'text-gray-400 italic'}>
+                            {form.city ? `${form.city}${form.state ? `, ${form.state}` : ''}` : 'No location'}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Social Profiles */}
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-medium text-gray-900 uppercase tracking-wider">Social Profiles</h4>
+                    {isEditMode ? (
+                      <div className="space-y-3">
+                        <div>
+                          <Label className="text-xs text-gray-500 flex items-center gap-1">
+                            <Instagram className="w-3 h-3 text-pink-500" /> Instagram
+                          </Label>
+                          <div className="flex gap-2 mt-1">
+                            <Input 
+                              placeholder="@handle" 
+                              value={form.instagram_handle} 
+                              onChange={e => updateForm('instagram_handle', e.target.value)}
+                            />
+                            <Button 
+                              size="sm" 
+                              onClick={() => handleFetchSocial('instagram')}
+                              className="bg-pink-500 hover:bg-pink-600 text-white"
+                            >
+                              <Download className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-gray-500 flex items-center gap-1">
+                            <Youtube className="w-3 h-3 text-red-500" /> YouTube
+                          </Label>
+                          <div className="flex gap-2 mt-1">
+                            <Input 
+                              placeholder="@channel" 
+                              value={form.youtube_handle} 
+                              onChange={e => updateForm('youtube_handle', e.target.value)}
+                            />
+                            <Button 
+                              size="sm" 
+                              onClick={() => handleFetchSocial('youtube')}
+                              className="bg-red-500 hover:bg-red-600 text-white"
+                            >
+                              <Download className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between p-3 bg-gradient-to-r from-pink-50 to-purple-50 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center">
+                              <Instagram className="w-4 h-4 text-white" />
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-900">@{form.instagram_handle || 'Not connected'}</div>
+                              <div className="text-xs text-gray-500">{formatNumber(form.followers)} followers</div>
+                            </div>
+                          </div>
+                          {form.instagram_handle && (
+                            <a 
+                              href={`https://instagram.com/${form.instagram_handle.replace('@', '')}`} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-gray-400 hover:text-pink-500"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </a>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center">
+                              <Youtube className="w-4 h-4 text-white" />
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-900">@{form.youtube_handle || 'Not connected'}</div>
+                              <div className="text-xs text-gray-500">{formatNumber(form.youtube_subscribers)} subscribers</div>
+                            </div>
+                          </div>
+                          {form.youtube_handle && (
+                            <a 
+                              href={`https://youtube.com/@${form.youtube_handle.replace('@', '')}`} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-gray-400 hover:text-red-500"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Classification Card */}
+            <Card className="bg-white border-gray-200">
+              <CardHeader className="pb-3 border-b">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Sparkles className="w-4 h-4" /> Classification
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Label className="text-xs uppercase tracking-wider text-gray-500">INDUSTRY</Label>
-                    <Select value={form.industry} onValueChange={v => updateForm('industry', v)}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="fashion">Fashion</SelectItem>
-                        <SelectItem value="beauty">Beauty</SelectItem>
-                        <SelectItem value="lifestyle">Lifestyle</SelectItem>
-                        <SelectItem value="tech">Tech</SelectItem>
-                        <SelectItem value="food">Food</SelectItem>
-                        <SelectItem value="travel">Travel</SelectItem>
-                        <SelectItem value="fitness">Fitness</SelectItem>
-                      </SelectContent>
-                    </Select>
+              <CardContent className="p-6">
+                {isEditMode ? (
+                  <div className="grid grid-cols-4 gap-4">
+                    <div>
+                      <Label className="text-xs uppercase tracking-wider text-gray-500">INDUSTRY</Label>
+                      <Select value={form.industry} onValueChange={v => updateForm('industry', v)}>
+                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="fashion">Fashion</SelectItem>
+                          <SelectItem value="beauty">Beauty</SelectItem>
+                          <SelectItem value="lifestyle">Lifestyle</SelectItem>
+                          <SelectItem value="tech">Tech</SelectItem>
+                          <SelectItem value="food">Food</SelectItem>
+                          <SelectItem value="travel">Travel</SelectItem>
+                          <SelectItem value="fitness">Fitness</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs uppercase tracking-wider text-gray-500">TIER</Label>
+                      <Select value={form.tier} onValueChange={v => updateForm('tier', v)}>
+                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="nano">Nano</SelectItem>
+                          <SelectItem value="micro">Micro</SelectItem>
+                          <SelectItem value="macro">Macro</SelectItem>
+                          <SelectItem value="mega">Mega</SelectItem>
+                          <SelectItem value="celebrity">Celebrity</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs uppercase tracking-wider text-gray-500">GENDER</Label>
+                      <Select value={form.gender} onValueChange={v => updateForm('gender', v)}>
+                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="not_specified">Not specified</SelectItem>
+                          <SelectItem value="male">Male</SelectItem>
+                          <SelectItem value="female">Female</SelectItem>
+                          <SelectItem value="non_binary">Non-binary</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs uppercase tracking-wider text-gray-500">AUDIENCE</Label>
+                      <Select value={form.audience_focus} onValueChange={v => updateForm('audience_focus', v)}>
+                        <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unisex">Unisex</SelectItem>
+                          <SelectItem value="male">Male</SelectItem>
+                          <SelectItem value="female">Female</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div>
-                    <Label className="text-xs uppercase tracking-wider text-gray-500">TIER</Label>
-                    <Select value={form.tier} onValueChange={v => updateForm('tier', v)}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="nano">Nano</SelectItem>
-                        <SelectItem value="micro">Micro</SelectItem>
-                        <SelectItem value="macro">Macro</SelectItem>
-                        <SelectItem value="mega">Mega</SelectItem>
-                        <SelectItem value="celebrity">Celebrity</SelectItem>
-                      </SelectContent>
-                    </Select>
+                ) : (
+                  <div className="flex flex-wrap gap-3">
+                    <div className="px-4 py-2 bg-gray-50 rounded-lg">
+                      <div className="text-xs text-gray-500 uppercase">Industry</div>
+                      <div className="font-medium capitalize text-gray-900">{form.industry}</div>
+                    </div>
+                    <div className="px-4 py-2 bg-gray-50 rounded-lg">
+                      <div className="text-xs text-gray-500 uppercase">Tier</div>
+                      <div className="font-medium capitalize text-gray-900">{form.tier}</div>
+                    </div>
+                    <div className="px-4 py-2 bg-gray-50 rounded-lg">
+                      <div className="text-xs text-gray-500 uppercase">Gender</div>
+                      <div className="font-medium capitalize text-gray-900">{form.gender?.replace('_', ' ') || 'Not specified'}</div>
+                    </div>
+                    <div className="px-4 py-2 bg-gray-50 rounded-lg">
+                      <div className="text-xs text-gray-500 uppercase">Audience</div>
+                      <div className="font-medium capitalize text-gray-900">{form.audience_focus}</div>
+                    </div>
+                    <div className="px-4 py-2 bg-gray-50 rounded-lg">
+                      <div className="text-xs text-gray-500 uppercase">Content Types</div>
+                      <div className="font-medium text-gray-900">{form.content_types || 'Not specified'}</div>
+                    </div>
                   </div>
-                  <div className="hidden" /> {/* Spacer */}
-                </div>
-                <div className="grid grid-cols-3 gap-4 mt-4">
-                  <div>
-                    <Label className="text-xs uppercase tracking-wider text-gray-500">GENDER</Label>
-                    <Select value={form.gender} onValueChange={v => updateForm('gender', v)}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="not_specified">Prefer not to say</SelectItem>
-                        <SelectItem value="male">Male</SelectItem>
-                        <SelectItem value="female">Female</SelectItem>
-                        <SelectItem value="non_binary">Non-binary</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs uppercase tracking-wider text-gray-500">AUDIENCE FOCUS</Label>
-                    <Select value={form.audience_focus} onValueChange={v => updateForm('audience_focus', v)}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="unisex">Unisex</SelectItem>
-                        <SelectItem value="male">Male</SelectItem>
-                        <SelectItem value="female">Female</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
+                )}
+                {isEditMode && (
+                  <div className="mt-4">
                     <Label className="text-xs uppercase tracking-wider text-gray-500">CONTENT TYPES</Label>
                     <Input 
                       placeholder="reels, posts, stories" 
@@ -904,6 +1002,148 @@ const InfluencerDetailPage = () => {
                       className="mt-1"
                     />
                   </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Column - Pipeline & Performance */}
+          <div className="space-y-6">
+            {/* Pipeline Card */}
+            <Card className="bg-gradient-to-br from-amber-50 to-white border-amber-100">
+              <CardHeader className="pb-3 border-b border-amber-100">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Target className="w-4 h-4 text-amber-600" /> Pipeline
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-5 space-y-5">
+                {/* Status */}
+                <div>
+                  <Label className="text-xs uppercase tracking-wider text-gray-600">STATUS</Label>
+                  <Select value={form.status} onValueChange={v => updateForm('status', v)}>
+                    <SelectTrigger className="mt-2 bg-white" data-testid="status-select">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="identified">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-gray-400" /> Identified
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="contacted">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-blue-400" /> Contacted
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="interested">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-green-400" /> Interested
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="negotiation">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-amber-400" /> Negotiation
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="confirmed">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500" /> Confirmed
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="completed">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-purple-500" /> Completed
+                        </span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Campaign Assignment */}
+                <div>
+                  <Label className="text-xs uppercase tracking-wider text-gray-600">CAMPAIGN</Label>
+                  <Select value={assignedCampaign || 'none'} onValueChange={(val) => handleAssignCampaign(val === 'none' ? '' : val)}>
+                    <SelectTrigger className="mt-2 bg-white" data-testid="campaign-select">
+                      <SelectValue placeholder="Assign to campaign" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Campaign</SelectItem>
+                      {campaigns.map(campaign => (
+                        <SelectItem key={campaign.id || campaign._id} value={campaign.id || campaign._id}>
+                          {campaign.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Quick Actions */}
+                <div className="pt-2 border-t border-amber-100">
+                  <Button 
+                    className="w-full bg-amber-500 hover:bg-amber-600 text-white"
+                    onClick={() => setShowOutreachModal(true)}
+                  >
+                    <Send className="w-4 h-4 mr-2" /> Send Outreach
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Performance Metrics */}
+            <Card className="bg-white border-gray-200">
+              <CardHeader className="pb-3 border-b">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4" /> Performance
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-5 space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 bg-pink-50 rounded-lg text-center">
+                    <Users className="w-5 h-5 text-pink-500 mx-auto mb-1" />
+                    <div className="text-lg font-bold text-gray-900">{formatNumber(form.followers)}</div>
+                    <div className="text-xs text-gray-500">Followers</div>
+                  </div>
+                  <div className="p-3 bg-green-50 rounded-lg text-center">
+                    <TrendingUp className="w-5 h-5 text-green-500 mx-auto mb-1" />
+                    <div className="text-lg font-bold text-gray-900">{form.engagement_rate?.toFixed(2) || '0.00'}%</div>
+                    <div className="text-xs text-gray-500">Engagement</div>
+                  </div>
+                  <div className="p-3 bg-red-50 rounded-lg text-center">
+                    <Heart className="w-5 h-5 text-red-500 mx-auto mb-1" />
+                    <div className="text-lg font-bold text-gray-900">{formatNumber(form.avg_likes)}</div>
+                    <div className="text-xs text-gray-500">Avg Likes</div>
+                  </div>
+                  <div className="p-3 bg-amber-50 rounded-lg text-center">
+                    <Star className="w-5 h-5 text-amber-500 mx-auto mb-1" />
+                    <div className="text-lg font-bold text-gray-900">{form.score || 50}</div>
+                    <div className="text-xs text-gray-500">Score</div>
+                  </div>
+                </div>
+                <div className="text-xs text-gray-400 text-center mt-2">
+                  Last synced: {formatDate(form.social_synced_at) || 'Never'}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Financial Summary */}
+            <Card className="bg-white border-gray-200">
+              <CardHeader className="pb-3 border-b">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <DollarSign className="w-4 h-4" /> Financial
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-5 space-y-3">
+                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                  <span className="text-sm text-gray-600">Total Paid</span>
+                  <span className="font-bold text-green-700">{formatCurrency(paymentSummary.total_paid)}</span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
+                  <span className="text-sm text-gray-600">Pending</span>
+                  <span className="font-bold text-amber-700">{formatCurrency(paymentSummary.total_pending)}</span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <span className="text-sm text-gray-600">Transactions</span>
+                  <span className="font-bold text-gray-700">{payments.length}</span>
                 </div>
               </CardContent>
             </Card>
