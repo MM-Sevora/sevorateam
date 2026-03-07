@@ -33,7 +33,6 @@ const DEPARTMENT_CONFIG = {
             { path: '/marketing/events', name: 'Events & Exhibition', icon: Calendar },
             { path: '/marketing/campaigns', name: 'Campaigns', icon: Target },
             { path: '/marketing/calendar', name: 'Calendar', icon: Calendar },
-            { path: '/marketing/contacts', name: 'Contacts Hub', icon: Users },
             { path: '/marketing/assets', name: 'Content & Assets', icon: Image },
             { path: '/marketing/budget', name: 'Budget & Payments', icon: DollarSign },
             { path: '/marketing/ai-tools', name: 'AI Tools', icon: Sparkles },

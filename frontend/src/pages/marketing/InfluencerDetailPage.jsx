@@ -28,6 +28,11 @@ const InfluencerDetailPage = () => {
   const [originalData, setOriginalData] = useState(null);
   const [newDeliverable, setNewDeliverable] = useState({ name: '', description: '', price: '' });
   
+  // History data
+  const [communications, setCommunications] = useState([]);
+  const [deals, setDeals] = useState([]);
+  const [gifts, setGifts] = useState([]);
+  
   // Form state
   const [form, setForm] = useState({
     name: '', bio: '', email: '', phone: '', city: '', state: '',
@@ -97,9 +102,36 @@ const InfluencerDetailPage = () => {
     }
   }, [api, influencerId, navigate]);
 
+  const fetchHistory = useCallback(async () => {
+    try {
+      // Fetch communications
+      const commsRes = await api.get(`/marketing/v2/contacts/${influencerId}/communications`);
+      setCommunications(commsRes.data || []);
+    } catch (error) {
+      console.log('No communications found');
+    }
+    
+    try {
+      // Fetch deals
+      const dealsRes = await api.get(`/marketing/v2/contacts/${influencerId}/deals`);
+      setDeals(dealsRes.data || []);
+    } catch (error) {
+      console.log('No deals found');
+    }
+    
+    try {
+      // Fetch gifts
+      const giftsRes = await api.get(`/marketing/v2/gifting?contact_id=${influencerId}`);
+      setGifts(giftsRes.data || []);
+    } catch (error) {
+      console.log('No gifts found');
+    }
+  }, [api, influencerId]);
+
   useEffect(() => {
     fetchInfluencer();
-  }, [fetchInfluencer]);
+    fetchHistory();
+  }, [fetchInfluencer, fetchHistory]);
 
   const updateForm = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -837,14 +869,107 @@ const InfluencerDetailPage = () => {
 
       {/* History Tab */}
       {activeTab === 'history' && (
-        <Card className="bg-white border-gray-200">
-          <CardHeader>
-            <CardTitle className="text-base">Activity History</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-gray-500 text-sm">No activity history yet</p>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-3 gap-6">
+          {/* Communications */}
+          <Card className="bg-white border-gray-200">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center justify-between">
+                <span>Communications</span>
+                <Badge variant="outline">{communications.length}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {communications.length === 0 ? (
+                <p className="text-gray-500 text-sm italic">No communications yet</p>
+              ) : (
+                <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                  {communications.map(comm => (
+                    <div key={comm.id} className="p-3 border border-gray-100 rounded-lg hover:bg-gray-50">
+                      <div className="flex items-center justify-between mb-1">
+                        <Badge variant="outline" className="capitalize text-xs">{comm.comm_type || 'message'}</Badge>
+                        <span className="text-xs text-gray-400">{formatDate(comm.sent_at || comm.created_at)}</span>
+                      </div>
+                      <div className="font-medium text-gray-900 text-sm">{comm.subject || '(No subject)'}</div>
+                      <p className="text-xs text-gray-500 line-clamp-2 mt-1">{comm.message || comm.content}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Deals */}
+          <Card className="bg-white border-gray-200">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center justify-between">
+                <span>Deals & Negotiations</span>
+                <Badge variant="outline">{deals.length}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {deals.length === 0 ? (
+                <p className="text-gray-500 text-sm italic">No deals yet</p>
+              ) : (
+                <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                  {deals.map(deal => (
+                    <div key={deal.id} className="p-3 border border-gray-100 rounded-lg hover:bg-gray-50">
+                      <div className="flex items-center justify-between mb-1">
+                        <Badge className={deal.status === 'agreed' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'} >{deal.status || 'pending'}</Badge>
+                        <span className="text-xs text-gray-400">{formatDate(deal.created_at)}</span>
+                      </div>
+                      <div className="text-sm text-gray-700 mt-1">
+                        Quote: <span className="font-medium">₹{(deal.initial_quote || deal.quote_amount || 0).toLocaleString()}</span>
+                        {deal.final_amount && (
+                          <span className="text-green-600 ml-2">Final: ₹{deal.final_amount.toLocaleString()}</span>
+                        )}
+                      </div>
+                      {deal.deliverables && typeof deal.deliverables === 'string' && (
+                        <p className="text-xs text-gray-500 mt-1">{deal.deliverables}</p>
+                      )}
+                      {deal.deliverables && Array.isArray(deal.deliverables) && (
+                        <p className="text-xs text-gray-500 mt-1">{deal.deliverables.length} deliverables</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Gifts & Seeding */}
+          <Card className="bg-white border-gray-200">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center justify-between">
+                <span>Gifts & Seeding</span>
+                <Badge variant="outline">{gifts.length}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {gifts.length === 0 ? (
+                <p className="text-gray-500 text-sm italic">No gifts sent yet</p>
+              ) : (
+                <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                  {gifts.map(gift => (
+                    <div key={gift.id} className="p-3 border border-gray-100 rounded-lg hover:bg-gray-50">
+                      <div className="flex items-center justify-between mb-1">
+                        <Badge className={
+                          gift.status === 'posted' ? 'bg-green-100 text-green-700' : 
+                          gift.status === 'delivered' ? 'bg-blue-100 text-blue-700' : 
+                          'bg-gray-100 text-gray-700'
+                        }>{gift.status}</Badge>
+                        <span className="text-xs text-gray-400">{formatDate(gift.sent_date || gift.created_at)}</span>
+                      </div>
+                      <div className="font-medium text-gray-900 text-sm">{gift.product_name}</div>
+                      {gift.tracking_number && (
+                        <p className="text-xs text-gray-500 mt-1">Tracking: {gift.tracking_number}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );

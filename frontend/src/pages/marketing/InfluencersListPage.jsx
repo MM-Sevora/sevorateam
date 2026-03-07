@@ -25,6 +25,7 @@ const InfluencersListPage = () => {
   const [activeTab, setActiveTab] = useState('database');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPlatform, setFilterPlatform] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [sortBy, setSortBy] = useState('score');
   const [sortOrder, setSortOrder] = useState('desc');
   const [selectedIds, setSelectedIds] = useState([]);
@@ -249,7 +250,8 @@ const InfluencersListPage = () => {
       inf.instagram_handle?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       inf.youtube_handle?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesPlatform = filterPlatform === 'all' || inf.primary_platform === filterPlatform;
-    return matchesSearch && matchesPlatform;
+    const matchesStatus = filterStatus === 'all' || (inf.status?.toLowerCase() || 'identified') === filterStatus;
+    return matchesSearch && matchesPlatform && matchesStatus;
   }).sort((a, b) => {
     const multiplier = sortOrder === 'desc' ? -1 : 1;
     if (sortBy === 'score') return multiplier * ((a.score || 0) - (b.score || 0));
@@ -928,7 +930,17 @@ const InfluencersListPage = () => {
       </div>
 
       {/* Status Funnel Cards */}
-      <div className="grid grid-cols-6 gap-4">
+      <div className="grid grid-cols-7 gap-3">
+        {/* All Status Card */}
+        <Card 
+          className={`cursor-pointer transition-all ${filterStatus === 'all' ? 'bg-[#c4a35a] text-white shadow-md' : 'bg-gray-50 hover:bg-gray-100 border-none shadow-sm'}`}
+          onClick={() => setFilterStatus('all')}
+        >
+          <CardContent className="p-4 text-center">
+            <div className={`text-3xl font-light ${filterStatus === 'all' ? 'text-white' : 'text-gray-900'}`}>{influencers.length}</div>
+            <div className={`text-xs uppercase tracking-wider mt-1 ${filterStatus === 'all' ? 'text-white/80' : 'text-gray-500'}`}>All</div>
+          </CardContent>
+        </Card>
         {[
           { key: 'identified', label: 'Identified' },
           { key: 'contacted', label: 'Contacted' },
@@ -937,14 +949,31 @@ const InfluencersListPage = () => {
           { key: 'confirmed', label: 'Confirmed' },
           { key: 'completed', label: 'Completed' }
         ].map(status => (
-          <Card key={status.key} className="bg-gray-50 border-none shadow-sm">
+          <Card 
+            key={status.key} 
+            className={`cursor-pointer transition-all ${filterStatus === status.key ? 'bg-[#c4a35a] text-white shadow-md' : 'bg-gray-50 hover:bg-gray-100 border-none shadow-sm'}`}
+            onClick={() => setFilterStatus(filterStatus === status.key ? 'all' : status.key)}
+          >
             <CardContent className="p-4 text-center">
-              <div className="text-3xl font-light text-gray-900">{statusCounts[status.key]}</div>
-              <div className="text-xs text-gray-500 uppercase tracking-wider mt-1">{status.label}</div>
+              <div className={`text-3xl font-light ${filterStatus === status.key ? 'text-white' : 'text-gray-900'}`}>{statusCounts[status.key]}</div>
+              <div className={`text-xs uppercase tracking-wider mt-1 ${filterStatus === status.key ? 'text-white/80' : 'text-gray-500'}`}>{status.label}</div>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {/* Active Filter Indicator */}
+      {filterStatus !== 'all' && (
+        <div className="flex items-center gap-2">
+          <Badge className="bg-[#c4a35a] text-white capitalize">{filterStatus}</Badge>
+          <button 
+            onClick={() => setFilterStatus('all')}
+            className="text-sm text-gray-500 hover:text-gray-700"
+          >
+            Clear filter
+          </button>
+        </div>
+      )}
 
       {/* Search & Filter Bar */}
       <div className="flex items-center gap-4">

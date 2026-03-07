@@ -13,7 +13,6 @@ import { DashboardPage } from "./pages/DashboardPage";
 
 // Marketing Pages
 import { MarketingDashboard } from "./pages/marketing/Dashboard";
-import { InfluencersPage } from "./pages/marketing/Influencers";
 import CampaignsPage from "./pages/marketing/Campaigns";
 import OutreachPage from "./pages/marketing/Outreach";
 import NegotiationsPage from "./pages/marketing/Negotiations";
@@ -21,9 +20,7 @@ import MarketingAnalyticsPage from "./pages/marketing/Analytics";
 import AIToolsPage from "./pages/marketing/AITools";
 import BudgetPage from "./pages/marketing/Budget";
 
-// New Marketing V2 Pages
-import ContactsHubPage from "./pages/marketing/ContactsHubPage";
-import ContactDetailPage from "./pages/marketing/ContactDetailPage";
+// Marketing V2 Pages (Current)
 import DigitalPRPage from "./pages/marketing/DigitalPRPage";
 import EventsPage from "./pages/marketing/EventsPage";
 import MarketingCalendarPage from "./pages/marketing/MarketingCalendarPage";
@@ -125,8 +122,9 @@ function AppRoutes() {
             <Route path="/marketing/events" element={<ProtectedRoute requiredDepartment="marketing"><EventsPage /></ProtectedRoute>} />
             <Route path="/marketing/campaigns" element={<ProtectedRoute requiredDepartment="marketing"><CampaignsPage /></ProtectedRoute>} />
             <Route path="/marketing/calendar" element={<ProtectedRoute requiredDepartment="marketing"><MarketingCalendarPage /></ProtectedRoute>} />
-            <Route path="/marketing/contacts" element={<ProtectedRoute requiredDepartment="marketing"><ContactsHubPage /></ProtectedRoute>} />
-            <Route path="/marketing/contacts/:contactId" element={<ProtectedRoute requiredDepartment="marketing"><ContactDetailPage /></ProtectedRoute>} />
+            {/* Redirect old contacts routes to influencers */}
+            <Route path="/marketing/contacts" element={<Navigate to="/marketing/influencers" replace />} />
+            <Route path="/marketing/contacts/:contactId" element={<Navigate to="/marketing/influencers" replace />} />
             <Route path="/marketing/assets" element={<ProtectedRoute requiredDepartment="marketing"><ContentAssetsPage /></ProtectedRoute>} />
             <Route path="/marketing/budget" element={<ProtectedRoute requiredDepartment="marketing"><BudgetPage /></ProtectedRoute>} />
             <Route path="/marketing/ai-tools" element={<ProtectedRoute requiredDepartment="marketing"><AIToolsPage /></ProtectedRoute>} />
