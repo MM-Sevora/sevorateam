@@ -15,6 +15,7 @@ All core features working with enhanced UX.
   - Users (enhanced with department, role, hierarchy)
   - Organization settings
   - Permission modules and templates
+  - User migration endpoint
 
 **Frontend (`/admin/organization`):**
 - Organization Management page with 3 tabs:
@@ -26,6 +27,13 @@ All core features working with enhanced UX.
 **Seeded Data:**
 - 5 Default Departments: Marketing, Sales, Social Media, PR, Administration
 - 8 Default Roles: Super Admin (L100), Admin (L80), Marketing Manager (L50), Marketing Exec (L30), Sales Manager (L50), Sales Exec (L30), Social Manager (L50), Viewer (L10)
+
+### Dynamic Permissions Integration - IMPLEMENTED ✅
+- Replaced hardcoded `ROLE_DEPARTMENTS` with database-driven permissions
+- `get_current_user()` now fetches WorkOS role and permissions dynamically
+- `require_department()` checks against dynamic user departments
+- Users migrated: 54 users linked to WorkOS roles
+- Tested: Marketing user only sees Marketing Ops and Mail modules
 
 ## Backend Refactoring Status (March 8, 2026)
 

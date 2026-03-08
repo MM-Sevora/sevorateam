@@ -177,7 +177,8 @@ DEPARTMENT_MODULES = {
     "admin": ["users", "azure_sync", "audit_logs", "permissions"]
 }
 
-# Role to department mapping
+# Role to department mapping (Legacy - kept for backward compatibility)
+# New system uses WorkOS roles from database
 ROLE_DEPARTMENTS = {
     "super_admin": ["marketing", "sales", "social", "mail", "admin"],
     "admin": ["marketing", "sales", "social", "mail", "admin"],
@@ -187,7 +188,7 @@ ROLE_DEPARTMENTS = {
     "viewer": []
 }
 
-# Role hierarchy for permission checks
+# Role hierarchy for permission checks (Legacy)
 ROLE_HIERARCHY = {
     "super_admin": 100,
     "admin": 80,
@@ -196,6 +197,47 @@ ROLE_HIERARCHY = {
     "social_manager": 50,
     "viewer": 10
 }
+
+async def get_user_role_from_workos(user: dict) -> dict:
+    """Fetch user's role and permissions from WorkOS system"""
+    role_id = user.get("role_id")
+    if not role_id:
+        # Fallback: try to map legacy role to WorkOS role
+        legacy_role = user.get("role", "viewer")
+        role = await db.roles.find_one({"code": legacy_role}, {"_id": 0})
+        if role:
+            return role
+        # Return minimal permissions if no role found
+        return {
+            "code": legacy_role,
+            "level": ROLE_HIERARCHY.get(legacy_role, 10),
+            "permissions": {},
+            "department_ids": []
+        }
+    
+    role = await db.roles.find_one({"id": role_id}, {"_id": 0})
+    return role if role else {"code": "viewer", "level": 10, "permissions": {}, "department_ids": []}
+
+async def get_user_departments_dynamic(user: dict) -> List[str]:
+    """Get user's accessible departments from WorkOS role permissions"""
+    role = await get_user_role_from_workos(user)
+    if not role:
+        # Fallback to legacy
+        return ROLE_DEPARTMENTS.get(user.get("role", "viewer"), [])
+    
+    permissions = role.get("permissions", {})
+    # Return department codes where user has any permissions
+    departments = list(permissions.keys())
+    
+    # Super admin and admin always have all access
+    if role.get("code") in ["super_admin", "admin"] or role.get("level", 0) >= 80:
+        return ["marketing", "sales", "social", "mail", "admin"]
+    
+    return departments if departments else ROLE_DEPARTMENTS.get(user.get("role", "viewer"), [])
+
+def get_user_permissions_from_role(role: dict) -> dict:
+    """Extract permissions dict from WorkOS role"""
+    return role.get("permissions", {})
 
 def get_default_permissions(role: str) -> dict:
     """Get default permissions for a role"""
@@ -486,6 +528,7 @@ def create_access_token(data: dict) -> str:
     return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 def get_user_departments(role: str) -> List[str]:
+    """Legacy sync function - use get_user_departments_dynamic for async"""
     return ROLE_DEPARTMENTS.get(role, [])
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
@@ -499,9 +542,14 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         user = await db.users.find_one({"id": user_id}, {"_id": 0, "password": 0})
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
-        user['departments'] = get_user_departments(user.get('role', 'viewer'))
-        # Include permissions for frontend authorization checks
-        user['permissions'] = get_user_permissions(user)
+        
+        # Fetch dynamic permissions from WorkOS
+        workos_role = await get_user_role_from_workos(user)
+        user['workos_role'] = workos_role
+        user['departments'] = await get_user_departments_dynamic(user)
+        user['permissions'] = get_user_permissions_from_role(workos_role) if workos_role else get_user_permissions(user)
+        user['role_level'] = workos_role.get('level', ROLE_HIERARCHY.get(user.get('role'), 10)) if workos_role else 10
+        
         return user
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
@@ -510,8 +558,12 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 
 def require_department(allowed_departments: List[str]):
     async def department_checker(user: dict = Depends(get_current_user)):
-        user_depts = get_user_departments(user.get('role', 'viewer'))
+        user_depts = user.get('departments', [])
+        # Admin access or matching department
         if 'admin' in user_depts or any(dept in user_depts for dept in allowed_departments):
+            return user
+        # Also check by role level (80+ = admin equivalent)
+        if user.get('role_level', 0) >= 80:
             return user
         raise HTTPException(status_code=403, detail="Access denied to this department")
     return department_checker

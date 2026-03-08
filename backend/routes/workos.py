@@ -523,3 +523,86 @@ async def seed_workos_data(user: dict = Depends(require_admin())):
         "departments": len(default_departments),
         "roles": len(DEFAULT_ROLE_TEMPLATES)
     }
+
+
+@workos_router.post("/migrate-users")
+async def migrate_users_to_workos(user: dict = Depends(require_admin())):
+    """Migrate existing users to WorkOS roles by matching their legacy role codes"""
+    db = get_db()
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Get all roles
+    roles = await db.roles.find({}, {"_id": 0}).to_list(100)
+    role_map = {r["code"]: r["id"] for r in roles}
+    
+    # Get all departments
+    departments = await db.departments.find({}, {"_id": 0}).to_list(100)
+    dept_map = {d["code"]: d["id"] for d in departments}
+    
+    # Role to department mapping for migration
+    role_to_dept = {
+        "super_admin": "admin",
+        "admin": "admin",
+        "marketing_manager": "marketing",
+        "marketing_exec": "marketing",
+        "sales_manager": "sales",
+        "sales_exec": "sales",
+        "social_manager": "social",
+        "viewer": "marketing"  # Default viewers to marketing
+    }
+    
+    # Get users without role_id
+    users_to_migrate = await db.users.find(
+        {"$or": [{"role_id": None}, {"role_id": {"$exists": False}}]},
+        {"_id": 0, "id": 1, "name": 1, "email": 1, "role": 1}
+    ).to_list(1000)
+    
+    migrated = 0
+    for u in users_to_migrate:
+        legacy_role = u.get("role", "viewer")
+        
+        # Find matching WorkOS role
+        role_id = role_map.get(legacy_role)
+        if not role_id and legacy_role == "marketing":
+            role_id = role_map.get("marketing_exec")  # Map "marketing" to "marketing_exec"
+        if not role_id:
+            role_id = role_map.get("viewer")  # Default to viewer
+        
+        # Find matching department
+        dept_code = role_to_dept.get(legacy_role, "marketing")
+        dept_id = dept_map.get(dept_code)
+        
+        # Update user
+        update_data = {
+            "role_id": role_id,
+            "updated_at": now
+        }
+        if dept_id:
+            update_data["department_id"] = dept_id
+        if not u.get("status"):
+            update_data["status"] = "active"
+        
+        await db.users.update_one({"id": u["id"]}, {"$set": update_data})
+        migrated += 1
+    
+    return {
+        "success": True,
+        "message": f"Migrated {migrated} users to WorkOS roles",
+        "migrated": migrated,
+        "total_users": len(users_to_migrate)
+    }
+
+
+@workos_router.get("/my-permissions")
+async def get_my_permissions(user: dict = Depends(get_current_user_dep())):
+    """Get current user's full permissions from WorkOS"""
+    return {
+        "user_id": user.get("id"),
+        "role": user.get("role"),
+        "role_id": user.get("role_id"),
+        "workos_role": user.get("workos_role"),
+        "departments": user.get("departments", []),
+        "permissions": user.get("permissions", {}),
+        "role_level": user.get("role_level", 10)
+    }
+
