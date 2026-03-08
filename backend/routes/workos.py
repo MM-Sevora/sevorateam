@@ -606,3 +606,176 @@ async def get_my_permissions(user: dict = Depends(get_current_user_dep())):
         "role_level": user.get("role_level", 10)
     }
 
+
+# ============== TEAM DASHBOARD ==============
+
+@workos_router.get("/team/dashboard")
+async def get_team_dashboard(user: dict = Depends(get_current_user_dep())):
+    """Get team dashboard data for managers - shows direct reports and their pipeline stats"""
+    db = get_db()
+    
+    user_id = user.get("id")
+    role_level = user.get("role_level", 0)
+    
+    # Check if user is a manager (level 50+)
+    if role_level < 50:
+        return {
+            "is_manager": False,
+            "message": "Team dashboard is only available for managers",
+            "team_members": [],
+            "team_stats": {}
+        }
+    
+    # Get direct reports
+    direct_reports = await db.users.find(
+        {"reports_to": user_id},
+        {"_id": 0, "password": 0}
+    ).to_list(100)
+    
+    # For super admins (level 80+), show all users in their department
+    if role_level >= 80:
+        dept_id = user.get("department_id")
+        if dept_id:
+            dept_users = await db.users.find(
+                {"department_id": dept_id, "id": {"$ne": user_id}},
+                {"_id": 0, "password": 0}
+            ).to_list(200)
+            # Merge with direct reports (unique)
+            existing_ids = {r["id"] for r in direct_reports}
+            for u in dept_users:
+                if u["id"] not in existing_ids:
+                    direct_reports.append(u)
+    
+    # Enrich each team member with their pipeline stats
+    team_data = []
+    total_contacts = 0
+    total_deals_value = 0
+    stage_breakdown = {
+        "identified": 0,
+        "contacted": 0,
+        "replied": 0,
+        "negotiating": 0,
+        "agreed": 0,
+        "delivered": 0,
+        "lost": 0
+    }
+    
+    for member in direct_reports:
+        member_id = member["id"]
+        
+        # Get contacts assigned to or created by this user
+        member_contacts = await db.contacts.find(
+            {"$or": [
+                {"assigned_to": member_id},
+                {"created_by": member_id}
+            ]},
+            {"_id": 0, "id": 1, "status": 1, "pipeline_stage": 1, "stage": 1}
+        ).to_list(500)
+        
+        # Calculate stats
+        contact_count = len(member_contacts)
+        member_stages = {}
+        for c in member_contacts:
+            stage = c.get("pipeline_stage") or c.get("status") or c.get("stage") or "identified"
+            member_stages[stage] = member_stages.get(stage, 0) + 1
+            if stage in stage_breakdown:
+                stage_breakdown[stage] += 1
+        
+        # Get deals for this user
+        member_deals = await db.deals.find(
+            {"created_by": member_id},
+            {"_id": 0, "value": 1, "status": 1}
+        ).to_list(100)
+        
+        deals_value = sum(d.get("value", 0) for d in member_deals if d.get("status") not in ["cancelled", "lost"])
+        
+        # Get role and department names
+        role_name = None
+        if member.get("role_id"):
+            role = await db.roles.find_one({"id": member["role_id"]}, {"name": 1})
+            role_name = role.get("name") if role else None
+        
+        dept_name = None
+        if member.get("department_id"):
+            dept = await db.departments.find_one({"id": member["department_id"]}, {"name": 1})
+            dept_name = dept.get("name") if dept else None
+        
+        team_data.append({
+            "id": member_id,
+            "name": member.get("name"),
+            "email": member.get("email"),
+            "title": member.get("title"),
+            "role_name": role_name,
+            "department_name": dept_name,
+            "avatar_url": member.get("avatar_url"),
+            "contact_count": contact_count,
+            "stage_breakdown": member_stages,
+            "deals_value": deals_value,
+            "deals_count": len(member_deals),
+            "last_login": member.get("last_login")
+        })
+        
+        total_contacts += contact_count
+        total_deals_value += deals_value
+    
+    # Sort by contact count (most active first)
+    team_data.sort(key=lambda x: x["contact_count"], reverse=True)
+    
+    return {
+        "is_manager": True,
+        "team_members": team_data,
+        "team_size": len(team_data),
+        "team_stats": {
+            "total_contacts": total_contacts,
+            "total_deals_value": total_deals_value,
+            "stage_breakdown": stage_breakdown,
+            "avg_contacts_per_member": round(total_contacts / len(team_data), 1) if team_data else 0
+        }
+    }
+
+
+@workos_router.get("/team/member/{member_id}/pipeline")
+async def get_team_member_pipeline(member_id: str, user: dict = Depends(get_current_user_dep())):
+    """Get detailed pipeline data for a specific team member"""
+    db = get_db()
+    
+    # Verify this user is the member's manager or is admin
+    role_level = user.get("role_level", 0)
+    member = await db.users.find_one({"id": member_id}, {"_id": 0, "reports_to": 1, "name": 1})
+    
+    if not member:
+        raise HTTPException(status_code=404, detail="Team member not found")
+    
+    if role_level < 80 and member.get("reports_to") != user.get("id"):
+        raise HTTPException(status_code=403, detail="You can only view your direct reports' data")
+    
+    # Get contacts
+    contacts = await db.contacts.find(
+        {"$or": [
+            {"assigned_to": member_id},
+            {"created_by": member_id}
+        ]},
+        {"_id": 0}
+    ).sort("updated_at", -1).to_list(200)
+    
+    # Get deals
+    deals = await db.deals.find(
+        {"created_by": member_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    
+    # Get communications
+    comms = await db.communications.find(
+        {"sent_by": member_id},
+        {"_id": 0}
+    ).sort("sent_at", -1).limit(50).to_list(50)
+    
+    return {
+        "member_id": member_id,
+        "member_name": member.get("name"),
+        "contacts": contacts,
+        "deals": deals,
+        "recent_communications": comms
+    }
+
+

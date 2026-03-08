@@ -4,6 +4,7 @@ import { PublicClientApplication, EventType } from "@azure/msal-browser";
 import { MsalProvider } from "@azure/msal-react";
 import { Toaster } from "./components/ui/sonner";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { PermissionProvider } from "./context/PermissionContext";
 import { Layout } from "./components/Layout";
 import { msalConfig } from "./authConfig";
 
@@ -54,6 +55,7 @@ import EmailPage from "./pages/marketing/EmailPage";
 import UserManagementPage from "./pages/admin/UserManagement";
 import PermissionsPage from "./pages/admin/PermissionsPage";
 import OrganizationManagement from "./pages/admin/OrganizationManagement";
+import TeamDashboard from "./pages/admin/TeamDashboard";
 
 // Settings Pages
 import AutomationSettings from "./pages/settings/AutomationSettings";
@@ -282,6 +284,7 @@ function AppRoutes() {
             <Route path="/admin/users" element={<ProtectedRoute requiredDepartment="admin"><UserManagementPage /></ProtectedRoute>} />
             <Route path="/admin/permissions" element={<ProtectedRoute requiredDepartment="admin"><PermissionsPage /></ProtectedRoute>} />
             <Route path="/admin/organization" element={<ProtectedRoute requiredDepartment="admin"><OrganizationManagement /></ProtectedRoute>} />
+            <Route path="/admin/team" element={<ProtectedRoute><TeamDashboard /></ProtectedRoute>} />
 
             {/* Settings Routes */}
             <Route path="/settings/automations" element={<ProtectedRoute><AutomationSettings /></ProtectedRoute>} />
@@ -298,8 +301,10 @@ function App() {
             <MsalProvider instance={msalInstance}>
                 <BrowserRouter>
                     <AuthProvider>
-                        <AppRoutes />
-                        <Toaster position="top-right" richColors />
+                        <PermissionProvider>
+                            <AppRoutes />
+                            <Toaster position="top-right" richColors />
+                        </PermissionProvider>
                     </AuthProvider>
                 </BrowserRouter>
             </MsalProvider>

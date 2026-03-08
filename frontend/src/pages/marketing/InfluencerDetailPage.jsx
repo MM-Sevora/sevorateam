@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { usePermissions, CanDelete, CanEdit } from '../../context/PermissionContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -1463,6 +1464,7 @@ const InfluencerDetailPage = () => {
               ))}
 
               {/* Add New Deliverable */}
+              <CanEdit department="marketing" module="contacts">
               <div className="border-t border-gray-200 pt-4 mt-4">
                 <Label className="text-xs uppercase tracking-wider text-gray-500 mb-3 block">ADD CUSTOM DELIVERABLE</Label>
                 <div className="flex items-end gap-2">
@@ -1499,6 +1501,7 @@ const InfluencerDetailPage = () => {
                   </Button>
                 </div>
               </div>
+              </CanEdit>
 
               {/* Accepts Barter */}
               <div className="flex items-center justify-between p-3 border-t border-gray-100 mt-4 pt-4">

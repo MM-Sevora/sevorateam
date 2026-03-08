@@ -35,6 +35,25 @@ All core features working with enhanced UX.
 - Users migrated: 54 users linked to WorkOS roles
 - Tested: Marketing user only sees Marketing Ops and Mail modules
 
+### Frontend Permission Checks - IMPLEMENTED ✅
+- Created `PermissionContext.jsx` with hooks and components:
+  - `usePermissions()` - Access permissions, departments, role level
+  - `hasPermission(dept, module, action)` - Check specific permission
+  - `<CanEdit>`, `<CanDelete>`, `<CanCreate>` - Permission gates
+- Wrapped App with `<PermissionProvider>`
+- Example usage in InfluencerDetailPage: "Add Deliverable" wrapped with CanEdit
+
+### Team Dashboard - IMPLEMENTED ✅
+- Backend API (`/api/workos/team/*`):
+  - `GET /dashboard` - Team stats, member list with pipeline data
+  - `GET /member/{id}/pipeline` - Detailed member pipeline
+- Frontend (`/admin/team`):
+  - Stats cards: Team Size, Total Contacts, Pipeline Value, Avg per Member
+  - Pipeline stage breakdown for entire team
+  - Team member list with contact counts and deals value
+  - Member details panel with recent activity
+  - "View Full Pipeline" link for each member
+
 ## Backend Refactoring Status (March 8, 2026)
 
 ### Phase 1: Directory Structure ✅
