@@ -11,6 +11,7 @@ import { Textarea } from '../../components/ui/textarea';
 import { Label } from '../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { ScrollArea } from '../../components/ui/scroll-area';
+import { Checkbox } from '../../components/ui/checkbox';
 import { toast } from 'sonner';
 import { 
   Briefcase, Plus, DollarSign, User, Calendar, Clock, ArrowRight, 
@@ -78,7 +79,7 @@ const formatCurrency = (amount) => {
 };
 
 // Deal Card Component
-const DealCard = ({ deal, onStatusChange, onViewDetails, onEdit }) => {
+const DealCard = ({ deal, onStatusChange, onViewDetails, onEdit, isSelected, onToggleSelect }) => {
   const [isDragging, setIsDragging] = useState(false);
   
   const handleDragStart = (e) => {
@@ -100,12 +101,17 @@ const DealCard = ({ deal, onStatusChange, onViewDetails, onEdit }) => {
       onDragEnd={handleDragEnd}
       className={`bg-white rounded-lg border border-gray-200 p-3 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing ${
         isDragging ? 'opacity-50 scale-95' : ''
-      }`}
+      } ${isSelected ? 'ring-2 ring-purple-400' : ''}`}
       data-testid={`deal-card-${deal.id}`}
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center gap-2">
+          <Checkbox 
+            checked={isSelected}
+            onCheckedChange={onToggleSelect}
+            onClick={(e) => e.stopPropagation()}
+          />
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-indigo-500 flex items-center justify-center text-white text-xs font-bold">
             {deal.contact_name?.charAt(0) || 'D'}
           </div>
@@ -195,7 +201,7 @@ const DealCard = ({ deal, onStatusChange, onViewDetails, onEdit }) => {
 };
 
 // Pipeline Column Component
-const PipelineColumn = ({ stage, deals, onDrop, onStatusChange, onViewDetails, onEdit }) => {
+const PipelineColumn = ({ stage, deals, onDrop, onStatusChange, onViewDetails, onEdit, selectedIds, onToggleSelect }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   
   const handleDragOver = (e) => {
@@ -260,6 +266,8 @@ const PipelineColumn = ({ stage, deals, onDrop, onStatusChange, onViewDetails, o
                 onStatusChange={onStatusChange}
                 onViewDetails={onViewDetails}
                 onEdit={onEdit}
+                isSelected={selectedIds.includes(deal.id)}
+                onToggleSelect={() => onToggleSelect(deal.id)}
               />
             ))
           )}
@@ -278,6 +286,11 @@ export const DealPipeline = () => {
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -423,6 +436,23 @@ export const DealPipeline = () => {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    
+    setBulkDeleting(true);
+    try {
+      const response = await api.post('/marketing/v2/deals/bulk-delete', { ids: selectedIds });
+      toast.success(`Deleted ${response.data.deleted_count} deals`);
+      setSelectedIds([]);
+      setShowBulkDeleteConfirm(false);
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to delete deals');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   const handleCreateDeal = async () => {
     if (!newDeal.contact_id) {
       toast.error('Please select a contact');
@@ -483,6 +513,17 @@ export const DealPipeline = () => {
               <RefreshCw className="w-4 h-4 mr-2" />
               Refresh
             </Button>
+            
+            {selectedIds.length > 0 && (
+              <Button 
+                variant="destructive" 
+                onClick={() => setShowBulkDeleteConfirm(true)}
+                data-testid="bulk-delete-deals-btn"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete ({selectedIds.length})
+              </Button>
+            )}
             
             <Button 
               className="bg-purple-600 hover:bg-purple-700"
@@ -574,6 +615,12 @@ export const DealPipeline = () => {
                 onStatusChange={handleStatusChange}
                 onViewDetails={handleViewDetails}
                 onEdit={handleEdit}
+                selectedIds={selectedIds}
+                onToggleSelect={(dealId) => {
+                  setSelectedIds(prev => 
+                    prev.includes(dealId) ? prev.filter(id => id !== dealId) : [...prev, dealId]
+                  );
+                }}
               />
             ))}
           </div>
@@ -790,6 +837,37 @@ export const DealPipeline = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="w-5 h-5" />
+              Confirm Bulk Delete
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-gray-600">
+              Are you sure you want to delete <strong>{selectedIds.length}</strong> deal{selectedIds.length > 1 ? 's' : ''}?
+            </p>
+            <p className="text-sm text-red-500 mt-2">This action cannot be undone.</p>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setShowBulkDeleteConfirm(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              data-testid="confirm-bulk-delete-deals-btn"
+            >
+              {bulkDeleting ? 'Deleting...' : `Delete ${selectedIds.length} Deal${selectedIds.length > 1 ? 's' : ''}`}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

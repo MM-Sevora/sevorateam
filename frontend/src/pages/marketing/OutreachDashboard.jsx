@@ -12,10 +12,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../componen
 import { Textarea } from '../../components/ui/textarea';
 import { Label } from '../../components/ui/label';
 import { toast } from 'sonner';
+import { Checkbox } from '../../components/ui/checkbox';
 import { 
   Send, Mail, MessageCircle, Clock, CheckCircle, XCircle, AlertTriangle,
   Reply, Eye, Calendar, Bell, Filter, Search, RefreshCw, Plus, ArrowRight,
-  MoreVertical, Timer, User, TrendingUp, Zap, ChevronRight
+  MoreVertical, Timer, User, TrendingUp, Zap, ChevronRight, Trash2
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -49,6 +50,11 @@ export const OutreachDashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterChannel, setFilterChannel] = useState('all');
+  
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   
   // Follow-up modal
   const [showFollowUpModal, setShowFollowUpModal] = useState(false);
@@ -180,6 +186,23 @@ export const OutreachDashboard = () => {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    
+    setBulkDeleting(true);
+    try {
+      const response = await api.post('/marketing/v2/communications/bulk-delete', { ids: selectedIds });
+      toast.success(`Deleted ${response.data.deleted_count} communications`);
+      setSelectedIds([]);
+      setShowBulkDeleteConfirm(false);
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to delete communications');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   const getDaysSinceSent = (date) => {
     return Math.floor((Date.now() - new Date(date)) / (1000 * 60 * 60 * 24));
   };
@@ -213,6 +236,17 @@ export const OutreachDashboard = () => {
           <p className="text-sm text-gray-500 mt-1">Track responses and manage follow-ups</p>
         </div>
         <div className="flex items-center gap-3">
+          {selectedIds.length > 0 && (
+            <Button 
+              variant="destructive" 
+              size="sm"
+              onClick={() => setShowBulkDeleteConfirm(true)}
+              data-testid="bulk-delete-outreach-btn"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete ({selectedIds.length})
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={fetchData} data-testid="refresh-btn">
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
@@ -417,6 +451,18 @@ export const OutreachDashboard = () => {
                         data-testid={`outreach-item-${idx}`}
                       >
                         <div className="flex items-start gap-4">
+                          {/* Checkbox */}
+                          <div className="pt-1">
+                            <Checkbox 
+                              checked={selectedIds.includes(comm.id)}
+                              onCheckedChange={(checked) => {
+                                setSelectedIds(prev => 
+                                  checked ? [...prev, comm.id] : prev.filter(id => id !== comm.id)
+                                );
+                              }}
+                            />
+                          </div>
+                          
                           {/* Channel Icon */}
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
                             comm.comm_type === 'whatsapp' ? 'bg-green-100' : 'bg-blue-100'
@@ -593,6 +639,37 @@ export const OutreachDashboard = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="w-5 h-5" />
+              Confirm Bulk Delete
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-gray-600">
+              Are you sure you want to delete <strong>{selectedIds.length}</strong> communication{selectedIds.length > 1 ? 's' : ''}?
+            </p>
+            <p className="text-sm text-red-500 mt-2">This action cannot be undone.</p>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setShowBulkDeleteConfirm(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              data-testid="confirm-bulk-delete-outreach-btn"
+            >
+              {bulkDeleting ? 'Deleting...' : `Delete ${selectedIds.length} Communication${selectedIds.length > 1 ? 's' : ''}`}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

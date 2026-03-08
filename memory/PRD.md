@@ -6,63 +6,66 @@ All core features working with enhanced UX.
 
 ## Recent Enhancements (March 8, 2026)
 
-### 1. Outreach Dashboard Enhancement ✅ (NEW)
-- **Response Tracking**: View all communications with status (Sent, Opened, Replied)
-- **Follow-up Management**: Auto-identifies contacts needing follow-up (>3 days without response)
-- **Stats Overview**: Total Sent, Opened, Replied, Needs Follow-up, Response Rate, Active Contacts
-- **Filtering**: By status, channel (Email/WhatsApp), and search
-- **Tab Views**: All, Needs Follow-up, Replied, Awaiting Response
-- **Schedule Follow-ups**: Modal to schedule follow-up reminders with priority
-- Route: `/marketing/outreach-dashboard`
+### 5. Bulk Delete Functionality ✅ (NEW)
+- **Influencers Page**: Checkbox selection, Select All, Delete (X) button, confirmation dialog
+- **Publications Page**: Checkbox selection, Select All, Delete (X) button, confirmation dialog  
+- **Campaigns Page**: Checkbox selection, Select All, Delete (X) button, confirmation dialog
+- **Outreach Dashboard**: Checkbox on each communication, bulk delete with confirmation
+- **Deal Pipeline**: Checkbox on each deal card, bulk delete with confirmation
+- Backend endpoints:
+  - `POST /api/marketing/v2/contacts/bulk-delete`
+  - `POST /api/marketing/v2/publications/bulk-delete`
+  - `POST /api/marketing/v2/campaigns/bulk-delete`
+  - `POST /api/marketing/v2/deals/bulk-delete`
+  - `POST /api/marketing/v2/communications/bulk-delete`
 
-### 2. Deal Pipeline UI ✅ (NEW)
-- **Kanban Board**: 6-stage drag-and-drop pipeline (Lead → Contacted → Negotiating → Proposal Sent → Won → Lost)
-- **Deal Cards**: Show contact name, deal value, deliverables, savings percentage, campaign link
-- **Pipeline Stats**: Total Deals, Pipeline Value, Won deals, Win Rate, Avg Deal Size
-- **Create Deal Modal**: Select contact, campaign, set quotes/budget, deliverables, notes
-- **Deal Actions**: View details, edit, mark as won/lost via dropdown menu
-- Route: `/marketing/deals`
+### 4. Campaign Form Enhancements ✅
+- Multi-select Objectives using checkboxes
+- Campaign Type dropdown in Edit modal
+- Fixed unified-campaigns API collection name
 
-### 3. Bug Fix: AI Discovery Endpoints ✅
-- Fixed "Failed to discover media contacts" error
-- Added missing backend endpoints for AI discovery
-- Enriched AI recommendations with full contact data
+### 3. Campaign Delete Fix ✅
+- Added DELETE endpoints for both influencer and PR campaigns
 
-### 4. Communication History Timeline ✅
-- InfluencerDetailPage: Timeline with communications, deals, gifts
-- PublicationDetailPage: Timeline with pitches, coverage, payments
+### 2. Outreach Dashboard & Deal Pipeline ✅
+- Response tracking with status indicators
+- Follow-up management with scheduling
+- Kanban-style deal pipeline with drag-and-drop
+- Routes: `/marketing/outreach-dashboard`, `/marketing/deals`
+
+### 1. Communication History Timeline ✅
+- Vertical timeline on Influencer and Publication detail pages
 
 ### Bug Fixes
 - Fixed "Failed to save changes" - ContactUpdate model
+- Fixed "Failed to discover media contacts" - AI endpoint fixes
 - Fixed YouTube metrics mismatch
 - Fixed action button dropdown on Influencers list
 - Separated Pipeline & Campaign cards
 - Fixed Select dropdown z-index in modals
 
-### Cleanup
-- Deleted 4 deprecated files
-- Redirected /marketing/pr to /marketing/publications
-
 ## Architecture
 ```
 /app/frontend/src/pages/marketing/
-├── AIDiscoveryPage.jsx      # ENHANCED - Modern wizard UI
-├── InfluencersListPage.jsx  # Action dropdown added
-├── InfluencerDetailPage.jsx # YouTube metrics, Pipeline/Campaign split, History timeline
-├── PublicationDetailPage.jsx # History tab with timeline added
-├── PublicationsListPage.jsx
-├── CampaignHubPage.jsx
+├── AIDiscoveryPage.jsx        # Modern wizard UI
+├── InfluencersListPage.jsx    # Bulk delete, filters
+├── InfluencerDetailPage.jsx   # History timeline
+├── PublicationDetailPage.jsx  # History tab
+├── PublicationsListPage.jsx   # Bulk delete, filters
+├── CampaignHubPage.jsx        # Multi-select objectives, bulk delete
+├── OutreachDashboard.jsx      # NEW - Response tracking
+├── DealPipeline.jsx           # NEW - Kanban pipeline
 ├── Budget.jsx
 ├── ContentAssetsPage.jsx
-├── EmailPage.jsx            # Gmail-style UI
+├── EmailPage.jsx              # Gmail-style UI
 ```
 
 ## API Keys Configured
 - ✅ YouTube API - Working with full data
-- ✅ Instagram API - Profile lookup working (limited metrics due to permissions)
+- ✅ Instagram API - Profile lookup working
 - ✅ Microsoft Graph API - Email sending
 
-## Completed Work
+## Completed Phases
 
 ### Phase 1: Core Infrastructure ✅
 - User authentication and authorization
@@ -84,15 +87,18 @@ All core features working with enhanced UX.
 - Communication History Timeline (Influencers)
 - Activity Timeline (Publications)
 
+### Phase 5: Advanced Management ✅
+- Outreach Dashboard with response tracking
+- Deal Pipeline with Kanban UI
+- Bulk delete across all list pages
+
 ## Prioritized Backlog
 
 ### P0 (Critical) - Deferred
-1. Refactor marketing_v2.py (4253 lines) - Technical debt
+1. Refactor marketing_v2.py (4500+ lines) - Technical debt
 
 ### P1 (High)
-1. Outreach Dashboard Enhancement - Response tracking, follow-up management
-2. Deal Management Pipeline UI
-3. PR Analytics Dashboard
+1. PR Analytics Dashboard
 
 ### P2 (Medium)
 1. AI pitch writing feature

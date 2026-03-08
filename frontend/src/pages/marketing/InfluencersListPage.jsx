@@ -44,6 +44,10 @@ const InfluencersListPage = () => {
     identified: 0, contacted: 0, interested: 0, negotiation: 0, confirmed: 0, completed: 0
   });
   
+  // Bulk delete state
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  
   // Check if any filters are active
   const hasActiveFilters = filterPlatform !== 'all' || filterStatus !== 'all' || filterTier !== 'all' || 
     filterIndustry !== 'all' || filterCampaign !== 'all' || filterEngagement !== 'all' || 
@@ -265,6 +269,23 @@ const InfluencersListPage = () => {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    
+    setBulkDeleting(true);
+    try {
+      const response = await api.post('/marketing/v2/contacts/bulk-delete', { ids: selectedIds });
+      toast.success(`Deleted ${response.data.deleted_count} influencers`);
+      setSelectedIds([]);
+      setShowBulkDeleteConfirm(false);
+      fetchInfluencers();
+    } catch (error) {
+      toast.error('Failed to delete influencers');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   const handleRefreshAll = async () => {
     toast.info('Refreshing influencer data...');
     await fetchInfluencers();
@@ -397,6 +418,16 @@ const InfluencersListPage = () => {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-serif italic text-gray-900">Influencers</h1>
         <div className="flex items-center gap-3">
+          {selectedIds.length > 0 && (
+            <Button 
+              variant="destructive" 
+              onClick={() => setShowBulkDeleteConfirm(true)}
+              className="gap-2"
+              data-testid="bulk-delete-btn"
+            >
+              <Trash2 className="w-4 h-4" /> Delete ({selectedIds.length})
+            </Button>
+          )}
           <Button variant="outline" onClick={handleRefreshAll} className="gap-2">
             <RefreshCw className="w-4 h-4" /> Refresh All
           </Button>
@@ -1484,6 +1515,37 @@ const InfluencersListPage = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="w-5 h-5" />
+              Confirm Bulk Delete
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-gray-600">
+              Are you sure you want to delete <strong>{selectedIds.length}</strong> influencer{selectedIds.length > 1 ? 's' : ''}?
+            </p>
+            <p className="text-sm text-red-500 mt-2">This action cannot be undone. All related communications and deals will also be deleted.</p>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setShowBulkDeleteConfirm(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              data-testid="confirm-bulk-delete-btn"
+            >
+              {bulkDeleting ? 'Deleting...' : `Delete ${selectedIds.length} Influencer${selectedIds.length > 1 ? 's' : ''}`}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

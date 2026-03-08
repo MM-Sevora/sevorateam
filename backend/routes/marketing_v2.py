@@ -517,6 +517,121 @@ async def delete_contact(contact_id: str, user: dict = Depends(get_marketing_aut
     
     return {"message": "Contact deleted successfully"}
 
+
+# ============== BULK DELETE ENDPOINTS ==============
+
+@marketing_v2_router.post("/contacts/bulk-delete")
+async def bulk_delete_contacts(data: dict, user: dict = Depends(get_marketing_auth())):
+    """Bulk delete multiple contacts"""
+    db = get_db()
+    
+    ids = data.get("ids", [])
+    if not ids:
+        raise HTTPException(status_code=400, detail="No IDs provided")
+    
+    # Get contacts to check publication links
+    contacts = await db.contacts.find({"id": {"$in": ids}}).to_list(len(ids))
+    
+    # Track publication updates
+    publication_decrements = {}
+    for contact in contacts:
+        pub_id = contact.get("publication_id")
+        if pub_id:
+            publication_decrements[pub_id] = publication_decrements.get(pub_id, 0) + 1
+    
+    # Delete contacts
+    result = await db.contacts.delete_many({"id": {"$in": ids}})
+    
+    # Update publication journalist counts
+    for pub_id, decrement in publication_decrements.items():
+        await db.publications.update_one(
+            {"id": pub_id},
+            {"$inc": {"journalist_count": -decrement}}
+        )
+    
+    # Also delete related data
+    await db.communications.delete_many({"contact_id": {"$in": ids}})
+    await db.deals.delete_many({"contact_id": {"$in": ids}})
+    
+    return {"deleted_count": result.deleted_count, "message": f"Deleted {result.deleted_count} contacts"}
+
+
+@marketing_v2_router.post("/publications/bulk-delete")
+async def bulk_delete_publications(data: dict, user: dict = Depends(get_marketing_auth())):
+    """Bulk delete multiple publications"""
+    db = get_db()
+    
+    ids = data.get("ids", [])
+    if not ids:
+        raise HTTPException(status_code=400, detail="No IDs provided")
+    
+    result = await db.publications.delete_many({"id": {"$in": ids}})
+    
+    # Unlink journalists from deleted publications
+    await db.contacts.update_many(
+        {"publication_id": {"$in": ids}},
+        {"$unset": {"publication_id": ""}}
+    )
+    
+    return {"deleted_count": result.deleted_count, "message": f"Deleted {result.deleted_count} publications"}
+
+
+@marketing_v2_router.post("/campaigns/bulk-delete")
+async def bulk_delete_campaigns(data: dict, user: dict = Depends(get_marketing_auth())):
+    """Bulk delete multiple campaigns (both influencer and PR)"""
+    db = get_db()
+    
+    ids = data.get("ids", [])
+    if not ids:
+        raise HTTPException(status_code=400, detail="No IDs provided")
+    
+    # Delete from marketing_campaigns (influencer campaigns)
+    inf_result = await db.marketing_campaigns.delete_many({"id": {"$in": ids}})
+    
+    # Delete from pr_campaigns
+    pr_result = await db.pr_campaigns.delete_many({"id": {"$in": ids}})
+    
+    # Clean up related data
+    await db.pr_pitches.delete_many({"campaign_id": {"$in": ids}})
+    
+    # Remove campaign_id from contacts
+    await db.contacts.update_many(
+        {"campaign_id": {"$in": ids}},
+        {"$set": {"campaign_id": None}}
+    )
+    
+    total_deleted = inf_result.deleted_count + pr_result.deleted_count
+    return {"deleted_count": total_deleted, "message": f"Deleted {total_deleted} campaigns"}
+
+
+@marketing_v2_router.post("/deals/bulk-delete")
+async def bulk_delete_deals(data: dict, user: dict = Depends(get_marketing_auth())):
+    """Bulk delete multiple deals"""
+    db = get_db()
+    
+    ids = data.get("ids", [])
+    if not ids:
+        raise HTTPException(status_code=400, detail="No IDs provided")
+    
+    result = await db.deals.delete_many({"id": {"$in": ids}})
+    
+    return {"deleted_count": result.deleted_count, "message": f"Deleted {result.deleted_count} deals"}
+
+
+@marketing_v2_router.post("/communications/bulk-delete")
+async def bulk_delete_communications(data: dict, user: dict = Depends(get_marketing_auth())):
+    """Bulk delete multiple communications"""
+    db = get_db()
+    
+    ids = data.get("ids", [])
+    if not ids:
+        raise HTTPException(status_code=400, detail="No IDs provided")
+    
+    result = await db.communications.delete_many({"id": {"$in": ids}})
+    
+    return {"deleted_count": result.deleted_count, "message": f"Deleted {result.deleted_count} communications"}
+
+
 @marketing_v2_router.get("/contacts/{contact_id}/stats")
 async def get_contact_stats(contact_id: str, user: dict = Depends(get_marketing_auth())):
     """Get contact statistics - requires marketing auth"""

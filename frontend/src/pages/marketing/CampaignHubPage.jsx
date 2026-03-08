@@ -82,6 +82,11 @@ const CampaignHubPage = () => {
   const [showEditCampaign, setShowEditCampaign] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState(null);
   
+  // Bulk delete state
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  
   // Sort state
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
@@ -268,6 +273,23 @@ const CampaignHubPage = () => {
       fetchData();
     } catch (error) {
       toast.error('Failed to delete campaign');
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    
+    setBulkDeleting(true);
+    try {
+      const response = await api.post('/marketing/v2/campaigns/bulk-delete', { ids: selectedIds });
+      toast.success(`Deleted ${response.data.deleted_count} campaigns`);
+      setSelectedIds([]);
+      setShowBulkDeleteConfirm(false);
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to delete campaigns');
+    } finally {
+      setBulkDeleting(false);
     }
   };
 
@@ -474,6 +496,17 @@ const CampaignHubPage = () => {
             </Button>
           </div>
           
+          {selectedIds.length > 0 && (
+            <Button 
+              variant="destructive" 
+              onClick={() => setShowBulkDeleteConfirm(true)}
+              data-testid="bulk-delete-campaigns-btn"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete ({selectedIds.length})
+            </Button>
+          )}
+          
           <Button onClick={() => setShowNewCampaign(true)} className="bg-[#c4a35a] hover:bg-[#b39349] text-white" data-testid="new-campaign-btn">
             <Plus className="w-4 h-4 mr-2" /> New Campaign
           </Button>
@@ -593,6 +626,14 @@ const CampaignHubPage = () => {
             <Table>
               <TableHeader>
                 <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
+                  <TableHead className="w-12 px-4">
+                    <Checkbox 
+                      checked={selectedIds.length === filteredCampaigns.length && filteredCampaigns.length > 0}
+                      onCheckedChange={(checked) => {
+                        setSelectedIds(checked ? filteredCampaigns.map(c => c.id) : []);
+                      }}
+                    />
+                  </TableHead>
                   <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[280px] cursor-pointer hover:text-gray-900" onClick={() => toggleSort('name')}>
                     <span className="flex items-center gap-1">Campaign <SortIcon field="name" /></span>
                   </TableHead>
@@ -617,7 +658,7 @@ const CampaignHubPage = () => {
               <TableBody className="divide-y divide-gray-100">
                 {filteredCampaigns.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-12">
+                    <TableCell colSpan={10} className="text-center py-12">
                       <Target className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                       <p className="text-gray-500 font-medium">No campaigns found</p>
                       <p className="text-gray-400 text-sm mt-1">Create your first campaign to get started</p>
@@ -638,6 +679,16 @@ const CampaignHubPage = () => {
                         onClick={() => isPR ? navigate(`/marketing/pr?campaign=${campaign.id}`) : navigate(`/marketing/campaign/${campaign.id}`)}
                           data-testid={`campaign-row-${campaign.id}`}
                         >
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            <Checkbox 
+                              checked={selectedIds.includes(campaign.id)}
+                              onCheckedChange={(checked) => {
+                                setSelectedIds(prev => 
+                                  checked ? [...prev, campaign.id] : prev.filter(id => id !== campaign.id)
+                                );
+                              }}
+                            />
+                          </TableCell>
                           <TableCell>
                             <div>
                               <div className="font-medium text-gray-900">{campaign.name}</div>
@@ -1132,6 +1183,37 @@ const CampaignHubPage = () => {
                 ))}
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="w-5 h-5" />
+              Confirm Bulk Delete
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-gray-600">
+              Are you sure you want to delete <strong>{selectedIds.length}</strong> campaign{selectedIds.length > 1 ? 's' : ''}?
+            </p>
+            <p className="text-sm text-red-500 mt-2">This action cannot be undone. Related pitches and assignments will also be removed.</p>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setShowBulkDeleteConfirm(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              data-testid="confirm-bulk-delete-campaigns-btn"
+            >
+              {bulkDeleting ? 'Deleting...' : `Delete ${selectedIds.length} Campaign${selectedIds.length > 1 ? 's' : ''}`}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

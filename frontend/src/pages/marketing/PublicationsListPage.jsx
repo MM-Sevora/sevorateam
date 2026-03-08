@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../componen
 import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { Checkbox } from '../../components/ui/checkbox';
 import { toast } from 'sonner';
 import { 
   RefreshCw, Plus, Search, Filter, Building2, Globe, Users, 
@@ -76,6 +77,11 @@ const PublicationsListPage = () => {
   
   // Stats
   const [stats, setStats] = useState({ total: 0, tier1: 0, tier2: 0, journalists: 0, coverage: 0 });
+  
+  // Selection for bulk actions
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   
   // Add/Edit Modal
   const [showModal, setShowModal] = useState(false);
@@ -201,6 +207,23 @@ const PublicationsListPage = () => {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    
+    setBulkDeleting(true);
+    try {
+      const response = await api.post('/marketing/v2/publications/bulk-delete', { ids: selectedIds });
+      toast.success(`Deleted ${response.data.deleted_count} publications`);
+      setSelectedIds([]);
+      setShowBulkDeleteConfirm(false);
+      fetchPublications();
+    } catch (error) {
+      toast.error('Failed to delete publications');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   const resetForm = () => {
     setEditingId(null);
     setFormData({
@@ -303,6 +326,16 @@ const PublicationsListPage = () => {
           </h1>
         </div>
         <div className="flex items-center gap-3">
+          {selectedIds.length > 0 && (
+            <Button 
+              variant="destructive" 
+              onClick={() => setShowBulkDeleteConfirm(true)}
+              data-testid="bulk-delete-publications-btn"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete ({selectedIds.length})
+            </Button>
+          )}
           <Button variant="outline" onClick={fetchPublications} disabled={loading}>
             <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
@@ -541,6 +574,14 @@ const PublicationsListPage = () => {
         <Table>
           <TableHeader>
             <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
+              <TableHead className="w-12 px-4">
+                <Checkbox 
+                  checked={selectedIds.length === filteredPublications.length && filteredPublications.length > 0}
+                  onCheckedChange={(checked) => {
+                    setSelectedIds(checked ? filteredPublications.map(p => p.id) : []);
+                  }}
+                />
+              </TableHead>
               <TableHead className="text-xs font-semibold text-gray-600 uppercase tracking-wider w-[250px] cursor-pointer hover:text-gray-900" onClick={() => toggleSort('name')}>
                 <span className="flex items-center gap-1">Publication <SortIcon field="name" /></span>
               </TableHead>
@@ -568,7 +609,7 @@ const PublicationsListPage = () => {
           <TableBody className="divide-y divide-gray-100">
             {filteredPublications.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-12">
+                <TableCell colSpan={11} className="text-center py-12">
                   <Building2 className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                   <p className="text-gray-500 font-medium">{loading ? 'Loading...' : 'No publications found'}</p>
                   <p className="text-gray-400 text-sm mt-1">Add your first publication to get started</p>
@@ -585,6 +626,16 @@ const PublicationsListPage = () => {
                       data-testid={`publication-row-${pub.id}`}
                       onClick={() => navigate(`/marketing/publication/${pub.id}`)}
                     >
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Checkbox 
+                          checked={selectedIds.includes(pub.id)}
+                          onCheckedChange={(checked) => {
+                            setSelectedIds(prev => 
+                              checked ? [...prev, pub.id] : prev.filter(id => id !== pub.id)
+                            );
+                          }}
+                        />
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
@@ -938,6 +989,37 @@ const PublicationsListPage = () => {
             <Button variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
             <Button onClick={handleSubmit} className="bg-purple-600 hover:bg-purple-700 text-white">
               {editingId ? 'Update Publication' : 'Add Publication'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="w-5 h-5" />
+              Confirm Bulk Delete
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-gray-600">
+              Are you sure you want to delete <strong>{selectedIds.length}</strong> publication{selectedIds.length > 1 ? 's' : ''}?
+            </p>
+            <p className="text-sm text-red-500 mt-2">This action cannot be undone. Journalists will be unlinked from deleted publications.</p>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setShowBulkDeleteConfirm(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              data-testid="confirm-bulk-delete-publications-btn"
+            >
+              {bulkDeleting ? 'Deleting...' : `Delete ${selectedIds.length} Publication${selectedIds.length > 1 ? 's' : ''}`}
             </Button>
           </div>
         </DialogContent>
