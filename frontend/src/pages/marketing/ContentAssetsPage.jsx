@@ -91,9 +91,10 @@ const ContentAssetsPage = () => {
     name: '', template_type: 'email', subject: '', content: '', variables: '', tags: ''
   });
   const [newDelivery, setNewDelivery] = useState({
-    contact_id: '', campaign_id: '', platform: 'instagram', content_type: 'post', content_url: '',
-    title: '', publish_date: '', views: 0, likes: 0, comments: 0, shares: 0, saves: 0, reach: 0
+    contact_id: '', campaign_id: '', deliverable_id: '', platform: 'instagram', content_type: 'post', content_url: '',
+    title: '', publish_date: '', views: 0, likes: 0, comments: 0, shares: 0, saves: 0, reach: 0, rate_amount: 0
   });
+  const [selectedInfluencerRateCards, setSelectedInfluencerRateCards] = useState([]);
   const [newUGC, setNewUGC] = useState({
     contact_id: '', campaign_id: '', platform: 'instagram', content_type: 'post', 
     title: '', media_urls: '', caption: ''
@@ -214,6 +215,20 @@ const ContentAssetsPage = () => {
     }
   }, [api]);
 
+  const fetchInfluencerRateCards = useCallback(async (contactId) => {
+    if (!contactId) {
+      setSelectedInfluencerRateCards([]);
+      return;
+    }
+    try {
+      const response = await api.get(`/marketing/v2/contacts/${contactId}/deliverables`);
+      setSelectedInfluencerRateCards(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch rate cards:', error);
+      setSelectedInfluencerRateCards([]);
+    }
+  }, [api]);
+
   useEffect(() => {
     fetchCampaigns();
     fetchContacts();
@@ -290,16 +305,22 @@ const ContentAssetsPage = () => {
       return;
     }
     try {
+      // Find the selected rate card to get pricing info
+      const selectedRateCard = selectedInfluencerRateCards.find(rc => rc.id === newDelivery.deliverable_id);
+      
       await api.post('/marketing/v2/deliveries/influencer', {
         ...newDelivery,
         campaign_id: newDelivery.campaign_id || null,
+        deliverable_name: selectedRateCard?.name || newDelivery.content_type,
+        rate_amount: selectedRateCard?.rate || newDelivery.rate_amount || 0,
       });
       toast.success('Delivery recorded');
       setShowDeliveryModal(false);
       setNewDelivery({
-        contact_id: '', campaign_id: '', platform: 'instagram', content_type: 'post', content_url: '',
-        title: '', publish_date: '', views: 0, likes: 0, comments: 0, shares: 0, saves: 0, reach: 0
+        contact_id: '', campaign_id: '', deliverable_id: '', platform: 'instagram', content_type: 'post', content_url: '',
+        title: '', publish_date: '', views: 0, likes: 0, comments: 0, shares: 0, saves: 0, reach: 0, rate_amount: 0
       });
+      setSelectedInfluencerRateCards([]);
       fetchDeliveries();
       fetchDeliveryStats();
     } catch (error) {
@@ -1012,7 +1033,14 @@ const ContentAssetsPage = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label className="text-xs uppercase tracking-wider text-gray-500">INFLUENCER *</Label>
-                <Select value={newDelivery.contact_id || 'none'} onValueChange={v => setNewDelivery({...newDelivery, contact_id: v === 'none' ? '' : v})}>
+                <Select 
+                  value={newDelivery.contact_id || 'none'} 
+                  onValueChange={v => {
+                    const contactId = v === 'none' ? '' : v;
+                    setNewDelivery({...newDelivery, contact_id: contactId, deliverable_id: ''});
+                    fetchInfluencerRateCards(contactId);
+                  }}
+                >
                   <SelectTrigger className="mt-1"><SelectValue placeholder="Select..." /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Select Influencer</SelectItem>
@@ -1031,6 +1059,49 @@ const ContentAssetsPage = () => {
                 </Select>
               </div>
             </div>
+            
+            {/* Rate Card Selection - shows when influencer is selected */}
+            {newDelivery.contact_id && (
+              <div className="bg-purple-50 rounded-lg p-3 border border-purple-200">
+                <Label className="text-xs uppercase tracking-wider text-purple-700 mb-2 block">
+                  SELECT RATE CARD / DELIVERABLE
+                </Label>
+                {selectedInfluencerRateCards.length === 0 ? (
+                  <p className="text-sm text-gray-500 italic">No rate cards found for this influencer</p>
+                ) : (
+                  <Select 
+                    value={newDelivery.deliverable_id || 'none'} 
+                    onValueChange={v => {
+                      const rateCard = selectedInfluencerRateCards.find(rc => rc.id === v);
+                      setNewDelivery({
+                        ...newDelivery, 
+                        deliverable_id: v === 'none' ? '' : v,
+                        content_type: rateCard?.name?.toLowerCase().includes('reel') ? 'reel' :
+                                      rateCard?.name?.toLowerCase().includes('story') ? 'story' :
+                                      rateCard?.name?.toLowerCase().includes('video') ? 'video' : 'post',
+                        rate_amount: rateCard?.rate || 0
+                      });
+                    }}
+                  >
+                    <SelectTrigger className="bg-white"><SelectValue placeholder="Select rate card..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Select Rate Card</SelectItem>
+                      {selectedInfluencerRateCards.map(rc => (
+                        <SelectItem key={rc.id} value={rc.id}>
+                          {rc.name} - ₹{(rc.rate || 0).toLocaleString()}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {newDelivery.deliverable_id && (
+                  <p className="text-xs text-purple-600 mt-2">
+                    Rate: ₹{(selectedInfluencerRateCards.find(rc => rc.id === newDelivery.deliverable_id)?.rate || 0).toLocaleString()}
+                  </p>
+                )}
+              </div>
+            )}
+            
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label className="text-xs uppercase tracking-wider text-gray-500">PLATFORM</Label>

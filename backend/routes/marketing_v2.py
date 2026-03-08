@@ -2066,9 +2066,12 @@ async def get_influencer_deliveries(
     for delivery in deliveries:
         if delivery.get("contact_id"):
             contact = await db.contacts.find_one({"id": delivery["contact_id"]}, {"name": 1})
-            delivery["contact_name"] = contact.get("name") if contact else None
+            delivery["contact_name"] = contact.get("name") if contact else "Unknown"
         if delivery.get("campaign_id"):
-            campaign = await db.campaigns.find_one({"id": delivery["campaign_id"]}, {"name": 1})
+            # Check both marketing_campaigns and campaigns collections
+            campaign = await db.marketing_campaigns.find_one({"id": delivery["campaign_id"]}, {"name": 1})
+            if not campaign:
+                campaign = await db.campaigns.find_one({"id": delivery["campaign_id"]}, {"name": 1})
             delivery["campaign_name"] = campaign.get("name") if campaign else None
         
         # Calculate engagement rate
