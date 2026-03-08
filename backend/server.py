@@ -1,6 +1,6 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, BackgroundTasks, Query, WebSocket, WebSocketDisconnect, Body
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, BackgroundTasks, Query, WebSocket, WebSocketDisconnect, Body, File, UploadFile
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -2392,6 +2392,72 @@ async def upload_to_library(data: dict, user: dict = Depends(require_department(
     await db.content_library.insert_one(item_doc)
     if '_id' in item_doc: del item_doc['_id']
     return item_doc
+
+# ============== FILE UPLOAD ==============
+@api_router.post("/upload/image")
+async def upload_image(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    """Upload an image file and return its URL"""
+    try:
+        # Read file content
+        content = await file.read()
+        
+        # Validate file size (max 10MB)
+        if len(content) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB")
+        
+        # Validate file type
+        allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+        if file.content_type not in allowed_types:
+            raise HTTPException(status_code=400, detail=f"Invalid file type. Allowed: {', '.join(allowed_types)}")
+        
+        # Generate unique filename
+        file_ext = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+        unique_filename = f"{uuid.uuid4()}.{file_ext}"
+        
+        # Store in database as base64 (for simplicity - in production use S3/Cloud Storage)
+        file_doc = {
+            "id": str(uuid.uuid4()),
+            "filename": unique_filename,
+            "original_filename": file.filename,
+            "content_type": file.content_type,
+            "size": len(content),
+            "data": base64.b64encode(content).decode('utf-8'),
+            "uploaded_by": user['id'],
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        await db.uploaded_files.insert_one(file_doc)
+        
+        # Return URL that serves the file
+        backend_url = os.environ.get('BACKEND_URL', '')
+        file_url = f"{backend_url}/api/files/{unique_filename}"
+        
+        return {
+            "url": file_url,
+            "filename": unique_filename,
+            "original_filename": file.filename,
+            "size": len(content)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Upload error: {e}")
+        raise HTTPException(status_code=500, detail="Upload failed")
+
+@api_router.get("/files/{filename}")
+async def serve_file(filename: str):
+    """Serve an uploaded file"""
+    file_doc = await db.uploaded_files.find_one({"filename": filename})
+    if not file_doc:
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    content = base64.b64decode(file_doc['data'])
+    return StreamingResponse(
+        io.BytesIO(content),
+        media_type=file_doc.get('content_type', 'image/jpeg'),
+        headers={"Content-Disposition": f"inline; filename={filename}"}
+    )
 
 # ============== SOCIAL YOUTUBE ==============
 @social_router.get("/youtube")

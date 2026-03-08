@@ -3,7 +3,7 @@ import api from '../../lib/api';
 import {
   FileText, Trash2, Send, Clock, CheckCircle, Calendar as CalIcon,
   ChevronLeft, ChevronRight, Loader2, Heart, MessageSquare, Share2,
-  Plus, X, Image, Globe, List, Grid3X3, CalendarDays, Eye, Upload, AlertTriangle, Info, ExternalLink, Sparkles, Edit3
+  Plus, X, Image, Globe, List, Grid3X3, CalendarDays, Eye, Upload, AlertTriangle, Info, ExternalLink, Sparkles, Edit3, Check
 } from 'lucide-react';
 import { FaFacebook, FaInstagram, FaTwitter, FaLinkedin, FaYoutube } from 'react-icons/fa';
 import { format, startOfWeek, addDays, addWeeks, subWeeks, isToday, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths } from 'date-fns';
@@ -474,59 +474,63 @@ export default function PostsAndSchedule() {
               <div className="fixed inset-0 z-50 bg-black/70 flex items-start justify-center pt-8" onClick={(e) => { if (e.target === e.currentTarget) setShowComposer(false); }}>
                 <div className="bg-white rounded-2xl border border-[#D4BBA6] w-[900px] max-h-[85vh] overflow-hidden flex flex-col shadow-2xl" data-testid="composer-modal">
                   {/* Header */}
-                  <div className="flex items-center justify-between px-6 py-4 border-b border-[#E8D5C4]">
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-[#E8D5C4] bg-gradient-to-r from-rose-50 to-pink-50">
                     <div className="flex items-center gap-4">
-                      <h2 className="text-lg font-heading font-bold text-[#4A3728]">{editingPost ? 'Edit Post' : 'Create Post'}</h2>
-                      <button className="text-xs text-[#5D4A3A] hover:text-white border border-[#D4BBA6] rounded-lg px-3 py-1.5 flex items-center gap-1.5 hover:bg-[#F5EDE5]"><Sparkles className="w-3.5 h-3.5" /> AI Assistant</button>
+                      <h2 className="text-lg font-bold text-[#4A3728]">{editingPost ? 'Edit Post' : 'Create Post'}</h2>
+                      <button className="text-xs text-rose-600 hover:text-rose-700 border border-rose-200 rounded-lg px-3 py-1.5 flex items-center gap-1.5 hover:bg-rose-50 transition-colors"><Sparkles className="w-3.5 h-3.5" /> AI Assistant</button>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button className={`text-xs px-3 py-1.5 rounded-lg transition-all ${previewTab === 'compose' ? 'bg-[#E8D5C4] text-white' : 'text-[#5D4A3A] hover:text-white'}`} onClick={() => setPreviewTab('compose')}>Compose</button>
-                      <button className={`text-xs px-3 py-1.5 rounded-lg transition-all ${previewTab === 'preview' ? 'bg-amber-800/15 text-amber-600' : 'text-[#5D4A3A] hover:text-white'}`} onClick={() => setPreviewTab('preview')}>Preview</button>
-                      <button onClick={() => setShowComposer(false)} className="p-2 rounded-lg hover:bg-[#F5EDE5] text-[#5D4A3A] ml-2"><X className="w-5 h-5" /></button>
+                      <div className="flex bg-white rounded-lg border border-[#E8D5C4] p-0.5">
+                        <button className={`text-xs px-3 py-1.5 rounded-md transition-all font-medium ${previewTab === 'compose' ? 'bg-rose-100 text-rose-700' : 'text-[#5D4A3A] hover:text-[#4A3728]'}`} onClick={() => setPreviewTab('compose')}>Compose</button>
+                        <button className={`text-xs px-3 py-1.5 rounded-md transition-all font-medium ${previewTab === 'preview' ? 'bg-rose-100 text-rose-700' : 'text-[#5D4A3A] hover:text-[#4A3728]'}`} onClick={() => setPreviewTab('preview')}>Preview</button>
+                      </div>
+                      <button onClick={() => setShowComposer(false)} className="p-2 rounded-lg hover:bg-rose-100 text-[#5D4A3A] ml-2"><X className="w-5 h-5" /></button>
                     </div>
                   </div>
 
                   {/* Body - Split Layout */}
                   <div className="flex flex-1 overflow-hidden">
                     {/* Left: Compose */}
-                    <div className="flex-1 flex flex-col border-r border-[#E8D5C4] overflow-y-auto">
-                      {/* Platform Avatars */}
-                      <div className="px-6 pt-5 pb-3 flex items-center gap-3">
-                        {platforms.map(p => {
-                          const active = cPlatforms.includes(p.key);
-                          return (
-                            <button key={p.key} onClick={() => togglePlatform(p.key)} className={`relative w-12 h-12 rounded-full border-2 transition-all flex items-center justify-center ${active ? 'border-white/30 bg-[#E8D5C4]' : 'border-[#E8D5C4] opacity-40 hover:opacity-70'}`} title={p.label}>
-                              <p.icon className="w-5 h-5" style={{ color: active ? p.color : '#555' }} />
-                              <div className={`absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold ${active ? 'text-white' : 'bg-gray-200 text-[#5D4A3A]'}`} style={active ? { backgroundColor: p.color } : {}}>
-                                {p.label.charAt(0)}
-                              </div>
-                            </button>
-                          );
-                        })}
+                    <div className="flex-1 flex flex-col border-r border-[#E8D5C4] overflow-y-auto bg-white">
+                      {/* Platform Selection */}
+                      <div className="px-6 pt-5 pb-3">
+                        <p className="text-[10px] text-[#5D4A3A] uppercase tracking-wider mb-3 font-medium">Select Platforms</p>
+                        <div className="flex items-center gap-3">
+                          {platforms.map(p => {
+                            const active = cPlatforms.includes(p.key);
+                            return (
+                              <button key={p.key} onClick={() => togglePlatform(p.key)} className={`relative flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${active ? 'border-rose-300 bg-rose-50' : 'border-[#E8D5C4] hover:border-rose-200 hover:bg-rose-50/50'}`} title={p.label}>
+                                <p.icon className="w-5 h-5" style={{ color: active ? p.color : '#9ca3af' }} />
+                                <span className={`text-[10px] font-medium ${active ? 'text-[#4A3728]' : 'text-[#5D4A3A]'}`}>{p.label}</span>
+                                {active && <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-rose-500 flex items-center justify-center"><Check className="w-3 h-3 text-white" /></div>}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
 
                       {/* Text Area */}
                       <div className="flex-1 px-6 pb-3">
                         {/* Platform content tabs */}
                         {cPlatforms.length > 1 && (
-                          <div className="flex gap-1 mb-2">
+                          <div className="flex gap-1 mb-3 bg-[#F5EDE5] rounded-lg p-1">
                             {cPlatforms.map(p => { const m = platforms.find(x => x.key === p); return (
-                              <button key={p} onClick={() => setPreviewPlatform(p)} className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${previewPlatform === p ? 'bg-[#E8D5C4] text-white' : 'text-[#5D4A3A] hover:text-[#4A3728]'}`}>
-                                <m.icon className="w-3 h-3" style={{ color: previewPlatform === p ? m.color : '#666' }} /> {m.label}
+                              <button key={p} onClick={() => setPreviewPlatform(p)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${previewPlatform === p ? 'bg-white text-[#4A3728] shadow-sm' : 'text-[#5D4A3A] hover:text-[#4A3728]'}`}>
+                                <m.icon className="w-3.5 h-3.5" style={{ color: previewPlatform === p ? m.color : '#9ca3af' }} /> {m.label}
                               </button>
                             ); })}
                           </div>
                         )}
                         <textarea value={getContent(previewPlatform)} onChange={(e) => setContent(previewPlatform, e.target.value)}
-                          className="w-full h-48 bg-transparent text-white text-[15px] leading-relaxed placeholder-[#5D4A3A]/600 resize-none focus:outline-none"
+                          className="w-full h-48 bg-[#F5EDE5] rounded-xl border border-[#E8D5C4] text-[#4A3728] text-[15px] leading-relaxed placeholder-[#9ca3af] resize-none focus:outline-none focus:border-rose-300 p-4"
                           placeholder="What would you like to share?"
                           data-testid="composer-textarea"
                         />
                         {/* Char count */}
-                        <div className="flex items-center justify-between text-[10px] mt-1">
+                        <div className="flex items-center justify-between text-xs mt-2">
                           <div className="flex items-center gap-2">
-                            <div className="w-16 h-1 rounded-full bg-[#E8D5C4] overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${charPercent}%`, backgroundColor: charColor }} /></div>
-                            <span style={{ color: charColor }}>{currentContent.length}/{currentPlatformConfig.maxChars}</span>
+                            <div className="w-20 h-1.5 rounded-full bg-[#E8D5C4] overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${charPercent}%`, backgroundColor: charColor }} /></div>
+                            <span style={{ color: charColor }} className="font-medium">{currentContent.length}/{currentPlatformConfig.maxChars}</span>
                           </div>
                           <span className="text-[#5D4A3A]">Optimal: {currentPlatformConfig.optimalChars} chars</span>
                         </div>
@@ -534,74 +538,78 @@ export default function PostsAndSchedule() {
 
                       {/* Image Upload Area - Multiple Images */}
                       <div className="px-6 pb-3">
+                        <p className="text-[10px] text-[#5D4A3A] uppercase tracking-wider mb-2 font-medium">Media</p>
                         {cImages.length > 0 && (
                           <div className="flex gap-2 mb-2 flex-wrap">
                             {cImages.map((img, i) => (
-                              <div key={i} className="relative w-24 h-24 rounded-xl overflow-hidden border border-[#D4BBA6] group">
+                              <div key={i} className="relative w-24 h-24 rounded-xl overflow-hidden border-2 border-[#E8D5C4] group hover:border-rose-300 transition-colors">
                                 <img src={img.url} alt="" className="w-full h-full object-cover" />
                                 <button onClick={() => removeImage(i)} className="absolute top-1 right-1 p-1 rounded-full bg-black/70 text-white hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-3 h-3" /></button>
-                                {i === 0 && <span className="absolute bottom-1 left-1 text-[8px] bg-amber-800 text-white px-1.5 py-0.5 rounded">Primary</span>}
+                                {i === 0 && <span className="absolute bottom-1 left-1 text-[8px] bg-rose-500 text-white px-1.5 py-0.5 rounded font-medium">Primary</span>}
                               </div>
                             ))}
                             <button onClick={() => fileRef.current?.click()} disabled={uploading}
-                              className="w-24 h-24 rounded-xl border-2 border-dashed border-[#D4BBA6] hover:border-amber-600/30 text-[#5D4A3A] hover:text-amber-600 flex flex-col items-center justify-center gap-1 transition-all disabled:opacity-50">
+                              className="w-24 h-24 rounded-xl border-2 border-dashed border-[#D4BBA6] hover:border-rose-400 text-[#5D4A3A] hover:text-rose-500 flex flex-col items-center justify-center gap-1 transition-all disabled:opacity-50">
                               {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                              <span className="text-[9px]">Add</span>
+                              <span className="text-[9px] font-medium">Add More</span>
                             </button>
                           </div>
                         )}
                         {cImages.length === 0 && (
                           <button onClick={() => fileRef.current?.click()} disabled={uploading}
-                            className="w-32 h-24 rounded-xl border-2 border-dashed border-[#D4BBA6] hover:border-amber-600/30 text-[#5D4A3A] hover:text-amber-600 flex flex-col items-center justify-center gap-1 transition-all disabled:opacity-50 mb-2">
-                            {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
-                            <span className="text-[10px]">{uploading ? 'Uploading...' : 'Drag & drop or select files'}</span>
+                            className="w-full h-28 rounded-xl border-2 border-dashed border-[#D4BBA6] hover:border-rose-400 bg-[#F5EDE5] hover:bg-rose-50 text-[#5D4A3A] hover:text-rose-500 flex flex-col items-center justify-center gap-2 transition-all disabled:opacity-50">
+                            {uploading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Upload className="w-6 h-6" />}
+                            <span className="text-xs font-medium">{uploading ? 'Uploading...' : 'Drop images here or click to upload'}</span>
+                            <span className="text-[10px] text-[#9ca3af]">PNG, JPG, GIF up to 10MB</span>
                           </button>
                         )}
                         <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
                       </div>
 
                       {/* Bottom Toolbar */}
-                      <div className="px-6 py-3 border-t border-[#E8D5C4] flex items-center justify-between">
+                      <div className="px-6 py-3 border-t border-[#E8D5C4] flex items-center justify-between bg-[#F5EDE5]">
                         <div className="flex items-center gap-1">
-                          <button className="p-2 rounded-lg hover:bg-[#F5EDE5] text-[#5D4A3A] hover:text-[#4A3728]" title="Add media" onClick={() => fileRef.current?.click()}><Plus className="w-4 h-4" /></button>
-                          <span className="w-px h-5 bg-[#E8D5C4]" />
-                          <button className="p-2 rounded-lg hover:bg-[#F5EDE5] text-[#5D4A3A] hover:text-[#4A3728]" title="Emoji">
-                            <span className="text-sm">&#128522;</span>
+                          <button className="p-2 rounded-lg hover:bg-white text-[#5D4A3A] hover:text-rose-500 transition-colors" title="Add media" onClick={() => fileRef.current?.click()}><Plus className="w-4 h-4" /></button>
+                          <span className="w-px h-5 bg-[#D4BBA6]" />
+                          <button className="p-2 rounded-lg hover:bg-white text-[#5D4A3A] hover:text-rose-500 transition-colors" title="Emoji">
+                            <span className="text-sm">😊</span>
                           </button>
-                          <button className="p-2 rounded-lg hover:bg-[#F5EDE5] text-[#5D4A3A] hover:text-white text-sm font-bold" title="Hashtag">#</button>
+                          <button className="p-2 rounded-lg hover:bg-white text-[#5D4A3A] hover:text-rose-500 text-sm font-bold transition-colors" title="Hashtag">#</button>
                         </div>
                         {currentPlatformConfig.imageRequired && !primaryImage && (
-                          <span className="text-[10px] text-amber-400 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {currentPlatformConfig.label} requires an image</span>
+                          <span className="text-[10px] text-amber-600 flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-lg"><AlertTriangle className="w-3 h-3" /> {currentPlatformConfig.label} requires an image</span>
                         )}
                       </div>
                     </div>
 
                     {/* Right: Live Preview */}
-                    <div className="w-[360px] flex-shrink-0 bg-[#F5EDE5] overflow-y-auto">
+                    <div className="w-[360px] flex-shrink-0 bg-gradient-to-b from-[#F5EDE5] to-white overflow-y-auto">
                       <div className="p-5">
-                        <h3 className="text-sm font-heading font-semibold text-[#4A3728] mb-4">Post Previews</h3>
+                        <h3 className="text-sm font-semibold text-[#4A3728] mb-4">Live Preview</h3>
                         {/* Preview tabs */}
-                        <div className="flex gap-1 mb-4">
+                        <div className="flex gap-1 mb-4 bg-white rounded-lg p-1 border border-[#E8D5C4]">
                           {cPlatforms.map(p => { const m = platforms.find(x => x.key === p); return (
-                            <button key={p} onClick={() => setPreviewPlatform(p)} className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-all ${previewPlatform === p ? 'bg-[#E8D5C4] text-white' : 'text-[#5D4A3A] hover:text-[#4A3728]'}`}>
-                              <m.icon className="w-3.5 h-3.5" style={{ color: previewPlatform === p ? m.color : '#666' }} /> {m.label}
+                            <button key={p} onClick={() => setPreviewPlatform(p)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all flex-1 justify-center ${previewPlatform === p ? 'bg-rose-100 text-rose-700' : 'text-[#5D4A3A] hover:text-[#4A3728]'}`}>
+                              <m.icon className="w-3.5 h-3.5" style={{ color: previewPlatform === p ? m.color : '#9ca3af' }} /> {m.label}
                             </button>
                           ); })}
                         </div>
                         {/* Preview */}
-                        <div className="rounded-xl overflow-hidden border border-[#D4BBA6] shadow-lg">
+                        <div className="rounded-xl overflow-hidden border border-[#D4BBA6] shadow-lg bg-white">
                           {previewPlatform === 'linkedin' && <LinkedInPreview content={getContent('linkedin')} image={primaryImage} />}
                           {previewPlatform === 'instagram' && <InstagramPreview content={getContent('instagram')} image={primaryImage} />}
                           {previewPlatform === 'facebook' && <FacebookPreview content={getContent('facebook')} image={primaryImage} />}
                           {previewPlatform === 'twitter' && <TwitterPreview content={getContent('twitter')} image={primaryImage} />}
                         </div>
                         {/* Platform tip */}
-                        <div className="mt-3 p-2.5 bg-[#F5EDE5] rounded-lg text-[10px] text-[#5D4A3A] flex items-start gap-1.5">
-                          <Info className="w-3 h-3 mt-0.5 flex-shrink-0 text-amber-600" />
-                          {currentPlatformConfig.key === 'twitter' ? 'Keep under 280 chars. Tweets with images get 150% more retweets.' :
-                           currentPlatformConfig.key === 'instagram' ? 'First 125 chars visible. Image required. Use up to 30 hashtags.' :
-                           currentPlatformConfig.key === 'linkedin' ? 'Start with a hook. Use line breaks for readability. 3-5 hashtags.' :
-                           'Shorter posts get more engagement. Questions drive comments.'}
+                        <div className="mt-3 p-3 bg-blue-50 rounded-lg text-xs text-blue-700 flex items-start gap-2 border border-blue-100">
+                          <Info className="w-4 h-4 mt-0.5 flex-shrink-0 text-blue-500" />
+                          <span>
+                            {currentPlatformConfig.key === 'twitter' ? 'Keep under 280 chars. Tweets with images get 150% more retweets.' :
+                             currentPlatformConfig.key === 'instagram' ? 'First 125 chars visible. Image required. Use up to 30 hashtags.' :
+                             currentPlatformConfig.key === 'linkedin' ? 'Start with a hook. Use line breaks for readability. 3-5 hashtags.' :
+                             'Shorter posts get more engagement. Questions drive comments.'}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -613,7 +621,7 @@ export default function PostsAndSchedule() {
                     {cPlatforms.length > 1 && (
                       <div className="flex items-center gap-3 mb-3">
                         <label className="flex items-center gap-2 text-xs text-[#5D4A3A] cursor-pointer">
-                          <input type="checkbox" checked={cSameTime} onChange={(e) => setCSameTime(e.target.checked)} className="rounded bg-[#E8D5C4] border-[#D4BBA6] text-amber-600 focus:ring-violet-600/20" />
+                          <input type="checkbox" checked={cSameTime} onChange={(e) => setCSameTime(e.target.checked)} className="rounded bg-white border-[#D4BBA6] text-rose-500 focus:ring-rose-500/20" />
                           Same time for all platforms
                         </label>
                       </div>
@@ -624,42 +632,44 @@ export default function PostsAndSchedule() {
                         {cPlatforms.map(p => { const m = platforms.find(x => x.key === p); const s = getSchedule(p); return (
                           <div key={p} className="flex items-center gap-3 bg-[#F5EDE5] rounded-lg px-3 py-2">
                             <m.icon className="w-3.5 h-3.5" style={{ color: m.color }} />
-                            <span className="text-xs text-white w-20">{m.label}</span>
-                            <input type="date" value={s.date} onChange={(e) => setPlatformSchedule(p, 'date', e.target.value)} className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg px-2 py-1 text-xs text-[#4A3728]" />
-                            <input type="time" value={s.time} onChange={(e) => setPlatformSchedule(p, 'time', e.target.value)} className="bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg px-2 py-1 text-xs text-[#4A3728]" />
+                            <span className="text-xs text-[#4A3728] font-medium w-20">{m.label}</span>
+                            <input type="date" value={s.date} onChange={(e) => setPlatformSchedule(p, 'date', e.target.value)} className="bg-white border border-[#D4BBA6] rounded-lg px-2 py-1 text-xs text-[#4A3728]" />
+                            <input type="time" value={s.time} onChange={(e) => setPlatformSchedule(p, 'time', e.target.value)} className="bg-white border border-[#D4BBA6] rounded-lg px-2 py-1 text-xs text-[#4A3728]" />
                           </div>
                         ); })}
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2 bg-[#E8D5C4] rounded-lg px-3 py-2 border border-[#D4BBA6] mb-3 w-fit">
-                        <Clock className="w-4 h-4 text-[#5D4A3A]" />
-                        <input type="date" value={cDate} onChange={(e) => setCDate(e.target.value)} className="bg-transparent text-xs text-white w-28" />
-                        <input type="time" value={cTime} onChange={(e) => setCTime(e.target.value)} className="bg-transparent text-xs text-white w-20" />
+                      <div className="flex items-center gap-3 bg-[#F5EDE5] rounded-lg px-4 py-3 border border-[#E8D5C4] mb-3 w-fit">
+                        <Clock className="w-4 h-4 text-rose-500" />
+                        <div className="flex items-center gap-2">
+                          <input type="date" value={cDate} onChange={(e) => setCDate(e.target.value)} className="bg-white border border-[#D4BBA6] rounded-lg px-2 py-1 text-xs text-[#4A3728] w-32" />
+                          <input type="time" value={cTime} onChange={(e) => setCTime(e.target.value)} className="bg-white border border-[#D4BBA6] rounded-lg px-2 py-1 text-xs text-[#4A3728] w-24" />
+                        </div>
                       </div>
                     )}
 
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        {cError && <span className="text-xs text-red-400">{cError}</span>}
-                        {cResult && cResult._scheduled && <span className="text-xs text-amber-600 flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5" /> {editingPost ? 'Updated!' : 'Scheduled!'}</span>}
+                        {cError && <span className="text-xs text-red-500 bg-red-50 px-2 py-1 rounded-lg">{cError}</span>}
+                        {cResult && cResult._scheduled && <span className="text-xs text-green-600 flex items-center gap-1 bg-green-50 px-2 py-1 rounded-lg"><CheckCircle className="w-3.5 h-3.5" /> {editingPost ? 'Updated!' : 'Scheduled!'}</span>}
                         {cResult && !cResult._scheduled && Object.entries(cResult).map(([p, r]) => (
-                          <span key={p} className={`text-xs flex items-center gap-1 ${r.success ? 'text-stone-400' : 'text-red-400'}`}>
+                          <span key={p} className={`text-xs flex items-center gap-1 px-2 py-1 rounded-lg ${r.success ? 'text-green-600 bg-green-50' : 'text-red-500 bg-red-50'}`}>
                             {r.success ? <CheckCircle className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />} {p}: {r.success ? 'Done!' : 'Failed'}
                           </span>
                         ))}
                       </div>
                       <div className="flex items-center gap-2">
                         <button onClick={() => handleSubmit('draft')} disabled={cSaving}
-                          className="bg-[#E8D5C4] hover:bg-gray-200 text-white border border-[#D4BBA6] rounded-lg font-medium px-4 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 transition-all"
+                          className="bg-white hover:bg-[#F5EDE5] text-[#4A3728] border border-[#D4BBA6] rounded-lg font-medium px-4 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 transition-all"
                         ><FileText className="w-4 h-4" /> Save Draft</button>
                         <button onClick={() => handleSubmit('schedule')} disabled={cSaving}
-                          className="bg-gray-200 hover:bg-zinc-600 text-white border border-[#D4BBA6] rounded-lg font-medium px-4 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 transition-all"
+                          className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium px-4 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 transition-all"
                           data-testid="composer-schedule"
                         >{cSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clock className="w-4 h-4" />} Schedule</button>
                         <button onClick={() => handleSubmit('post_now')} disabled={cSaving}
-                          className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 shadow-[0_0_15px_rgba(124,58,237,0.3)] transition-all"
+                          className="bg-rose-500 hover:bg-rose-600 text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 shadow-lg transition-all"
                           data-testid="composer-publish"
-                        >{cSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />} Publish Now</button>
+                        >{cSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Publish Now</button>
                       </div>
                     </div>
                   </div>
