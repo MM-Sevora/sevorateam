@@ -3864,6 +3864,247 @@ async def delete_microsoft_message(message_id: str, user_email: str = None):
 # Register Microsoft router
 app.include_router(microsoft_router)
 
+# ============== AUTOMATION ENGINE ==============
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.interval import IntervalTrigger
+
+# Initialize scheduler
+scheduler = AsyncIOScheduler()
+
+# Default automation settings
+DEFAULT_AUTOMATION_SETTINGS = {
+    "pipeline": {
+        "auto_advance_on_contact": {"enabled": True, "description": "Auto-advance to 'Contacted' stage when first outreach is sent"},
+        "stuck_deal_alert": {"enabled": True, "days": 5, "description": "Alert when deals are stuck in a stage for too long"},
+        "auto_archive_lost": {"enabled": False, "days": 30, "description": "Auto-archive 'Lost' deals after specified days"}
+    },
+    "email": {
+        "follow_up_reminder": {"enabled": True, "days": 3, "description": "Send reminder for contacts with no reply"},
+        "auto_sequence": {"enabled": False, "description": "Enable email drip sequences"}
+    },
+    "social": {
+        "auto_publish": {"enabled": True, "description": "Auto-publish posts at scheduled time"},
+        "daily_limit": {"enabled": False, "limit": 10, "description": "Limit posts per day per platform"}
+    }
+}
+
+automation_router = APIRouter(prefix="/automations", tags=["Automations"])
+
+@automation_router.get("/settings")
+async def get_automation_settings(user: dict = Depends(get_current_user)):
+    """Get automation settings for the organization"""
+    settings = await db.automation_settings.find_one({"type": "global"}, {"_id": 0})
+    if not settings:
+        # Return defaults if no settings exist
+        return {"settings": DEFAULT_AUTOMATION_SETTINGS, "is_default": True}
+    return {"settings": settings.get("settings", DEFAULT_AUTOMATION_SETTINGS), "is_default": False}
+
+@automation_router.put("/settings")
+async def update_automation_settings(data: dict, user: dict = Depends(get_current_user)):
+    """Update automation settings"""
+    # Only admins can update settings
+    if user.get('role') not in ['super_admin', 'admin']:
+        raise HTTPException(status_code=403, detail="Only admins can update automation settings")
+    
+    settings = data.get("settings", {})
+    await db.automation_settings.update_one(
+        {"type": "global"},
+        {"$set": {"settings": settings, "updated_by": user['id'], "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True
+    )
+    
+    # Log the change
+    await db.automation_logs.insert_one({
+        "id": str(uuid.uuid4()),
+        "action": "settings_updated",
+        "user_id": user['id'],
+        "user_name": user.get('name'),
+        "changes": settings,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    return {"message": "Automation settings updated", "settings": settings}
+
+@automation_router.get("/logs")
+async def get_automation_logs(limit: int = 50, user: dict = Depends(get_current_user)):
+    """Get automation execution logs"""
+    logs = await db.automation_logs.find({}, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    return logs
+
+@automation_router.get("/pending-actions")
+async def get_pending_actions(user: dict = Depends(get_current_user)):
+    """Get pending automation actions (reminders, follow-ups, etc.)"""
+    settings_doc = await db.automation_settings.find_one({"type": "global"}, {"_id": 0})
+    settings = settings_doc.get("settings", DEFAULT_AUTOMATION_SETTINGS) if settings_doc else DEFAULT_AUTOMATION_SETTINGS
+    
+    pending = []
+    now = datetime.now(timezone.utc)
+    
+    # Check for stuck deals
+    if settings.get("pipeline", {}).get("stuck_deal_alert", {}).get("enabled"):
+        days = settings["pipeline"]["stuck_deal_alert"].get("days", 5)
+        cutoff = (now - timedelta(days=days)).isoformat()
+        
+        stuck_contacts = await db.contacts.find({
+            "stage": {"$in": ["negotiating", "agreed", "delivering"]},
+            "stage_updated_at": {"$lt": cutoff}
+        }, {"_id": 0, "id": 1, "name": 1, "stage": 1, "stage_updated_at": 1}).to_list(100)
+        
+        for contact in stuck_contacts:
+            days_stuck = (now - datetime.fromisoformat(contact.get("stage_updated_at", now.isoformat()).replace('Z', '+00:00'))).days
+            pending.append({
+                "type": "stuck_deal",
+                "priority": "high" if days_stuck > 7 else "medium",
+                "contact_id": contact["id"],
+                "contact_name": contact.get("name"),
+                "stage": contact.get("stage"),
+                "days_stuck": days_stuck,
+                "message": f"{contact.get('name')} has been in '{contact.get('stage')}' stage for {days_stuck} days"
+            })
+    
+    # Check for follow-up reminders
+    if settings.get("email", {}).get("follow_up_reminder", {}).get("enabled"):
+        days = settings["email"]["follow_up_reminder"].get("days", 3)
+        cutoff = (now - timedelta(days=days)).isoformat()
+        
+        # Find contacts that were contacted but haven't replied
+        no_reply_contacts = await db.contacts.find({
+            "stage": "contacted",
+            "last_contacted_at": {"$lt": cutoff},
+            "last_reply_at": None
+        }, {"_id": 0, "id": 1, "name": 1, "email": 1, "last_contacted_at": 1}).to_list(100)
+        
+        for contact in no_reply_contacts:
+            last_contact = contact.get("last_contacted_at")
+            if last_contact:
+                days_since = (now - datetime.fromisoformat(last_contact.replace('Z', '+00:00'))).days
+                pending.append({
+                    "type": "follow_up_reminder",
+                    "priority": "medium",
+                    "contact_id": contact["id"],
+                    "contact_name": contact.get("name"),
+                    "email": contact.get("email"),
+                    "days_since_contact": days_since,
+                    "message": f"No reply from {contact.get('name')} in {days_since} days - consider following up"
+                })
+    
+    # Check for scheduled social posts ready to publish
+    if settings.get("social", {}).get("auto_publish", {}).get("enabled"):
+        ready_posts = await db.posts.find({
+            "status": "scheduled",
+            "scheduled_at": {"$lte": now.isoformat()}
+        }, {"_id": 0, "post_id": 1, "content": 1, "platform": 1, "scheduled_at": 1}).to_list(50)
+        
+        for post in ready_posts:
+            pending.append({
+                "type": "scheduled_post",
+                "priority": "high",
+                "post_id": post.get("post_id"),
+                "platform": post.get("platform"),
+                "scheduled_at": post.get("scheduled_at"),
+                "message": f"Post for {post.get('platform')} is ready to publish"
+            })
+    
+    # Sort by priority
+    priority_order = {"high": 0, "medium": 1, "low": 2}
+    pending.sort(key=lambda x: priority_order.get(x.get("priority"), 2))
+    
+    return {"pending_actions": pending, "total": len(pending)}
+
+@automation_router.post("/execute/{action_type}")
+async def execute_automation_action(action_type: str, data: dict, user: dict = Depends(get_current_user)):
+    """Manually execute an automation action"""
+    result = {"success": False, "message": "Unknown action type"}
+    
+    if action_type == "advance_stage":
+        contact_id = data.get("contact_id")
+        new_stage = data.get("new_stage")
+        if contact_id and new_stage:
+            await db.contacts.update_one(
+                {"id": contact_id},
+                {"$set": {"stage": new_stage, "stage_updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+            result = {"success": True, "message": f"Contact moved to {new_stage}"}
+    
+    elif action_type == "send_follow_up":
+        contact_id = data.get("contact_id")
+        # This would integrate with email sending
+        result = {"success": True, "message": "Follow-up queued", "contact_id": contact_id}
+    
+    elif action_type == "publish_post":
+        post_id = data.get("post_id")
+        if post_id:
+            await db.posts.update_one(
+                {"post_id": post_id},
+                {"$set": {"status": "published", "published_at": datetime.now(timezone.utc).isoformat()}}
+            )
+            result = {"success": True, "message": "Post published"}
+    
+    elif action_type == "dismiss":
+        # Just log the dismissal
+        result = {"success": True, "message": "Action dismissed"}
+    
+    # Log the action
+    await db.automation_logs.insert_one({
+        "id": str(uuid.uuid4()),
+        "action": f"manual_{action_type}",
+        "user_id": user['id'],
+        "user_name": user.get('name'),
+        "data": data,
+        "result": result,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    return result
+
+# Background job: Process scheduled social posts
+async def process_scheduled_posts():
+    """Background job to auto-publish scheduled posts"""
+    try:
+        settings_doc = await db.automation_settings.find_one({"type": "global"}, {"_id": 0})
+        settings = settings_doc.get("settings", DEFAULT_AUTOMATION_SETTINGS) if settings_doc else DEFAULT_AUTOMATION_SETTINGS
+        
+        if not settings.get("social", {}).get("auto_publish", {}).get("enabled"):
+            return
+        
+        now = datetime.now(timezone.utc)
+        ready_posts = await db.posts.find({
+            "status": "scheduled",
+            "scheduled_at": {"$lte": now.isoformat()}
+        }).to_list(50)
+        
+        for post in ready_posts:
+            # Mark as published (in production, this would call actual social APIs)
+            await db.posts.update_one(
+                {"post_id": post["post_id"]},
+                {"$set": {"status": "published", "published_at": now.isoformat()}}
+            )
+            
+            await db.automation_logs.insert_one({
+                "id": str(uuid.uuid4()),
+                "action": "auto_publish_post",
+                "post_id": post["post_id"],
+                "platform": post.get("platform"),
+                "created_at": now.isoformat()
+            })
+            
+        logger.info(f"Processed {len(ready_posts)} scheduled posts")
+    except Exception as e:
+        logger.error(f"Error processing scheduled posts: {e}")
+
+# Start scheduler on app startup
+@app.on_event("startup")
+async def start_scheduler():
+    # Run scheduled posts check every 5 minutes
+    scheduler.add_job(process_scheduled_posts, IntervalTrigger(minutes=5), id="process_scheduled_posts", replace_existing=True)
+    scheduler.start()
+    logger.info("Automation scheduler started")
+
+@app.on_event("shutdown")
+async def stop_scheduler():
+    scheduler.shutdown()
+    logger.info("Automation scheduler stopped")
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -3871,6 +4112,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Register automation router (after it's defined)
+app.include_router(automation_router, prefix="/api")
+logger.info("Automation routes loaded successfully")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

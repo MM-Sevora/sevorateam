@@ -54,6 +54,9 @@ import EmailPage from "./pages/marketing/EmailPage";
 import UserManagementPage from "./pages/admin/UserManagement";
 import PermissionsPage from "./pages/admin/PermissionsPage";
 
+// Settings Pages
+import AutomationSettings from "./pages/settings/AutomationSettings";
+
 import "./App.css";
 
 // Initialize MSAL instance
@@ -277,6 +280,9 @@ function AppRoutes() {
             {/* Admin Routes */}
             <Route path="/admin/users" element={<ProtectedRoute requiredDepartment="admin"><UserManagementPage /></ProtectedRoute>} />
             <Route path="/admin/permissions" element={<ProtectedRoute requiredDepartment="admin"><PermissionsPage /></ProtectedRoute>} />
+
+            {/* Settings Routes */}
+            <Route path="/settings/automations" element={<ProtectedRoute><AutomationSettings /></ProtectedRoute>} />
 
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" replace />} />

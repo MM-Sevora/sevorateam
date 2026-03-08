@@ -284,6 +284,21 @@ export const Layout = ({ children }) => {
                             </div>
                         );
                     })}
+
+                    {/* Settings Section */}
+                    <div className="mt-4 pt-4 border-t border-[#D4BBA6]">
+                        <Link
+                            to="/settings/automations"
+                            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
+                                location.pathname.startsWith('/settings')
+                                    ? 'bg-[#E8D5C4] text-[#4A3728] font-medium'
+                                    : 'text-[#5D4A3A] hover:bg-[#E8D5C4]/50'
+                            }`}
+                        >
+                            <Zap className="w-5 h-5" />
+                            {sidebarOpen && <span className="font-semibold">Automations</span>}
+                        </Link>
+                    </div>
                 </nav>
 
                 {/* User Section */}

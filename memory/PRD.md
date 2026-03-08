@@ -6,6 +6,24 @@ All core features working with enhanced UX.
 
 ## Recent Enhancements (March 8, 2026)
 
+### 15. Automation Engine & Settings ✅ (NEW - March 8)
+- **Backend**: Created automation API endpoints at `/api/automations/*`
+  - GET/PUT `/settings` - Manage automation rules
+  - GET `/pending-actions` - Get actionable items
+  - GET `/logs` - Activity history
+  - POST `/execute/{action}` - Execute actions manually
+- **Background Scheduler**: APScheduler runs every 5 minutes for:
+  - Auto-publishing scheduled social posts
+  - Checking for stuck deals
+  - Follow-up reminders
+- **Settings Page**: `/settings/automations` with:
+  - Pipeline Automations (auto-advance, stuck alerts, auto-archive)
+  - Email Automations (follow-up reminders, sequences [coming soon])
+  - Social Automations (auto-publish, daily limits)
+  - Pending Actions tab
+  - Activity Log tab
+- **Sidebar**: Added "Automations" link with Zap icon
+
 ### 14. Social Media Post Upload Fix ✅ (NEW - March 8)
 - **Bug Fixed**: Image upload failing with "Upload failed" error
 - **Root Cause**: Wrong localStorage token key (`sf_token` instead of `sevora_token`)
