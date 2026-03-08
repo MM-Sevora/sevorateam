@@ -2149,8 +2149,93 @@ async def get_marketing_dashboard_stats():
     }
 
 
-# ============== PHASE 2: AI MEDIA DISCOVERY ==============
+# ============== PHASE 2: AI DISCOVERY ==============
 
+# ---- Influencer AI Discovery ----
+@marketing_v2_router.post("/ai/discover-influencers")
+async def ai_discover_influencers(
+    campaign_brief: dict,
+    user: dict = Depends(get_marketing_auth())
+):
+    """AI-powered influencer discovery based on campaign brief"""
+    from services.ai_discovery_service import AIDiscoveryService
+    
+    db = get_db()
+    ai_service = AIDiscoveryService()
+    
+    # Get all influencers from database
+    influencers = await db.contacts.find(
+        {"contact_type": "influencer"},
+        {"_id": 0}
+    ).to_list(500)
+    
+    if not influencers:
+        return {
+            "success": False,
+            "error": "No influencers in database. Add influencers first.",
+            "recommendations": []
+        }
+    
+    # Run AI discovery
+    result = await ai_service.discover_influencers(campaign_brief, influencers)
+    
+    # Extract data from result
+    ai_data = result.get("data", {}) if result.get("success") else {}
+    
+    # Save discovery session
+    session_id = str(uuid.uuid4())
+    session_doc = {
+        "id": session_id,
+        "type": "influencer_discovery",
+        "brief": campaign_brief,
+        "result": result,
+        "user_id": user.get("id"),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.discovery_sessions.insert_one(session_doc)
+    
+    # Enrich recommendations with full influencer data
+    recommendations = []
+    for rec in ai_data.get("recommendations", []):
+        inf_id = rec.get("influencer_id")
+        influencer = next((i for i in influencers if i.get("id") == inf_id), None)
+        if influencer:
+            recommendations.append({
+                **rec,
+                "influencer": influencer
+            })
+    
+    return {
+        "session_id": session_id,
+        "recommendations": recommendations,
+        "insights": ai_data.get("campaign_insights", {}),
+        "additional_recommendations": ai_data.get("additional_recommendations", "")
+    }
+
+
+@marketing_v2_router.post("/ai/generate-outreach")
+async def ai_generate_outreach(
+    request: dict,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Generate AI-powered outreach message for an influencer"""
+    from services.ai_discovery_service import AIDiscoveryService
+    
+    ai_service = AIDiscoveryService()
+    
+    influencer_data = request.get("influencer_data", {})
+    campaign_brief = request.get("campaign_brief", {})
+    
+    result = await ai_service.generate_outreach_message(influencer_data, campaign_brief)
+    
+    # Extract data from result
+    if result.get("success"):
+        return result.get("data", {})
+    else:
+        return {"error": result.get("error", "Failed to generate outreach message")}
+
+
+# ---- PR/Media AI Discovery ----
 @marketing_v2_router.post("/pr/ai-discover")
 async def ai_discover_journalists(
     discovery_brief: dict,
@@ -2177,21 +2262,42 @@ async def ai_discover_journalists(
     # Run AI discovery
     result = await ai_pr_discovery_service.discover_journalists(discovery_brief, journalists)
     
+    # Extract data from result
+    ai_data = result.get("data", {}) if result.get("success") else {}
+    
     # Save discovery session
     session_id = str(uuid.uuid4())
     session_doc = {
         "id": session_id,
         "type": "pr_discovery",
         "brief": discovery_brief,
-        "result": result.get("data", {}),
+        "result": ai_data,
         "user_id": user.get("id"),
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.discovery_sessions.insert_one(session_doc)
     
+    # Enrich recommendations with full journalist data
+    enriched_recommendations = []
+    for rec in ai_data.get("recommendations", []):
+        journalist_id = rec.get("journalist_id")
+        journalist = next((j for j in journalists if j.get("id") == journalist_id), None)
+        if journalist:
+            enriched_recommendations.append({
+                **rec,
+                "journalist": journalist
+            })
+        else:
+            enriched_recommendations.append(rec)
+    
     return {
         "session_id": session_id,
-        **result
+        "success": result.get("success", False),
+        "data": {
+            **ai_data,
+            "recommendations": enriched_recommendations
+        },
+        "timestamp": result.get("timestamp")
     }
 
 @marketing_v2_router.post("/pr/ai-generate-pitch")

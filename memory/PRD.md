@@ -6,6 +6,14 @@ All core features working with enhanced UX.
 
 ## Recent Enhancements (March 8, 2026)
 
+### Bug Fix: AI Discovery Endpoints ✅
+- Fixed "Failed to discover media contacts" error
+- Added missing `/api/marketing/v2/ai/discover-influencers` endpoint
+- Added missing `/api/marketing/v2/ai/generate-outreach` endpoint
+- Fixed frontend to call correct backend endpoints
+- Fixed response data extraction (nested `data` structure)
+- Enriched AI recommendations with full journalist/influencer data
+
 ### Communication History Timeline ✅
 - **InfluencerDetailPage**: Vertical timeline with color-coded activity types (communications, deals, gifts)
 - **PublicationDetailPage**: Added new History tab with timeline showing pitches, coverage, payments, communications

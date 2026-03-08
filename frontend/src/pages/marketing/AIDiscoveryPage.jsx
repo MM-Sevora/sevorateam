@@ -151,7 +151,7 @@ const AIDiscoveryPage = () => {
     }, 800);
 
     try {
-      const response = await api.post('/ai/discovery/campaign-recommendations', brief);
+      const response = await api.post('/marketing/v2/ai/discover-influencers', brief);
       
       clearInterval(progressInterval);
       setProcessingProgress(100);
@@ -270,7 +270,7 @@ const AIDiscoveryPage = () => {
     setGeneratingOutreach(true);
     
     try {
-      const response = await api.post('/ai/discovery/outreach-message', {
+      const response = await api.post('/marketing/v2/ai/generate-outreach', {
         session_id: sessionId,
         influencer_id: inf.id,
         campaign_brief: brief,
@@ -293,9 +293,15 @@ const AIDiscoveryPage = () => {
     
     setPrLoading(true);
     try {
-      const response = await api.post('/ai/discovery/pr-recommendations', prBrief);
-      setPrResults(response.data);
-      toast.success(`Found ${response.data.recommendations?.length || 0} media contacts!`);
+      const response = await api.post('/marketing/v2/pr/ai-discover', prBrief);
+      // Response has structure: { session_id, success, data: { recommendations, pr_insights, ... } }
+      const resultData = response.data.data || response.data;
+      setPrResults({
+        ...response.data,
+        recommendations: resultData.recommendations || [],
+        pr_insights: resultData.pr_insights || {}
+      });
+      toast.success(`Found ${resultData.recommendations?.length || 0} media contacts!`);
     } catch (error) {
       console.error('PR Discovery failed:', error);
       toast.error('Failed to discover media contacts');
