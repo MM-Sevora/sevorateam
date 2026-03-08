@@ -458,9 +458,13 @@ async def update_contact(contact_id: str, data: ContactUpdate, user: dict = Depe
     # Only include non-None values for partial update
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
     
-    # Handle empty string email - convert to None
-    if "email" in update_data and update_data["email"] == "":
-        update_data["email"] = None
+    # Handle empty strings - convert to None for optional fields
+    empty_string_fields = ['email', 'bio', 'phone', 'city', 'instagram_handle', 'youtube_handle', 
+                          'twitter_handle', 'linkedin_url', 'publication', 'publication_id', 
+                          'beat', 'editor_level', 'notes', 'campaign_id']
+    for field in empty_string_fields:
+        if field in update_data and update_data[field] == "":
+            update_data[field] = None
     
     # Recalculate score if relevant fields changed
     merged_data = {**existing, **update_data}

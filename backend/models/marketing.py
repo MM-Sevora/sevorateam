@@ -89,7 +89,7 @@ class ContactUpdate(BaseModel):
     youtube_handle: Optional[str] = None
     twitter_handle: Optional[str] = None
     linkedin_url: Optional[str] = None
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None  # Changed from EmailStr to allow empty strings
     phone: Optional[str] = None
     city: Optional[str] = None
     country: Optional[str] = None
@@ -127,9 +127,8 @@ class ContactUpdate(BaseModel):
     avg_likes: Optional[int] = None
     avg_comments: Optional[int] = None
     
-    # Allow extra fields from frontend
-    class Config:
-        extra = "ignore"
+    # Allow extra fields from frontend (Pydantic v2 syntax)
+    model_config = {"extra": "ignore"}
 
 class ContactResponse(BaseModel):
     id: str
