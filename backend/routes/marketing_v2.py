@@ -659,6 +659,30 @@ async def get_contact_stats(contact_id: str, user: dict = Depends(get_marketing_
         "total_paid": total_paid,
     }
 
+
+@marketing_v2_router.get("/contacts/{contact_id}/deliverables")
+async def get_contact_deliverables(contact_id: str, user: dict = Depends(get_marketing_auth())):
+    """Get rate cards/deliverables for a specific contact (influencer)"""
+    db = get_db()
+    contact = await db.contacts.find_one({"id": contact_id}, {"_id": 0, "deliverables": 1, "name": 1})
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    deliverables = contact.get("deliverables", [])
+    
+    # Ensure each deliverable has an id for selection
+    for i, d in enumerate(deliverables):
+        if not d.get("id"):
+            d["id"] = f"{contact_id}_deliverable_{i}"
+        # Normalize the rate field name
+        if d.get("price") is not None and d.get("rate") is None:
+            d["rate"] = d["price"]
+        elif d.get("rate") is not None and d.get("price") is None:
+            d["price"] = d["rate"]
+    
+    return deliverables
+
+
 def calculate_contact_score(contact: dict) -> float:
     """Calculate a score for contact prioritization"""
     score = 0.0
@@ -2100,6 +2124,9 @@ async def create_influencer_delivery(data: dict = Body(...)):
         "contact_id": data.get("contact_id"),
         "contact_name": contact_name,
         "campaign_id": data.get("campaign_id"),
+        "deliverable_id": data.get("deliverable_id"),  # Links to rate card
+        "deliverable_name": data.get("deliverable_name"),  # Name of the rate card
+        "rate_amount": data.get("rate_amount", 0),  # Cost from rate card
         "platform": data.get("platform", "instagram"),
         "content_type": data.get("content_type", "post"),
         "content_url": data.get("content_url"),

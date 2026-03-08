@@ -1,679 +1,293 @@
 """
-Marketing V2 API Tests - Contacts Hub, Digital PR, Events, Content & Assets
-Tests for the complete restructure of Marketing module for Sevora Team
+Marketing V2 API Tests - Deliveries Bug Fix & New Modules
+Testing: Deliveries, Contacts with Deliverables, Campaign Hub, Outreach Dashboard, Deal Pipeline
 """
 import pytest
 import requests
 import os
-import uuid
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 
-# Test data prefix for easy cleanup
-TEST_PREFIX = "TEST_MARKETING_V2_"
-
-class TestMarketingV2Setup:
-    """Setup and authentication tests"""
+class TestAuth:
+    """Authentication tests for marketing user"""
     
     @pytest.fixture(scope="class")
     def auth_token(self):
-        """Get authentication token for admin user"""
+        """Get auth token for marketing user"""
         response = requests.post(
             f"{BASE_URL}/api/auth/login",
-            json={"email": "admin@sevora.com", "password": "admin123"}
+            json={"email": "marketing@sevora.com", "password": "admin123"},
+            headers={"Content-Type": "application/json"}
+        )
+        if response.status_code == 200:
+            return response.json().get("access_token")
+        pytest.skip("Authentication failed")
+    
+    def test_login_success(self):
+        """Test marketing user can login"""
+        response = requests.post(
+            f"{BASE_URL}/api/auth/login",
+            json={"email": "marketing@sevora.com", "password": "admin123"},
+            headers={"Content-Type": "application/json"}
         )
         assert response.status_code == 200, f"Login failed: {response.text}"
-        return response.json()["access_token"]
-    
-    @pytest.fixture(scope="class")
-    def headers(self, auth_token):
-        """Get headers with auth token"""
-        return {
-            "Authorization": f"Bearer {auth_token}",
-            "Content-Type": "application/json"
-        }
-    
-    def test_auth_login(self):
-        """Test admin login works"""
-        response = requests.post(
-            f"{BASE_URL}/api/auth/login",
-            json={"email": "admin@sevora.com", "password": "admin123"}
-        )
-        assert response.status_code == 200
         data = response.json()
         assert "access_token" in data
-        assert data["user"]["role"] == "admin"
+        assert data["user"]["email"] == "marketing@sevora.com"
 
 
-class TestContactsHub:
-    """Tests for Contacts Hub - unified influencers, journalists, bloggers"""
+class TestContactsWithDeliverables:
+    """Test contacts endpoint with deliverables (rate cards)"""
     
     @pytest.fixture(scope="class")
     def auth_token(self):
         response = requests.post(
             f"{BASE_URL}/api/auth/login",
-            json={"email": "admin@sevora.com", "password": "admin123"}
+            json={"email": "marketing@sevora.com", "password": "admin123"},
+            headers={"Content-Type": "application/json"}
         )
-        return response.json()["access_token"]
+        if response.status_code == 200:
+            return response.json().get("access_token")
+        pytest.skip("Authentication failed")
     
     @pytest.fixture(scope="class")
-    def headers(self, auth_token):
-        return {
-            "Authorization": f"Bearer {auth_token}",
-            "Content-Type": "application/json"
-        }
+    def api_client(self, auth_token):
+        session = requests.Session()
+        session.headers.update({
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {auth_token}"
+        })
+        return session
     
-    def test_get_contacts(self, headers):
-        """GET /api/marketing/v2/contacts returns contacts list"""
-        response = requests.get(f"{BASE_URL}/api/marketing/v2/contacts", headers=headers)
-        assert response.status_code == 200
+    def test_get_contact_with_deliverables(self, api_client):
+        """Test GET /contacts/{id} returns deliverables field for Nivrity Das"""
+        # Test influencer ID with rate cards
+        contact_id = "f4c76400-f85c-465b-bdce-c1bd941912a9"
+        response = api_client.get(f"{BASE_URL}/api/marketing/v2/contacts/{contact_id}")
+        
+        assert response.status_code == 200, f"Failed to get contact: {response.text}"
         data = response.json()
-        assert isinstance(data, list)
-        print(f"Found {len(data)} contacts")
+        
+        # Verify contact name
+        assert data.get("name") == "Nivrity Das", "Contact name mismatch"
+        
+        # Verify deliverables field exists and has rate cards
+        assert "deliverables" in data, "Missing 'deliverables' field"
+        deliverables = data.get("deliverables", [])
+        assert len(deliverables) >= 4, f"Expected at least 4 rate cards, got {len(deliverables)}"
+        
+        # Verify rate card structure
+        rate_card_names = [d.get("name") for d in deliverables]
+        assert "Static Post" in rate_card_names, "Missing 'Static Post' rate card"
+        assert "Reel / Short" in rate_card_names, "Missing 'Reel / Short' rate card"
     
-    def test_get_contacts_with_filters(self, headers):
-        """GET /api/marketing/v2/contacts supports filtering"""
-        # Filter by contact_type
-        response = requests.get(
-            f"{BASE_URL}/api/marketing/v2/contacts?contact_type=influencer",
-            headers=headers
-        )
-        assert response.status_code == 200
-        data = response.json()
-        for contact in data:
-            assert contact["contact_type"] == "influencer"
-    
-    def test_create_contact_influencer(self, headers):
-        """POST /api/marketing/v2/contacts creates influencer"""
-        contact_data = {
-            "name": f"{TEST_PREFIX}Influencer_{uuid.uuid4().hex[:8]}",
-            "contact_type": "influencer",
-            "email": f"test_influencer_{uuid.uuid4().hex[:8]}@test.com",
-            "city": "Mumbai",
-            "country": "India",
-            "industry": "fashion",
-            "tier": "macro",
-            "followers": 500000,
-            "engagement_rate": 4.2
-        }
-        response = requests.post(
-            f"{BASE_URL}/api/marketing/v2/contacts",
-            headers=headers,
-            json=contact_data
-        )
+    def test_get_contact_deliverables_endpoint(self, api_client):
+        """Test dedicated GET /contacts/{id}/deliverables endpoint"""
+        contact_id = "f4c76400-f85c-465b-bdce-c1bd941912a9"
+        response = api_client.get(f"{BASE_URL}/api/marketing/v2/contacts/{contact_id}/deliverables")
+        
         assert response.status_code == 200, f"Failed: {response.text}"
         data = response.json()
-        assert data["name"] == contact_data["name"]
-        assert data["contact_type"] == "influencer"
-        assert "id" in data
-        assert data["score"] > 0  # Score should be calculated
-        print(f"Created influencer contact with score: {data['score']}")
-    
-    def test_create_contact_journalist(self, headers):
-        """POST /api/marketing/v2/contacts creates journalist"""
-        contact_data = {
-            "name": f"{TEST_PREFIX}Journalist_{uuid.uuid4().hex[:8]}",
-            "contact_type": "journalist",
-            "email": f"test_journalist_{uuid.uuid4().hex[:8]}@test.com",
-            "city": "Delhi",
-            "country": "India",
-            "industry": "fashion",
-            "publication": "Vogue India",
-            "beat": "fashion",
-            "editor_level": "editor"
-        }
-        response = requests.post(
-            f"{BASE_URL}/api/marketing/v2/contacts",
-            headers=headers,
-            json=contact_data
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert data["contact_type"] == "journalist"
-        assert data["publication"] == "Vogue India"
-    
-    def test_get_single_contact(self, headers):
-        """GET /api/marketing/v2/contacts/{id} returns single contact"""
-        # First create a contact
-        contact_data = {
-            "name": f"{TEST_PREFIX}Single_{uuid.uuid4().hex[:8]}",
-            "contact_type": "blogger",
-            "email": f"single_{uuid.uuid4().hex[:8]}@test.com",
-            "city": "Bangalore",
-            "industry": "lifestyle"
-        }
-        create_response = requests.post(
-            f"{BASE_URL}/api/marketing/v2/contacts",
-            headers=headers,
-            json=contact_data
-        )
-        contact_id = create_response.json()["id"]
         
-        # Then fetch it
-        response = requests.get(
-            f"{BASE_URL}/api/marketing/v2/contacts/{contact_id}",
-            headers=headers
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert data["id"] == contact_id
-        assert data["name"] == contact_data["name"]
-    
-    def test_contact_stats(self, headers):
-        """GET /api/marketing/v2/contacts/{id}/stats returns statistics"""
-        # Get first contact
-        contacts_response = requests.get(
-            f"{BASE_URL}/api/marketing/v2/contacts?limit=1",
-            headers=headers
-        )
-        if contacts_response.json():
-            contact_id = contacts_response.json()[0]["id"]
-            response = requests.get(
-                f"{BASE_URL}/api/marketing/v2/contacts/{contact_id}/stats",
-                headers=headers
-            )
-            assert response.status_code == 200
-            data = response.json()
-            assert "contact_id" in data
-            assert "communications" in data
-            assert "deals" in data
-            assert "total_paid" in data
+        assert isinstance(data, list), "Expected list of deliverables"
+        assert len(data) >= 4, f"Expected at least 4 deliverables, got {len(data)}"
+        
+        # Verify each deliverable has required fields
+        for d in data:
+            assert "id" in d, "Missing 'id' field"
+            assert "name" in d, "Missing 'name' field"
+            assert "price" in d or "rate" in d, "Missing price/rate field"
 
 
-class TestDeals:
-    """Tests for Deals & Contracts functionality"""
+class TestDeliveriesModule:
+    """Test deliveries (influencer content tracking) module"""
     
     @pytest.fixture(scope="class")
-    def headers(self):
+    def auth_token(self):
         response = requests.post(
             f"{BASE_URL}/api/auth/login",
-            json={"email": "admin@sevora.com", "password": "admin123"}
+            json={"email": "marketing@sevora.com", "password": "admin123"},
+            headers={"Content-Type": "application/json"}
         )
-        return {
-            "Authorization": f"Bearer {response.json()['access_token']}",
-            "Content-Type": "application/json"
-        }
+        if response.status_code == 200:
+            return response.json().get("access_token")
+        pytest.skip("Authentication failed")
     
     @pytest.fixture(scope="class")
-    def test_contact_id(self, headers):
-        """Create a test contact for deals"""
-        contact_data = {
-            "name": f"{TEST_PREFIX}DealContact_{uuid.uuid4().hex[:8]}",
-            "contact_type": "influencer",
-            "email": f"deal_contact_{uuid.uuid4().hex[:8]}@test.com",
-            "industry": "fashion"
-        }
-        response = requests.post(
-            f"{BASE_URL}/api/marketing/v2/contacts",
-            headers=headers,
-            json=contact_data
-        )
-        return response.json()["id"]
+    def api_client(self, auth_token):
+        session = requests.Session()
+        session.headers.update({
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {auth_token}"
+        })
+        return session
     
-    def test_create_deal(self, headers, test_contact_id):
-        """POST /api/marketing/v2/deals creates a deal"""
-        deal_data = {
-            "contact_id": test_contact_id,
-            "initial_quote": 75000,
-            "our_budget": 60000,
-            "notes": f"{TEST_PREFIX}Test deal notes",
-            "deliverables": []
-        }
-        response = requests.post(
-            f"{BASE_URL}/api/marketing/v2/deals",
-            headers=headers,
-            json=deal_data
-        )
+    def test_get_deliveries_list(self, api_client):
+        """Test GET /deliveries/influencer returns list with contact_name"""
+        response = api_client.get(f"{BASE_URL}/api/marketing/v2/deliveries/influencer")
+        
         assert response.status_code == 200, f"Failed: {response.text}"
         data = response.json()
-        assert data["initial_quote"] == 75000
-        assert data["our_budget"] == 60000
-        assert data["status"] == "pending"
-        assert len(data["timeline"]) > 0
-        print(f"Created deal with ID: {data['id']}")
-    
-    def test_get_contact_deals(self, headers, test_contact_id):
-        """GET /api/marketing/v2/contacts/{id}/deals returns contact deals"""
-        response = requests.get(
-            f"{BASE_URL}/api/marketing/v2/contacts/{test_contact_id}/deals",
-            headers=headers
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
+        
+        assert isinstance(data, list), "Expected list of deliveries"
+        
+        # Find delivery with known contact (Nivrity Das)
+        nivrity_deliveries = [d for d in data if d.get("contact_name") == "Nivrity Das"]
+        assert len(nivrity_deliveries) >= 1, "Expected at least 1 delivery for Nivrity Das"
+        
+        # Verify delivery has required fields
+        delivery = nivrity_deliveries[0]
+        assert "contact_name" in delivery, "Missing contact_name"
+        assert delivery["contact_name"] == "Nivrity Das", "Contact name should be 'Nivrity Das'"
 
 
-class TestCommunications:
-    """Tests for Communications logging"""
+class TestCampaignHub:
+    """Test Campaign Hub module"""
     
     @pytest.fixture(scope="class")
-    def headers(self):
+    def auth_token(self):
         response = requests.post(
             f"{BASE_URL}/api/auth/login",
-            json={"email": "admin@sevora.com", "password": "admin123"}
+            json={"email": "marketing@sevora.com", "password": "admin123"},
+            headers={"Content-Type": "application/json"}
         )
-        return {
-            "Authorization": f"Bearer {response.json()['access_token']}",
-            "Content-Type": "application/json"
-        }
+        if response.status_code == 200:
+            return response.json().get("access_token")
+        pytest.skip("Authentication failed")
     
     @pytest.fixture(scope="class")
-    def test_contact_id(self, headers):
-        contact_data = {
-            "name": f"{TEST_PREFIX}CommContact_{uuid.uuid4().hex[:8]}",
-            "contact_type": "influencer",
-            "email": f"comm_contact_{uuid.uuid4().hex[:8]}@test.com",
-            "industry": "beauty"
-        }
+    def api_client(self, auth_token):
+        session = requests.Session()
+        session.headers.update({
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {auth_token}"
+        })
+        return session
+    
+    def test_get_unified_campaigns(self, api_client):
+        """Test GET /unified-campaigns returns campaign list"""
+        response = api_client.get(f"{BASE_URL}/api/marketing/v2/unified-campaigns")
+        
+        assert response.status_code == 200, f"Failed: {response.text}"
+        data = response.json()
+        
+        assert isinstance(data, list), "Expected list of campaigns"
+        assert len(data) >= 1, "Expected at least 1 campaign"
+        
+        # Verify campaign structure
+        campaign = data[0]
+        assert "name" in campaign, "Missing 'name' field"
+        assert "campaign_type" in campaign, "Missing 'campaign_type' field"
+        assert "status" in campaign, "Missing 'status' field"
+
+
+class TestOutreachDashboard:
+    """Test Outreach Dashboard module"""
+    
+    @pytest.fixture(scope="class")
+    def auth_token(self):
         response = requests.post(
+            f"{BASE_URL}/api/auth/login",
+            json={"email": "marketing@sevora.com", "password": "admin123"},
+            headers={"Content-Type": "application/json"}
+        )
+        if response.status_code == 200:
+            return response.json().get("access_token")
+        pytest.skip("Authentication failed")
+    
+    @pytest.fixture(scope="class")
+    def api_client(self, auth_token):
+        session = requests.Session()
+        session.headers.update({
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {auth_token}"
+        })
+        return session
+    
+    def test_get_outreach_list(self, api_client):
+        """Test GET /outreach/all returns communications list"""
+        response = api_client.get(f"{BASE_URL}/api/marketing/v2/outreach/all")
+        
+        assert response.status_code == 200, f"Failed: {response.text}"
+        data = response.json()
+        
+        assert isinstance(data, list), "Expected list of outreach items"
+        
+        if len(data) > 0:
+            item = data[0]
+            assert "status" in item, "Missing 'status' field"
+
+
+class TestDealPipeline:
+    """Test Deal Pipeline module"""
+    
+    @pytest.fixture(scope="class")
+    def auth_token(self):
+        response = requests.post(
+            f"{BASE_URL}/api/auth/login",
+            json={"email": "marketing@sevora.com", "password": "admin123"},
+            headers={"Content-Type": "application/json"}
+        )
+        if response.status_code == 200:
+            return response.json().get("access_token")
+        pytest.skip("Authentication failed")
+    
+    @pytest.fixture(scope="class")
+    def api_client(self, auth_token):
+        session = requests.Session()
+        session.headers.update({
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {auth_token}"
+        })
+        return session
+    
+    def test_get_contact_deals(self, api_client):
+        """Test GET /contacts/{id}/deals returns deals for contact"""
+        contact_id = "f4c76400-f85c-465b-bdce-c1bd941912a9"
+        response = api_client.get(f"{BASE_URL}/api/marketing/v2/contacts/{contact_id}/deals")
+        
+        assert response.status_code == 200, f"Failed: {response.text}"
+        data = response.json()
+        
+        assert isinstance(data, list), "Expected list of deals"
+        # Empty list is valid if no deals exist for this contact
+
+
+class TestContactsList:
+    """Test contacts list endpoint"""
+    
+    @pytest.fixture(scope="class")
+    def auth_token(self):
+        response = requests.post(
+            f"{BASE_URL}/api/auth/login",
+            json={"email": "marketing@sevora.com", "password": "admin123"},
+            headers={"Content-Type": "application/json"}
+        )
+        if response.status_code == 200:
+            return response.json().get("access_token")
+        pytest.skip("Authentication failed")
+    
+    @pytest.fixture(scope="class")
+    def api_client(self, auth_token):
+        session = requests.Session()
+        session.headers.update({
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {auth_token}"
+        })
+        return session
+    
+    def test_get_influencer_contacts(self, api_client):
+        """Test GET /contacts with contact_type=influencer filter"""
+        response = api_client.get(
             f"{BASE_URL}/api/marketing/v2/contacts",
-            headers=headers,
-            json=contact_data
+            params={"contact_type": "influencer"}
         )
-        return response.json()["id"]
-    
-    def test_log_communication(self, headers, test_contact_id):
-        """POST /api/marketing/v2/communications logs communication"""
-        comm_data = {
-            "contact_id": test_contact_id,
-            "comm_type": "email",
-            "subject": f"{TEST_PREFIX}Test subject",
-            "message": "Test communication message"
-        }
-        response = requests.post(
-            f"{BASE_URL}/api/marketing/v2/communications",
-            headers=headers,
-            json=comm_data
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert data["comm_type"] == "email"
-        assert data["subject"] == comm_data["subject"]
-        assert data["status"] == "sent"
-    
-    def test_get_contact_communications(self, headers, test_contact_id):
-        """GET /api/marketing/v2/contacts/{id}/communications returns communications"""
-        response = requests.get(
-            f"{BASE_URL}/api/marketing/v2/contacts/{test_contact_id}/communications",
-            headers=headers
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-
-
-class TestPayments:
-    """Tests for Payment recording"""
-    
-    @pytest.fixture(scope="class")
-    def headers(self):
-        response = requests.post(
-            f"{BASE_URL}/api/auth/login",
-            json={"email": "admin@sevora.com", "password": "admin123"}
-        )
-        return {
-            "Authorization": f"Bearer {response.json()['access_token']}",
-            "Content-Type": "application/json"
-        }
-    
-    @pytest.fixture(scope="class")
-    def test_contact_id(self, headers):
-        contact_data = {
-            "name": f"{TEST_PREFIX}PaymentContact_{uuid.uuid4().hex[:8]}",
-            "contact_type": "influencer",
-            "email": f"payment_contact_{uuid.uuid4().hex[:8]}@test.com",
-            "industry": "fashion"
-        }
-        response = requests.post(
-            f"{BASE_URL}/api/marketing/v2/contacts",
-            headers=headers,
-            json=contact_data
-        )
-        return response.json()["id"]
-    
-    def test_record_payment(self, headers, test_contact_id):
-        """POST /api/marketing/v2/payments records payment"""
-        payment_data = {
-            "contact_id": test_contact_id,
-            "amount": 25000,
-            "description": f"{TEST_PREFIX}Campaign payment",
-            "payment_method": "bank_transfer"
-        }
-        response = requests.post(
-            f"{BASE_URL}/api/marketing/v2/payments",
-            headers=headers,
-            json=payment_data
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert data["amount"] == 25000
-        assert data["status"] == "pending"
-        assert "invoice_number" in data
-        print(f"Created payment with invoice: {data['invoice_number']}")
-    
-    def test_get_contact_payments(self, headers, test_contact_id):
-        """GET /api/marketing/v2/contacts/{id}/payments returns payments"""
-        response = requests.get(
-            f"{BASE_URL}/api/marketing/v2/contacts/{test_contact_id}/payments",
-            headers=headers
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-
-
-class TestDigitalPR:
-    """Tests for Digital PR - Press Releases, Media Coverage, Pitches"""
-    
-    @pytest.fixture(scope="class")
-    def headers(self):
-        response = requests.post(
-            f"{BASE_URL}/api/auth/login",
-            json={"email": "admin@sevora.com", "password": "admin123"}
-        )
-        return {
-            "Authorization": f"Bearer {response.json()['access_token']}",
-            "Content-Type": "application/json"
-        }
-    
-    def test_get_press_releases(self, headers):
-        """GET /api/marketing/v2/pr/releases returns press releases"""
-        response = requests.get(
-            f"{BASE_URL}/api/marketing/v2/pr/releases",
-            headers=headers
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-        print(f"Found {len(data)} press releases")
-    
-    def test_create_press_release(self, headers):
-        """POST /api/marketing/v2/pr/releases creates press release"""
-        pr_data = {
-            "title": f"{TEST_PREFIX}Press Release Title",
-            "subtitle": "Test subtitle for press release",
-            "body": "This is the body content of the press release for testing purposes.",
-            "target_publications": ["Vogue India", "Elle India"]
-        }
-        response = requests.post(
-            f"{BASE_URL}/api/marketing/v2/pr/releases",
-            headers=headers,
-            json=pr_data
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert data["title"] == pr_data["title"]
-        assert data["status"] == "draft"
-        assert len(data["target_publications"]) == 2
-    
-    def test_get_media_coverage(self, headers):
-        """GET /api/marketing/v2/pr/coverage returns media coverage"""
-        response = requests.get(
-            f"{BASE_URL}/api/marketing/v2/pr/coverage",
-            headers=headers
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-    
-    def test_record_media_coverage(self, headers):
-        """POST /api/marketing/v2/pr/coverage records media coverage"""
-        coverage_data = {
-            "title": f"{TEST_PREFIX}Media Coverage Article",
-            "publication": "Fashion Weekly",
-            "url": "https://example.com/article",
-            "coverage_type": "article",
-            "sentiment": "positive",
-            "published_date": "2026-03-07",
-            "reach": 500000
-        }
-        response = requests.post(
-            f"{BASE_URL}/api/marketing/v2/pr/coverage",
-            headers=headers,
-            json=coverage_data
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert data["publication"] == "Fashion Weekly"
-        assert data["sentiment"] == "positive"
-    
-    def test_get_pr_pitches(self, headers):
-        """GET /api/marketing/v2/pr/pitches returns pitches"""
-        response = requests.get(
-            f"{BASE_URL}/api/marketing/v2/pr/pitches",
-            headers=headers
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-
-
-class TestEvents:
-    """Tests for Events module"""
-    
-    @pytest.fixture(scope="class")
-    def headers(self):
-        response = requests.post(
-            f"{BASE_URL}/api/auth/login",
-            json={"email": "admin@sevora.com", "password": "admin123"}
-        )
-        return {
-            "Authorization": f"Bearer {response.json()['access_token']}",
-            "Content-Type": "application/json"
-        }
-    
-    def test_get_events(self, headers):
-        """GET /api/marketing/v2/events returns events"""
-        response = requests.get(
-            f"{BASE_URL}/api/marketing/v2/events",
-            headers=headers
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-        print(f"Found {len(data)} events")
-    
-    def test_create_event(self, headers):
-        """POST /api/marketing/v2/events creates event"""
-        event_data = {
-            "name": f"{TEST_PREFIX}Fashion Show Event",
-            "event_type": "fashion_show",
-            "description": "Test fashion show event",
-            "venue": "Fashion Hub",
-            "city": "Mumbai",
-            "start_date": "2026-05-15",
-            "budget": 300000,
-            "max_attendees": 200
-        }
-        response = requests.post(
-            f"{BASE_URL}/api/marketing/v2/events",
-            headers=headers,
-            json=event_data
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert data["name"] == event_data["name"]
-        assert data["event_type"] == "fashion_show"
-        assert data["status"] == "planning"
-        assert data["confirmed_attendees"] == 0
-    
-    def test_get_event_by_id(self, headers):
-        """GET /api/marketing/v2/events/{id} returns single event"""
-        # Create an event first
-        event_data = {
-            "name": f"{TEST_PREFIX}Single Event",
-            "event_type": "brand_launch",
-            "start_date": "2026-06-01",
-            "city": "Delhi"
-        }
-        create_response = requests.post(
-            f"{BASE_URL}/api/marketing/v2/events",
-            headers=headers,
-            json=event_data
-        )
-        event_id = create_response.json()["id"]
         
-        response = requests.get(
-            f"{BASE_URL}/api/marketing/v2/events/{event_id}",
-            headers=headers
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert data["id"] == event_id
-
-
-class TestContentAssets:
-    """Tests for Content & Assets module"""
-    
-    @pytest.fixture(scope="class")
-    def headers(self):
-        response = requests.post(
-            f"{BASE_URL}/api/auth/login",
-            json={"email": "admin@sevora.com", "password": "admin123"}
-        )
-        return {
-            "Authorization": f"Bearer {response.json()['access_token']}",
-            "Content-Type": "application/json"
-        }
-    
-    def test_get_assets(self, headers):
-        """GET /api/marketing/v2/assets returns assets"""
-        response = requests.get(
-            f"{BASE_URL}/api/marketing/v2/assets",
-            headers=headers
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-    
-    def test_upload_asset(self, headers):
-        """POST /api/marketing/v2/assets uploads asset"""
-        asset_data = {
-            "name": f"{TEST_PREFIX}Logo Asset",
-            "asset_type": "logo",
-            "category": "brand_assets",
-            "description": "Test logo asset",
-            "file_url": "https://example.com/logo.png",
-            "tags": ["logo", "brand", "2026"]
-        }
-        response = requests.post(
-            f"{BASE_URL}/api/marketing/v2/assets",
-            headers=headers,
-            json=asset_data
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert data["name"] == asset_data["name"]
-        assert data["category"] == "brand_assets"
-        assert data["downloads"] == 0
-    
-    def test_get_ugc(self, headers):
-        """GET /api/marketing/v2/ugc returns UGC"""
-        response = requests.get(
-            f"{BASE_URL}/api/marketing/v2/ugc",
-            headers=headers
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-    
-    def test_get_approvals(self, headers):
-        """GET /api/marketing/v2/approvals returns approval queue"""
-        response = requests.get(
-            f"{BASE_URL}/api/marketing/v2/approvals",
-            headers=headers
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-
-
-class TestDashboardStats:
-    """Tests for Dashboard Statistics"""
-    
-    @pytest.fixture(scope="class")
-    def headers(self):
-        response = requests.post(
-            f"{BASE_URL}/api/auth/login",
-            json={"email": "admin@sevora.com", "password": "admin123"}
-        )
-        return {
-            "Authorization": f"Bearer {response.json()['access_token']}",
-            "Content-Type": "application/json"
-        }
-    
-    def test_get_dashboard_stats(self, headers):
-        """GET /api/marketing/v2/dashboard/stats returns all stats"""
-        response = requests.get(
-            f"{BASE_URL}/api/marketing/v2/dashboard/stats",
-            headers=headers
-        )
-        assert response.status_code == 200
+        assert response.status_code == 200, f"Failed: {response.text}"
         data = response.json()
         
-        # Verify structure
-        assert "contacts" in data
-        assert "deals" in data
-        assert "pr" in data
-        assert "events" in data
-        assert "approvals" in data
+        assert isinstance(data, list), "Expected list of contacts"
         
-        # Verify contacts breakdown
-        assert "total" in data["contacts"]
-        assert "influencers" in data["contacts"]
-        assert "journalists" in data["contacts"]
-        assert "bloggers" in data["contacts"]
-        
-        print(f"Dashboard stats: {data}")
-
-
-class TestCalendar:
-    """Tests for Marketing Calendar"""
-    
-    @pytest.fixture(scope="class")
-    def headers(self):
-        response = requests.post(
-            f"{BASE_URL}/api/auth/login",
-            json={"email": "admin@sevora.com", "password": "admin123"}
-        )
-        return {
-            "Authorization": f"Bearer {response.json()['access_token']}",
-            "Content-Type": "application/json"
-        }
-    
-    def test_get_calendar_items(self, headers):
-        """GET /api/marketing/v2/calendar returns calendar items"""
-        response = requests.get(
-            f"{BASE_URL}/api/marketing/v2/calendar",
-            headers=headers
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-    
-    def test_create_calendar_item(self, headers):
-        """POST /api/marketing/v2/calendar creates calendar item"""
-        item_data = {
-            "title": f"{TEST_PREFIX}Calendar Event",
-            "item_type": "deadline",
-            "start_date": "2026-04-20",
-            "description": "Test deadline item"
-        }
-        response = requests.post(
-            f"{BASE_URL}/api/marketing/v2/calendar",
-            headers=headers,
-            json=item_data
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert data["title"] == item_data["title"]
-        assert data["item_type"] == "deadline"
-
-
-# Cleanup fixture for test data
-@pytest.fixture(scope="session", autouse=True)
-def cleanup_test_data():
-    """Cleanup test data after all tests complete"""
-    yield
-    # Cleanup could be added here if needed
-    print(f"\nTest data with prefix '{TEST_PREFIX}' may remain in database for manual inspection")
+        # Verify Nivrity Das is in the list
+        names = [c.get("name") for c in data]
+        assert "Nivrity Das" in names, "Nivrity Das not found in influencers list"

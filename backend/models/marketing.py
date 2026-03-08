@@ -127,6 +127,9 @@ class ContactUpdate(BaseModel):
     avg_likes: Optional[int] = None
     avg_comments: Optional[int] = None
     
+    # Deliverables / Rate cards
+    deliverables: Optional[List[dict]] = None
+    
     # Allow extra fields from frontend (Pydantic v2 syntax)
     model_config = {"extra": "ignore"}
 
@@ -174,6 +177,9 @@ class ContactResponse(BaseModel):
     # Instagram-specific metrics  
     avg_likes: Optional[int] = None
     avg_comments: Optional[int] = None
+    
+    # Deliverables / Rate cards
+    deliverables: List[dict] = []
 
 # ============== COMMUNICATION MODEL ==============
 class CommunicationType(str, Enum):
