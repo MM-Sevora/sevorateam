@@ -6,45 +6,31 @@ All core features working with enhanced UX.
 
 ## Recent Enhancements (March 8, 2026)
 
-### 6. Deliveries Module Enhancement ✅ (NEW)
+### 7. Campaign - Add Influencer with Deliverable & Fee ✅ (NEW)
+- **Enhancement**: When adding an influencer to a campaign, users can now:
+  1. Select an influencer from the list
+  2. View and select from their rate cards/deliverables
+  3. Enter an agreed fee (auto-populated from rate card)
+  4. Confirm to add with all details stored
+- **Backend**: Updated `POST /api/marketing/campaigns/{campaign_id}/influencers/{contact_id}` to accept `deliverable_id`, `deliverable_name`, `agreed_fee`
+- **Frontend**: Enhanced Add Influencer modal in CampaignDetailPage.jsx with rate card selection UI
+- **Display**: Campaign detail page now shows deliverable name and agreed fee for each assigned influencer
+
+### 6. Deliveries Module Enhancement ✅
 - **Bug Fix**: Influencer names now show correctly in Deliveries list (was showing "Unknown")
 - **New Feature**: Rate Card selection in "Record Delivery" modal
-  - When selecting an influencer, their rate cards/deliverables are fetched
-  - User can select which rate card applies to this delivery
-  - Rate amount is auto-populated from selected rate card
 - **Backend**: New endpoint `GET /api/marketing/v2/contacts/{contact_id}/deliverables`
-- **Models Updated**: ContactUpdate and ContactResponse now include `deliverables` field
 
 ### 5. Bulk Delete Functionality ✅
-- **Influencers Page**: Checkbox selection, Select All, Delete (X) button, confirmation dialog
-- **Publications Page**: Checkbox selection, Select All, Delete (X) button, confirmation dialog  
-- **Campaigns Page**: Checkbox selection, Select All, Delete (X) button, confirmation dialog
-- **Outreach Dashboard**: Checkbox on each communication, bulk delete with confirmation
-- **Deal Pipeline**: Checkbox on each deal card, bulk delete with confirmation
-- Backend endpoints:
-  - `POST /api/marketing/v2/contacts/bulk-delete`
-  - `POST /api/marketing/v2/publications/bulk-delete`
-  - `POST /api/marketing/v2/campaigns/bulk-delete`
-  - `POST /api/marketing/v2/deals/bulk-delete`
-  - `POST /api/marketing/v2/communications/bulk-delete`
+- Implemented across Influencers, Publications, Campaigns, Outreach, and Deal Pipeline pages
 
 ### 4. Campaign Form Enhancements ✅
 - Multi-select Objectives using checkboxes
 - Campaign Type dropdown in Edit modal
-- Fixed unified-campaigns API collection name
 
-### 3. Campaign Delete Fix ✅
-- Added DELETE endpoints for both influencer and PR campaigns
-
-### 2. Outreach Dashboard & Deal Pipeline ✅
-- Response tracking with status indicators
-- Follow-up management with scheduling
-- Kanban-style deal pipeline with drag-and-drop
-- Routes: `/marketing/outreach-dashboard`, `/marketing/deals`
-- **Fix**: Deal Pipeline now uses `/unified-campaigns` endpoint (was failing before)
-
-### 1. Communication History Timeline ✅
-- Vertical timeline on Influencer and Publication detail pages
+### 3. Outreach Dashboard & Deal Pipeline ✅
+- Response tracking, follow-up management
+- Kanban-style deal pipeline
 
 ### Bug Fixes
 - Fixed "Failed to save changes" - ContactUpdate model
