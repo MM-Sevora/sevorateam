@@ -7,6 +7,7 @@ import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import { Label } from '../../components/ui/label';
 import { Checkbox } from '../../components/ui/checkbox';
 import { Textarea } from '../../components/ui/textarea';
@@ -14,7 +15,7 @@ import { toast } from 'sonner';
 import { 
   RefreshCw, Plus, Search, Filter, Instagram, Youtube, 
   MoreHorizontal, Users, Sparkles, ChevronUp, ChevronDown, Download, User, AtSign, DollarSign, Building, X,
-  TrendingUp, Heart, Target, Eye
+  TrendingUp, Heart, Target, Eye, Send, Trash2, Edit, ExternalLink
 } from 'lucide-react';
 
 const InfluencersListPage = () => {
@@ -215,6 +216,19 @@ const InfluencersListPage = () => {
       fetchInfluencers();
     } catch (error) {
       toast.error('Failed to update status');
+    }
+  };
+
+  const handleDeleteInfluencer = async (id, name) => {
+    if (!window.confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      await api.delete(`/marketing/v2/contacts/${id}`);
+      toast.success('Influencer deleted');
+      fetchInfluencers();
+    } catch (error) {
+      toast.error('Failed to delete influencer');
     }
   };
 
@@ -1217,9 +1231,47 @@ const InfluencersListPage = () => {
                       {formatDate(inf.updated_at)}
                     </td>
                     <td className="p-4" onClick={e => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 bg-[#c4a35a] hover:bg-[#b08d4a] text-white rounded-full">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem 
+                            onClick={() => navigate(`/marketing/influencer/${inf.id}`)}
+                            className="cursor-pointer"
+                          >
+                            <Eye className="w-4 h-4 mr-2" /> View Profile
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => navigate(`/marketing/influencer/${inf.id}?edit=true`)}
+                            className="cursor-pointer"
+                          >
+                            <Edit className="w-4 h-4 mr-2" /> Edit Details
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={() => {
+                              if (inf.instagram_handle) {
+                                window.open(`https://instagram.com/${inf.instagram_handle.replace('@', '')}`, '_blank');
+                              } else if (inf.youtube_handle) {
+                                window.open(`https://youtube.com/@${inf.youtube_handle.replace('@', '')}`, '_blank');
+                              }
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <ExternalLink className="w-4 h-4 mr-2" /> View Social Profile
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={() => handleDeleteInfluencer(inf.id, inf.name)}
+                            className="cursor-pointer text-red-600 focus:text-red-600"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" /> Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </td>
                   </tr>
                 );
