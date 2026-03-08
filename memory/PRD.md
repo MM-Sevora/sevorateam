@@ -6,7 +6,19 @@ All core features working with enhanced UX.
 
 ## Recent Enhancements (March 8, 2026)
 
-### 8. Unified Pipeline ✅ (NEW - MAJOR)
+### 9. WhatsApp Integration via Twilio ✅ (NEW)
+- **Backend**: WhatsApp messaging via Twilio API (`/api/communication/whatsapp/send`)
+- **Influencer Detail Page**: Outreach modal now sends actual WhatsApp messages
+- **Unified Pipeline**: Send Message modal supports WhatsApp channel
+- **Features**:
+  - Channel selection (Email/WhatsApp) in outreach modals
+  - Sandbox info banner with join instructions
+  - Communication history logging
+  - Auto-stage update on first contact
+- **Sandbox Setup**: Recipients send "join kill-ranch" to +1 415 523 8886
+- **Test Number**: +918967719301 (active)
+
+### 8. Unified Pipeline ✅ (MAJOR)
 - **Merged**: Outreach Dashboard + Deal Pipeline into single Kanban board
 - **Stages**: Identified → Contacted → Replied → Negotiating → Agreed → Delivering → Completed → Lost
 - **Features**:
@@ -61,6 +73,7 @@ All core features working with enhanced UX.
 - ✅ YouTube API - Working with full data
 - ✅ Instagram API - Profile lookup working
 - ✅ Microsoft Graph API - Email sending
+- ✅ Twilio WhatsApp API - Messaging working (sandbox mode)
 
 ## Completed Phases
 
@@ -105,7 +118,13 @@ All core features working with enhanced UX.
 
 ### P3 (Low)
 1. WebSocket notifications (platform-level issue)
-2. Twilio WhatsApp sandbox setup
+
+## Twilio WhatsApp Sandbox
+- **Sandbox Number**: +1 415 523 8886
+- **Join Keyword**: `join kill-ranch`
+- **Active Test Numbers**: +918967719301
+- **To add new recipients**: Send "join kill-ranch" to +1 415 523 8886 on WhatsApp
+- **Production Approval**: Apply via Twilio Console when ready
 
 ## Test Credentials
 - Super Admin: `superadmin@sevora.com` / `superadmin123`
@@ -117,6 +136,5 @@ All core features working with enhanced UX.
 
 ## Known Issues
 - WebSocket notifications not working (platform ingress config)
-- Twilio WhatsApp blocked on user sandbox setup
 - Instagram follower count API limitation (permissions)
 - Orphan delivery records show "Unknown" for deleted contacts (expected behavior)

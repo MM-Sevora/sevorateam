@@ -338,16 +338,41 @@ const InfluencerDetailPage = () => {
           });
           toast.info('Email saved as draft (Outlook not configured)');
         }
-      } else {
-        // WhatsApp - just record the communication
-        await api.post(`/marketing/v2/communications`, {
-          contact_id: influencerId,
-          comm_type: outreachChannel,
-          subject: outreachForm.subject,
-          message: outreachForm.message,
-          recipient_phone: form.phone
+      } else if (outreachChannel === 'whatsapp') {
+        // Send actual WhatsApp message via Twilio
+        if (!form.phone) {
+          toast.error('No phone number on file for this contact');
+          return;
+        }
+        
+        const whatsappResult = await api.post('/communication/whatsapp/send', {
+          to: form.phone,
+          message: outreachForm.message
         });
-        toast.success('WhatsApp message recorded');
+        
+        if (whatsappResult.data.success) {
+          toast.success('WhatsApp message sent successfully!');
+          
+          // Also record the communication in history
+          await api.post(`/marketing/v2/communications`, {
+            contact_id: influencerId,
+            comm_type: 'whatsapp',
+            subject: outreachForm.subject || 'WhatsApp Message',
+            message: outreachForm.message,
+            recipient_phone: form.phone,
+            status: 'sent',
+            external_id: whatsappResult.data.message_sid
+          });
+        } else {
+          // If WhatsApp fails (e.g., sandbox not configured)
+          const errorMsg = whatsappResult.data.error || 'Failed to send WhatsApp message';
+          if (errorMsg.includes('sandbox') || errorMsg.includes('21608')) {
+            toast.error('Recipient needs to join Twilio WhatsApp sandbox first. Send "join kill-ranch" to +1 415 523 8886');
+          } else {
+            toast.error(errorMsg);
+          }
+          return;
+        }
       }
       
       setShowOutreachModal(false);
@@ -1965,6 +1990,11 @@ const InfluencerDetailPage = () => {
                   ? `Will send to: ${form.email || 'No email on file'}` 
                   : `Will send to: ${form.phone || 'No phone on file'}`}
               </p>
+              {outreachChannel === 'whatsapp' && (
+                <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg text-xs text-green-700">
+                  <strong>Note:</strong> Recipient must first join Twilio sandbox by sending "join kill-ranch" to +1 415 523 8886 on WhatsApp.
+                </div>
+              )}
             </div>
             
             {/* Template Selection */}

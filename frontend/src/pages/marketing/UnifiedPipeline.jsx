@@ -246,8 +246,16 @@ const PipelineCard = ({ contact, stage, onStageChange, onViewDetails, onSendMess
                 <Eye className="w-4 h-4 mr-2" /> View Profile
               </DropdownMenuItem>
               <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onSendMessage(contact); }}>
-                <Mail className="w-4 h-4 mr-2" /> Send Message
+                <Mail className="w-4 h-4 mr-2" /> Send Email
               </DropdownMenuItem>
+              {contact.phone && (
+                <DropdownMenuItem 
+                  onClick={(e) => { e.stopPropagation(); onSendMessage({ ...contact, defaultChannel: 'whatsapp' }); }}
+                  className="text-green-600"
+                >
+                  <MessageSquare className="w-4 h-4 mr-2" /> Send WhatsApp
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem 
                 onClick={(e) => { e.stopPropagation(); onStageChange(contact.id, 'agreed'); }}
@@ -564,7 +572,9 @@ const UnifiedPipeline = () => {
 
   const handleSendMessage = (contact) => {
     setSelectedContact(contact);
-    setMessageForm({ subject: '', message: '', comm_type: 'email' });
+    // Pre-select WhatsApp if triggered from WhatsApp quick action
+    const defaultChannel = contact.defaultChannel || 'email';
+    setMessageForm({ subject: '', message: '', comm_type: defaultChannel });
     setShowSendModal(true);
   };
 
@@ -575,12 +585,47 @@ const UnifiedPipeline = () => {
     }
     
     try {
-      await api.post(`/marketing/v2/contacts/${selectedContact.id}/communications`, {
-        ...messageForm,
-        direction: 'outbound'
-      });
+      if (messageForm.comm_type === 'whatsapp') {
+        // Send actual WhatsApp message via Twilio
+        if (!selectedContact.phone) {
+          toast.error('No phone number on file for this contact');
+          return;
+        }
+        
+        const whatsappResult = await api.post('/communication/whatsapp/send', {
+          to: selectedContact.phone,
+          message: messageForm.message
+        });
+        
+        if (whatsappResult.data.success) {
+          toast.success('WhatsApp message sent successfully!');
+          
+          // Also record the communication in history
+          await api.post(`/marketing/v2/contacts/${selectedContact.id}/communications`, {
+            ...messageForm,
+            direction: 'outbound',
+            status: 'sent',
+            external_id: whatsappResult.data.message_sid
+          });
+        } else {
+          // If WhatsApp fails (e.g., sandbox not configured)
+          const errorMsg = whatsappResult.data.error || 'Failed to send WhatsApp message';
+          if (errorMsg.includes('sandbox') || errorMsg.includes('21608')) {
+            toast.error('Recipient needs to join Twilio WhatsApp sandbox first. Send "join kill-ranch" to +1 415 523 8886');
+          } else {
+            toast.error(errorMsg);
+          }
+          return;
+        }
+      } else {
+        // For other communication types, just record
+        await api.post(`/marketing/v2/contacts/${selectedContact.id}/communications`, {
+          ...messageForm,
+          direction: 'outbound'
+        });
+        toast.success('Message sent!');
+      }
       
-      toast.success('Message sent!');
       setShowSendModal(false);
       
       if (selectedContact.pipeline_stage === 'identified') {
@@ -829,6 +874,12 @@ const UnifiedPipeline = () => {
                   <SelectItem value="phone">Phone Call</SelectItem>
                 </SelectContent>
               </Select>
+              {messageForm.comm_type === 'whatsapp' && (
+                <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg text-xs text-green-700">
+                  <strong>Note:</strong> Recipient must first join Twilio sandbox by sending "join kill-ranch" to +1 415 523 8886 on WhatsApp.
+                  {selectedContact?.phone && <span className="block mt-1">Sending to: {selectedContact.phone}</span>}
+                </div>
+              )}
             </div>
             <div>
               <Label className="text-xs uppercase tracking-wider text-gray-500">Subject</Label>
