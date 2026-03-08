@@ -163,15 +163,32 @@ const InfluencersListPage = () => {
       return;
     }
     try {
-      await api.post('/marketing/v2/contacts', {
-        ...newInfluencer,
+      // Clean up the data - convert empty strings to null for optional fields
+      const cleanData = {
+        name: newInfluencer.name,
         contact_type: 'influencer',
-        status: 'identified',
+        bio: newInfluencer.bio || null,
+        instagram_handle: newInfluencer.instagram_handle || null,
+        youtube_handle: newInfluencer.youtube_handle || null,
+        twitter_handle: newInfluencer.twitter_handle || null,
+        email: newInfluencer.email || null,
+        phone: newInfluencer.phone || null,
+        city: newInfluencer.city || null,
+        country: newInfluencer.country || 'India',
+        industry: newInfluencer.industry || 'fashion',
+        primary_platform: newInfluencer.primary_platform || 'instagram',
+        content_type: Array.isArray(newInfluencer.content_type) ? newInfluencer.content_type : [],
+        style_tags: newInfluencer.style_tags ? (typeof newInfluencer.style_tags === 'string' ? newInfluencer.style_tags.split(',').map(t => t.trim()).filter(t => t) : newInfluencer.style_tags) : [],
+        languages: newInfluencer.languages || ['English', 'Hindi'],
+        tier: newInfluencer.tier || 'micro',
         followers: parseInt(newInfluencer.followers) || 0,
         engagement_rate: parseFloat(newInfluencer.engagement_rate) || 0,
-        avg_likes: parseInt(newInfluencer.avg_likes) || 0,
-        avg_comments: parseInt(newInfluencer.avg_comments) || 0
-      });
+        rate_per_post: newInfluencer.rate_per_post ? parseFloat(newInfluencer.rate_per_post) : null,
+        rate_per_reel: newInfluencer.rate_per_reel ? parseFloat(newInfluencer.rate_per_reel) : null,
+        notes: newInfluencer.notes || null,
+      };
+      
+      await api.post('/marketing/v2/contacts', cleanData);
       toast.success('Influencer added');
       setShowAddModal(false);
       setNewInfluencer({
@@ -187,6 +204,7 @@ const InfluencersListPage = () => {
       setAddModalTab('basic');
       fetchInfluencers();
     } catch (error) {
+      console.error('Add influencer error:', error);
       toast.error('Failed to add influencer');
     }
   };

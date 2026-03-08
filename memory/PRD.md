@@ -25,7 +25,8 @@ Build a comprehensive Marketing Operating System that unifies Influencer and PR 
 │   ├── routes/marketing_v2.py       # Main API routes (NEEDS REFACTORING - 4000+ lines)
 │   └── services/
 │       ├── microsoft_email.py       # Email service
-│       └── microsoft_service.py     # Graph API wrapper
+│       ├── microsoft_service.py     # Graph API wrapper
+│       └── social_api.py            # Instagram/YouTube API integration
 ├── frontend/src/
 │   ├── components/
 │   │   ├── Layout.jsx               # Settings modal for email config
@@ -34,6 +35,8 @@ Build a comprehensive Marketing Operating System that unifies Influencer and PR 
 │       ├── EmailPage.jsx            # Gmail-style UI ✅ COMPLETE
 │       ├── ContentAssetsPage.jsx    # Rebuilt with tabs
 │       ├── Budget.jsx               # Payment CRUD
+│       ├── InfluencersListPage.jsx  # Fixed add influencer bug
+│       ├── AIDiscoveryPage.jsx      # AI-powered discovery
 │       └── CampaignHubPage.jsx      # Campaign CRUD
 ```
 
@@ -47,19 +50,22 @@ Build a comprehensive Marketing Operating System that unifies Influencer and PR 
 - [x] User Settings Modal: Save personal Outlook email for outreach
 - [x] Comprehensive UAC Testing: Full test plan executed
 - [x] **Bug Fix**: Select dropdown z-index in modals (z-50 → z-100)
-- [x] **Gmail-style Email Module**: Complete with all features tested (95% pass rate)
-  - Sidebar with folders (Inbox, Starred, Snoozed, Sent, Drafts, All Mail, Trash)
-  - Compose modal with To/Cc/Subject/Body/Send
-  - Email list with sender, subject, date, stars, checkboxes
-  - Email detail with full content, sender avatar, Reply/Forward
-  - Star/unstar, Archive, Delete, Mark read/unread
-  - Connected status badge
-  - Fixed empty state display names
+- [x] **Gmail-style Email Module**: Complete with all features tested
+- [x] **Bug Fix**: "Failed to add influencer" - Fixed data type conversion in frontend
+- [x] **YouTube API Integration**: Fully working with real data (MrBeast, MKBHD tested)
+
+### Integration Status
+| Integration | Status | Notes |
+|-------------|--------|-------|
+| YouTube API | ✅ Working | Full channel analytics |
+| Instagram API | ❌ Token Invalid | Needs fresh Page Access Token |
+| Microsoft Graph | ✅ Working | Email sending active |
 
 ## Prioritized Backlog
 
 ### P0 (Critical)
-1. Refactor `marketing_v2.py` into smaller routers (payments.py, assets.py, templates.py)
+1. Fix Instagram token (user action required)
+2. Refactor `marketing_v2.py` into smaller routers (payments.py, assets.py, templates.py)
 
 ### P1 (High)
 1. Delete unused files: `DigitalPRPage.jsx`, `InfluencerDetailPageV2.jsx`
@@ -75,18 +81,23 @@ Build a comprehensive Marketing Operating System that unifies Influencer and PR 
 ## Known Issues
 - WebSocket Notifications: Platform-level ingress issue (recurring)
 - Twilio WhatsApp: Blocked pending user sandbox setup
-- Email Search: Microsoft Graph $search parameter has API limitations
+- Instagram API: Token invalid/expired - needs fresh Page Access Token
 
 ## 3rd Party Integrations
 - OpenAI GPT-4o (via emergentintegrations)
 - Microsoft Azure AD / Graph API (ACTIVE)
+- YouTube Data API (ACTIVE) - API Key configured
+- Instagram Graph API (TOKEN ISSUE) - Needs valid Page Access Token
 - Twilio WhatsApp (BLOCKED)
-- Instagram Graph API (configured)
-- YouTube Data API (configured)
 
 ## Test Credentials
 - Super Admin: `superadmin@sevora.com` / `superadmin123`
 - Marketing: `marketing@sevora.com` / `admin123`
+
+## API Keys Configured
+- YouTube API Key: ✅ Configured in backend/.env
+- Instagram Access Token: ❌ Invalid/Expired
+- Instagram Business Account ID: ✅ Configured
 
 ## Database
 - MongoDB: `test_database` (via MONGO_URL in backend/.env)
@@ -94,3 +105,5 @@ Build a comprehensive Marketing Operating System that unifies Influencer and PR 
 
 ## Routes
 - Email Module: `/mail/inbox` (primary), `/marketing/email` (alias)
+- AI Discovery: `/marketing/ai-discovery`
+- Influencers: `/marketing/influencers`
