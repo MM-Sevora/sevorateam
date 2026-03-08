@@ -4,6 +4,23 @@
 
 All core features working with enhanced UX.
 
+## Backend Refactoring Status (March 8, 2026)
+
+### Phase 1: Directory Structure ✅
+Created `/app/backend/routes/marketing/` package with modular structure:
+- `base.py` - Shared utilities, auth helpers, model re-exports
+- `contacts.py` - FULLY MIGRATED (~350 lines)
+- `publications.py` - FULLY MIGRATED (~220 lines)
+- `campaigns.py` - FULLY MIGRATED (~120 lines)
+- `deals.py` - FULLY MIGRATED (~250 lines)
+- Stub files for: pipeline, pr, outreach, assets, ai, monitoring, calendar, activity, relationships, deliveries, microsoft
+
+### Migration Strategy
+- Original `marketing_v2.py` remains functional (backward compatibility)
+- New modular routes available at `/api/marketing/v3/*` for testing
+- Progressive migration: move routes module by module
+- Final step: Update frontend to use v3, deprecate v2
+
 ## Recent Enhancements (March 8, 2026)
 
 ### 15. Automation Engine & Settings ✅ (NEW - March 8)
