@@ -6,13 +6,19 @@ All core features working with enhanced UX.
 
 ## Recent Enhancements (March 8, 2026)
 
-### 10. Email Module Enhancements ✅ (NEW)
-- **Attachment Upload**: Paperclip button works - attach files up to 3MB
+### 11. Email Module - Full Feature Set ✅ (NEW)
+- **BCC Support**: Added Bcc field in compose modal
+- **Rich Text Editor**: Bold, Italic, Underline, Links, Bullet/Numbered Lists
+- **Email Signatures**: Create, save, auto-append signatures (persisted in localStorage)
+- **Scheduled Send**: Pick date/time, saves as draft with scheduled notation
+- **Contact Integration**: "Quick Email" button on Influencer & Publication pages
+  - Pre-fills recipient email and subject
+  - Navigates to Email page with compose modal open
+- **Attachment Upload**: Attach files up to 3MB each
 - **Email Templates**: 5 pre-built templates (Collaboration, Follow Up, Campaign Invite, PR Pitch, Thank You)
 - **Attachment Download**: Click attachments in received emails to download
-- **UI**: Templates button, attachment preview with file sizes
 
-### 9. WhatsApp Integration via Twilio ✅ (NEW)
+### 10. WhatsApp Integration via Twilio ✅
 - **Backend**: WhatsApp messaging via Twilio API (`/api/communication/whatsapp/send`)
 - **Influencer Detail Page**: Outreach modal now sends actual WhatsApp messages
 - **Unified Pipeline**: Send Message modal supports WhatsApp channel
@@ -24,7 +30,7 @@ All core features working with enhanced UX.
 - **Sandbox Setup**: Recipients send "join kill-ranch" to +1 415 523 8886
 - **Test Number**: +918967719301 (active)
 
-### 8. Unified Pipeline ✅ (MAJOR)
+### 9. Unified Pipeline ✅ (MAJOR)
 - **Merged**: Outreach Dashboard + Deal Pipeline into single Kanban board
 - **Stages**: Identified → Contacted → Replied → Negotiating → Agreed → Delivering → Completed → Lost
 - **Features**:

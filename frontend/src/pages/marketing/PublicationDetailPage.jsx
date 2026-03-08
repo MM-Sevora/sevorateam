@@ -427,6 +427,16 @@ const PublicationDetailPage = () => {
             <Badge className={statusConfig.color}>{statusConfig.label}</Badge>
           </div>
         </div>
+        {publication.email && (
+          <Button 
+            variant="outline"
+            onClick={() => navigate(`/marketing/email?compose=true&to=${encodeURIComponent(publication.email)}&subject=${encodeURIComponent(`PR Pitch - ${publication.name}`)}`)}
+            data-testid="quick-email-btn"
+            className="text-blue-600 border-blue-200 hover:bg-blue-50"
+          >
+            <Mail className="w-4 h-4 mr-2" /> Quick Email
+          </Button>
+        )}
         <Button variant="outline" onClick={fetchPublication}>
           <RefreshCw className="w-4 h-4 mr-2" />Refresh
         </Button>

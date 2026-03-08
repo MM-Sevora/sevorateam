@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMsal, useIsAuthenticated } from '@azure/msal-react';
 import { InteractionRequiredAuthError } from '@azure/msal-browser';
 import { format } from 'date-fns';
@@ -8,7 +9,8 @@ import {
   Inbox, FileText, Clock, Tag, Settings, PenSquare, ChevronDown,
   MailOpen, CheckSquare, Square, StarOff, Bookmark, Eye, EyeOff,
   CornerUpLeft, ArrowLeft, Printer, ExternalLink, MoreHorizontal,
-  Loader2, Plus, Check, LogIn, LogOut, User
+  Loader2, Plus, Check, LogIn, LogOut, User, Bold, Italic, Underline,
+  Link, List, ListOrdered, AlignLeft, CalendarClock
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -76,6 +78,9 @@ const LABELS = [
 const GRAPH_ENDPOINT = 'https://graph.microsoft.com/v1.0';
 
 const EmailPage = () => {
+  // URL params for compose from other pages
+  const [searchParams, setSearchParams] = useSearchParams();
+  
   // MSAL hooks
   const { instance, accounts } = useMsal();
   const isAuthenticated = useIsAuthenticated();
@@ -99,13 +104,27 @@ const EmailPage = () => {
   const [composeMode, setComposeMode] = useState('new');
   const [composeTo, setComposeTo] = useState('');
   const [composeCc, setComposeCc] = useState('');
+  const [composeBcc, setComposeBcc] = useState('');
   const [composeSubject, setComposeSubject] = useState('');
   const [composeBody, setComposeBody] = useState('');
   const [sending, setSending] = useState(false);
   const [showCc, setShowCc] = useState(false);
+  const [showBcc, setShowBcc] = useState(false);
   const [attachments, setAttachments] = useState([]);
   const [showTemplates, setShowTemplates] = useState(false);
   const fileInputRef = React.useRef(null);
+  const editorRef = React.useRef(null);
+  
+  // Email Signature state
+  const [emailSignature, setEmailSignature] = useState('');
+  const [showSignatureEditor, setShowSignatureEditor] = useState(false);
+  const [signatureEnabled, setSignatureEnabled] = useState(true);
+  
+  // Rich text and scheduling state
+  const [useRichText, setUseRichText] = useState(true);
+  const [showScheduler, setShowScheduler] = useState(false);
+  const [scheduledDate, setScheduledDate] = useState('');
+  const [scheduledTime, setScheduledTime] = useState('');
 
   // Email Templates
   const EMAIL_TEMPLATES = [
@@ -528,23 +547,32 @@ Sevora Team`
     if (mode === 'new') {
       setComposeTo('');
       setComposeCc('');
+      setComposeBcc('');
       setComposeSubject('');
-      setComposeBody('');
+      // Add signature to new emails
+      const sig = signatureEnabled && emailSignature ? `\n\n${emailSignature}` : '';
+      setComposeBody(sig);
     } else if (mode === 'reply' && email) {
       setComposeTo(email.from?.emailAddress?.address || '');
       setComposeCc('');
+      setComposeBcc('');
+      const sig = signatureEnabled && emailSignature ? `\n\n${emailSignature}` : '';
       setComposeSubject(`Re: ${email.subject || ''}`);
-      setComposeBody(`\n\n\nOn ${format(new Date(email.receivedDateTime), 'EEE, MMM d, yyyy')} at ${format(new Date(email.receivedDateTime), 'h:mm a')}, ${email.from?.emailAddress?.name || email.from?.emailAddress?.address} wrote:\n> ${(email.bodyPreview || '').split('\n').join('\n> ')}`);
+      setComposeBody(`${sig}\n\n\nOn ${format(new Date(email.receivedDateTime), 'EEE, MMM d, yyyy')} at ${format(new Date(email.receivedDateTime), 'h:mm a')}, ${email.from?.emailAddress?.name || email.from?.emailAddress?.address} wrote:\n> ${(email.bodyPreview || '').split('\n').join('\n> ')}`);
     } else if (mode === 'replyAll' && email) {
       setComposeTo(email.from?.emailAddress?.address || '');
       setComposeCc(email.toRecipients?.map(r => r.emailAddress?.address).filter(e => e).join(', ') || '');
+      setComposeBcc('');
       setShowCc(true);
+      const sig = signatureEnabled && emailSignature ? `\n\n${emailSignature}` : '';
       setComposeSubject(`Re: ${email.subject || ''}`);
-      setComposeBody(`\n\n\nOn ${format(new Date(email.receivedDateTime), 'EEE, MMM d, yyyy')} at ${format(new Date(email.receivedDateTime), 'h:mm a')}, ${email.from?.emailAddress?.name || email.from?.emailAddress?.address} wrote:\n> ${(email.bodyPreview || '').split('\n').join('\n> ')}`);
+      setComposeBody(`${sig}\n\n\nOn ${format(new Date(email.receivedDateTime), 'EEE, MMM d, yyyy')} at ${format(new Date(email.receivedDateTime), 'h:mm a')}, ${email.from?.emailAddress?.name || email.from?.emailAddress?.address} wrote:\n> ${(email.bodyPreview || '').split('\n').join('\n> ')}`);
     } else if (mode === 'forward' && email) {
       setComposeTo('');
+      setComposeBcc('');
+      const sig = signatureEnabled && emailSignature ? `\n\n${emailSignature}` : '';
       setComposeSubject(`Fwd: ${email.subject || ''}`);
-      setComposeBody(`\n\n\n---------- Forwarded message ---------\nFrom: ${email.from?.emailAddress?.name || ''} <${email.from?.emailAddress?.address || ''}>\nDate: ${format(new Date(email.receivedDateTime), 'EEE, MMM d, yyyy')} at ${format(new Date(email.receivedDateTime), 'h:mm a')}\nSubject: ${email.subject || ''}\n\n${email.bodyPreview || ''}`);
+      setComposeBody(`${sig}\n\n\n---------- Forwarded message ---------\nFrom: ${email.from?.emailAddress?.name || ''} <${email.from?.emailAddress?.address || ''}>\nDate: ${format(new Date(email.receivedDateTime), 'EEE, MMM d, yyyy')} at ${format(new Date(email.receivedDateTime), 'h:mm a')}\nSubject: ${email.subject || ''}\n\n${email.bodyPreview || ''}`);
     }
     
     setShowCompose(true);
@@ -553,10 +581,45 @@ Sevora Team`
   // Apply email template
   const applyTemplate = (template) => {
     setComposeSubject(template.subject);
-    setComposeBody(template.body);
+    // Preserve signature when applying template
+    const sig = signatureEnabled && emailSignature ? `\n\n${emailSignature}` : '';
+    setComposeBody(template.body + sig);
     setShowTemplates(false);
     toast.success(`Applied "${template.name}" template`);
   };
+  
+  // Save signature to localStorage
+  const saveSignature = (sig) => {
+    setEmailSignature(sig);
+    localStorage.setItem('email_signature', sig);
+    toast.success('Signature saved');
+    setShowSignatureEditor(false);
+  };
+  
+  // Load signature from localStorage on mount
+  useEffect(() => {
+    const savedSig = localStorage.getItem('email_signature');
+    if (savedSig) {
+      setEmailSignature(savedSig);
+    }
+  }, []);
+
+  // Handle URL params for compose (from Quick Email buttons)
+  useEffect(() => {
+    const compose = searchParams.get('compose');
+    const to = searchParams.get('to');
+    const subject = searchParams.get('subject');
+    
+    if (compose === 'true' && isAuthenticated) {
+      setComposeTo(to || '');
+      setComposeSubject(subject || '');
+      const sig = signatureEnabled && emailSignature ? `\n\n${emailSignature}` : '';
+      setComposeBody(sig);
+      setShowCompose(true);
+      // Clear URL params after using them
+      setSearchParams({});
+    }
+  }, [searchParams, isAuthenticated, emailSignature, signatureEnabled, setSearchParams]);
 
   // Handle file selection for attachments
   const handleFileSelect = async (e) => {
@@ -615,6 +678,27 @@ Sevora Team`
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
+  // Rich text formatting functions
+  const applyFormat = (command, value = null) => {
+    document.execCommand(command, false, value);
+    editorRef.current?.focus();
+  };
+
+  const insertLink = () => {
+    const url = window.prompt('Enter URL:');
+    if (url) {
+      applyFormat('createLink', url);
+    }
+  };
+
+  // Get editor content as HTML
+  const getEditorContent = () => {
+    if (useRichText && editorRef.current) {
+      return editorRef.current.innerHTML;
+    }
+    return composeBody.replace(/\n/g, '<br>');
+  };
+
   // Send email
   const handleSend = async () => {
     if (!composeTo.trim()) {
@@ -622,13 +706,24 @@ Sevora Team`
       return;
     }
     
+    // Validate scheduled send
+    if (showScheduler && scheduledDate && scheduledTime) {
+      const scheduledDateTime = new Date(`${scheduledDate}T${scheduledTime}`);
+      if (scheduledDateTime <= new Date()) {
+        toast.error('Scheduled time must be in the future');
+        return;
+      }
+    }
+    
     setSending(true);
     try {
+      const emailContent = getEditorContent();
+      
       const message = {
         subject: composeSubject,
         body: {
           contentType: 'HTML',
-          content: composeBody.replace(/\n/g, '<br>')
+          content: emailContent
         },
         toRecipients: composeTo.split(',').map(e => e.trim()).filter(e => e).map(email => ({
           emailAddress: { address: email }
@@ -641,20 +736,49 @@ Sevora Team`
         }));
       }
       
+      if (composeBcc) {
+        message.bccRecipients = composeBcc.split(',').map(e => e.trim()).filter(e => e).map(email => ({
+          emailAddress: { address: email }
+        }));
+      }
+      
       // Add attachments if any
       if (attachments.length > 0) {
         message.attachments = attachments;
       }
       
-      await callGraphAPI('/me/sendMail', {
-        method: 'POST',
-        body: JSON.stringify({ message, saveToSentItems: true })
-      });
+      // Handle scheduled send (Microsoft Graph doesn't support native scheduling, so we save as draft with a note)
+      if (showScheduler && scheduledDate && scheduledTime) {
+        // Save as draft with scheduled info in subject
+        const scheduledDateTime = new Date(`${scheduledDate}T${scheduledTime}`);
+        const formattedSchedule = format(scheduledDateTime, 'MMM d, yyyy h:mm a');
+        
+        // Create draft
+        await callGraphAPI('/me/messages', {
+          method: 'POST',
+          body: JSON.stringify({
+            ...message,
+            subject: `[SCHEDULED: ${formattedSchedule}] ${message.subject}`,
+            isDraft: true
+          })
+        });
+        
+        toast.success(`Email saved as draft. Scheduled for ${formattedSchedule}.\nNote: Please manually send at the scheduled time.`, { duration: 5000 });
+        setShowScheduler(false);
+        setScheduledDate('');
+        setScheduledTime('');
+      } else {
+        // Send immediately
+        await callGraphAPI('/me/sendMail', {
+          method: 'POST',
+          body: JSON.stringify({ message, saveToSentItems: true })
+        });
+        toast.success('Message sent');
+      }
       
-      toast.success('Message sent');
       setShowCompose(false);
       setAttachments([]); // Clear attachments after sending
-      if (currentFolder === 'sentitems') fetchEmails();
+      if (currentFolder === 'sentitems' || currentFolder === 'drafts') fetchEmails();
     } catch (error) {
       toast.error('Failed to send message');
     } finally {
@@ -1246,8 +1370,11 @@ Sevora Team`
                   placeholder="Recipients"
                   className="flex-1 border-0 focus-visible:ring-0 h-8 text-sm"
                 />
-                <Button variant="ghost" size="sm" className="text-[#5f6368] text-sm" onClick={() => setShowCc(!showCc)}>
+                <Button variant="ghost" size="sm" className={`text-sm ${showCc ? 'text-blue-600' : 'text-[#5f6368]'}`} onClick={() => setShowCc(!showCc)}>
                   Cc
+                </Button>
+                <Button variant="ghost" size="sm" className={`text-sm ${showBcc ? 'text-blue-600' : 'text-[#5f6368]'}`} onClick={() => setShowBcc(!showBcc)}>
+                  Bcc
                 </Button>
               </div>
 
@@ -1259,6 +1386,19 @@ Sevora Team`
                     value={composeCc}
                     onChange={(e) => setComposeCc(e.target.value)}
                     placeholder="Cc"
+                    className="flex-1 border-0 focus-visible:ring-0 h-8 text-sm"
+                  />
+                </div>
+              )}
+
+              {/* Bcc Field */}
+              {showBcc && (
+                <div className="flex items-center px-4 py-2 border-b border-gray-200">
+                  <span className="text-sm text-[#5f6368] w-12">Bcc</span>
+                  <Input
+                    value={composeBcc}
+                    onChange={(e) => setComposeBcc(e.target.value)}
+                    placeholder="Bcc (recipients hidden from others)"
                     className="flex-1 border-0 focus-visible:ring-0 h-8 text-sm"
                   />
                 </div>
@@ -1299,14 +1439,163 @@ Sevora Team`
                   </div>
                 </div>
               )}
+              
+              {/* Signature Editor */}
+              {showSignatureEditor && (
+                <div className="px-4 py-3 border-b border-gray-200 bg-blue-50">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-[#5f6368] uppercase tracking-wide">Edit Signature</span>
+                    <Button variant="ghost" size="sm" className="h-6 px-2" onClick={() => setShowSignatureEditor(false)}>
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <Textarea
+                    value={emailSignature}
+                    onChange={(e) => setEmailSignature(e.target.value)}
+                    placeholder="Enter your email signature...&#10;Example:&#10;Best regards,&#10;John Doe&#10;Marketing Manager | Sevora"
+                    className="min-h-[100px] text-sm mb-2"
+                  />
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" onClick={() => saveSignature(emailSignature)}>
+                      <Check className="h-3 w-3 mr-1" /> Save Signature
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => { setEmailSignature(''); saveSignature(''); }}>
+                      Clear
+                    </Button>
+                  </div>
+                </div>
+              )}
+              
+              {/* Schedule Email */}
+              {showScheduler && (
+                <div className="px-4 py-3 border-b border-gray-200 bg-amber-50">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-[#5f6368] uppercase tracking-wide">Schedule Send</span>
+                    <Button variant="ghost" size="sm" className="h-6 px-2" onClick={() => setShowScheduler(false)}>
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <label className="text-xs text-[#5f6368] block mb-1">Date</label>
+                      <Input
+                        type="date"
+                        value={scheduledDate}
+                        onChange={(e) => setScheduledDate(e.target.value)}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="h-8 text-sm w-40"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-[#5f6368] block mb-1">Time</label>
+                      <Input
+                        type="time"
+                        value={scheduledTime}
+                        onChange={(e) => setScheduledTime(e.target.value)}
+                        className="h-8 text-sm w-32"
+                      />
+                    </div>
+                    {scheduledDate && scheduledTime && (
+                      <div className="pt-4">
+                        <Badge variant="outline" className="bg-amber-100 text-amber-800">
+                          <CalendarClock className="h-3 w-3 mr-1" />
+                          {format(new Date(`${scheduledDate}T${scheduledTime}`), 'MMM d, h:mm a')}
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-[#5f6368] mt-2">
+                    Note: Email will be saved as draft with scheduled time. You'll need to manually send at the scheduled time.
+                  </p>
+                </div>
+              )}
 
-              {/* Body */}
-              <Textarea
-                value={composeBody}
-                onChange={(e) => setComposeBody(e.target.value)}
-                placeholder="Compose email"
-                className="min-h-[200px] border-0 focus-visible:ring-0 resize-none text-sm p-4"
-              />
+              {/* Rich Text Formatting Toolbar */}
+              {useRichText && (
+                <div className="flex items-center gap-1 px-4 py-2 border-b border-gray-200 bg-gray-50">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => applyFormat('bold')}>
+                          <Bold className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Bold (Ctrl+B)</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => applyFormat('italic')}>
+                          <Italic className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Italic (Ctrl+I)</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => applyFormat('underline')}>
+                          <Underline className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Underline (Ctrl+U)</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <div className="w-px h-5 bg-gray-300 mx-1" />
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={insertLink}>
+                          <Link className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Insert Link</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => applyFormat('insertUnorderedList')}>
+                          <List className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Bullet List</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => applyFormat('insertOrderedList')}>
+                          <ListOrdered className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Numbered List</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              )}
+
+              {/* Body - Rich Text or Plain */}
+              {useRichText ? (
+                <div
+                  ref={editorRef}
+                  contentEditable
+                  className="min-h-[200px] border-0 focus:outline-none resize-none text-sm p-4 prose prose-sm max-w-none"
+                  style={{ whiteSpace: 'pre-wrap' }}
+                  onInput={(e) => setComposeBody(e.currentTarget.textContent || '')}
+                  dangerouslySetInnerHTML={{ __html: composeBody.replace(/\n/g, '<br>') }}
+                  data-testid="rich-text-editor"
+                />
+              ) : (
+                <Textarea
+                  value={composeBody}
+                  onChange={(e) => setComposeBody(e.target.value)}
+                  placeholder="Compose email"
+                  className="min-h-[200px] border-0 focus-visible:ring-0 resize-none text-sm p-4"
+                />
+              )}
 
               {/* Attachments Preview */}
               {attachments.length > 0 && (
@@ -1376,6 +1665,42 @@ Sevora Team`
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>Email templates</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  
+                  {/* Signature Button */}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => setShowSignatureEditor(!showSignatureEditor)}
+                          className={showSignatureEditor ? 'bg-blue-100' : ''}
+                          data-testid="signature-btn"
+                        >
+                          <PenSquare className="h-5 w-5 text-[#5f6368]" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{emailSignature ? 'Edit signature' : 'Add signature'}</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  
+                  {/* Schedule Send Button */}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => setShowScheduler(!showScheduler)}
+                          className={showScheduler ? 'bg-amber-100' : ''}
+                          data-testid="schedule-btn"
+                        >
+                          <CalendarClock className="h-5 w-5 text-[#5f6368]" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Schedule send</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                   

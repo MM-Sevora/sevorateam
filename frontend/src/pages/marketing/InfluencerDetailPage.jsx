@@ -582,6 +582,16 @@ const InfluencerDetailPage = () => {
           >
             <Send className="w-4 h-4 mr-2" /> Outreach
           </Button>
+          {form.email && (
+            <Button 
+              variant="outline"
+              onClick={() => navigate(`/marketing/email?compose=true&to=${encodeURIComponent(form.email)}&subject=${encodeURIComponent(`Collaboration Opportunity - ${form.name || 'Influencer'}`)}`)}
+              data-testid="quick-email-btn"
+              className="text-blue-600 border-blue-200 hover:bg-blue-50"
+            >
+              <Mail className="w-4 h-4 mr-2" /> Quick Email
+            </Button>
+          )}
           <Button variant="outline" onClick={handleRefreshData}>
             <RefreshCw className="w-4 h-4 mr-2" /> Refresh
           </Button>
