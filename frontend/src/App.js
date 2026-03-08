@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { PublicClientApplication } from "@azure/msal-browser";
+import { PublicClientApplication, EventType } from "@azure/msal-browser";
 import { MsalProvider } from "@azure/msal-react";
 import { Toaster } from "./components/ui/sonner";
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -61,25 +61,52 @@ import PermissionsPage from "./pages/admin/PermissionsPage";
 
 import "./App.css";
 
-// Initialize MSAL
+// Initialize MSAL instance
 const msalInstance = new PublicClientApplication(msalConfig);
 
-// Handle MSAL redirect response on app load
-msalInstance.initialize().then(() => {
-    msalInstance.handleRedirectPromise().then((response) => {
-        if (response) {
-            console.log('MSAL redirect login successful');
-            // Restore the path user was on before redirect
-            const redirectPath = sessionStorage.getItem('msalRedirectPath');
-            if (redirectPath) {
-                sessionStorage.removeItem('msalRedirectPath');
-                window.history.replaceState({}, '', redirectPath);
+// MSAL initialization wrapper component
+const MsalInitializer = ({ children }) => {
+    const [isInitialized, setIsInitialized] = useState(false);
+
+    useEffect(() => {
+        const initializeMsal = async () => {
+            try {
+                await msalInstance.initialize();
+                
+                // Handle redirect response if coming back from Microsoft login
+                const response = await msalInstance.handleRedirectPromise();
+                if (response) {
+                    console.log('MSAL redirect login successful:', response.account?.username);
+                    // Redirect to email page after successful Microsoft login
+                    const redirectPath = sessionStorage.getItem('msalRedirectPath') || '/marketing/email';
+                    sessionStorage.removeItem('msalRedirectPath');
+                    if (window.location.pathname !== redirectPath) {
+                        window.location.href = redirectPath;
+                        return; // Don't set initialized, let the redirect happen
+                    }
+                }
+            } catch (error) {
+                console.error('MSAL initialization error:', error);
             }
-        }
-    }).catch((error) => {
-        console.error('MSAL redirect error:', error);
-    });
-});
+            setIsInitialized(true);
+        };
+
+        initializeMsal();
+    }, []);
+
+    if (!isInitialized) {
+        return (
+            <div className="min-h-screen bg-white flex items-center justify-center">
+                <div className="text-center">
+                    <div className="w-8 h-8 border-2 border-[#4A3728] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">Loading...</p>
+                </div>
+            </div>
+        );
+    }
+
+    return children;
+};
 
 // Protected Route Component
 const ProtectedRoute = ({ children, requiredDepartment }) => {
@@ -205,14 +232,16 @@ function AppRoutes() {
 
 function App() {
     return (
-        <MsalProvider instance={msalInstance}>
-            <BrowserRouter>
-                <AuthProvider>
-                    <AppRoutes />
-                    <Toaster position="top-right" richColors />
-                </AuthProvider>
-            </BrowserRouter>
-        </MsalProvider>
+        <MsalInitializer>
+            <MsalProvider instance={msalInstance}>
+                <BrowserRouter>
+                    <AuthProvider>
+                        <AppRoutes />
+                        <Toaster position="top-right" richColors />
+                    </AuthProvider>
+                </BrowserRouter>
+            </MsalProvider>
+        </MsalInitializer>
     );
 }
 
