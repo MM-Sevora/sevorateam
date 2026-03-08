@@ -1076,8 +1076,8 @@ const InfluencersListPage = () => {
       </div>
 
       {/* Influencers Table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-        <table className="w-full">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
+        <table className="w-full min-w-[1100px]">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50/80">
               <th className="w-12 p-4">
@@ -1158,8 +1158,8 @@ const InfluencersListPage = () => {
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <div className={`w-11 h-11 rounded-full flex items-center justify-center ${inf.primary_platform === 'youtube' ? 'bg-red-100' : 'bg-gradient-to-br from-pink-100 to-purple-100'}`}>
-                          <PlatformIcon className={`w-5 h-5 ${inf.primary_platform === 'youtube' ? 'text-red-500' : 'text-pink-500'}`} />
+                        <div className={`w-11 h-11 rounded-full flex items-center justify-center ${inf.primary_platform === 'youtube' ? 'bg-gradient-to-br from-red-100 to-red-50 ring-1 ring-red-200' : 'bg-gradient-to-br from-pink-100 to-purple-100 ring-1 ring-pink-200'}`}>
+                          <PlatformIcon className={`w-5 h-5 ${inf.primary_platform === 'youtube' ? 'text-red-600' : 'text-pink-600'}`} />
                         </div>
                         <div>
                           <div className="font-semibold text-gray-900 group-hover:text-[#c4a35a] transition-colors">{inf.name}</div>
