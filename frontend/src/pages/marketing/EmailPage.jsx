@@ -35,6 +35,7 @@ import { Textarea } from '../../components/ui/textarea';
 import { Card, CardContent } from '../../components/ui/card';
 import { toast } from 'sonner';
 import { mailRequest } from '../../authConfig';
+import api from '../../lib/api';
 
 // Gmail-like color scheme
 const GMAIL_COLORS = {
@@ -781,6 +782,21 @@ Sevora Team`
           body: JSON.stringify({ message, saveToSentItems: true })
         });
         toast.success('Message sent');
+        
+        // Trigger automation for pipeline auto-advance
+        try {
+          const recipients = composeData.to.split(',').map(e => e.trim()).filter(e => e);
+          for (const recipient of recipients) {
+            const automationResult = await api.post('/automations/execute/test_trigger', { contact_email: recipient });
+            if (automationResult.data?.trigger_result?.success) {
+              toast.info(`✨ Auto-advanced "${automationResult.data.trigger_result.contact_name}" to "${automationResult.data.trigger_result.to_stage}" stage`, {
+                duration: 4000
+              });
+            }
+          }
+        } catch (autoErr) {
+          console.log('Automation trigger skipped:', autoErr.message);
+        }
       }
       
       setShowCompose(false);

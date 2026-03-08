@@ -600,6 +600,13 @@ const UnifiedPipeline = () => {
         if (whatsappResult.data.success) {
           toast.success('WhatsApp message sent successfully!');
           
+          // Show automation notification if triggered
+          if (whatsappResult.data.automation?.success) {
+            toast.info(`✨ Auto-advanced "${whatsappResult.data.automation.contact_name}" to "${whatsappResult.data.automation.to_stage}" stage`, {
+              duration: 4000
+            });
+          }
+          
           // Also record the communication in history
           await api.post(`/marketing/v2/contacts/${selectedContact.id}/communications`, {
             ...messageForm,
@@ -628,9 +635,8 @@ const UnifiedPipeline = () => {
       
       setShowSendModal(false);
       
-      if (selectedContact.pipeline_stage === 'identified') {
-        handleStageChange(selectedContact.id, 'contacted');
-      }
+      // Automation now handles stage advancement automatically
+      // Manual advancement is no longer needed
       
       fetchData();
     } catch (error) {
