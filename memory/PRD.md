@@ -2,55 +2,58 @@
 
 ## Current Status: FULLY OPERATIONAL ✅
 
-All core features working with clean codebase.
+All core features working with enhanced UX.
 
-## Recent Cleanup (March 8, 2026)
-- Deleted 4 deprecated frontend files
-- Reduced marketing pages from 25 to 21
-- Added redirect from /marketing/pr to /marketing/publications
-- Backend `marketing_v2.py` retained (future refactor candidate)
+## Recent Enhancements (March 8, 2026)
+
+### AI Discovery Page Redesign
+- Modern gradient header with AI branding
+- 3-step wizard flow (Brief → Processing → Results)
+- Quick Profile Lookup sidebar (Instagram/YouTube)
+- Integration Status panel
+- Color-coded range sliders
+- Campaign objective pill buttons
+- AI processing animation with progress
+
+### Bug Fixes
+- Fixed "Failed to save changes" - ContactUpdate model
+- Fixed YouTube metrics mismatch
+- Fixed action button dropdown on Influencers list
+- Separated Pipeline & Campaign cards
+- Fixed Select dropdown z-index in modals
+
+### Cleanup
+- Deleted 4 deprecated files
+- Redirected /marketing/pr to /marketing/publications
 
 ## Architecture
 ```
-/app/
-├── backend/
-│   └── routes/marketing_v2.py   # 4253 lines (future refactor)
-├── frontend/src/pages/marketing/
-│   ├── InfluencersListPage.jsx  # Primary influencer list
-│   ├── InfluencerDetailPage.jsx # Detail view with YouTube metrics
-│   ├── PublicationsListPage.jsx # PR/Publications list
-│   ├── PublicationDetailPage.jsx
-│   ├── CampaignHubPage.jsx      # Campaign management
-│   ├── Budget.jsx               # Payment tracking
-│   ├── ContentAssetsPage.jsx    # Assets, Press Kits, Templates
-│   ├── EmailPage.jsx            # Gmail-style email
-│   └── AIDiscoveryPage.jsx      # AI-powered discovery
+/app/frontend/src/pages/marketing/
+├── AIDiscoveryPage.jsx      # ENHANCED - Modern wizard UI
+├── InfluencersListPage.jsx  # Action dropdown added
+├── InfluencerDetailPage.jsx # YouTube metrics, Pipeline/Campaign split
+├── PublicationsListPage.jsx
+├── CampaignHubPage.jsx
+├── Budget.jsx
+├── ContentAssetsPage.jsx
+├── EmailPage.jsx            # Gmail-style UI
 ```
 
-## Features Completed
-- ✅ Full CRUD for Influencers, Publications, Campaigns
-- ✅ Payment tracking with campaign budget sync
-- ✅ Gmail-style email via Microsoft Graph API
-- ✅ YouTube & Instagram API integrations
-- ✅ Action dropdown menus on list pages
-- ✅ Separated Pipeline & Campaign cards
-
 ## API Keys Configured
-- ✅ YouTube API Key
-- ✅ Instagram Access Token & Business Account ID
-- ✅ Microsoft Graph API (Email)
+- ✅ YouTube API - Working with full data
+- ✅ Instagram API - Profile lookup working (limited metrics due to permissions)
+- ✅ Microsoft Graph API - Email sending
 
 ## Prioritized Backlog
 
 ### P1 (High)
 1. PR Analytics Dashboard
-2. Refactor marketing_v2.py into smaller routers
+2. Refactor marketing_v2.py (4253 lines)
 
 ### P2 (Medium)
 1. AI pitch writing feature
 2. Automated media monitoring
 3. Email templates dropdown
-4. Scheduled Azure AD Sync
 
 ## Test Credentials
 - Super Admin: `superadmin@sevora.com` / `superadmin123`

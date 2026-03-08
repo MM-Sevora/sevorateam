@@ -11,13 +11,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Slider } from '../../components/ui/slider';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import { Progress } from '../../components/ui/progress';
 import { toast } from 'sonner';
 import { 
   Sparkles, Search, Users, Target, MapPin, DollarSign, 
   Instagram, Youtube, TrendingUp, CheckCircle, XCircle,
   Bookmark, RefreshCw, ChevronDown, ChevronUp, Filter,
   ArrowUpDown, Star, Eye, MessageSquare, Send, Loader2,
-  Newspaper, User, Building2, ArrowLeft
+  Newspaper, User, Building2, ArrowLeft, ArrowRight, Zap,
+  Heart, Play, ExternalLink, Plus, Wand2, Brain, Rocket
 } from 'lucide-react';
 
 const INDUSTRIES = [
@@ -27,28 +29,30 @@ const INDUSTRIES = [
 
 const PLATFORMS = ['Instagram', 'YouTube', 'Both'];
 const OBJECTIVES = ['Brand Awareness', 'Product Launch', 'Engagement', 'Sales', 'Content Creation'];
-
-// PR Discovery Constants
 const BEAT_OPTIONS = ['Fashion', 'Beauty', 'Lifestyle', 'Tech', 'Business', 'Entertainment', 'Startup', 'Luxury'];
-const STORY_TYPES = ['news', 'feature', 'interview'];
 
 const AIDiscoveryPage = () => {
   const { api } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   
-  // Active tab - check URL param on mount
+  // Active tab
   const [activeTab, setActiveTab] = useState(() => {
     const tabParam = searchParams.get('tab');
     return tabParam === 'pr' ? 'pr' : 'influencer';
   });
   
-  // Campaign Brief Form (Influencer)
+  // Wizard step (1: Brief, 2: Processing, 3: Results)
+  const [wizardStep, setWizardStep] = useState(1);
+  const [processingProgress, setProcessingProgress] = useState(0);
+  const [processingStage, setProcessingStage] = useState('');
+  
+  // Campaign Brief Form
   const [brief, setBrief] = useState({
     industry: '',
     target_audience: '',
     platform: 'Instagram',
-    location: '',
+    location: 'India',
     budget_min: 10000,
     budget_max: 500000,
     follower_min: 10000,
@@ -58,7 +62,7 @@ const AIDiscoveryPage = () => {
     additional_requirements: ''
   });
   
-  // Discovery State (Influencer)
+  // Discovery State
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
   const [recommendations, setRecommendations] = useState([]);
@@ -68,18 +72,14 @@ const AIDiscoveryPage = () => {
   // Filter & Sort
   const [sortBy, setSortBy] = useState('match_score');
   const [sortOrder, setSortOrder] = useState('desc');
-  const [showFilters, setShowFilters] = useState(false);
   const [minScore, setMinScore] = useState(0);
   
   // Action States
   const [savingId, setSavingId] = useState(null);
-  const [rejectingId, setRejectingId] = useState(null);
   const [showOutreachModal, setShowOutreachModal] = useState(false);
   const [selectedInfluencer, setSelectedInfluencer] = useState(null);
   const [outreachMessage, setOutreachMessage] = useState(null);
   const [generatingOutreach, setGeneratingOutreach] = useState(false);
-  
-  // Influencer data mapping
   const [influencerMap, setInfluencerMap] = useState({});
 
   // PR Discovery State
@@ -92,7 +92,13 @@ const AIDiscoveryPage = () => {
   const [newPitch, setNewPitch] = useState({ contact_id: '', subject: '', message: '', pr_campaign_id: '' });
   const [prCampaigns, setPrCampaigns] = useState([]);
 
-  // Fetch journalists for PR discovery
+  // Quick Lookup State
+  const [quickLookupHandle, setQuickLookupHandle] = useState('');
+  const [quickLookupPlatform, setQuickLookupPlatform] = useState('instagram');
+  const [quickLookupLoading, setQuickLookupLoading] = useState(false);
+  const [quickLookupResult, setQuickLookupResult] = useState(null);
+
+  // Fetch journalists
   const fetchJournalists = useCallback(async () => {
     try {
       const r = await api.get('/marketing/v2/contacts', { params: { contact_type: 'journalist', limit: 300 } });
@@ -102,41 +108,27 @@ const AIDiscoveryPage = () => {
 
   const fetchPRCampaigns = useCallback(async () => {
     try {
-      const r = await api.get('/marketing/v2/pr/campaigns');
+      const r = await api.get('/pr/campaigns');
       setPrCampaigns(r.data || []);
     } catch (e) { console.error(e); }
   }, [api]);
 
-  // Load journalists when PR tab is active
-  React.useEffect(() => {
+  useEffect(() => {
     if (activeTab === 'pr') {
       fetchJournalists();
       fetchPRCampaigns();
     }
   }, [activeTab, fetchJournalists, fetchPRCampaigns]);
 
-  // PR Discovery Handler
-  const handlePRDiscover = async () => {
-    if (!prBrief.topic) { toast.error('Enter a topic'); return; }
-    setPrLoading(true);
-    try {
-      const r = await api.post('/marketing/v2/pr/ai-discover', prBrief);
-      if (r.data.success) { setPrResults(r.data.data); toast.success('Discovery complete!'); }
-      else { toast.error(r.data.error || 'Failed'); }
-    } catch (e) { toast.error('Failed'); }
-    finally { setPrLoading(false); }
-  };
-
-  // Create Pitch Handler
-  const handleCreatePitch = async () => {
-    if (!newPitch.contact_id || !newPitch.subject || !newPitch.message) { toast.error('All fields required'); return; }
-    try {
-      await api.post('/marketing/v2/pr/pitches', newPitch);
-      toast.success('Pitch created');
-      setShowPitchModal(false);
-      setNewPitch({ contact_id: '', subject: '', message: '', pr_campaign_id: '' });
-    } catch (e) { toast.error('Failed'); }
-  };
+  // Simulated processing stages
+  const processingStages = [
+    { progress: 15, stage: 'Analyzing campaign requirements...' },
+    { progress: 30, stage: 'Scanning influencer database...' },
+    { progress: 50, stage: 'Calculating match scores...' },
+    { progress: 70, stage: 'Fetching social metrics...' },
+    { progress: 85, stage: 'Generating AI insights...' },
+    { progress: 100, stage: 'Preparing recommendations...' }
+  ];
 
   const handleDiscover = async () => {
     if (!brief.industry) {
@@ -145,104 +137,170 @@ const AIDiscoveryPage = () => {
     }
     
     setLoading(true);
-    try {
-      const response = await api.post('/ai/discovery/search', brief);
-      
-      if (response.data.success) {
-        setSessionId(response.data.session_id);
-        const data = response.data.data;
-        setInsights(data.campaign_insights);
-        
-        // Fetch full influencer data for each recommendation
-        const recs = data.recommendations || [];
-        const map = {};
-        
-        for (const rec of recs) {
-          try {
-            const infRes = await api.get(`/marketing/v2/contacts/${rec.influencer_id}`);
-            map[rec.influencer_id] = infRes.data;
-          } catch (e) {
-            console.log(`Could not fetch influencer ${rec.influencer_id}`);
-          }
-        }
-        
-        setInfluencerMap(map);
-        setRecommendations(recs);
-        setResults(data);
-        toast.success(`Found ${recs.length} matching influencers!`);
-      } else {
-        toast.error(response.data.error || 'Discovery failed');
+    setWizardStep(2);
+    setProcessingProgress(0);
+    
+    // Animate through processing stages
+    let stageIndex = 0;
+    const progressInterval = setInterval(() => {
+      if (stageIndex < processingStages.length) {
+        setProcessingProgress(processingStages[stageIndex].progress);
+        setProcessingStage(processingStages[stageIndex].stage);
+        stageIndex++;
       }
+    }, 800);
+
+    try {
+      const response = await api.post('/ai/discovery/campaign-recommendations', brief);
+      
+      clearInterval(progressInterval);
+      setProcessingProgress(100);
+      setProcessingStage('Complete!');
+      
+      setTimeout(() => {
+        const data = response.data;
+        setResults(data);
+        setRecommendations(data.recommendations || []);
+        setInsights(data.insights);
+        setSessionId(data.session_id);
+        
+        // Build influencer map
+        const map = {};
+        (data.recommendations || []).forEach(rec => {
+          if (rec.influencer) map[rec.influencer.id] = rec.influencer;
+        });
+        setInfluencerMap(map);
+        
+        setWizardStep(3);
+        setLoading(false);
+        toast.success(`Found ${data.recommendations?.length || 0} matching influencers!`);
+      }, 500);
+      
     } catch (error) {
-      toast.error('Discovery failed. Please try again.');
-      console.error(error);
-    } finally {
+      clearInterval(progressInterval);
+      console.error('Discovery failed:', error);
+      toast.error('Failed to discover influencers');
+      setWizardStep(1);
       setLoading(false);
     }
   };
 
-  const handleSave = async (influencerId) => {
-    setSavingId(influencerId);
+  const handleQuickLookup = async () => {
+    if (!quickLookupHandle.trim()) {
+      toast.error('Please enter a handle');
+      return;
+    }
+    
+    setQuickLookupLoading(true);
     try {
-      await api.post('/ai/discovery/save', {
-        influencer_id: influencerId,
-        list_name: 'AI Discovery Results',
-        update_status: true
-      });
-      toast.success('Influencer saved to list!');
-      // Update local state to show saved badge
-      setRecommendations(prev => prev.map(r => 
-        r.influencer_id === influencerId ? { ...r, saved: true } : r
-      ));
+      const endpoint = quickLookupPlatform === 'youtube' 
+        ? `/social-api/youtube/channel/${quickLookupHandle.replace('@', '')}`
+        : `/social-api/instagram/profile/${quickLookupHandle.replace('@', '')}`;
+      
+      const response = await api.get(endpoint);
+      setQuickLookupResult(response.data);
+      toast.success('Profile found!');
     } catch (error) {
+      console.error('Lookup failed:', error);
+      toast.error('Profile not found or API error');
+      setQuickLookupResult(null);
+    } finally {
+      setQuickLookupLoading(false);
+    }
+  };
+
+  const handleSaveInfluencer = async (recommendation) => {
+    const inf = recommendation.influencer;
+    if (!inf) return;
+    
+    setSavingId(inf.id);
+    try {
+      const contactData = {
+        name: inf.name || inf.username,
+        contact_type: 'influencer',
+        instagram_handle: inf.platform === 'instagram' ? `@${inf.username}` : null,
+        youtube_handle: inf.platform === 'youtube' ? `@${inf.username}` : null,
+        primary_platform: inf.platform,
+        followers: inf.followers_count || inf.subscribers_count || 0,
+        engagement_rate: inf.engagement_rate || 0,
+        bio: inf.bio || inf.description,
+        industry: brief.industry,
+        city: brief.location,
+      };
+      
+      await api.post('/marketing/v2/contacts', contactData);
+      toast.success(`${inf.name || inf.username} saved to your contacts!`);
+    } catch (error) {
+      console.error('Save failed:', error);
       toast.error('Failed to save influencer');
     } finally {
       setSavingId(null);
     }
   };
 
-  const handleReject = async (influencerId, reason = '') => {
-    setRejectingId(influencerId);
+  const handleSaveQuickLookup = async () => {
+    if (!quickLookupResult) return;
+    
     try {
-      await api.post('/ai/discovery/reject', {
-        influencer_id: influencerId,
-        reason
-      });
-      toast.success('Influencer rejected');
-      // Remove from recommendations
-      setRecommendations(prev => prev.filter(r => r.influencer_id !== influencerId));
+      const data = quickLookupResult;
+      const contactData = {
+        name: data.name || data.username,
+        contact_type: 'influencer',
+        instagram_handle: data.platform === 'instagram' ? `@${data.username}` : null,
+        youtube_handle: data.platform === 'youtube' ? `@${data.username}` : null,
+        primary_platform: data.platform,
+        followers: data.followers_count || data.subscribers_count || 0,
+        engagement_rate: data.engagement_rate || 0,
+        bio: data.bio || data.description,
+        youtube_subscribers: data.platform === 'youtube' ? data.subscribers_count : null,
+        youtube_avg_views: data.platform === 'youtube' ? data.average_views : null,
+      };
+      
+      await api.post('/marketing/v2/contacts', contactData);
+      toast.success(`${data.name || data.username} saved to contacts!`);
     } catch (error) {
-      toast.error('Failed to reject influencer');
-    } finally {
-      setRejectingId(null);
+      toast.error('Failed to save');
     }
   };
 
-  const handleGenerateOutreach = async (influencerId) => {
-    const influencer = influencerMap[influencerId];
-    if (!influencer) return;
-    
-    setSelectedInfluencer(influencer);
+  const handleGenerateOutreach = async (recommendation) => {
+    const inf = recommendation.influencer;
+    setSelectedInfluencer(inf);
     setShowOutreachModal(true);
     setGeneratingOutreach(true);
     
     try {
       const response = await api.post('/ai/discovery/outreach-message', {
-        influencer_id: influencerId,
-        brand_name: 'Sevora',
-        key_message: brief.objective,
-        tone: 'professional'
+        session_id: sessionId,
+        influencer_id: inf.id,
+        campaign_brief: brief,
+        influencer_data: inf
       });
-      
-      if (response.data.success) {
-        setOutreachMessage(response.data.data);
-      } else {
-        toast.error('Failed to generate outreach message');
-      }
+      setOutreachMessage(response.data);
     } catch (error) {
-      toast.error('Failed to generate outreach');
+      toast.error('Failed to generate outreach message');
     } finally {
       setGeneratingOutreach(false);
+    }
+  };
+
+  // PR Discovery
+  const handlePRDiscover = async () => {
+    if (!prBrief.topic) {
+      toast.error('Please enter a story topic');
+      return;
+    }
+    
+    setPrLoading(true);
+    try {
+      const response = await api.post('/ai/discovery/pr-recommendations', prBrief);
+      setPrResults(response.data);
+      toast.success(`Found ${response.data.recommendations?.length || 0} media contacts!`);
+    } catch (error) {
+      console.error('PR Discovery failed:', error);
+      toast.error('Failed to discover media contacts');
+    } finally {
+      setPrLoading(false);
     }
   };
 
@@ -253,812 +311,755 @@ const AIDiscoveryPage = () => {
     return num.toString();
   };
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
+  const formatCurrency = (num) => {
+    if (num >= 100000) return `₹${(num / 100000).toFixed(1)}L`;
+    if (num >= 1000) return `₹${(num / 1000).toFixed(0)}K`;
+    return `₹${num}`;
   };
 
-  // Filter and sort recommendations
+  // Filtered & sorted recommendations
   const filteredRecommendations = recommendations
-    .filter(r => r.match_score >= minScore)
+    .filter(rec => (rec.match_score || 0) >= minScore)
     .sort((a, b) => {
-      const multiplier = sortOrder === 'desc' ? -1 : 1;
-      if (sortBy === 'match_score') return (a.match_score - b.match_score) * multiplier;
-      if (sortBy === 'followers') {
-        const aFollowers = influencerMap[a.influencer_id]?.followers || 0;
-        const bFollowers = influencerMap[b.influencer_id]?.followers || 0;
-        return (aFollowers - bFollowers) * multiplier;
+      let aVal, bVal;
+      if (sortBy === 'match_score') {
+        aVal = a.match_score || 0;
+        bVal = b.match_score || 0;
+      } else if (sortBy === 'followers') {
+        aVal = a.influencer?.followers_count || a.influencer?.subscribers_count || 0;
+        bVal = b.influencer?.followers_count || b.influencer?.subscribers_count || 0;
+      } else {
+        aVal = a.influencer?.engagement_rate || 0;
+        bVal = b.influencer?.engagement_rate || 0;
       }
-      if (sortBy === 'engagement') {
-        const aEng = influencerMap[a.influencer_id]?.engagement_rate || 0;
-        const bEng = influencerMap[b.influencer_id]?.engagement_rate || 0;
-        return (aEng - bEng) * multiplier;
-      }
-      return 0;
+      return sortOrder === 'desc' ? bVal - aVal : aVal - bVal;
     });
 
+  const resetDiscovery = () => {
+    setWizardStep(1);
+    setResults(null);
+    setRecommendations([]);
+    setInsights(null);
+  };
+
   return (
-    <div className="p-8 bg-gray-50 min-h-screen" data-testid="ai-discovery-page">
+    <div className="min-h-screen bg-gradient-to-br from-amber-50/30 via-white to-orange-50/30" data-testid="ai-discovery-page">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/marketing/ai-tools')} className="h-10 w-10 p-0" data-testid="back-btn">
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">AI-Powered</p>
-            <h1 className="text-3xl font-semibold text-gray-900 flex items-center gap-3">
-              <Sparkles className="w-8 h-8 text-amber-500" />
-              AI Tools & Discovery
-            </h1>
+      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-100">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="hover:bg-amber-50">
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-200">
+                    <Sparkles className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-xl font-bold text-gray-900">AI Discovery</h1>
+                    <p className="text-xs text-gray-500">Powered by AI to find perfect matches</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Tab Switcher */}
+            <div className="flex items-center gap-2 p-1 bg-gray-100 rounded-xl">
+              <button
+                onClick={() => { setActiveTab('influencer'); resetDiscovery(); }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  activeTab === 'influencer' 
+                    ? 'bg-white text-amber-600 shadow-sm' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Users className="w-4 h-4" /> Influencers
+              </button>
+              <button
+                onClick={() => { setActiveTab('pr'); resetDiscovery(); }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  activeTab === 'pr' 
+                    ? 'bg-white text-amber-600 shadow-sm' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Newspaper className="w-4 h-4" /> PR & Media
+              </button>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {activeTab === 'influencer' && results && (
-            <Button variant="outline" onClick={() => { setResults(null); setRecommendations([]); }}>
-              <RefreshCw className="w-4 h-4 mr-2" /> New Search
-            </Button>
-          )}
-          {activeTab === 'pr' && prResults && (
-            <Button variant="outline" onClick={() => setPrResults(null)}>
-              <RefreshCw className="w-4 h-4 mr-2" /> New Search
-            </Button>
-          )}
         </div>
       </div>
 
-      {/* Tabs for Influencer and PR Discovery */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList className="bg-white border border-gray-200 p-1">
-          <TabsTrigger value="influencer" className="data-[state=active]:bg-amber-100 data-[state=active]:text-amber-800">
-            <Users className="w-4 h-4 mr-2" />Influencer Discovery
-          </TabsTrigger>
-          <TabsTrigger value="pr" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800">
-            <Newspaper className="w-4 h-4 mr-2" />PR & Media Discovery
-          </TabsTrigger>
-        </TabsList>
-
-        {/* INFLUENCER DISCOVERY TAB */}
-        <TabsContent value="influencer">
-          {/* Campaign Brief Form (shown when no results) */}
-          {!results && (
-            <Card className="bg-white border-gray-200 max-w-4xl mx-auto">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="w-5 h-5 text-amber-500" />
-                  Campaign Brief
-                </CardTitle>
-                <p className="text-sm text-gray-500">Tell us about your campaign and we'll find the perfect influencers</p>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Row 1: Industry & Audience */}
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">INDUSTRY / NICHE *</Label>
-                    <Select value={brief.industry} onValueChange={v => setBrief(prev => ({ ...prev, industry: v }))}>
-                      <SelectTrigger data-testid="industry-select"><SelectValue placeholder="Select industry" /></SelectTrigger>
-                      <SelectContent>
-                    {INDUSTRIES.map(i => <SelectItem key={i} value={i}>{i}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">TARGET AUDIENCE</Label>
-                <Input 
-                  value={brief.target_audience}
-                  onChange={e => setBrief(prev => ({ ...prev, target_audience: e.target.value }))}
-                  placeholder="e.g., Women 25-35, Urban millennials"
-                  data-testid="audience-input"
-                />
-              </div>
-            </div>
-
-            {/* Row 2: Platform & Location */}
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">PLATFORM</Label>
-                <Select value={brief.platform} onValueChange={v => setBrief(prev => ({ ...prev, platform: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {PLATFORMS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">LOCATION</Label>
-                <Input 
-                  value={brief.location}
-                  onChange={e => setBrief(prev => ({ ...prev, location: e.target.value }))}
-                  placeholder="e.g., Mumbai, Maharashtra or India-wide"
-                />
-              </div>
-            </div>
-
-            {/* Row 3: Budget Range */}
-            <div>
-              <Label className="text-xs uppercase tracking-wider text-gray-500 mb-3 block">
-                BUDGET RANGE: {formatCurrency(brief.budget_min)} - {formatCurrency(brief.budget_max)}
-              </Label>
-              <div className="px-2">
-                <Slider
-                  value={[brief.budget_min, brief.budget_max]}
-                  min={0}
-                  max={1000000}
-                  step={10000}
-                  onValueChange={([min, max]) => setBrief(prev => ({ ...prev, budget_min: min, budget_max: max }))}
-                  className="w-full"
-                />
-              </div>
-              <div className="flex justify-between text-xs text-gray-400 mt-1">
-                <span>₹0</span>
-                <span>₹10L</span>
-              </div>
-            </div>
-
-            {/* Row 4: Follower Range */}
-            <div>
-              <Label className="text-xs uppercase tracking-wider text-gray-500 mb-3 block">
-                FOLLOWER RANGE: {formatNumber(brief.follower_min)} - {formatNumber(brief.follower_max)}
-              </Label>
-              <div className="px-2">
-                <Slider
-                  value={[brief.follower_min, brief.follower_max]}
-                  min={1000}
-                  max={5000000}
-                  step={10000}
-                  onValueChange={([min, max]) => setBrief(prev => ({ ...prev, follower_min: min, follower_max: max }))}
-                  className="w-full"
-                />
-              </div>
-              <div className="flex justify-between text-xs text-gray-400 mt-1">
-                <span>1K</span>
-                <span>5M</span>
-              </div>
-            </div>
-
-            {/* Row 5: Objective & Content Type */}
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">CAMPAIGN OBJECTIVE</Label>
-                <Select value={brief.objective} onValueChange={v => setBrief(prev => ({ ...prev, objective: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {OBJECTIVES.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">CONTENT TYPE PREFERENCE</Label>
-                <Input 
-                  value={brief.content_type}
-                  onChange={e => setBrief(prev => ({ ...prev, content_type: e.target.value }))}
-                  placeholder="e.g., Reels, Stories, Posts, Videos"
-                />
-              </div>
-            </div>
-
-            {/* Additional Requirements */}
-            <div>
-              <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">ADDITIONAL REQUIREMENTS</Label>
-              <Textarea
-                value={brief.additional_requirements}
-                onChange={e => setBrief(prev => ({ ...prev, additional_requirements: e.target.value }))}
-                placeholder="Any specific requirements, brand values, or preferences..."
-                rows={3}
-              />
-            </div>
-
-            {/* Submit */}
-            <Button 
-              onClick={handleDiscover}
-              disabled={loading || !brief.industry}
-              className="w-full bg-[#c4a35a] hover:bg-[#b39349] text-white h-12 text-lg"
-              data-testid="discover-btn"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Analyzing & Finding Matches...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-5 h-5 mr-2" />
-                  Discover Influencers
-                </>
-              )}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Results Section */}
-      {results && (
-        <div className="space-y-6">
-          {/* Campaign Insights */}
-          {insights && (
-            <Card className="bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-amber-500" />
-                  AI Campaign Insights
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4">
-                  {insights.target_audience_analysis && (
-                    <div>
-                      <p className="text-xs uppercase text-amber-600 mb-1">Audience Analysis</p>
-                      <p className="text-sm text-gray-700">{insights.target_audience_analysis}</p>
-                    </div>
-                  )}
-                  {insights.recommended_content_types?.length > 0 && (
-                    <div>
-                      <p className="text-xs uppercase text-amber-600 mb-1">Recommended Content</p>
-                      <div className="flex flex-wrap gap-1">
-                        {insights.recommended_content_types.map((ct, idx) => (
-                          <Badge key={idx} variant="outline" className="bg-white">{ct}</Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {insights.best_posting_times && (
-                    <div>
-                      <p className="text-xs uppercase text-amber-600 mb-1">Best Posting Times</p>
-                      <p className="text-sm text-gray-700">{insights.best_posting_times}</p>
-                    </div>
-                  )}
-                  {insights.budget_allocation_suggestion && (
-                    <div>
-                      <p className="text-xs uppercase text-amber-600 mb-1">Budget Strategy</p>
-                      <p className="text-sm text-gray-700">{insights.budget_allocation_suggestion}</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Filters & Sort */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <h2 className="text-lg font-semibold text-gray-900">
-                {filteredRecommendations.length} Recommended Influencers
-              </h2>
-              <Button variant="ghost" size="sm" onClick={() => setShowFilters(!showFilters)}>
-                <Filter className="w-4 h-4 mr-1" /> Filters
-                {showFilters ? <ChevronUp className="w-4 h-4 ml-1" /> : <ChevronDown className="w-4 h-4 ml-1" />}
-              </Button>
-            </div>
-            <div className="flex items-center gap-2">
-              <Label className="text-sm text-gray-500">Sort by:</Label>
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="match_score">Match Score</SelectItem>
-                  <SelectItem value="followers">Followers</SelectItem>
-                  <SelectItem value="engagement">Engagement</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button 
-                variant="ghost" 
-                size="icon"
-                onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
-              >
-                <ArrowUpDown className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Filter Panel */}
-          {showFilters && (
-            <Card className="bg-white border-gray-200">
-              <CardContent className="py-4">
-                <div className="flex items-center gap-6">
-                  <div className="flex-1">
-                    <Label className="text-xs text-gray-500 mb-2 block">
-                      Minimum Match Score: {minScore}%
-                    </Label>
-                    <Slider
-                      value={[minScore]}
-                      min={0}
-                      max={100}
-                      step={5}
-                      onValueChange={([v]) => setMinScore(v)}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Results Grid */}
-          <div className="grid grid-cols-2 gap-4">
-            {filteredRecommendations.map((rec) => {
-              const influencer = influencerMap[rec.influencer_id];
-              if (!influencer) return null;
-              
-              return (
-                <Card 
-                  key={rec.influencer_id}
-                  className={`bg-white border-gray-200 hover:shadow-md transition-shadow ${rec.saved ? 'border-green-300' : ''}`}
-                  data-testid={`influencer-card-${rec.influencer_id}`}
-                >
-                  <CardContent className="p-5">
-                    {/* Header */}
-                    <div className="flex items-start justify-between mb-4">
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {activeTab === 'influencer' ? (
+          <>
+            {/* Step 1: Campaign Brief */}
+            {wizardStep === 1 && (
+              <div className="grid grid-cols-3 gap-8">
+                {/* Main Brief Form */}
+                <div className="col-span-2 space-y-6">
+                  <Card className="border-0 shadow-xl shadow-amber-100/50 overflow-hidden">
+                    <div className="h-2 bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500" />
+                    <CardHeader className="pb-2">
                       <div className="flex items-center gap-3">
-                        <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-xl">
-                          {influencer.name?.charAt(0).toUpperCase()}
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
+                          <Brain className="w-6 h-6 text-amber-600" />
                         </div>
                         <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-gray-900">{influencer.name}</h3>
-                            {rec.saved && <Badge className="bg-green-100 text-green-700">Saved</Badge>}
-                          </div>
-                          <div className="text-sm text-gray-500 flex items-center gap-2">
-                            {influencer.instagram_handle && (
-                              <span className="flex items-center gap-1">
-                                <Instagram className="w-3 h-3 text-pink-500" />
-                                @{influencer.instagram_handle}
-                              </span>
-                            )}
-                            {influencer.youtube_handle && (
-                              <span className="flex items-center gap-1">
-                                <Youtube className="w-3 h-3 text-red-500" />
-                                {influencer.youtube_handle}
-                              </span>
-                            )}
+                          <CardTitle className="text-lg">Campaign Brief</CardTitle>
+                          <p className="text-sm text-gray-500">Tell us about your campaign and AI will find the perfect influencers</p>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-6">
+                      {/* Industry & Audience */}
+                      <div className="grid grid-cols-2 gap-6">
+                        <div>
+                          <Label className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2 block">
+                            Industry / Niche <span className="text-red-500">*</span>
+                          </Label>
+                          <Select value={brief.industry} onValueChange={v => setBrief(prev => ({ ...prev, industry: v }))}>
+                            <SelectTrigger className="h-12 bg-gray-50 border-gray-200 hover:bg-white transition-colors">
+                              <SelectValue placeholder="Select industry" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {INDUSTRIES.map(ind => (
+                                <SelectItem key={ind} value={ind}>{ind}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2 block">Target Audience</Label>
+                          <Input 
+                            value={brief.target_audience}
+                            onChange={e => setBrief(prev => ({ ...prev, target_audience: e.target.value }))}
+                            placeholder="e.g., Women 25-35, Urban millennials"
+                            className="h-12 bg-gray-50 border-gray-200"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Platform & Location */}
+                      <div className="grid grid-cols-2 gap-6">
+                        <div>
+                          <Label className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2 block">Platform</Label>
+                          <div className="flex gap-2">
+                            {PLATFORMS.map(p => (
+                              <button
+                                key={p}
+                                onClick={() => setBrief(prev => ({ ...prev, platform: p }))}
+                                className={`flex-1 h-12 rounded-lg border-2 font-medium transition-all flex items-center justify-center gap-2 ${
+                                  brief.platform === p
+                                    ? 'border-amber-500 bg-amber-50 text-amber-700'
+                                    : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300'
+                                }`}
+                              >
+                                {p === 'Instagram' && <Instagram className="w-4 h-4" />}
+                                {p === 'YouTube' && <Youtube className="w-4 h-4" />}
+                                {p === 'Both' && <><Instagram className="w-4 h-4" /><Youtube className="w-4 h-4" /></>}
+                                {p !== 'Both' && p}
+                              </button>
+                            ))}
                           </div>
                         </div>
+                        <div>
+                          <Label className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2 block">Location</Label>
+                          <Input 
+                            value={brief.location}
+                            onChange={e => setBrief(prev => ({ ...prev, location: e.target.value }))}
+                            placeholder="e.g., Mumbai, Delhi, Pan-India"
+                            className="h-12 bg-gray-50 border-gray-200"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Budget Range */}
+                      <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl">
+                        <div className="flex items-center justify-between mb-3">
+                          <Label className="text-xs font-semibold uppercase tracking-wider text-gray-600 flex items-center gap-2">
+                            <DollarSign className="w-4 h-4 text-green-600" /> Budget Range
+                          </Label>
+                          <span className="text-sm font-bold text-green-700">
+                            {formatCurrency(brief.budget_min)} - {formatCurrency(brief.budget_max)}
+                          </span>
+                        </div>
+                        <Slider
+                          value={[brief.budget_min, brief.budget_max]}
+                          min={0}
+                          max={1000000}
+                          step={10000}
+                          onValueChange={([min, max]) => setBrief(prev => ({ ...prev, budget_min: min, budget_max: max }))}
+                          className="w-full"
+                        />
+                        <div className="flex justify-between text-xs text-gray-400 mt-2">
+                          <span>₹0</span>
+                          <span>₹10 Lakh</span>
+                        </div>
+                      </div>
+
+                      {/* Follower Range */}
+                      <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl">
+                        <div className="flex items-center justify-between mb-3">
+                          <Label className="text-xs font-semibold uppercase tracking-wider text-gray-600 flex items-center gap-2">
+                            <Users className="w-4 h-4 text-blue-600" /> Follower Range
+                          </Label>
+                          <span className="text-sm font-bold text-blue-700">
+                            {formatNumber(brief.follower_min)} - {formatNumber(brief.follower_max)}
+                          </span>
+                        </div>
+                        <Slider
+                          value={[brief.follower_min, brief.follower_max]}
+                          min={1000}
+                          max={5000000}
+                          step={10000}
+                          onValueChange={([min, max]) => setBrief(prev => ({ ...prev, follower_min: min, follower_max: max }))}
+                          className="w-full"
+                        />
+                        <div className="flex justify-between text-xs text-gray-400 mt-2">
+                          <span>1K</span>
+                          <span>5M</span>
+                        </div>
+                      </div>
+
+                      {/* Objective */}
+                      <div>
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3 block">Campaign Objective</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {OBJECTIVES.map(obj => (
+                            <button
+                              key={obj}
+                              onClick={() => setBrief(prev => ({ ...prev, objective: obj }))}
+                              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                                brief.objective === obj
+                                  ? 'bg-amber-500 text-white shadow-lg shadow-amber-200'
+                                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                              }`}
+                            >
+                              {obj}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Additional */}
+                      <div>
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2 block">Additional Notes</Label>
+                        <Textarea
+                          value={brief.additional_requirements}
+                          onChange={e => setBrief(prev => ({ ...prev, additional_requirements: e.target.value }))}
+                          placeholder="Any specific requirements, brand values, content preferences..."
+                          rows={3}
+                          className="bg-gray-50 border-gray-200"
+                        />
+                      </div>
+
+                      {/* Submit */}
+                      <Button 
+                        onClick={handleDiscover}
+                        disabled={loading || !brief.industry}
+                        className="w-full h-14 text-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-xl shadow-amber-200 transition-all hover:shadow-2xl hover:shadow-amber-300"
+                        data-testid="discover-btn"
+                      >
+                        <Rocket className="w-5 h-5 mr-2" />
+                        Discover Perfect Matches
+                        <ArrowRight className="w-5 h-5 ml-2" />
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Quick Lookup Sidebar */}
+                <div className="space-y-6">
+                  <Card className="border-0 shadow-lg">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Search className="w-4 h-4 text-amber-500" /> Quick Profile Lookup
+                      </CardTitle>
+                      <p className="text-xs text-gray-500">Search any Instagram or YouTube profile</p>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setQuickLookupPlatform('instagram')}
+                          className={`flex-1 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all ${
+                            quickLookupPlatform === 'instagram'
+                              ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white'
+                              : 'bg-gray-100 text-gray-600'
+                          }`}
+                        >
+                          <Instagram className="w-4 h-4" /> Instagram
+                        </button>
+                        <button
+                          onClick={() => setQuickLookupPlatform('youtube')}
+                          className={`flex-1 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all ${
+                            quickLookupPlatform === 'youtube'
+                              ? 'bg-gradient-to-r from-red-500 to-red-600 text-white'
+                              : 'bg-gray-100 text-gray-600'
+                          }`}
+                        >
+                          <Youtube className="w-4 h-4" /> YouTube
+                        </button>
                       </div>
                       
-                      {/* Match Score */}
-                      <div className="text-center">
-                        <div className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg ${
-                          rec.match_score >= 80 ? 'bg-green-100 text-green-700' :
-                          rec.match_score >= 60 ? 'bg-amber-100 text-amber-700' :
-                          'bg-gray-100 text-gray-700'
-                        }`}>
-                          {rec.match_score}%
-                        </div>
-                        <p className="text-xs text-gray-400 mt-1">Match</p>
-                      </div>
-                    </div>
-
-                    {/* Metrics */}
-                    <div className="grid grid-cols-4 gap-2 mb-4">
-                      <div className="text-center p-2 bg-gray-50 rounded">
-                        <div className="font-semibold text-gray-900">{formatNumber(influencer.followers)}</div>
-                        <div className="text-xs text-gray-500">Followers</div>
-                      </div>
-                      <div className="text-center p-2 bg-gray-50 rounded">
-                        <div className="font-semibold text-gray-900">{influencer.engagement_rate?.toFixed(1) || 0}%</div>
-                        <div className="text-xs text-gray-500">Engagement</div>
-                      </div>
-                      <div className="text-center p-2 bg-gray-50 rounded">
-                        <div className="font-semibold text-gray-900">{formatNumber(influencer.avg_likes || 0)}</div>
-                        <div className="text-xs text-gray-500">Avg Likes</div>
-                      </div>
-                      <div className="text-center p-2 bg-gray-50 rounded">
-                        <div className="font-semibold text-gray-900">{influencer.tier || 'Mid'}</div>
-                        <div className="text-xs text-gray-500">Tier</div>
-                      </div>
-                    </div>
-
-                    {/* Match Reasons */}
-                    {rec.match_reasons?.length > 0 && (
-                      <div className="mb-4">
-                        <p className="text-xs uppercase text-gray-400 mb-2">Why this match</p>
-                        <div className="space-y-1">
-                          {rec.match_reasons.slice(0, 3).map((reason, idx) => (
-                            <div key={idx} className="flex items-start gap-2 text-sm text-gray-600">
-                              <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                              {reason}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Concerns */}
-                    {rec.concerns?.length > 0 && (
-                      <div className="mb-4">
-                        <p className="text-xs uppercase text-gray-400 mb-2">Considerations</p>
-                        <div className="space-y-1">
-                          {rec.concerns.slice(0, 2).map((concern, idx) => (
-                            <div key={idx} className="flex items-start gap-2 text-sm text-amber-600">
-                              <Eye className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                              {concern}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Suggested Collaboration */}
-                    {rec.suggested_collaboration && (
-                      <div className="p-3 bg-blue-50 rounded-lg mb-4">
-                        <p className="text-xs uppercase text-blue-600 mb-1">Suggested Collaboration</p>
-                        <p className="text-sm text-blue-800">{rec.suggested_collaboration}</p>
-                      </div>
-                    )}
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="flex-1"
-                        onClick={() => navigate(`/marketing/influencer/${rec.influencer_id}`)}
-                      >
-                        <Eye className="w-4 h-4 mr-1" /> View Profile
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="flex-1 text-blue-600 border-blue-200 hover:bg-blue-50"
-                        onClick={() => handleGenerateOutreach(rec.influencer_id)}
-                      >
-                        <Send className="w-4 h-4 mr-1" /> Outreach
-                      </Button>
-                      {!rec.saved ? (
+                      <div className="flex gap-2">
+                        <Input
+                          value={quickLookupHandle}
+                          onChange={e => setQuickLookupHandle(e.target.value)}
+                          placeholder={quickLookupPlatform === 'youtube' ? 'Channel name' : '@username'}
+                          className="flex-1"
+                          onKeyPress={e => e.key === 'Enter' && handleQuickLookup()}
+                        />
                         <Button 
-                          size="sm" 
-                          className="bg-green-600 hover:bg-green-700 text-white"
-                          onClick={() => handleSave(rec.influencer_id)}
-                          disabled={savingId === rec.influencer_id}
-                          data-testid={`save-btn-${rec.influencer_id}`}
+                          onClick={handleQuickLookup}
+                          disabled={quickLookupLoading}
+                          className="bg-amber-500 hover:bg-amber-600"
                         >
-                          {savingId === rec.influencer_id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Bookmark className="w-4 h-4" />
+                          {quickLookupLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                        </Button>
+                      </div>
+
+                      {/* Quick Lookup Result */}
+                      {quickLookupResult && (
+                        <div className="p-4 bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-100 space-y-3">
+                          <div className="flex items-center gap-3">
+                            {quickLookupResult.profile_picture_url ? (
+                              <img 
+                                src={quickLookupResult.profile_picture_url} 
+                                alt="" 
+                                className="w-14 h-14 rounded-full object-cover ring-2 ring-amber-200"
+                              />
+                            ) : (
+                              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
+                                <User className="w-6 h-6 text-amber-600" />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-gray-900 truncate">{quickLookupResult.name || quickLookupResult.username}</h4>
+                              <p className="text-sm text-gray-500">@{quickLookupResult.username}</p>
+                            </div>
+                            <Badge className={quickLookupResult.platform === 'youtube' ? 'bg-red-100 text-red-700' : 'bg-pink-100 text-pink-700'}>
+                              {quickLookupResult.platform === 'youtube' ? <Youtube className="w-3 h-3 mr-1" /> : <Instagram className="w-3 h-3 mr-1" />}
+                              {quickLookupResult.platform}
+                            </Badge>
+                          </div>
+                          
+                          <div className="grid grid-cols-3 gap-2 text-center">
+                            <div className="p-2 bg-white rounded-lg">
+                              <div className="text-lg font-bold text-gray-900">
+                                {formatNumber(quickLookupResult.followers_count || quickLookupResult.subscribers_count)}
+                              </div>
+                              <div className="text-xs text-gray-500">{quickLookupResult.platform === 'youtube' ? 'Subs' : 'Followers'}</div>
+                            </div>
+                            <div className="p-2 bg-white rounded-lg">
+                              <div className="text-lg font-bold text-green-600">
+                                {(quickLookupResult.engagement_rate || 0).toFixed(1)}%
+                              </div>
+                              <div className="text-xs text-gray-500">Engagement</div>
+                            </div>
+                            <div className="p-2 bg-white rounded-lg">
+                              <div className="text-lg font-bold text-gray-900">
+                                {quickLookupResult.media_count || quickLookupResult.video_count || 0}
+                              </div>
+                              <div className="text-xs text-gray-500">{quickLookupResult.platform === 'youtube' ? 'Videos' : 'Posts'}</div>
+                            </div>
+                          </div>
+                          
+                          {quickLookupResult.bio && (
+                            <p className="text-sm text-gray-600 line-clamp-2">{quickLookupResult.bio}</p>
                           )}
-                        </Button>
-                      ) : (
-                        <Button size="sm" variant="ghost" disabled className="text-green-600">
-                          <CheckCircle className="w-4 h-4" />
-                        </Button>
+                          
+                          <Button onClick={handleSaveQuickLookup} className="w-full bg-amber-500 hover:bg-amber-600">
+                            <Plus className="w-4 h-4 mr-2" /> Save to Contacts
+                          </Button>
+                        </div>
                       )}
-                      <Button 
-                        size="sm" 
-                        variant="ghost"
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => handleReject(rec.influencer_id)}
-                        disabled={rejectingId === rec.influencer_id}
-                        data-testid={`reject-btn-${rec.influencer_id}`}
-                      >
-                        {rejectingId === rec.influencer_id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <XCircle className="w-4 h-4" />
-                        )}
-                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  {/* API Status */}
+                  <Card className="border-0 shadow-lg">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-green-500" /> Integration Status
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Instagram className="w-4 h-4 text-pink-500" />
+                          <span className="text-sm font-medium">Instagram API</span>
+                        </div>
+                        <Badge className="bg-green-100 text-green-700">Connected</Badge>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Youtube className="w-4 h-4 text-red-500" />
+                          <span className="text-sm font-medium">YouTube API</span>
+                        </div>
+                        <Badge className="bg-green-100 text-green-700">Connected</Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Processing Animation */}
+            {wizardStep === 2 && (
+              <div className="max-w-2xl mx-auto">
+                <Card className="border-0 shadow-2xl overflow-hidden">
+                  <div className="h-2 bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500" />
+                  <CardContent className="p-12 text-center">
+                    <div className="w-24 h-24 mx-auto mb-8 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center animate-pulse">
+                      <Brain className="w-12 h-12 text-amber-600" />
                     </div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">AI is Working</h2>
+                    <p className="text-gray-500 mb-8">{processingStage}</p>
+                    <Progress value={processingProgress} className="h-3 mb-4" />
+                    <p className="text-sm text-amber-600 font-medium">{processingProgress}% Complete</p>
                   </CardContent>
                 </Card>
-              );
-            })}
-          </div>
+              </div>
+            )}
 
-          {filteredRecommendations.length === 0 && (
-            <Card className="bg-white border-gray-200">
-              <CardContent className="py-12 text-center">
-                <Users className="w-16 h-16 text-gray-200 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-700 mb-2">No matching influencers found</h3>
-                <p className="text-gray-500">Try adjusting your search criteria or expanding your filters</p>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
+            {/* Step 3: Results */}
+            {wizardStep === 3 && results && (
+              <div className="space-y-6">
+                {/* Insights Banner */}
+                {insights && (
+                  <Card className="border-0 bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xl overflow-hidden">
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+                          <Sparkles className="w-6 h-6" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-lg font-bold mb-3">AI Campaign Insights</h3>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {insights.target_audience_analysis && (
+                              <div>
+                                <p className="text-xs text-amber-100 uppercase mb-1">Audience</p>
+                                <p className="text-sm">{insights.target_audience_analysis}</p>
+                              </div>
+                            )}
+                            {insights.best_posting_times && (
+                              <div>
+                                <p className="text-xs text-amber-100 uppercase mb-1">Best Time</p>
+                                <p className="text-sm">{insights.best_posting_times}</p>
+                              </div>
+                            )}
+                            {insights.recommended_content_types?.length > 0 && (
+                              <div>
+                                <p className="text-xs text-amber-100 uppercase mb-1">Content</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {insights.recommended_content_types.slice(0, 3).map((ct, i) => (
+                                    <Badge key={i} className="bg-white/20 text-white text-xs">{ct}</Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {insights.budget_allocation_suggestion && (
+                              <div>
+                                <p className="text-xs text-amber-100 uppercase mb-1">Budget Tip</p>
+                                <p className="text-sm">{insights.budget_allocation_suggestion}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Results Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <Button variant="outline" onClick={resetDiscovery} className="border-amber-200 text-amber-700 hover:bg-amber-50">
+                      <ArrowLeft className="w-4 h-4 mr-2" /> New Search
+                    </Button>
+                    <h2 className="text-xl font-bold text-gray-900">
+                      {filteredRecommendations.length} Perfect Matches Found
+                    </h2>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Select value={sortBy} onValueChange={setSortBy}>
+                      <SelectTrigger className="w-40 border-gray-200">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="match_score">Match Score</SelectItem>
+                        <SelectItem value="followers">Followers</SelectItem>
+                        <SelectItem value="engagement">Engagement</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Results Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredRecommendations.map((rec, idx) => {
+                    const inf = rec.influencer;
+                    if (!inf) return null;
+                    
+                    return (
+                      <Card 
+                        key={inf.id || idx} 
+                        className="border-0 shadow-lg hover:shadow-xl transition-all group overflow-hidden"
+                      >
+                        {/* Match Score Banner */}
+                        <div className={`h-1.5 ${
+                          rec.match_score >= 80 ? 'bg-gradient-to-r from-green-400 to-emerald-500' :
+                          rec.match_score >= 60 ? 'bg-gradient-to-r from-amber-400 to-orange-500' :
+                          'bg-gradient-to-r from-gray-300 to-gray-400'
+                        }`} />
+                        
+                        <CardContent className="p-5">
+                          {/* Header */}
+                          <div className="flex items-start gap-4 mb-4">
+                            {inf.profile_picture_url ? (
+                              <img 
+                                src={inf.profile_picture_url} 
+                                alt=""
+                                className="w-16 h-16 rounded-xl object-cover ring-2 ring-gray-100"
+                              />
+                            ) : (
+                              <div className={`w-16 h-16 rounded-xl flex items-center justify-center ${
+                                inf.platform === 'youtube' 
+                                  ? 'bg-gradient-to-br from-red-100 to-red-50' 
+                                  : 'bg-gradient-to-br from-pink-100 to-purple-50'
+                              }`}>
+                                {inf.platform === 'youtube' ? (
+                                  <Youtube className="w-7 h-7 text-red-500" />
+                                ) : (
+                                  <Instagram className="w-7 h-7 text-pink-500" />
+                                )}
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-bold text-gray-900 truncate">{inf.name || inf.username}</h3>
+                              <p className="text-sm text-gray-500">@{inf.username}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge className={`text-xs ${
+                                  inf.platform === 'youtube' 
+                                    ? 'bg-red-100 text-red-700' 
+                                    : 'bg-pink-100 text-pink-700'
+                                }`}>
+                                  {inf.platform}
+                                </Badge>
+                                <Badge className={`text-xs ${
+                                  rec.match_score >= 80 ? 'bg-green-100 text-green-700' :
+                                  rec.match_score >= 60 ? 'bg-amber-100 text-amber-700' :
+                                  'bg-gray-100 text-gray-700'
+                                }`}>
+                                  {rec.match_score || 0}% Match
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Stats */}
+                          <div className="grid grid-cols-3 gap-3 mb-4">
+                            <div className="text-center p-2 bg-gray-50 rounded-lg">
+                              <div className="text-lg font-bold text-gray-900">
+                                {formatNumber(inf.followers_count || inf.subscribers_count)}
+                              </div>
+                              <div className="text-xs text-gray-500">{inf.platform === 'youtube' ? 'Subs' : 'Followers'}</div>
+                            </div>
+                            <div className="text-center p-2 bg-gray-50 rounded-lg">
+                              <div className="text-lg font-bold text-green-600">
+                                {(inf.engagement_rate || 0).toFixed(1)}%
+                              </div>
+                              <div className="text-xs text-gray-500">Engage</div>
+                            </div>
+                            <div className="text-center p-2 bg-gray-50 rounded-lg">
+                              <div className="text-lg font-bold text-amber-600">
+                                {formatNumber(inf.average_likes || inf.average_views || 0)}
+                              </div>
+                              <div className="text-xs text-gray-500">Avg {inf.platform === 'youtube' ? 'Views' : 'Likes'}</div>
+                            </div>
+                          </div>
+
+                          {/* Reason */}
+                          {rec.reason && (
+                            <p className="text-sm text-gray-600 mb-4 line-clamp-2 italic">"{rec.reason}"</p>
+                          )}
+
+                          {/* Actions */}
+                          <div className="flex gap-2">
+                            <Button 
+                              onClick={() => handleSaveInfluencer(rec)}
+                              disabled={savingId === inf.id}
+                              className="flex-1 bg-amber-500 hover:bg-amber-600"
+                            >
+                              {savingId === inf.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <Plus className="w-4 h-4 mr-1" /> Save
+                                </>
+                              )}
+                            </Button>
+                            <Button 
+                              variant="outline"
+                              onClick={() => handleGenerateOutreach(rec)}
+                              className="flex-1 border-amber-200 text-amber-700 hover:bg-amber-50"
+                            >
+                              <Send className="w-4 h-4 mr-1" /> Outreach
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          /* PR Discovery Tab */
+          <Card className="border-0 shadow-xl max-w-3xl mx-auto">
+            <div className="h-2 bg-gradient-to-r from-blue-400 via-indigo-400 to-blue-500" />
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
+                  <Newspaper className="w-6 h-6 text-blue-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">PR & Media Discovery</CardTitle>
+                  <p className="text-sm text-gray-500">Find journalists and media contacts for your story</p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6 space-y-6">
+              <div>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2 block">
+                  Story Topic <span className="text-red-500">*</span>
+                </Label>
+                <Textarea
+                  value={prBrief.topic}
+                  onChange={e => setPrBrief(prev => ({ ...prev, topic: e.target.value }))}
+                  placeholder="Describe your story angle, announcement, or news..."
+                  rows={3}
+                  className="bg-gray-50"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2 block">Industry Beat</Label>
+                  <Select value={prBrief.industry} onValueChange={v => setPrBrief(prev => ({ ...prev, industry: v }))}>
+                    <SelectTrigger className="bg-gray-50">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {BEAT_OPTIONS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2 block">Target Audience</Label>
+                  <Input
+                    value={prBrief.target_audience}
+                    onChange={e => setPrBrief(prev => ({ ...prev, target_audience: e.target.value }))}
+                    placeholder="e.g., Business readers, Fashion enthusiasts"
+                    className="bg-gray-50"
+                  />
+                </div>
+              </div>
+
+              <Button 
+                onClick={handlePRDiscover}
+                disabled={prLoading || !prBrief.topic}
+                className="w-full h-14 text-lg bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white shadow-xl"
+              >
+                {prLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Finding Media Contacts...
+                  </>
+                ) : (
+                  <>
+                    <Search className="w-5 h-5 mr-2" />
+                    Discover Media Contacts
+                  </>
+                )}
+              </Button>
+
+              {/* PR Results */}
+              {prResults?.recommendations?.length > 0 && (
+                <div className="mt-6 space-y-4">
+                  <h3 className="font-semibold text-gray-900">{prResults.recommendations.length} Media Contacts Found</h3>
+                  {prResults.recommendations.map((rec, idx) => (
+                    <div key={idx} className="p-4 bg-gray-50 rounded-xl flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                          <User className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <div className="font-medium text-gray-900">{rec.journalist?.name || 'Unknown'}</div>
+                          <div className="text-sm text-gray-500">{rec.journalist?.publication || rec.journalist?.beat}</div>
+                        </div>
+                      </div>
+                      <Badge className="bg-blue-100 text-blue-700">{rec.match_score || 0}% Match</Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       {/* Outreach Modal */}
       <Dialog open={showOutreachModal} onOpenChange={setShowOutreachModal}>
-        <DialogContent className="max-w-lg" data-testid="outreach-modal">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Send className="w-5 h-5 text-blue-500" />
-              AI-Generated Outreach for {selectedInfluencer?.name}
-            </DialogTitle>
-          </DialogHeader>
-          
-          {generatingOutreach ? (
-            <div className="py-12 text-center">
-              <Loader2 className="w-8 h-8 animate-spin text-amber-500 mx-auto mb-3" />
-              <p className="text-gray-500">Generating personalized message...</p>
-            </div>
-          ) : outreachMessage ? (
-            <div className="space-y-4 py-4">
-              {outreachMessage.subject && (
-                <div>
-                  <Label className="text-xs uppercase text-gray-500">SUBJECT</Label>
-                  <Input value={outreachMessage.subject} readOnly className="mt-1 bg-gray-50" />
-                </div>
-              )}
-              <div>
-                <Label className="text-xs uppercase text-gray-500">MESSAGE</Label>
-                <Textarea 
-                  value={outreachMessage.message} 
-                  readOnly 
-                  className="mt-1 bg-gray-50" 
-                  rows={8}
-                />
-              </div>
-              {outreachMessage.follow_up_message && (
-                <div>
-                  <Label className="text-xs uppercase text-gray-500">FOLLOW-UP MESSAGE</Label>
-                  <Textarea 
-                    value={outreachMessage.follow_up_message} 
-                    readOnly 
-                    className="mt-1 bg-gray-50" 
-                    rows={4}
-                  />
-                </div>
-              )}
-              <div className="flex gap-2 pt-2">
-                <Button 
-                  className="flex-1 bg-[#c4a35a] hover:bg-[#b39349] text-white"
-                  onClick={() => {
-                    // Copy message to clipboard
-                    navigator.clipboard.writeText(outreachMessage.message);
-                    toast.success('Message copied to clipboard!');
-                  }}
-                >
-                  Copy Message
-                </Button>
-                <Button 
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => navigate(`/marketing/influencer/${selectedInfluencer?.id}`)}
-                >
-                  Go to Profile
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="py-8 text-center text-gray-500">
-              Failed to generate message. Please try again.
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-        </TabsContent>
-
-        {/* PR & MEDIA DISCOVERY TAB */}
-        <TabsContent value="pr">
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Discovery Brief */}
-            <Card className="bg-white border-gray-200">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-purple-600" />
-                  PR Discovery Brief
-                </CardTitle>
-                <p className="text-sm text-gray-500">Find the right journalists and media contacts for your story</p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label className="text-xs uppercase tracking-wider text-gray-500">STORY TOPIC *</Label>
-                  <Input 
-                    value={prBrief.topic} 
-                    onChange={e => setPrBrief({...prBrief, topic: e.target.value})} 
-                    placeholder="e.g., Sustainable fashion collection launch" 
-                    className="mt-1" 
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-xs uppercase tracking-wider text-gray-500">INDUSTRY / BEAT</Label>
-                    <Select value={prBrief.industry} onValueChange={v => setPrBrief({...prBrief, industry: v})}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {BEAT_OPTIONS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs uppercase tracking-wider text-gray-500">STORY TYPE</Label>
-                    <Select value={prBrief.story_type} onValueChange={v => setPrBrief({...prBrief, story_type: v})}>
-                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="news">News</SelectItem>
-                        <SelectItem value="feature">Feature</SelectItem>
-                        <SelectItem value="interview">Interview</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-xs uppercase tracking-wider text-gray-500">TARGET AUDIENCE</Label>
-                  <Input 
-                    value={prBrief.target_audience} 
-                    onChange={e => setPrBrief({...prBrief, target_audience: e.target.value})} 
-                    placeholder="Fashion-conscious millennials" 
-                    className="mt-1" 
-                  />
-                </div>
-                <Button 
-                  onClick={handlePRDiscover} 
-                  disabled={prLoading} 
-                  className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-                >
-                  {prLoading ? (
-                    <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Discovering...</>
-                  ) : (
-                    <><Sparkles className="w-4 h-4 mr-2" />Discover Journalists</>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Discovery Results */}
-            <Card className="bg-white border-gray-200">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Discovery Results</CardTitle>
-              </CardHeader>
-              <CardContent className="max-h-[500px] overflow-y-auto">
-                {!prResults ? (
-                  <div className="py-12 text-center text-gray-500">
-                    <Sparkles className="w-10 h-10 mx-auto mb-3 text-purple-200" />
-                    <p>Fill brief and click Discover</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {prResults.pr_insights && (
-                      <div className="p-3 bg-purple-50 rounded text-sm border border-purple-100">
-                        <strong className="text-purple-700">PR Insights:</strong>
-                        <p className="text-purple-600 mt-1">{prResults.pr_insights.timing_recommendations}</p>
-                      </div>
-                    )}
-                    {prResults.recommendations?.map((rec, i) => {
-                      const j = journalists.find(x => x.id === rec.journalist_id);
-                      if (!j) return null;
-                      return (
-                        <div key={i} className="p-4 border border-gray-200 rounded-lg hover:border-purple-300 transition-colors">
-                          <div className="flex justify-between items-start mb-2">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
-                                <User className="w-5 h-5 text-purple-600" />
-                              </div>
-                              <div>
-                                <div className="font-medium text-gray-900">{j.name}</div>
-                                <div className="text-sm text-gray-500 flex items-center gap-1">
-                                  <Building2 className="w-3 h-3" />{j.publication}
-                                </div>
-                              </div>
-                            </div>
-                            <Badge className={rec.match_score >= 70 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}>
-                              {rec.match_score}% Match
-                            </Badge>
-                          </div>
-                          {j.beat && (
-                            <Badge variant="outline" className="mb-2 text-xs">{j.beat}</Badge>
-                          )}
-                          {rec.recommended_pitch_angle && (
-                            <p className="text-sm text-gray-600 mb-3">
-                              <strong>Suggested Pitch:</strong> {rec.recommended_pitch_angle}
-                            </p>
-                          )}
-                          <div className="flex gap-2">
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => { 
-                                setSelectedJournalist(j); 
-                                setNewPitch({...newPitch, contact_id: j.id}); 
-                                setShowPitchModal(true); 
-                              }}
-                            >
-                              <Send className="w-3 h-3 mr-1" />Create Pitch
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="ghost"
-                              onClick={() => navigate('/marketing/pr')}
-                            >
-                              <Eye className="w-3 h-3 mr-1" />View in PR
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {prResults.recommendations?.length === 0 && (
-                      <div className="py-8 text-center text-gray-500">
-                        <Newspaper className="w-10 h-10 mx-auto mb-3 text-gray-300" />
-                        <p>No matching journalists found</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* PR Stats */}
-          <div className="grid grid-cols-3 gap-4 mt-6">
-            <Card className="bg-white border-gray-200">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
-                  <Users className="w-5 h-5 text-purple-600" />
-                </div>
-                <div>
-                  <div className="text-xl font-bold text-gray-900">{journalists.length}</div>
-                  <div className="text-xs text-gray-500 uppercase">Journalists in DB</div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="bg-white border-gray-200">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                  <Target className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <div className="text-xl font-bold text-gray-900">{prCampaigns.length}</div>
-                  <div className="text-xs text-gray-500 uppercase">PR Campaigns</div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="bg-white border-gray-200">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                </div>
-                <div>
-                  <div className="text-xl font-bold text-gray-900">{prResults?.recommendations?.length || 0}</div>
-                  <div className="text-xs text-gray-500 uppercase">Matches Found</div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
-
-      {/* PR Pitch Modal */}
-      <Dialog open={showPitchModal} onOpenChange={setShowPitchModal}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Send className="w-5 h-5 text-purple-500" />
-              Create Pitch for {selectedJournalist?.name}
+              <Send className="w-5 h-5 text-amber-500" />
+              Outreach Message
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <Label className="text-xs uppercase tracking-wider text-gray-500">CAMPAIGN (optional)</Label>
-              <Select value={newPitch.pr_campaign_id} onValueChange={v => setNewPitch({...newPitch, pr_campaign_id: v})}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder="Link to campaign" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">No campaign</SelectItem>
-                  {prCampaigns.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs uppercase tracking-wider text-gray-500">SUBJECT *</Label>
-              <Input 
-                value={newPitch.subject} 
-                onChange={e => setNewPitch({...newPitch, subject: e.target.value})} 
-                placeholder="Story pitch subject line"
-                className="mt-1" 
-              />
-            </div>
-            <div>
-              <Label className="text-xs uppercase tracking-wider text-gray-500">MESSAGE *</Label>
-              <Textarea 
-                rows={6} 
-                value={newPitch.message} 
-                onChange={e => setNewPitch({...newPitch, message: e.target.value})} 
-                placeholder="Your pitch message..."
-                className="mt-1" 
-              />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-2 border-t">
-            <Button variant="outline" onClick={() => setShowPitchModal(false)}>Cancel</Button>
-            <Button onClick={handleCreatePitch} className="bg-purple-600 hover:bg-purple-700 text-white">
-              Create Pitch
-            </Button>
+          <div className="space-y-4">
+            {generatingOutreach ? (
+              <div className="py-8 text-center">
+                <Loader2 className="w-8 h-8 animate-spin mx-auto text-amber-500 mb-3" />
+                <p className="text-gray-500">Generating personalized message...</p>
+              </div>
+            ) : outreachMessage ? (
+              <>
+                <div>
+                  <Label className="text-xs uppercase text-gray-500 mb-1 block">Subject</Label>
+                  <Input value={outreachMessage.subject || ''} readOnly className="bg-gray-50" />
+                </div>
+                <div>
+                  <Label className="text-xs uppercase text-gray-500 mb-1 block">Message</Label>
+                  <Textarea 
+                    value={outreachMessage.message || ''} 
+                    readOnly 
+                    rows={8}
+                    className="bg-gray-50"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <Button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(outreachMessage.message || '');
+                      toast.success('Copied to clipboard!');
+                    }}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Copy Message
+                  </Button>
+                  <Button className="flex-1 bg-amber-500 hover:bg-amber-600">
+                    <Send className="w-4 h-4 mr-2" /> Send Email
+                  </Button>
+                </div>
+              </>
+            ) : null}
           </div>
         </DialogContent>
       </Dialog>
