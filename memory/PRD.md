@@ -23,6 +23,11 @@ All core features working with enhanced UX.
   - Pending Actions tab
   - Activity Log tab
 - **Sidebar**: Added "Automations" link with Zap icon
+- **LIVE TRIGGERS IMPLEMENTED**:
+  - Email sent (Microsoft Graph) → Auto-advance contact to "contacted"
+  - WhatsApp sent (Twilio) → Auto-advance contact to "contacted"
+  - Communication logged to contact history
+  - All actions logged in Activity Log
 
 ### 14. Social Media Post Upload Fix ✅ (NEW - March 8)
 - **Bug Fixed**: Image upload failing with "Upload failed" error

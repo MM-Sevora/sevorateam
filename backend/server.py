@@ -2895,6 +2895,24 @@ async def send_whatsapp_message(
                 "sent_by": user['id'],
                 "sent_at": datetime.now(timezone.utc).isoformat()
             })
+            
+            # Trigger automation: auto-advance contact stage
+            automation_result = await trigger_auto_advance_on_contact(
+                contact_identifier=data.get("to"),
+                channel="whatsapp",
+                user_id=user.get('id'),
+                user_name=user.get('name')
+            )
+            if automation_result:
+                result["automation"] = automation_result
+            
+            # Log communication to contact history
+            await log_communication_for_contact(
+                contact_identifier=data.get("to"),
+                channel="whatsapp",
+                message=data.get("message"),
+                user_id=user.get('id')
+            )
         
         return result
     except Exception as e:
@@ -2927,6 +2945,16 @@ async def send_whatsapp_template(
                 "sent_by": user['id'],
                 "sent_at": datetime.now(timezone.utc).isoformat()
             })
+            
+            # Trigger automation: auto-advance contact stage
+            automation_result = await trigger_auto_advance_on_contact(
+                contact_identifier=data.get("to"),
+                channel="whatsapp",
+                user_id=user.get('id'),
+                user_name=user.get('name')
+            )
+            if automation_result:
+                result["automation"] = automation_result
         
         return result
     except Exception as e:
@@ -2961,6 +2989,27 @@ async def send_outlook_email(
                 "sent_by": user['id'],
                 "sent_at": datetime.now(timezone.utc).isoformat()
             })
+            
+            # Trigger automation for each recipient
+            recipients = data.get("to", [])
+            if isinstance(recipients, str):
+                recipients = [recipients]
+            
+            for recipient in recipients:
+                automation_result = await trigger_auto_advance_on_contact(
+                    contact_identifier=recipient,
+                    channel="email",
+                    user_id=user.get('id'),
+                    user_name=user.get('name')
+                )
+                
+                # Log communication to contact history
+                await log_communication_for_contact(
+                    contact_identifier=recipient,
+                    channel="email",
+                    message=f"Subject: {data.get('subject', '')}",
+                    user_id=user.get('id')
+                )
         
         return result
     except Exception as e:
@@ -3784,7 +3833,7 @@ class MicrosoftSendEmailRequest(BaseModel):
 async def send_microsoft_email(request: MicrosoftSendEmailRequest, user_email: str = None):
     """Send a new email or reply to existing"""
     sender = user_email or DEFAULT_SENDER_EMAIL
-    return await microsoft_email_service.send_email(
+    result = await microsoft_email_service.send_email(
         sender_email=sender,
         to_recipients=request.to_recipients,
         subject=request.subject,
@@ -3795,6 +3844,26 @@ async def send_microsoft_email(request: MicrosoftSendEmailRequest, user_email: s
         reply_to_message_id=request.reply_to_message_id,
         is_reply_all=request.is_reply_all
     )
+    
+    # Trigger automation for each recipient
+    if result.get("success") or result.get("id"):
+        for recipient in request.to_recipients:
+            automation_result = await trigger_auto_advance_on_contact(
+                contact_identifier=recipient,
+                channel="email",
+                user_id=None,
+                user_name=sender
+            )
+            
+            # Log communication to contact history
+            await log_communication_for_contact(
+                contact_identifier=recipient,
+                channel="email",
+                message=f"Subject: {request.subject}",
+                user_id=None
+            )
+    
+    return result
 
 class MicrosoftForwardEmailRequest(BaseModel):
     to_recipients: List[str]
@@ -3887,6 +3956,150 @@ DEFAULT_AUTOMATION_SETTINGS = {
         "daily_limit": {"enabled": False, "limit": 10, "description": "Limit posts per day per platform"}
     }
 }
+
+# ============== AUTOMATION TRIGGER HELPERS ==============
+async def get_automation_settings_cached():
+    """Get automation settings (cached for performance)"""
+    settings_doc = await db.automation_settings.find_one({"type": "global"}, {"_id": 0})
+    if settings_doc:
+        return settings_doc.get("settings", DEFAULT_AUTOMATION_SETTINGS)
+    return DEFAULT_AUTOMATION_SETTINGS
+
+async def trigger_auto_advance_on_contact(contact_identifier: str, channel: str, user_id: str = None, user_name: str = None):
+    """
+    Trigger automation to advance contact stage when contacted via email/WhatsApp.
+    contact_identifier can be email address or phone number.
+    """
+    try:
+        settings = await get_automation_settings_cached()
+        
+        # Check if auto-advance is enabled
+        if not settings.get("pipeline", {}).get("auto_advance_on_contact", {}).get("enabled", False):
+            logger.info(f"Auto-advance disabled, skipping for {contact_identifier}")
+            return None
+        
+        # Find contact by email or phone
+        contact = None
+        if "@" in contact_identifier:
+            # Search by email
+            contact = await db.contacts.find_one({
+                "$or": [
+                    {"email": {"$regex": f"^{contact_identifier}$", "$options": "i"}},
+                    {"emails": {"$elemMatch": {"$regex": f"^{contact_identifier}$", "$options": "i"}}}
+                ]
+            })
+        else:
+            # Search by phone (clean up phone number)
+            clean_phone = contact_identifier.replace("+", "").replace(" ", "").replace("-", "")
+            contact = await db.contacts.find_one({
+                "$or": [
+                    {"phone": {"$regex": clean_phone}},
+                    {"whatsapp": {"$regex": clean_phone}}
+                ]
+            })
+        
+        if not contact:
+            logger.info(f"No contact found for {contact_identifier}, skipping auto-advance")
+            return None
+        
+        # Check both "stage" and "status" fields (different schema versions)
+        current_stage = contact.get("stage") or contact.get("status") or contact.get("pipeline_stage") or "identified"
+        
+        # Only advance if in early stages (identified or earlier)
+        early_stages = ["identified", "new", None, ""]
+        if current_stage not in early_stages:
+            logger.info(f"Contact {contact.get('name')} already in stage '{current_stage}', skipping auto-advance")
+            return {"skipped": True, "reason": f"Already in stage: {current_stage}"}
+        
+        # Update contact stage to "contacted"
+        now = datetime.now(timezone.utc).isoformat()
+        update_data = {
+            "stage": "contacted",
+            "status": "contacted",  # Update both fields for compatibility
+            "pipeline_stage": "contacted",
+            "stage_updated_at": now,
+            "last_contacted_at": now,
+            "last_contact_channel": channel,
+            "updated_at": now
+        }
+        
+        await db.contacts.update_one(
+            {"id": contact["id"]},
+            {"$set": update_data}
+        )
+        
+        # Log the automation action
+        await db.automation_logs.insert_one({
+            "id": str(uuid.uuid4()),
+            "action": "auto_advance_stage",
+            "trigger": f"{channel}_sent",
+            "contact_id": contact["id"],
+            "contact_name": contact.get("name"),
+            "from_stage": current_stage,
+            "to_stage": "contacted",
+            "user_id": user_id,
+            "user_name": user_name,
+            "created_at": now
+        })
+        
+        logger.info(f"Auto-advanced contact '{contact.get('name')}' from '{current_stage}' to 'contacted' via {channel}")
+        
+        return {
+            "success": True,
+            "contact_id": contact["id"],
+            "contact_name": contact.get("name"),
+            "from_stage": current_stage,
+            "to_stage": "contacted",
+            "channel": channel
+        }
+        
+    except Exception as e:
+        logger.error(f"Auto-advance trigger error: {e}")
+        return {"success": False, "error": str(e)}
+
+async def log_communication_for_contact(contact_identifier: str, channel: str, message: str, user_id: str = None):
+    """Log communication to contact's history"""
+    try:
+        # Find contact
+        contact = None
+        if "@" in contact_identifier:
+            contact = await db.contacts.find_one({
+                "$or": [
+                    {"email": {"$regex": f"^{contact_identifier}$", "$options": "i"}},
+                    {"emails": {"$elemMatch": {"$regex": f"^{contact_identifier}$", "$options": "i"}}}
+                ]
+            })
+        else:
+            clean_phone = contact_identifier.replace("+", "").replace(" ", "").replace("-", "")
+            contact = await db.contacts.find_one({
+                "$or": [
+                    {"phone": {"$regex": clean_phone}},
+                    {"whatsapp": {"$regex": clean_phone}}
+                ]
+            })
+        
+        if contact:
+            # Add to communication history
+            comm_entry = {
+                "id": str(uuid.uuid4()),
+                "type": channel,
+                "direction": "outbound",
+                "message_preview": message[:200] if message else "",
+                "sent_by": user_id,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+            
+            await db.contacts.update_one(
+                {"id": contact["id"]},
+                {
+                    "$push": {"communication_history": comm_entry},
+                    "$set": {"last_contacted_at": datetime.now(timezone.utc).isoformat()}
+                }
+            )
+            return True
+    except Exception as e:
+        logger.error(f"Error logging communication: {e}")
+    return False
 
 automation_router = APIRouter(prefix="/automations", tags=["Automations"])
 
@@ -4022,9 +4235,23 @@ async def execute_automation_action(action_type: str, data: dict, user: dict = D
         if contact_id and new_stage:
             await db.contacts.update_one(
                 {"id": contact_id},
-                {"$set": {"stage": new_stage, "stage_updated_at": datetime.now(timezone.utc).isoformat()}}
+                {"$set": {"stage": new_stage, "status": new_stage, "pipeline_stage": new_stage, "stage_updated_at": datetime.now(timezone.utc).isoformat()}}
             )
             result = {"success": True, "message": f"Contact moved to {new_stage}"}
+    
+    elif action_type == "test_trigger":
+        # Test the automation trigger with an email address
+        contact_email = data.get("contact_email")
+        if contact_email:
+            trigger_result = await trigger_auto_advance_on_contact(
+                contact_identifier=contact_email,
+                channel="test",
+                user_id=user.get('id'),
+                user_name=user.get('name')
+            )
+            result = {"success": True, "message": "Trigger tested", "trigger_result": trigger_result}
+        else:
+            result = {"success": False, "message": "contact_email required"}
     
     elif action_type == "send_follow_up":
         contact_id = data.get("contact_id")
