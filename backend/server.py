@@ -593,7 +593,11 @@ async def register(user: UserCreate):
 @auth_router.post("/login", response_model=TokenResponse)
 async def login(credentials: UserLogin):
     user = await db.users.find_one({"email": credentials.email})
-    if not user or not verify_password(credentials.password, user['password']):
+    if not user:
+        logger.error(f"Login failed: user not found for {credentials.email}")
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    if not verify_password(credentials.password, user.get('password', '')):
+        logger.error(f"Login failed: password mismatch for {credentials.email}")
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     # Check if user is active
