@@ -411,7 +411,7 @@ const UnifiedPipeline = () => {
   const handleViewDetails = (contact) => {
     const path = contact.contact_type === 'journalist' 
       ? `/marketing/publications/${contact.publication_id}`
-      : `/marketing/influencers/${contact.id}`;
+      : `/marketing/influencer/${contact.id}`;
     navigate(path);
   };
 
