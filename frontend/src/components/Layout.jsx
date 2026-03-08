@@ -75,15 +75,10 @@ const DEPARTMENT_CONFIG = {
         bgColor: 'bg-rose-50',
         textColor: 'text-rose-700',
         routes: [
-            { path: '/social', name: 'Dashboard', icon: LayoutDashboard },
+            { path: '/social', name: 'Dashboard & Analytics', icon: BarChart3 },
             { path: '/social/studio', name: 'Content Studio', icon: PenTool },
-            { path: '/social/ai-tools', name: 'AI Tools', icon: Sparkles },
-            { path: '/social/autopilot', name: 'Autopilot', icon: Zap },
             { path: '/social/posts', name: 'Posts & Schedule', icon: Clock },
             { path: '/social/library', name: 'Content Library', icon: Image },
-            { path: '/social/youtube', name: 'YouTube', icon: Youtube },
-            { path: '/social/avatar', name: 'Avatar', icon: Users },
-            { path: '/social/analytics', name: 'Analytics', icon: BarChart3 },
         ]
     },
     admin: {

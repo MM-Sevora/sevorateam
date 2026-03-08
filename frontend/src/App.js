@@ -44,13 +44,8 @@ import SalesAnalyticsPage from "./pages/sales/Analytics";
 // Social Pages
 import { SocialDashboard } from "./pages/social/Dashboard";
 import ContentStudio from "./pages/social/ContentStudio";
-import SocialAIToolsPage from "./pages/social/AITools";
-import AutopilotPage from "./pages/social/Autopilot";
 import PostsAndSchedulePage from "./pages/social/PostsAndSchedule";
-import SocialAnalyticsPage from "./pages/social/Analytics";
-import YouTubePage from "./pages/social/YouTube";
 import ContentLibraryPage from "./pages/social/ContentLibrary";
-import AvatarPage from "./pages/social/Avatar";
 
 // Email Page
 import EmailPage from "./pages/marketing/EmailPage";
@@ -270,13 +265,14 @@ function AppRoutes() {
             {/* Social Routes */}
             <Route path="/social" element={<ProtectedRoute requiredDepartment="social"><SocialDashboard /></ProtectedRoute>} />
             <Route path="/social/studio" element={<ProtectedRoute requiredDepartment="social"><ContentStudio /></ProtectedRoute>} />
-            <Route path="/social/ai-tools" element={<ProtectedRoute requiredDepartment="social"><SocialAIToolsPage /></ProtectedRoute>} />
-            <Route path="/social/autopilot" element={<ProtectedRoute requiredDepartment="social"><AutopilotPage /></ProtectedRoute>} />
             <Route path="/social/posts" element={<ProtectedRoute requiredDepartment="social"><PostsAndSchedulePage /></ProtectedRoute>} />
-            <Route path="/social/analytics" element={<ProtectedRoute requiredDepartment="social"><SocialAnalyticsPage /></ProtectedRoute>} />
-            <Route path="/social/youtube" element={<ProtectedRoute requiredDepartment="social"><YouTubePage /></ProtectedRoute>} />
             <Route path="/social/library" element={<ProtectedRoute requiredDepartment="social"><ContentLibraryPage /></ProtectedRoute>} />
-            <Route path="/social/avatar" element={<ProtectedRoute requiredDepartment="social"><AvatarPage /></ProtectedRoute>} />
+            {/* Redirect old routes to dashboard */}
+            <Route path="/social/analytics" element={<Navigate to="/social" replace />} />
+            <Route path="/social/ai-tools" element={<Navigate to="/social" replace />} />
+            <Route path="/social/autopilot" element={<Navigate to="/social" replace />} />
+            <Route path="/social/youtube" element={<Navigate to="/social" replace />} />
+            <Route path="/social/avatar" element={<Navigate to="/social" replace />} />
 
             {/* Admin Routes */}
             <Route path="/admin/users" element={<ProtectedRoute requiredDepartment="admin"><UserManagementPage /></ProtectedRoute>} />

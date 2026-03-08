@@ -6,6 +6,12 @@ All core features working with enhanced UX.
 
 ## Recent Enhancements (March 8, 2026)
 
+### 12. Social Module Restructured ✅ (NEW)
+- **Merged Dashboard & Analytics** into single "Social Media Hub" with tabs
+- **Removed from sidebar**: AI Tools, Autopilot, YouTube, Avatar
+- **New sidebar**: Dashboard & Analytics, Content Studio, Posts & Schedule, Content Library
+- Old routes redirect to `/social`
+
 ### 11. Email Module - Full Feature Set ✅ (NEW)
 - **BCC Support**: Added Bcc field in compose modal
 - **Rich Text Editor**: Bold, Italic, Underline, Links, Bullet/Numbered Lists
