@@ -99,32 +99,13 @@ export const AuthProvider = ({ children }) => {
             setLoading(true);
             azureLoginProcessed.current = false;
             
-            console.log('Starting Azure popup login...');
-            
-            try {
-                // Try popup first
-                const response = await instance.loginPopup(loginRequest);
-                console.log('Popup login successful, account:', response.account.username);
-                
-                // Process the token after successful popup login
-                const userData = await processAzureToken(response.account, true);
-                return userData;
-            } catch (popupError) {
-                console.log('Popup error:', popupError.errorCode);
-                
-                // If popup blocked, try redirect
-                if (popupError.errorCode === 'popup_window_error' || 
-                    popupError.errorCode === 'empty_window_error' ||
-                    popupError.errorCode === 'browser_auth_error') {
-                    console.log('Popup blocked, trying redirect...');
-                    // Mark this as app login (not email login)
-                    sessionStorage.setItem('msalLoginType', 'app');
-                    await instance.loginRedirect(loginRequest);
-                    // This will redirect, so we won't reach here
-                    return null;
-                }
-                throw popupError;
-            }
+            console.log('Starting Azure redirect login...');
+            // Mark this as app login (not email login)
+            sessionStorage.setItem('msalLoginType', 'app');
+            // Use redirect instead of popup (popup has issues with some browsers/configs)
+            await instance.loginRedirect(loginRequest);
+            // This will redirect, so we won't reach here
+            return null;
         } catch (error) {
             console.error('Azure login failed:', error);
             setLoading(false);

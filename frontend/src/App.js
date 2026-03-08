@@ -73,76 +73,78 @@ const MsalInitializer = ({ children }) => {
         const initializeMsal = async () => {
             console.log('=== MSAL Init Starting ===');
             console.log('Current URL:', window.location.href);
-            console.log('Hash:', window.location.hash);
             
             try {
                 await msalInstance.initialize();
                 console.log('MSAL initialized');
                 
-                // Handle redirect response if coming back from Microsoft login
-                console.log('Checking for redirect response...');
-                const response = await msalInstance.handleRedirectPromise();
-                console.log('Redirect response:', response);
+                // Check if this is a redirect from Microsoft (has code in hash)
+                const hasAuthCode = window.location.hash.includes('code=');
+                console.log('Has auth code in URL:', hasAuthCode);
                 
-                if (response) {
-                    console.log('Got redirect response!');
-                    console.log('Account:', response.account?.username);
-                    console.log('Access Token:', response.accessToken ? 'YES' : 'NO');
-                    console.log('ID Token:', response.idToken ? 'YES' : 'NO');
-                    
-                    // Check if this was for app login (not just email)
-                    const loginType = sessionStorage.getItem('msalLoginType');
-                    console.log('Login type:', loginType);
-                    sessionStorage.removeItem('msalLoginType');
-                    
-                    if (loginType === 'app' && response.accessToken) {
-                        // Call backend to authenticate with Sevora
-                        try {
-                            console.log('Calling backend /api/auth/azure...');
-                            const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
-                            const authResponse = await fetch(`${backendUrl}/api/auth/azure`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ azure_token: response.accessToken })
-                            });
+                if (hasAuthCode) {
+                    console.log('Processing redirect response...');
+                    try {
+                        const response = await msalInstance.handleRedirectPromise();
+                        console.log('Redirect response:', response ? 'GOT RESPONSE' : 'NO RESPONSE');
+                        
+                        if (response && response.accessToken) {
+                            console.log('Account:', response.account?.username);
                             
-                            console.log('Backend response status:', authResponse.status);
+                            // Check if this was for app login
+                            const loginType = sessionStorage.getItem('msalLoginType');
+                            console.log('Login type from session:', loginType);
+                            sessionStorage.removeItem('msalLoginType');
                             
-                            if (authResponse.ok) {
-                                const data = await authResponse.json();
-                                console.log('Backend auth success, user:', data.user?.email);
-                                localStorage.setItem('token', data.access_token);
-                                localStorage.setItem('sevora_token', data.access_token);
-                                localStorage.setItem('user', JSON.stringify(data.user));
-                                console.log('Redirecting to dashboard...');
-                                window.location.href = '/';
-                                return;
-                            } else {
-                                const error = await authResponse.json();
-                                console.error('Backend auth error:', error);
-                                setInitError(error.detail || 'Authentication failed');
+                            if (loginType === 'app') {
+                                console.log('Processing app login...');
+                                try {
+                                    const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
+                                    console.log('Calling backend:', backendUrl + '/api/auth/azure');
+                                    
+                                    const authResponse = await fetch(`${backendUrl}/api/auth/azure`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ azure_token: response.accessToken })
+                                    });
+                                    
+                                    console.log('Backend status:', authResponse.status);
+                                    
+                                    if (authResponse.ok) {
+                                        const data = await authResponse.json();
+                                        console.log('Login success! User:', data.user?.email);
+                                        
+                                        // Store tokens
+                                        localStorage.setItem('sevora_token', data.access_token);
+                                        localStorage.setItem('token', data.access_token);
+                                        localStorage.setItem('user', JSON.stringify(data.user));
+                                        localStorage.setItem('sevora_auth_method', 'azure');
+                                        
+                                        // Clear the hash and redirect
+                                        window.history.replaceState({}, document.title, '/');
+                                        window.location.reload();
+                                        return;
+                                    } else {
+                                        const error = await authResponse.json();
+                                        console.error('Backend error:', error);
+                                        setInitError(error.detail || 'Authentication failed');
+                                    }
+                                } catch (backendError) {
+                                    console.error('Backend call failed:', backendError);
+                                    setInitError('Failed to connect to server');
+                                }
                             }
-                        } catch (error) {
-                            console.error('Backend auth failed:', error);
-                            setInitError('Failed to authenticate with server');
                         }
-                    } else if (response.accessToken) {
-                        // Email login - redirect to email page
-                        const redirectPath = sessionStorage.getItem('msalRedirectPath') || '/marketing/email';
-                        sessionStorage.removeItem('msalRedirectPath');
-                        console.log('Email login, redirecting to:', redirectPath);
-                        if (window.location.pathname !== redirectPath) {
-                            window.location.href = redirectPath;
-                            return;
-                        }
+                    } catch (handleError) {
+                        console.error('handleRedirectPromise error:', handleError);
+                        // Clear the hash to prevent infinite loop
+                        window.history.replaceState({}, document.title, window.location.pathname);
                     }
-                } else {
-                    console.log('No redirect response (normal page load)');
                 }
             } catch (error) {
-                console.error('MSAL initialization error:', error);
-                setInitError(error.message);
+                console.error('MSAL init error:', error);
             }
+            
             setIsInitialized(true);
         };
 
@@ -154,7 +156,7 @@ const MsalInitializer = ({ children }) => {
             <div className="min-h-screen bg-white flex items-center justify-center">
                 <div className="text-center">
                     <div className="w-8 h-8 border-2 border-[#4A3728] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                    <p className="text-sm text-gray-500">Loading...</p>
+                    <p className="text-sm text-gray-500">Authenticating...</p>
                     {initError && <p className="text-sm text-red-500 mt-2">{initError}</p>}
                 </div>
             </div>
