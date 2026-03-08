@@ -155,15 +155,29 @@ const EmailPage = () => {
     return response.json();
   }, [getAccessToken]);
 
-  // Handle Microsoft login
+  // Handle Microsoft login - try popup first, fallback to redirect
   const handleMicrosoftLogin = async () => {
     setMsLoginLoading(true);
     try {
+      // Try popup first
       await instance.loginPopup(mailRequest);
       toast.success('Successfully connected to Microsoft 365!');
     } catch (error) {
-      console.error('Login error:', error);
-      if (error.errorCode !== 'user_cancelled') {
+      console.error('Popup login error:', error);
+      
+      // If popup blocked or failed, try redirect
+      if (error.errorCode === 'popup_window_error' || 
+          error.errorCode === 'empty_window_error' ||
+          error.errorCode === 'browser_auth_error') {
+        try {
+          // Store current path to return after redirect
+          sessionStorage.setItem('msalRedirectPath', window.location.pathname);
+          await instance.loginRedirect(mailRequest);
+        } catch (redirectError) {
+          console.error('Redirect login error:', redirectError);
+          toast.error('Failed to connect to Microsoft. Please allow popups or try again.');
+        }
+      } else if (error.errorCode !== 'user_cancelled') {
         toast.error('Failed to connect to Microsoft');
       }
     } finally {

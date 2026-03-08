@@ -64,6 +64,23 @@ import "./App.css";
 // Initialize MSAL
 const msalInstance = new PublicClientApplication(msalConfig);
 
+// Handle MSAL redirect response on app load
+msalInstance.initialize().then(() => {
+    msalInstance.handleRedirectPromise().then((response) => {
+        if (response) {
+            console.log('MSAL redirect login successful');
+            // Restore the path user was on before redirect
+            const redirectPath = sessionStorage.getItem('msalRedirectPath');
+            if (redirectPath) {
+                sessionStorage.removeItem('msalRedirectPath');
+                window.history.replaceState({}, '', redirectPath);
+            }
+        }
+    }).catch((error) => {
+        console.error('MSAL redirect error:', error);
+    });
+});
+
 // Protected Route Component
 const ProtectedRoute = ({ children, requiredDepartment }) => {
     const { isAuthenticated, loading, hasAccessToDepartment } = useAuth();

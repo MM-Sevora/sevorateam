@@ -5,11 +5,18 @@ export const msalConfig = {
         authority: `https://login.microsoftonline.com/${process.env.REACT_APP_AZURE_TENANT_ID || "bbe9ab04-36a1-4b03-833b-a798ddb2f232"}`,
         redirectUri: window.location.origin,
         postLogoutRedirectUri: window.location.origin,
+        navigateToLoginRequestUrl: true,
     },
     cache: {
-        cacheLocation: "sessionStorage",
-        storeAuthStateInCookie: false,
+        cacheLocation: "localStorage", // Changed to localStorage for persistence across tabs
+        storeAuthStateInCookie: true, // Enable for IE11/Edge compatibility
     },
+    system: {
+        allowRedirectInIframe: false,
+        windowHashTimeout: 60000,
+        iframeHashTimeout: 6000,
+        loadFrameTimeout: 0,
+    }
 };
 
 export const loginRequest = {
