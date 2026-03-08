@@ -9,6 +9,7 @@ import { Label } from '../../components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { Checkbox } from '../../components/ui/checkbox';
 import { toast } from 'sonner';
 import { 
   Calendar, List, ChevronLeft, ChevronRight, Plus, Target, Users, DollarSign,
@@ -30,6 +31,15 @@ const CAMPAIGN_TYPES = {
   pr: { label: 'PR', color: 'bg-blue-100 text-blue-700' },
   mixed: { label: 'Mixed', color: 'bg-emerald-100 text-emerald-700' }
 };
+
+const OBJECTIVE_OPTIONS = [
+  { value: 'awareness', label: 'Brand Awareness' },
+  { value: 'engagement', label: 'Engagement' },
+  { value: 'sales', label: 'Sales' },
+  { value: 'launch', label: 'Product Launch' },
+  { value: 'media_coverage', label: 'Media Coverage' },
+  { value: 'thought_leadership', label: 'Thought Leadership' }
+];
 
 const PR_CAMPAIGN_TYPES = [
   { value: 'product_launch', label: 'Product Launch' },
@@ -62,7 +72,7 @@ const CampaignHubPage = () => {
   // New campaign modal
   const [showNewCampaign, setShowNewCampaign] = useState(false);
   const [newCampaign, setNewCampaign] = useState({
-    name: '', objective: 'awareness', budget: 0, start_date: '', end_date: '', target_market: '', description: '',
+    name: '', objectives: ['awareness'], budget: 0, start_date: '', end_date: '', target_market: '', description: '',
     campaign_type: 'influencer', // influencer, pr, mixed
     pr_campaign_type: '', // For PR: product_launch, brand_announcement, etc.
     target_media: '' // For PR campaigns
@@ -134,12 +144,19 @@ const CampaignHubPage = () => {
       toast.error('Campaign name is required');
       return;
     }
+    if (!newCampaign.objectives || newCampaign.objectives.length === 0) {
+      toast.error('Please select at least one objective');
+      return;
+    }
     try {
+      // Convert objectives array to comma-separated string for storage
+      const objectiveString = newCampaign.objectives.join(', ');
+      
       if (newCampaign.campaign_type === 'pr') {
         // Create PR campaign
         const prData = {
           name: newCampaign.name,
-          objective: newCampaign.objective,
+          objective: objectiveString,
           description: newCampaign.description,
           start_date: newCampaign.start_date,
           end_date: newCampaign.end_date,
@@ -153,12 +170,13 @@ const CampaignHubPage = () => {
         // Create Influencer/Event campaign
         await api.post('/marketing/campaigns', {
           ...newCampaign,
+          objective: objectiveString,
           campaign_type: newCampaign.campaign_type
         });
       }
       toast.success('Campaign created!');
       setShowNewCampaign(false);
-      setNewCampaign({ name: '', objective: 'awareness', budget: 0, start_date: '', end_date: '', target_market: '', description: '', campaign_type: 'influencer', pr_campaign_type: '', target_media: '' });
+      setNewCampaign({ name: '', objectives: ['awareness'], budget: 0, start_date: '', end_date: '', target_market: '', description: '', campaign_type: 'influencer', pr_campaign_type: '', target_media: '' });
       fetchData();
     } catch (error) {
       toast.error('Failed to create campaign');
@@ -167,8 +185,19 @@ const CampaignHubPage = () => {
 
   const handleEditCampaign = (campaign, e) => {
     e?.stopPropagation();
+    // Parse objectives - might be comma-separated string or single value
+    let objectives = ['awareness'];
+    if (campaign.objective) {
+      if (campaign.objective.includes(',')) {
+        objectives = campaign.objective.split(',').map(s => s.trim());
+      } else {
+        objectives = [campaign.objective];
+      }
+    }
+    
     setEditingCampaign({
       ...campaign,
+      objectives: objectives,
       budget: campaign.budget || 0,
       start_date: campaign.start_date || '',
       end_date: campaign.end_date || '',
@@ -184,12 +213,18 @@ const CampaignHubPage = () => {
       toast.error('Campaign name is required');
       return;
     }
+    if (!editingCampaign.objectives || editingCampaign.objectives.length === 0) {
+      toast.error('Please select at least one objective');
+      return;
+    }
     try {
+      const objectiveString = editingCampaign.objectives.join(', ');
       const isPR = editingCampaign.campaign_type === 'pr';
+      
       if (isPR) {
         await api.put(`/marketing/v2/pr/campaigns/${editingCampaign.id}`, {
           name: editingCampaign.name,
-          objective: editingCampaign.objective,
+          objective: objectiveString,
           description: editingCampaign.description,
           start_date: editingCampaign.start_date,
           end_date: editingCampaign.end_date,
@@ -200,7 +235,8 @@ const CampaignHubPage = () => {
       } else {
         await api.put(`/marketing/campaigns/${editingCampaign.id}`, {
           name: editingCampaign.name,
-          objective: editingCampaign.objective,
+          objective: objectiveString,
+          campaign_type: editingCampaign.campaign_type,
           description: editingCampaign.description,
           start_date: editingCampaign.start_date,
           end_date: editingCampaign.end_date,
@@ -823,22 +859,31 @@ const CampaignHubPage = () => {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label className="text-xs uppercase tracking-wider text-gray-500">OBJECTIVE</Label>
-                <Select value={newCampaign.objective} onValueChange={v => setNewCampaign(prev => ({ ...prev, objective: v }))}>
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="awareness">Brand Awareness</SelectItem>
-                    <SelectItem value="engagement">Engagement</SelectItem>
-                    <SelectItem value="sales">Sales</SelectItem>
-                    <SelectItem value="launch">Product Launch</SelectItem>
-                    {newCampaign.campaign_type === 'pr' && (
-                      <>
-                        <SelectItem value="media_coverage">Media Coverage</SelectItem>
-                        <SelectItem value="thought_leadership">Thought Leadership</SelectItem>
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
+                <Label className="text-xs uppercase tracking-wider text-gray-500">OBJECTIVES *</Label>
+                <div className="mt-2 space-y-2 max-h-[150px] overflow-y-auto border rounded-md p-2">
+                  {OBJECTIVE_OPTIONS.map(opt => (
+                    <div key={opt.value} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`new-obj-${opt.value}`}
+                        checked={newCampaign.objectives?.includes(opt.value)}
+                        onCheckedChange={(checked) => {
+                          setNewCampaign(prev => ({
+                            ...prev,
+                            objectives: checked 
+                              ? [...(prev.objectives || []), opt.value]
+                              : (prev.objectives || []).filter(o => o !== opt.value)
+                          }));
+                        }}
+                      />
+                      <label htmlFor={`new-obj-${opt.value}`} className="text-sm cursor-pointer">
+                        {opt.label}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                {newCampaign.objectives?.length > 0 && (
+                  <p className="text-xs text-gray-500 mt-1">{newCampaign.objectives.length} selected</p>
+                )}
               </div>
               <div>
                 <Label className="text-xs uppercase tracking-wider text-gray-500">BUDGET (₹)</Label>
@@ -931,20 +976,41 @@ const CampaignHubPage = () => {
                   className="mt-1"
                 />
               </div>
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500">CAMPAIGN TYPE</Label>
+                <Select value={editingCampaign.campaign_type || 'influencer'} onValueChange={v => setEditingCampaign(prev => ({ ...prev, campaign_type: v }))}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="influencer">Influencer Campaign</SelectItem>
+                    <SelectItem value="pr">PR Campaign</SelectItem>
+                    <SelectItem value="mixed">Mixed Campaign</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-xs uppercase tracking-wider text-gray-500">OBJECTIVE</Label>
-                  <Select value={editingCampaign.objective || 'awareness'} onValueChange={v => setEditingCampaign(prev => ({ ...prev, objective: v }))}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="awareness">Brand Awareness</SelectItem>
-                      <SelectItem value="engagement">Engagement</SelectItem>
-                      <SelectItem value="sales">Sales</SelectItem>
-                      <SelectItem value="launch">Product Launch</SelectItem>
-                      <SelectItem value="media_coverage">Media Coverage</SelectItem>
-                      <SelectItem value="thought_leadership">Thought Leadership</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label className="text-xs uppercase tracking-wider text-gray-500">OBJECTIVES *</Label>
+                  <div className="mt-2 space-y-2 max-h-[120px] overflow-y-auto border rounded-md p-2">
+                    {OBJECTIVE_OPTIONS.map(opt => (
+                      <div key={opt.value} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`edit-obj-${opt.value}`}
+                          checked={editingCampaign.objectives?.includes(opt.value)}
+                          onCheckedChange={(checked) => {
+                            setEditingCampaign(prev => ({
+                              ...prev,
+                              objectives: checked 
+                                ? [...(prev.objectives || []), opt.value]
+                                : (prev.objectives || []).filter(o => o !== opt.value)
+                            }));
+                          }}
+                        />
+                        <label htmlFor={`edit-obj-${opt.value}`} className="text-sm cursor-pointer">
+                          {opt.label}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 <div>
                   <Label className="text-xs uppercase tracking-wider text-gray-500">STATUS</Label>

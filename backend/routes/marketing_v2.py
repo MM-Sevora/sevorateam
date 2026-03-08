@@ -292,7 +292,7 @@ async def get_unified_campaigns(
     
     campaigns = []
     
-    # Fetch influencer campaigns
+    # Fetch influencer campaigns from marketing_campaigns collection
     if not campaign_type or campaign_type == "influencer":
         inf_query = {}
         if status:
@@ -300,11 +300,12 @@ async def get_unified_campaigns(
         if search:
             inf_query["name"] = {"$regex": search, "$options": "i"}
         
-        inf_campaigns = await db.campaigns.find(inf_query, {"_id": 0}).limit(limit).to_list(limit)
+        inf_campaigns = await db.marketing_campaigns.find(inf_query, {"_id": 0}).limit(limit).to_list(limit)
         for c in inf_campaigns:
-            c["campaign_type"] = "influencer"
-            c["influencer_count"] = len(c.get("assigned_influencers", []))
-            campaigns.append(c)
+            if not c.get("campaign_type") or c.get("campaign_type") == "influencer":
+                c["campaign_type"] = "influencer"
+                c["influencer_count"] = len(c.get("assigned_influencers", []))
+                campaigns.append(c)
     
     # Fetch PR campaigns
     if not campaign_type or campaign_type == "pr":
@@ -333,10 +334,10 @@ async def get_unified_campaign_stats(user: dict = Depends(get_marketing_auth()))
     """Get aggregate stats across all campaign types"""
     db = get_db()
     
-    # Influencer campaign stats
-    inf_count = await db.campaigns.count_documents({})
-    inf_active = await db.campaigns.count_documents({"status": "active"})
-    inf_campaigns = await db.campaigns.find({}, {"_id": 0, "budget": 1, "spent": 1}).to_list(1000)
+    # Influencer campaign stats (from marketing_campaigns collection)
+    inf_count = await db.marketing_campaigns.count_documents({})
+    inf_active = await db.marketing_campaigns.count_documents({"status": "active"})
+    inf_campaigns = await db.marketing_campaigns.find({}, {"_id": 0, "budget": 1, "spent": 1}).to_list(1000)
     inf_budget = sum(c.get("budget", 0) for c in inf_campaigns)
     inf_spent = sum(c.get("spent", 0) for c in inf_campaigns)
     
