@@ -99,9 +99,28 @@ async def send_email_via_microsoft(
     sender_email: str = None,
     user: dict = Depends(get_marketing_auth())
 ):
-    """Send an email via Microsoft Graph API"""
+    """
+    Send an email via Microsoft Graph API
+    
+    The sender_email must be provided by the user (their own Outlook/M365 email).
+    If not provided, tries to use the logged-in user's email from their profile.
+    """
     try:
         from services.microsoft_service import microsoft_service
+        
+        # If no sender specified, try to use the logged-in user's email
+        if not sender_email:
+            # Check if user has a Microsoft 365 email configured
+            db = get_db()
+            user_profile = await db.users.find_one({"id": user.get("id")}, {"email": 1, "microsoft_email": 1})
+            sender_email = user_profile.get("microsoft_email") or user_profile.get("email") if user_profile else None
+            
+            if not sender_email:
+                return {
+                    "success": False,
+                    "error": "No sender email provided. Please provide your Outlook email address."
+                }
+        
         result = await microsoft_service.send_email(
             to_email=to_email,
             subject=subject,
@@ -141,6 +160,121 @@ async def get_emails_for_contact(
         return {"emails": emails, "count": len(emails)}
     except Exception as e:
         return {"emails": [], "count": 0, "error": str(e)}
+
+
+@marketing_v2_router.get("/user/email-settings")
+async def get_user_email_settings(user: dict = Depends(get_marketing_auth())):
+    """Get user's email settings (Microsoft email for sending)"""
+    db = get_db()
+    user_profile = await db.users.find_one({"id": user.get("id")}, {"_id": 0, "email": 1, "microsoft_email": 1})
+    return {
+        "email": user_profile.get("email") if user_profile else None,
+        "microsoft_email": user_profile.get("microsoft_email") if user_profile else None
+    }
+
+
+@marketing_v2_router.put("/user/email-settings")
+async def update_user_email_settings(
+    microsoft_email: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Update user's Microsoft email for sending"""
+    db = get_db()
+    
+    await db.users.update_one(
+        {"id": user.get("id")},
+        {"$set": {"microsoft_email": microsoft_email}}
+    )
+    
+    return {"message": "Email settings updated", "microsoft_email": microsoft_email}
+
+
+@marketing_v2_router.post("/outreach/send-email")
+async def send_outreach_email(
+    contact_id: str,
+    subject: str,
+    body: str,
+    template_id: str = None,
+    sender_email: str = None,
+    user: dict = Depends(get_marketing_auth())
+):
+    """
+    Send an outreach email to a contact.
+    
+    - If template_id is provided, increments template usage count
+    - If sender_email is not provided, uses user's saved Microsoft email
+    - Records the communication in the contact's history
+    """
+    db = get_db()
+    
+    # Get contact
+    contact = await db.contacts.find_one({"id": contact_id}, {"_id": 0})
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    if not contact.get("email"):
+        return {"success": False, "error": "Contact has no email address"}
+    
+    # Get sender email
+    if not sender_email:
+        user_profile = await db.users.find_one({"id": user.get("id")}, {"microsoft_email": 1})
+        sender_email = user_profile.get("microsoft_email") if user_profile else None
+        
+        if not sender_email:
+            return {
+                "success": False, 
+                "error": "Please configure your Outlook email in settings first"
+            }
+    
+    try:
+        from services.microsoft_service import microsoft_service
+        
+        # Send the email
+        result = await microsoft_service.send_email(
+            to_email=contact["email"],
+            subject=subject,
+            body=body,
+            is_html=True,
+            sender_email=sender_email
+        )
+        
+        if result.get("success"):
+            # Record the communication
+            comm_id = str(uuid.uuid4())
+            now = datetime.now(timezone.utc).isoformat()
+            
+            comm_doc = {
+                "id": comm_id,
+                "contact_id": contact_id,
+                "comm_type": "email",
+                "direction": "outbound",
+                "subject": subject,
+                "message": body,
+                "status": "sent",
+                "sent_at": now,
+                "sender_email": sender_email,
+                "created_at": now
+            }
+            
+            await db.communications.insert_one(comm_doc)
+            
+            # Update template usage count if template was used
+            if template_id:
+                await db.templates.update_one(
+                    {"id": template_id},
+                    {"$inc": {"usage_count": 1}}
+                )
+            
+            return {
+                "success": True,
+                "message": f"Email sent to {contact['email']}",
+                "communication_id": comm_id
+            }
+        else:
+            return result
+            
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 # ============== UNIFIED CAMPAIGNS (Both Influencer + PR) ==============

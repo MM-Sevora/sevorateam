@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { NotificationsDropdown, OnlineUsersIndicator } from './Notifications';
@@ -6,10 +6,14 @@ import {
     LayoutDashboard, Users, Target, MessageSquare, DollarSign, BarChart3,
     UserPlus, ShoppingBag, Calendar, QrCode, Building2, Settings,
     PenTool, Sparkles, Zap, Clock, Youtube, Image, LogOut, Menu, X,
-    ChevronDown, ChevronRight, Briefcase, Mail
+    ChevronDown, ChevronRight, Briefcase, Mail, Check
 } from 'lucide-react';
 import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { toast } from 'sonner';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -104,7 +108,7 @@ const ROLE_LABELS = {
 };
 
 export const Layout = ({ children }) => {
-    const { user, logout, hasAccessToDepartment } = useAuth();
+    const { user, logout, hasAccessToDepartment, api } = useAuth();
     const location = useLocation();
     const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -135,6 +139,53 @@ export const Layout = ({ children }) => {
     const handleLogout = () => {
         logout();
         navigate('/login');
+    };
+
+    // Settings state
+    const [showSettings, setShowSettings] = useState(false);
+    const [microsoftEmail, setMicrosoftEmail] = useState('');
+    const [savingSettings, setSavingSettings] = useState(false);
+    const [microsoftConnected, setMicrosoftConnected] = useState(false);
+
+    // Fetch email settings on mount
+    useEffect(() => {
+        const fetchEmailSettings = async () => {
+            try {
+                const response = await api.get('/marketing/v2/user/email-settings');
+                setMicrosoftEmail(response.data.microsoft_email || '');
+            } catch (error) {
+                console.error('Failed to fetch email settings');
+            }
+        };
+        
+        const checkMicrosoftStatus = async () => {
+            try {
+                const response = await api.get('/marketing/v2/microsoft/status');
+                setMicrosoftConnected(response.data.connected);
+            } catch (error) {
+                console.error('Failed to check Microsoft status');
+            }
+        };
+        
+        fetchEmailSettings();
+        checkMicrosoftStatus();
+    }, [api]);
+
+    const handleSaveSettings = async () => {
+        if (!microsoftEmail) {
+            toast.error('Please enter your Outlook email');
+            return;
+        }
+        setSavingSettings(true);
+        try {
+            await api.put(`/marketing/v2/user/email-settings?microsoft_email=${encodeURIComponent(microsoftEmail)}`);
+            toast.success('Email settings saved!');
+            setShowSettings(false);
+        } catch (error) {
+            toast.error('Failed to save settings');
+        } finally {
+            setSavingSettings(false);
+        }
     };
 
     return (
@@ -266,7 +317,10 @@ export const Layout = ({ children }) => {
                                 </div>
                             </DropdownMenuLabel>
                             <DropdownMenuSeparator className="bg-[#E8D5C4]" />
-                            <DropdownMenuItem className="text-[#4A3728] hover:bg-[#F5EDE5] cursor-pointer">
+                            <DropdownMenuItem 
+                                onClick={() => setShowSettings(true)}
+                                className="text-[#4A3728] hover:bg-[#F5EDE5] cursor-pointer"
+                            >
                                 <Settings className="w-4 h-4 mr-2" />
                                 Settings
                             </DropdownMenuItem>
@@ -294,6 +348,68 @@ export const Layout = ({ children }) => {
                 </div>
                 {children}
             </main>
+
+            {/* Settings Dialog */}
+            <Dialog open={showSettings} onOpenChange={setShowSettings}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Settings className="w-5 h-5" />
+                            Settings
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-6 py-4">
+                        {/* Microsoft 365 Status */}
+                        <div className="p-4 rounded-lg bg-gray-50 border">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <Mail className="w-5 h-5 text-blue-600" />
+                                    <div>
+                                        <p className="font-medium">Microsoft 365</p>
+                                        <p className="text-xs text-gray-500">For sending emails via Outlook</p>
+                                    </div>
+                                </div>
+                                {microsoftConnected ? (
+                                    <span className="flex items-center gap-1 text-green-600 text-sm">
+                                        <Check className="w-4 h-4" /> Connected
+                                    </span>
+                                ) : (
+                                    <span className="text-amber-600 text-sm">Not configured</span>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Outlook Email */}
+                        <div>
+                            <Label className="text-xs uppercase tracking-wider text-gray-500">
+                                YOUR OUTLOOK EMAIL
+                            </Label>
+                            <Input
+                                type="email"
+                                value={microsoftEmail}
+                                onChange={(e) => setMicrosoftEmail(e.target.value)}
+                                placeholder="your.email@company.com"
+                                className="mt-1"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                                This email will be used to send outreach emails from the system
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2 border-t">
+                        <Button variant="outline" onClick={() => setShowSettings(false)}>
+                            Cancel
+                        </Button>
+                        <Button 
+                            onClick={handleSaveSettings}
+                            disabled={savingSettings}
+                            className="bg-[#4A3728] hover:bg-[#3A2A1C] text-white"
+                        >
+                            {savingSettings ? 'Saving...' : 'Save Settings'}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

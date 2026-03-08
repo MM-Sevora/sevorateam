@@ -308,18 +308,48 @@ const InfluencerDetailPage = () => {
     
     setSendingOutreach(true);
     try {
-      const payload = {
-        contact_id: influencerId,
-        comm_type: outreachChannel,
-        subject: outreachForm.subject,
-        message: outreachForm.message,
-        recipient_email: form.email,
-        recipient_phone: form.phone
-      };
+      if (outreachChannel === 'email') {
+        // Send actual email via Microsoft Graph
+        const emailPayload = {
+          contact_id: influencerId,
+          subject: outreachForm.subject || `Collaboration Opportunity`,
+          body: outreachForm.message.replace(/\n/g, '<br>'),
+          template_id: outreachForm.template !== 'custom' ? outreachForm.template : null
+        };
+        
+        const result = await api.post(`/marketing/v2/outreach/send-email`, null, { params: emailPayload });
+        
+        if (result.data.success) {
+          toast.success('Email sent successfully via Outlook!');
+        } else {
+          // If Microsoft email fails, fall back to recording only
+          if (result.data.error?.includes('configure your Outlook')) {
+            toast.error('Please configure your Outlook email in settings to send emails');
+            return;
+          }
+          // Record as communication anyway
+          await api.post(`/marketing/v2/communications`, {
+            contact_id: influencerId,
+            comm_type: 'email',
+            subject: outreachForm.subject,
+            message: outreachForm.message,
+            recipient_email: form.email,
+            status: 'draft'
+          });
+          toast.info('Email saved as draft (Outlook not configured)');
+        }
+      } else {
+        // WhatsApp - just record the communication
+        await api.post(`/marketing/v2/communications`, {
+          contact_id: influencerId,
+          comm_type: outreachChannel,
+          subject: outreachForm.subject,
+          message: outreachForm.message,
+          recipient_phone: form.phone
+        });
+        toast.success('WhatsApp message recorded');
+      }
       
-      await api.post(`/marketing/v2/communications`, payload);
-      
-      toast.success(`${outreachChannel === 'email' ? 'Email' : 'WhatsApp'} sent successfully!`);
       setShowOutreachModal(false);
       setOutreachForm({ subject: '', message: '', template: 'custom' });
       
