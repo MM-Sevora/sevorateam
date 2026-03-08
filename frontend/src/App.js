@@ -147,6 +147,7 @@ function AppRoutes() {
 
             {/* Mail Routes */}
             <Route path="/mail/inbox" element={<ProtectedRoute requiredDepartment="mail"><EmailPage /></ProtectedRoute>} />
+            <Route path="/marketing/email" element={<ProtectedRoute requiredDepartment="marketing"><EmailPage /></ProtectedRoute>} />
 
             {/* Sales Routes */}
             <Route path="/sales" element={<ProtectedRoute requiredDepartment="sales"><SalesDashboard /></ProtectedRoute>} />
