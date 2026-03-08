@@ -9,27 +9,92 @@ import { Textarea } from '../../components/ui/textarea';
 import { Checkbox } from '../../components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '../../components/ui/dropdown-menu';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../../components/ui/collapsible';
 import { toast } from 'sonner';
 import api from '../../lib/api';
 import {
-  Users, Search, RefreshCw, Filter, MoreVertical, Mail, MessageSquare,
+  Users, Search, RefreshCw, MoreHorizontal, Mail, MessageSquare,
   DollarSign, ChevronDown, ChevronRight, Send, Clock, CheckCircle2,
   XCircle, Package, Trash2, Instagram, Youtube, Phone, ArrowRight,
-  Plus, Eye, Edit2, TrendingUp, Calendar, FileText
+  Plus, Eye, Edit2, TrendingUp, Sparkles, ExternalLink, Star,
+  Zap, Target, Award, Briefcase
 } from 'lucide-react';
 
-// Pipeline stages configuration
+// Enhanced Pipeline stages with gradients
 const PIPELINE_STAGES = [
-  { id: 'identified', label: 'Identified', color: 'bg-slate-500', headerColor: 'bg-slate-600', icon: Users },
-  { id: 'contacted', label: 'Contacted', color: 'bg-blue-500', headerColor: 'bg-blue-600', icon: Send },
-  { id: 'replied', label: 'Replied', color: 'bg-purple-500', headerColor: 'bg-purple-600', icon: MessageSquare },
-  { id: 'negotiating', label: 'Negotiating', color: 'bg-amber-500', headerColor: 'bg-amber-600', icon: DollarSign },
-  { id: 'agreed', label: 'Agreed', color: 'bg-green-500', headerColor: 'bg-green-600', icon: CheckCircle2 },
-  { id: 'delivering', label: 'Delivering', color: 'bg-cyan-500', headerColor: 'bg-cyan-600', icon: Package },
-  { id: 'completed', label: 'Completed', color: 'bg-emerald-500', headerColor: 'bg-emerald-600', icon: CheckCircle2 },
-  { id: 'lost', label: 'Lost', color: 'bg-red-500', headerColor: 'bg-red-600', icon: XCircle },
+  { 
+    id: 'identified', 
+    label: 'Identified', 
+    icon: Users,
+    gradient: 'from-slate-600 to-slate-700',
+    cardAccent: 'border-l-slate-500',
+    lightBg: 'bg-slate-50',
+    textColor: 'text-slate-700'
+  },
+  { 
+    id: 'contacted', 
+    label: 'Contacted', 
+    icon: Send,
+    gradient: 'from-blue-500 to-blue-600',
+    cardAccent: 'border-l-blue-500',
+    lightBg: 'bg-blue-50',
+    textColor: 'text-blue-700'
+  },
+  { 
+    id: 'replied', 
+    label: 'Replied', 
+    icon: MessageSquare,
+    gradient: 'from-violet-500 to-purple-600',
+    cardAccent: 'border-l-violet-500',
+    lightBg: 'bg-violet-50',
+    textColor: 'text-violet-700'
+  },
+  { 
+    id: 'negotiating', 
+    label: 'Negotiating', 
+    icon: DollarSign,
+    gradient: 'from-amber-500 to-orange-500',
+    cardAccent: 'border-l-amber-500',
+    lightBg: 'bg-amber-50',
+    textColor: 'text-amber-700'
+  },
+  { 
+    id: 'agreed', 
+    label: 'Agreed', 
+    icon: CheckCircle2,
+    gradient: 'from-emerald-500 to-green-600',
+    cardAccent: 'border-l-emerald-500',
+    lightBg: 'bg-emerald-50',
+    textColor: 'text-emerald-700'
+  },
+  { 
+    id: 'delivering', 
+    label: 'Delivering', 
+    icon: Package,
+    gradient: 'from-cyan-500 to-teal-500',
+    cardAccent: 'border-l-cyan-500',
+    lightBg: 'bg-cyan-50',
+    textColor: 'text-cyan-700'
+  },
+  { 
+    id: 'completed', 
+    label: 'Completed', 
+    icon: Award,
+    gradient: 'from-green-600 to-emerald-600',
+    cardAccent: 'border-l-green-600',
+    lightBg: 'bg-green-50',
+    textColor: 'text-green-700'
+  },
+  { 
+    id: 'lost', 
+    label: 'Lost', 
+    icon: XCircle,
+    gradient: 'from-red-500 to-rose-600',
+    cardAccent: 'border-l-red-500',
+    lightBg: 'bg-red-50',
+    textColor: 'text-red-700'
+  },
 ];
 
 const formatCurrency = (amount) => {
@@ -39,7 +104,13 @@ const formatCurrency = (amount) => {
 
 const formatDate = (dateStr) => {
   if (!dateStr) return '';
-  return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 };
 
 const formatNumber = (num) => {
@@ -49,158 +120,217 @@ const formatNumber = (num) => {
   return num.toString();
 };
 
-// Pipeline Card Component
-const PipelineCard = ({ contact, onStageChange, onViewDetails, onSendMessage, isSelected, onToggleSelect }) => {
-  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
-  const stage = PIPELINE_STAGES.find(s => s.id === contact.pipeline_stage) || PIPELINE_STAGES[0];
+// Enhanced Pipeline Card Component
+const PipelineCard = ({ contact, stage, onStageChange, onViewDetails, onSendMessage, isSelected, onToggleSelect }) => {
+  const [isHovered, setIsHovered] = useState(false);
   
   const handleDragStart = (e) => {
     e.dataTransfer.setData('contactId', contact.id);
     e.dataTransfer.setData('currentStage', contact.pipeline_stage);
+    e.target.style.opacity = '0.5';
+  };
+
+  const handleDragEnd = (e) => {
+    e.target.style.opacity = '1';
   };
 
   const communications = contact.communications || [];
   const deal = contact.deal || {};
   const hasNegotiationData = ['negotiating', 'agreed', 'delivering', 'completed'].includes(contact.pipeline_stage);
+  const isHighValue = (deal.initial_quote || 0) >= 50000;
 
   return (
     <div
       draggable
       onDragStart={handleDragStart}
-      className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
+      onDragEnd={handleDragEnd}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className={`
+        group relative bg-white rounded-xl border-l-4 ${stage.cardAccent}
+        shadow-sm hover:shadow-lg transition-all duration-200 cursor-grab active:cursor-grabbing
+        ${isSelected ? 'ring-2 ring-amber-400 ring-offset-2' : ''}
+        ${isHovered ? 'transform -translate-y-0.5' : ''}
+      `}
       data-testid={`pipeline-card-${contact.id}`}
     >
-      {/* Header */}
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex items-center gap-2">
+      {/* High Value Indicator */}
+      {isHighValue && hasNegotiationData && (
+        <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center shadow-md">
+          <Star className="w-3 h-3 text-white fill-white" />
+        </div>
+      )}
+
+      <div className="p-3">
+        {/* Header Row */}
+        <div className="flex items-start gap-2 mb-2">
           <Checkbox 
             checked={isSelected}
             onCheckedChange={() => onToggleSelect(contact.id)}
             onClick={(e) => e.stopPropagation()}
+            className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
           />
+          
+          {/* Avatar with platform indicator */}
           <div 
-            className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-white font-semibold text-sm cursor-pointer"
+            className="relative cursor-pointer"
             onClick={() => onViewDetails(contact)}
           >
-            {contact.name?.charAt(0) || '?'}
+            <div className={`
+              w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm
+              bg-gradient-to-br ${stage.gradient} shadow-md
+            `}>
+              {contact.name?.charAt(0).toUpperCase() || '?'}
+            </div>
+            {contact.instagram_handle && (
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-gradient-to-br from-pink-500 to-purple-600 rounded-full flex items-center justify-center shadow">
+                <Instagram className="w-2.5 h-2.5 text-white" />
+              </div>
+            )}
+            {!contact.instagram_handle && contact.youtube_handle && (
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-red-600 rounded-full flex items-center justify-center shadow">
+                <Youtube className="w-2.5 h-2.5 text-white" />
+              </div>
+            )}
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="font-medium text-gray-900 text-sm truncate cursor-pointer hover:text-amber-600" onClick={() => onViewDetails(contact)}>
+
+          {/* Name & Info */}
+          <div className="flex-1 min-w-0">
+            <p 
+              className="font-semibold text-gray-900 text-sm truncate cursor-pointer hover:text-amber-600 transition-colors"
+              onClick={() => onViewDetails(contact)}
+              title={contact.name}
+            >
               {contact.name}
             </p>
-            <div className="flex items-center gap-1 text-xs text-gray-500">
+            <div className="flex items-center gap-2 text-xs text-gray-500">
               {contact.instagram_handle && (
                 <span className="flex items-center gap-0.5">
-                  <Instagram className="w-3 h-3 text-pink-500" />
-                  {formatNumber(contact.followers)}
+                  <span className="text-pink-500 font-medium">{formatNumber(contact.followers)}</span>
                 </span>
               )}
               {contact.youtube_handle && (
                 <span className="flex items-center gap-0.5">
-                  <Youtube className="w-3 h-3 text-red-500" />
-                  {formatNumber(contact.youtube_subscribers)}
+                  <span className="text-red-500 font-medium">{formatNumber(contact.youtube_subscribers)}</span>
+                </span>
+              )}
+              {contact.engagement_rate > 0 && (
+                <span className="flex items-center gap-0.5 text-emerald-600">
+                  <TrendingUp className="w-3 h-3" />
+                  {contact.engagement_rate.toFixed(1)}%
                 </span>
               )}
             </div>
           </div>
-        </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7">
-              <MoreVertical className="w-4 h-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onViewDetails(contact)}>
-              <Eye className="w-4 h-4 mr-2" /> View Details
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onSendMessage(contact)}>
-              <Mail className="w-4 h-4 mr-2" /> Send Message
-            </DropdownMenuItem>
-            {contact.pipeline_stage !== 'agreed' && (
-              <DropdownMenuItem onClick={() => onStageChange(contact.id, 'agreed')} className="text-green-600">
+
+          {/* Actions */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => onViewDetails(contact)}>
+                <Eye className="w-4 h-4 mr-2" /> View Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onSendMessage(contact)}>
+                <Mail className="w-4 h-4 mr-2" /> Send Message
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={() => onStageChange(contact.id, 'agreed')}
+                className="text-emerald-600"
+              >
                 <CheckCircle2 className="w-4 h-4 mr-2" /> Mark Agreed
               </DropdownMenuItem>
-            )}
-            {contact.pipeline_stage !== 'lost' && (
-              <DropdownMenuItem onClick={() => onStageChange(contact.id, 'lost')} className="text-red-600">
+              <DropdownMenuItem 
+                onClick={() => onStageChange(contact.id, 'lost')}
+                className="text-red-600"
+              >
                 <XCircle className="w-4 h-4 mr-2" /> Mark Lost
               </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      {/* Deal Info (for negotiating+ stages) */}
-      {hasNegotiationData && deal.initial_quote && (
-        <div className="bg-amber-50 rounded px-2 py-1.5 mb-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-600">Quote</span>
-            <span className="font-semibold text-amber-700">{formatCurrency(deal.initial_quote)}</span>
-          </div>
-          {deal.final_amount && (
-            <div className="flex items-center justify-between text-xs mt-1">
-              <span className="text-gray-600">Final</span>
-              <span className="font-semibold text-green-700">{formatCurrency(deal.final_amount)}</span>
-            </div>
-          )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      )}
 
-      {/* Deliverables */}
-      {deal.deliverables && (
-        <p className="text-xs text-gray-600 mb-2 line-clamp-1">
-          <Package className="w-3 h-3 inline mr-1" />
-          {deal.deliverables}
-        </p>
-      )}
-
-      {/* Campaign Badge */}
-      {contact.campaign_name && (
-        <Badge variant="outline" className="text-xs mb-2">
-          {contact.campaign_name}
-        </Badge>
-      )}
-
-      {/* Communication Timeline (Collapsible) */}
-      {communications.length > 0 && (
-        <Collapsible open={isTimelineOpen} onOpenChange={setIsTimelineOpen}>
-          <CollapsibleTrigger className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 w-full">
-            {isTimelineOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-            <MessageSquare className="w-3 h-3" />
-            {communications.length} message{communications.length > 1 ? 's' : ''}
-          </CollapsibleTrigger>
-          <CollapsibleContent className="mt-2">
-            <div className="space-y-1.5 max-h-32 overflow-y-auto">
-              {communications.slice(0, 5).map((comm, idx) => (
-                <div key={idx} className="flex items-start gap-2 text-xs bg-gray-50 rounded p-1.5">
-                  <div className={`w-1.5 h-1.5 rounded-full mt-1.5 ${comm.status === 'replied' ? 'bg-green-500' : comm.status === 'opened' ? 'bg-blue-500' : 'bg-gray-400'}`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-gray-600 truncate">{comm.subject || comm.message?.substring(0, 50)}</p>
-                    <p className="text-gray-400">{formatDate(comm.sent_at)}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-      )}
-
-      {/* Last Activity */}
-      <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100 text-xs text-gray-400">
-        <span>{formatDate(contact.updated_at || contact.created_at)}</span>
-        {contact.engagement_rate > 0 && (
-          <span className="flex items-center gap-1">
-            <TrendingUp className="w-3 h-3" />
-            {contact.engagement_rate.toFixed(1)}%
-          </span>
+        {/* Deal Info Card */}
+        {hasNegotiationData && (deal.initial_quote || deal.deliverables) && (
+          <div className={`${stage.lightBg} rounded-lg p-2 mb-2`}>
+            {deal.initial_quote && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">Deal Value</span>
+                <span className={`text-sm font-bold ${stage.textColor}`}>
+                  {formatCurrency(deal.final_amount || deal.initial_quote)}
+                </span>
+              </div>
+            )}
+            {deal.deliverables && (
+              <p className="text-xs text-gray-600 mt-1 line-clamp-1">
+                {deal.deliverables}
+              </p>
+            )}
+          </div>
         )}
+
+        {/* Campaign Badge */}
+        {contact.campaign_name && (
+          <div className="mb-2">
+            <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800 border-0">
+              <Target className="w-3 h-3 mr-1" />
+              {contact.campaign_name}
+            </Badge>
+          </div>
+        )}
+
+        {/* Communication Summary */}
+        {communications.length > 0 && (
+          <Collapsible>
+            <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 w-full py-1 rounded hover:bg-gray-50 transition-colors">
+              <MessageSquare className="w-3 h-3" />
+              <span>{communications.length} message{communications.length > 1 ? 's' : ''}</span>
+              <ChevronDown className="w-3 h-3 ml-auto transition-transform ui-open:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="mt-2 space-y-1.5 max-h-24 overflow-y-auto">
+                {communications.slice(0, 3).map((comm, idx) => (
+                  <div key={idx} className="flex items-center gap-2 text-xs p-1.5 bg-gray-50 rounded-lg">
+                    <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                      comm.status === 'replied' ? 'bg-emerald-500' : 
+                      comm.status === 'opened' ? 'bg-blue-500' : 'bg-gray-300'
+                    }`} />
+                    <span className="text-gray-600 truncate flex-1">
+                      {comm.subject || comm.message?.substring(0, 40) + '...'}
+                    </span>
+                    <span className="text-gray-400 flex-shrink-0">{formatDate(comm.sent_at)}</span>
+                  </div>
+                ))}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+
+        {/* Footer */}
+        <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
+          <span className="text-xs text-gray-400">
+            {formatDate(contact.updated_at || contact.created_at)}
+          </span>
+          <div className="flex items-center gap-1">
+            {contact.contact_type === 'journalist' && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">PR</Badge>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
 };
 
-// Pipeline Column Component
+// Enhanced Pipeline Column Component
 const PipelineColumn = ({ stage, contacts, onDrop, onStageChange, onViewDetails, onSendMessage, selectedIds, onToggleSelect }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const StageIcon = stage.icon;
@@ -229,37 +359,55 @@ const PipelineColumn = ({ stage, contacts, onDrop, onStageChange, onViewDetails,
 
   return (
     <div
-      className={`flex-shrink-0 w-72 bg-gray-50 rounded-lg flex flex-col max-h-full ${isDragOver ? 'ring-2 ring-amber-400' : ''}`}
+      className={`
+        flex-shrink-0 w-80 rounded-xl flex flex-col max-h-full
+        bg-gradient-to-b from-gray-50 to-gray-100/50
+        ${isDragOver ? 'ring-2 ring-amber-400 ring-inset bg-amber-50/30' : ''}
+        transition-all duration-200
+      `}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       data-testid={`pipeline-column-${stage.id}`}
     >
       {/* Column Header */}
-      <div className={`${stage.headerColor} text-white px-4 py-3 rounded-t-lg`}>
+      <div className={`bg-gradient-to-r ${stage.gradient} text-white px-4 py-3 rounded-t-xl shadow-md`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <StageIcon className="w-4 h-4" />
-            <h3 className="font-semibold">{stage.label}</h3>
-            <Badge className="bg-white/20 text-white">{contacts.length}</Badge>
+            <div className="w-7 h-7 bg-white/20 rounded-lg flex items-center justify-center">
+              <StageIcon className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-sm">{stage.label}</h3>
+              {totalValue > 0 && (
+                <p className="text-[10px] text-white/70">{formatCurrency(totalValue)}</p>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Badge className="bg-white/20 text-white border-0 text-xs px-2">
+              {contacts.length}
+            </Badge>
           </div>
         </div>
-        {totalValue > 0 && (
-          <p className="text-xs text-white/80 mt-1">{formatCurrency(totalValue)} total</p>
-        )}
       </div>
 
-      {/* Cards */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-2">
+      {/* Cards Container */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {contacts.length === 0 ? (
-          <div className="text-center py-8 text-gray-400 text-sm">
-            No contacts
+          <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+            <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${stage.gradient} opacity-20 flex items-center justify-center mb-3`}>
+              <StageIcon className="w-6 h-6" />
+            </div>
+            <p className="text-sm font-medium">No contacts</p>
+            <p className="text-xs">Drag cards here</p>
           </div>
         ) : (
           contacts.map(contact => (
             <PipelineCard
               key={contact.id}
               contact={contact}
+              stage={stage}
               onStageChange={onStageChange}
               onViewDetails={onViewDetails}
               onSendMessage={onSendMessage}
@@ -280,7 +428,7 @@ const UnifiedPipeline = () => {
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState('all'); // all, influencer, journalist
+  const [filterType, setFilterType] = useState('all');
   const [filterCampaign, setFilterCampaign] = useState('all');
   const [selectedIds, setSelectedIds] = useState([]);
   
@@ -296,31 +444,24 @@ const UnifiedPipeline = () => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch all contacts
       const contactsRes = await api.get('/marketing/v2/contacts');
       const allContacts = contactsRes.data || [];
 
-      // Fetch campaigns
       const campaignsRes = await api.get('/marketing/v2/unified-campaigns');
       setCampaigns(campaignsRes.data || []);
 
-      // Enrich contacts with communications and deals
       const enrichedContacts = await Promise.all(
         allContacts.map(async (contact) => {
           try {
-            // Fetch communications
             const commsRes = await api.get(`/marketing/v2/contacts/${contact.id}/communications`);
             const communications = commsRes.data || [];
 
-            // Fetch deals
             const dealsRes = await api.get(`/marketing/v2/contacts/${contact.id}/deals`);
             const deals = dealsRes.data || [];
             const activeDeal = deals.find(d => !['completed', 'lost'].includes(d.status)) || deals[0];
 
-            // Determine pipeline stage based on status and data
             let pipeline_stage = contact.pipeline_stage || contact.status || 'identified';
             
-            // Auto-determine stage if not explicitly set
             if (!contact.pipeline_stage) {
               if (activeDeal && ['agreed', 'completed'].includes(activeDeal.status)) {
                 pipeline_stage = activeDeal.status;
@@ -335,7 +476,6 @@ const UnifiedPipeline = () => {
               }
             }
 
-            // Get campaign name
             let campaign_name = null;
             if (contact.campaign_id) {
               const campaign = campaignsRes.data?.find(c => c.id === contact.campaign_id);
@@ -401,13 +541,13 @@ const UnifiedPipeline = () => {
         c.id === contactId ? { ...c, pipeline_stage: newStage } : c
       ));
       
-      toast.success(`Moved to ${PIPELINE_STAGES.find(s => s.id === newStage)?.label}`);
+      const stageName = PIPELINE_STAGES.find(s => s.id === newStage)?.label;
+      toast.success(`Moved to ${stageName}`);
     } catch (error) {
       toast.error('Failed to update stage');
     }
   };
 
-  // Handle view details
   const handleViewDetails = (contact) => {
     const path = contact.contact_type === 'journalist' 
       ? `/marketing/publications/${contact.publication_id}`
@@ -415,7 +555,6 @@ const UnifiedPipeline = () => {
     navigate(path);
   };
 
-  // Handle send message
   const handleSendMessage = (contact) => {
     setSelectedContact(contact);
     setMessageForm({ subject: '', message: '', comm_type: 'email' });
@@ -437,7 +576,6 @@ const UnifiedPipeline = () => {
       toast.success('Message sent!');
       setShowSendModal(false);
       
-      // Move to contacted if currently identified
       if (selectedContact.pipeline_stage === 'identified') {
         handleStageChange(selectedContact.id, 'contacted');
       }
@@ -448,56 +586,6 @@ const UnifiedPipeline = () => {
     }
   };
 
-  // Handle add deal info
-  const handleAddDeal = (contact) => {
-    setSelectedContact(contact);
-    setDealForm({ 
-      initial_quote: contact.deal?.initial_quote || '', 
-      our_budget: contact.deal?.our_budget || '',
-      deliverables: contact.deal?.deliverables || '',
-      notes: contact.deal?.notes || ''
-    });
-    setShowDealModal(true);
-  };
-
-  const submitDeal = async () => {
-    if (!selectedContact) return;
-    
-    try {
-      // Create or update deal
-      if (selectedContact.deal?.id) {
-        await api.put(`/marketing/v2/deals/${selectedContact.deal.id}`, {
-          initial_quote: parseFloat(dealForm.initial_quote) || 0,
-          our_budget: parseFloat(dealForm.our_budget) || null,
-          deliverables: dealForm.deliverables,
-          notes: dealForm.notes
-        });
-      } else {
-        await api.post('/marketing/v2/deals', {
-          contact_id: selectedContact.id,
-          campaign_id: selectedContact.campaign_id,
-          initial_quote: parseFloat(dealForm.initial_quote) || 0,
-          our_budget: parseFloat(dealForm.our_budget) || null,
-          deliverables: dealForm.deliverables,
-          notes: dealForm.notes
-        });
-      }
-      
-      toast.success('Deal info saved!');
-      setShowDealModal(false);
-      
-      // Move to negotiating if not already past that stage
-      if (['identified', 'contacted', 'replied'].includes(selectedContact.pipeline_stage)) {
-        handleStageChange(selectedContact.id, 'negotiating');
-      }
-      
-      fetchData();
-    } catch (error) {
-      toast.error('Failed to save deal info');
-    }
-  };
-
-  // Handle bulk delete
   const handleBulkDelete = async () => {
     if (selectedIds.length === 0) return;
     if (!window.confirm(`Delete ${selectedIds.length} contacts? This cannot be undone.`)) return;
@@ -521,66 +609,136 @@ const UnifiedPipeline = () => {
   // Stats
   const stats = {
     total: filteredContacts.length,
-    contacted: contactsByStage.contacted?.length || 0,
-    negotiating: contactsByStage.negotiating?.length || 0,
+    inProgress: (contactsByStage.contacted?.length || 0) + (contactsByStage.replied?.length || 0) + (contactsByStage.negotiating?.length || 0),
     agreed: contactsByStage.agreed?.length || 0,
+    completed: contactsByStage.completed?.length || 0,
     totalValue: filteredContacts.reduce((sum, c) => {
       const deal = c.deal || {};
       return sum + (deal.final_amount || deal.initial_quote || 0);
-    }, 0)
+    }, 0),
+    conversionRate: filteredContacts.length > 0 
+      ? (((contactsByStage.agreed?.length || 0) + (contactsByStage.completed?.length || 0)) / filteredContacts.length * 100).toFixed(0)
+      : 0
   };
 
   return (
-    <div className="h-screen flex flex-col bg-gray-100" data-testid="unified-pipeline-page">
+    <div className="h-screen flex flex-col bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50" data-testid="unified-pipeline-page">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200 px-6 py-4 sticky top-0 z-10">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Pipeline</h1>
-            <p className="text-sm text-gray-500">Track contacts from discovery to delivery</p>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center shadow-lg shadow-amber-200">
+                <Briefcase className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Pipeline</h1>
+                <p className="text-sm text-gray-500">Track contacts from discovery to delivery</p>
+              </div>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {selectedIds.length > 0 && (
-              <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
+              <Button variant="destructive" size="sm" onClick={handleBulkDelete} className="shadow-sm">
                 <Trash2 className="w-4 h-4 mr-1" /> Delete ({selectedIds.length})
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
-              <RefreshCw className={`w-4 h-4 mr-1 ${loading ? 'animate-spin' : ''}`} /> Refresh
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={fetchData} 
+              disabled={loading}
+              className="shadow-sm"
+            >
+              <RefreshCw className={`w-4 h-4 mr-1 ${loading ? 'animate-spin' : ''}`} /> 
+              Refresh
             </Button>
           </div>
         </div>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-5 gap-4 mb-4">
-          <Card className="bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="grid grid-cols-6 gap-3 mb-4">
+          <Card className="bg-gradient-to-br from-slate-50 to-white border-slate-200 shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="p-3">
-              <p className="text-xs text-slate-600 uppercase tracking-wider">Total</p>
-              <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
+                  <Users className="w-4 h-4 text-slate-600" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">Total</p>
+                  <p className="text-xl font-bold text-slate-900">{stats.total}</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100">
+          
+          <Card className="bg-gradient-to-br from-blue-50 to-white border-blue-200 shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="p-3">
-              <p className="text-xs text-blue-600 uppercase tracking-wider">Contacted</p>
-              <p className="text-2xl font-bold text-blue-900">{stats.contacted}</p>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <Zap className="w-4 h-4 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-blue-500 uppercase tracking-wider font-medium">In Progress</p>
+                  <p className="text-xl font-bold text-blue-900">{stats.inProgress}</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-amber-50 to-amber-100">
+          
+          <Card className="bg-gradient-to-br from-emerald-50 to-white border-emerald-200 shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="p-3">
-              <p className="text-xs text-amber-600 uppercase tracking-wider">Negotiating</p>
-              <p className="text-2xl font-bold text-amber-900">{stats.negotiating}</p>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-emerald-500 uppercase tracking-wider font-medium">Agreed</p>
+                  <p className="text-xl font-bold text-emerald-900">{stats.agreed}</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-green-50 to-green-100">
+          
+          <Card className="bg-gradient-to-br from-green-50 to-white border-green-200 shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="p-3">
-              <p className="text-xs text-green-600 uppercase tracking-wider">Agreed</p>
-              <p className="text-2xl font-bold text-green-900">{stats.agreed}</p>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                  <Award className="w-4 h-4 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-green-500 uppercase tracking-wider font-medium">Completed</p>
+                  <p className="text-xl font-bold text-green-900">{stats.completed}</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100">
+          
+          <Card className="bg-gradient-to-br from-amber-50 to-white border-amber-200 shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="p-3">
-              <p className="text-xs text-emerald-600 uppercase tracking-wider">Pipeline Value</p>
-              <p className="text-xl font-bold text-emerald-900">{formatCurrency(stats.totalValue)}</p>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
+                  <DollarSign className="w-4 h-4 text-amber-600" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-amber-500 uppercase tracking-wider font-medium">Pipeline Value</p>
+                  <p className="text-lg font-bold text-amber-900">{formatCurrency(stats.totalValue)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-gradient-to-br from-violet-50 to-white border-violet-200 shadow-sm hover:shadow-md transition-shadow">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-violet-100 rounded-lg flex items-center justify-center">
+                  <TrendingUp className="w-4 h-4 text-violet-600" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-violet-500 uppercase tracking-wider font-medium">Conversion</p>
+                  <p className="text-xl font-bold text-violet-900">{stats.conversionRate}%</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -593,11 +751,11 @@ const UnifiedPipeline = () => {
               placeholder="Search contacts..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
+              className="pl-10 bg-white shadow-sm"
             />
           </div>
           <Select value={filterType} onValueChange={setFilterType}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-40 bg-white shadow-sm">
               <SelectValue placeholder="Contact Type" />
             </SelectTrigger>
             <SelectContent>
@@ -607,7 +765,7 @@ const UnifiedPipeline = () => {
             </SelectContent>
           </Select>
           <Select value={filterCampaign} onValueChange={setFilterCampaign}>
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="w-48 bg-white shadow-sm">
               <SelectValue placeholder="Campaign" />
             </SelectTrigger>
             <SelectContent>
@@ -622,7 +780,7 @@ const UnifiedPipeline = () => {
 
       {/* Kanban Board */}
       <div className="flex-1 overflow-x-auto p-4">
-        <div className="flex gap-4 h-full min-w-max">
+        <div className="flex gap-4 h-full min-w-max pb-4">
           {PIPELINE_STAGES.map(stage => (
             <PipelineColumn
               key={stage.id}
@@ -644,7 +802,9 @@ const UnifiedPipeline = () => {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Mail className="w-5 h-5 text-amber-500" />
+              <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center">
+                <Mail className="w-4 h-4 text-white" />
+              </div>
               Send Message to {selectedContact?.name}
             </DialogTitle>
           </DialogHeader>
@@ -652,7 +812,7 @@ const UnifiedPipeline = () => {
             <div>
               <Label className="text-xs uppercase tracking-wider text-gray-500">Channel</Label>
               <Select value={messageForm.comm_type} onValueChange={(v) => setMessageForm({ ...messageForm, comm_type: v })}>
-                <SelectTrigger>
+                <SelectTrigger className="mt-1">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -669,6 +829,7 @@ const UnifiedPipeline = () => {
                 placeholder="Message subject..."
                 value={messageForm.subject}
                 onChange={(e) => setMessageForm({ ...messageForm, subject: e.target.value })}
+                className="mt-1"
               />
             </div>
             <div>
@@ -678,69 +839,13 @@ const UnifiedPipeline = () => {
                 value={messageForm.message}
                 onChange={(e) => setMessageForm({ ...messageForm, message: e.target.value })}
                 rows={5}
+                className="mt-1"
               />
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setShowSendModal(false)}>Cancel</Button>
-              <Button onClick={submitMessage} className="bg-amber-500 hover:bg-amber-600">
+              <Button onClick={submitMessage} className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 shadow-md">
                 <Send className="w-4 h-4 mr-1" /> Send
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Deal Modal */}
-      <Dialog open={showDealModal} onOpenChange={setShowDealModal}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <DollarSign className="w-5 h-5 text-green-500" />
-              Deal Info - {selectedContact?.name}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-xs uppercase tracking-wider text-gray-500">Their Quote (₹)</Label>
-                <Input
-                  type="number"
-                  placeholder="Initial quote"
-                  value={dealForm.initial_quote}
-                  onChange={(e) => setDealForm({ ...dealForm, initial_quote: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label className="text-xs uppercase tracking-wider text-gray-500">Our Budget (₹)</Label>
-                <Input
-                  type="number"
-                  placeholder="Our budget"
-                  value={dealForm.our_budget}
-                  onChange={(e) => setDealForm({ ...dealForm, our_budget: e.target.value })}
-                />
-              </div>
-            </div>
-            <div>
-              <Label className="text-xs uppercase tracking-wider text-gray-500">Deliverables</Label>
-              <Input
-                placeholder="e.g., 2 Reels + 3 Stories"
-                value={dealForm.deliverables}
-                onChange={(e) => setDealForm({ ...dealForm, deliverables: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label className="text-xs uppercase tracking-wider text-gray-500">Notes</Label>
-              <Textarea
-                placeholder="Additional notes..."
-                value={dealForm.notes}
-                onChange={(e) => setDealForm({ ...dealForm, notes: e.target.value })}
-                rows={3}
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowDealModal(false)}>Cancel</Button>
-              <Button onClick={submitDeal} className="bg-green-500 hover:bg-green-600">
-                <CheckCircle2 className="w-4 h-4 mr-1" /> Save Deal
               </Button>
             </div>
           </div>
