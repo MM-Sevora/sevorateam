@@ -172,7 +172,7 @@ export default function PostsAndSchedule() {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
     setUploading(true);
-    const token = localStorage.getItem('sf_token');
+    const token = localStorage.getItem('sevora_token');
     for (const file of files) {
       try {
         const formData = new FormData();

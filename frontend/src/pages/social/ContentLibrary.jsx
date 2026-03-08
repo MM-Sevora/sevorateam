@@ -106,7 +106,7 @@ export default function ContentLibrary() {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
     setUploading(true);
-    const token = localStorage.getItem('sf_token');
+    const token = localStorage.getItem('sevora_token');
     for (const file of files) {
       try {
         const formData = new FormData(); formData.append('file', file);
@@ -147,7 +147,7 @@ export default function ContentLibrary() {
     if (!file) return;
     setBulkUploading(true); setBulkResult(null);
     try {
-      const token = localStorage.getItem('sf_token');
+      const token = localStorage.getItem('sevora_token');
       const formData = new FormData(); formData.append('file', file);
       const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/posts/bulk-csv`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData });
       const data = await res.json();

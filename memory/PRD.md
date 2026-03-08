@@ -6,12 +6,18 @@ All core features working with enhanced UX.
 
 ## Recent Enhancements (March 8, 2026)
 
-### 13. Social Sub-Modules UI/UX Improvements ✅ (NEW)
+### 14. Social Media Post Upload Fix ✅ (NEW - March 8)
+- **Bug Fixed**: Image upload failing with "Upload failed" error
+- **Root Cause**: Wrong localStorage token key (`sf_token` instead of `sevora_token`)
+- **Fixed Files**: `PostsAndSchedule.jsx`, `ContentLibrary.jsx`
+- **Cleanup**: Deleted unused files: AITools.jsx, Analytics.jsx, Autopilot.jsx, Avatar.jsx, YouTube.jsx
+
+### 13. Social Sub-Modules UI/UX Improvements ✅
 - **Content Studio**: Breadcrumb header, refresh button, platform labels, engaging empty state
 - **Posts & Schedule**: Platform filter labels, rose-colored buttons, "Plan Your First Post" empty state
 - **Content Library**: Breadcrumb header, refresh button, "No Media Assets Yet" empty state with CTA
 
-### 12. Social Module Restructured ✅ (NEW)
+### 12. Social Module Restructured ✅
 - **Merged Dashboard & Analytics** into single "Social Media Hub" with tabs
 - **Removed from sidebar**: AI Tools, Autopilot, YouTube, Avatar
 - **New sidebar**: Dashboard & Analytics, Content Studio, Posts & Schedule, Content Library
@@ -161,3 +167,4 @@ All core features working with enhanced UX.
 - WebSocket notifications not working (platform ingress config)
 - Instagram follower count API limitation (permissions)
 - Orphan delivery records show "Unknown" for deleted contacts (expected behavior)
+- Email attachment sending: User verification pending (fix deployed)
