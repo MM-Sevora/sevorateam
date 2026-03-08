@@ -80,6 +80,57 @@ class ContactCreate(BaseModel):
     # Campaign assignment
     campaign_id: Optional[str] = None
 
+class ContactUpdate(BaseModel):
+    """Update model - all fields optional for partial updates"""
+    name: Optional[str] = None
+    contact_type: Optional[ContactType] = None
+    bio: Optional[str] = None
+    instagram_handle: Optional[str] = None
+    youtube_handle: Optional[str] = None
+    twitter_handle: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    industry: Optional[str] = None
+    primary_platform: Optional[str] = None
+    content_type: Optional[List[str]] = None
+    style_tags: Optional[List[str]] = None
+    languages: Optional[List[str]] = None
+    tier: Optional[ContactTier] = None
+    followers: Optional[int] = None
+    engagement_rate: Optional[float] = None
+    rate_per_post: Optional[float] = None
+    rate_per_reel: Optional[float] = None
+    rate_per_youtube: Optional[float] = None
+    publication: Optional[str] = None
+    publication_id: Optional[str] = None
+    publication_website: Optional[str] = None
+    beat: Optional[str] = None
+    editor_level: Optional[str] = None
+    domain_authority: Optional[int] = None
+    monthly_traffic: Optional[int] = None
+    preferred_contact_method: Optional[str] = None
+    notes: Optional[str] = None
+    campaign_id: Optional[str] = None
+    status: Optional[str] = None
+    
+    # YouTube-specific metrics (matching frontend field names)
+    youtube_subscribers: Optional[int] = None
+    youtube_avg_views: Optional[int] = None
+    youtube_avg_likes: Optional[int] = None
+    youtube_total_videos: Optional[int] = None
+    youtube_video_count: Optional[int] = None
+    
+    # Instagram-specific metrics
+    avg_likes: Optional[int] = None
+    avg_comments: Optional[int] = None
+    
+    # Allow extra fields from frontend
+    class Config:
+        extra = "ignore"
+
 class ContactResponse(BaseModel):
     id: str
     name: str
@@ -113,6 +164,17 @@ class ContactResponse(BaseModel):
     campaign_id: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+    
+    # YouTube-specific metrics
+    youtube_subscribers: Optional[int] = None
+    youtube_avg_views: Optional[int] = None
+    youtube_avg_likes: Optional[int] = None
+    youtube_video_count: Optional[int] = None
+    youtube_total_videos: Optional[int] = None
+    
+    # Instagram-specific metrics  
+    avg_likes: Optional[int] = None
+    avg_comments: Optional[int] = None
 
 # ============== COMMUNICATION MODEL ==============
 class CommunicationType(str, Enum):

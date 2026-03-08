@@ -106,7 +106,7 @@ const InfluencerDetailPage = () => {
         youtube_subscribers: data.youtube_subscribers || 0,
         youtube_avg_views: data.youtube_avg_views || 0,
         youtube_avg_likes: data.youtube_avg_likes || 0,
-        youtube_total_videos: data.youtube_video_count || 0,
+        youtube_total_videos: data.youtube_total_videos || data.youtube_video_count || 0,
         industry: data.industry || 'fashion',
         tier: data.tier || 'micro',
         gender: data.gender || 'not_specified',

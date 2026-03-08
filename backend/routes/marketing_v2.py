@@ -9,7 +9,7 @@ from datetime import datetime, timezone, timedelta
 
 from models.marketing import (
     # Contact models
-    ContactCreate, ContactResponse, ContactType, ContactTier,
+    ContactCreate, ContactUpdate, ContactResponse, ContactType, ContactTier,
     # Communication models
     CommunicationCreate, CommunicationResponse,
     # Deal models
@@ -446,19 +446,28 @@ async def create_contact(data: ContactCreate, user: dict = Depends(get_marketing
     return contact_doc
 
 @marketing_v2_router.put("/contacts/{contact_id}", response_model=ContactResponse)
-async def update_contact(contact_id: str, data: ContactCreate, user: dict = Depends(get_marketing_auth())):
-    """Update a contact - syncs publication journalist count when publication_id changes"""
+async def update_contact(contact_id: str, data: ContactUpdate, user: dict = Depends(get_marketing_auth())):
+    """Update a contact - supports partial updates, syncs publication journalist count when publication_id changes"""
     db = get_db()
     existing = await db.contacts.find_one({"id": contact_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Contact not found")
     
     old_publication_id = existing.get("publication_id")
-    new_publication_id = data.publication_id
     
-    update_data = data.model_dump()
-    update_data["score"] = calculate_contact_score(update_data)
+    # Only include non-None values for partial update
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    
+    # Handle empty string email - convert to None
+    if "email" in update_data and update_data["email"] == "":
+        update_data["email"] = None
+    
+    # Recalculate score if relevant fields changed
+    merged_data = {**existing, **update_data}
+    update_data["score"] = calculate_contact_score(merged_data)
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    new_publication_id = update_data.get("publication_id", old_publication_id)
     
     await db.contacts.update_one({"id": contact_id}, {"$set": update_data})
     
