@@ -6,6 +6,12 @@ All core features working with enhanced UX.
 
 ## Recent Enhancements (March 8, 2026)
 
+### 10. Email Module Enhancements ✅ (NEW)
+- **Attachment Upload**: Paperclip button works - attach files up to 3MB
+- **Email Templates**: 5 pre-built templates (Collaboration, Follow Up, Campaign Invite, PR Pitch, Thank You)
+- **Attachment Download**: Click attachments in received emails to download
+- **UI**: Templates button, attachment preview with file sizes
+
 ### 9. WhatsApp Integration via Twilio ✅ (NEW)
 - **Backend**: WhatsApp messaging via Twilio API (`/api/communication/whatsapp/send`)
 - **Influencer Detail Page**: Outreach modal now sends actual WhatsApp messages

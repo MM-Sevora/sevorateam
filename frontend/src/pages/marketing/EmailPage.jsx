@@ -103,6 +103,102 @@ const EmailPage = () => {
   const [composeBody, setComposeBody] = useState('');
   const [sending, setSending] = useState(false);
   const [showCc, setShowCc] = useState(false);
+  const [attachments, setAttachments] = useState([]);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const fileInputRef = React.useRef(null);
+
+  // Email Templates
+  const EMAIL_TEMPLATES = [
+    {
+      id: 'collaboration',
+      name: 'Collaboration Inquiry',
+      subject: 'Collaboration Opportunity with Sevora',
+      body: `Hi there,
+
+I hope this email finds you well! I'm reaching out from Sevora, and we've been following your amazing content.
+
+We believe your unique style and engaged audience would be a perfect fit for our brand. We'd love to explore a potential collaboration opportunity with you.
+
+Would you be open to discussing this further? We're flexible on deliverables and would love to hear your ideas.
+
+Looking forward to hearing from you!
+
+Best regards,
+Sevora Team`
+    },
+    {
+      id: 'followup',
+      name: 'Follow Up',
+      subject: 'Following Up - Collaboration Opportunity',
+      body: `Hi there,
+
+I wanted to follow up on my previous message about a potential collaboration with Sevora.
+
+We're still very interested in working together and would love to hear your thoughts. If you have any questions about the partnership or would like to schedule a quick call, please let me know.
+
+Looking forward to connecting!
+
+Best regards,
+Sevora Team`
+    },
+    {
+      id: 'campaign_invite',
+      name: 'Campaign Invite',
+      subject: 'Exclusive Campaign Invitation',
+      body: `Hi there,
+
+We're launching an exciting new campaign and would love for you to be part of it!
+
+Campaign Details:
+- Campaign Name: [Campaign Name]
+- Timeline: [Start Date] - [End Date]
+- Deliverables: [List deliverables]
+- Compensation: [Compensation details]
+
+Based on your content style and audience, we believe this would be a great fit. Let us know if you're interested and we can discuss the details further.
+
+Best regards,
+Sevora Team`
+    },
+    {
+      id: 'pr_pitch',
+      name: 'PR Pitch',
+      subject: 'Story Pitch: [Your Story Angle]',
+      body: `Dear Editor,
+
+I hope this email finds you well. I'm reaching out from Sevora with a story idea that I believe would resonate with your readers.
+
+Story Angle:
+[Brief description of the story/angle]
+
+Key Points:
+- [Point 1]
+- [Point 2]
+- [Point 3]
+
+We have [spokesperson/expert] available for interviews and can provide additional materials including high-resolution images and data.
+
+Would you be interested in covering this story? I'd be happy to provide more information or arrange an interview at your convenience.
+
+Best regards,
+Sevora Team`
+    },
+    {
+      id: 'thank_you',
+      name: 'Thank You',
+      subject: 'Thank You for the Collaboration!',
+      body: `Hi there,
+
+Thank you so much for the amazing collaboration! The content turned out fantastic and we've received great feedback from our audience.
+
+We truly appreciate your creativity and professionalism throughout the project. It was a pleasure working with you.
+
+We'd love to keep in touch for future opportunities. Please don't hesitate to reach out if you have any ideas or if there's anything we can do for you.
+
+Best regards,
+Sevora Team`
+    }
+  ];
 
   // Get access token silently
   const getAccessToken = useCallback(async () => {
@@ -249,6 +345,18 @@ const EmailPage = () => {
   const loadFullEmail = async (messageId) => {
     try {
       const data = await callGraphAPI(`/me/messages/${messageId}?$select=id,subject,body,from,toRecipients,ccRecipients,receivedDateTime,isRead,flag,hasAttachments,importance`);
+      
+      // Fetch attachments if email has them
+      if (data.hasAttachments) {
+        try {
+          const attachmentsData = await callGraphAPI(`/me/messages/${messageId}/attachments`);
+          data.attachments = attachmentsData?.value || [];
+        } catch (attError) {
+          console.error('Failed to fetch attachments:', attError);
+          data.attachments = [];
+        }
+      }
+      
       setFullEmail(data);
       
       // Mark as read
@@ -262,6 +370,38 @@ const EmailPage = () => {
       }
     } catch (error) {
       toast.error('Failed to load email');
+    }
+  };
+
+  // Download attachment
+  const handleDownloadAttachment = async (attachment) => {
+    try {
+      if (attachment.contentBytes) {
+        // Attachment content is already available
+        const byteCharacters = atob(attachment.contentBytes);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: attachment.contentType });
+        
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = attachment.name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+        toast.success(`Downloaded ${attachment.name}`);
+      } else {
+        toast.error('Attachment content not available');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Failed to download attachment');
     }
   };
 
@@ -382,6 +522,8 @@ const EmailPage = () => {
   const openCompose = (mode = 'new', email = null) => {
     setComposeMode(mode);
     setComposeMinimized(false);
+    setAttachments([]); // Clear attachments
+    setShowTemplates(false);
     
     if (mode === 'new') {
       setComposeTo('');
@@ -406,6 +548,71 @@ const EmailPage = () => {
     }
     
     setShowCompose(true);
+  };
+
+  // Apply email template
+  const applyTemplate = (template) => {
+    setComposeSubject(template.subject);
+    setComposeBody(template.body);
+    setShowTemplates(false);
+    toast.success(`Applied "${template.name}" template`);
+  };
+
+  // Handle file selection for attachments
+  const handleFileSelect = async (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+    
+    const maxSize = 3 * 1024 * 1024; // 3MB per file (Microsoft Graph limit for inline)
+    const newAttachments = [];
+    
+    for (const file of files) {
+      if (file.size > maxSize) {
+        toast.error(`${file.name} is too large (max 3MB)`);
+        continue;
+      }
+      
+      try {
+        const base64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result;
+            const base64Data = result.split(',')[1]; // Remove data:...;base64, prefix
+            resolve(base64Data);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        
+        newAttachments.push({
+          '@odata.type': '#microsoft.graph.fileAttachment',
+          name: file.name,
+          contentType: file.type || 'application/octet-stream',
+          contentBytes: base64,
+          size: file.size
+        });
+      } catch (error) {
+        toast.error(`Failed to read ${file.name}`);
+      }
+    }
+    
+    setAttachments(prev => [...prev, ...newAttachments]);
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Remove attachment
+  const removeAttachment = (index) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Format file size
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
   // Send email
@@ -434,6 +641,11 @@ const EmailPage = () => {
         }));
       }
       
+      // Add attachments if any
+      if (attachments.length > 0) {
+        message.attachments = attachments;
+      }
+      
       await callGraphAPI('/me/sendMail', {
         method: 'POST',
         body: JSON.stringify({ message, saveToSentItems: true })
@@ -441,6 +653,7 @@ const EmailPage = () => {
       
       toast.success('Message sent');
       setShowCompose(false);
+      setAttachments([]); // Clear attachments after sending
       if (currentFolder === 'sentitems') fetchEmails();
     } catch (error) {
       toast.error('Failed to send message');
@@ -952,12 +1165,23 @@ const EmailPage = () => {
                       </h3>
                       <div className="flex flex-wrap gap-2">
                         {fullEmail.attachments.map((att, i) => (
-                          <div key={i} className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                            <Paperclip className="h-4 w-4 text-[#5f6368]" />
-                            <span className="text-sm text-[#202124]">{att.name}</span>
+                          <div 
+                            key={i} 
+                            className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-200 cursor-pointer transition-colors group"
+                            onClick={() => handleDownloadAttachment(att)}
+                            data-testid={`attachment-${i}`}
+                          >
+                            <Paperclip className="h-4 w-4 text-[#5f6368] group-hover:text-blue-600" />
+                            <div className="flex flex-col">
+                              <span className="text-sm text-[#202124] group-hover:text-blue-600">{att.name}</span>
+                              {att.size && (
+                                <span className="text-xs text-[#5f6368]">{formatFileSize(att.size)}</span>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
+                      <p className="text-xs text-[#5f6368] mt-2">Click to download</p>
                     </div>
                   )}
 
@@ -1050,13 +1274,62 @@ const EmailPage = () => {
                 />
               </div>
 
+              {/* Template Selector */}
+              {showTemplates && (
+                <div className="px-4 py-2 border-b border-gray-200 bg-gray-50">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-[#5f6368] uppercase tracking-wide">Select Template</span>
+                    <Button variant="ghost" size="sm" className="h-6 px-2" onClick={() => setShowTemplates(false)}>
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {EMAIL_TEMPLATES.map((template) => (
+                      <Button
+                        key={template.id}
+                        variant="outline"
+                        size="sm"
+                        className="text-xs h-7"
+                        onClick={() => applyTemplate(template)}
+                        data-testid={`template-${template.id}`}
+                      >
+                        {template.name}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Body */}
               <Textarea
                 value={composeBody}
                 onChange={(e) => setComposeBody(e.target.value)}
                 placeholder="Compose email"
-                className="min-h-[250px] border-0 focus-visible:ring-0 resize-none text-sm p-4"
+                className="min-h-[200px] border-0 focus-visible:ring-0 resize-none text-sm p-4"
               />
+
+              {/* Attachments Preview */}
+              {attachments.length > 0 && (
+                <div className="px-4 py-2 border-t border-gray-200 bg-gray-50">
+                  <div className="flex flex-wrap gap-2">
+                    {attachments.map((att, i) => (
+                      <div key={i} className="flex items-center gap-2 px-2 py-1 bg-white border border-gray-200 rounded-lg text-sm">
+                        <Paperclip className="h-3 w-3 text-[#5f6368]" />
+                        <span className="text-[#202124] max-w-[150px] truncate">{att.name}</span>
+                        <span className="text-xs text-[#5f6368]">({formatFileSize(att.size)})</span>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-5 w-5 hover:bg-red-100" 
+                          onClick={() => removeAttachment(i)}
+                        >
+                          <X className="h-3 w-3 text-red-500" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Compose Footer */}
               <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
@@ -1065,20 +1338,56 @@ const EmailPage = () => {
                     onClick={handleSend}
                     disabled={sending}
                     className="bg-[#0b57d0] hover:bg-[#0842a0] text-white rounded-full px-6"
+                    data-testid="send-email-btn"
                   >
                     {sending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                     Send
                   </Button>
+                  
+                  {/* Attachment Button */}
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon">
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => fileInputRef.current?.click()}
+                          data-testid="attach-file-btn"
+                        >
                           <Paperclip className="h-5 w-5 text-[#5f6368]" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>Attach files</TooltipContent>
+                      <TooltipContent>Attach files (max 3MB each)</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
+                  
+                  {/* Templates Button */}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => setShowTemplates(!showTemplates)}
+                          className={showTemplates ? 'bg-blue-100' : ''}
+                          data-testid="templates-btn"
+                        >
+                          <FileText className="h-5 w-5 text-[#5f6368]" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Email templates</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  
+                  {/* Hidden file input */}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileSelect}
+                    multiple
+                    className="hidden"
+                    accept="*/*"
+                  />
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => setShowCompose(false)}>
                   <Trash2 className="h-5 w-5 text-[#5f6368]" />
