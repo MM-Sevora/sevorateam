@@ -115,6 +115,7 @@ class ContactUpdate(BaseModel):
     notes: Optional[str] = None
     campaign_id: Optional[str] = None
     status: Optional[str] = None
+    pipeline_stage: Optional[str] = None  # Unified pipeline stage
     
     # YouTube-specific metrics (matching frontend field names)
     youtube_subscribers: Optional[int] = None
@@ -162,6 +163,7 @@ class ContactResponse(BaseModel):
     editor_level: Optional[str] = None
     notes: Optional[str] = None
     status: str = "identified"
+    pipeline_stage: Optional[str] = "identified"  # Unified pipeline stage
     score: float = 0.0
     campaign_id: Optional[str] = None
     campaign_deliverable_id: Optional[str] = None
