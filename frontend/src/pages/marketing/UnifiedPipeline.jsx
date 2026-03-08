@@ -139,6 +139,12 @@ const PipelineCard = ({ contact, stage, onStageChange, onViewDetails, onSendMess
   const hasNegotiationData = ['negotiating', 'agreed', 'delivering', 'completed'].includes(contact.pipeline_stage);
   const isHighValue = (deal.initial_quote || 0) >= 50000;
 
+  const handleCardClick = (e) => {
+    // Don't navigate if clicking on checkbox, dropdown, or during drag
+    if (e.defaultPrevented) return;
+    onViewDetails(contact);
+  };
+
   return (
     <div
       draggable
@@ -146,9 +152,10 @@ const PipelineCard = ({ contact, stage, onStageChange, onViewDetails, onSendMess
       onDragEnd={handleDragEnd}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onClick={handleCardClick}
       className={`
         group relative bg-white rounded-xl border-l-4 ${stage.cardAccent}
-        shadow-sm hover:shadow-lg transition-all duration-200 cursor-grab active:cursor-grabbing
+        shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer
         ${isSelected ? 'ring-2 ring-amber-400 ring-offset-2' : ''}
         ${isHovered ? 'transform -translate-y-0.5' : ''}
       `}
@@ -225,7 +232,7 @@ const PipelineCard = ({ contact, stage, onStageChange, onViewDetails, onSendMess
 
           {/* Actions */}
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
               <Button 
                 variant="ghost" 
                 size="icon" 
@@ -234,22 +241,22 @@ const PipelineCard = ({ contact, stage, onStageChange, onViewDetails, onSendMess
                 <MoreHorizontal className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => onViewDetails(contact)}>
+            <DropdownMenuContent align="end" className="w-48" onClick={(e) => e.stopPropagation()}>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onViewDetails(contact); }}>
                 <Eye className="w-4 h-4 mr-2" /> View Profile
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onSendMessage(contact)}>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onSendMessage(contact); }}>
                 <Mail className="w-4 h-4 mr-2" /> Send Message
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem 
-                onClick={() => onStageChange(contact.id, 'agreed')}
+                onClick={(e) => { e.stopPropagation(); onStageChange(contact.id, 'agreed'); }}
                 className="text-emerald-600"
               >
                 <CheckCircle2 className="w-4 h-4 mr-2" /> Mark Agreed
               </DropdownMenuItem>
               <DropdownMenuItem 
-                onClick={() => onStageChange(contact.id, 'lost')}
+                onClick={(e) => { e.stopPropagation(); onStageChange(contact.id, 'lost'); }}
                 className="text-red-600"
               >
                 <XCircle className="w-4 h-4 mr-2" /> Mark Lost
@@ -289,7 +296,7 @@ const PipelineCard = ({ contact, stage, onStageChange, onViewDetails, onSendMess
 
         {/* Communication Summary */}
         {communications.length > 0 && (
-          <Collapsible>
+          <Collapsible onClick={(e) => e.stopPropagation()}>
             <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 w-full py-1 rounded hover:bg-gray-50 transition-colors">
               <MessageSquare className="w-3 h-3" />
               <span>{communications.length} message{communications.length > 1 ? 's' : ''}</span>
