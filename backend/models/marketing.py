@@ -164,6 +164,9 @@ class ContactResponse(BaseModel):
     status: str = "identified"
     score: float = 0.0
     campaign_id: Optional[str] = None
+    campaign_deliverable_id: Optional[str] = None
+    campaign_deliverable_name: Optional[str] = None
+    campaign_agreed_fee: Optional[float] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
     

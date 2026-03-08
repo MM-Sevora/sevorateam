@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, BackgroundTasks, Query, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, BackgroundTasks, Query, WebSocket, WebSocketDisconnect, Body
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
@@ -831,7 +831,8 @@ async def get_campaign_detail(campaign_id: str, user: dict = Depends(require_dep
     influencers = await db.contacts.find(
         {"campaign_id": campaign_id},
         {"_id": 0, "id": 1, "name": 1, "instagram_handle": 1, "youtube_handle": 1, 
-         "followers": 1, "engagement_rate": 1, "tier": 1, "status": 1, "industry": 1}
+         "followers": 1, "engagement_rate": 1, "tier": 1, "status": 1, "industry": 1,
+         "campaign_deliverable_id": 1, "campaign_deliverable_name": 1, "campaign_agreed_fee": 1}
     ).to_list(100)
     
     campaign["assigned_influencers"] = influencers
@@ -864,8 +865,13 @@ async def get_campaign_influencers(campaign_id: str, user: dict = Depends(requir
     return influencers
 
 @marketing_router.post("/campaigns/{campaign_id}/influencers/{contact_id}")
-async def add_influencer_to_campaign(campaign_id: str, contact_id: str, user: dict = Depends(require_department(["marketing"]))):
-    """Add an influencer to a campaign"""
+async def add_influencer_to_campaign(
+    campaign_id: str, 
+    contact_id: str, 
+    data: dict = Body(default={}),
+    user: dict = Depends(require_department(["marketing"]))
+):
+    """Add an influencer to a campaign with deliverable and fee information"""
     campaign = await db.marketing_campaigns.find_one({"id": campaign_id})
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
@@ -874,13 +880,32 @@ async def add_influencer_to_campaign(campaign_id: str, contact_id: str, user: di
     if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
     
-    # Update contact with campaign_id
+    # Extract deliverable and fee info from request body
+    deliverable_id = data.get("deliverable_id")
+    deliverable_name = data.get("deliverable_name")
+    agreed_fee = data.get("agreed_fee", 0)
+    
+    # Update contact with campaign_id and campaign-specific info
+    update_data = {
+        "campaign_id": campaign_id,
+        "campaign_deliverable_id": deliverable_id,
+        "campaign_deliverable_name": deliverable_name,
+        "campaign_agreed_fee": agreed_fee,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
     await db.contacts.update_one(
         {"id": contact_id},
-        {"$set": {"campaign_id": campaign_id, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        {"$set": update_data}
     )
     
-    return {"message": "Influencer added to campaign", "campaign_id": campaign_id, "contact_id": contact_id}
+    return {
+        "message": "Influencer added to campaign", 
+        "campaign_id": campaign_id, 
+        "contact_id": contact_id,
+        "deliverable_name": deliverable_name,
+        "agreed_fee": agreed_fee
+    }
 
 @marketing_router.delete("/campaigns/{campaign_id}/influencers/{contact_id}")
 async def remove_influencer_from_campaign(campaign_id: str, contact_id: str, user: dict = Depends(require_department(["marketing"]))):
