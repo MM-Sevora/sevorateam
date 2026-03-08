@@ -53,6 +53,7 @@ import EmailPage from "./pages/marketing/EmailPage";
 // Admin Pages
 import UserManagementPage from "./pages/admin/UserManagement";
 import PermissionsPage from "./pages/admin/PermissionsPage";
+import OrganizationManagement from "./pages/admin/OrganizationManagement";
 
 // Settings Pages
 import AutomationSettings from "./pages/settings/AutomationSettings";
@@ -280,6 +281,7 @@ function AppRoutes() {
             {/* Admin Routes */}
             <Route path="/admin/users" element={<ProtectedRoute requiredDepartment="admin"><UserManagementPage /></ProtectedRoute>} />
             <Route path="/admin/permissions" element={<ProtectedRoute requiredDepartment="admin"><PermissionsPage /></ProtectedRoute>} />
+            <Route path="/admin/organization" element={<ProtectedRoute requiredDepartment="admin"><OrganizationManagement /></ProtectedRoute>} />
 
             {/* Settings Routes */}
             <Route path="/settings/automations" element={<ProtectedRoute><AutomationSettings /></ProtectedRoute>} />

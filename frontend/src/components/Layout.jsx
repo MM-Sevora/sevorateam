@@ -88,6 +88,7 @@ const DEPARTMENT_CONFIG = {
         bgColor: 'bg-slate-50',
         textColor: 'text-slate-700',
         routes: [
+            { path: '/admin/organization', name: 'Organization', icon: Building2 },
             { path: '/admin/users', name: 'User Management', icon: Users },
             { path: '/admin/permissions', name: 'Permissions', icon: Settings },
         ]

@@ -3209,6 +3209,14 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Social API routes: {e}")
 
+# Register WorkOS routes (Organization, Departments, Roles, Permissions)
+try:
+    from routes.workos import workos_router
+    api_router.include_router(workos_router)
+    logger.info("WorkOS routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load WorkOS routes: {e}")
+
 # Register Scheduler routes (Background jobs)
 try:
     from routes.scheduler import scheduler_router
