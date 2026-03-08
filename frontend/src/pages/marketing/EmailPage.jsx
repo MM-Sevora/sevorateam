@@ -121,7 +121,7 @@ const EmailPage = () => {
   const [signatureEnabled, setSignatureEnabled] = useState(true);
   
   // Rich text and scheduling state
-  const [useRichText, setUseRichText] = useState(true);
+  const [useRichText, setUseRichText] = useState(false); // Disabled by default for stability
   const [showScheduler, setShowScheduler] = useState(false);
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
@@ -267,7 +267,14 @@ Sevora Team`
       throw new Error(error.error?.message || 'API call failed');
     }
     
-    return response.json();
+    // Some Graph API endpoints return empty responses (like sendMail returns 202)
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return response.json();
+    }
+    
+    // Return true for successful empty responses
+    return true;
   }, [getAccessToken]);
 
   // Handle Microsoft login - try popup first, fallback to redirect
@@ -780,7 +787,17 @@ Sevora Team`
       setAttachments([]); // Clear attachments after sending
       if (currentFolder === 'sentitems' || currentFolder === 'drafts') fetchEmails();
     } catch (error) {
-      toast.error('Failed to send message');
+      console.error('Send email error:', error);
+      // More specific error messages
+      if (error.message?.includes('Request_EntityTooLarge') || error.message?.includes('413')) {
+        toast.error('Attachments too large. Try reducing file sizes or send fewer attachments.');
+      } else if (error.message?.includes('InvalidAuthenticationToken')) {
+        toast.error('Session expired. Please sign out and sign in again.');
+      } else if (error.message?.includes('ErrorSendAsDenied')) {
+        toast.error('You do not have permission to send as this user.');
+      } else {
+        toast.error(`Failed to send message: ${error.message || 'Unknown error'}`);
+      }
     } finally {
       setSending(false);
     }
