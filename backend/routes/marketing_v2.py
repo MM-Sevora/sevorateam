@@ -2576,6 +2576,28 @@ async def update_pr_campaign_status(
     
     return {"message": f"Campaign status updated to {status}"}
 
+
+@marketing_v2_router.delete("/pr/campaigns/{campaign_id}")
+async def delete_pr_campaign(
+    campaign_id: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Delete a PR campaign"""
+    db = get_db()
+    
+    campaign = await db.pr_campaigns.find_one({"id": campaign_id})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="PR Campaign not found")
+    
+    # Delete the campaign
+    await db.pr_campaigns.delete_one({"id": campaign_id})
+    
+    # Optionally clean up related data (pitches, etc.)
+    await db.pr_pitches.delete_many({"campaign_id": campaign_id})
+    
+    return {"message": "Campaign deleted successfully"}
+
+
 @marketing_v2_router.post("/pr/campaigns/{campaign_id}/journalists/{journalist_id}")
 async def add_journalist_to_campaign(
     campaign_id: str,

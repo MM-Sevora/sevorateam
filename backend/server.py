@@ -934,6 +934,25 @@ async def create_marketing_campaign(data: CampaignCreate, user: dict = Depends(r
         del campaign_doc['_id']
     return campaign_doc
 
+
+@marketing_router.delete("/campaigns/{campaign_id}")
+async def delete_marketing_campaign(campaign_id: str, user: dict = Depends(require_department(["marketing"]))):
+    """Delete a marketing campaign"""
+    campaign = await db.marketing_campaigns.find_one({"id": campaign_id})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Delete the campaign
+    await db.marketing_campaigns.delete_one({"id": campaign_id})
+    
+    # Remove campaign_id from any associated contacts
+    await db.contacts.update_many(
+        {"campaign_id": campaign_id},
+        {"$set": {"campaign_id": None}}
+    )
+    
+    return {"message": "Campaign deleted successfully"}
+
 # ========== PAYMENT TRACKING APIs ==========
 
 @marketing_router.get("/payments")
