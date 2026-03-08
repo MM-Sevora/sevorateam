@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import { 
   RefreshCw, Plus, Search, Filter, Building2, Globe, Users, 
   TrendingUp, ExternalLink, Edit2, Trash2, ChevronRight, Newspaper,
-  DollarSign, Mail, BarChart3, ArrowUpDown, ChevronUp, ChevronDown
+  DollarSign, Mail, BarChart3, ArrowUpDown, ChevronUp, ChevronDown, X
 } from 'lucide-react';
 
 const PUBLICATION_TYPES = [
@@ -53,10 +53,26 @@ const PublicationsListPage = () => {
   const [filterType, setFilterType] = useState('all');
   const [filterTier, setFilterTier] = useState('all');
   const [filterBeat, setFilterBeat] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterDA, setFilterDA] = useState('all');
+  const [showFilters, setShowFilters] = useState(false);
   
   // Sort state
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
+  
+  // Check if any filters are active
+  const hasActiveFilters = filterType !== 'all' || filterTier !== 'all' || filterBeat !== 'all' || 
+    filterStatus !== 'all' || filterDA !== 'all' || searchQuery;
+  
+  const clearAllFilters = () => {
+    setFilterType('all');
+    setFilterTier('all');
+    setFilterBeat('all');
+    setFilterStatus('all');
+    setFilterDA('all');
+    setSearchQuery('');
+  };
   
   // Stats
   const [stats, setStats] = useState({ total: 0, tier1: 0, tier2: 0, journalists: 0, coverage: 0 });
@@ -235,8 +251,36 @@ const PublicationsListPage = () => {
       <ChevronUp className="w-3 h-3 text-gray-600" />;
   };
 
-  // Sort publications
-  const sortedPublications = [...publications].sort((a, b) => {
+  // Filter and sort publications
+  const filteredPublications = publications.filter(pub => {
+    // Search filter
+    const matchesSearch = !searchQuery || 
+      pub.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      pub.beats?.some(b => b.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    // Type filter
+    const matchesType = filterType === 'all' || pub.type === filterType;
+    
+    // Tier filter
+    const matchesTier = filterTier === 'all' || pub.tier === filterTier;
+    
+    // Beat filter
+    const matchesBeat = filterBeat === 'all' || pub.beats?.includes(filterBeat);
+    
+    // Status filter
+    const matchesStatus = filterStatus === 'all' || pub.relationship_status === filterStatus;
+    
+    // DA filter
+    let matchesDA = true;
+    if (filterDA !== 'all') {
+      const da = pub.domain_authority || 0;
+      if (filterDA === 'high') matchesDA = da >= 70;
+      else if (filterDA === 'medium') matchesDA = da >= 40 && da < 70;
+      else if (filterDA === 'low') matchesDA = da < 40;
+    }
+    
+    return matchesSearch && matchesType && matchesTier && matchesBeat && matchesStatus && matchesDA;
+  }).sort((a, b) => {
     const multiplier = sortOrder === 'desc' ? -1 : 1;
     if (sortBy === 'name') return multiplier * (a.name || '').localeCompare(b.name || '');
     if (sortBy === 'tier') return multiplier * (a.tier || '').localeCompare(b.tier || '');
@@ -349,50 +393,140 @@ const PublicationsListPage = () => {
       </div>
 
       {/* Search & Filters */}
-      <div className="flex items-center gap-4 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <Input
-            placeholder="Search publications..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-white border-gray-200"
-            data-testid="search-input"
-          />
+      <div className="space-y-3">
+        <div className="flex items-center gap-4 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              placeholder="Search publications, beats, journalists..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 bg-white border-gray-200"
+              data-testid="search-input"
+            />
+          </div>
+          <Select value={filterType} onValueChange={setFilterType}>
+            <SelectTrigger className="w-44 bg-white">
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              {PUBLICATION_TYPES.map(t => (
+                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filterTier} onValueChange={setFilterTier}>
+            <SelectTrigger className="w-36 bg-white">
+              <SelectValue placeholder="Tier" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Tiers</SelectItem>
+              {PUBLICATION_TIERS.map(t => (
+                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filterBeat} onValueChange={setFilterBeat}>
+            <SelectTrigger className="w-36 bg-white">
+              <SelectValue placeholder="Beat" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Beats</SelectItem>
+              {BEATS.map(b => (
+                <SelectItem key={b} value={b}>{b}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-36 bg-white">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              {RELATIONSHIP_STATUS.map(s => (
+                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setShowFilters(!showFilters)}
+            className={showFilters ? 'bg-purple-50 border-purple-300 text-purple-700' : ''}
+          >
+            <Filter className="w-4 h-4 mr-1" /> More
+          </Button>
         </div>
-        <Select value={filterType} onValueChange={setFilterType}>
-          <SelectTrigger className="w-44 bg-white">
-            <SelectValue placeholder="Type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            {PUBLICATION_TYPES.map(t => (
-              <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={filterTier} onValueChange={setFilterTier}>
-          <SelectTrigger className="w-36 bg-white">
-            <SelectValue placeholder="Tier" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Tiers</SelectItem>
-            {PUBLICATION_TIERS.map(t => (
-              <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={filterBeat} onValueChange={setFilterBeat}>
-          <SelectTrigger className="w-36 bg-white">
-            <SelectValue placeholder="Beat" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Beats</SelectItem>
-            {BEATS.map(b => (
-              <SelectItem key={b} value={b}>{b}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        
+        {/* Advanced Filters Row */}
+        {showFilters && (
+          <div className="flex items-center gap-4 p-4 bg-purple-50/50 rounded-xl border border-purple-100">
+            <Select value={filterDA} onValueChange={setFilterDA}>
+              <SelectTrigger className="w-44 bg-white">
+                <SelectValue placeholder="Domain Authority" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All DA Scores</SelectItem>
+                <SelectItem value="high">High (70+)</SelectItem>
+                <SelectItem value="medium">Medium (40-70)</SelectItem>
+                <SelectItem value="low">Low (&lt;40)</SelectItem>
+              </SelectContent>
+            </Select>
+            {hasActiveFilters && (
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={clearAllFilters}
+                className="text-purple-700 hover:text-purple-800 hover:bg-purple-100"
+              >
+                <X className="w-4 h-4 mr-1" /> Clear All Filters
+              </Button>
+            )}
+          </div>
+        )}
+        
+        {/* Active Filters Pills */}
+        {hasActiveFilters && (
+          <div className="flex flex-wrap gap-2 px-1">
+            {filterType !== 'all' && (
+              <Badge variant="secondary" className="bg-blue-100 text-blue-700 gap-1">
+                Type: {PUBLICATION_TYPES.find(t => t.value === filterType)?.label}
+                <X className="w-3 h-3 cursor-pointer" onClick={() => setFilterType('all')} />
+              </Badge>
+            )}
+            {filterTier !== 'all' && (
+              <Badge variant="secondary" className="bg-purple-100 text-purple-700 gap-1">
+                Tier: {PUBLICATION_TIERS.find(t => t.value === filterTier)?.label}
+                <X className="w-3 h-3 cursor-pointer" onClick={() => setFilterTier('all')} />
+              </Badge>
+            )}
+            {filterBeat !== 'all' && (
+              <Badge variant="secondary" className="bg-green-100 text-green-700 gap-1">
+                Beat: {filterBeat}
+                <X className="w-3 h-3 cursor-pointer" onClick={() => setFilterBeat('all')} />
+              </Badge>
+            )}
+            {filterStatus !== 'all' && (
+              <Badge variant="secondary" className="bg-amber-100 text-amber-700 gap-1">
+                Status: {RELATIONSHIP_STATUS.find(s => s.value === filterStatus)?.label}
+                <X className="w-3 h-3 cursor-pointer" onClick={() => setFilterStatus('all')} />
+              </Badge>
+            )}
+            {filterDA !== 'all' && (
+              <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 gap-1">
+                DA: {filterDA}
+                <X className="w-3 h-3 cursor-pointer" onClick={() => setFilterDA('all')} />
+              </Badge>
+            )}
+            {searchQuery && (
+              <Badge variant="secondary" className="bg-gray-100 text-gray-700 gap-1">
+                Search: "{searchQuery}"
+                <X className="w-3 h-3 cursor-pointer" onClick={() => setSearchQuery('')} />
+              </Badge>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Results Count */}
@@ -432,7 +566,7 @@ const PublicationsListPage = () => {
             </TableRow>
           </TableHeader>
           <TableBody className="divide-y divide-gray-100">
-            {sortedPublications.length === 0 ? (
+            {filteredPublications.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={10} className="text-center py-12">
                   <Building2 className="w-12 h-12 mx-auto mb-3 text-gray-300" />
@@ -441,7 +575,7 @@ const PublicationsListPage = () => {
                 </TableCell>
               </TableRow>
             ) : (
-              sortedPublications.map(pub => {
+              filteredPublications.map(pub => {
                 const tierConfig = getTierConfig(pub.tier);
                 const statusConfig = getStatusConfig(pub.relationship_status);
                 return (

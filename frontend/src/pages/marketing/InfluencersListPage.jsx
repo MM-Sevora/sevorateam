@@ -27,6 +27,13 @@ const InfluencersListPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPlatform, setFilterPlatform] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterTier, setFilterTier] = useState('all');
+  const [filterIndustry, setFilterIndustry] = useState('all');
+  const [filterCampaign, setFilterCampaign] = useState('all');
+  const [filterEngagement, setFilterEngagement] = useState('all');
+  const [filterScore, setFilterScore] = useState('all');
+  const [showFilters, setShowFilters] = useState(false);
+  const [campaigns, setCampaigns] = useState([]);
   const [sortBy, setSortBy] = useState('score');
   const [sortOrder, setSortOrder] = useState('desc');
   const [selectedIds, setSelectedIds] = useState([]);
@@ -36,6 +43,22 @@ const InfluencersListPage = () => {
   const [statusCounts, setStatusCounts] = useState({
     identified: 0, contacted: 0, interested: 0, negotiation: 0, confirmed: 0, completed: 0
   });
+  
+  // Check if any filters are active
+  const hasActiveFilters = filterPlatform !== 'all' || filterStatus !== 'all' || filterTier !== 'all' || 
+    filterIndustry !== 'all' || filterCampaign !== 'all' || filterEngagement !== 'all' || 
+    filterScore !== 'all' || searchQuery;
+  
+  const clearAllFilters = () => {
+    setFilterPlatform('all');
+    setFilterStatus('all');
+    setFilterTier('all');
+    setFilterIndustry('all');
+    setFilterCampaign('all');
+    setFilterEngagement('all');
+    setFilterScore('all');
+    setSearchQuery('');
+  };
   
   const [newInfluencer, setNewInfluencer] = useState({
     name: '', gender: 'not_specified', city: '', industry: 'fashion', tier: 'micro',
@@ -78,9 +101,19 @@ const InfluencersListPage = () => {
     }
   }, [api]);
 
+  const fetchCampaigns = useCallback(async () => {
+    try {
+      const response = await api.get('/marketing/v2/campaigns');
+      setCampaigns(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch campaigns:', error);
+    }
+  }, [api]);
+
   useEffect(() => {
     fetchInfluencers();
-  }, [fetchInfluencers]);
+    fetchCampaigns();
+  }, [fetchInfluencers, fetchCampaigns]);
 
   const handleFetchSocial = async (platform) => {
     const handle = platform === 'instagram' ? newInfluencer.instagram_handle : newInfluencer.youtube_handle;
@@ -277,18 +310,60 @@ const InfluencersListPage = () => {
   };
 
   const filteredInfluencers = influencers.filter(inf => {
+    // Search filter
     const matchesSearch = !searchQuery || 
       inf.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       inf.instagram_handle?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      inf.youtube_handle?.toLowerCase().includes(searchQuery.toLowerCase());
+      inf.youtube_handle?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      inf.email?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // Platform filter
     const matchesPlatform = filterPlatform === 'all' || inf.primary_platform === filterPlatform;
+    
+    // Status filter
     const matchesStatus = filterStatus === 'all' || (inf.status?.toLowerCase() || 'identified') === filterStatus;
-    return matchesSearch && matchesPlatform && matchesStatus;
+    
+    // Tier filter
+    const matchesTier = filterTier === 'all' || inf.tier === filterTier;
+    
+    // Industry filter
+    const matchesIndustry = filterIndustry === 'all' || inf.industry?.toLowerCase() === filterIndustry;
+    
+    // Campaign filter
+    const matchesCampaign = filterCampaign === 'all' || 
+      (filterCampaign === 'unassigned' ? !inf.campaign_id : inf.campaign_id === filterCampaign);
+    
+    // Engagement filter
+    let matchesEngagement = true;
+    if (filterEngagement !== 'all') {
+      const rate = inf.engagement_rate || 0;
+      if (filterEngagement === 'high') matchesEngagement = rate > 5;
+      else if (filterEngagement === 'medium') matchesEngagement = rate >= 2 && rate <= 5;
+      else if (filterEngagement === 'low') matchesEngagement = rate < 2;
+    }
+    
+    // Score filter
+    let matchesScore = true;
+    if (filterScore !== 'all') {
+      const score = inf.score || 0;
+      if (filterScore === 'excellent') matchesScore = score >= 80;
+      else if (filterScore === 'good') matchesScore = score >= 60 && score < 80;
+      else if (filterScore === 'average') matchesScore = score >= 40 && score < 60;
+      else if (filterScore === 'below') matchesScore = score < 40;
+    }
+    
+    return matchesSearch && matchesPlatform && matchesStatus && matchesTier && 
+           matchesIndustry && matchesCampaign && matchesEngagement && matchesScore;
   }).sort((a, b) => {
     const multiplier = sortOrder === 'desc' ? -1 : 1;
     if (sortBy === 'score') return multiplier * ((a.score || 0) - (b.score || 0));
     if (sortBy === 'followers') return multiplier * ((a.followers || 0) - (b.followers || 0));
     if (sortBy === 'engagement') return multiplier * ((a.engagement_rate || 0) - (b.engagement_rate || 0));
+    if (sortBy === 'updated') {
+      const dateA = new Date(a.updated_at || 0);
+      const dateB = new Date(b.updated_at || 0);
+      return multiplier * (dateA - dateB);
+    }
     return 0;
   });
 
@@ -1007,57 +1082,174 @@ const InfluencersListPage = () => {
       </div>
 
       {/* Search & Filter Bar */}
-      <div className="flex items-center gap-4 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <Input
-            placeholder="Search by name or handle..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="pl-10 bg-white border-gray-200"
-          />
-        </div>
-        <Select value={filterPlatform} onValueChange={setFilterPlatform}>
-          <SelectTrigger className="w-36 bg-white">
-            <SelectValue placeholder="Platform" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Platforms</SelectItem>
-            <SelectItem value="instagram">
-              <span className="flex items-center gap-2"><Instagram className="w-4 h-4 text-pink-500" /> Instagram</span>
-            </SelectItem>
-            <SelectItem value="youtube">
-              <span className="flex items-center gap-2"><Youtube className="w-4 h-4 text-red-500" /> YouTube</span>
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-36 bg-white">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="identified">Identified</SelectItem>
-            <SelectItem value="contacted">Contacted</SelectItem>
-            <SelectItem value="interested">Interested</SelectItem>
-            <SelectItem value="negotiation">Negotiation</SelectItem>
-            <SelectItem value="confirmed">Confirmed</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-          </SelectContent>
-        </Select>
-        {(filterStatus !== 'all' || filterPlatform !== 'all' || searchQuery) && (
+      <div className="space-y-3">
+        <div className="flex items-center gap-4 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              placeholder="Search by name, handle, or email..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="pl-10 bg-white border-gray-200"
+            />
+          </div>
+          <Select value={filterPlatform} onValueChange={setFilterPlatform}>
+            <SelectTrigger className="w-36 bg-white">
+              <SelectValue placeholder="Platform" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Platforms</SelectItem>
+              <SelectItem value="instagram">
+                <span className="flex items-center gap-2"><Instagram className="w-4 h-4 text-pink-500" /> Instagram</span>
+              </SelectItem>
+              <SelectItem value="youtube">
+                <span className="flex items-center gap-2"><Youtube className="w-4 h-4 text-red-500" /> YouTube</span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-36 bg-white">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="identified">Identified</SelectItem>
+              <SelectItem value="contacted">Contacted</SelectItem>
+              <SelectItem value="interested">Interested</SelectItem>
+              <SelectItem value="negotiation">Negotiation</SelectItem>
+              <SelectItem value="confirmed">Confirmed</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filterTier} onValueChange={setFilterTier}>
+            <SelectTrigger className="w-36 bg-white">
+              <SelectValue placeholder="Tier" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Tiers</SelectItem>
+              <SelectItem value="nano">Nano (1K-10K)</SelectItem>
+              <SelectItem value="micro">Micro (10K-100K)</SelectItem>
+              <SelectItem value="mid">Mid (100K-500K)</SelectItem>
+              <SelectItem value="macro">Macro (500K-1M)</SelectItem>
+              <SelectItem value="mega">Mega (1M+)</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filterIndustry} onValueChange={setFilterIndustry}>
+            <SelectTrigger className="w-36 bg-white">
+              <SelectValue placeholder="Industry" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Industries</SelectItem>
+              <SelectItem value="fashion">Fashion</SelectItem>
+              <SelectItem value="beauty">Beauty</SelectItem>
+              <SelectItem value="lifestyle">Lifestyle</SelectItem>
+              <SelectItem value="tech">Tech</SelectItem>
+              <SelectItem value="food">Food</SelectItem>
+              <SelectItem value="travel">Travel</SelectItem>
+              <SelectItem value="fitness">Fitness</SelectItem>
+            </SelectContent>
+          </Select>
           <Button 
-            variant="ghost" 
+            variant="outline" 
             size="sm"
-            onClick={() => {
-              setFilterStatus('all');
-              setFilterPlatform('all');
-              setSearchQuery('');
-            }}
-            className="text-gray-500 hover:text-gray-700"
+            onClick={() => setShowFilters(!showFilters)}
+            className={showFilters ? 'bg-amber-50 border-amber-300 text-amber-700' : ''}
           >
-            <X className="w-4 h-4 mr-1" /> Clear
+            <Filter className="w-4 h-4 mr-1" /> More
           </Button>
+        </div>
+        
+        {/* Advanced Filters Row */}
+        {showFilters && (
+          <div className="flex items-center gap-4 p-4 bg-amber-50/50 rounded-xl border border-amber-100">
+            <Select value={filterCampaign} onValueChange={setFilterCampaign}>
+              <SelectTrigger className="w-44 bg-white">
+                <SelectValue placeholder="Campaign" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Campaigns</SelectItem>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
+                {campaigns.map(c => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filterEngagement} onValueChange={setFilterEngagement}>
+              <SelectTrigger className="w-44 bg-white">
+                <SelectValue placeholder="Engagement Rate" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Engagement</SelectItem>
+                <SelectItem value="high">High (&gt;5%)</SelectItem>
+                <SelectItem value="medium">Medium (2-5%)</SelectItem>
+                <SelectItem value="low">Low (&lt;2%)</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterScore} onValueChange={setFilterScore}>
+              <SelectTrigger className="w-44 bg-white">
+                <SelectValue placeholder="Score Range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Scores</SelectItem>
+                <SelectItem value="excellent">Excellent (80+)</SelectItem>
+                <SelectItem value="good">Good (60-80)</SelectItem>
+                <SelectItem value="average">Average (40-60)</SelectItem>
+                <SelectItem value="below">Below Average (&lt;40)</SelectItem>
+              </SelectContent>
+            </Select>
+            {hasActiveFilters && (
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={clearAllFilters}
+                className="text-amber-700 hover:text-amber-800 hover:bg-amber-100"
+              >
+                <X className="w-4 h-4 mr-1" /> Clear All Filters
+              </Button>
+            )}
+          </div>
+        )}
+        
+        {/* Active Filters Pills */}
+        {hasActiveFilters && (
+          <div className="flex flex-wrap gap-2 px-1">
+            {filterPlatform !== 'all' && (
+              <Badge variant="secondary" className="bg-pink-100 text-pink-700 gap-1">
+                Platform: {filterPlatform}
+                <X className="w-3 h-3 cursor-pointer" onClick={() => setFilterPlatform('all')} />
+              </Badge>
+            )}
+            {filterStatus !== 'all' && (
+              <Badge variant="secondary" className="bg-blue-100 text-blue-700 gap-1">
+                Status: {filterStatus}
+                <X className="w-3 h-3 cursor-pointer" onClick={() => setFilterStatus('all')} />
+              </Badge>
+            )}
+            {filterTier !== 'all' && (
+              <Badge variant="secondary" className="bg-purple-100 text-purple-700 gap-1">
+                Tier: {filterTier}
+                <X className="w-3 h-3 cursor-pointer" onClick={() => setFilterTier('all')} />
+              </Badge>
+            )}
+            {filterIndustry !== 'all' && (
+              <Badge variant="secondary" className="bg-green-100 text-green-700 gap-1">
+                Industry: {filterIndustry}
+                <X className="w-3 h-3 cursor-pointer" onClick={() => setFilterIndustry('all')} />
+              </Badge>
+            )}
+            {filterCampaign !== 'all' && (
+              <Badge variant="secondary" className="bg-amber-100 text-amber-700 gap-1">
+                Campaign: {filterCampaign === 'unassigned' ? 'Unassigned' : campaigns.find(c => c.id === filterCampaign)?.name}
+                <X className="w-3 h-3 cursor-pointer" onClick={() => setFilterCampaign('all')} />
+              </Badge>
+            )}
+            {searchQuery && (
+              <Badge variant="secondary" className="bg-gray-100 text-gray-700 gap-1">
+                Search: "{searchQuery}"
+                <X className="w-3 h-3 cursor-pointer" onClick={() => setSearchQuery('')} />
+              </Badge>
+            )}
+          </div>
         )}
       </div>
 
@@ -1123,11 +1315,14 @@ const InfluencersListPage = () => {
               <th className="text-left p-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Status
               </th>
+              <th className="text-left p-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                Campaign
+              </th>
               <th className="text-left p-4 text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:text-gray-900" onClick={() => toggleSort('score')}>
                 <span className="flex items-center gap-1">Score <SortIcon field="score" /></span>
               </th>
-              <th className="text-left p-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Updated
+              <th className="text-left p-4 text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:text-gray-900" onClick={() => toggleSort('updated')}>
+                <span className="flex items-center gap-1">Updated <SortIcon field="updated" /></span>
               </th>
               <th className="w-12 p-4"></th>
             </tr>
@@ -1135,14 +1330,14 @@ const InfluencersListPage = () => {
           <tbody className="divide-y divide-gray-100">
             {loading ? (
               <tr>
-                <td colSpan={11} className="p-12 text-center text-gray-500">
+                <td colSpan={12} className="p-12 text-center text-gray-500">
                   <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-3 text-[#c4a35a]" />
                   <p className="font-medium">Loading influencers...</p>
                 </td>
               </tr>
             ) : filteredInfluencers.length === 0 ? (
               <tr>
-                <td colSpan={11} className="p-12 text-center">
+                <td colSpan={12} className="p-12 text-center">
                   <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                   <p className="text-gray-500 font-medium">No influencers found</p>
                   <p className="text-gray-400 text-sm mt-1">Try adjusting your filters or add a new influencer</p>
@@ -1217,6 +1412,15 @@ const InfluencersListPage = () => {
                           <SelectItem value="completed">Completed</SelectItem>
                         </SelectContent>
                       </Select>
+                    </td>
+                    <td className="p-4">
+                      {inf.campaign_id ? (
+                        <Badge variant="outline" className="bg-amber-50 border-amber-200 text-amber-700 text-xs">
+                          {campaigns.find(c => c.id === inf.campaign_id)?.name || 'Campaign'}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
                     </td>
                     <td className="p-4">
                       <div className={`w-11 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
