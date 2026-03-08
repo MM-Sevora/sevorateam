@@ -6,6 +6,15 @@ All core features working with enhanced UX.
 
 ## Recent Enhancements (March 8, 2026)
 
+### Communication History Timeline ✅
+- **InfluencerDetailPage**: Vertical timeline with color-coded activity types (communications, deals, gifts)
+- **PublicationDetailPage**: Added new History tab with timeline showing pitches, coverage, payments, communications
+- Timeline features:
+  - Color-coded dots for different activity types
+  - Status badges and formatted dates
+  - Activity summaries in sidebar cards
+  - Journalist names displayed for publications
+
 ### AI Discovery Page Redesign
 - Modern gradient header with AI branding
 - 3-step wizard flow (Brief → Processing → Results)
@@ -31,7 +40,8 @@ All core features working with enhanced UX.
 /app/frontend/src/pages/marketing/
 ├── AIDiscoveryPage.jsx      # ENHANCED - Modern wizard UI
 ├── InfluencersListPage.jsx  # Action dropdown added
-├── InfluencerDetailPage.jsx # YouTube metrics, Pipeline/Campaign split
+├── InfluencerDetailPage.jsx # YouTube metrics, Pipeline/Campaign split, History timeline
+├── PublicationDetailPage.jsx # History tab with timeline added
 ├── PublicationsListPage.jsx
 ├── CampaignHubPage.jsx
 ├── Budget.jsx
@@ -44,16 +54,52 @@ All core features working with enhanced UX.
 - ✅ Instagram API - Profile lookup working (limited metrics due to permissions)
 - ✅ Microsoft Graph API - Email sending
 
+## Completed Work
+
+### Phase 1: Core Infrastructure ✅
+- User authentication and authorization
+- Contact management (Influencers/Publications/Journalists)
+- Campaign management
+- Budget tracking
+
+### Phase 2: Outreach & Communication ✅
+- Gmail-style Email Module
+- Microsoft Graph integration for email sending
+- Communication tracking
+
+### Phase 3: Analytics & Discovery ✅
+- AI-powered influencer discovery
+- Instagram/YouTube social API integration
+- PR coverage tracking
+
+### Phase 4: History & Timeline ✅
+- Communication History Timeline (Influencers)
+- Activity Timeline (Publications)
+
 ## Prioritized Backlog
 
+### P0 (Critical) - Deferred
+1. Refactor marketing_v2.py (4253 lines) - Technical debt
+
 ### P1 (High)
-1. PR Analytics Dashboard
-2. Refactor marketing_v2.py (4253 lines)
+1. Outreach Dashboard Enhancement - Response tracking, follow-up management
+2. Deal Management Pipeline UI
+3. PR Analytics Dashboard
 
 ### P2 (Medium)
 1. AI pitch writing feature
 2. Automated media monitoring
 3. Email templates dropdown
 
+### P3 (Low)
+1. WebSocket notifications (platform-level issue)
+2. Twilio WhatsApp sandbox setup
+
 ## Test Credentials
 - Super Admin: `superadmin@sevora.com` / `superadmin123`
+- Marketing: `marketing@sevora.com` / `admin123`
+
+## Known Issues
+- WebSocket notifications not working (platform ingress config)
+- Twilio WhatsApp blocked on user sandbox setup
+- Instagram follower count API limitation (permissions)

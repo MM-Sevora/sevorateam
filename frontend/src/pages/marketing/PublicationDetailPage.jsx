@@ -15,7 +15,8 @@ import { toast } from 'sonner';
 import { 
   ArrowLeft, RefreshCw, Save, Building2, Globe, Users, TrendingUp,
   Mail, Phone, ExternalLink, Edit2, Plus, Send, Newspaper, DollarSign,
-  Target, CheckCircle, Clock, XCircle, Eye, Trash2, MessageSquare, User
+  Target, CheckCircle, Clock, XCircle, Eye, Trash2, MessageSquare, User,
+  History, Gift, Sparkles
 } from 'lucide-react';
 
 const BEAT_OPTIONS = ['Fashion', 'Beauty', 'Lifestyle', 'Tech', 'Business', 'Entertainment', 'Startup', 'Luxury', 'Travel', 'Food'];
@@ -73,6 +74,10 @@ const PublicationDetailPage = () => {
   const [advertorialStats, setAdvertorialStats] = useState({});
   const [payments, setPayments] = useState([]);
   const [paymentSummary, setPaymentSummary] = useState({ total_paid: 0, total_pending: 0 });
+  
+  // History/Timeline data
+  const [communications, setCommunications] = useState([]);
+  const [activities, setActivities] = useState([]);
   
   // Modals
   const [showJournalistModal, setShowJournalistModal] = useState(false);
@@ -193,6 +198,29 @@ const PublicationDetailPage = () => {
     }
   }, [api, journalists]);
 
+  // Fetch communications for all journalists at this publication
+  const fetchCommunications = useCallback(async () => {
+    if (journalists.length === 0) return;
+    try {
+      const allComms = [];
+      for (const journalist of journalists) {
+        try {
+          const response = await api.get(`/marketing/v2/contacts/${journalist.id}/communications`);
+          const journalistComms = (response.data || []).map(c => ({
+            ...c,
+            journalist_name: journalist.name
+          }));
+          allComms.push(...journalistComms);
+        } catch (err) {
+          // No communications for this journalist
+        }
+      }
+      setCommunications(allComms);
+    } catch (error) {
+      console.error('Failed to fetch communications:', error);
+    }
+  }, [api, journalists]);
+
   useEffect(() => {
     fetchPublication();
     fetchJournalists();
@@ -203,9 +231,65 @@ const PublicationDetailPage = () => {
     if (journalists.length > 0) {
       fetchPitches();
       fetchPayments();
+      fetchCommunications();
     }
     fetchCoverage();
-  }, [journalists, fetchPitches, fetchCoverage, fetchPayments]);
+  }, [journalists, fetchPitches, fetchCoverage, fetchPayments, fetchCommunications]);
+
+  // Build unified activities timeline
+  useEffect(() => {
+    const allActivities = [];
+    
+    // Add communications
+    communications.forEach(c => allActivities.push({
+      type: 'communication',
+      icon: c.comm_type === 'whatsapp' ? 'whatsapp' : 'email',
+      title: c.subject || 'Message sent',
+      description: c.message?.substring(0, 100),
+      date: c.sent_at || c.created_at,
+      status: c.status,
+      journalist: c.journalist_name
+    }));
+    
+    // Add pitches as outreach activities
+    pitches.forEach(p => {
+      const journalist = journalists.find(j => j.id === p.contact_id);
+      allActivities.push({
+        type: 'pitch',
+        icon: 'pitch',
+        title: p.subject || 'Pitch sent',
+        description: p.message?.substring(0, 100),
+        date: p.created_at,
+        status: p.status,
+        journalist: journalist?.name
+      });
+    });
+    
+    // Add coverage as milestones
+    coverage.forEach(c => allActivities.push({
+      type: 'coverage',
+      icon: 'coverage',
+      title: c.title,
+      description: `${c.coverage_type} - ${c.sentiment || 'neutral'} sentiment`,
+      date: c.published_date || c.created_at,
+      status: 'published',
+      reach: c.reach
+    }));
+    
+    // Add payments
+    payments.forEach(p => allActivities.push({
+      type: 'payment',
+      icon: 'payment',
+      title: `Payment: ₹${(p.amount || 0).toLocaleString()}`,
+      description: p.description || p.payment_type?.replace(/_/g, ' '),
+      date: p.created_at,
+      status: p.status,
+      journalist: p.journalist_name
+    }));
+    
+    allActivities.sort((a, b) => new Date(b.date) - new Date(a.date));
+    setActivities(allActivities);
+  }, [communications, pitches, coverage, payments, journalists]);
 
   // Handlers
   const handleAddJournalist = async () => {
@@ -447,6 +531,9 @@ const PublicationDetailPage = () => {
           </TabsTrigger>
           <TabsTrigger value="paid" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800">
             <DollarSign className="w-4 h-4 mr-2" />Paid PR
+          </TabsTrigger>
+          <TabsTrigger value="history" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800">
+            <History className="w-4 h-4 mr-2" />History ({activities.length})
           </TabsTrigger>
         </TabsList>
 
@@ -956,6 +1043,242 @@ const PublicationDetailPage = () => {
                 </CardContent>
               </Card>
             )}
+          </div>
+        </TabsContent>
+
+        {/* History Tab - Activity Timeline */}
+        <TabsContent value="history">
+          <div className="grid grid-cols-3 gap-6">
+            {/* Unified Activity Timeline */}
+            <Card className="col-span-2 bg-white border-gray-200">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-purple-500" />
+                    Activity Timeline
+                  </span>
+                  <Badge variant="outline">{activities.length} events</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {activities.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Clock className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+                    <p className="text-gray-500 text-sm">No activity recorded yet</p>
+                    <p className="text-gray-400 text-xs mt-1">Add journalists and send pitches to get started</p>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    {/* Timeline Line */}
+                    <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200" />
+                    
+                    <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+                      {activities.map((activity, idx) => (
+                        <div key={idx} className="relative flex gap-4 pl-10" data-testid={`pub-activity-item-${idx}`}>
+                          {/* Timeline Dot */}
+                          <div className={`absolute left-2 w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm ${
+                            activity.type === 'communication' ? 'bg-blue-500' :
+                            activity.type === 'pitch' ? 'bg-purple-500' :
+                            activity.type === 'coverage' ? 'bg-green-500' :
+                            activity.type === 'payment' ? 'bg-amber-500' :
+                            'bg-gray-400'
+                          }`}>
+                            {activity.type === 'communication' && (
+                              activity.icon === 'whatsapp' ? 
+                                <MessageSquare className="w-3 h-3 text-white" /> : 
+                                <Mail className="w-3 h-3 text-white" />
+                            )}
+                            {activity.type === 'pitch' && <Send className="w-3 h-3 text-white" />}
+                            {activity.type === 'coverage' && <Newspaper className="w-3 h-3 text-white" />}
+                            {activity.type === 'payment' && <DollarSign className="w-3 h-3 text-white" />}
+                          </div>
+                          
+                          {/* Activity Content */}
+                          <div className="flex-1 bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition-colors">
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className={`text-xs capitalize ${
+                                  activity.type === 'communication' ? 'border-blue-200 text-blue-600' :
+                                  activity.type === 'pitch' ? 'border-purple-200 text-purple-600' :
+                                  activity.type === 'coverage' ? 'border-green-200 text-green-600' :
+                                  'border-amber-200 text-amber-600'
+                                }`}>
+                                  {activity.type}
+                                </Badge>
+                                {activity.status && (
+                                  <Badge className="text-xs bg-gray-100 text-gray-600">{activity.status}</Badge>
+                                )}
+                              </div>
+                              <span className="text-xs text-gray-400">
+                                {activity.date ? new Date(activity.date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-'}
+                              </span>
+                            </div>
+                            <div className="font-medium text-gray-900 text-sm">{activity.title}</div>
+                            {activity.journalist && (
+                              <p className="text-xs text-purple-600 mt-1">To: {activity.journalist}</p>
+                            )}
+                            {activity.description && (
+                              <p className="text-xs text-gray-500 mt-1 line-clamp-2">{activity.description}</p>
+                            )}
+                            {activity.reach && (
+                              <p className="text-xs text-green-600 mt-1">Reach: {formatNum(activity.reach)}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Quick Stats Sidebar */}
+            <div className="space-y-4">
+              {/* Communications Summary */}
+              <Card className="bg-white border-gray-200">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-blue-500" />
+                      Communications
+                    </span>
+                    <Badge variant="outline">{communications.length}</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {communications.length === 0 ? (
+                    <p className="text-gray-500 text-sm italic">No messages sent</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {communications.slice(0, 3).map((comm, idx) => (
+                        <div key={comm.id || idx} className="p-2 border border-gray-100 rounded hover:bg-gray-50">
+                          <div className="flex items-center justify-between">
+                            <Badge variant="outline" className="capitalize text-xs">{comm.comm_type || 'email'}</Badge>
+                            <span className="text-xs text-gray-400">
+                              {(comm.sent_at || comm.created_at) ? new Date(comm.sent_at || comm.created_at).toLocaleDateString() : '-'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-600 mt-1 truncate">{comm.subject || comm.message?.substring(0, 40)}</p>
+                          {comm.journalist_name && (
+                            <p className="text-xs text-purple-500 mt-1">To: {comm.journalist_name}</p>
+                          )}
+                        </div>
+                      ))}
+                      {communications.length > 3 && (
+                        <p className="text-xs text-gray-400 text-center">+{communications.length - 3} more</p>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Pitches Summary */}
+              <Card className="bg-white border-gray-200">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Send className="w-4 h-4 text-purple-500" />
+                      Pitches
+                    </span>
+                    <Badge variant="outline">{pitches.length}</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {pitches.length === 0 ? (
+                    <p className="text-gray-500 text-sm italic">No pitches sent</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {pitches.slice(0, 3).map((pitch) => {
+                        const journalist = journalists.find(j => j.id === pitch.contact_id);
+                        return (
+                          <div key={pitch.id} className="p-2 border border-gray-100 rounded hover:bg-gray-50">
+                            <div className="flex items-center justify-between">
+                              <Badge className={getPitchStatusConfig(pitch.status).color + ' text-xs'}>
+                                {getPitchStatusConfig(pitch.status).label}
+                              </Badge>
+                              <span className="text-xs text-gray-400">
+                                {pitch.created_at ? new Date(pitch.created_at).toLocaleDateString() : '-'}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-600 mt-1 truncate">{pitch.subject}</p>
+                            {journalist && (
+                              <p className="text-xs text-purple-500 mt-1">To: {journalist.name}</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {pitches.length > 3 && (
+                        <p className="text-xs text-gray-400 text-center">+{pitches.length - 3} more</p>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Coverage Summary */}
+              <Card className="bg-white border-gray-200">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Newspaper className="w-4 h-4 text-green-500" />
+                      Coverage
+                    </span>
+                    <Badge variant="outline">{coverage.length}</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {coverage.length === 0 ? (
+                    <p className="text-gray-500 text-sm italic">No coverage recorded</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {coverage.slice(0, 3).map((item) => (
+                        <div key={item.id} className="p-2 border border-gray-100 rounded hover:bg-gray-50">
+                          <div className="flex items-center justify-between">
+                            <Badge className={
+                              item.sentiment === 'positive' ? 'bg-green-100 text-green-700 text-xs' :
+                              item.sentiment === 'negative' ? 'bg-red-100 text-red-700 text-xs' :
+                              'bg-gray-100 text-gray-700 text-xs'
+                            }>
+                              {item.sentiment}
+                            </Badge>
+                            <span className="text-xs font-medium">{formatNum(item.reach)}</span>
+                          </div>
+                          <p className="text-xs text-gray-600 mt-1 truncate">{item.title}</p>
+                        </div>
+                      ))}
+                      {coverage.length > 3 && (
+                        <p className="text-xs text-gray-400 text-center">+{coverage.length - 3} more</p>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Payment Summary */}
+              <Card className="bg-white border-gray-200">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-amber-500" />
+                      Payments
+                    </span>
+                    <Badge variant="outline">{payments.length}</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-2 bg-green-50 rounded">
+                      <span className="text-xs text-gray-600">Total Paid</span>
+                      <span className="text-sm font-bold text-green-600">{formatCurrency(paymentSummary.total_paid)}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 bg-amber-50 rounded">
+                      <span className="text-xs text-gray-600">Pending</span>
+                      <span className="text-sm font-bold text-amber-600">{formatCurrency(paymentSummary.total_pending)}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </TabsContent>
       </Tabs>
