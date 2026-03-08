@@ -316,7 +316,7 @@ export const DealPipeline = () => {
       setContacts(allContacts);
       
       // Fetch all campaigns
-      const campaignsRes = await api.get('/marketing/v2/campaigns');
+      const campaignsRes = await api.get('/marketing/v2/unified-campaigns');
       const allCampaigns = campaignsRes.data || [];
       setCampaigns(allCampaigns);
       

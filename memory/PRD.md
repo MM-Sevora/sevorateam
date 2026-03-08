@@ -6,7 +6,16 @@ All core features working with enhanced UX.
 
 ## Recent Enhancements (March 8, 2026)
 
-### 5. Bulk Delete Functionality ✅ (NEW)
+### 6. Deliveries Module Enhancement ✅ (NEW)
+- **Bug Fix**: Influencer names now show correctly in Deliveries list (was showing "Unknown")
+- **New Feature**: Rate Card selection in "Record Delivery" modal
+  - When selecting an influencer, their rate cards/deliverables are fetched
+  - User can select which rate card applies to this delivery
+  - Rate amount is auto-populated from selected rate card
+- **Backend**: New endpoint `GET /api/marketing/v2/contacts/{contact_id}/deliverables`
+- **Models Updated**: ContactUpdate and ContactResponse now include `deliverables` field
+
+### 5. Bulk Delete Functionality ✅
 - **Influencers Page**: Checkbox selection, Select All, Delete (X) button, confirmation dialog
 - **Publications Page**: Checkbox selection, Select All, Delete (X) button, confirmation dialog  
 - **Campaigns Page**: Checkbox selection, Select All, Delete (X) button, confirmation dialog
@@ -32,6 +41,7 @@ All core features working with enhanced UX.
 - Follow-up management with scheduling
 - Kanban-style deal pipeline with drag-and-drop
 - Routes: `/marketing/outreach-dashboard`, `/marketing/deals`
+- **Fix**: Deal Pipeline now uses `/unified-campaigns` endpoint (was failing before)
 
 ### 1. Communication History Timeline ✅
 - Vertical timeline on Influencer and Publication detail pages
@@ -43,20 +53,22 @@ All core features working with enhanced UX.
 - Fixed action button dropdown on Influencers list
 - Separated Pipeline & Campaign cards
 - Fixed Select dropdown z-index in modals
+- **Fixed**: Deliveries showing "Unknown" for influencer names
+- **Fixed**: Deal Pipeline "Failed to load deals" error (wrong campaigns endpoint)
 
 ## Architecture
 ```
 /app/frontend/src/pages/marketing/
 ├── AIDiscoveryPage.jsx        # Modern wizard UI
 ├── InfluencersListPage.jsx    # Bulk delete, filters
-├── InfluencerDetailPage.jsx   # History timeline
+├── InfluencerDetailPage.jsx   # History timeline, Deliverables & Rates
 ├── PublicationDetailPage.jsx  # History tab
 ├── PublicationsListPage.jsx   # Bulk delete, filters
 ├── CampaignHubPage.jsx        # Multi-select objectives, bulk delete
-├── OutreachDashboard.jsx      # NEW - Response tracking
-├── DealPipeline.jsx           # NEW - Kanban pipeline
+├── OutreachDashboard.jsx      # Response tracking
+├── DealPipeline.jsx           # Kanban pipeline (fixed campaigns endpoint)
 ├── Budget.jsx
-├── ContentAssetsPage.jsx
+├── ContentAssetsPage.jsx      # Rate card selection in Record Delivery
 ├── EmailPage.jsx              # Gmail-style UI
 ```
 
@@ -91,6 +103,7 @@ All core features working with enhanced UX.
 - Outreach Dashboard with response tracking
 - Deal Pipeline with Kanban UI
 - Bulk delete across all list pages
+- **Deliveries with Rate Card selection**
 
 ## Prioritized Backlog
 
@@ -113,7 +126,12 @@ All core features working with enhanced UX.
 - Super Admin: `superadmin@sevora.com` / `superadmin123`
 - Marketing: `marketing@sevora.com` / `admin123`
 
+## Test Data
+- **Influencer**: Nivrity Das (ID: f4c76400-f85c-465b-bdce-c1bd941912a9)
+  - 4 Rate Cards: Static Post (₹25,000), Reel/Short (₹50,000), Story Set (₹15,000), YouTube Integration (₹75,000)
+
 ## Known Issues
 - WebSocket notifications not working (platform ingress config)
 - Twilio WhatsApp blocked on user sandbox setup
 - Instagram follower count API limitation (permissions)
+- Orphan delivery records show "Unknown" for deleted contacts (expected behavior)
