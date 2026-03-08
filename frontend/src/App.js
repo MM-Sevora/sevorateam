@@ -75,14 +75,46 @@ const MsalInitializer = ({ children }) => {
                 
                 // Handle redirect response if coming back from Microsoft login
                 const response = await msalInstance.handleRedirectPromise();
-                if (response) {
+                if (response && response.accessToken) {
                     console.log('MSAL redirect login successful:', response.account?.username);
-                    // Redirect to email page after successful Microsoft login
-                    const redirectPath = sessionStorage.getItem('msalRedirectPath') || '/marketing/email';
-                    sessionStorage.removeItem('msalRedirectPath');
-                    if (window.location.pathname !== redirectPath) {
-                        window.location.href = redirectPath;
-                        return; // Don't set initialized, let the redirect happen
+                    
+                    // Check if this was for app login (not just email)
+                    const loginType = sessionStorage.getItem('msalLoginType');
+                    sessionStorage.removeItem('msalLoginType');
+                    
+                    if (loginType === 'app') {
+                        // Call backend to authenticate with Sevora
+                        try {
+                            const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
+                            const authResponse = await fetch(`${backendUrl}/api/auth/azure`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ azure_token: response.accessToken })
+                            });
+                            
+                            if (authResponse.ok) {
+                                const data = await authResponse.json();
+                                localStorage.setItem('token', data.access_token);
+                                localStorage.setItem('user', JSON.stringify(data.user));
+                                window.location.href = '/'; // Redirect to dashboard
+                                return;
+                            } else {
+                                const error = await authResponse.json();
+                                console.error('Backend auth error:', error);
+                                sessionStorage.setItem('msalError', error.detail || 'Authentication failed');
+                            }
+                        } catch (error) {
+                            console.error('Backend auth failed:', error);
+                            sessionStorage.setItem('msalError', 'Failed to authenticate with server');
+                        }
+                    } else {
+                        // Email login - redirect to email page
+                        const redirectPath = sessionStorage.getItem('msalRedirectPath') || '/marketing/email';
+                        sessionStorage.removeItem('msalRedirectPath');
+                        if (window.location.pathname !== redirectPath) {
+                            window.location.href = redirectPath;
+                            return;
+                        }
                     }
                 }
             } catch (error) {
