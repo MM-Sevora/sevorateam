@@ -6,31 +6,30 @@ All core features working with enhanced UX.
 
 ## Recent Enhancements (March 8, 2026)
 
-### 7. Campaign - Add Influencer with Deliverable & Fee ✅ (NEW)
-- **Enhancement**: When adding an influencer to a campaign, users can now:
-  1. Select an influencer from the list
-  2. View and select from their rate cards/deliverables
-  3. Enter an agreed fee (auto-populated from rate card)
-  4. Confirm to add with all details stored
-- **Backend**: Updated `POST /api/marketing/campaigns/{campaign_id}/influencers/{contact_id}` to accept `deliverable_id`, `deliverable_name`, `agreed_fee`
-- **Frontend**: Enhanced Add Influencer modal in CampaignDetailPage.jsx with rate card selection UI
-- **Display**: Campaign detail page now shows deliverable name and agreed fee for each assigned influencer
+### 8. Unified Pipeline ✅ (NEW - MAJOR)
+- **Merged**: Outreach Dashboard + Deal Pipeline into single Kanban board
+- **Stages**: Identified → Contacted → Replied → Negotiating → Agreed → Delivering → Completed → Lost
+- **Features**:
+  - Drag-and-drop cards between stages
+  - Contact cards show: name, social handles, followers, engagement rate
+  - Collapsible communication history per contact
+  - Deal info (quote/budget) visible from Negotiating stage onwards
+  - Send Message modal with channel selection
+  - Filters: search, contact type, campaign
+  - Bulk delete functionality
+- **Route**: `/marketing/pipeline` (old routes redirect automatically)
+- **Sidebar**: Single "Pipeline" link replaces "Outreach" + "Deal Pipeline"
+
+### 7. Campaign - Add Influencer with Deliverable & Fee ✅
+- When adding influencer to campaign: select rate card, enter agreed fee
+- Data stored: campaign_deliverable_id, campaign_deliverable_name, campaign_agreed_fee
 
 ### 6. Deliveries Module Enhancement ✅
-- **Bug Fix**: Influencer names now show correctly in Deliveries list (was showing "Unknown")
-- **New Feature**: Rate Card selection in "Record Delivery" modal
-- **Backend**: New endpoint `GET /api/marketing/v2/contacts/{contact_id}/deliverables`
+- Bug Fix: Influencer names now show correctly (was showing "Unknown")
+- Rate Card selection in "Record Delivery" modal
 
 ### 5. Bulk Delete Functionality ✅
-- Implemented across Influencers, Publications, Campaigns, Outreach, and Deal Pipeline pages
-
-### 4. Campaign Form Enhancements ✅
-- Multi-select Objectives using checkboxes
-- Campaign Type dropdown in Edit modal
-
-### 3. Outreach Dashboard & Deal Pipeline ✅
-- Response tracking, follow-up management
-- Kanban-style deal pipeline
+- Implemented across Influencers, Publications, Campaigns, Pipeline pages
 
 ### Bug Fixes
 - Fixed "Failed to save changes" - ContactUpdate model
