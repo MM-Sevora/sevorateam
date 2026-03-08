@@ -28,6 +28,8 @@ import MarketingInsightsPage from "./pages/marketing/MarketingInsightsPage";
 import AIDiscoveryPage from "./pages/marketing/AIDiscoveryPage";
 import PublicationsListPage from "./pages/marketing/PublicationsListPage";
 import PublicationDetailPage from "./pages/marketing/PublicationDetailPage";
+import OutreachDashboard from "./pages/marketing/OutreachDashboard";
+import DealPipeline from "./pages/marketing/DealPipeline";
 
 // Sales Pages
 import { SalesDashboard } from "./pages/sales/Dashboard";
@@ -144,6 +146,9 @@ function AppRoutes() {
             {/* Legacy Marketing Routes - kept for backward compatibility */}
             <Route path="/marketing/outreach" element={<ProtectedRoute requiredDepartment="marketing"><OutreachPage /></ProtectedRoute>} />
             <Route path="/marketing/negotiations" element={<ProtectedRoute requiredDepartment="marketing"><NegotiationsPage /></ProtectedRoute>} />
+            {/* New Outreach & Deal Management */}
+            <Route path="/marketing/outreach-dashboard" element={<ProtectedRoute requiredDepartment="marketing"><OutreachDashboard /></ProtectedRoute>} />
+            <Route path="/marketing/deals" element={<ProtectedRoute requiredDepartment="marketing"><DealPipeline /></ProtectedRoute>} />
 
             {/* Mail Routes */}
             <Route path="/mail/inbox" element={<ProtectedRoute requiredDepartment="mail"><EmailPage /></ProtectedRoute>} />

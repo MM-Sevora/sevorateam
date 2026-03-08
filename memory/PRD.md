@@ -6,31 +6,31 @@ All core features working with enhanced UX.
 
 ## Recent Enhancements (March 8, 2026)
 
-### Bug Fix: AI Discovery Endpoints ✅
+### 1. Outreach Dashboard Enhancement ✅ (NEW)
+- **Response Tracking**: View all communications with status (Sent, Opened, Replied)
+- **Follow-up Management**: Auto-identifies contacts needing follow-up (>3 days without response)
+- **Stats Overview**: Total Sent, Opened, Replied, Needs Follow-up, Response Rate, Active Contacts
+- **Filtering**: By status, channel (Email/WhatsApp), and search
+- **Tab Views**: All, Needs Follow-up, Replied, Awaiting Response
+- **Schedule Follow-ups**: Modal to schedule follow-up reminders with priority
+- Route: `/marketing/outreach-dashboard`
+
+### 2. Deal Pipeline UI ✅ (NEW)
+- **Kanban Board**: 6-stage drag-and-drop pipeline (Lead → Contacted → Negotiating → Proposal Sent → Won → Lost)
+- **Deal Cards**: Show contact name, deal value, deliverables, savings percentage, campaign link
+- **Pipeline Stats**: Total Deals, Pipeline Value, Won deals, Win Rate, Avg Deal Size
+- **Create Deal Modal**: Select contact, campaign, set quotes/budget, deliverables, notes
+- **Deal Actions**: View details, edit, mark as won/lost via dropdown menu
+- Route: `/marketing/deals`
+
+### 3. Bug Fix: AI Discovery Endpoints ✅
 - Fixed "Failed to discover media contacts" error
-- Added missing `/api/marketing/v2/ai/discover-influencers` endpoint
-- Added missing `/api/marketing/v2/ai/generate-outreach` endpoint
-- Fixed frontend to call correct backend endpoints
-- Fixed response data extraction (nested `data` structure)
-- Enriched AI recommendations with full journalist/influencer data
+- Added missing backend endpoints for AI discovery
+- Enriched AI recommendations with full contact data
 
-### Communication History Timeline ✅
-- **InfluencerDetailPage**: Vertical timeline with color-coded activity types (communications, deals, gifts)
-- **PublicationDetailPage**: Added new History tab with timeline showing pitches, coverage, payments, communications
-- Timeline features:
-  - Color-coded dots for different activity types
-  - Status badges and formatted dates
-  - Activity summaries in sidebar cards
-  - Journalist names displayed for publications
-
-### AI Discovery Page Redesign
-- Modern gradient header with AI branding
-- 3-step wizard flow (Brief → Processing → Results)
-- Quick Profile Lookup sidebar (Instagram/YouTube)
-- Integration Status panel
-- Color-coded range sliders
-- Campaign objective pill buttons
-- AI processing animation with progress
+### 4. Communication History Timeline ✅
+- InfluencerDetailPage: Timeline with communications, deals, gifts
+- PublicationDetailPage: Timeline with pitches, coverage, payments
 
 ### Bug Fixes
 - Fixed "Failed to save changes" - ContactUpdate model

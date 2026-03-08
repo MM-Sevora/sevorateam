@@ -796,6 +796,97 @@ async def get_contact_communications(contact_id: str):
     comms = await db.communications.find({"contact_id": contact_id}, {"_id": 0}).sort("sent_at", -1).to_list(500)
     return comms
 
+
+@marketing_v2_router.put("/contacts/{contact_id}/communications/{comm_id}")
+async def update_communication_status(
+    contact_id: str,
+    comm_id: str,
+    data: dict
+):
+    """Update communication status (opened, replied, etc.)"""
+    db = get_db()
+    
+    # Verify communication exists
+    comm = await db.communications.find_one({"id": comm_id, "contact_id": contact_id})
+    if not comm:
+        raise HTTPException(status_code=404, detail="Communication not found")
+    
+    # Update status fields
+    update_fields = {}
+    if "status" in data:
+        update_fields["status"] = data["status"]
+    if "opened" in data:
+        update_fields["opened"] = data["opened"]
+    if "replied" in data:
+        update_fields["replied"] = data["replied"]
+    if data.get("status") == "replied":
+        update_fields["replied"] = True
+        update_fields["replied_at"] = datetime.now(timezone.utc).isoformat()
+    if data.get("status") == "opened":
+        update_fields["opened"] = True
+        update_fields["opened_at"] = datetime.now(timezone.utc).isoformat()
+    
+    if update_fields:
+        await db.communications.update_one(
+            {"id": comm_id},
+            {"$set": update_fields}
+        )
+    
+    updated = await db.communications.find_one({"id": comm_id}, {"_id": 0})
+    return updated
+
+
+@marketing_v2_router.post("/contacts/{contact_id}/follow-ups")
+async def create_follow_up(
+    contact_id: str,
+    data: dict,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Schedule a follow-up reminder for a contact"""
+    db = get_db()
+    
+    # Verify contact exists
+    contact = await db.contacts.find_one({"id": contact_id})
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    follow_up_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    follow_up_doc = {
+        "id": follow_up_id,
+        "contact_id": contact_id,
+        "contact_name": contact.get("name"),
+        "communication_id": data.get("communication_id"),
+        "scheduled_date": data.get("scheduled_date"),
+        "note": data.get("note", ""),
+        "priority": data.get("priority", "medium"),
+        "status": "pending",
+        "created_by": user.get("id"),
+        "created_at": now
+    }
+    
+    await db.follow_ups.insert_one(follow_up_doc)
+    del follow_up_doc["_id"]
+    return follow_up_doc
+
+
+@marketing_v2_router.get("/follow-ups")
+async def get_all_follow_ups(
+    status: Optional[str] = None,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get all scheduled follow-ups"""
+    db = get_db()
+    
+    query = {}
+    if status:
+        query["status"] = status
+    
+    follow_ups = await db.follow_ups.find(query, {"_id": 0}).sort("scheduled_date", 1).to_list(100)
+    return follow_ups
+
+
 @marketing_v2_router.post("/communications", response_model=CommunicationResponse)
 async def create_communication(data: CommunicationCreate):
     """Log a new communication"""

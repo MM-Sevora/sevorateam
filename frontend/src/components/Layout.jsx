@@ -6,7 +6,7 @@ import {
     LayoutDashboard, Users, Target, MessageSquare, DollarSign, BarChart3,
     UserPlus, ShoppingBag, Calendar, QrCode, Building2, Settings,
     PenTool, Sparkles, Zap, Clock, Youtube, Image, LogOut, Menu, X,
-    ChevronDown, ChevronRight, Briefcase, Mail, Check
+    ChevronDown, ChevronRight, Briefcase, Mail, Check, Send
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -35,6 +35,8 @@ const DEPARTMENT_CONFIG = {
             { path: '/marketing/influencers', name: 'Influencers', icon: Users },
             { path: '/marketing/publications', name: 'Publications', icon: Building2 },
             { path: '/marketing/campaigns', name: 'Campaign Hub', icon: Target },
+            { path: '/marketing/outreach-dashboard', name: 'Outreach', icon: Send },
+            { path: '/marketing/deals', name: 'Deal Pipeline', icon: Briefcase },
             { path: '/marketing/assets', name: 'Content & Assets', icon: Image },
             { path: '/marketing/budget', name: 'Budget Overview', icon: DollarSign },
             { path: '/marketing/ai-tools', name: 'AI Tools & Discovery', icon: Sparkles },
