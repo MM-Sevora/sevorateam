@@ -19,7 +19,6 @@ import AIToolsPage from "./pages/marketing/AITools";
 import BudgetPage from "./pages/marketing/Budget";
 
 // Marketing V2 Pages (Current)
-import DigitalPRPage from "./pages/marketing/DigitalPRPage";
 import ContentAssetsPage from "./pages/marketing/ContentAssetsPage";
 import InfluencersListPage from "./pages/marketing/InfluencersListPage";
 import InfluencerDetailPage from "./pages/marketing/InfluencerDetailPage";
@@ -123,7 +122,8 @@ function AppRoutes() {
             <Route path="/marketing/analytics" element={<Navigate to="/marketing" replace />} />
             <Route path="/marketing/influencers" element={<ProtectedRoute requiredDepartment="marketing"><InfluencersListPage /></ProtectedRoute>} />
             <Route path="/marketing/influencer/:influencerId" element={<ProtectedRoute requiredDepartment="marketing"><InfluencerDetailPage /></ProtectedRoute>} />
-            <Route path="/marketing/pr" element={<ProtectedRoute requiredDepartment="marketing"><DigitalPRPage /></ProtectedRoute>} />
+            {/* Redirect old PR route to Publications */}
+            <Route path="/marketing/pr" element={<Navigate to="/marketing/publications" replace />} />
             {/* Publications (PR equivalent of Influencers) */}
             <Route path="/marketing/publications" element={<ProtectedRoute requiredDepartment="marketing"><PublicationsListPage /></ProtectedRoute>} />
             <Route path="/marketing/publication/:publicationId" element={<ProtectedRoute requiredDepartment="marketing"><PublicationDetailPage /></ProtectedRoute>} />

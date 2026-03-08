@@ -2,55 +2,55 @@
 
 ## Current Status: FULLY OPERATIONAL ✅
 
-All core features working:
-- ✅ Microsoft Graph API (Email)
-- ✅ YouTube Data API
-- ✅ Instagram Graph API
-- ✅ Influencer CRUD with YouTube metrics
-- ✅ Partial updates for contacts
+All core features working with clean codebase.
 
-## Recent Bug Fixes (March 8, 2026)
-
-### "Failed to save changes" 
-- Created `ContactUpdate` model for partial updates
-- All fields optional, supports incremental saves
-
-### "YouTube Metrics Mismatch"
-- Added YouTube fields to `ContactResponse`: `youtube_subscribers`, `youtube_avg_views`, `youtube_avg_likes`, `youtube_total_videos`
-- Fixed field mapping in frontend
+## Recent Cleanup (March 8, 2026)
+- Deleted 4 deprecated frontend files
+- Reduced marketing pages from 25 to 21
+- Added redirect from /marketing/pr to /marketing/publications
+- Backend `marketing_v2.py` retained (future refactor candidate)
 
 ## Architecture
 ```
-/app/backend/
-├── models/marketing.py         # ContactCreate, ContactUpdate, ContactResponse
-├── routes/marketing_v2.py      # NEEDS REFACTORING (4000+ lines)
-└── services/social_api.py      # Instagram/YouTube APIs
-
-/app/frontend/src/pages/marketing/
-├── EmailPage.jsx               # Gmail-style UI ✅
-├── InfluencerDetailPage.jsx    # YouTube metrics fixed ✅
-├── InfluencersListPage.jsx     # Add influencer fixed ✅
-└── AIDiscoveryPage.jsx         # Platform selection ✅
+/app/
+├── backend/
+│   └── routes/marketing_v2.py   # 4253 lines (future refactor)
+├── frontend/src/pages/marketing/
+│   ├── InfluencersListPage.jsx  # Primary influencer list
+│   ├── InfluencerDetailPage.jsx # Detail view with YouTube metrics
+│   ├── PublicationsListPage.jsx # PR/Publications list
+│   ├── PublicationDetailPage.jsx
+│   ├── CampaignHubPage.jsx      # Campaign management
+│   ├── Budget.jsx               # Payment tracking
+│   ├── ContentAssetsPage.jsx    # Assets, Press Kits, Templates
+│   ├── EmailPage.jsx            # Gmail-style email
+│   └── AIDiscoveryPage.jsx      # AI-powered discovery
 ```
+
+## Features Completed
+- ✅ Full CRUD for Influencers, Publications, Campaigns
+- ✅ Payment tracking with campaign budget sync
+- ✅ Gmail-style email via Microsoft Graph API
+- ✅ YouTube & Instagram API integrations
+- ✅ Action dropdown menus on list pages
+- ✅ Separated Pipeline & Campaign cards
 
 ## API Keys Configured
 - ✅ YouTube API Key
-- ✅ Instagram Access Token
-- ✅ Instagram Business Account ID: `17841478242590925`
+- ✅ Instagram Access Token & Business Account ID
+- ✅ Microsoft Graph API (Email)
 
 ## Prioritized Backlog
 
-### P0 (Critical)
-1. Refactor `marketing_v2.py` into smaller routers
-
 ### P1 (High)
-1. Delete deprecated files
-2. PR Analytics Dashboard
+1. PR Analytics Dashboard
+2. Refactor marketing_v2.py into smaller routers
 
 ### P2 (Medium)
-1. AI pitch writing
-2. Media monitoring
-3. Email templates
+1. AI pitch writing feature
+2. Automated media monitoring
+3. Email templates dropdown
+4. Scheduled Azure AD Sync
 
 ## Test Credentials
 - Super Admin: `superadmin@sevora.com` / `superadmin123`
