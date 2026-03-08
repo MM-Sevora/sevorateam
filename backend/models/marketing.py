@@ -242,10 +242,10 @@ class DeliverableItem(BaseModel):
 class DealCreate(BaseModel):
     contact_id: str
     campaign_id: Optional[str] = None
-    initial_quote: float
+    initial_quote: Optional[float] = 0
     our_budget: Optional[float] = None
     final_amount: Optional[float] = None
-    deliverables: List[DeliverableItem] = []
+    deliverables: Optional[str] = ""  # Text description of deliverables
     deadline: Optional[str] = None
     notes: Optional[str] = None
 
@@ -255,10 +255,10 @@ class DealResponse(BaseModel):
     contact_name: Optional[str] = None
     campaign_id: Optional[str] = None
     campaign_name: Optional[str] = None
-    initial_quote: float
+    initial_quote: Optional[float] = 0
     our_budget: Optional[float] = None
     final_amount: Optional[float] = None
-    deliverables: List[dict] = []
+    deliverables: Optional[str] = ""  # Text description of deliverables
     deadline: Optional[str] = None
     notes: Optional[str] = None
     status: str = "pending"
