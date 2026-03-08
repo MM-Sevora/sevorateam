@@ -74,6 +74,75 @@ def get_marketing_auth():
     return require_department(["marketing"])
 
 
+# ============== MICROSOFT INTEGRATION ==============
+
+@marketing_v2_router.get("/microsoft/status")
+async def get_microsoft_status(user: dict = Depends(get_marketing_auth())):
+    """Check Microsoft Graph API connection status"""
+    try:
+        from services.microsoft_service import microsoft_service
+        status = await microsoft_service.get_connection_status()
+        return status
+    except Exception as e:
+        return {
+            "connected": False,
+            "status": "error",
+            "message": str(e)
+        }
+
+@marketing_v2_router.post("/microsoft/send-email")
+async def send_email_via_microsoft(
+    to_email: str,
+    subject: str,
+    body: str,
+    is_html: bool = False,
+    sender_email: str = None,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Send an email via Microsoft Graph API"""
+    try:
+        from services.microsoft_service import microsoft_service
+        result = await microsoft_service.send_email(
+            to_email=to_email,
+            subject=subject,
+            body=body,
+            is_html=is_html,
+            sender_email=sender_email
+        )
+        return result
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+@marketing_v2_router.get("/microsoft/emails/{contact_id}")
+async def get_emails_for_contact(
+    contact_id: str,
+    user_email: str,
+    limit: int = 50,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get all emails exchanged with a contact"""
+    db = get_db()
+    
+    # Get contact email
+    contact = await db.contacts.find_one({"id": contact_id}, {"email": 1})
+    if not contact or not contact.get("email"):
+        raise HTTPException(status_code=404, detail="Contact not found or no email")
+    
+    try:
+        from services.microsoft_service import microsoft_service
+        emails = await microsoft_service.get_emails_for_contact(
+            user_email=user_email,
+            contact_emails=[contact["email"]],
+            limit=limit
+        )
+        return {"emails": emails, "count": len(emails)}
+    except Exception as e:
+        return {"emails": [], "count": 0, "error": str(e)}
+
+
 # ============== UNIFIED CAMPAIGNS (Both Influencer + PR) ==============
 
 @marketing_v2_router.get("/unified-campaigns")
