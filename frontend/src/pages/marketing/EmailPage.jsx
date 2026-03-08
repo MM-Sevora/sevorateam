@@ -57,6 +57,12 @@ const FOLDERS = [
   { id: 'deleteditems', name: 'Trash', icon: Trash2, count: 0 },
 ];
 
+// Helper to get display name for folders
+const getFolderDisplayName = (folderId) => {
+  const folder = FOLDERS.find(f => f.id === folderId);
+  return folder ? folder.name : folderId.charAt(0).toUpperCase() + folderId.slice(1);
+};
+
 const LABELS = [
   { id: 'work', name: 'Work', color: '#1a73e8' },
   { id: 'personal', name: 'Personal', color: '#34a853' },
@@ -479,7 +485,7 @@ const EmailPage = () => {
                 </>
               ) : (
                 <span className="text-sm text-[#5f6368]">
-                  {currentFolder.charAt(0).toUpperCase() + currentFolder.slice(1)}
+                  {getFolderDisplayName(currentFolder)}
                 </span>
               )}
             </div>
@@ -494,7 +500,7 @@ const EmailPage = () => {
                 <div className="flex flex-col items-center justify-center h-64 text-[#5f6368]">
                   <Inbox className="h-16 w-16 mb-4 opacity-30" />
                   <p className="text-xl">No conversations</p>
-                  <p className="text-sm">Your {currentFolder} is empty</p>
+                  <p className="text-sm">Your {getFolderDisplayName(currentFolder)} is empty</p>
                 </div>
               ) : (
                 emails.map((email) => {
