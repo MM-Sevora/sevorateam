@@ -241,16 +241,20 @@ export default function ContentStudio() {
     <div className="space-y-6 animate-fade-in p-8" data-testid="content-studio-page">
       <div className="flex items-center justify-between">
         <div>
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#5D4A3A] mb-1">SOCIAL MEDIA</p>
           <h1 className="text-2xl font-bold text-[#4A3728] tracking-tight">Content Studio</h1>
-          <p className="text-[#5D4A3A] mt-1">Ideate, create, refine, review, and queue content</p>
+          <p className="text-sm text-[#5D4A3A] mt-1">Ideate, create, refine, review, and queue content</p>
         </div>
+        <button onClick={() => window.location.reload()} className="flex items-center gap-2 px-4 py-2 border border-[#E8D5C4] rounded-lg text-sm text-[#5D4A3A] hover:bg-[#F5EDE5] transition-colors">
+          <RefreshCw className="w-4 h-4" /> Refresh
+        </button>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 bg-white rounded-xl border border-[#E8D5C4]">
         {tabs.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${tab === t.key ? 'bg-violet-100 text-amber-700' : 'text-[#5D4A3A] hover:text-[#4A3728] hover:bg-[#F5EDE5]'}`}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${tab === t.key ? 'bg-rose-100 text-rose-700' : 'text-[#5D4A3A] hover:text-[#4A3728] hover:bg-[#F5EDE5]'}`}
             data-testid={`studio-tab-${t.key}`}
           ><t.icon className="w-4 h-4" /> {t.label}</button>
         ))}
@@ -258,12 +262,16 @@ export default function ContentStudio() {
 
       {/* Platform & Tone selector - shared */}
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex gap-1.5">
+        <div className="flex gap-1.5 bg-white border border-[#E8D5C4] rounded-lg p-1">
           {platformOptions.map(p => (
             <button key={p.value} onClick={() => setPlatform(p.value)}
-              className={`p-2.5 rounded-lg transition-all border ${platform === p.value ? 'bg-[#E8D5C4] border-[#D4BBA6]' : 'border-transparent hover:bg-[#F5EDE5]'}`}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all ${platform === p.value ? 'bg-[#E8D5C4]' : 'hover:bg-[#F5EDE5]'}`}
               data-testid={`studio-platform-${p.value}`}
-            ><p.icon className="w-4 h-4" style={{ color: platform === p.value ? p.color : '#71717a' }} /></button>
+              title={p.label}
+            >
+              <p.icon className="w-4 h-4" style={{ color: platform === p.value ? p.color : '#71717a' }} />
+              <span className={`text-xs font-medium ${platform === p.value ? 'text-[#4A3728]' : 'text-[#5D4A3A]'}`}>{p.label}</span>
+            </button>
           ))}
         </div>
         <select value={tone} onChange={(e) => setTone(e.target.value)}
@@ -711,7 +719,24 @@ function IdeasTab({ platform, tone, ideas, setIdeas, loadingIdeas, setLoadingIde
           ))}
         </div>
       ) : !loadingIdeas && (
-        <div className="text-center py-16"><Lightbulb className="w-12 h-12 text-[#D4BBA6] mx-auto mb-4" /><h3 className="text-lg font-heading font-semibold text-[#5D4A3A]">Get AI Content Ideas</h3><p className="text-sm text-[#5D4A3A] mt-1">{selectedPillar ? `Select "${selectedPillar}" pillar and generate ideas` : 'Select a platform, set up pillars, and generate ideas'}</p></div>
+        <div className="text-center py-16 bg-white border border-[#E8D5C4] rounded-xl">
+          <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+            <Lightbulb className="w-8 h-8 text-amber-500" />
+          </div>
+          <h3 className="text-lg font-heading font-semibold text-[#4A3728]">Get AI Content Ideas</h3>
+          <p className="text-sm text-[#5D4A3A] mt-2 max-w-md mx-auto">
+            {selectedPillar 
+              ? `Generate content ideas for your "${selectedPillar}" pillar`
+              : 'Select a platform above and click Generate Ideas to get AI-powered content suggestions'}
+          </p>
+          <button 
+            onClick={selectedPillar ? generateByPillar : generateIdeas} 
+            disabled={loadingIdeas}
+            className="mt-6 bg-rose-500 hover:bg-rose-600 text-white rounded-lg font-medium px-6 py-2.5 text-sm inline-flex items-center gap-2"
+          >
+            <Sparkles className="w-4 h-4" /> Generate Ideas
+          </button>
+        </div>
       )}
     </div>
   );

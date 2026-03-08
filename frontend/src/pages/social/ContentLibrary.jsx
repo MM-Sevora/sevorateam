@@ -168,14 +168,21 @@ export default function ContentLibrary() {
   ];
 
   return (
-    <div className="space-y-6 animate-fade-in" data-testid="library-page">
+    <div className="space-y-6 animate-fade-in p-8" data-testid="library-page">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-3xl font-heading font-bold text-[#4A3728] tracking-tight">Content Library</h1><p className="text-[#5D4A3A] mt-1">Manage assets, templates, bulk imports, and campaign tags</p></div>
+        <div>
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#5D4A3A] mb-1">SOCIAL MEDIA</p>
+          <h1 className="text-2xl font-bold text-[#4A3728] tracking-tight">Content Library</h1>
+          <p className="text-sm text-[#5D4A3A] mt-1">Manage assets, templates, bulk imports, and campaign tags</p>
+        </div>
+        <button onClick={fetchAssets} className="flex items-center gap-2 px-4 py-2 border border-[#E8D5C4] rounded-lg text-sm text-[#5D4A3A] hover:bg-[#F5EDE5] transition-colors">
+          <RefreshCw className="w-4 h-4" /> Refresh
+        </button>
       </div>
 
       <div className="flex gap-1 p-1 bg-white rounded-xl border border-[#E8D5C4]">
         {tabs.map(t => (
-          <button key={t.key} onClick={() => { setTab(t.key); if (t.key === 'inbox') fetchInbox(); }} className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${tab === t.key ? 'bg-amber-800/15 text-amber-600' : 'text-[#5D4A3A] hover:text-[#4A3728] hover:bg-[#F5EDE5]'}`}>
+          <button key={t.key} onClick={() => { setTab(t.key); if (t.key === 'inbox') fetchInbox(); }} className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${tab === t.key ? 'bg-rose-100 text-rose-700' : 'text-[#5D4A3A] hover:text-[#4A3728] hover:bg-[#F5EDE5]'}`}>
             <t.icon className="w-4 h-4" /> {t.label} {t.badge > 0 && <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded-full">{t.badge}</span>}
           </button>
         ))}
@@ -235,7 +242,22 @@ export default function ContentLibrary() {
               </div>
             )
           ) : (
-            <div className="text-center py-16"><Image className="w-12 h-12 text-[#D4BBA6] mx-auto mb-3" /><p className="text-sm text-[#5D4A3A]">No assets yet. Upload images and media files.</p></div>
+            <div className="text-center py-16 bg-white border border-[#E8D5C4] rounded-xl">
+              <div className="w-16 h-16 rounded-full bg-rose-100 flex items-center justify-center mx-auto mb-4">
+                <Image className="w-8 h-8 text-rose-500" />
+              </div>
+              <h3 className="text-lg font-semibold text-[#4A3728]">No Media Assets Yet</h3>
+              <p className="text-sm text-[#5D4A3A] mt-2 max-w-md mx-auto">
+                Upload images, videos, and other media files to use in your social posts
+              </p>
+              <button 
+                onClick={() => fileRef.current?.click()} 
+                disabled={uploading}
+                className="mt-6 bg-rose-500 hover:bg-rose-600 text-white rounded-lg font-medium px-6 py-2.5 text-sm inline-flex items-center gap-2"
+              >
+                <Upload className="w-4 h-4" /> Upload Files
+              </button>
+            </div>
           )}
         </div>
       )}

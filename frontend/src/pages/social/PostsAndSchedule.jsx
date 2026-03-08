@@ -284,10 +284,20 @@ export default function PostsAndSchedule() {
   const charColor = charPercent > 90 ? '#ef4444' : charPercent > 70 ? '#f59e0b' : '#10b981';
 
   return (
-    <div className="space-y-5 animate-fade-in" data-testid="posts-schedule-page">
+    <div className="space-y-5 animate-fade-in p-8" data-testid="posts-schedule-page">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-3xl font-heading font-bold text-[#4A3728] tracking-tight">Posts & Schedule</h1><p className="text-[#5D4A3A] mt-1">Plan, create, schedule, and publish your content</p></div>
-        <button onClick={() => openComposer(null)} className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white shadow-[0_0_15px_rgba(124,58,237,0.3)] rounded-lg font-medium px-5 py-2.5 flex items-center gap-2" data-testid="new-post-btn"><Plus className="w-4 h-4" /> New Post</button>
+        <div>
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#5D4A3A] mb-1">SOCIAL MEDIA</p>
+          <h1 className="text-2xl font-bold text-[#4A3728] tracking-tight">Posts & Schedule</h1>
+          <p className="text-sm text-[#5D4A3A] mt-1">Plan, create, schedule, and publish your content</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={fetchPosts} className="flex items-center gap-2 px-4 py-2 border border-[#E8D5C4] rounded-lg text-sm text-[#5D4A3A] hover:bg-[#F5EDE5] transition-colors">
+            <ChevronLeft className="w-4 h-4" style={{ transform: 'rotate(0deg)' }} />
+            <span className="sr-only">Refresh</span>
+          </button>
+          <button onClick={() => openComposer(null)} className="bg-rose-500 hover:bg-rose-600 text-white rounded-lg font-medium px-5 py-2.5 flex items-center gap-2" data-testid="new-post-btn"><Plus className="w-4 h-4" /> New Post</button>
+        </div>
       </div>
 
       {/* Toolbar */}
@@ -295,17 +305,25 @@ export default function PostsAndSchedule() {
         <div className="flex items-center gap-2">
           <div className="flex bg-white rounded-lg border border-[#E8D5C4] p-0.5">
             {[{ k: 'week', icon: CalendarDays, l: 'Week' }, { k: 'month', icon: Grid3X3, l: 'Month' }, { k: 'list', icon: List, l: 'List' }].map(v => (
-              <button key={v.k} onClick={() => setView(v.k)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${view === v.k ? 'bg-amber-800/15 text-amber-600' : 'text-[#5D4A3A] hover:text-white'}`}><v.icon className="w-3.5 h-3.5" /> {v.l}</button>
+              <button key={v.k} onClick={() => setView(v.k)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${view === v.k ? 'bg-rose-100 text-rose-700' : 'text-[#5D4A3A] hover:text-[#4A3728] hover:bg-[#F5EDE5]'}`}><v.icon className="w-3.5 h-3.5" /> {v.l}</button>
             ))}
           </div>
           <button onClick={() => setCurrentDate(view === 'month' ? subMonths(currentDate, 1) : subWeeks(currentDate, 1))} className="p-1.5 rounded-lg hover:bg-[#F5EDE5] text-[#5D4A3A]"><ChevronLeft className="w-4 h-4" /></button>
-          <button onClick={() => setCurrentDate(new Date())} className="text-xs text-amber-600 px-2 py-1 rounded-lg hover:bg-amber-800/5">Today</button>
+          <button onClick={() => setCurrentDate(new Date())} className="text-xs text-rose-600 font-medium px-2 py-1 rounded-lg hover:bg-rose-50">Today</button>
           <button onClick={() => setCurrentDate(view === 'month' ? addMonths(currentDate, 1) : addWeeks(currentDate, 1))} className="p-1.5 rounded-lg hover:bg-[#F5EDE5] text-[#5D4A3A]"><ChevronRight className="w-4 h-4" /></button>
-          <span className="text-sm font-heading font-semibold text-[#4A3728] ml-2">{view === 'month' ? format(currentDate, 'MMMM yyyy') : `${format(weekStart, 'MMM d')} - ${format(addDays(weekStart, 6), 'MMM d, yyyy')}`}</span>
+          <span className="text-sm font-semibold text-[#4A3728] ml-2">{view === 'month' ? format(currentDate, 'MMMM yyyy') : `${format(weekStart, 'MMM d')} - ${format(addDays(weekStart, 6), 'MMM d, yyyy')}`}</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <button onClick={() => setFilterPlatform('')} className={`text-[10px] px-2.5 py-1.5 rounded-lg ${!filterPlatform ? 'bg-[#E8D5C4] text-white' : 'text-[#5D4A3A]'}`}>All</button>
-          {platforms.map(p => <button key={p.key} onClick={() => setFilterPlatform(filterPlatform === p.key ? '' : p.key)} className={`p-1.5 rounded-lg ${filterPlatform === p.key ? 'bg-[#E8D5C4]' : 'hover:bg-[#F5EDE5]'}`}><p.icon className="w-3.5 h-3.5" style={{ color: filterPlatform === p.key ? p.color : '#71717a' }} /></button>)}
+        <div className="flex items-center gap-2 bg-white border border-[#E8D5C4] rounded-lg p-1">
+          <button onClick={() => setFilterPlatform('')} className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${!filterPlatform ? 'bg-[#E8D5C4] text-[#4A3728]' : 'text-[#5D4A3A] hover:bg-[#F5EDE5]'}`}>All</button>
+          {platforms.map(p => (
+            <button key={p.key} onClick={() => setFilterPlatform(filterPlatform === p.key ? '' : p.key)} 
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${filterPlatform === p.key ? 'bg-[#E8D5C4]' : 'hover:bg-[#F5EDE5]'}`}
+              title={p.label}
+            >
+              <p.icon className="w-3.5 h-3.5" style={{ color: filterPlatform === p.key ? p.color : '#71717a' }} />
+              <span className={filterPlatform === p.key ? 'text-[#4A3728]' : 'text-[#5D4A3A] hidden sm:inline'}>{p.label}</span>
+            </button>
+          ))}
         </div>
       </div>
 
@@ -378,7 +396,23 @@ export default function PostsAndSchedule() {
                         </div>
                       </div>
                     );
-                  }) : <div className="text-center py-16"><FileText className="w-10 h-10 text-[#D4BBA6] mx-auto mb-3" /><p className="text-sm text-[#5D4A3A]">No posts yet</p></div>}
+                  }) : (
+                    <div className="text-center py-16 bg-white border border-[#E8D5C4] rounded-xl">
+                      <div className="w-16 h-16 rounded-full bg-rose-100 flex items-center justify-center mx-auto mb-4">
+                        <CalIcon className="w-8 h-8 text-rose-500" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-[#4A3728]">Plan Your First Post</h3>
+                      <p className="text-sm text-[#5D4A3A] mt-2 max-w-md mx-auto">
+                        Start building your content calendar by creating and scheduling your first social media post
+                      </p>
+                      <button 
+                        onClick={() => openComposer(null)} 
+                        className="mt-6 bg-rose-500 hover:bg-rose-600 text-white rounded-lg font-medium px-6 py-2.5 text-sm inline-flex items-center gap-2"
+                      >
+                        <Plus className="w-4 h-4" /> Create First Post
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </>
