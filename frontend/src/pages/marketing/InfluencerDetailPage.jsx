@@ -410,15 +410,21 @@ const InfluencerDetailPage = () => {
       toast.error('Deliverable name is required');
       return;
     }
+    const priceNum = parseFloat(newDeliverable.price) || 0;
+    const newItem = {
+      id: Date.now().toString(),
+      name: newDeliverable.name,
+      description: newDeliverable.description || '',
+      price: priceNum,
+      rate: priceNum  // Also store as rate for API compatibility
+    };
     setForm(prev => ({
       ...prev,
-      deliverables: [
-        ...prev.deliverables,
-        { id: Date.now().toString(), ...newDeliverable }
-      ]
+      deliverables: [...prev.deliverables, newItem]
     }));
     setNewDeliverable({ name: '', description: '', price: '' });
     setHasChanges(true);
+    toast.success('Deliverable added - click Save to persist changes');
   };
 
   const removeDeliverable = (id) => {
@@ -430,10 +436,11 @@ const InfluencerDetailPage = () => {
   };
 
   const updateDeliverablePrice = (id, price) => {
+    const priceNum = parseFloat(price) || 0;
     setForm(prev => ({
       ...prev,
       deliverables: prev.deliverables.map(d => 
-        d.id === id ? { ...d, price } : d
+        d.id === id ? { ...d, price: priceNum, rate: priceNum } : d
       )
     }));
     setHasChanges(true);
