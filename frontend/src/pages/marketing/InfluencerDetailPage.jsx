@@ -17,7 +17,7 @@ import {
   Instagram, Youtube, Download, Users, TrendingUp, Heart, Star,
   Globe, Image, Film, Clock, DollarSign, Sparkles, Plus, Trash2,
   Send, Mail, MessageSquare, Target, Calendar, Phone, User,
-  BarChart3, Package, History, Edit3, ExternalLink, Building2
+  BarChart3, Package, History, Edit3, ExternalLink, Building2, Briefcase
 } from 'lucide-react';
 
 const InfluencerDetailPage = () => {
@@ -1037,16 +1037,16 @@ const InfluencerDetailPage = () => {
             </Card>
           </div>
 
-          {/* Right Column - Pipeline & Performance */}
+          {/* Right Column - Pipeline, Campaign & Performance */}
           <div className="space-y-6">
-            {/* Pipeline Card */}
+            {/* Pipeline Card - Status Only */}
             <Card className="bg-gradient-to-br from-amber-50 to-white border-amber-100">
               <CardHeader className="pb-3 border-b border-amber-100">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Target className="w-4 h-4 text-amber-600" /> Pipeline
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-5 space-y-5">
+              <CardContent className="p-5 space-y-4">
                 {/* Status */}
                 <div>
                   <Label className="text-xs uppercase tracking-wider text-gray-600">STATUS</Label>
@@ -1089,9 +1089,28 @@ const InfluencerDetailPage = () => {
                   </Select>
                 </div>
 
-                {/* Campaign Assignment */}
+                {/* Quick Actions */}
+                <div className="pt-3 border-t border-amber-100">
+                  <Button 
+                    className="w-full bg-amber-500 hover:bg-amber-600 text-white"
+                    onClick={() => setShowOutreachModal(true)}
+                  >
+                    <Send className="w-4 h-4 mr-2" /> Send Outreach
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Campaign Card - Separate */}
+            <Card className="bg-gradient-to-br from-blue-50 to-white border-blue-100">
+              <CardHeader className="pb-3 border-b border-blue-100">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-blue-600" /> Campaign
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-5">
                 <div>
-                  <Label className="text-xs uppercase tracking-wider text-gray-600">CAMPAIGN</Label>
+                  <Label className="text-xs uppercase tracking-wider text-gray-600">ASSIGNED CAMPAIGN</Label>
                   <Select value={assignedCampaign || 'none'} onValueChange={(val) => handleAssignCampaign(val === 'none' ? '' : val)}>
                     <SelectTrigger className="mt-2 bg-white" data-testid="campaign-select">
                       <SelectValue placeholder="Assign to campaign" />
@@ -1106,16 +1125,14 @@ const InfluencerDetailPage = () => {
                     </SelectContent>
                   </Select>
                 </div>
-
-                {/* Quick Actions */}
-                <div className="pt-2 border-t border-amber-100">
-                  <Button 
-                    className="w-full bg-amber-500 hover:bg-amber-600 text-white"
-                    onClick={() => setShowOutreachModal(true)}
-                  >
-                    <Send className="w-4 h-4 mr-2" /> Send Outreach
-                  </Button>
-                </div>
+                {assignedCampaign && (
+                  <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                    <div className="text-xs text-blue-600 font-medium">Currently assigned to:</div>
+                    <div className="text-sm font-semibold text-gray-900 mt-1">
+                      {campaigns.find(c => (c.id || c._id) === assignedCampaign)?.name || 'Unknown Campaign'}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
