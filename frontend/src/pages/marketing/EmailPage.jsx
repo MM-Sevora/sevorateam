@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useMsal, useIsAuthenticated } from '@azure/msal-react';
+import { InteractionRequiredAuthError } from '@azure/msal-browser';
 import { format } from 'date-fns';
 import { 
   Mail, Search, Star, Archive, Trash2, Reply, ReplyAll, Forward,
@@ -6,7 +8,7 @@ import {
   Inbox, FileText, Clock, Tag, Settings, PenSquare, ChevronDown,
   MailOpen, CheckSquare, Square, StarOff, Bookmark, Eye, EyeOff,
   CornerUpLeft, ArrowLeft, Printer, ExternalLink, MoreHorizontal,
-  Loader2, Plus, Check
+  Loader2, Plus, Check, LogIn, LogOut, User
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -28,8 +30,9 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Textarea } from '../../components/ui/textarea';
+import { Card, CardContent } from '../../components/ui/card';
 import { toast } from 'sonner';
-import { microsoftAPI } from '../../lib/api';
+import { mailRequest } from '../../authConfig';
 
 // Gmail-like color scheme
 const GMAIL_COLORS = {
@@ -70,18 +73,25 @@ const LABELS = [
   { id: 'social', name: 'Social', color: '#fbbc04' },
 ];
 
+const GRAPH_ENDPOINT = 'https://graph.microsoft.com/v1.0';
+
 const EmailPage = () => {
+  // MSAL hooks
+  const { instance, accounts } = useMsal();
+  const isAuthenticated = useIsAuthenticated();
+  const account = accounts[0];
+  
   // State
   const [emails, setEmails] = useState([]);
   const [selectedEmail, setSelectedEmail] = useState(null);
   const [fullEmail, setFullEmail] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentFolder, setCurrentFolder] = useState('inbox');
-  const [connectionStatus, setConnectionStatus] = useState(null);
   const [selectedEmails, setSelectedEmails] = useState(new Set());
-  const [viewMode, setViewMode] = useState('list'); // list or detail
+  const [viewMode, setViewMode] = useState('list');
+  const [msLoginLoading, setMsLoginLoading] = useState(false);
   
   // Compose state
   const [showCompose, setShowCompose] = useState(false);
@@ -94,29 +104,124 @@ const EmailPage = () => {
   const [sending, setSending] = useState(false);
   const [showCc, setShowCc] = useState(false);
 
-  // Check connection
-  const checkConnection = useCallback(async () => {
+  // Get access token silently
+  const getAccessToken = useCallback(async () => {
+    if (!account) return null;
+    
     try {
-      const response = await microsoftAPI.getStatus();
-      setConnectionStatus(response.data);
+      const response = await instance.acquireTokenSilent({
+        ...mailRequest,
+        account: account,
+      });
+      return response.accessToken;
     } catch (error) {
-      setConnectionStatus({ connected: false, status: 'error' });
+      if (error instanceof InteractionRequiredAuthError) {
+        // Fallback to interactive
+        try {
+          const response = await instance.acquireTokenPopup(mailRequest);
+          return response.accessToken;
+        } catch (popupError) {
+          console.error('Failed to acquire token:', popupError);
+          return null;
+        }
+      }
+      console.error('Token error:', error);
+      return null;
     }
-  }, []);
+  }, [instance, account]);
 
-  // Fetch emails
+  // Microsoft Graph API call helper
+  const callGraphAPI = useCallback(async (endpoint, options = {}) => {
+    const token = await getAccessToken();
+    if (!token) {
+      toast.error('Please sign in with Microsoft');
+      return null;
+    }
+    
+    const response = await fetch(`${GRAPH_ENDPOINT}${endpoint}`, {
+      ...options,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error?.message || 'API call failed');
+    }
+    
+    return response.json();
+  }, [getAccessToken]);
+
+  // Handle Microsoft login
+  const handleMicrosoftLogin = async () => {
+    setMsLoginLoading(true);
+    try {
+      await instance.loginPopup(mailRequest);
+      toast.success('Successfully connected to Microsoft 365!');
+    } catch (error) {
+      console.error('Login error:', error);
+      if (error.errorCode !== 'user_cancelled') {
+        toast.error('Failed to connect to Microsoft');
+      }
+    } finally {
+      setMsLoginLoading(false);
+    }
+  };
+
+  // Handle Microsoft logout
+  const handleMicrosoftLogout = async () => {
+    try {
+      await instance.logoutPopup();
+      setEmails([]);
+      setSelectedEmail(null);
+      toast.success('Signed out from Microsoft');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  // Fetch emails using Graph API
   const fetchEmails = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
     setLoading(true);
     try {
-      const response = await microsoftAPI.getEmails(currentFolder, 50, 0, searchQuery || null);
-      setEmails(response.data || []);
+      const folderMap = {
+        'inbox': 'inbox',
+        'sentitems': 'sentItems',
+        'drafts': 'drafts',
+        'deleteditems': 'deletedItems',
+        'archive': 'archive',
+        'starred': 'inbox' // We'll filter starred later
+      };
+      
+      const folder = folderMap[currentFolder] || 'inbox';
+      let url = `/me/mailFolders/${folder}/messages?$top=50&$orderby=receivedDateTime desc&$select=id,subject,bodyPreview,from,toRecipients,receivedDateTime,isRead,flag,hasAttachments,importance`;
+      
+      if (searchQuery) {
+        url += `&$search="${searchQuery}"`;
+      }
+      
+      const data = await callGraphAPI(url);
+      let fetchedEmails = data?.value || [];
+      
+      // Filter starred if needed
+      if (currentFolder === 'starred') {
+        fetchedEmails = fetchedEmails.filter(e => e.flag?.flagStatus === 'flagged');
+      }
+      
+      setEmails(fetchedEmails);
     } catch (error) {
       console.error('Failed to fetch emails:', error);
+      toast.error('Failed to load emails');
       setEmails([]);
     } finally {
       setLoading(false);
     }
-  }, [currentFolder, searchQuery]);
+  }, [isAuthenticated, currentFolder, searchQuery, callGraphAPI]);
 
   // Sync emails
   const handleSync = async () => {
@@ -126,15 +231,19 @@ const EmailPage = () => {
     toast.success('Inbox refreshed');
   };
 
-  // Load full email
+  // Load full email using Graph API
   const loadFullEmail = async (messageId) => {
     try {
-      const response = await microsoftAPI.getMessage(messageId);
-      setFullEmail(response.data);
+      const data = await callGraphAPI(`/me/messages/${messageId}?$select=id,subject,body,from,toRecipients,ccRecipients,receivedDateTime,isRead,flag,hasAttachments,importance`);
+      setFullEmail(data);
+      
       // Mark as read
       const email = emails.find(e => e.id === messageId);
       if (email && !email.isRead) {
-        await microsoftAPI.markAsRead(messageId, true);
+        await callGraphAPI(`/me/messages/${messageId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ isRead: true })
+        });
         setEmails(prev => prev.map(e => e.id === messageId ? { ...e, isRead: true } : e));
       }
     } catch (error) {
@@ -156,12 +265,15 @@ const EmailPage = () => {
     setFullEmail(null);
   };
 
-  // Toggle star
+  // Toggle star using Graph API
   const handleToggleStar = async (e, emailId, currentFlag) => {
     e.stopPropagation();
     const newFlag = currentFlag === 'flagged' ? 'notFlagged' : 'flagged';
     try {
-      await microsoftAPI.setFlag(emailId, newFlag);
+      await callGraphAPI(`/me/messages/${emailId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ flag: { flagStatus: newFlag } })
+      });
       setEmails(prev => prev.map(em => 
         em.id === emailId ? { ...em, flag: { flagStatus: newFlag } } : em
       ));
@@ -193,12 +305,21 @@ const EmailPage = () => {
     }
   };
 
-  // Archive selected
+  // Archive selected using Graph API
   const handleArchiveSelected = async () => {
     if (selectedEmails.size === 0) return;
     try {
-      for (const emailId of selectedEmails) {
-        await microsoftAPI.archiveMessage(emailId);
+      // Get archive folder ID
+      const folders = await callGraphAPI('/me/mailFolders');
+      const archiveFolder = folders?.value?.find(f => f.displayName.toLowerCase() === 'archive');
+      
+      if (archiveFolder) {
+        for (const emailId of selectedEmails) {
+          await callGraphAPI(`/me/messages/${emailId}/move`, {
+            method: 'POST',
+            body: JSON.stringify({ destinationId: archiveFolder.id })
+          });
+        }
       }
       setEmails(prev => prev.filter(e => !selectedEmails.has(e.id)));
       setSelectedEmails(new Set());
@@ -208,12 +329,12 @@ const EmailPage = () => {
     }
   };
 
-  // Delete selected
+  // Delete selected using Graph API
   const handleDeleteSelected = async () => {
     if (selectedEmails.size === 0) return;
     try {
       for (const emailId of selectedEmails) {
-        await microsoftAPI.deleteMessage(emailId);
+        await callGraphAPI(`/me/messages/${emailId}`, { method: 'DELETE' });
       }
       setEmails(prev => prev.filter(e => !selectedEmails.has(e.id)));
       setSelectedEmails(new Set());
@@ -223,12 +344,15 @@ const EmailPage = () => {
     }
   };
 
-  // Mark as read/unread
+  // Mark as read/unread using Graph API
   const handleMarkReadUnread = async (read) => {
     if (selectedEmails.size === 0) return;
     try {
       for (const emailId of selectedEmails) {
-        await microsoftAPI.markAsRead(emailId, read);
+        await callGraphAPI(`/me/messages/${emailId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ isRead: read })
+        });
       }
       setEmails(prev => prev.map(e => 
         selectedEmails.has(e.id) ? { ...e, isRead: read } : e
@@ -279,13 +403,28 @@ const EmailPage = () => {
     
     setSending(true);
     try {
-      await microsoftAPI.sendEmail({
-        to_recipients: composeTo.split(',').map(e => e.trim()).filter(e => e),
+      const message = {
         subject: composeSubject,
-        body: composeBody.replace(/\n/g, '<br>'),
-        is_html: true,
-        cc_recipients: composeCc ? composeCc.split(',').map(e => e.trim()).filter(e => e) : null,
+        body: {
+          contentType: 'HTML',
+          content: composeBody.replace(/\n/g, '<br>')
+        },
+        toRecipients: composeTo.split(',').map(e => e.trim()).filter(e => e).map(email => ({
+          emailAddress: { address: email }
+        })),
+      };
+      
+      if (composeCc) {
+        message.ccRecipients = composeCc.split(',').map(e => e.trim()).filter(e => e).map(email => ({
+          emailAddress: { address: email }
+        }));
+      }
+      
+      await callGraphAPI('/me/sendMail', {
+        method: 'POST',
+        body: JSON.stringify({ message, saveToSentItems: true })
       });
+      
       toast.success('Message sent');
       setShowCompose(false);
       if (currentFolder === 'sentitems') fetchEmails();
@@ -327,16 +466,68 @@ const EmailPage = () => {
   };
 
   useEffect(() => {
-    checkConnection();
-    fetchEmails();
-  }, [checkConnection, fetchEmails]);
+    if (isAuthenticated) {
+      fetchEmails();
+    }
+  }, [isAuthenticated, fetchEmails]);
 
   useEffect(() => {
-    const timer = setTimeout(() => fetchEmails(), 500);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+    if (isAuthenticated) {
+      const timer = setTimeout(() => fetchEmails(), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [searchQuery, isAuthenticated, fetchEmails]);
 
   const unreadCount = emails.filter(e => !e.isRead).length;
+
+  // Show login screen if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="h-[calc(100vh-64px)] flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100" data-testid="email-page-login">
+        <Card className="w-full max-w-md mx-4 shadow-xl">
+          <CardContent className="p-8">
+            <div className="text-center mb-8">
+              <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl flex items-center justify-center shadow-lg">
+                <Mail className="w-10 h-10 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">Connect Your Email</h1>
+              <p className="text-gray-600">
+                Sign in with your Microsoft account to access your Outlook emails
+              </p>
+            </div>
+            
+            <Button
+              onClick={handleMicrosoftLogin}
+              disabled={msLoginLoading}
+              className="w-full h-12 bg-[#0078d4] hover:bg-[#106ebe] text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all"
+              data-testid="microsoft-login-btn"
+            >
+              {msLoginLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Connecting...
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5 mr-2" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+                    <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+                    <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+                    <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+                  </svg>
+                  Sign in with Microsoft
+                </>
+              )}
+            </Button>
+            
+            <p className="text-xs text-gray-500 text-center mt-6">
+              By signing in, you'll be able to read, send, and manage your Outlook emails directly from this app.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="h-[calc(100vh-64px)] flex bg-white" data-testid="email-page">
@@ -416,15 +607,32 @@ const EmailPage = () => {
           </div>
           
           <div className="flex items-center gap-2">
-            {connectionStatus?.connected ? (
-              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                <Check className="w-3 h-3 mr-1" /> Connected
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-                <AlertCircle className="w-3 h-3 mr-1" /> Limited
-              </Badge>
-            )}
+            {/* User Account */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-9 px-2 gap-2 hover:bg-gray-100 rounded-full">
+                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-700 rounded-full flex items-center justify-center">
+                    <span className="text-white text-sm font-medium">
+                      {account?.name?.charAt(0) || account?.username?.charAt(0) || 'U'}
+                    </span>
+                  </div>
+                  <span className="text-sm text-gray-700 max-w-32 truncate hidden sm:block">
+                    {account?.username || 'User'}
+                  </span>
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <div className="px-3 py-2 border-b">
+                  <p className="font-medium text-gray-900">{account?.name || 'Microsoft User'}</p>
+                  <p className="text-sm text-gray-500">{account?.username}</p>
+                </div>
+                <DropdownMenuItem onClick={handleMicrosoftLogout} className="text-red-600">
+                  <LogOut className="w-4 h-4 mr-2" /> Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>

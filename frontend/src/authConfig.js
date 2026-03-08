@@ -16,6 +16,17 @@ export const loginRequest = {
     scopes: ["User.Read", "openid", "profile", "email"],
 };
 
+// Email-specific scopes for Microsoft Graph Mail API
+export const mailRequest = {
+    scopes: [
+        "User.Read",
+        "Mail.Read",
+        "Mail.ReadWrite", 
+        "Mail.Send",
+        "offline_access"
+    ],
+};
+
 export const graphConfig = {
     graphMeEndpoint: "https://graph.microsoft.com/v1.0/me",
 };
