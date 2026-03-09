@@ -234,7 +234,16 @@ const AccessControlPage = () => {
     
     setSaving(true);
     try {
-      const response = await api.post(`/access/onboard/${selectedUser.id}`, onboardForm);
+      // Clean up empty string values before sending to API
+      const payload = {
+        ...onboardForm,
+        team_id: onboardForm.team_id || null,
+        position_id: onboardForm.position_id || null,
+        grade_id: onboardForm.grade_id || null,
+        reports_to: onboardForm.reports_to || null,
+      };
+      
+      const response = await api.post(`/access/onboard/${selectedUser.id}`, payload);
       toast.success(response.data?.message || 'User onboarded successfully');
       setShowOnboardDialog(false);
       setSelectedUser(null);
@@ -778,14 +787,14 @@ const AccessControlPage = () => {
                 <div>
                   <Label className="text-[#4A3728]">Team</Label>
                   <Select 
-                    value={onboardForm.team_id} 
-                    onValueChange={(v) => setOnboardForm({ ...onboardForm, team_id: v })}
+                    value={onboardForm.team_id || "none"} 
+                    onValueChange={(v) => setOnboardForm({ ...onboardForm, team_id: v === "none" ? "" : v })}
                   >
                     <SelectTrigger className="border-[#E8D5C4]">
                       <SelectValue placeholder="Select team" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
                       {filteredTeams.map(team => (
                         <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
                       ))}
@@ -795,14 +804,14 @@ const AccessControlPage = () => {
                 <div>
                   <Label className="text-[#4A3728]">Position</Label>
                   <Select 
-                    value={onboardForm.position_id} 
-                    onValueChange={(v) => setOnboardForm({ ...onboardForm, position_id: v })}
+                    value={onboardForm.position_id || "none"} 
+                    onValueChange={(v) => setOnboardForm({ ...onboardForm, position_id: v === "none" ? "" : v })}
                   >
                     <SelectTrigger className="border-[#E8D5C4]">
                       <SelectValue placeholder="Select position" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
                       {positions.map(pos => (
                         <SelectItem key={pos.id} value={pos.id}>{pos.title}</SelectItem>
                       ))}
@@ -812,14 +821,14 @@ const AccessControlPage = () => {
                 <div>
                   <Label className="text-[#4A3728]">Grade</Label>
                   <Select 
-                    value={onboardForm.grade_id} 
-                    onValueChange={(v) => setOnboardForm({ ...onboardForm, grade_id: v })}
+                    value={onboardForm.grade_id || "none"} 
+                    onValueChange={(v) => setOnboardForm({ ...onboardForm, grade_id: v === "none" ? "" : v })}
                   >
                     <SelectTrigger className="border-[#E8D5C4]">
                       <SelectValue placeholder="Select grade" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
                       {grades.map(grade => (
                         <SelectItem key={grade.id} value={grade.id}>{grade.name}</SelectItem>
                       ))}
@@ -900,14 +909,14 @@ const AccessControlPage = () => {
                 <div>
                   <Label className="text-[#4A3728]">Reports To</Label>
                   <Select 
-                    value={onboardForm.reports_to} 
-                    onValueChange={(v) => setOnboardForm({ ...onboardForm, reports_to: v })}
+                    value={onboardForm.reports_to || "none"} 
+                    onValueChange={(v) => setOnboardForm({ ...onboardForm, reports_to: v === "none" ? "" : v })}
                   >
                     <SelectTrigger className="border-[#E8D5C4]">
                       <SelectValue placeholder="Select manager" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
                       {employees.map(emp => (
                         <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
                       ))}
