@@ -84,15 +84,16 @@ class NotificationResponse(BaseModel):
     id: str
     user_id: str
     type: str
-    category: str
+    category: Optional[str] = "system"
     title: str
     message: str
-    priority: str
+    priority: Optional[str] = "medium"
     entity_type: Optional[str] = None
     entity_id: Optional[str] = None
     action_url: Optional[str] = None
     metadata: Dict[str, Any] = {}
     is_read: bool = False
+    read: Optional[bool] = None  # Legacy field
     read_at: Optional[str] = None
     created_at: str
 

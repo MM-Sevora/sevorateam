@@ -8,6 +8,9 @@ from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 from dateutil.relativedelta import relativedelta
 import uuid
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Import models
 from models.projects import (
@@ -28,6 +31,11 @@ from models.projects import (
 
 # Import storage utilities
 from utils.storage import init_storage, put_object, get_object, get_mime_type, generate_storage_path
+
+# Import notification helpers
+from routes.notifications import (
+    create_notification, NotificationType, NotificationCategory, NotificationPriority
+)
 
 router = APIRouter(prefix="/projects", tags=["Project Management"])
 
@@ -1354,6 +1362,24 @@ async def create_task(
     
     await log_activity("task", task_id, data.name, "created", user["id"])
     
+    # Send notification if task is assigned to someone
+    if data.assigned_to and data.assigned_to != user["id"]:
+        try:
+            await create_notification(
+                user_id=data.assigned_to,
+                notification_type=NotificationType.TASK_ASSIGNED,
+                category=NotificationCategory.TASK,
+                title="New Task Assigned",
+                message=f"{user.get('name', 'Someone')} assigned you: {data.name}",
+                priority=NotificationPriority.HIGH if data.priority.value in ['high', 'urgent'] else NotificationPriority.MEDIUM,
+                entity_type="task",
+                entity_id=task_id,
+                action_url=f"/projects/{data.project_id}?task={task_id}",
+                metadata={"project_name": project.get("name"), "assigner": user.get("name")}
+            )
+        except Exception as e:
+            logger.error(f"Failed to send task assignment notification: {e}")
+    
     if "_id" in task_doc:
         del task_doc["_id"]
     
@@ -1412,6 +1438,26 @@ async def update_task(
         update_data["assigned_by"] = user["id"]
         if not new_status and old_status == TaskStatus.DRAFT.value:
             update_data["status"] = TaskStatus.ASSIGNED.value
+        
+        # Send notification to newly assigned user
+        new_assignee = update_data["assigned_to"]
+        if new_assignee and new_assignee != user["id"]:
+            try:
+                project = await db.pm_projects.find_one({"id": task.get("project_id")}, {"name": 1})
+                await create_notification(
+                    user_id=new_assignee,
+                    notification_type=NotificationType.TASK_ASSIGNED,
+                    category=NotificationCategory.TASK,
+                    title="Task Assigned to You",
+                    message=f"{user.get('name', 'Someone')} assigned you: {task.get('name')}",
+                    priority=NotificationPriority.HIGH,
+                    entity_type="task",
+                    entity_id=task_id,
+                    action_url=f"/projects/{task.get('project_id')}?task={task_id}",
+                    metadata={"project_name": project.get("name") if project else None}
+                )
+            except Exception as e:
+                logger.error(f"Failed to send task reassignment notification: {e}")
     
     # Handle blocked_by updates
     if "blocked_by" in update_data:
@@ -1463,6 +1509,50 @@ async def update_task(
         # Handle recurring task - create next instance when completed
         if new_status in ["completed", "approved"] and task.get("is_recurring"):
             await create_next_recurring_task(task, user["id"])
+        
+        # Notify task assignee about status change (if not the one making the change)
+        assignee = task.get("assigned_to")
+        if assignee and assignee != user["id"]:
+            try:
+                status_labels = {
+                    "in_progress": "In Progress",
+                    "in_review": "In Review",
+                    "completed": "Completed",
+                    "approved": "Approved",
+                    "on_hold": "On Hold"
+                }
+                await create_notification(
+                    user_id=assignee,
+                    notification_type=NotificationType.TASK_STATUS_CHANGED,
+                    category=NotificationCategory.TASK,
+                    title="Task Status Updated",
+                    message=f"'{task.get('name')}' moved to {status_labels.get(new_status, new_status)}",
+                    priority=NotificationPriority.MEDIUM,
+                    entity_type="task",
+                    entity_id=task_id,
+                    action_url=f"/projects/{task.get('project_id')}?task={task_id}",
+                    metadata={"old_status": old_status, "new_status": new_status}
+                )
+            except Exception as e:
+                logger.error(f"Failed to send task status notification: {e}")
+        
+        # Notify task creator when completed (if different from assignee and modifier)
+        creator = task.get("created_by")
+        if new_status in ["completed", "approved"] and creator and creator != user["id"] and creator != assignee:
+            try:
+                await create_notification(
+                    user_id=creator,
+                    notification_type=NotificationType.TASK_COMPLETED,
+                    category=NotificationCategory.TASK,
+                    title="Task Completed",
+                    message=f"'{task.get('name')}' has been marked as {new_status}",
+                    priority=NotificationPriority.MEDIUM,
+                    entity_type="task",
+                    entity_id=task_id,
+                    action_url=f"/projects/{task.get('project_id')}?task={task_id}"
+                )
+            except Exception as e:
+                logger.error(f"Failed to send task completion notification: {e}")
     else:
         await log_activity("task", task_id, task.get("name"), "updated", user["id"], update_data)
     
@@ -1806,6 +1896,45 @@ async def create_comment(
     
     await db.pm_comments.insert_one(comment_doc)
     await log_activity("task", data.task_id, task.get("name"), "commented", user["id"], {"comment_id": comment_id})
+    
+    # Notify task assignee about new comment
+    assignee = task.get("assigned_to")
+    if assignee and assignee != user["id"]:
+        try:
+            await create_notification(
+                user_id=assignee,
+                notification_type=NotificationType.TASK_COMMENT,
+                category=NotificationCategory.TASK,
+                title="New Comment",
+                message=f"{user.get('name', 'Someone')} commented on '{task.get('name')}'",
+                priority=NotificationPriority.MEDIUM,
+                entity_type="task",
+                entity_id=data.task_id,
+                action_url=f"/projects/{task.get('project_id')}?task={data.task_id}",
+                metadata={"comment_preview": data.content[:100] if data.content else ""}
+            )
+        except Exception as e:
+            logger.error(f"Failed to send comment notification: {e}")
+    
+    # Notify mentioned users
+    if data.mentions:
+        for mentioned_user_id in data.mentions:
+            if mentioned_user_id != user["id"]:
+                try:
+                    await create_notification(
+                        user_id=mentioned_user_id,
+                        notification_type=NotificationType.USER_MENTIONED,
+                        category=NotificationCategory.MENTION,
+                        title=f"{user.get('name', 'Someone')} mentioned you",
+                        message=f"In task '{task.get('name')}': {data.content[:80]}...",
+                        priority=NotificationPriority.HIGH,
+                        entity_type="task",
+                        entity_id=data.task_id,
+                        action_url=f"/projects/{task.get('project_id')}?task={data.task_id}",
+                        metadata={"mentioner": user.get("name"), "context": "task_comment"}
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to send mention notification: {e}")
     
     if "_id" in comment_doc:
         del comment_doc["_id"]

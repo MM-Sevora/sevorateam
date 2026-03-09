@@ -58,6 +58,9 @@ from models.marketing import (
     AdvertorialCreate, AdvertorialResponse,
 )
 
+import logging
+logger = logging.getLogger(__name__)
+
 marketing_v2_router = APIRouter(prefix="/marketing/v2", tags=["Marketing V2"])
 
 # Import db and auth dependencies from main server
@@ -1261,6 +1264,29 @@ async def update_deal_status(deal_id: str, status: str, note: Optional[str] = No
                 {"id": campaign_id},
                 {"$inc": {"confirmed_count": 1}}
             )
+            
+            # Send notification about influencer confirmation
+            campaign = await db.campaigns.find_one({"id": campaign_id}, {"name": 1, "created_by": 1})
+            contact = await db.contacts.find_one({"id": deal["contact_id"]}, {"name": 1})
+            if campaign and campaign.get("created_by"):
+                try:
+                    from routes.notifications import (
+                        create_notification, NotificationType, NotificationCategory, NotificationPriority
+                    )
+                    await create_notification(
+                        user_id=campaign["created_by"],
+                        notification_type=NotificationType.INFLUENCER_CONFIRMED,
+                        category=NotificationCategory.MARKETING,
+                        title="Influencer Confirmed",
+                        message=f"{contact.get('name', 'Influencer')} confirmed for '{campaign.get('name')}'",
+                        priority=NotificationPriority.MEDIUM,
+                        entity_type="deal",
+                        entity_id=deal_id,
+                        action_url=f"/marketing/campaigns/{campaign_id}",
+                        metadata={"influencer_name": contact.get("name") if contact else None}
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to send influencer confirmation notification: {e}")
         elif old_status in ["agreed", "signed"] and status not in ["agreed", "signed"]:
             # Deal was confirmed but now changed - decrement
             await db.campaigns.update_one(
@@ -2286,6 +2312,33 @@ async def review_approval(approval_id: str, status: str, reviewed_by: str, notes
                 {"id": approval["item_id"]},
                 {"$set": {"status": item_status}}
             )
+        
+        # Send notification to the person who submitted the approval
+        submitter_id = approval.get("submitted_by")
+        if submitter_id:
+            try:
+                from routes.notifications import (
+                    create_notification, NotificationType, NotificationCategory, NotificationPriority
+                )
+                
+                notification_type = NotificationType.APPROVAL_GRANTED if status == "approved" else NotificationType.APPROVAL_REJECTED
+                reviewer = await db.users.find_one({"id": reviewed_by}, {"name": 1})
+                reviewer_name = reviewer.get("name", "A reviewer") if reviewer else "A reviewer"
+                
+                await create_notification(
+                    user_id=submitter_id,
+                    notification_type=notification_type,
+                    category=NotificationCategory.APPROVAL,
+                    title=f"Approval {status.title()}",
+                    message=f"Your {approval['item_type']} has been {status} by {reviewer_name}",
+                    priority=NotificationPriority.HIGH,
+                    entity_type=approval["item_type"],
+                    entity_id=approval["item_id"],
+                    action_url=f"/marketing/{approval['item_type']}s/{approval['item_id']}",
+                    metadata={"reviewer": reviewer_name, "notes": notes}
+                )
+            except Exception as e:
+                logger.error(f"Failed to send approval notification: {e}")
     
     return {"message": f"Approval {status}"}
 
