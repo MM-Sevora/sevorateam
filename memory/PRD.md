@@ -79,6 +79,16 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - [x] File list with icons, size, date, uploader
 - [x] 10MB file size limit validation
 
+### Phase 9: Calendar View (COMPLETE - March 9, 2026)
+- [x] New TaskCalendarView.jsx component
+- [x] Monthly calendar grid with task indicators
+- [x] View toggle (Kanban/Calendar) in ProjectDetail
+- [x] Click date to see tasks in right panel
+- [x] Click task to open TaskDetailModal
+- [x] Today button, month navigation
+- [x] Priority color coding on calendar
+- [x] Overdue task indicators
+
 ---
 
 ## Pending Issues

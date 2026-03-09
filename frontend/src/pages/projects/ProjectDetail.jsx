@@ -4,7 +4,7 @@ import {
   ArrowLeft, Plus, Edit, Trash2, Users, Calendar, Flag, Clock,
   CheckCircle2, AlertTriangle, PlayCircle, Eye, MoreVertical,
   GripVertical, MessageSquare, ListTodo, RefreshCw, Settings,
-  User, Folder, AlertOctagon
+  User, Folder, AlertOctagon, LayoutGrid, CalendarDays
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -33,6 +33,7 @@ import {
 } from "../../components/ui/select";
 import { toast } from 'sonner';
 import TaskDetailModal from './TaskDetailModal';
+import TaskCalendarView from './TaskCalendarView';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -347,6 +348,7 @@ const ProjectDetail = () => {
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [draggedTask, setDraggedTask] = useState(null);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
+  const [viewMode, setViewMode] = useState('kanban'); // 'kanban' or 'calendar'
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -561,31 +563,70 @@ const ProjectDetail = () => {
         </Card>
       </div>
 
-      {/* Kanban Board */}
+      {/* Task Board - Kanban or Calendar */}
       <Card className="bg-[#FDF8F3] border-[#E8D5C4]">
         <CardHeader className="border-b border-[#E8D5C4] bg-white/50">
-          <CardTitle className="text-[#4A3728] flex items-center gap-2">
-            <GripVertical className="w-5 h-5 text-rose-600" />
-            Task Board
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-[#4A3728] flex items-center gap-2">
+              {viewMode === 'kanban' ? (
+                <GripVertical className="w-5 h-5 text-rose-600" />
+              ) : (
+                <CalendarDays className="w-5 h-5 text-rose-600" />
+              )}
+              {viewMode === 'kanban' ? 'Task Board' : 'Calendar View'}
+            </CardTitle>
+            <div className="flex items-center gap-2 bg-[#F5EBE0] rounded-lg p-1">
+              <Button
+                variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('kanban')}
+                className={viewMode === 'kanban' 
+                  ? 'bg-white text-[#4A3728] shadow-sm' 
+                  : 'text-[#6B5D52] hover:text-[#4A3728]'
+                }
+              >
+                <LayoutGrid className="w-4 h-4 mr-1" />
+                Kanban
+              </Button>
+              <Button
+                variant={viewMode === 'calendar' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('calendar')}
+                className={viewMode === 'calendar' 
+                  ? 'bg-white text-[#4A3728] shadow-sm' 
+                  : 'text-[#6B5D52] hover:text-[#4A3728]'
+                }
+              >
+                <CalendarDays className="w-4 h-4 mr-1" />
+                Calendar
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="p-6">
-          <div className="flex gap-6 overflow-x-auto pb-4 snap-x">
-            {statusColumns.map(column => (
-              <KanbanColumn
-                key={column.id}
-                column={column}
-                tasks={tasks}
-                onDrop={handleDrop}
-                onDragOver={handleDragOver}
-                onStatusChange={() => {}}
-                onEditTask={handleEditTask}
-                onDeleteTask={handleDeleteTask}
-                onDragStart={handleDragStart}
-                onTaskClick={(task) => setSelectedTaskId(task.id)}
-              />
-            ))}
-          </div>
+          {viewMode === 'kanban' ? (
+            <div className="flex gap-6 overflow-x-auto pb-4 snap-x">
+              {statusColumns.map(column => (
+                <KanbanColumn
+                  key={column.id}
+                  column={column}
+                  tasks={tasks}
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  onStatusChange={() => {}}
+                  onEditTask={handleEditTask}
+                  onDeleteTask={handleDeleteTask}
+                  onDragStart={handleDragStart}
+                  onTaskClick={(task) => setSelectedTaskId(task.id)}
+                />
+              ))}
+            </div>
+          ) : (
+            <TaskCalendarView
+              tasks={tasks}
+              onTaskClick={(task) => setSelectedTaskId(task.id)}
+            />
+          )}
         </CardContent>
       </Card>
 
