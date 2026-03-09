@@ -229,14 +229,46 @@ Created `/app/backend/routes/marketing/` package with modular structure:
 
 ### P1 (High)
 1. PR Analytics Dashboard
+2. Project Management System - Phase 2 (Manager dashboards, Kanban/Calendar views)
 
 ### P2 (Medium)
 1. AI pitch writing feature
 2. Automated media monitoring
 3. Email templates dropdown
+4. Project Management System - Phase 3 (Task dependencies, Time tracking, Reporting)
 
 ### P3 (Low)
 1. WebSocket notifications (platform-level issue)
+
+## Project Management System (Phase 1) - IMPLEMENTED ✅ (March 8, 2026)
+
+### Backend APIs (`/api/projects/*`)
+- **Modules**: Full CRUD for PM modules (create, list, get, update, delete)
+- **Projects**: Full CRUD with team member management and progress tracking
+- **Tasks**: Full CRUD with status transitions, enrichment with project/module info
+- **Subtasks**: Create, list, update, delete subtasks linked to parent tasks
+- **Checklists**: Checklist items with completion tracking (completed_by, completed_at)
+- **Comments**: Task comments with mentions support and author enrichment
+- **Time Logs**: Time tracking with hours accumulation on tasks
+- **Activity Logs**: Full audit trail with entity filtering
+
+### My Tasks Dashboard (`/projects/my-tasks`)
+- Stats cards: Total Assigned, Due Today, Overdue, Completed
+- Task categorization: Assigned, Due Today, Overdue, In Progress, Pending Review, Recently Completed
+- Tab navigation for filtering
+- Task cards with priority badges, module/project info, due dates
+- Quick status change dropdown on task cards
+- Sidebar link with "My Tasks" entry
+
+### Data Models (`/app/backend/models/projects.py`)
+- PMModule, Project, Task, Subtask, ChecklistItem, TaskComment, ActivityLog, TimeLog
+- Response models with enriched data (names, counts, progress)
+- Dashboard models: MyTasksResponse, ProjectDashboardResponse
+
+### Test Data
+- Module: Marketing Projects (ID: 78e96d2f-ef0d-46d2-bd65-1bb625a37914)
+- Project: Q1 Campaign Launch
+- Task: Create campaign brief (assigned to superadmin)
 
 ## Twilio WhatsApp Sandbox
 - **Sandbox Number**: +1 415 523 8886
