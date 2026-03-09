@@ -246,7 +246,17 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - Manage users, assign departments/roles
 - Set up reporting hierarchy
 
-### P3 - Additional Features (Future)
+### P3 - Automated Internal Help & Support Module (NEW)
+**Objective**: Auto-scaffold help structures when modules are created
+- **Phase 1**: Auto-generate help structure + ticket categories when module created
+- **Phase 2**: Help Center UI (browse modules, search, submit tickets)
+- **Phase 3**: Contextual help buttons in modules + Guided Walkthroughs
+- **Phase 4**: Admin controls (edit docs, manage FAQs, assign tickets) + Analytics
+- **Features**: Module-linked tickets, Knowledge Base, Self-service troubleshooting, Search
+- **Integration**: Notification system for ticket updates
+- **SOW Reference**: User-provided detailed specification (Dec 2025)
+
+### P4 - Additional Features (Future)
 - Gantt Chart View
 - Project Templates
 - Export/Reports (CSV/PDF)
