@@ -540,19 +540,20 @@ const MeetingDetail = () => {
       
       const data = await res.json();
       
-      if (data.status === 'synced') {
+      if (res.ok && data.status === 'synced') {
         toast.success('Meeting synced to Outlook');
         setOutlookSyncStatus('synced');
         fetchMeeting();
       } else if (res.status === 400) {
-        toast.error('Please connect your Outlook calendar first');
+        // User not connected to Outlook
+        toast.error(data.detail || 'Please connect your Outlook calendar first from the Meetings page');
         setOutlookSyncStatus('not_connected');
       } else {
-        toast.error(data.message || 'Failed to sync to Outlook');
+        toast.error(data.message || data.detail || 'Failed to sync to Outlook');
         setOutlookSyncStatus('failed');
       }
     } catch (error) {
-      toast.error('Error syncing to Outlook');
+      toast.error('Error syncing to Outlook. Please try again.');
       setOutlookSyncStatus('error');
     } finally {
       setSyncingToOutlook(false);

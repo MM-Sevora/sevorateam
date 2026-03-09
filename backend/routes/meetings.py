@@ -857,6 +857,131 @@ async def disconnect_ms_calendar(
 
 # ============== MEETING DETAIL ROUTES (Dynamic {meeting_id}) ==============
 
+@router.post("/{meeting_id}/sync-to-outlook")
+async def sync_meeting_to_outlook(
+    meeting_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Sync a meeting to Outlook calendar
+    
+    Requires user to be connected to Microsoft Calendar.
+    Creates or updates the calendar event in user's Outlook.
+    """
+    import os
+    import httpx
+    
+    # Check connection
+    connection = await db.ms_calendar_connections.find_one(
+        {"user_id": user.get("id"), "is_connected": True}, {"_id": 0}
+    )
+    
+    if not connection:
+        raise HTTPException(status_code=400, detail="Microsoft Calendar not connected. Please connect your Outlook calendar first.")
+    
+    # Get meeting
+    meeting = await db.meetings.find_one({"id": meeting_id}, {"_id": 0})
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    
+    meeting = await enrich_meeting(meeting)
+    
+    # Build attendees list
+    attendees = []
+    for p in meeting.get("participants", []):
+        if p.get("email"):
+            attendees.append({
+                "emailAddress": {
+                    "address": p.get("email"),
+                    "name": p.get("name", p.get("email"))
+                },
+                "type": "required"
+            })
+    
+    # Build event payload
+    event_data = {
+        "subject": meeting.get("title"),
+        "body": {
+            "contentType": "HTML",
+            "content": meeting.get("description") or f"Meeting: {meeting.get('title')}"
+        },
+        "start": {
+            "dateTime": meeting.get("start_time"),
+            "timeZone": "UTC"
+        },
+        "end": {
+            "dateTime": meeting.get("end_time"),
+            "timeZone": "UTC"
+        },
+        "attendees": attendees
+    }
+    
+    if meeting.get("location"):
+        event_data["location"] = {"displayName": meeting.get("location")}
+    
+    if meeting.get("meeting_link"):
+        event_data["body"]["content"] += f"<br><br>Meeting Link: {meeting.get('meeting_link')}"
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            # Check if event already exists
+            existing_event_id = meeting.get("outlook_event_id")
+            
+            if existing_event_id:
+                # Update existing event
+                response = await client.patch(
+                    f"https://graph.microsoft.com/v1.0/me/events/{existing_event_id}",
+                    headers={
+                        "Authorization": f"Bearer {connection.get('access_token')}",
+                        "Content-Type": "application/json"
+                    },
+                    json=event_data
+                )
+            else:
+                # Create new event
+                response = await client.post(
+                    "https://graph.microsoft.com/v1.0/me/events",
+                    headers={
+                        "Authorization": f"Bearer {connection.get('access_token')}",
+                        "Content-Type": "application/json"
+                    },
+                    json=event_data
+                )
+            
+            if response.status_code in [200, 201]:
+                event_response = response.json()
+                
+                # Update meeting with Outlook event ID
+                await db.meetings.update_one(
+                    {"id": meeting_id},
+                    {
+                        "$set": {
+                            "outlook_event_id": event_response.get("id"),
+                            "sync_to_outlook": True,
+                            "updated_at": datetime.now(timezone.utc).isoformat()
+                        }
+                    }
+                )
+                
+                return {
+                    "status": "synced",
+                    "outlook_event_id": event_response.get("id"),
+                    "message": "Meeting synced to Outlook"
+                }
+            else:
+                return {
+                    "status": "failed",
+                    "error": response.text,
+                    "message": "Failed to sync to Outlook"
+                }
+                
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "message": "Error syncing to Outlook"
+        }
+
+
 @router.get("/{meeting_id}", response_model=MeetingResponse)
 async def get_meeting(
     meeting_id: str,
