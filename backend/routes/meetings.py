@@ -526,8 +526,14 @@ async def complete_meeting(
     meeting_id: str,
     user: dict = Depends(get_current_user_dep)
 ):
-    """Complete a meeting"""
-    result = await db.meetings.update_one(
+    """Complete a meeting and create next occurrence if recurring"""
+    meeting = await db.meetings.find_one({"id": meeting_id}, {"_id": 0})
+    
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    
+    # Update status to completed
+    await db.meetings.update_one(
         {"id": meeting_id},
         {"$set": {
             "status": MeetingStatus.COMPLETED.value,
@@ -535,10 +541,96 @@ async def complete_meeting(
         }}
     )
     
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Meeting not found")
+    # Check if this is a recurring meeting and create next occurrence
+    next_meeting_id = None
+    if meeting.get("recurrence_type") and meeting.get("recurrence_type") != RecurrenceType.NONE.value:
+        next_meeting_id = await create_next_recurring_meeting(meeting)
     
-    return {"message": "Meeting completed"}
+    return {
+        "message": "Meeting completed",
+        "next_recurring_meeting_id": next_meeting_id
+    }
+
+
+async def create_next_recurring_meeting(meeting: dict) -> Optional[str]:
+    """Create the next occurrence of a recurring meeting"""
+    recurrence_type = meeting.get("recurrence_type")
+    recurrence_end_date = meeting.get("recurrence_end_date")
+    
+    # Calculate next occurrence date
+    current_start = datetime.fromisoformat(meeting["start_time"].replace("Z", "+00:00"))
+    current_end = datetime.fromisoformat(meeting["end_time"].replace("Z", "+00:00"))
+    duration = current_end - current_start
+    
+    if recurrence_type == RecurrenceType.DAILY.value:
+        next_start = current_start + timedelta(days=1)
+    elif recurrence_type == RecurrenceType.WEEKLY.value:
+        next_start = current_start + timedelta(weeks=1)
+    elif recurrence_type == RecurrenceType.MONTHLY.value:
+        # Add one month
+        if current_start.month == 12:
+            next_start = current_start.replace(year=current_start.year + 1, month=1)
+        else:
+            next_start = current_start.replace(month=current_start.month + 1)
+    elif recurrence_type == RecurrenceType.QUARTERLY.value:
+        # Add 3 months
+        new_month = current_start.month + 3
+        new_year = current_start.year
+        if new_month > 12:
+            new_month -= 12
+            new_year += 1
+        next_start = current_start.replace(year=new_year, month=new_month)
+    else:
+        return None
+    
+    # Check if we've exceeded the recurrence end date
+    if recurrence_end_date:
+        end_date = datetime.fromisoformat(recurrence_end_date.replace("Z", "+00:00"))
+        if next_start > end_date:
+            return None
+    
+    next_end = next_start + duration
+    
+    # Create new meeting
+    new_meeting_id = str(uuid.uuid4())
+    new_meeting = {
+        "id": new_meeting_id,
+        "title": meeting["title"],
+        "meeting_type": meeting["meeting_type"],
+        "description": meeting.get("description"),
+        "start_time": next_start.isoformat(),
+        "end_time": next_end.isoformat(),
+        "timezone": meeting.get("timezone", "UTC"),
+        "location": meeting.get("location"),
+        "meeting_link": meeting.get("meeting_link"),
+        "organizer_id": meeting.get("organizer_id"),
+        "participants": meeting.get("participants", []),
+        "department_id": meeting.get("department_id"),
+        "linked_goal_id": meeting.get("linked_goal_id"),
+        "linked_objective_id": meeting.get("linked_objective_id"),
+        "linked_project_id": meeting.get("linked_project_id"),
+        "linked_milestone_id": meeting.get("linked_milestone_id"),
+        "agenda": meeting.get("agenda", []),  # Inherit agenda
+        "pre_read_documents": meeting.get("pre_read_documents", []),
+        "discussion_notes": [],
+        "action_items": [],
+        "decisions": [],
+        "issues_risks": [],
+        "visibility": meeting.get("visibility", MeetingVisibility.PUBLIC.value),
+        "status": MeetingStatus.SCHEDULED.value,
+        "recurrence_type": meeting.get("recurrence_type"),
+        "recurrence_day_of_week": meeting.get("recurrence_day_of_week"),
+        "recurrence_day_of_month": meeting.get("recurrence_day_of_month"),
+        "recurrence_end_date": meeting.get("recurrence_end_date"),
+        "parent_recurring_id": meeting.get("parent_recurring_id") or meeting["id"],  # Link to original
+        "sync_to_outlook": meeting.get("sync_to_outlook", False),
+        "created_by": meeting.get("created_by"),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.meetings.insert_one(new_meeting)
+    return new_meeting_id
 
 
 # ============== DISCUSSION NOTES ==============
@@ -881,6 +973,13 @@ async def generate_meeting_minutes(
         for note in discussion_notes
     ]) if discussion_notes else "No discussion notes recorded."
     
+    # Build decisions summary from decisions log
+    decisions = meeting.get("decisions", [])
+    decisions_text = "\n".join([
+        f"- **{d.get('title')}** ({d.get('impact', 'medium').upper()} impact): {d.get('description', 'No details')}"
+        for d in decisions
+    ]) if decisions else "No decisions recorded."
+    
     # Build action items summary
     action_items = meeting.get("action_items", [])
     next_steps = "\n".join([
@@ -888,12 +987,21 @@ async def generate_meeting_minutes(
         for item in action_items
     ]) if action_items else "No action items."
     
+    # Add issues/risks summary if any open
+    issues_risks = meeting.get("issues_risks", [])
+    open_issues = [ir for ir in issues_risks if ir.get("status") in ["open", "in_progress"]]
+    if open_issues:
+        next_steps += "\n\n**Open Issues/Risks:**\n" + "\n".join([
+            f"- [{ir.get('type', 'issue').upper()}] {ir.get('title')} - {ir.get('status')}"
+            for ir in open_issues
+        ])
+    
     # Create minutes data
     data = MeetingMinutesCreate(
         meeting_id=meeting_id,
-        summary=f"Meeting held on {meeting.get('start_time', 'N/A')}",
+        summary=f"Meeting: {meeting.get('title')}\nDate: {meeting.get('start_time', 'N/A')}\nType: {meeting.get('meeting_type', 'general').replace('_', ' ').title()}",
         key_discussions=key_discussions,
-        decisions="",  # Would need to add decision tracking for this
+        decisions=decisions_text,
         next_steps=next_steps,
         auto_generated=True
     )
@@ -950,6 +1058,13 @@ async def get_previous_meeting_context(
     # Get previous minutes for summary
     minutes = await db.meeting_minutes.find_one({"meeting_id": previous.get("id")}, {"_id": 0})
     
+    # Get decisions from previous meeting
+    key_decisions = previous.get("decisions", [])
+    
+    # Get open issues/risks from previous meeting
+    issues_risks = previous.get("issues_risks", [])
+    open_issues_risks = [ir for ir in issues_risks if ir.get("status") in ["open", "in_progress"]]
+    
     return PreviousMeetingContext(
         previous_meeting_id=previous.get("id"),
         previous_meeting_title=previous.get("title"),
@@ -958,7 +1073,8 @@ async def get_previous_meeting_context(
         completed_action_items=completed,
         overdue_action_items=overdue,
         previous_summary=minutes.get("summary") if minutes else None,
-        key_decisions=[]  # Would need decision log for this
+        key_decisions=key_decisions,
+        open_issues_risks=open_issues_risks
     )
 
 

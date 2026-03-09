@@ -466,4 +466,7 @@ class PreviousMeetingContext(BaseModel):
     
     # Summary
     previous_summary: Optional[str] = None
-    key_decisions: List[str] = []
+    key_decisions: List[Decision] = []
+    
+    # Issues/Risks carried forward
+    open_issues_risks: List[IssueRisk] = []
