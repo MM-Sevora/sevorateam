@@ -64,12 +64,7 @@ const ROLES = [
   { id: 'viewer', name: 'Viewer', color: 'bg-gray-100 text-gray-800' },
 ];
 
-const DEPARTMENTS = [
-  { id: 'admin', name: 'Admin' },
-  { id: 'marketing', name: 'Marketing' },
-  { id: 'sales', name: 'Sales' },
-  { id: 'social', name: 'Social' },
-];
+// Departments are now fetched from database - see fetchDepartments()
 
 const STATUS_CONFIG = {
   active: { label: 'Active', color: 'bg-green-100 text-green-800', icon: CheckCircle },
@@ -86,6 +81,7 @@ const UserManagementPage = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [roleFilter, setRoleFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [departments, setDepartments] = useState([]);
   
   // Dialog states
   const [showAddUser, setShowAddUser] = useState(false);
@@ -151,7 +147,18 @@ const UserManagementPage = () => {
   useEffect(() => {
     fetchUsers();
     fetchStats();
+    fetchDepartments();
   }, [fetchUsers, fetchStats]);
+
+  // Fetch departments from database
+  const fetchDepartments = async () => {
+    try {
+      const response = await api.get('/workos/departments');
+      setDepartments(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch departments:', error);
+    }
+  };
 
   // Fetch Azure AD status
   const fetchAzureStatus = useCallback(async () => {
@@ -493,8 +500,8 @@ const UserManagementPage = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Depts</SelectItem>
-                {DEPARTMENTS.map(dept => (
-                  <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                {departments.map(dept => (
+                  <SelectItem key={dept.id} value={dept.code}>{dept.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -669,8 +676,8 @@ const UserManagementPage = () => {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {DEPARTMENTS.map(dept => (
-                              <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                            {departments.map(dept => (
+                              <SelectItem key={dept.id} value={dept.code}>{dept.name}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -869,8 +876,8 @@ const UserManagementPage = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {DEPARTMENTS.map(dept => (
-                      <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                    {departments.map(dept => (
+                      <SelectItem key={dept.id} value={dept.code}>{dept.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -956,8 +963,8 @@ const UserManagementPage = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {DEPARTMENTS.map(dept => (
-                      <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                    {departments.map(dept => (
+                      <SelectItem key={dept.id} value={dept.code}>{dept.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
