@@ -200,6 +200,14 @@ const TaskCard = ({ task, onStatusChange, onClick }) => {
                 {task.external_links.length}
               </span>
             )}
+            
+            {/* Recurring Task Indicator */}
+            {task.parent_recurring_id && (
+              <span className="flex items-center gap-1 bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full" title="Generated from recurring template">
+                <RefreshCw className="w-3 h-3" />
+                Recurring
+              </span>
+            )}
           </div>
         </div>
       </div>

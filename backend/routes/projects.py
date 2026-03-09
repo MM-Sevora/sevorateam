@@ -1440,6 +1440,109 @@ async def create_task_from_template(
     return await enrich_task(task_doc)
 
 
+# ============== RECURRING TASK TEMPLATES (Must be before /{project_id}) ==============
+# Note: Full implementation is at the end of this file, but route registration must happen here
+
+@router.get("/recurring-dashboard")
+async def get_recurring_dashboard_route(
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get recurring tasks dashboard data - Forward to implementation"""
+    return await _get_recurring_dashboard_impl(user)
+
+
+@router.get("/recurring-templates", response_model=List[RecurringTaskTemplateResponse])
+async def list_recurring_templates_route(
+    project_id: Optional[str] = None,
+    department_id: Optional[str] = None,
+    assigned_to: Optional[str] = None,
+    recurrence_type: Optional[str] = None,
+    is_active: Optional[bool] = None,
+    is_paused: Optional[bool] = None,
+    search: Optional[str] = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """List recurring task templates - Forward to implementation"""
+    return await _list_recurring_templates_impl(
+        project_id, department_id, assigned_to, recurrence_type, 
+        is_active, is_paused, search, user
+    )
+
+
+@router.post("/recurring-templates", response_model=RecurringTaskTemplateResponse)
+async def create_recurring_template_route(
+    data: RecurringTaskTemplateCreate,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Create a recurring task template - Forward to implementation"""
+    return await _create_recurring_template_impl(data, user)
+
+
+@router.get("/recurring-templates/{template_id}", response_model=RecurringTaskTemplateResponse)
+async def get_recurring_template_route(
+    template_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get a recurring task template - Forward to implementation"""
+    return await _get_recurring_template_impl(template_id, user)
+
+
+@router.put("/recurring-templates/{template_id}", response_model=RecurringTaskTemplateResponse)
+async def update_recurring_template_route(
+    template_id: str,
+    data: RecurringTaskTemplateUpdate,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Update a recurring task template - Forward to implementation"""
+    return await _update_recurring_template_impl(template_id, data, user)
+
+
+@router.delete("/recurring-templates/{template_id}")
+async def delete_recurring_template_route(
+    template_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Delete a recurring task template - Forward to implementation"""
+    return await _delete_recurring_template_impl(template_id, user)
+
+
+@router.post("/recurring-templates/{template_id}/pause")
+async def pause_recurring_template_route(
+    template_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Pause a recurring task template - Forward to implementation"""
+    return await _pause_recurring_template_impl(template_id, user)
+
+
+@router.post("/recurring-templates/{template_id}/resume")
+async def resume_recurring_template_route(
+    template_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Resume a recurring task template - Forward to implementation"""
+    return await _resume_recurring_template_impl(template_id, user)
+
+
+@router.get("/recurring-templates/{template_id}/generated-tasks", response_model=List[GeneratedTaskInfo])
+async def get_generated_tasks_route(
+    template_id: str,
+    limit: int = Query(default=20, le=100),
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get tasks generated from a template - Forward to implementation"""
+    return await _get_generated_tasks_impl(template_id, limit, user)
+
+
+@router.post("/recurring-templates/{template_id}/generate-now")
+async def generate_task_now_route(
+    template_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Manually generate a task from template - Forward to implementation"""
+    return await _generate_task_now_impl(template_id, user)
+
+
 # ============== OBJECTIVES FOR LINKING (Must be before /{project_id}) ==============
 
 @router.get("/objectives-list")
@@ -3025,12 +3128,11 @@ def calculate_next_occurrence(template: dict, from_date: datetime = None) -> Opt
     return next_date
 
 
-@router.post("/recurring-templates", response_model=RecurringTaskTemplateResponse)
-async def create_recurring_template(
+async def _create_recurring_template_impl(
     data: RecurringTaskTemplateCreate,
-    user: dict = Depends(get_current_user_dep)
+    user: dict
 ):
-    """Create a new recurring task template"""
+    """Create a new recurring task template - Implementation"""
     now = datetime.now(timezone.utc).isoformat()
     template_id = str(uuid.uuid4())
     
@@ -3089,18 +3191,17 @@ async def get_project_name(project_id: str) -> Optional[str]:
     return project.get("name") if project else None
 
 
-@router.get("/recurring-templates", response_model=List[RecurringTaskTemplateResponse])
-async def list_recurring_templates(
-    project_id: Optional[str] = None,
-    department_id: Optional[str] = None,
-    assigned_to: Optional[str] = None,
-    recurrence_type: Optional[str] = None,
-    is_active: Optional[bool] = None,
-    is_paused: Optional[bool] = None,
-    search: Optional[str] = None,
-    user: dict = Depends(get_current_user_dep)
+async def _list_recurring_templates_impl(
+    project_id: Optional[str],
+    department_id: Optional[str],
+    assigned_to: Optional[str],
+    recurrence_type: Optional[str],
+    is_active: Optional[bool],
+    is_paused: Optional[bool],
+    search: Optional[str],
+    user: dict
 ):
-    """List all recurring task templates"""
+    """List all recurring task templates - Implementation"""
     query = {}
     
     if project_id:
@@ -3138,12 +3239,11 @@ async def list_recurring_templates(
     return results
 
 
-@router.get("/recurring-templates/{template_id}", response_model=RecurringTaskTemplateResponse)
-async def get_recurring_template(
+async def _get_recurring_template_impl(
     template_id: str,
-    user: dict = Depends(get_current_user_dep)
+    user: dict
 ):
-    """Get a recurring task template by ID"""
+    """Get a recurring task template by ID - Implementation"""
     template = await db.recurring_task_templates.find_one({"id": template_id})
     
     if not template:
@@ -3161,13 +3261,12 @@ async def get_recurring_template(
     return template
 
 
-@router.put("/recurring-templates/{template_id}", response_model=RecurringTaskTemplateResponse)
-async def update_recurring_template(
+async def _update_recurring_template_impl(
     template_id: str,
     data: RecurringTaskTemplateUpdate,
-    user: dict = Depends(get_current_user_dep)
+    user: dict
 ):
-    """Update a recurring task template"""
+    """Update a recurring task template - Implementation"""
     template = await db.recurring_task_templates.find_one({"id": template_id})
     
     if not template:
@@ -3192,15 +3291,14 @@ async def update_recurring_template(
         {"$set": update_data}
     )
     
-    return await get_recurring_template(template_id, user)
+    return await _get_recurring_template_impl(template_id, user)
 
 
-@router.delete("/recurring-templates/{template_id}")
-async def delete_recurring_template(
+async def _delete_recurring_template_impl(
     template_id: str,
-    user: dict = Depends(get_current_user_dep)
+    user: dict
 ):
-    """Delete a recurring task template"""
+    """Delete a recurring task template - Implementation"""
     template = await db.recurring_task_templates.find_one({"id": template_id})
     
     if not template:
@@ -3211,12 +3309,11 @@ async def delete_recurring_template(
     return {"message": "Recurring template deleted successfully"}
 
 
-@router.post("/recurring-templates/{template_id}/pause")
-async def pause_recurring_template(
+async def _pause_recurring_template_impl(
     template_id: str,
-    user: dict = Depends(get_current_user_dep)
+    user: dict
 ):
-    """Pause a recurring task template"""
+    """Pause a recurring task template - Implementation"""
     template = await db.recurring_task_templates.find_one({"id": template_id})
     
     if not template:
@@ -3230,12 +3327,11 @@ async def pause_recurring_template(
     return {"message": "Recurring template paused"}
 
 
-@router.post("/recurring-templates/{template_id}/resume")
-async def resume_recurring_template(
+async def _resume_recurring_template_impl(
     template_id: str,
-    user: dict = Depends(get_current_user_dep)
+    user: dict
 ):
-    """Resume a paused recurring task template"""
+    """Resume a paused recurring task template - Implementation"""
     template = await db.recurring_task_templates.find_one({"id": template_id})
     
     if not template:
@@ -3249,13 +3345,12 @@ async def resume_recurring_template(
     return {"message": "Recurring template resumed"}
 
 
-@router.get("/recurring-templates/{template_id}/generated-tasks", response_model=List[GeneratedTaskInfo])
-async def get_generated_tasks(
+async def _get_generated_tasks_impl(
     template_id: str,
-    limit: int = 20,
-    user: dict = Depends(get_current_user_dep)
+    limit: int,
+    user: dict
 ):
-    """Get tasks generated from this recurring template"""
+    """Get tasks generated from this recurring template - Implementation"""
     template = await db.recurring_task_templates.find_one({"id": template_id})
     
     if not template:
@@ -3279,12 +3374,11 @@ async def get_generated_tasks(
     return results
 
 
-@router.post("/recurring-templates/{template_id}/generate-now")
-async def generate_task_now(
+async def _generate_task_now_impl(
     template_id: str,
-    user: dict = Depends(get_current_user_dep)
+    user: dict
 ):
-    """Manually generate a task from a recurring template"""
+    """Manually generate a task from a recurring template - Implementation"""
     template = await db.recurring_task_templates.find_one({"id": template_id})
     
     if not template:
@@ -3366,11 +3460,10 @@ async def generate_task_from_template(template: dict, triggered_by: str = None) 
 
 # ============== RECURRING TASK DASHBOARD ==============
 
-@router.get("/recurring-dashboard")
-async def get_recurring_dashboard(
-    user: dict = Depends(get_current_user_dep)
+async def _get_recurring_dashboard_impl(
+    user: dict
 ):
-    """Get recurring tasks dashboard data"""
+    """Get recurring tasks dashboard data - Implementation"""
     # Total templates
     total = await db.recurring_task_templates.count_documents({"is_active": True})
     active = await db.recurring_task_templates.count_documents({"is_active": True, "is_paused": False})

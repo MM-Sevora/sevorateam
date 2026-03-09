@@ -1701,6 +1701,15 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
                         <span>{task.module_name}</span>
                       </>
                     )}
+                    {task.parent_recurring_id && (
+                      <>
+                        <span className="text-[#D4BBA6]">•</span>
+                        <span className="flex items-center gap-1 text-indigo-600">
+                          <RefreshCw className="w-3 h-3" />
+                          Recurring Task
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
