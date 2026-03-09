@@ -79,37 +79,37 @@ const RecurringTemplateCard = ({ template, onEdit, onDelete, onPause, onResume, 
 
   return (
     <Card 
-      className={`group hover:shadow-lg transition-all duration-200 cursor-pointer border-[#E8D5C4] ${
-        template.is_paused ? 'opacity-60 bg-stone-50' : 'bg-white'
+      className={`group hover:shadow-md transition-all duration-200 cursor-pointer border-[#E8D5C4] hover:border-[#D4BBA6] shadow-sm ${
+        template.is_paused ? 'opacity-70 bg-stone-50' : 'bg-white'
       }`}
       data-testid={`recurring-template-${template.id}`}
     >
-      <CardContent className="p-4">
+      <CardContent className="p-5">
         <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className={`p-2 rounded-lg ${template.is_paused ? 'bg-stone-100' : 'bg-indigo-100'}`}>
-              <RefreshCw className={`w-5 h-5 ${template.is_paused ? 'text-stone-500' : 'text-indigo-600'}`} />
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${template.is_paused ? 'bg-stone-100' : 'bg-emerald-100'}`}>
+              <RefreshCw className={`w-5 h-5 ${template.is_paused ? 'text-stone-500' : 'text-emerald-700'}`} />
             </div>
             <div>
               <h3 className="font-semibold text-[#4A3728] line-clamp-1">{template.name}</h3>
-              <p className="text-xs text-[#6B5D52]">{template.recurrence_description}</p>
+              <p className="text-xs text-[#5D4A3A]">{template.recurrence_description}</p>
             </div>
           </div>
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100">
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
                 <MoreVertical className="w-4 h-4 text-[#5D4A3A]" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="bg-white border-[#D4BBA6]">
-              <DropdownMenuItem onClick={() => onEdit(template)} className="cursor-pointer">
+              <DropdownMenuItem onClick={() => onEdit(template)} className="cursor-pointer text-[#4A3728]">
                 <Edit className="w-4 h-4 mr-2" /> Edit
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onGenerateNow(template)} className="cursor-pointer">
+              <DropdownMenuItem onClick={() => onGenerateNow(template)} className="cursor-pointer text-[#4A3728]">
                 <Zap className="w-4 h-4 mr-2" /> Generate Now
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              <DropdownMenuSeparator className="bg-[#E8D5C4]" />
               {template.is_paused ? (
                 <DropdownMenuItem onClick={() => onResume(template)} className="cursor-pointer text-emerald-600">
                   <Play className="w-4 h-4 mr-2" /> Resume
@@ -130,12 +130,12 @@ const RecurringTemplateCard = ({ template, onEdit, onDelete, onPause, onResume, 
         <div className="flex flex-wrap gap-1.5 mb-3">
           <Badge variant="outline" className={`text-xs ${
             template.is_paused 
-              ? 'bg-stone-100 text-stone-700 border-stone-200'
-              : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+              ? 'bg-stone-100 text-stone-600 border-stone-200'
+              : 'bg-emerald-100 text-emerald-700 border-emerald-200'
           }`}>
             {template.is_paused ? 'Paused' : 'Active'}
           </Badge>
-          <Badge variant="outline" className="text-xs bg-indigo-50 text-indigo-700 border-indigo-200">
+          <Badge variant="outline" className="text-xs bg-blue-100 text-blue-700 border-blue-200">
             {recurrenceTypeLabels[template.recurrence_type]}
           </Badge>
           {template.project_name && (
@@ -146,18 +146,18 @@ const RecurringTemplateCard = ({ template, onEdit, onDelete, onPause, onResume, 
         </div>
 
         {/* Meta info */}
-        <div className="grid grid-cols-2 gap-2 text-xs text-[#6B5D52]">
-          <div className="flex items-center gap-1">
-            <Calendar className="w-3.5 h-3.5" />
+        <div className="grid grid-cols-2 gap-2 text-xs text-[#5D4A3A]">
+          <div className="flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5 text-[#6B5D52]" />
             <span>Next: {template.next_occurrence ? formatDate(template.next_occurrence) : 'N/A'}</span>
           </div>
-          <div className="flex items-center gap-1">
-            <CheckCircle2 className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5 text-[#6B5D52]" />
             <span>Generated: {template.occurrences_generated}</span>
           </div>
           {template.assigned_to_name && (
-            <div className="flex items-center gap-1 col-span-2">
-              <User className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1.5 col-span-2">
+              <User className="w-3.5 h-3.5 text-[#6B5D52]" />
               <span>{template.assigned_to_name}</span>
             </div>
           )}
@@ -797,28 +797,40 @@ const RecurringTasks = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      <div className="p-8 flex items-center justify-center min-h-[50vh]">
+        <div className="w-8 h-8 border-2 border-[#4A3728] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6" data-testid="recurring-tasks-page">
+    <div className="p-8 space-y-8" data-testid="recurring-tasks-page">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[#4A3728]">Recurring Tasks</h1>
-          <p className="text-[#6B5D52]">Manage automated task schedules</p>
+          <p className="text-[#5D4A3A] mt-1">Manage automated task schedules</p>
         </div>
-        <Button 
-          onClick={() => { setEditingTemplate(null); setShowModal(true); }}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white"
-          data-testid="create-recurring-btn"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          New Recurring Task
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline"
+            size="sm"
+            onClick={() => { fetchTemplates(); fetchDashboard(); }}
+            className="border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0]"
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
+          <Button 
+            size="sm"
+            onClick={() => { setEditingTemplate(null); setShowModal(true); }}
+            className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white"
+            data-testid="create-recurring-btn"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            New Recurring Task
+          </Button>
+        </div>
       </div>
 
       {/* Main Tabs */}
@@ -839,54 +851,54 @@ const RecurringTasks = () => {
           {/* Quick Stats */}
           {dashboard && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card className="bg-white border-[#E8D5C4]">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-indigo-100">
-                      <RefreshCw className="w-5 h-5 text-indigo-600" />
-                    </div>
+              <Card className="bg-white border-[#E8D5C4] shadow-sm">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-2xl font-bold text-[#4A3728]">{dashboard.active_templates}</p>
-                      <p className="text-xs text-[#6B5D52]">Active Templates</p>
+                      <p className="text-[#5D4A3A] text-sm">Active Templates</p>
+                      <p className="text-3xl font-bold text-[#4A3728] mt-1">{dashboard.active_templates}</p>
+                    </div>
+                    <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
+                      <RefreshCw className="w-6 h-6 text-emerald-700" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-white border-[#E8D5C4]">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-amber-100">
-                      <Pause className="w-5 h-5 text-amber-600" />
-                    </div>
+              <Card className="bg-white border-[#E8D5C4] shadow-sm">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-2xl font-bold text-[#4A3728]">{dashboard.paused_templates}</p>
-                      <p className="text-xs text-[#6B5D52]">Paused</p>
+                      <p className="text-[#5D4A3A] text-sm">Paused</p>
+                      <p className="text-3xl font-bold text-[#4A3728] mt-1">{dashboard.paused_templates}</p>
+                    </div>
+                    <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
+                      <Pause className="w-6 h-6 text-amber-700" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-white border-[#E8D5C4]">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-emerald-100">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                    </div>
+              <Card className="bg-white border-[#E8D5C4] shadow-sm">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-2xl font-bold text-[#4A3728]">{dashboard.tasks_generated_today}</p>
-                      <p className="text-xs text-[#6B5D52]">Generated Today</p>
+                      <p className="text-[#5D4A3A] text-sm">Generated Today</p>
+                      <p className="text-3xl font-bold text-[#4A3728] mt-1">{dashboard.tasks_generated_today}</p>
+                    </div>
+                    <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+                      <CheckCircle2 className="w-6 h-6 text-blue-700" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-white border-[#E8D5C4]">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-blue-100">
-                      <BarChart3 className="w-5 h-5 text-blue-600" />
-                    </div>
+              <Card className="bg-white border-[#E8D5C4] shadow-sm">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-2xl font-bold text-[#4A3728]">{dashboard.tasks_generated_this_week}</p>
-                      <p className="text-xs text-[#6B5D52]">This Week</p>
+                      <p className="text-[#5D4A3A] text-sm">This Week</p>
+                      <p className="text-3xl font-bold text-[#4A3728] mt-1">{dashboard.tasks_generated_this_week}</p>
+                    </div>
+                    <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
+                      <BarChart3 className="w-6 h-6 text-purple-700" />
                     </div>
                   </div>
                 </CardContent>
@@ -1019,81 +1031,81 @@ const RecurringTasks = () => {
           {dashboard && (
             <>
               {/* Key Metrics Row */}
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                <Card className="bg-white border-[#E8D5C4]">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-indigo-100">
-                        <RefreshCw className="w-5 h-5 text-indigo-600" />
-                      </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <Card className="bg-white border-[#E8D5C4] shadow-sm">
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-2xl font-bold text-[#4A3728]">{dashboard.total_templates}</p>
-                        <p className="text-xs text-[#6B5D52]">Total Templates</p>
+                        <p className="text-[#5D4A3A] text-sm">Total Templates</p>
+                        <p className="text-2xl font-bold text-[#4A3728] mt-1">{dashboard.total_templates}</p>
+                      </div>
+                      <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
+                        <RefreshCw className="w-5 h-5 text-slate-700" />
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-                <Card className="bg-white border-[#E8D5C4]">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-emerald-100">
-                        <TrendingUp className="w-5 h-5 text-emerald-600" />
-                      </div>
+                <Card className="bg-white border-[#E8D5C4] shadow-sm">
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-2xl font-bold text-[#4A3728]">{dashboard.total_generated_all_time || 0}</p>
-                        <p className="text-xs text-[#6B5D52]">Tasks Generated</p>
+                        <p className="text-[#5D4A3A] text-sm">Tasks Generated</p>
+                        <p className="text-2xl font-bold text-[#4A3728] mt-1">{dashboard.total_generated_all_time || 0}</p>
+                      </div>
+                      <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                        <TrendingUp className="w-5 h-5 text-emerald-700" />
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-                <Card className="bg-white border-[#E8D5C4]">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-blue-100">
-                        <PieChart className="w-5 h-5 text-blue-600" />
-                      </div>
+                <Card className="bg-white border-[#E8D5C4] shadow-sm">
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-2xl font-bold text-[#4A3728]">{dashboard.completion_rate || 0}%</p>
-                        <p className="text-xs text-[#6B5D52]">Completion Rate</p>
+                        <p className="text-[#5D4A3A] text-sm">Completion Rate</p>
+                        <p className="text-2xl font-bold text-[#4A3728] mt-1">{dashboard.completion_rate || 0}%</p>
+                      </div>
+                      <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                        <PieChart className="w-5 h-5 text-blue-700" />
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-                <Card className="bg-white border-[#E8D5C4]">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-green-100">
-                        <CheckCircle2 className="w-5 h-5 text-green-600" />
-                      </div>
+                <Card className="bg-white border-[#E8D5C4] shadow-sm">
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-2xl font-bold text-[#4A3728]">{dashboard.completed_recurring || 0}</p>
-                        <p className="text-xs text-[#6B5D52]">Completed</p>
+                        <p className="text-[#5D4A3A] text-sm">Completed</p>
+                        <p className="text-2xl font-bold text-emerald-600 mt-1">{dashboard.completed_recurring || 0}</p>
+                      </div>
+                      <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-700" />
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-                <Card className="bg-white border-[#E8D5C4]">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-amber-100">
-                        <Clock className="w-5 h-5 text-amber-600" />
-                      </div>
+                <Card className="bg-white border-[#E8D5C4] shadow-sm">
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-2xl font-bold text-[#4A3728]">{dashboard.in_progress_recurring || 0}</p>
-                        <p className="text-xs text-[#6B5D52]">In Progress</p>
+                        <p className="text-[#5D4A3A] text-sm">In Progress</p>
+                        <p className="text-2xl font-bold text-[#4A3728] mt-1">{dashboard.in_progress_recurring || 0}</p>
+                      </div>
+                      <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+                        <Clock className="w-5 h-5 text-amber-700" />
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-                <Card className="bg-white border-[#E8D5C4] border-red-200">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-red-100">
+                <Card className="bg-white border-[#E8D5C4] shadow-sm">
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[#5D4A3A] text-sm">Overdue</p>
+                        <p className="text-2xl font-bold text-red-600 mt-1">{dashboard.overdue_recurring || 0}</p>
+                      </div>
+                      <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
                         <AlertCircle className="w-5 h-5 text-red-600" />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold text-red-600">{dashboard.overdue_recurring || 0}</p>
-                        <p className="text-xs text-[#6B5D52]">Overdue</p>
                       </div>
                     </div>
                   </CardContent>
@@ -1103,10 +1115,10 @@ const RecurringTasks = () => {
               {/* Charts Row */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Weekly Trend */}
-                <Card className="bg-white border-[#E8D5C4]">
+                <Card className="bg-white border-[#E8D5C4] shadow-sm">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-[#4A3728] flex items-center gap-2 text-base">
-                      <TrendingUp className="w-5 h-5 text-indigo-600" />
+                      <TrendingUp className="w-5 h-5 text-[#4A3728]" />
                       Weekly Generation Trend
                     </CardTitle>
                   </CardHeader>
@@ -1118,7 +1130,7 @@ const RecurringTasks = () => {
                             <span className="text-xs text-[#6B5D52] w-16">{week.week_start}</span>
                             <div className="flex-1 h-6 bg-[#F5EBE0] rounded-full overflow-hidden">
                               <div 
-                                className="h-full bg-indigo-500 rounded-full transition-all duration-500"
+                                className="h-full bg-[#4A3728] rounded-full transition-all duration-500"
                                 style={{ 
                                   width: `${Math.min(100, (week.count / Math.max(...dashboard.weekly_trend.map(w => w.count), 1)) * 100)}%` 
                                 }}
@@ -1135,10 +1147,10 @@ const RecurringTasks = () => {
                 </Card>
 
                 {/* By Frequency */}
-                <Card className="bg-white border-[#E8D5C4]">
+                <Card className="bg-white border-[#E8D5C4] shadow-sm">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-[#4A3728] flex items-center gap-2 text-base">
-                      <PieChart className="w-5 h-5 text-indigo-600" />
+                      <PieChart className="w-5 h-5 text-[#4A3728]" />
                       Templates by Frequency
                     </CardTitle>
                   </CardHeader>
@@ -1150,13 +1162,13 @@ const RecurringTasks = () => {
                             <div className="flex items-center gap-2">
                               <div className={`w-3 h-3 rounded-full ${
                                 freq === 'daily' ? 'bg-blue-500' :
-                                freq === 'weekly' ? 'bg-indigo-500' :
+                                freq === 'weekly' ? 'bg-emerald-500' :
                                 freq === 'monthly' ? 'bg-purple-500' :
-                                freq === 'quarterly' ? 'bg-amber-500' : 'bg-emerald-500'
+                                freq === 'quarterly' ? 'bg-amber-500' : 'bg-slate-500'
                               }`} />
                               <span className="text-sm text-[#4A3728] capitalize">{freq}</span>
                             </div>
-                            <Badge variant="outline" className="bg-[#F5EBE0]">{count}</Badge>
+                            <Badge variant="outline" className="bg-[#F5EBE0] border-[#D4BBA6]">{count}</Badge>
                           </div>
                         ))}
                       </div>
@@ -1168,10 +1180,10 @@ const RecurringTasks = () => {
               {/* Bottom Row */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Top Templates */}
-                <Card className="bg-white border-[#E8D5C4]">
+                <Card className="bg-white border-[#E8D5C4] shadow-sm">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-[#4A3728] flex items-center gap-2 text-base">
-                      <Target className="w-5 h-5 text-indigo-600" />
+                      <Target className="w-5 h-5 text-[#4A3728]" />
                       Top Templates
                     </CardTitle>
                   </CardHeader>
@@ -1181,7 +1193,7 @@ const RecurringTasks = () => {
                         {dashboard.top_templates.map((t, idx) => (
                           <div key={t.id} className="flex items-center justify-between p-2 bg-[#F5EBE0] rounded-lg">
                             <div className="flex items-center gap-2">
-                              <span className="w-5 h-5 flex items-center justify-center bg-indigo-100 text-indigo-600 text-xs font-bold rounded">
+                              <span className="w-5 h-5 flex items-center justify-center bg-[#4A3728] text-white text-xs font-bold rounded">
                                 {idx + 1}
                               </span>
                               <span className="text-sm text-[#4A3728] truncate max-w-[140px]">{t.name}</span>
@@ -1197,10 +1209,10 @@ const RecurringTasks = () => {
                 </Card>
 
                 {/* By Project */}
-                <Card className="bg-white border-[#E8D5C4]">
+                <Card className="bg-white border-[#E8D5C4] shadow-sm">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-[#4A3728] flex items-center gap-2 text-base">
-                      <Folder className="w-5 h-5 text-indigo-600" />
+                      <Folder className="w-5 h-5 text-[#4A3728]" />
                       By Project
                     </CardTitle>
                   </CardHeader>
@@ -1210,7 +1222,7 @@ const RecurringTasks = () => {
                         {dashboard.by_project.map((p, idx) => (
                           <div key={p.project_id} className="flex items-center justify-between p-2 bg-[#F5EBE0] rounded-lg">
                             <span className="text-sm text-[#4A3728] truncate max-w-[160px]">{p.project_name}</span>
-                            <Badge variant="outline" className="bg-white">{p.template_count}</Badge>
+                            <Badge variant="outline" className="bg-white border-[#D4BBA6]">{p.template_count}</Badge>
                           </div>
                         ))}
                       </div>
@@ -1221,10 +1233,10 @@ const RecurringTasks = () => {
                 </Card>
 
                 {/* By Assignee */}
-                <Card className="bg-white border-[#E8D5C4]">
+                <Card className="bg-white border-[#E8D5C4] shadow-sm">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-[#4A3728] flex items-center gap-2 text-base">
-                      <Users className="w-5 h-5 text-indigo-600" />
+                      <Users className="w-5 h-5 text-[#4A3728]" />
                       By Assignee
                     </CardTitle>
                   </CardHeader>
@@ -1234,12 +1246,12 @@ const RecurringTasks = () => {
                         {dashboard.by_assignee.map((a, idx) => (
                           <div key={a.user_id} className="flex items-center justify-between p-2 bg-[#F5EBE0] rounded-lg">
                             <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center">
-                                <User className="w-3 h-3 text-indigo-600" />
+                              <div className="w-6 h-6 rounded-full bg-[#E8D5C4] flex items-center justify-center">
+                                <User className="w-3 h-3 text-[#4A3728]" />
                               </div>
                               <span className="text-sm text-[#4A3728] truncate max-w-[120px]">{a.user_name}</span>
                             </div>
-                            <Badge variant="outline" className="bg-white">{a.template_count}</Badge>
+                            <Badge variant="outline" className="bg-white border-[#D4BBA6]">{a.template_count}</Badge>
                           </div>
                         ))}
                       </div>
