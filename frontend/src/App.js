@@ -66,6 +66,9 @@ import ProjectsList from "./pages/projects/ProjectsList";
 import ProjectDetail from "./pages/projects/ProjectDetail";
 import ManagerDashboard from "./pages/projects/ManagerDashboard";
 
+// Notifications
+import NotificationCenter from "./pages/notifications/NotificationCenter";
+
 import "./App.css";
 
 // Initialize MSAL instance
@@ -300,6 +303,9 @@ function AppRoutes() {
             <Route path="/projects/my-tasks" element={<ProtectedRoute><MyTasks /></ProtectedRoute>} />
             <Route path="/projects/manager" element={<ProtectedRoute><ManagerDashboard /></ProtectedRoute>} />
             <Route path="/projects/:projectId" element={<ProtectedRoute><ProjectDetail /></ProtectedRoute>} />
+
+            {/* Notifications */}
+            <Route path="/notifications" element={<ProtectedRoute><NotificationCenter /></ProtectedRoute>} />
 
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" replace />} />

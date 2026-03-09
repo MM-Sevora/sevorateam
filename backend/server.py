@@ -3286,6 +3286,16 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Project Management routes: {e}")
 
+# Register Notifications routes
+try:
+    from routes.notifications import router as notifications_router, init_notifications_router
+    from services.websocket_service import manager as ws_manager
+    init_notifications_router(db, get_current_user, ws_manager)
+    api_router.include_router(notifications_router)
+    logger.info("Notifications routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Notifications routes: {e}")
+
 app.include_router(api_router)
 
 # ============== WEBSOCKET FOR REAL-TIME NOTIFICATIONS ==============

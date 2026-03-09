@@ -164,6 +164,19 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - [x] Frontend: Category filter buttons (All, Meetings, Reports, Sprints, Checklists, Other)
 - [x] Frontend: Category badges on template cards with color-coded icons
 
+### Phase 18: Alert & Notification System - Phase 1 (COMPLETE - December 2025)
+- [x] Backend: Notification model (id, user_id, type, category, title, message, priority, entity, action_url, metadata)
+- [x] Backend: CRUD endpoints for notifications (GET, PUT read, DELETE)
+- [x] Backend: Notification preferences model and endpoints
+- [x] Backend: Unread count and summary by category endpoints
+- [x] Backend: Helper functions for creating notifications (notify_task_assigned, notify_mention, etc.)
+- [x] Frontend: Enhanced NotificationsDropdown component with DB + WebSocket merge
+- [x] Frontend: Full NotificationCenter page (/notifications route)
+- [x] Frontend: Category filter buttons (Tasks, Projects, Marketing, Mail, Social, Mentions, etc.)
+- [x] Frontend: Priority filtering and search
+- [x] Frontend: Notification preferences settings tab with toggles
+- [x] Frontend: Mark read/unread, delete, bulk actions
+
 ---
 
 ## Pending Issues
