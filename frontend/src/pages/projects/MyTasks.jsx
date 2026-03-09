@@ -201,13 +201,15 @@ const MyTasks = () => {
   const [personalProject, setPersonalProject] = useState(null);
   const [personalTasks, setPersonalTasks] = useState([]);
   const [assignedByMe, setAssignedByMe] = useState([]);
+  const [users, setUsers] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [quickTaskData, setQuickTaskData] = useState({
     name: '',
     description: '',
     priority: 'medium',
-    due_date: ''
+    due_date: '',
+    assigned_to: ''
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -246,6 +248,23 @@ const MyTasks = () => {
     }
   };
 
+  const fetchUsers = async () => {
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const response = await fetch(`${API}/api/admin/users`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Filter to active users only
+        setUsers(data.filter(u => u.status === 'active'));
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
+
   const fetchPersonalProject = async () => {
     try {
       const token = localStorage.getItem('sevora_token');
@@ -275,6 +294,7 @@ const MyTasks = () => {
     fetchMyTasks();
     fetchPersonalProject();
     fetchAssignedByMe();
+    fetchUsers();
   }, []);
 
   const handleQuickAddTask = async () => {
@@ -293,8 +313,13 @@ const MyTasks = () => {
         due_date: quickTaskData.due_date || null
       };
       
-      // If personal project exists, link to it. Otherwise create individual task
-      if (personalProject?.id) {
+      // Add assigned_to if selected (delegate to someone else)
+      if (quickTaskData.assigned_to && quickTaskData.assigned_to !== 'self') {
+        payload.assigned_to = quickTaskData.assigned_to;
+      }
+      
+      // If personal project exists and assigning to self, link to it
+      if (personalProject?.id && (!quickTaskData.assigned_to || quickTaskData.assigned_to === 'self')) {
         payload.project_id = personalProject.id;
       }
       // Note: if project_id is not set, this creates an individual task
@@ -310,10 +335,12 @@ const MyTasks = () => {
       
       if (!response.ok) throw new Error('Failed to create task');
       
-      toast.success('Task created!');
+      const isAssignedToOther = quickTaskData.assigned_to && quickTaskData.assigned_to !== 'self';
+      toast.success(isAssignedToOther ? 'Task assigned successfully!' : 'Task created!');
       setShowQuickAdd(false);
-      setQuickTaskData({ name: '', description: '', priority: 'medium', due_date: '' });
+      setQuickTaskData({ name: '', description: '', priority: 'medium', due_date: '', assigned_to: '' });
       fetchMyTasks();
+      fetchAssignedByMe();
       if (personalProject) fetchPersonalProject();
     } catch (error) {
       console.error('Error creating task:', error);
@@ -748,20 +775,45 @@ const MyTasks = () => {
       <Dialog open={showQuickAdd} onOpenChange={setShowQuickAdd}>
         <DialogContent className="bg-white sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-[#4A3728]">Quick Add Personal Task</DialogTitle>
+            <DialogTitle className="text-[#4A3728]">Quick Add Task</DialogTitle>
             <DialogDescription className="text-[#6B5D52]">
-              Add a standalone task to your personal task list
+              Create a task for yourself or assign to someone else
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label className="text-[#4A3728]">Task Name *</Label>
               <Input
-                placeholder="What do you need to do?"
+                placeholder="What needs to be done?"
                 value={quickTaskData.name}
                 onChange={(e) => setQuickTaskData({...quickTaskData, name: e.target.value})}
                 className="border-[#D4BBA6]"
+                data-testid="quick-task-name"
               />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#4A3728]">Assign To</Label>
+              <Select
+                value={quickTaskData.assigned_to || 'self'}
+                onValueChange={(v) => setQuickTaskData({...quickTaskData, assigned_to: v})}
+              >
+                <SelectTrigger className="border-[#D4BBA6]" data-testid="quick-task-assignee">
+                  <SelectValue placeholder="Assign to..." />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-[#D4BBA6] max-h-60">
+                  <SelectItem value="self">
+                    <span className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-rose-600" />
+                      Myself (Personal Task)
+                    </span>
+                  </SelectItem>
+                  {users.map(user => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.name} ({user.email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label className="text-[#4A3728]">Description</Label>
@@ -809,9 +861,10 @@ const MyTasks = () => {
             <Button 
               onClick={handleQuickAddTask}
               disabled={submitting}
-              className="bg-[#4A3728] hover:bg-[#3A2A1E]"
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+              data-testid="quick-task-submit"
             >
-              {submitting ? 'Creating...' : 'Add Task'}
+              {submitting ? 'Creating...' : (quickTaskData.assigned_to && quickTaskData.assigned_to !== 'self' ? 'Assign Task' : 'Add Task')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -826,7 +879,7 @@ const MyTasks = () => {
           fetchMyTasks();
           fetchAssignedByMe();
         }}
-        users={[]}
+        users={users}
         projectId={null}
       />
     </div>

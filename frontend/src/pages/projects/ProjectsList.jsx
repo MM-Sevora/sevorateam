@@ -430,6 +430,7 @@ const EditProjectModal = ({ open, onClose, project, modules, departments, users,
     description: '',
     priority: 'medium',
     visibility: 'public',
+    status: 'draft',
     project_manager_id: '',
     start_date: '',
     end_date: ''
@@ -445,6 +446,7 @@ const EditProjectModal = ({ open, onClose, project, modules, departments, users,
         description: project.description || '',
         priority: project.priority || 'medium',
         visibility: project.visibility || 'public',
+        status: project.status || 'draft',
         project_manager_id: project.project_manager_id || '',
         start_date: project.start_date || '',
         end_date: project.end_date || ''
@@ -495,6 +497,14 @@ const EditProjectModal = ({ open, onClose, project, modules, departments, users,
     { value: 'design', label: 'Design' },
     { value: 'operations', label: 'Operations' },
     { value: 'other', label: 'Other' }
+  ];
+
+  const projectStatuses = [
+    { value: 'draft', label: 'Draft', color: 'bg-stone-100 text-stone-700' },
+    { value: 'active', label: 'Active', color: 'bg-emerald-100 text-emerald-700' },
+    { value: 'on_hold', label: 'On Hold', color: 'bg-amber-100 text-amber-700' },
+    { value: 'completed', label: 'Completed', color: 'bg-blue-100 text-blue-700' },
+    { value: 'cancelled', label: 'Cancelled', color: 'bg-red-100 text-red-700' }
   ];
 
   if (!project) return null;
@@ -588,6 +598,29 @@ const EditProjectModal = ({ open, onClose, project, modules, departments, users,
               </Select>
             </div>
             <div>
+              <Label className="text-[#4A3728]">Status</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(value) => setFormData({ ...formData, status: value })}
+              >
+                <SelectTrigger className="border-[#D4BBA6] mt-1" data-testid="project-status-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-[#D4BBA6]">
+                  {projectStatuses.map(status => (
+                    <SelectItem key={status.value} value={status.value}>
+                      <span className={`px-2 py-0.5 rounded text-sm ${status.color}`}>
+                        {status.label}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
               <Label className="text-[#4A3728]">Visibility</Label>
               <Select
                 value={formData.visibility}
@@ -609,6 +642,25 @@ const EditProjectModal = ({ open, onClose, project, modules, departments, users,
                       Private
                     </span>
                   </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-[#4A3728]">Project Manager</Label>
+              <Select
+                value={formData.project_manager_id || 'none'}
+                onValueChange={(value) => setFormData({ ...formData, project_manager_id: value === 'none' ? '' : value })}
+              >
+                <SelectTrigger className="border-[#D4BBA6] mt-1">
+                  <SelectValue placeholder="Select PM" />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-[#D4BBA6] max-h-60">
+                  <SelectItem value="none">No PM assigned</SelectItem>
+                  {users.map(user => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

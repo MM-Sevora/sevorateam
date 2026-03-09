@@ -704,6 +704,18 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - `/app/backend/tests/test_expense_module.py` - Expense module backend tests
 - `/app/backend/tests/test_project_visibility_team.py` - Project visibility and team management tests
 
+### Phase 30: Project Management Gap Fixes (COMPLETE - March 9, 2026)
+- [x] **Quick Add Task with Assign To**: Can now delegate tasks to others without going into a project
+  - Added "Assign To" dropdown with user list in Quick Add modal
+  - Button text changes to "Assign Task" when assigning to others
+  - Users list filtered to active users only
+- [x] **Project Status in Edit Modal**: Can now change project lifecycle status
+  - Added Status dropdown: Draft, Active, On Hold, Completed, Cancelled
+  - Added Project Manager selection dropdown
+- [x] **Task Duplication**: Can now duplicate tasks with one click
+  - Added "Duplicate" button in Task Detail modal header
+  - Creates copy with "(Copy)" suffix, same properties
+
 ### Phase 29: Bug Fixes & UX Improvements (COMPLETE - March 9, 2026)
 - [x] Fixed: My Tasks clicking task now opens Task Detail Modal (not navigate away)
 - [x] Fixed: Project Edit modal added - can edit name, description, visibility, priority, dates

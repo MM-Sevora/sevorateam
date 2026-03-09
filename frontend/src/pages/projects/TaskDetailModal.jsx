@@ -3,7 +3,7 @@ import {
   X, Calendar, User, Flag, Clock, CheckCircle2, Circle, Plus,
   MessageSquare, Trash2, Edit, Save, ListTodo, Timer, ChevronDown,
   AlertTriangle, Link2, Unlink, Paperclip, Upload, FileText, Image,
-  File, Download, Folder, Tag, Repeat, RefreshCw, Bell, BellRing
+  File, Download, Folder, Tag, Repeat, RefreshCw, Bell, BellRing, Copy
 } from 'lucide-react';
 
 // Animation styles
@@ -1624,6 +1624,40 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
     finally { setSaving(false); }
   };
 
+  const duplicateTask = async () => {
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const payload = {
+        name: `${task.name} (Copy)`,
+        project_id: task.project_id,
+        description: task.description,
+        priority: task.priority,
+        due_date: task.due_date,
+        estimated_hours: task.estimated_hours,
+        tags: task.tags || []
+      };
+      
+      const res = await fetch(`${API}/api/projects/tasks`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      if (res.ok) {
+        const newTask = await res.json();
+        toast.success('Task duplicated');
+        onUpdate?.();
+        // Optionally close and open the new task
+        onClose();
+      } else {
+        throw new Error('Failed to duplicate');
+      }
+    } catch (e) {
+      console.error('Error duplicating task:', e);
+      toast.error('Failed to duplicate task');
+    }
+  };
+
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -1681,10 +1715,16 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
                       </Button>
                     </>
                   ) : (
-                    <Button onClick={() => setEditing(true)} variant="outline" size="sm" className="border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0]">
-                      <Edit className="w-4 h-4 mr-1" />
-                      Edit
-                    </Button>
+                    <>
+                      <Button onClick={duplicateTask} variant="outline" size="sm" className="border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0]" data-testid="duplicate-task-btn">
+                        <Copy className="w-4 h-4 mr-1" />
+                        Duplicate
+                      </Button>
+                      <Button onClick={() => setEditing(true)} variant="outline" size="sm" className="border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0]">
+                        <Edit className="w-4 h-4 mr-1" />
+                        Edit
+                      </Button>
+                    </>
                   )}
                 </div>
               </div>
