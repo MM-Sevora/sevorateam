@@ -368,6 +368,68 @@ class TaskLabelResponse(BaseModel):
     color: str
 
 
+
+# ============== TASK TEMPLATE MODELS ==============
+
+class TaskTemplateChecklistItem(BaseModel):
+    text: str
+    assigned_to: Optional[str] = None
+
+
+class TaskTemplateCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    project_id: Optional[str] = None  # None = global template
+    default_priority: Priority = Priority.MEDIUM
+    default_assignee: Optional[str] = None
+    estimated_hours: Optional[float] = None
+    default_labels: List[str] = []  # Label IDs
+    default_tags: List[str] = []
+    checklist_items: List[TaskTemplateChecklistItem] = []
+    # Recurring settings
+    is_recurring: bool = False
+    recurrence_pattern: Optional[str] = None
+    recurrence_interval: int = 1
+
+
+class TaskTemplateUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    default_priority: Optional[Priority] = None
+    default_assignee: Optional[str] = None
+    estimated_hours: Optional[float] = None
+    default_labels: Optional[List[str]] = None
+    default_tags: Optional[List[str]] = None
+    checklist_items: Optional[List[TaskTemplateChecklistItem]] = None
+    is_recurring: Optional[bool] = None
+    recurrence_pattern: Optional[str] = None
+    recurrence_interval: Optional[int] = None
+
+
+class TaskTemplateResponse(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
+    project_id: Optional[str] = None
+    project_name: Optional[str] = None  # "Global" if project_id is None
+    default_priority: Priority = Priority.MEDIUM
+    default_assignee: Optional[str] = None
+    default_assignee_name: Optional[str] = None
+    estimated_hours: Optional[float] = None
+    default_labels: List[str] = []
+    default_label_names: List[Dict] = []  # [{id, name, color}]
+    default_tags: List[str] = []
+    checklist_items: List[TaskTemplateChecklistItem] = []
+    is_recurring: bool = False
+    recurrence_pattern: Optional[str] = None
+    recurrence_interval: int = 1
+    usage_count: int = 0
+    created_by: Optional[str] = None
+    created_by_name: Optional[str] = None
+    created_at: str
+    updated_at: str
+
+
 # ============== TIME LOG MODELS ==============
 
 class TimeLogCreate(BaseModel):

@@ -6,7 +6,7 @@ import {
   GripVertical, MessageSquare, ListTodo, RefreshCw, Settings,
   User, Folder, AlertOctagon, LayoutGrid, CalendarDays, Search,
   Filter, X, ChevronDown, CheckSquare, Square, Move, List,
-  ArrowUpDown, ArrowUp, ArrowDown
+  ArrowUpDown, ArrowUp, ArrowDown, BookCopy
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -43,6 +43,7 @@ import { toast } from 'sonner';
 import TaskDetailModal from './TaskDetailModal';
 import TaskCalendarView from './TaskCalendarView';
 import TaskListView from './TaskListView';
+import TaskTemplatesPanel from './TaskTemplatesPanel';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -511,6 +512,8 @@ const ProjectDetail = () => {
   // Bulk selection state
   const [selectedTasks, setSelectedTasks] = useState([]);
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [projectLabels, setProjectLabels] = useState([]);
 
   const selectionMode = selectedTasks.length > 0;
 
@@ -647,10 +650,11 @@ const ProjectDetail = () => {
       const token = localStorage.getItem('sevora_token');
       const headers = { 'Authorization': `Bearer ${token}` };
 
-      const [projectRes, tasksRes, usersRes] = await Promise.all([
+      const [projectRes, tasksRes, usersRes, labelsRes] = await Promise.all([
         fetch(`${API}/api/projects/${projectId}`, { headers }),
         fetch(`${API}/api/projects/${projectId}/tasks`, { headers }),
-        fetch(`${API}/api/workos/users`, { headers })
+        fetch(`${API}/api/workos/users`, { headers }),
+        fetch(`${API}/api/projects/labels?project_id=${projectId}`, { headers })
       ]);
 
       if (!projectRes.ok) throw new Error('Project not found');
@@ -658,10 +662,12 @@ const ProjectDetail = () => {
       const projectData = await projectRes.json();
       const tasksData = tasksRes.ok ? await tasksRes.json() : [];
       const usersData = usersRes.ok ? await usersRes.json() : [];
+      const labelsData = labelsRes.ok ? await labelsRes.json() : [];
 
       setProject(projectData);
       setTasks(tasksData);
       setUsers(usersData.users || usersData || []);
+      setProjectLabels(labelsData);
     } catch (error) {
       console.error('Error:', error);
       toast.error('Failed to load project');
@@ -909,6 +915,17 @@ const ProjectDetail = () => {
                 Calendar
               </Button>
             </div>
+            {/* Templates Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowTemplates(true)}
+              className="border-[#D4BBA6] text-[#6B5D52] hover:text-[#4A3728] hover:bg-[#F5EBE0]"
+              data-testid="templates-btn"
+            >
+              <BookCopy className="w-4 h-4 mr-1" />
+              Templates
+            </Button>
           </div>
 
           {/* Filter Bar */}
@@ -1206,6 +1223,19 @@ const ProjectDetail = () => {
         taskId={selectedTaskId}
         onUpdate={fetchData}
         users={users}
+        projectId={projectId}
+      />
+
+      <TaskTemplatesPanel
+        open={showTemplates}
+        onClose={() => setShowTemplates(false)}
+        projectId={projectId}
+        users={users}
+        labels={projectLabels}
+        onCreateTask={(task) => {
+          fetchData();
+          setSelectedTaskId(task.id);
+        }}
       />
     </div>
   );

@@ -22,7 +22,8 @@ from models.projects import (
     MyTasksResponse, ProjectDashboardResponse,
     ManagerDashboardResponse, TeamMemberWorkload, ProjectSummary,
     AttachmentResponse,
-    LabelCreate, LabelUpdate, LabelResponse, TaskLabelResponse
+    LabelCreate, LabelUpdate, LabelResponse, TaskLabelResponse,
+    TaskTemplateCreate, TaskTemplateUpdate, TaskTemplateResponse
 )
 
 # Import storage utilities
@@ -814,6 +815,255 @@ async def get_manager_dashboard(
     )
 
 
+# ============== TASK TEMPLATES (Must be before /{project_id}) ==============
+
+@router.get("/templates", response_model=List[TaskTemplateResponse])
+async def list_templates(
+    project_id: Optional[str] = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """List task templates - global and/or project-specific"""
+    query = {}
+    if project_id:
+        # Get templates for this project + global templates
+        query["$or"] = [{"project_id": project_id}, {"project_id": None}]
+    
+    templates = await db.pm_task_templates.find(query, {"_id": 0}).sort("name", 1).to_list(100)
+    
+    # Enrich templates
+    for template in templates:
+        if template.get("project_id"):
+            project = await db.pm_projects.find_one({"id": template["project_id"]}, {"name": 1})
+            template["project_name"] = project.get("name") if project else None
+        else:
+            template["project_name"] = "Global"
+        
+        if template.get("default_assignee"):
+            template["default_assignee_name"] = await get_user_name(template["default_assignee"])
+        
+        if template.get("created_by"):
+            template["created_by_name"] = await get_user_name(template["created_by"])
+        
+        # Get label details
+        label_ids = template.get("default_labels", [])
+        if label_ids:
+            labels = await db.pm_labels.find({"id": {"$in": label_ids}}, {"_id": 0, "id": 1, "name": 1, "color": 1}).to_list(50)
+            template["default_label_names"] = labels
+        else:
+            template["default_label_names"] = []
+    
+    return templates
+
+
+@router.post("/templates", response_model=TaskTemplateResponse)
+async def create_template(
+    data: TaskTemplateCreate,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Create a new task template"""
+    # Verify project if provided
+    if data.project_id:
+        project = await db.pm_projects.find_one({"id": data.project_id})
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+    
+    template_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    template_doc = {
+        "id": template_id,
+        "name": data.name,
+        "description": data.description,
+        "project_id": data.project_id,
+        "default_priority": data.default_priority.value,
+        "default_assignee": data.default_assignee,
+        "estimated_hours": data.estimated_hours,
+        "default_labels": data.default_labels,
+        "default_tags": data.default_tags,
+        "checklist_items": [item.model_dump() for item in data.checklist_items],
+        "is_recurring": data.is_recurring,
+        "recurrence_pattern": data.recurrence_pattern,
+        "recurrence_interval": data.recurrence_interval,
+        "usage_count": 0,
+        "created_by": user["id"],
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.pm_task_templates.insert_one(template_doc)
+    await log_activity("template", template_id, data.name, "created", user["id"])
+    
+    if "_id" in template_doc:
+        del template_doc["_id"]
+    
+    # Enrich response
+    template_doc["project_name"] = "Global" if not data.project_id else (await db.pm_projects.find_one({"id": data.project_id}, {"name": 1})).get("name")
+    template_doc["default_assignee_name"] = await get_user_name(data.default_assignee) if data.default_assignee else None
+    template_doc["created_by_name"] = user.get("name")
+    template_doc["default_label_names"] = []
+    if data.default_labels:
+        labels = await db.pm_labels.find({"id": {"$in": data.default_labels}}, {"_id": 0, "id": 1, "name": 1, "color": 1}).to_list(50)
+        template_doc["default_label_names"] = labels
+    
+    return template_doc
+
+
+@router.get("/templates/{template_id}", response_model=TaskTemplateResponse)
+async def get_template(
+    template_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get a single task template"""
+    template = await db.pm_task_templates.find_one({"id": template_id}, {"_id": 0})
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    # Enrich
+    if template.get("project_id"):
+        project = await db.pm_projects.find_one({"id": template["project_id"]}, {"name": 1})
+        template["project_name"] = project.get("name") if project else None
+    else:
+        template["project_name"] = "Global"
+    
+    if template.get("default_assignee"):
+        template["default_assignee_name"] = await get_user_name(template["default_assignee"])
+    
+    if template.get("created_by"):
+        template["created_by_name"] = await get_user_name(template["created_by"])
+    
+    label_ids = template.get("default_labels", [])
+    if label_ids:
+        labels = await db.pm_labels.find({"id": {"$in": label_ids}}, {"_id": 0, "id": 1, "name": 1, "color": 1}).to_list(50)
+        template["default_label_names"] = labels
+    else:
+        template["default_label_names"] = []
+    
+    return template
+
+
+@router.put("/templates/{template_id}", response_model=TaskTemplateResponse)
+async def update_template(
+    template_id: str,
+    data: TaskTemplateUpdate,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Update a task template"""
+    template = await db.pm_task_templates.find_one({"id": template_id})
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    update_data = {}
+    for k, v in data.model_dump().items():
+        if v is not None:
+            if k == "default_priority":
+                update_data[k] = v.value
+            elif k == "checklist_items":
+                update_data[k] = [item if isinstance(item, dict) else item.model_dump() for item in v]
+            else:
+                update_data[k] = v
+    
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.pm_task_templates.update_one({"id": template_id}, {"$set": update_data})
+    await log_activity("template", template_id, template.get("name"), "updated", user["id"])
+    
+    return await get_template(template_id, user)
+
+
+@router.delete("/templates/{template_id}")
+async def delete_template(
+    template_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Delete a task template"""
+    template = await db.pm_task_templates.find_one({"id": template_id})
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    await db.pm_task_templates.delete_one({"id": template_id})
+    await log_activity("template", template_id, template.get("name"), "deleted", user["id"])
+    
+    return {"message": "Template deleted"}
+
+
+@router.post("/templates/{template_id}/create-task", response_model=TaskResponse)
+async def create_task_from_template(
+    template_id: str,
+    project_id: str,
+    task_name: Optional[str] = None,
+    due_date: Optional[str] = None,
+    assigned_to: Optional[str] = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Create a new task from a template"""
+    template = await db.pm_task_templates.find_one({"id": template_id})
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    # Verify project
+    project = await db.pm_projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    task_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Create task from template
+    task_doc = {
+        "id": task_id,
+        "name": task_name or template.get("name"),
+        "project_id": project_id,
+        "description": template.get("description"),
+        "assigned_to": assigned_to or template.get("default_assignee"),
+        "assigned_by": user["id"] if (assigned_to or template.get("default_assignee")) else None,
+        "priority": template.get("default_priority", "medium"),
+        "status": TaskStatus.DRAFT.value if not (assigned_to or template.get("default_assignee")) else TaskStatus.ASSIGNED.value,
+        "due_date": due_date,
+        "estimated_hours": template.get("estimated_hours"),
+        "tags": template.get("default_tags", []),
+        "label_ids": template.get("default_labels", []),
+        "is_recurring": template.get("is_recurring", False),
+        "recurrence_pattern": template.get("recurrence_pattern"),
+        "recurrence_interval": template.get("recurrence_interval", 1),
+        "blocked_by": [],
+        "blocks": [],
+        "created_by": user["id"],
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.pm_tasks.insert_one(task_doc)
+    
+    # Create checklist items from template
+    checklist_items = template.get("checklist_items", [])
+    for item in checklist_items:
+        checklist_id = str(uuid.uuid4())
+        checklist_doc = {
+            "id": checklist_id,
+            "task_id": task_id,
+            "text": item.get("text"),
+            "is_completed": False,
+            "assigned_to": item.get("assigned_to"),
+            "completed_by": None,
+            "completed_at": None,
+            "created_at": now
+        }
+        await db.pm_checklists.insert_one(checklist_doc)
+    
+    # Increment template usage count
+    await db.pm_task_templates.update_one(
+        {"id": template_id},
+        {"$inc": {"usage_count": 1}}
+    )
+    
+    await log_activity("task", task_id, task_doc["name"], "created_from_template", user["id"], {"template_id": template_id})
+    
+    if "_id" in task_doc:
+        del task_doc["_id"]
+    
+    return await enrich_task(task_doc)
+
+
 @router.get("/{project_id}", response_model=ProjectResponse)
 async def get_project(
     project_id: str,
@@ -1215,8 +1465,6 @@ async def update_task(
 
 async def create_next_recurring_task(task: dict, user_id: str):
     """Create the next instance of a recurring task"""
-    from dateutil.relativedelta import relativedelta
-    
     pattern = task.get("recurrence_pattern")
     interval = task.get("recurrence_interval", 1)
     end_date = task.get("recurrence_end_date")
@@ -1913,6 +2161,3 @@ async def remove_label_from_task(
     )
     
     return {"message": "Label removed from task"}
-
-
-# Note: Activity log endpoint moved above /{project_id} route to avoid matching issues
