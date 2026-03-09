@@ -186,6 +186,9 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - [x] PM Integration: @mention notifications in comments
 - [x] Marketing Integration: Approval granted/rejected notifications
 - [x] Marketing Integration: Influencer deal confirmation notifications
+- [x] Social Integration: Post scheduled notifications
+- [x] Social Integration: Post published notifications
+- [x] Mail Integration: Email sent notifications
 
 ---
 

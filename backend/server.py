@@ -2397,6 +2397,27 @@ async def schedule_post(data: dict, user: dict = Depends(require_department(["so
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.social_posts.insert_one(post_doc)
+    
+    # Send notification about scheduled post
+    try:
+        from routes.notifications import (
+            create_notification, NotificationType, NotificationCategory, NotificationPriority
+        )
+        await create_notification(
+            user_id=user['id'],
+            notification_type=NotificationType.POST_SCHEDULED,
+            category=NotificationCategory.SOCIAL,
+            title="Post Scheduled",
+            message=f"Your {data.get('platform', 'social')} post has been scheduled",
+            priority=NotificationPriority.LOW,
+            entity_type="post",
+            entity_id=post_id,
+            action_url=f"/social/posts/{post_id}",
+            metadata={"platform": data.get("platform"), "scheduled_at": data.get("scheduled_at")}
+        )
+    except Exception as e:
+        logger.error(f"Failed to send post scheduled notification: {e}")
+    
     if '_id' in post_doc: del post_doc['_id']
     return post_doc
 
@@ -3909,7 +3930,11 @@ class MicrosoftSendEmailRequest(BaseModel):
     is_reply_all: bool = False
 
 @microsoft_router.post("/send")
-async def send_microsoft_email(request: MicrosoftSendEmailRequest, user_email: str = None):
+async def send_microsoft_email(
+    request: MicrosoftSendEmailRequest, 
+    user_email: str = None,
+    user: dict = Depends(get_current_user)
+):
     """Send a new email or reply to existing"""
     sender = user_email or DEFAULT_SENDER_EMAIL
     result = await microsoft_email_service.send_email(
@@ -3930,8 +3955,8 @@ async def send_microsoft_email(request: MicrosoftSendEmailRequest, user_email: s
             automation_result = await trigger_auto_advance_on_contact(
                 contact_identifier=recipient,
                 channel="email",
-                user_id=None,
-                user_name=sender
+                user_id=user.get('id') if user else None,
+                user_name=user.get('name') if user else sender
             )
             
             # Log communication to contact history
@@ -3939,8 +3964,32 @@ async def send_microsoft_email(request: MicrosoftSendEmailRequest, user_email: s
                 contact_identifier=recipient,
                 channel="email",
                 message=f"Subject: {request.subject}",
-                user_id=None
+                user_id=user.get('id') if user else None
             )
+        
+        # Send notification about sent email
+        if user and user.get('id'):
+            try:
+                from routes.notifications import (
+                    create_notification, NotificationType, NotificationCategory, NotificationPriority
+                )
+                to_list = ', '.join(request.to_recipients[:2])
+                if len(request.to_recipients) > 2:
+                    to_list += f" +{len(request.to_recipients) - 2} more"
+                await create_notification(
+                    user_id=user['id'],
+                    notification_type=NotificationType.EMAIL_SENT,
+                    category=NotificationCategory.MAIL,
+                    title="Email Sent",
+                    message=f"To: {to_list} - {request.subject[:50]}",
+                    priority=NotificationPriority.LOW,
+                    entity_type="email",
+                    entity_id=result.get("id"),
+                    action_url="/mail/sent",
+                    metadata={"recipients": request.to_recipients, "subject": request.subject}
+                )
+            except Exception as e:
+                logger.error(f"Failed to send email sent notification: {e}")
     
     return result
 
@@ -4340,10 +4389,33 @@ async def execute_automation_action(action_type: str, data: dict, user: dict = D
     elif action_type == "publish_post":
         post_id = data.get("post_id")
         if post_id:
+            post = await db.posts.find_one({"post_id": post_id})
             await db.posts.update_one(
                 {"post_id": post_id},
                 {"$set": {"status": "published", "published_at": datetime.now(timezone.utc).isoformat()}}
             )
+            
+            # Send notification about published post
+            if post and post.get("created_by"):
+                try:
+                    from routes.notifications import (
+                        create_notification, NotificationType, NotificationCategory, NotificationPriority
+                    )
+                    await create_notification(
+                        user_id=post["created_by"],
+                        notification_type=NotificationType.POST_PUBLISHED,
+                        category=NotificationCategory.SOCIAL,
+                        title="Post Published",
+                        message=f"Your {post.get('platform', 'social')} post is now live!",
+                        priority=NotificationPriority.MEDIUM,
+                        entity_type="post",
+                        entity_id=post_id,
+                        action_url=f"/social/posts/{post_id}",
+                        metadata={"platform": post.get("platform")}
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to send post published notification: {e}")
+            
             result = {"success": True, "message": "Post published"}
     
     elif action_type == "dismiss":
