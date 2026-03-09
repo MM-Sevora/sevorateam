@@ -557,6 +557,33 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - [x] Features: Progress bar, step numbers, keyboard navigation, localStorage persistence
 - [x] Floating help button (?) in bottom-right corner for easy access
 
+### Phase 37: Unified Contacts & Route Migration (COMPLETE - March 9, 2026)
+**1. Merged Contacts/Influencers/Publications:**
+- [x] Migrated 12 influencers + 5 publications → unified `contacts` collection
+- [x] Created `/app/backend/modules/contacts/routes.py` with unified API:
+  - `GET /api/contacts` - All contacts with filters (type, status, tier)
+  - `GET /api/contacts/stats` - Statistics by type, status, tier
+  - `GET /api/contacts/{id}` - Single contact with campaign & payment info
+  - `POST /api/contacts` - Create contact
+  - `PUT /api/contacts/{id}` - Update contact
+  - `DELETE /api/contacts/{id}` - Delete contact
+  - `POST /api/contacts/bulk/assign-campaign` - Bulk campaign assignment
+  - `POST /api/contacts/bulk/update-status` - Bulk status update
+  - `GET /api/contacts/type/influencers` - Legacy compatibility
+  - `GET /api/contacts/type/publications` - Legacy compatibility
+- [x] Updated inline influencer routes in server.py to use unified contacts collection
+- [x] Score calculation for ranking contacts by engagement/reach
+
+**2. Updated Marketing Routes:**
+- [x] `/api/marketing/influencers` now queries unified `contacts` collection
+- [x] Backward compatibility: fallback to old `influencers` collection if needed
+
+**3. Added data-tour Attributes:**
+- [x] Layout.jsx: `data-tour="user-menu"` on user dropdown
+- [x] EmployeeDatabase.jsx: `data-tour="overview-tab"`, `data-tour="employees-tab"`, `data-tour="onboarding-tab"`
+- [x] ContactsHubPage.jsx: `data-tour="marketing-contacts"`, `data-tour="add-influencer"`
+- [x] MyTasks.jsx: `data-tour="my-tasks"`, `data-tour="create-task"`
+
 ### Key API Endpoints
 - `GET /api/projects/manager-dashboard` - Aggregated dashboard data
 - `GET, POST /api/projects/modules` - CRUD for modules

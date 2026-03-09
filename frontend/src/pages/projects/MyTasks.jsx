@@ -330,7 +330,7 @@ const MyTasks = () => {
   const stats = data?.stats || {};
 
   return (
-    <div className="p-8 space-y-8" data-testid="my-tasks-page">
+    <div className="p-8 space-y-8" data-testid="my-tasks-page" data-tour="my-tasks">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -353,6 +353,7 @@ const MyTasks = () => {
             onClick={() => setShowQuickAdd(true)}
             className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white"
             data-testid="quick-add-task-btn"
+            data-tour="create-task"
           >
             <Plus className="w-4 h-4 mr-2" />
             Quick Add Task

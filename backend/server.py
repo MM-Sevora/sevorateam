@@ -789,7 +789,8 @@ async def get_influencers(
     search: Optional[str] = None,
     user: dict = Depends(require_department(["marketing"]))
 ):
-    query = {}
+    # Query unified contacts collection with influencer filter
+    query = {"contact_type": "influencer"}
     if industry:
         query["industry"] = {"$regex": industry, "$options": "i"}
     if city:
@@ -804,12 +805,15 @@ async def get_influencers(
             {"instagram_handle": {"$regex": search, "$options": "i"}}
         ]
     
-    influencers = await db.influencers.find(query, {"_id": 0}).sort("score", -1).to_list(500)
+    influencers = await db.contacts.find(query, {"_id": 0}).sort("score", -1).to_list(500)
     return influencers
 
 @marketing_router.get("/influencers/{influencer_id}", response_model=InfluencerResponse)
 async def get_influencer(influencer_id: str, user: dict = Depends(require_department(["marketing"]))):
-    influencer = await db.influencers.find_one({"id": influencer_id}, {"_id": 0})
+    # Try contacts first (unified), fallback to influencers
+    influencer = await db.contacts.find_one({"id": influencer_id, "contact_type": "influencer"}, {"_id": 0})
+    if not influencer:
+        influencer = await db.influencers.find_one({"id": influencer_id}, {"_id": 0})
     if not influencer:
         raise HTTPException(status_code=404, detail="Influencer not found")
     return influencer
@@ -820,12 +824,14 @@ async def create_influencer(data: InfluencerCreate, user: dict = Depends(require
     influencer_doc = {
         "id": influencer_id,
         **data.model_dump(),
+        "contact_type": "influencer",  # Add type for unified collection
         "status": "identified",
         "score": 0.0,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     influencer_doc['score'] = calculate_influencer_score(influencer_doc)
-    await db.influencers.insert_one(influencer_doc)
+    # Insert into unified contacts collection
+    await db.contacts.insert_one(influencer_doc)
     if '_id' in influencer_doc:
         del influencer_doc['_id']
     return influencer_doc
@@ -836,23 +842,39 @@ async def update_influencer(influencer_id: str, data: dict, user: dict = Depends
     if not update_data:
         raise HTTPException(status_code=400, detail="No data to update")
     
-    result = await db.influencers.find_one_and_update(
-        {"id": influencer_id},
+    # Try contacts first (unified)
+    result = await db.contacts.find_one_and_update(
+        {"id": influencer_id, "contact_type": "influencer"},
         {"$set": update_data},
         return_document=True
     )
     if not result:
+        # Fallback to old influencers collection
+        result = await db.influencers.find_one_and_update(
+            {"id": influencer_id},
+            {"$set": update_data},
+            return_document=True
+        )
+    if not result:
         raise HTTPException(status_code=404, detail="Influencer not found")
     
     new_score = calculate_influencer_score(result)
-    await db.influencers.update_one({"id": influencer_id}, {"$set": {"score": new_score}})
+    # Update score in the appropriate collection
+    if result.get("contact_type") == "influencer":
+        await db.contacts.update_one({"id": influencer_id}, {"$set": {"score": new_score}})
+    else:
+        await db.influencers.update_one({"id": influencer_id}, {"$set": {"score": new_score}})
     result['score'] = new_score
     del result['_id']
     return result
 
 @marketing_router.delete("/influencers/{influencer_id}")
 async def delete_influencer(influencer_id: str, user: dict = Depends(require_department(["marketing"]))):
-    result = await db.influencers.delete_one({"id": influencer_id})
+    # Try contacts first (unified)
+    result = await db.contacts.delete_one({"id": influencer_id, "contact_type": "influencer"})
+    if result.deleted_count == 0:
+        # Fallback to old influencers collection
+        result = await db.influencers.delete_one({"id": influencer_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Influencer not found")
     return {"message": "Influencer deleted"}
@@ -3349,6 +3371,14 @@ try:
     logger.info("Help & Support routes loaded successfully")
 except Exception as e:
     logger.error(f"Failed to load Help & Support routes: {e}")
+
+# Register Unified Contacts routes (merged contacts/influencers/publications)
+try:
+    from modules.contacts.routes import contacts_router
+    api_router.include_router(contacts_router)
+    logger.info("Unified Contacts routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Unified Contacts routes: {e}")
 
 app.include_router(api_router)
 

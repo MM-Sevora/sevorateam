@@ -259,6 +259,7 @@ const EmployeeDatabase = () => {
               value={tab.id}
               className="data-[state=active]:bg-white data-[state=active]:shadow-sm"
               data-testid={`tab-${tab.id}`}
+              data-tour={`${tab.id}-tab`}
             >
               <tab.icon className="w-4 h-4 mr-2" />
               {tab.label}

@@ -334,7 +334,10 @@ export const Layout = ({ children }) => {
                 <div className="p-4 border-t border-[#D4BBA6]" data-tour="user-menu">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <button className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-[#E8D5C4] transition-colors">
+                            <button 
+                                className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-[#E8D5C4] transition-colors"
+                                data-tour="user-menu"
+                            >
                                 <Avatar className="h-9 w-9">
                                     <AvatarImage src={user?.avatar_url} />
                                     <AvatarFallback className="bg-[#4A3728] text-white text-sm">

@@ -143,7 +143,7 @@ const ContactsHubPage = () => {
   const getContactTypeConfig = (type) => CONTACT_TYPES.find(t => t.value === type) || CONTACT_TYPES[0];
 
   return (
-    <div className="p-8 space-y-6" data-testid="contacts-hub-page">
+    <div className="p-8 space-y-6" data-testid="contacts-hub-page" data-tour="marketing-contacts">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -152,7 +152,7 @@ const ContactsHubPage = () => {
         </div>
         <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
           <DialogTrigger asChild>
-            <Button className="bg-amber-700 hover:bg-amber-800" data-testid="add-contact-btn">
+            <Button className="bg-amber-700 hover:bg-amber-800" data-testid="add-contact-btn" data-tour="add-influencer">
               <Plus className="w-4 h-4 mr-2" /> Add Contact
             </Button>
           </DialogTrigger>
