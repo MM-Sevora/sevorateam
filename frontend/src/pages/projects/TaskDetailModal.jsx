@@ -1,9 +1,117 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   X, Calendar, User, Flag, Clock, CheckCircle2, Circle, Plus,
   MessageSquare, Trash2, Edit, Save, ListTodo, Timer, ChevronDown,
   AlertTriangle, Link2, Unlink
 } from 'lucide-react';
+
+// Animation styles
+const animationStyles = `
+  @keyframes modalSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  
+  @keyframes fadeSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes checkPop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+  
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  
+  @keyframes pulse-ring {
+    0% { transform: scale(0.8); opacity: 1; }
+    100% { transform: scale(1.4); opacity: 0; }
+  }
+  
+  .modal-animate {
+    animation: modalSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  
+  .tab-content-animate {
+    animation: fadeSlideIn 0.25s ease-out;
+  }
+  
+  .check-animate {
+    animation: checkPop 0.3s ease-out;
+  }
+  
+  .item-hover {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .item-hover:hover {
+    transform: translateX(4px);
+    box-shadow: 0 2px 8px rgba(74, 55, 40, 0.08);
+  }
+  
+  .btn-hover {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .btn-hover:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(190, 18, 60, 0.25);
+  }
+  
+  .btn-hover:active {
+    transform: translateY(0);
+  }
+  
+  .progress-bar-animate {
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .tab-trigger-hover {
+    transition: all 0.2s ease;
+  }
+  
+  .tab-trigger-hover:hover:not([data-state="active"]) {
+    background-color: rgba(232, 213, 196, 0.5);
+    transform: translateY(-1px);
+  }
+  
+  .badge-pulse {
+    position: relative;
+  }
+  
+  .badge-pulse::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: inherit;
+    animation: pulse-ring 2s ease-out infinite;
+    opacity: 0;
+  }
+  
+  .stagger-1 { animation-delay: 0.05s; }
+  .stagger-2 { animation-delay: 0.1s; }
+  .stagger-3 { animation-delay: 0.15s; }
+  .stagger-4 { animation-delay: 0.2s; }
+  .stagger-5 { animation-delay: 0.25s; }
+`;
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Input } from '../../components/ui/input';
@@ -49,12 +157,30 @@ const statusConfig = {
   on_hold: { label: 'On Hold', color: 'bg-stone-400' }
 };
 
+// Animated wrapper for tab content
+const AnimatedTabContent = ({ children, isActive }) => {
+  const [shouldRender, setShouldRender] = useState(isActive);
+  
+  useEffect(() => {
+    if (isActive) setShouldRender(true);
+  }, [isActive]);
+  
+  if (!shouldRender) return null;
+  
+  return (
+    <div className={isActive ? 'tab-content-animate' : ''}>
+      {children}
+    </div>
+  );
+};
+
 // Subtasks Section
 const SubtasksSection = ({ taskId, token }) => {
   const [subtasks, setSubtasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newSubtask, setNewSubtask] = useState('');
   const [adding, setAdding] = useState(false);
+  const [recentlyToggled, setRecentlyToggled] = useState(null);
 
   const fetchSubtasks = async () => {
     try {
@@ -88,6 +214,8 @@ const SubtasksSection = ({ taskId, token }) => {
 
   const toggleSubtask = async (subtask) => {
     const newStatus = subtask.status === 'completed' ? 'draft' : 'completed';
+    setRecentlyToggled(subtask.id);
+    setTimeout(() => setRecentlyToggled(null), 300);
     try {
       await fetch(`${API}/api/projects/subtasks/${subtask.id}`, {
         method: 'PUT',
@@ -118,34 +246,38 @@ const SubtasksSection = ({ taskId, token }) => {
           value={newSubtask}
           onChange={(e) => setNewSubtask(e.target.value)}
           placeholder="Add a subtask..."
-          className="border-[#D4BBA6] focus:border-rose-500 flex-1"
+          className="border-[#D4BBA6] focus:border-rose-500 flex-1 transition-all duration-200 focus:shadow-md"
           onKeyDown={(e) => e.key === 'Enter' && addSubtask()}
           data-testid="subtask-input"
         />
-        <Button onClick={addSubtask} disabled={adding} size="sm" className="bg-rose-600 hover:bg-rose-700 text-white">
+        <Button onClick={addSubtask} disabled={adding} size="sm" className="bg-rose-600 hover:bg-rose-700 text-white btn-hover">
           <Plus className="w-4 h-4" />
         </Button>
       </div>
       
       {subtasks.length === 0 ? (
-        <p className="text-[#9C8C74] text-sm text-center py-4">No subtasks yet</p>
+        <p className="text-[#9C8C74] text-sm text-center py-4 tab-content-animate">No subtasks yet</p>
       ) : (
         <div className="space-y-2">
-          {subtasks.map(st => (
-            <div key={st.id} className="flex items-center gap-3 p-3 bg-[#FDF8F3] border border-[#E8D5C4] rounded-lg group">
-              <button onClick={() => toggleSubtask(st)} className="text-[#6B5D52] hover:text-[#4A3728]">
+          {subtasks.map((st, index) => (
+            <div 
+              key={st.id} 
+              className={`flex items-center gap-3 p-3 bg-[#FDF8F3] border border-[#E8D5C4] rounded-lg group item-hover stagger-${Math.min(index + 1, 5)}`}
+              style={{ animationFillMode: 'both' }}
+            >
+              <button onClick={() => toggleSubtask(st)} className="text-[#6B5D52] hover:text-[#4A3728] transition-colors">
                 {st.status === 'completed' ? (
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  <CheckCircle2 className={`w-5 h-5 text-emerald-600 ${recentlyToggled === st.id ? 'check-animate' : ''}`} />
                 ) : (
-                  <Circle className="w-5 h-5" />
+                  <Circle className={`w-5 h-5 ${recentlyToggled === st.id ? 'check-animate' : ''}`} />
                 )}
               </button>
-              <span className={`flex-1 text-sm ${st.status === 'completed' ? 'line-through text-[#9C8C74]' : 'text-[#4A3728]'}`}>
+              <span className={`flex-1 text-sm transition-all duration-200 ${st.status === 'completed' ? 'line-through text-[#9C8C74]' : 'text-[#4A3728]'}`}>
                 {st.name}
               </span>
               <button 
                 onClick={() => deleteSubtask(st.id)} 
-                className="text-[#9C8C74] hover:text-red-600 opacity-0 group-hover:opacity-100"
+                className="text-[#9C8C74] hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -162,6 +294,7 @@ const ChecklistsSection = ({ taskId, token }) => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newItem, setNewItem] = useState('');
+  const [recentlyToggled, setRecentlyToggled] = useState(null);
 
   const fetchItems = async () => {
     try {
@@ -191,6 +324,8 @@ const ChecklistsSection = ({ taskId, token }) => {
   };
 
   const toggleItem = async (item) => {
+    setRecentlyToggled(item.id);
+    setTimeout(() => setRecentlyToggled(null), 300);
     try {
       await fetch(`${API}/api/projects/checklists/${item.id}`, {
         method: 'PUT',
@@ -221,11 +356,11 @@ const ChecklistsSection = ({ taskId, token }) => {
         <div className="flex items-center gap-2 text-sm text-[#6B5D52]">
           <div className="flex-1 h-2 bg-[#E8D5C4] rounded-full overflow-hidden">
             <div 
-              className="h-full bg-emerald-500 transition-all" 
+              className="h-full bg-emerald-500 progress-bar-animate" 
               style={{ width: `${(completed / items.length) * 100}%` }}
             />
           </div>
-          <span>{completed}/{items.length}</span>
+          <span className="font-medium">{completed}/{items.length}</span>
         </div>
       )}
       
@@ -234,34 +369,38 @@ const ChecklistsSection = ({ taskId, token }) => {
           value={newItem}
           onChange={(e) => setNewItem(e.target.value)}
           placeholder="Add checklist item..."
-          className="border-[#D4BBA6] focus:border-rose-500 flex-1"
+          className="border-[#D4BBA6] focus:border-rose-500 flex-1 transition-all duration-200 focus:shadow-md"
           onKeyDown={(e) => e.key === 'Enter' && addItem()}
           data-testid="checklist-input"
         />
-        <Button onClick={addItem} size="sm" className="bg-rose-600 hover:bg-rose-700 text-white">
+        <Button onClick={addItem} size="sm" className="bg-rose-600 hover:bg-rose-700 text-white btn-hover">
           <Plus className="w-4 h-4" />
         </Button>
       </div>
       
       {items.length === 0 ? (
-        <p className="text-[#9C8C74] text-sm text-center py-4">No checklist items</p>
+        <p className="text-[#9C8C74] text-sm text-center py-4 tab-content-animate">No checklist items</p>
       ) : (
         <div className="space-y-2">
-          {items.map(item => (
-            <div key={item.id} className="flex items-center gap-3 p-3 bg-[#FDF8F3] border border-[#E8D5C4] rounded-lg group">
-              <button onClick={() => toggleItem(item)} className="text-[#6B5D52] hover:text-[#4A3728]">
+          {items.map((item, index) => (
+            <div 
+              key={item.id} 
+              className={`flex items-center gap-3 p-3 bg-[#FDF8F3] border border-[#E8D5C4] rounded-lg group item-hover stagger-${Math.min(index + 1, 5)}`}
+              style={{ animationFillMode: 'both' }}
+            >
+              <button onClick={() => toggleItem(item)} className="text-[#6B5D52] hover:text-[#4A3728] transition-colors">
                 {item.is_completed ? (
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  <CheckCircle2 className={`w-5 h-5 text-emerald-600 ${recentlyToggled === item.id ? 'check-animate' : ''}`} />
                 ) : (
-                  <Circle className="w-5 h-5" />
+                  <Circle className={`w-5 h-5 ${recentlyToggled === item.id ? 'check-animate' : ''}`} />
                 )}
               </button>
-              <span className={`flex-1 text-sm ${item.is_completed ? 'line-through text-[#9C8C74]' : 'text-[#4A3728]'}`}>
+              <span className={`flex-1 text-sm transition-all duration-200 ${item.is_completed ? 'line-through text-[#9C8C74]' : 'text-[#4A3728]'}`}>
                 {item.text}
               </span>
               <button 
                 onClick={() => deleteItem(item.id)} 
-                className="text-[#9C8C74] hover:text-red-600 opacity-0 group-hover:opacity-100"
+                className="text-[#9C8C74] hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -333,7 +472,7 @@ const CommentsSection = ({ taskId, token }) => {
           value={newComment}
           onChange={(e) => setNewComment(e.target.value)}
           placeholder="Write a comment..."
-          className="border-[#D4BBA6] focus:border-rose-500"
+          className="border-[#D4BBA6] focus:border-rose-500 transition-all duration-200 focus:shadow-md"
           rows={3}
           data-testid="comment-input"
         />
@@ -341,21 +480,25 @@ const CommentsSection = ({ taskId, token }) => {
           onClick={addComment} 
           disabled={submitting || !newComment.trim()} 
           size="sm" 
-          className="bg-rose-600 hover:bg-rose-700 text-white"
+          className="bg-rose-600 hover:bg-rose-700 text-white btn-hover"
         >
           {submitting ? 'Posting...' : 'Post Comment'}
         </Button>
       </div>
       
       {comments.length === 0 ? (
-        <p className="text-[#9C8C74] text-sm text-center py-4">No comments yet</p>
+        <p className="text-[#9C8C74] text-sm text-center py-4 tab-content-animate">No comments yet</p>
       ) : (
         <div className="space-y-3 max-h-[300px] overflow-y-auto">
-          {comments.map(comment => (
-            <div key={comment.id} className="p-3 bg-[#FDF8F3] border border-[#E8D5C4] rounded-lg group">
+          {comments.map((comment, index) => (
+            <div 
+              key={comment.id} 
+              className={`p-3 bg-[#FDF8F3] border border-[#E8D5C4] rounded-lg group item-hover stagger-${Math.min(index + 1, 5)}`}
+              style={{ animationFillMode: 'both' }}
+            >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-full bg-[#E8D5C4] flex items-center justify-center text-xs font-medium text-[#4A3728]">
+                  <div className="w-7 h-7 rounded-full bg-[#E8D5C4] flex items-center justify-center text-xs font-medium text-[#4A3728] transition-transform hover:scale-110">
                     {comment.author_name?.charAt(0) || '?'}
                   </div>
                   <span className="text-sm font-medium text-[#4A3728]">{comment.author_name}</span>
@@ -363,7 +506,7 @@ const CommentsSection = ({ taskId, token }) => {
                 </div>
                 <button 
                   onClick={() => deleteComment(comment.id)} 
-                  className="text-[#9C8C74] hover:text-red-600 opacity-0 group-hover:opacity-100"
+                  className="text-[#9C8C74] hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -430,15 +573,15 @@ const TimeLogsSection = ({ taskId, task, token, onUpdate }) => {
     <div className="space-y-4">
       {/* Time Summary */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="p-3 bg-[#FDF8F3] border border-[#E8D5C4] rounded-lg text-center">
+        <div className="p-3 bg-[#FDF8F3] border border-[#E8D5C4] rounded-lg text-center transition-all duration-200 hover:shadow-md hover:border-[#D4BBA6]">
           <p className="text-xs text-[#6B5D52]">Estimated</p>
           <p className="text-lg font-bold text-[#4A3728]">{task?.estimated_hours || '-'}h</p>
         </div>
-        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-center">
+        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-center transition-all duration-200 hover:shadow-md hover:border-emerald-300">
           <p className="text-xs text-emerald-700">Logged</p>
           <p className="text-lg font-bold text-emerald-600">{totalLogged.toFixed(1)}h</p>
         </div>
-        <div className="p-3 bg-[#FDF8F3] border border-[#E8D5C4] rounded-lg text-center">
+        <div className="p-3 bg-[#FDF8F3] border border-[#E8D5C4] rounded-lg text-center transition-all duration-200 hover:shadow-md hover:border-[#D4BBA6]">
           <p className="text-xs text-[#6B5D52]">Remaining</p>
           <p className={`text-lg font-bold ${(task?.estimated_hours || 0) - totalLogged < 0 ? 'text-red-600' : 'text-blue-600'}`}>
             {task?.estimated_hours ? ((task.estimated_hours - totalLogged).toFixed(1)) : '-'}h
@@ -448,7 +591,7 @@ const TimeLogsSection = ({ taskId, task, token, onUpdate }) => {
 
       {/* Log Time Form */}
       {showForm ? (
-        <div className="p-3 bg-white rounded-lg border border-[#D4BBA6] space-y-3">
+        <div className="p-3 bg-white rounded-lg border border-[#D4BBA6] space-y-3 tab-content-animate">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-[#6B5D52] text-xs">Hours *</Label>
@@ -459,7 +602,7 @@ const TimeLogsSection = ({ taskId, task, token, onUpdate }) => {
                 value={formData.hours}
                 onChange={(e) => setFormData({ ...formData, hours: e.target.value })}
                 placeholder="1.5"
-                className="border-[#D4BBA6] mt-1"
+                className="border-[#D4BBA6] mt-1 transition-all duration-200 focus:shadow-md"
                 data-testid="time-hours-input"
               />
             </div>
@@ -469,21 +612,21 @@ const TimeLogsSection = ({ taskId, task, token, onUpdate }) => {
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="What did you work on?"
-                className="border-[#D4BBA6] mt-1"
+                className="border-[#D4BBA6] mt-1 transition-all duration-200 focus:shadow-md"
               />
             </div>
           </div>
           <div className="flex gap-2">
-            <Button onClick={addTimeLog} disabled={submitting || !formData.hours} size="sm" className="bg-rose-600 hover:bg-rose-700 text-white">
+            <Button onClick={addTimeLog} disabled={submitting || !formData.hours} size="sm" className="bg-rose-600 hover:bg-rose-700 text-white btn-hover">
               {submitting ? 'Saving...' : 'Log Time'}
             </Button>
-            <Button onClick={() => setShowForm(false)} variant="outline" size="sm" className="border-[#D4BBA6] text-[#4A3728]">
+            <Button onClick={() => setShowForm(false)} variant="outline" size="sm" className="border-[#D4BBA6] text-[#4A3728] transition-all duration-200 hover:bg-[#F5EBE0]">
               Cancel
             </Button>
           </div>
         </div>
       ) : (
-        <Button onClick={() => setShowForm(true)} variant="outline" size="sm" className="w-full border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0]">
+        <Button onClick={() => setShowForm(true)} variant="outline" size="sm" className="w-full border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0] transition-all duration-200 hover:shadow-md">
           <Timer className="w-4 h-4 mr-2" />
           Log Time
         </Button>
@@ -492,10 +635,14 @@ const TimeLogsSection = ({ taskId, task, token, onUpdate }) => {
       {/* Time Logs List */}
       {logs.length > 0 && (
         <div className="space-y-2 max-h-[200px] overflow-y-auto">
-          {logs.map(log => (
-            <div key={log.id} className="flex items-center justify-between p-2 bg-[#FDF8F3] border border-[#E8D5C4] rounded text-sm">
+          {logs.map((log, index) => (
+            <div 
+              key={log.id} 
+              className={`flex items-center justify-between p-2 bg-[#FDF8F3] border border-[#E8D5C4] rounded text-sm item-hover stagger-${Math.min(index + 1, 5)}`}
+              style={{ animationFillMode: 'both' }}
+            >
               <div className="flex items-center gap-3">
-                <div className="w-6 h-6 rounded-full bg-[#E8D5C4] flex items-center justify-center text-xs text-[#4A3728]">
+                <div className="w-6 h-6 rounded-full bg-[#E8D5C4] flex items-center justify-center text-xs text-[#4A3728] transition-transform hover:scale-110">
                   {log.user_name?.charAt(0) || '?'}
                 </div>
                 <div>
@@ -715,6 +862,7 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState({});
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState('subtasks');
   const token = localStorage.getItem('sevora_token');
 
   const fetchTask = async () => {
@@ -784,7 +932,9 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="bg-white border-[#D4BBA6] max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      {/* Inject animation styles */}
+      <style>{animationStyles}</style>
+      <DialogContent className="bg-white border-[#D4BBA6] max-w-2xl max-h-[90vh] overflow-hidden flex flex-col modal-animate">
         {loading ? (
           <div className="animate-pulse space-y-4 p-4">
             <div className="h-8 bg-[#E8D5C4] rounded w-3/4"></div>
@@ -800,7 +950,7 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
                     <Input
                       value={editData.name}
                       onChange={(e) => setEditData({ ...editData, name: e.target.value })}
-                      className="border-[#D4BBA6] text-lg font-semibold text-[#4A3728]"
+                      className="border-[#D4BBA6] text-lg font-semibold text-[#4A3728] transition-all duration-200 focus:shadow-md"
                       data-testid="task-name-edit"
                     />
                   ) : (
@@ -819,16 +969,16 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
                 <div className="flex gap-2">
                   {editing ? (
                     <>
-                      <Button onClick={saveTask} disabled={saving} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                      <Button onClick={saveTask} disabled={saving} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white btn-hover">
                         <Save className="w-4 h-4 mr-1" />
                         {saving ? 'Saving...' : 'Save'}
                       </Button>
-                      <Button onClick={() => setEditing(false)} variant="outline" size="sm" className="border-[#D4BBA6] text-[#4A3728]">
+                      <Button onClick={() => setEditing(false)} variant="outline" size="sm" className="border-[#D4BBA6] text-[#4A3728] transition-all duration-200 hover:bg-[#F5EBE0]">
                         Cancel
                       </Button>
                     </>
                   ) : (
-                    <Button onClick={() => setEditing(true)} variant="outline" size="sm" className="border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0]">
+                    <Button onClick={() => setEditing(true)} variant="outline" size="sm" className="border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0] transition-all duration-200 hover:shadow-md">
                       <Edit className="w-4 h-4 mr-1" />
                       Edit
                     </Button>
@@ -840,11 +990,11 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
             <div className="flex-1 overflow-y-auto">
               {/* Task Info Grid */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 border-b border-[#E8D5C4]">
-                <div>
+                <div className="transition-all duration-200 hover:bg-[#FDF8F3] rounded-lg p-1 -m-1">
                   <Label className="text-[#6B5D52] text-xs">Status</Label>
                   {editing ? (
                     <Select value={editData.status} onValueChange={(v) => setEditData({ ...editData, status: v })}>
-                      <SelectTrigger className="border-[#D4BBA6] mt-1 h-9">
+                      <SelectTrigger className="border-[#D4BBA6] mt-1 h-9 transition-all duration-200 focus:shadow-md">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-white border-[#D4BBA6]">
@@ -860,11 +1010,11 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
                     </div>
                   )}
                 </div>
-                <div>
+                <div className="transition-all duration-200 hover:bg-[#FDF8F3] rounded-lg p-1 -m-1">
                   <Label className="text-[#6B5D52] text-xs">Priority</Label>
                   {editing ? (
                     <Select value={editData.priority} onValueChange={(v) => setEditData({ ...editData, priority: v })}>
-                      <SelectTrigger className="border-[#D4BBA6] mt-1 h-9">
+                      <SelectTrigger className="border-[#D4BBA6] mt-1 h-9 transition-all duration-200 focus:shadow-md">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-white border-[#D4BBA6]">
@@ -874,17 +1024,17 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
                       </SelectContent>
                     </Select>
                   ) : (
-                    <Badge variant="outline" className={`mt-1 ${priorityConfig[task.priority]?.color}`}>
+                    <Badge variant="outline" className={`mt-1 ${priorityConfig[task.priority]?.color} transition-all duration-200 hover:scale-105`}>
                       <Flag className="w-3 h-3 mr-1" />
                       {task.priority}
                     </Badge>
                   )}
                 </div>
-                <div>
+                <div className="transition-all duration-200 hover:bg-[#FDF8F3] rounded-lg p-1 -m-1">
                   <Label className="text-[#6B5D52] text-xs">Assignee</Label>
                   {editing ? (
                     <Select value={editData.assigned_to || 'unassigned'} onValueChange={(v) => setEditData({ ...editData, assigned_to: v === 'unassigned' ? '' : v })}>
-                      <SelectTrigger className="border-[#D4BBA6] mt-1 h-9">
+                      <SelectTrigger className="border-[#D4BBA6] mt-1 h-9 transition-all duration-200 focus:shadow-md">
                         <SelectValue placeholder="Unassigned" />
                       </SelectTrigger>
                       <SelectContent className="bg-white border-[#D4BBA6]">
@@ -901,14 +1051,14 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
                     </div>
                   )}
                 </div>
-                <div>
+                <div className="transition-all duration-200 hover:bg-[#FDF8F3] rounded-lg p-1 -m-1">
                   <Label className="text-[#6B5D52] text-xs">Due Date</Label>
                   {editing ? (
                     <Input
                       type="date"
                       value={editData.due_date}
                       onChange={(e) => setEditData({ ...editData, due_date: e.target.value })}
-                      className="border-[#D4BBA6] mt-1 h-9"
+                      className="border-[#D4BBA6] mt-1 h-9 transition-all duration-200 focus:shadow-md"
                     />
                   ) : (
                     <div className="flex items-center gap-2 mt-1">
@@ -926,7 +1076,7 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
                   <Textarea
                     value={editData.description}
                     onChange={(e) => setEditData({ ...editData, description: e.target.value })}
-                    className="border-[#D4BBA6]"
+                    className="border-[#D4BBA6] transition-all duration-200 focus:shadow-md"
                     rows={3}
                     placeholder="Add a description..."
                   />
@@ -938,24 +1088,24 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
               </div>
 
               {/* Tabs for Subtasks, Checklists, Comments, Time */}
-              <Tabs defaultValue="subtasks" className="p-4">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="p-4">
                 <TabsList className="bg-[#F5EBE0] border border-[#E8D5C4] mb-4 flex-wrap">
-                  <TabsTrigger value="subtasks" className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728] text-[#6B5D52]">
+                  <TabsTrigger value="subtasks" className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728] text-[#6B5D52] tab-trigger-hover">
                     <ListTodo className="w-4 h-4 mr-1" />
                     Subtasks
                     {task.subtask_count > 0 && <Badge variant="secondary" className="ml-1 bg-[#E8D5C4] text-[#4A3728]">{task.subtask_count}</Badge>}
                   </TabsTrigger>
-                  <TabsTrigger value="checklists" className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728] text-[#6B5D52]">
+                  <TabsTrigger value="checklists" className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728] text-[#6B5D52] tab-trigger-hover">
                     <CheckCircle2 className="w-4 h-4 mr-1" />
                     Checklist
                     {task.checklist_count > 0 && <Badge variant="secondary" className="ml-1 bg-[#E8D5C4] text-[#4A3728]">{task.checklist_completed}/{task.checklist_count}</Badge>}
                   </TabsTrigger>
-                  <TabsTrigger value="comments" className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728] text-[#6B5D52]">
+                  <TabsTrigger value="comments" className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728] text-[#6B5D52] tab-trigger-hover">
                     <MessageSquare className="w-4 h-4 mr-1" />
                     Comments
                     {task.comment_count > 0 && <Badge variant="secondary" className="ml-1 bg-[#E8D5C4] text-[#4A3728]">{task.comment_count}</Badge>}
                   </TabsTrigger>
-                  <TabsTrigger value="dependencies" className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728] text-[#6B5D52]">
+                  <TabsTrigger value="dependencies" className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728] text-[#6B5D52] tab-trigger-hover">
                     <Link2 className="w-4 h-4 mr-1" />
                     Dependencies
                     {((task.blocked_by?.length || 0) + (task.blocks?.length || 0)) > 0 && (
@@ -964,25 +1114,25 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
                       </Badge>
                     )}
                   </TabsTrigger>
-                  <TabsTrigger value="time" className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728] text-[#6B5D52]">
+                  <TabsTrigger value="time" className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728] text-[#6B5D52] tab-trigger-hover">
                     <Timer className="w-4 h-4 mr-1" />
                     Time
                   </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="subtasks">
+                <TabsContent value="subtasks" className="tab-content-animate">
                   <SubtasksSection taskId={taskId} token={token} />
                 </TabsContent>
-                <TabsContent value="checklists">
+                <TabsContent value="checklists" className="tab-content-animate">
                   <ChecklistsSection taskId={taskId} token={token} />
                 </TabsContent>
-                <TabsContent value="comments">
+                <TabsContent value="comments" className="tab-content-animate">
                   <CommentsSection taskId={taskId} token={token} />
                 </TabsContent>
-                <TabsContent value="dependencies">
+                <TabsContent value="dependencies" className="tab-content-animate">
                   <DependenciesSection task={task} projectId={task.project_id} token={token} onUpdate={fetchTask} />
                 </TabsContent>
-                <TabsContent value="time">
+                <TabsContent value="time" className="tab-content-animate">
                   <TimeLogsSection taskId={taskId} task={task} token={token} onUpdate={fetchTask} />
                 </TabsContent>
               </Tabs>
