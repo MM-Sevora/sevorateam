@@ -4,7 +4,7 @@ import {
   ArrowLeft, Plus, Edit, Trash2, Users, Calendar, Flag, Clock,
   CheckCircle2, AlertTriangle, PlayCircle, Eye, MoreVertical,
   GripVertical, MessageSquare, ListTodo, RefreshCw, Settings,
-  User, Folder
+  User, Folder, AlertOctagon
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -37,18 +37,18 @@ import TaskDetailModal from './TaskDetailModal';
 const API = process.env.REACT_APP_BACKEND_URL;
 
 const priorityConfig = {
-  urgent: { label: 'Urgent', color: 'bg-red-500/10 text-red-400 border-red-500/20', dotColor: 'bg-red-500' },
-  high: { label: 'High', color: 'bg-orange-500/10 text-orange-400 border-orange-500/20', dotColor: 'bg-orange-500' },
-  medium: { label: 'Medium', color: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20', dotColor: 'bg-yellow-500' },
-  low: { label: 'Low', color: 'bg-slate-500/10 text-slate-400 border-slate-500/20', dotColor: 'bg-slate-500' }
+  urgent: { label: 'Urgent', color: 'bg-red-100 text-red-700 border-red-200', dotColor: 'bg-red-500', borderColor: 'border-l-red-500' },
+  high: { label: 'High', color: 'bg-orange-100 text-orange-700 border-orange-200', dotColor: 'bg-orange-500', borderColor: 'border-l-orange-500' },
+  medium: { label: 'Medium', color: 'bg-yellow-100 text-yellow-700 border-yellow-200', dotColor: 'bg-amber-500', borderColor: 'border-l-amber-500' },
+  low: { label: 'Low', color: 'bg-stone-100 text-stone-600 border-stone-200', dotColor: 'bg-emerald-500', borderColor: 'border-l-emerald-500' }
 };
 
 const statusColumns = [
-  { id: 'draft', label: 'Draft', color: 'border-slate-500', bgColor: 'bg-slate-500/10' },
-  { id: 'assigned', label: 'Assigned', color: 'border-blue-500', bgColor: 'bg-blue-500/10' },
-  { id: 'in_progress', label: 'In Progress', color: 'border-purple-500', bgColor: 'bg-purple-500/10' },
-  { id: 'pending_review', label: 'Review', color: 'border-amber-500', bgColor: 'bg-amber-500/10' },
-  { id: 'completed', label: 'Completed', color: 'border-emerald-500', bgColor: 'bg-emerald-500/10' }
+  { id: 'draft', label: 'Draft', color: 'border-t-stone-400', bgColor: 'bg-stone-50/50' },
+  { id: 'assigned', label: 'Assigned', color: 'border-t-blue-500', bgColor: 'bg-blue-50/30' },
+  { id: 'in_progress', label: 'In Progress', color: 'border-t-purple-500', bgColor: 'bg-purple-50/30' },
+  { id: 'pending_review', label: 'Review', color: 'border-t-amber-500', bgColor: 'bg-amber-50/30' },
+  { id: 'completed', label: 'Completed', color: 'border-t-emerald-500', bgColor: 'bg-emerald-50/30' }
 ];
 
 const TaskCard = ({ task, onStatusChange, onEdit, onDelete, onDragStart, onClick }) => {
@@ -62,7 +62,6 @@ const TaskCard = ({ task, onStatusChange, onEdit, onDelete, onDragStart, onClick
     !['completed', 'approved'].includes(task.status);
 
   const handleClick = (e) => {
-    // Don't open modal if clicking on dropdown
     if (e.target.closest('[role="menu"]') || e.target.closest('button')) return;
     onClick?.(task);
   };
@@ -78,44 +77,44 @@ const TaskCard = ({ task, onStatusChange, onEdit, onDelete, onDragStart, onClick
         onDragStart(e, task);
       }}
       onClick={handleClick}
-      className={`bg-slate-800 border rounded-lg p-3 cursor-pointer hover:border-slate-600 transition-all group ${
-        task.is_blocked ? 'border-red-500/30 opacity-75' : 'border-slate-700'
+      className={`bg-white p-4 rounded-lg border border-[#E8D5C4]/50 shadow-sm hover:shadow-md transition-all group cursor-pointer border-l-4 ${priorityConfig[task.priority]?.borderColor} ${
+        task.is_blocked ? 'ring-2 ring-rose-400 ring-offset-1 bg-rose-50/50' : ''
       }`}
       data-testid={`kanban-task-${task.id}`}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-2">
           {task.is_blocked && (
-            <div className="w-5 h-5 rounded bg-red-500/20 flex items-center justify-center" title="Blocked by dependencies">
-              <AlertTriangle className="w-3 h-3 text-red-400" />
+            <div className="w-5 h-5 rounded bg-rose-100 flex items-center justify-center" title="Blocked by dependencies">
+              <AlertOctagon className="w-3 h-3 text-rose-600" />
             </div>
           )}
           <div className={`w-2 h-2 rounded-full ${priorityConfig[task.priority]?.dotColor}`} />
-          <span className="text-xs text-slate-400 capitalize">{task.priority}</span>
+          <span className="text-xs text-[#6B5D52] capitalize">{task.priority}</span>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100">
-              <MoreVertical className="w-3 h-3" />
+            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 hover:bg-[#E8D5C4]">
+              <MoreVertical className="w-3 h-3 text-[#4A3728]" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="bg-slate-800 border-slate-700">
-            <DropdownMenuItem onClick={() => onEdit(task)}>
+          <DropdownMenuContent align="end" className="bg-white border-[#D4BBA6]">
+            <DropdownMenuItem onClick={() => onEdit(task)} className="text-[#4A3728] hover:bg-[#F5EBE0]">
               <Edit className="w-4 h-4 mr-2" /> Edit
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onDelete(task)} className="text-red-400">
+            <DropdownMenuItem onClick={() => onDelete(task)} className="text-red-600 hover:bg-red-50">
               <Trash2 className="w-4 h-4 mr-2" /> Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
-      <h4 className="font-medium text-white text-sm mb-2 line-clamp-2">{task.name}</h4>
+      <h4 className="font-medium text-[#4A3728] text-sm mb-2 line-clamp-2 group-hover:text-rose-600 transition-colors">{task.name}</h4>
 
-      <div className="flex items-center justify-between text-xs text-slate-400">
+      <div className="flex items-center justify-between text-xs text-[#6B5D52] mt-2 pt-2 border-t border-[#F5EBE0]">
         <div className="flex items-center gap-3">
           {task.due_date && (
-            <span className={`flex items-center gap-1 ${isOverdue ? 'text-red-400' : ''}`}>
+            <span className={`flex items-center gap-1 ${isOverdue ? 'text-red-600 font-medium' : ''}`}>
               <Calendar className="w-3 h-3" />
               {formatDate(task.due_date)}
             </span>
@@ -134,7 +133,7 @@ const TaskCard = ({ task, onStatusChange, onEdit, onDelete, onDragStart, onClick
           )}
         </div>
         {task.assigned_to_name && (
-          <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-xs font-medium" title={task.assigned_to_name}>
+          <div className="w-6 h-6 rounded-full bg-[#E8D5C4] flex items-center justify-center text-xs font-medium text-[#4A3728]" title={task.assigned_to_name}>
             {task.assigned_to_name.charAt(0)}
           </div>
         )}
@@ -148,18 +147,18 @@ const KanbanColumn = ({ column, tasks, onDrop, onDragOver, onStatusChange, onEdi
   
   return (
     <div
-      className={`flex-1 min-w-[280px] max-w-[320px] rounded-lg ${column.bgColor} p-3`}
+      className={`flex-1 min-w-[280px] max-w-[320px] rounded-xl ${column.bgColor} p-4 border border-transparent hover:border-[#E8D5C4]/50 transition-colors border-t-4 ${column.color}`}
       onDrop={(e) => onDrop(e, column.id)}
       onDragOver={onDragOver}
       data-testid={`kanban-column-${column.id}`}
     >
-      <div className={`flex items-center justify-between mb-3 pb-2 border-b-2 ${column.color}`}>
-        <h3 className="font-semibold text-white text-sm">{column.label}</h3>
-        <Badge variant="secondary" className="bg-slate-700/50 text-xs">
+      <div className="flex items-center justify-between mb-4 px-1">
+        <h3 className="font-bold text-[#4A3728] text-base flex items-center gap-2">{column.label}</h3>
+        <span className="bg-[#4A3728]/10 text-[#4A3728] px-2 py-0.5 rounded-full text-xs font-bold">
           {columnTasks.length}
-        </Badge>
+        </span>
       </div>
-      <div className="space-y-2 min-h-[200px]">
+      <div className="space-y-3 min-h-[200px]">
         {columnTasks.map(task => (
           <TaskCard
             key={task.id}
@@ -172,7 +171,7 @@ const KanbanColumn = ({ column, tasks, onDrop, onDragOver, onStatusChange, onEdi
           />
         ))}
         {columnTasks.length === 0 && (
-          <div className="text-center py-8 text-slate-500 text-sm">
+          <div className="text-center py-8 text-[#9C8C74] text-sm">
             No tasks
           </div>
         )}
@@ -234,47 +233,47 @@ const CreateTaskModal = ({ open, onClose, projectId, users, onSuccess }) => {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="bg-slate-800 border-slate-700 max-w-lg">
+      <DialogContent className="bg-white border-[#D4BBA6] max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-white flex items-center gap-2">
-            <ListTodo className="w-5 h-5 text-rose-500" />
+          <DialogTitle className="text-[#4A3728] flex items-center gap-2">
+            <ListTodo className="w-5 h-5 text-rose-600" />
             Create New Task
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label className="text-slate-300">Task Name *</Label>
+            <Label className="text-[#4A3728]">Task Name *</Label>
             <Input
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="Enter task name"
-              className="bg-slate-900 border-slate-600 mt-1"
+              className="border-[#D4BBA6] focus:border-rose-500 mt-1"
               data-testid="task-name-input"
             />
           </div>
 
           <div>
-            <Label className="text-slate-300">Description</Label>
+            <Label className="text-[#4A3728]">Description</Label>
             <Textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               placeholder="Task description"
-              className="bg-slate-900 border-slate-600 mt-1"
+              className="border-[#D4BBA6] focus:border-rose-500 mt-1"
               rows={3}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label className="text-slate-300">Priority</Label>
+              <Label className="text-[#4A3728]">Priority</Label>
               <Select
                 value={formData.priority}
                 onValueChange={(value) => setFormData({ ...formData, priority: value })}
               >
-                <SelectTrigger className="bg-slate-900 border-slate-600 mt-1">
+                <SelectTrigger className="border-[#D4BBA6] mt-1">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-slate-700">
+                <SelectContent className="bg-white border-[#D4BBA6]">
                   <SelectItem value="low">Low</SelectItem>
                   <SelectItem value="medium">Medium</SelectItem>
                   <SelectItem value="high">High</SelectItem>
@@ -283,15 +282,15 @@ const CreateTaskModal = ({ open, onClose, projectId, users, onSuccess }) => {
               </Select>
             </div>
             <div>
-              <Label className="text-slate-300">Assign To</Label>
+              <Label className="text-[#4A3728]">Assign To</Label>
               <Select
                 value={formData.assigned_to}
                 onValueChange={(value) => setFormData({ ...formData, assigned_to: value })}
               >
-                <SelectTrigger className="bg-slate-900 border-slate-600 mt-1">
+                <SelectTrigger className="border-[#D4BBA6] mt-1">
                   <SelectValue placeholder="Unassigned" />
                 </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-slate-700">
+                <SelectContent className="bg-white border-[#D4BBA6]">
                   <SelectItem value="unassigned">Unassigned</SelectItem>
                   {users.map(user => (
                     <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
@@ -303,32 +302,32 @@ const CreateTaskModal = ({ open, onClose, projectId, users, onSuccess }) => {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label className="text-slate-300">Due Date</Label>
+              <Label className="text-[#4A3728]">Due Date</Label>
               <Input
                 type="date"
                 value={formData.due_date}
                 onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                className="bg-slate-900 border-slate-600 mt-1"
+                className="border-[#D4BBA6] mt-1"
               />
             </div>
             <div>
-              <Label className="text-slate-300">Estimated Hours</Label>
+              <Label className="text-[#4A3728]">Estimated Hours</Label>
               <Input
                 type="number"
                 step="0.5"
                 value={formData.estimated_hours}
                 onChange={(e) => setFormData({ ...formData, estimated_hours: e.target.value })}
                 placeholder="0"
-                className="bg-slate-900 border-slate-600 mt-1"
+                className="border-[#D4BBA6] mt-1"
               />
             </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose} className="border-slate-600">
+            <Button type="button" variant="outline" onClick={onClose} className="border-[#D4BBA6] text-[#4A3728]">
               Cancel
             </Button>
-            <Button type="submit" disabled={loading} className="bg-rose-600 hover:bg-rose-700" data-testid="create-task-submit">
+            <Button type="submit" disabled={loading} className="bg-rose-600 hover:bg-rose-700 text-white" data-testid="create-task-submit">
               {loading ? 'Creating...' : 'Create Task'}
             </Button>
           </div>
@@ -453,16 +452,8 @@ const ProjectDetail = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
-        <div className="max-w-full mx-auto">
-          <div className="animate-pulse space-y-4">
-            <div className="h-8 bg-slate-700 rounded w-64"></div>
-            <div className="h-24 bg-slate-700 rounded-lg"></div>
-            <div className="flex gap-4">
-              {[1,2,3,4,5].map(i => <div key={i} className="flex-1 h-64 bg-slate-700 rounded-lg"></div>)}
-            </div>
-          </div>
-        </div>
+      <div className="p-8 flex items-center justify-center min-h-[50vh]">
+        <div className="w-8 h-8 border-2 border-[#4A3728] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -471,51 +462,51 @@ const ProjectDetail = () => {
 
   const progressColor = project.progress >= 75 ? 'bg-emerald-500' : 
                         project.progress >= 50 ? 'bg-blue-500' : 
-                        project.progress >= 25 ? 'bg-amber-500' : 'bg-slate-500';
+                        project.progress >= 25 ? 'bg-amber-500' : 'bg-stone-400';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
-      <div className="max-w-full mx-auto">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/projects')} className="text-slate-400 hover:text-white">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-        </div>
+    <div className="p-8 space-y-6" data-testid="project-detail-page">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => navigate('/projects')} 
+          className="text-[#5D4A3A] hover:text-[#4A3728] hover:bg-[#E8D5C4]"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back
+        </Button>
+      </div>
 
-        {/* Project Info */}
-        <Card className="bg-slate-800/50 border-slate-700 mb-6">
-          <CardContent className="p-6">
+      {/* Project Info - Bento Grid Style */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+        {/* Main Info Card */}
+        <Card className="col-span-full md:col-span-8 bg-white/50 border-[#E8D5C4]">
+          <CardContent className="p-8">
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
-                  <h1 className="text-2xl font-bold text-white" data-testid="project-title">{project.name}</h1>
+                  <h1 className="text-3xl font-bold text-[#4A3728]" data-testid="project-title">{project.name}</h1>
                   <Badge variant="outline" className={priorityConfig[project.priority]?.color}>
                     <Flag className="w-3 h-3 mr-1" />
                     {project.priority}
                   </Badge>
                 </div>
                 {project.module_name && (
-                  <p className="text-slate-400 flex items-center gap-2 mb-3">
+                  <p className="text-[#6B5D52] flex items-center gap-2 mb-3 font-medium">
                     <Folder className="w-4 h-4" />
                     {project.module_name}
                   </p>
                 )}
                 {project.description && (
-                  <p className="text-slate-400 mb-4">{project.description}</p>
+                  <p className="text-[#6B5D52] mb-4">{project.description}</p>
                 )}
-                <div className="flex items-center gap-6 text-sm text-slate-400">
+                <div className="flex items-center gap-6 text-sm text-[#6B5D52]">
                   {project.owner_name && (
                     <span className="flex items-center gap-1">
                       <User className="w-4 h-4" />
                       Owner: {project.owner_name}
-                    </span>
-                  )}
-                  {project.start_date && (
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
-                      {new Date(project.start_date).toLocaleDateString()} - {project.end_date ? new Date(project.end_date).toLocaleDateString() : 'Ongoing'}
                     </span>
                   )}
                   <span className="flex items-center gap-1">
@@ -525,60 +516,78 @@ const ProjectDetail = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={fetchData} className="border-slate-600">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={fetchData} 
+                  className="border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0]"
+                >
                   <RefreshCw className="w-4 h-4" />
                 </Button>
-                <Button size="sm" onClick={() => setShowCreateTask(true)} className="bg-rose-600 hover:bg-rose-700" data-testid="add-task-btn">
+                <Button 
+                  size="sm" 
+                  onClick={() => setShowCreateTask(true)} 
+                  className="bg-rose-600 hover:bg-rose-700 text-white" 
+                  data-testid="add-task-btn"
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   Add Task
                 </Button>
               </div>
             </div>
-
-            {/* Progress Bar */}
-            <div className="mt-6">
-              <div className="flex items-center justify-between text-sm mb-2">
-                <span className="text-slate-400">Overall Progress</span>
-                <span className="text-white font-medium">{project.progress}%</span>
-              </div>
-              <div className="h-3 bg-slate-700 rounded-full overflow-hidden">
-                <div 
-                  className={`h-full ${progressColor} transition-all`}
-                  style={{ width: `${project.progress}%` }}
-                />
-              </div>
-            </div>
           </CardContent>
         </Card>
 
-        {/* Kanban Board */}
-        <Card className="bg-slate-800/30 border-slate-700">
-          <CardHeader className="border-b border-slate-700">
-            <CardTitle className="text-white flex items-center gap-2">
-              <GripVertical className="w-5 h-5 text-rose-500" />
-              Task Board
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
-            <div className="flex gap-4 overflow-x-auto pb-4">
-              {statusColumns.map(column => (
-                <KanbanColumn
-                  key={column.id}
-                  column={column}
-                  tasks={tasks}
-                  onDrop={handleDrop}
-                  onDragOver={handleDragOver}
-                  onStatusChange={() => {}}
-                  onEditTask={handleEditTask}
-                  onDeleteTask={handleDeleteTask}
-                  onDragStart={handleDragStart}
-                  onTaskClick={(task) => setSelectedTaskId(task.id)}
-                />
-              ))}
+        {/* Stats Card */}
+        <Card className="col-span-full md:col-span-4 bg-[#E8D5C4]/30 border-[#E8D5C4]">
+          <CardContent className="p-8 flex flex-col justify-center h-full">
+            <div className="text-center mb-4">
+              <p className="text-[#6B5D52] text-sm mb-1">Overall Progress</p>
+              <p className="text-4xl font-bold text-[#4A3728]">{project.progress}%</p>
             </div>
+            <div className="h-3 bg-white rounded-full overflow-hidden shadow-inner">
+              <div 
+                className={`h-full ${progressColor} transition-all duration-500`}
+                style={{ width: `${project.progress}%` }}
+              />
+            </div>
+            {project.end_date && (
+              <p className="text-center text-[#6B5D52] text-sm mt-4 flex items-center justify-center gap-1">
+                <Calendar className="w-4 h-4" />
+                Due: {new Date(project.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Kanban Board */}
+      <Card className="bg-[#FDF8F3] border-[#E8D5C4]">
+        <CardHeader className="border-b border-[#E8D5C4] bg-white/50">
+          <CardTitle className="text-[#4A3728] flex items-center gap-2">
+            <GripVertical className="w-5 h-5 text-rose-600" />
+            Task Board
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="flex gap-6 overflow-x-auto pb-4 snap-x">
+            {statusColumns.map(column => (
+              <KanbanColumn
+                key={column.id}
+                column={column}
+                tasks={tasks}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onStatusChange={() => {}}
+                onEditTask={handleEditTask}
+                onDeleteTask={handleDeleteTask}
+                onDragStart={handleDragStart}
+                onTaskClick={(task) => setSelectedTaskId(task.id)}
+              />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       <CreateTaskModal
         open={showCreateTask}
