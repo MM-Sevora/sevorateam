@@ -1480,6 +1480,41 @@ async def delete_project(
     return {"message": "Project and all related data deleted"}
 
 
+class AddMemberRequest(BaseModel):
+    user_id: str
+
+
+@router.post("/{project_id}/members")
+async def add_project_member_body(
+    project_id: str,
+    data: AddMemberRequest,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Add a team member to a project (accepts user_id in body)"""
+    project = await db.pm_projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    member_id = data.user_id
+    
+    # Check if member exists
+    member = await db.users.find_one({"id": member_id})
+    if not member:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Add member if not already in team
+    team_members = project.get("team_members", [])
+    if member_id not in team_members:
+        team_members.append(member_id)
+        await db.pm_projects.update_one(
+            {"id": project_id},
+            {"$set": {"team_members": team_members, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        await log_activity("project", project_id, project.get("name"), "member_added", user["id"], {"member_id": member_id})
+    
+    return {"message": "Member added to project", "team_members": team_members}
+
+
 @router.post("/{project_id}/members/{member_id}")
 async def add_project_member(
     project_id: str,

@@ -33,6 +33,7 @@ import {
 } from '../../components/ui/select';
 import { Textarea } from '../../components/ui/textarea';
 import { toast } from 'sonner';
+import TaskDetailModal from './TaskDetailModal';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -347,8 +348,11 @@ const MyTasks = () => {
     }
   };
 
+  const [selectedTaskId, setSelectedTaskId] = useState(null);
+
   const handleTaskClick = (task) => {
-    navigate(`/projects/${task.project_id || task.id}`);
+    // Open task detail modal instead of navigating to project
+    setSelectedTaskId(task.id);
   };
 
   if (loading) {
@@ -812,6 +816,19 @@ const MyTasks = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Task Detail Modal */}
+      <TaskDetailModal
+        open={!!selectedTaskId}
+        onClose={() => setSelectedTaskId(null)}
+        taskId={selectedTaskId}
+        onUpdate={() => {
+          fetchMyTasks();
+          fetchAssignedByMe();
+        }}
+        users={[]}
+        projectId={null}
+      />
     </div>
   );
 };

@@ -418,6 +418,237 @@ const CreateProjectModal = ({ open, onClose, modules, departments, users, onSucc
   );
 };
 
+
+// Edit Project Modal
+const EditProjectModal = ({ open, onClose, project, modules, departments, users, onSuccess }) => {
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    module_id: '',
+    project_type: 'other',
+    department_id: '',
+    description: '',
+    priority: 'medium',
+    visibility: 'public',
+    project_manager_id: '',
+    start_date: '',
+    end_date: ''
+  });
+
+  useEffect(() => {
+    if (project) {
+      setFormData({
+        name: project.name || '',
+        module_id: project.module_id || '',
+        project_type: project.project_type || 'other',
+        department_id: project.department_id || '',
+        description: project.description || '',
+        priority: project.priority || 'medium',
+        visibility: project.visibility || 'public',
+        project_manager_id: project.project_manager_id || '',
+        start_date: project.start_date || '',
+        end_date: project.end_date || ''
+      });
+    }
+  }, [project]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.name) {
+      toast.error('Name is required');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const payload = { ...formData };
+      if (!payload.department_id) delete payload.department_id;
+      if (!payload.project_manager_id) delete payload.project_manager_id;
+      
+      const response = await fetch(`${API}/api/projects/${project.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) throw new Error('Failed to update project');
+      
+      toast.success('Project updated successfully');
+      onSuccess();
+      onClose();
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error('Failed to update project');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const projectTypes = [
+    { value: 'marketing', label: 'Marketing' },
+    { value: 'development', label: 'Development' },
+    { value: 'pr', label: 'PR' },
+    { value: 'design', label: 'Design' },
+    { value: 'operations', label: 'Operations' },
+    { value: 'other', label: 'Other' }
+  ];
+
+  if (!project) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="bg-white border-[#D4BBA6] max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-[#4A3728] flex items-center gap-2">
+            <Edit className="w-5 h-5 text-rose-600" />
+            Edit Project
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label className="text-[#4A3728]">Project Name *</Label>
+            <Input
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="Enter project name"
+              className="border-[#D4BBA6] focus:border-rose-500 mt-1"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-[#4A3728]">Module</Label>
+              <Select
+                value={formData.module_id}
+                onValueChange={(value) => setFormData({ ...formData, module_id: value })}
+              >
+                <SelectTrigger className="border-[#D4BBA6] mt-1">
+                  <SelectValue placeholder="Select module" />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-[#D4BBA6]">
+                  {modules.map(module => (
+                    <SelectItem key={module.id} value={module.id}>
+                      {module.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-[#4A3728]">Project Type</Label>
+              <Select
+                value={formData.project_type}
+                onValueChange={(value) => setFormData({ ...formData, project_type: value })}
+              >
+                <SelectTrigger className="border-[#D4BBA6] mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-[#D4BBA6]">
+                  {projectTypes.map(type => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-[#4A3728]">Description</Label>
+            <Textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Project description..."
+              className="border-[#D4BBA6] focus:border-rose-500 mt-1"
+              rows={3}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-[#4A3728]">Priority</Label>
+              <Select
+                value={formData.priority}
+                onValueChange={(value) => setFormData({ ...formData, priority: value })}
+              >
+                <SelectTrigger className="border-[#D4BBA6] mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-[#D4BBA6]">
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-[#4A3728]">Visibility</Label>
+              <Select
+                value={formData.visibility}
+                onValueChange={(value) => setFormData({ ...formData, visibility: value })}
+              >
+                <SelectTrigger className="border-[#D4BBA6] mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-[#D4BBA6]">
+                  <SelectItem value="public">
+                    <span className="flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-emerald-600" />
+                      Public
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="private">
+                    <span className="flex items-center gap-2">
+                      <Lock className="w-4 h-4 text-amber-600" />
+                      Private
+                    </span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-[#4A3728]">Start Date</Label>
+              <Input
+                type="date"
+                value={formData.start_date}
+                onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                className="border-[#D4BBA6] mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-[#4A3728]">End Date</Label>
+              <Input
+                type="date"
+                value={formData.end_date}
+                onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                className="border-[#D4BBA6] mt-1"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button type="button" variant="outline" onClick={onClose} className="border-[#D4BBA6] text-[#4A3728]">
+              Cancel
+            </Button>
+            <Button type="submit" disabled={loading} className="bg-rose-600 hover:bg-rose-700 text-white">
+              {loading ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 const ProjectsList = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -426,6 +657,7 @@ const ProjectsList = () => {
   const [departments, setDepartments] = useState([]);
   const [users, setUsers] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingProject, setEditingProject] = useState(null);
   const [filters, setFilters] = useState({
     search: '',
     status: '',
@@ -679,7 +911,7 @@ const ProjectsList = () => {
             <ProjectCard
               key={project.id}
               project={project}
-              onEdit={(p) => navigate(`/projects/${p.id}`)}
+              onEdit={(p) => setEditingProject(p)}
               onDelete={handleDelete}
               onView={(p) => navigate(`/projects/${p.id}`)}
             />
@@ -706,6 +938,16 @@ const ProjectsList = () => {
       <CreateProjectModal
         open={showCreateModal}
         onClose={() => setShowCreateModal(false)}
+        modules={modules}
+        departments={departments}
+        users={users}
+        onSuccess={fetchData}
+      />
+
+      <EditProjectModal
+        open={!!editingProject}
+        onClose={() => setEditingProject(null)}
+        project={editingProject}
         modules={modules}
         departments={departments}
         users={users}
