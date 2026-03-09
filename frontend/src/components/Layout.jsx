@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { NotificationsDropdown, OnlineUsersIndicator } from './Notifications';
+import HelpButton from './HelpButton';
 import { 
     LayoutDashboard, Users, Target, MessageSquare, DollarSign, BarChart3,
     UserPlus, ShoppingBag, Calendar, QrCode, Building2, Settings,
@@ -454,6 +455,9 @@ export const Layout = ({ children }) => {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Floating Help Button */}
+            <HelpButton position="bottom-right" />
         </div>
     );
 };

@@ -71,6 +71,9 @@ import NotificationCenter from "./pages/notifications/NotificationCenter";
 
 // Help & Support
 import HelpCenter from "./pages/help/HelpCenter";
+import HelpModuleDetail from "./pages/help/HelpModuleDetail";
+import TicketDetail from "./pages/help/TicketDetail";
+import ArticleViewer from "./pages/help/ArticleViewer";
 
 import "./App.css";
 
@@ -312,8 +315,9 @@ function AppRoutes() {
 
             {/* Help & Support */}
             <Route path="/help" element={<ProtectedRoute><HelpCenter /></ProtectedRoute>} />
-            <Route path="/help/modules/:moduleKey" element={<ProtectedRoute><HelpCenter /></ProtectedRoute>} />
-            <Route path="/help/tickets/:ticketId" element={<ProtectedRoute><HelpCenter /></ProtectedRoute>} />
+            <Route path="/help/modules/:moduleKey" element={<ProtectedRoute><HelpModuleDetail /></ProtectedRoute>} />
+            <Route path="/help/tickets/:ticketId" element={<ProtectedRoute><TicketDetail /></ProtectedRoute>} />
+            <Route path="/help/articles/:articleId" element={<ProtectedRoute><ArticleViewer /></ProtectedRoute>} />
 
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" replace />} />

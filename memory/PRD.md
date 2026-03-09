@@ -265,14 +265,24 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - [x] Frontend: Submit Ticket dialog with module/type/priority selection
 - [x] Frontend: Help link in user profile dropdown
 
-**Phase 2: Help Center UI Enhancements (UPCOMING)**
-- Module detail page with articles/FAQs
-- Ticket detail page with comments
-- Article viewer with helpful/not helpful feedback
+**Phase 2: Help Center UI Enhancements (COMPLETE - December 2025)**
+- [x] Module detail page (`/help/modules/:moduleKey`) with articles list by section
+- [x] Article viewer (`/help/articles/:articleId`) with markdown rendering
+- [x] Ticket detail page (`/help/tickets/:ticketId`) with conversation thread
+- [x] Breadcrumb navigation across all pages
+- [x] Helpful/not helpful feedback on articles
+- [x] Comment/reply functionality on tickets
+- [x] Admin status update controls on tickets
+- [x] Related articles sidebar
+- [x] Tags display on articles
 
-**Phase 3: Contextual Help + Guided Walkthroughs (FUTURE)**
-- Help button component for each module
-- First-time user onboarding tours
+**Phase 3: Contextual Help + Guided Walkthroughs (IN PROGRESS - December 2025)**
+- [x] HelpButton component with floating button variant
+- [x] Auto-detection of current module from URL
+- [x] Slide-out panel with Quick Links, Related Articles, FAQs
+- [x] Integration with Layout for global availability
+- [ ] First-time user guided walkthrough (step-by-step tour)
+- [ ] Tooltip hints on key features
 
 **Phase 4: Admin Controls + Analytics (FUTURE)**
 - Admin dashboard for managing content
