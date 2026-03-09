@@ -73,90 +73,135 @@ const TaskCard = ({ task, onStatusChange, onClick }) => {
     !['completed', 'approved'].includes(task.status);
 
   const isIndividualTask = !task.project_id || task.is_individual;
+  
+  const isCompleted = ['completed', 'approved'].includes(task.status);
 
   return (
     <div 
       data-testid={`task-card-${task.id}`}
-      className="group bg-white hover:bg-[#FDF8F3] border border-[#E8D5C4] rounded-lg p-4 transition-all cursor-pointer shadow-sm hover:shadow-md"
+      className={`group bg-white border rounded-xl p-4 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-lg transform hover:-translate-y-0.5 ${
+        isOverdue 
+          ? 'border-red-200 hover:border-red-300 bg-gradient-to-r from-red-50/50 to-white' 
+          : isCompleted
+          ? 'border-emerald-200 hover:border-emerald-300 bg-gradient-to-r from-emerald-50/50 to-white'
+          : 'border-[#E8D5C4] hover:border-rose-300'
+      }`}
       onClick={() => onClick?.(task)}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start gap-3">
+        {/* Status Indicator */}
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${
+          isOverdue ? 'bg-red-100' : 
+          isCompleted ? 'bg-emerald-100' :
+          task.status === 'in_progress' ? 'bg-purple-100' :
+          task.status === 'pending_review' ? 'bg-blue-100' :
+          'bg-[#F5EBE0]'
+        }`}>
+          <StatusIcon className={`w-5 h-5 ${
+            isOverdue ? 'text-red-600' : 
+            isCompleted ? 'text-emerald-600' :
+            task.status === 'in_progress' ? 'text-purple-600' :
+            task.status === 'pending_review' ? 'text-blue-600' :
+            'text-[#5D4A3A]'
+          }`} />
+        </div>
+        
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <Badge variant="outline" className={`text-xs ${priorityColors[task.priority]}`}>
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <h4 className={`font-semibold text-[#4A3728] truncate ${isCompleted ? 'line-through opacity-60' : ''}`}>
+              {task.name}
+            </h4>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className={`h-7 px-2 rounded-lg transition-all ${statusConfig[task.status]?.color}`}
+                >
+                  <span className="text-xs font-medium">{statusConfig[task.status]?.label}</span>
+                  <ChevronDown className="w-3 h-3 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-white border-[#D4BBA6] shadow-lg">
+                {Object.entries(statusConfig).map(([key, config]) => (
+                  <DropdownMenuItem 
+                    key={key}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onStatusChange(task.id, key);
+                    }}
+                    className="cursor-pointer text-[#4A3728] hover:bg-[#F5EBE0]"
+                  >
+                    <config.icon className="w-4 h-4 mr-2" />
+                    {config.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          
+          {/* Project & Module Info */}
+          <div className="flex items-center gap-2 mb-2 text-xs text-[#5D4A3A]">
+            {task.project_name && (
+              <span className="flex items-center gap-1 bg-[#F5EBE0] px-2 py-0.5 rounded-full">
+                <FolderKanban className="w-3 h-3" />
+                {task.project_name}
+              </span>
+            )}
+            {isIndividualTask && (
+              <span className="flex items-center gap-1 bg-rose-50 text-rose-700 px-2 py-0.5 rounded-full">
+                <User className="w-3 h-3" />
+                Personal
+              </span>
+            )}
+          </div>
+          
+          {/* Meta Info Row */}
+          <div className="flex items-center flex-wrap gap-3 text-xs text-[#6B5D52]">
+            {/* Priority */}
+            <Badge variant="outline" className={`${priorityColors[task.priority]} border-0 px-2 py-0.5`}>
               <Flag className="w-3 h-3 mr-1" />
               {task.priority}
             </Badge>
-            {isIndividualTask ? (
-              <Badge variant="outline" className="text-xs bg-rose-50 text-rose-700 border-rose-200">
-                <User className="w-3 h-3 mr-1" />
-                Individual
-              </Badge>
-            ) : task.module_name && (
-              <Badge variant="outline" className="text-xs bg-[#F5EBE0] text-[#5D4A3A] border-[#D4BBA6]">
-                <Folder className="w-3 h-3 mr-1" />
-                {task.module_name}
-              </Badge>
+            
+            {/* Due Date */}
+            {task.due_date && (
+              <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full ${
+                isOverdue 
+                  ? 'bg-red-100 text-red-700 font-medium' 
+                  : 'bg-[#F5EBE0] text-[#5D4A3A]'
+              }`}>
+                <Calendar className="w-3 h-3" />
+                {formatDate(task.due_date)}
+                {isOverdue && <AlertTriangle className="w-3 h-3 ml-0.5" />}
+              </span>
+            )}
+            
+            {/* Checklist */}
+            {(task.checklist_count > 0) && (
+              <span className="flex items-center gap-1 bg-[#F5EBE0] px-2 py-0.5 rounded-full">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                {task.checklist_completed}/{task.checklist_count}
+              </span>
+            )}
+            
+            {/* Subtasks */}
+            {task.subtask_count > 0 && (
+              <span className="flex items-center gap-1 bg-[#F5EBE0] px-2 py-0.5 rounded-full">
+                <LayoutGrid className="w-3 h-3" />
+                {task.subtask_count}
+              </span>
+            )}
+            
+            {/* Links */}
+            {task.external_links?.length > 0 && (
+              <span className="flex items-center gap-1 bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
+                <LinkIcon className="w-3 h-3" />
+                {task.external_links.length}
+              </span>
             )}
           </div>
-          <h4 className="font-semibold text-[#4A3728]">{task.name}</h4>
-          {task.project_name && (
-            <p className="text-sm text-[#5D4A3A] mt-1">{task.project_name}</p>
-          )}
         </div>
-        
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-            <Button variant="outline" size="sm" className="h-8 px-2 border-[#D4BBA6] bg-white hover:bg-[#F5EBE0]">
-              <StatusIcon className="w-4 h-4 mr-1 text-[#5D4A3A]" />
-              <span className="text-xs text-[#5D4A3A]">{statusConfig[task.status]?.label}</span>
-              <ChevronDown className="w-3 h-3 ml-1 text-[#5D4A3A]" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="bg-white border-[#D4BBA6]">
-            {Object.entries(statusConfig).map(([key, config]) => (
-              <DropdownMenuItem 
-                key={key}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onStatusChange(task.id, key);
-                }}
-                className="cursor-pointer text-[#4A3728] hover:bg-[#F5EBE0]"
-              >
-                <config.icon className="w-4 h-4 mr-2" />
-                {config.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-      
-      <div className="flex items-center gap-4 mt-3 text-sm text-[#5D4A3A]">
-        {task.due_date && (
-          <span className={`flex items-center gap-1 ${isOverdue ? 'text-red-600 font-medium' : ''}`}>
-            <Calendar className="w-3.5 h-3.5" />
-            {formatDate(task.due_date)}
-            {isOverdue && <AlertTriangle className="w-3.5 h-3.5 ml-1" />}
-          </span>
-        )}
-        {(task.checklist_count > 0) && (
-          <span className="flex items-center gap-1">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            {task.checklist_completed}/{task.checklist_count}
-          </span>
-        )}
-        {task.subtask_count > 0 && (
-          <span className="flex items-center gap-1">
-            <LayoutGrid className="w-3.5 h-3.5" />
-            {task.subtask_count} subtasks
-          </span>
-        )}
-        {task.external_links?.length > 0 && (
-          <span className="flex items-center gap-1 text-blue-600">
-            <LinkIcon className="w-3.5 h-3.5" />
-            {task.external_links.length} links
-          </span>
-        )}
       </div>
     </div>
   );
@@ -168,23 +213,26 @@ const TaskSection = ({ title, icon: Icon, tasks, count, color, onStatusChange, o
   if (tasks.length === 0) return null;
   
   return (
-    <div className="mb-6">
+    <div className="mb-8">
       <button 
         onClick={() => setIsExpanded(!isExpanded)}
-        className="flex items-center gap-2 mb-3 w-full text-left group"
+        className="flex items-center gap-3 mb-4 w-full text-left group"
       >
-        <div className={`p-1.5 rounded-lg ${color}`}>
-          <Icon className="w-4 h-4" />
+        <div className={`p-2 rounded-xl ${color} transition-transform group-hover:scale-105`}>
+          <Icon className="w-5 h-5" />
         </div>
-        <h3 className="font-semibold text-[#4A3728]">{title}</h3>
-        <Badge variant="secondary" className="ml-2 bg-[#E8D5C4] text-[#4A3728]">
+        <div className="flex-1">
+          <h3 className="font-bold text-[#4A3728] text-lg">{title}</h3>
+          <p className="text-xs text-[#6B5D52]">{count || tasks.length} {(count || tasks.length) === 1 ? 'task' : 'tasks'}</p>
+        </div>
+        <Badge className="bg-[#E8D5C4] text-[#4A3728] font-semibold px-3 py-1">
           {count || tasks.length}
         </Badge>
-        <ChevronRight className={`w-4 h-4 text-[#5D4A3A] ml-auto transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+        <ChevronRight className={`w-5 h-5 text-[#5D4A3A] transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
       </button>
       
       {isExpanded && (
-        <div className="space-y-2 pl-8">
+        <div className="space-y-3 pl-0 animate-in slide-in-from-top-2 duration-200">
           {tasks.map(task => (
             <TaskCard key={task.id} task={task} onStatusChange={onStatusChange} onClick={onTaskClick} />
           ))}
@@ -511,7 +559,6 @@ const MyTasks = () => {
                 ? 'bg-rose-600 text-white' 
                 : 'bg-[#F5EBE0] text-[#4A3728] hover:bg-[#E8D5C4]'
             }`}
-            data-testid={`tab-${tab.id}`}
           >
             {tab.label}
             {tab.count > 0 && (

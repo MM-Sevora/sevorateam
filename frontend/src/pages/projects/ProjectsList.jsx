@@ -4,16 +4,17 @@ import {
   Plus, Search, Filter, FolderKanban, Calendar, Users, Flag,
   MoreVertical, Edit, Trash2, Eye, RefreshCw, ChevronDown,
   CheckCircle2, Clock, AlertTriangle, Folder, ArrowRight, ListTodo,
-  Lock, Globe, UserPlus, UserMinus, Paperclip, Upload, X, File, Target
+  Lock, Globe, UserPlus, UserMinus, Paperclip, Upload, X, File, Target,
+  LayoutGrid, List, FileText, ChevronRight
 } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { Textarea } from '../../components/ui/textarea';
 import { RichTextEditor } from '../../components/ui/rich-text-editor';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Progress } from '../../components/ui/progress';
 import {
   Dialog,
   DialogContent,
@@ -177,20 +178,145 @@ const ProjectCard = ({ project, onEdit, onDelete, onView }) => {
   );
 };
 
+// Project List View (Table format)
+const ProjectListView = ({ projects, onEdit, onDelete, onView }) => {
+  const navigate = useNavigate();
+  
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '—';
+    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  return (
+    <div className="bg-white border border-[#E8D5C4] rounded-lg overflow-hidden">
+      <table className="w-full">
+        <thead className="bg-[#F5EBE0] border-b border-[#E8D5C4]">
+          <tr>
+            <th className="text-left px-4 py-3 text-sm font-medium text-[#4A3728]">Project</th>
+            <th className="text-left px-4 py-3 text-sm font-medium text-[#4A3728]">Status</th>
+            <th className="text-left px-4 py-3 text-sm font-medium text-[#4A3728]">Priority</th>
+            <th className="text-left px-4 py-3 text-sm font-medium text-[#4A3728]">Progress</th>
+            <th className="text-left px-4 py-3 text-sm font-medium text-[#4A3728]">Tasks</th>
+            <th className="text-left px-4 py-3 text-sm font-medium text-[#4A3728]">Due Date</th>
+            <th className="text-center px-4 py-3 text-sm font-medium text-[#4A3728]">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {projects.map((project, idx) => {
+            const StatusIcon = statusConfig[project.status]?.icon || Clock;
+            return (
+              <tr 
+                key={project.id} 
+                className={`border-b border-[#E8D5C4] hover:bg-[#FDF8F3] cursor-pointer transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-[#FAFAFA]'}`}
+                onClick={() => navigate(`/projects/${project.id}`)}
+                data-testid={`project-row-${project.id}`}
+              >
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-rose-100 flex items-center justify-center flex-shrink-0">
+                      <FolderKanban className="w-5 h-5 text-rose-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-[#4A3728] truncate">{project.name}</span>
+                        {project.project_id && (
+                          <Badge variant="secondary" className="bg-[#E8D5C4] text-[#4A3728] text-xs font-mono flex-shrink-0">
+                            {project.project_id}
+                          </Badge>
+                        )}
+                        {project.visibility === 'private' && (
+                          <Lock className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+                        )}
+                      </div>
+                      {project.linked_objective_title && (
+                        <div className="text-xs text-indigo-600 flex items-center gap-1 mt-0.5">
+                          <Target className="w-3 h-3" />
+                          {project.linked_objective_title}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  <Badge variant="outline" className={`${statusConfig[project.status]?.color} whitespace-nowrap`}>
+                    <StatusIcon className="w-3 h-3 mr-1" />
+                    {statusConfig[project.status]?.label}
+                  </Badge>
+                </td>
+                <td className="px-4 py-3">
+                  <Badge variant="outline" className={`${priorityConfig[project.priority]?.color} whitespace-nowrap`}>
+                    <Flag className="w-3 h-3 mr-1" />
+                    {project.priority}
+                  </Badge>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2 min-w-[120px]">
+                    <Progress value={project.progress || 0} className="h-2 flex-1" />
+                    <span className="text-sm text-[#4A3728] font-medium w-10 text-right">{project.progress || 0}%</span>
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  <span className="text-sm text-[#5D4A3A] flex items-center gap-1">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    {project.completed_task_count}/{project.task_count}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  <span className="text-sm text-[#5D4A3A]">{formatDate(project.end_date)}</span>
+                </td>
+                <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <MoreVertical className="w-4 h-4 text-[#5D4A3A]" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="bg-white border-[#D4BBA6]">
+                      <DropdownMenuItem onClick={() => onView(project)} className="text-[#4A3728]">
+                        <Eye className="w-4 h-4 mr-2" /> View
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onEdit(project)} className="text-[#4A3728]">
+                        <Edit className="w-4 h-4 mr-2" /> Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onDelete(project)} className="text-red-600">
+                        <Trash2 className="w-4 h-4 mr-2" /> Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
 const CreateProjectModal = ({ open, onClose, modules, departments, users, onSuccess }) => {
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('details');
   const [objectives, setObjectives] = useState([]);
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [selectedMember, setSelectedMember] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     department_id: '',
     description: '',
     priority: 'medium',
     visibility: 'public',
+    status: 'draft',
     project_manager_id: '',
     start_date: '',
     end_date: '',
     linked_objective_id: ''
   });
+
+  const projectStatuses = [
+    { value: 'draft', label: 'Draft', color: 'bg-stone-100 text-stone-700' },
+    { value: 'active', label: 'Active', color: 'bg-emerald-100 text-emerald-700' },
+    { value: 'on_hold', label: 'On Hold', color: 'bg-amber-100 text-amber-700' }
+  ];
 
   // Fetch objectives for dropdown
   useEffect(() => {
@@ -208,11 +334,20 @@ const CreateProjectModal = ({ open, onClose, modules, departments, users, onSucc
         console.error('Error fetching objectives:', e);
       }
     };
-    if (open) fetchObjectives();
+    if (open) {
+      fetchObjectives();
+      setActiveTab('details');
+      setTeamMembers([]);
+      setFormData({
+        name: '', department_id: '', description: '', priority: 'medium',
+        visibility: 'public', status: 'draft', project_manager_id: '',
+        start_date: '', end_date: '', linked_objective_id: ''
+      });
+    }
   }, [open]);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     if (!formData.name) {
       toast.error('Project name is required');
       return;
@@ -221,7 +356,7 @@ const CreateProjectModal = ({ open, onClose, modules, departments, users, onSucc
     setLoading(true);
     try {
       const token = localStorage.getItem('sevora_token');
-      const payload = { ...formData };
+      const payload = { ...formData, team_members: teamMembers };
       if (!payload.department_id) delete payload.department_id;
       if (!payload.project_manager_id) delete payload.project_manager_id;
       if (!payload.linked_objective_id) delete payload.linked_objective_id;
@@ -240,7 +375,6 @@ const CreateProjectModal = ({ open, onClose, modules, departments, users, onSucc
       toast.success('Project created successfully');
       onSuccess();
       onClose();
-      setFormData({ name: '', department_id: '', description: '', priority: 'medium', visibility: 'public', project_manager_id: '', start_date: '', end_date: '', linked_objective_id: '' });
     } catch (error) {
       console.error('Error:', error);
       toast.error('Failed to create project');
@@ -249,178 +383,254 @@ const CreateProjectModal = ({ open, onClose, modules, departments, users, onSucc
     }
   };
 
+  const handleAddMember = () => {
+    if (!selectedMember || teamMembers.includes(selectedMember)) return;
+    setTeamMembers([...teamMembers, selectedMember]);
+    setSelectedMember('');
+  };
+
+  const handleRemoveMember = (memberId) => {
+    setTeamMembers(teamMembers.filter(id => id !== memberId));
+  };
+
+  const getMemberName = (memberId) => {
+    const user = users.find(u => u.id === memberId);
+    return user ? user.name : memberId;
+  };
+
+  const availableUsers = users.filter(u => !teamMembers.includes(u.id));
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="bg-white border-[#D4BBA6] max-w-xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-white border-[#D4BBA6] max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-[#4A3728] flex items-center gap-2">
             <FolderKanban className="w-5 h-5 text-rose-600" />
             Create New Project
           </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label className="text-[#4A3728]">Project Name *</Label>
-            <Input
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Enter project name"
-              className="border-[#D4BBA6] focus:border-rose-500 mt-1"
-              data-testid="project-name-input"
-            />
-          </div>
+        
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 bg-[#F5EBE0]">
+            <TabsTrigger value="details" className="data-[state=active]:bg-white">
+              <FileText className="w-4 h-4 mr-2" />Details
+            </TabsTrigger>
+            <TabsTrigger value="team" className="data-[state=active]:bg-white">
+              <Users className="w-4 h-4 mr-2" />Team
+            </TabsTrigger>
+          </TabsList>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-[#4A3728]">Department</Label>
-              <Select
-                value={formData.department_id || 'none'}
-                onValueChange={(value) => setFormData({ ...formData, department_id: value === 'none' ? '' : value })}
-              >
-                <SelectTrigger className="border-[#D4BBA6] mt-1">
-                  <SelectValue placeholder="Select department" />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-[#D4BBA6]">
-                  <SelectItem value="none">None</SelectItem>
-                  {departments?.map(dept => (
-                    <SelectItem key={dept.id} value={dept.id}>
-                      {dept.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-[#4A3728]">Project Manager</Label>
-              <Select
-                value={formData.project_manager_id || 'none'}
-                onValueChange={(value) => setFormData({ ...formData, project_manager_id: value === 'none' ? '' : value })}
-              >
-                <SelectTrigger className="border-[#D4BBA6] mt-1">
-                  <SelectValue placeholder="Select manager" />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-[#D4BBA6]">
-                  <SelectItem value="none">None</SelectItem>
-                  {users?.map(user => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <div className="mt-4">
+            <TabsContent value="details" className="mt-0 space-y-4">
+              <div>
+                <Label className="text-[#4A3728]">Project Name *</Label>
+                <Input
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Enter project name"
+                  className="border-[#D4BBA6] focus:border-rose-500 mt-1"
+                  data-testid="project-name-input"
+                />
+              </div>
 
-          <div>
-            <Label className="text-[#4A3728]">Description</Label>
-            <Textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Brief project description"
-              className="border-[#D4BBA6] focus:border-rose-500 mt-1"
-              rows={3}
-            />
-          </div>
+              <div>
+                <Label className="text-[#4A3728]">Description</Label>
+                <RichTextEditor
+                  content={formData.description}
+                  onChange={(html) => setFormData({ ...formData, description: html })}
+                  placeholder="Brief project description..."
+                  minHeight="100px"
+                  className="mt-1"
+                />
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-[#4A3728]">Priority</Label>
-              <Select
-                value={formData.priority}
-                onValueChange={(value) => setFormData({ ...formData, priority: value })}
-              >
-                <SelectTrigger className="border-[#D4BBA6] mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-[#D4BBA6]">
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-[#4A3728]">Visibility</Label>
-              <Select
-                value={formData.visibility}
-                onValueChange={(value) => setFormData({ ...formData, visibility: value })}
-              >
-                <SelectTrigger className="border-[#D4BBA6] mt-1" data-testid="visibility-select">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-[#D4BBA6]">
-                  <SelectItem value="public">
-                    <span className="flex items-center gap-2">
-                      <Globe className="w-4 h-4 text-emerald-600" />
-                      Public - Visible to all
-                    </span>
-                  </SelectItem>
-                  <SelectItem value="private">
-                    <span className="flex items-center gap-2">
-                      <Lock className="w-4 h-4 text-amber-600" />
-                      Private - Team only
-                    </span>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-[#4A3728]">Department</Label>
+                  <Select
+                    value={formData.department_id || 'none'}
+                    onValueChange={(value) => setFormData({ ...formData, department_id: value === 'none' ? '' : value })}
+                  >
+                    <SelectTrigger className="border-[#D4BBA6] mt-1">
+                      <SelectValue placeholder="Select department" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border-[#D4BBA6]">
+                      <SelectItem value="none">None</SelectItem>
+                      {departments?.map(dept => (
+                        <SelectItem key={dept.id} value={dept.id}>
+                          {dept.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-[#4A3728]">Priority</Label>
+                  <Select
+                    value={formData.priority}
+                    onValueChange={(value) => setFormData({ ...formData, priority: value })}
+                  >
+                    <SelectTrigger className="border-[#D4BBA6] mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border-[#D4BBA6]">
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-[#4A3728]">Start Date</Label>
-              <Input
-                type="date"
-                value={formData.start_date}
-                onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                className="border-[#D4BBA6] mt-1"
-              />
-            </div>
-            <div>
-              <Label className="text-[#4A3728]">End Date</Label>
-              <Input
-                type="date"
-                value={formData.end_date}
-                onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                className="border-[#D4BBA6] mt-1"
-              />
-            </div>
-          </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-[#4A3728]">Status</Label>
+                  <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
+                    <SelectTrigger className="border-[#D4BBA6] mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent className="bg-white border-[#D4BBA6]">
+                      {projectStatuses.map(status => (
+                        <SelectItem key={status.value} value={status.value}>
+                          <span className={`px-2 py-0.5 rounded text-sm ${status.color}`}>{status.label}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-[#4A3728]">Visibility</Label>
+                  <Select value={formData.visibility} onValueChange={(value) => setFormData({ ...formData, visibility: value })}>
+                    <SelectTrigger className="border-[#D4BBA6] mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent className="bg-white border-[#D4BBA6]">
+                      <SelectItem value="public"><span className="flex items-center gap-2"><Globe className="w-4 h-4 text-emerald-600" />Public</span></SelectItem>
+                      <SelectItem value="private"><span className="flex items-center gap-2"><Lock className="w-4 h-4 text-amber-600" />Private</span></SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-          {/* Linked Objective */}
-          {objectives.length > 0 && (
-            <div>
-              <Label className="text-[#4A3728]">Link to Objective (Optional)</Label>
-              <Select
-                value={formData.linked_objective_id || 'none'}
-                onValueChange={(value) => setFormData({ ...formData, linked_objective_id: value === 'none' ? '' : value })}
-              >
-                <SelectTrigger className="border-[#D4BBA6] mt-1">
-                  <SelectValue placeholder="Link to an objective..." />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-[#D4BBA6] max-h-60">
-                  <SelectItem value="none">No linked objective</SelectItem>
-                  {objectives.map(obj => (
-                    <SelectItem key={obj.id} value={obj.id}>
-                      {obj.title} ({obj.quarter_name} - {obj.fiscal_year_name})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-[#9C8C74] mt-1">Contribute to company objectives from Goals & Objectives module</p>
-            </div>
-          )}
+              <div>
+                <Label className="text-[#4A3728]">Project Manager</Label>
+                <Select
+                  value={formData.project_manager_id || 'none'}
+                  onValueChange={(value) => setFormData({ ...formData, project_manager_id: value === 'none' ? '' : value })}
+                >
+                  <SelectTrigger className="border-[#D4BBA6] mt-1">
+                    <SelectValue placeholder="Select manager" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-[#D4BBA6] max-h-60">
+                    <SelectItem value="none">No PM assigned</SelectItem>
+                    {users?.map(user => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose} className="border-[#D4BBA6] text-[#4A3728]">
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading} className="bg-rose-600 hover:bg-rose-700 text-white" data-testid="create-project-submit">
-              {loading ? 'Creating...' : 'Create Project'}
-            </Button>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-[#4A3728]">Start Date</Label>
+                  <Input
+                    type="date"
+                    value={formData.start_date}
+                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                    className="border-[#D4BBA6] mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[#4A3728]">End Date</Label>
+                  <Input
+                    type="date"
+                    value={formData.end_date}
+                    onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                    className="border-[#D4BBA6] mt-1"
+                  />
+                </div>
+              </div>
+
+              {/* Linked Objective */}
+              <div>
+                <Label className="text-[#4A3728]">Linked Objective (Goals & Objectives)</Label>
+                <Select
+                  value={formData.linked_objective_id || 'none'}
+                  onValueChange={(value) => setFormData({ ...formData, linked_objective_id: value === 'none' ? '' : value })}
+                >
+                  <SelectTrigger className="border-[#D4BBA6] mt-1">
+                    <SelectValue placeholder="Link to an objective..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-[#D4BBA6] max-h-60">
+                    <SelectItem value="none">No linked objective</SelectItem>
+                    {objectives.map(obj => (
+                      <SelectItem key={obj.id} value={obj.id}>
+                        {obj.title} ({obj.quarter_name} - {obj.fiscal_year_name})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-[#9C8C74] mt-1">Link this project to a company objective.</p>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="team" className="mt-0 space-y-4">
+              <div className="flex gap-2">
+                <Select value={selectedMember} onValueChange={setSelectedMember}>
+                  <SelectTrigger className="border-[#D4BBA6] flex-1">
+                    <SelectValue placeholder="Select user to add" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-[#D4BBA6] max-h-60">
+                    {availableUsers.map(user => (
+                      <SelectItem key={user.id} value={user.id}>{user.name} ({user.email})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button type="button" onClick={handleAddMember} disabled={!selectedMember} className="bg-rose-600 hover:bg-rose-700 text-white">
+                  <UserPlus className="w-4 h-4" />
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                {teamMembers.length === 0 ? (
+                  <div className="text-center py-8 border-2 border-dashed border-[#D4BBA6] rounded-lg">
+                    <Users className="w-10 h-10 mx-auto text-[#9C8C74] mb-2" />
+                    <p className="text-[#9C8C74] text-sm">No team members added yet</p>
+                    <p className="text-[#9C8C74] text-xs">Add team members to collaborate on this project</p>
+                  </div>
+                ) : (
+                  teamMembers.map(memberId => {
+                    const member = users.find(u => u.id === memberId);
+                    return (
+                      <div key={memberId} className="flex items-center justify-between p-3 bg-[#F5EBE0] rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center text-rose-600 font-medium">
+                            {getMemberName(memberId).charAt(0)}
+                          </div>
+                          <div>
+                            <p className="font-medium text-[#4A3728]">{getMemberName(memberId)}</p>
+                            {member && <p className="text-xs text-[#6B5D52]">{member.email}</p>}
+                          </div>
+                        </div>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => handleRemoveMember(memberId)} className="text-red-600 hover:bg-red-50">
+                          <UserMinus className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </TabsContent>
           </div>
-        </form>
+        </Tabs>
+
+        <div className="flex justify-end gap-2 pt-4 border-t border-[#E8D5C4] mt-4">
+          <Button type="button" variant="outline" onClick={onClose} className="border-[#D4BBA6] text-[#4A3728]">
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={loading} className="bg-rose-600 hover:bg-rose-700 text-white">
+            {loading ? 'Creating...' : 'Create Project'}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
@@ -900,6 +1110,7 @@ const ProjectsList = () => {
   const [users, setUsers] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const [filters, setFilters] = useState({
     search: '',
     status: '',
@@ -1142,23 +1353,54 @@ const ProjectsList = () => {
                 ))}
               </SelectContent>
             </Select>
+            
+            {/* View Toggle */}
+            <div className="flex border border-[#D4BBA6] rounded-lg overflow-hidden">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setViewMode('grid')}
+                className={`rounded-none px-3 ${viewMode === 'grid' ? 'bg-rose-100 text-rose-700' : 'text-[#5D4A3A] hover:bg-[#F5EBE0]'}`}
+                data-testid="view-grid-btn"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className={`rounded-none px-3 ${viewMode === 'list' ? 'bg-rose-100 text-rose-700' : 'text-[#5D4A3A] hover:bg-[#F5EBE0]'}`}
+                data-testid="view-list-btn"
+              >
+                <List className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Projects Grid */}
+      {/* Projects Grid/List */}
       {filteredProjects.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredProjects.map(project => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              onEdit={(p) => setEditingProject(p)}
-              onDelete={handleDelete}
-              onView={(p) => navigate(`/projects/${p.id}`)}
-            />
-          ))}
-        </div>
+        viewMode === 'grid' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredProjects.map(project => (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                onEdit={(p) => setEditingProject(p)}
+                onDelete={handleDelete}
+                onView={(p) => navigate(`/projects/${p.id}`)}
+              />
+            ))}
+          </div>
+        ) : (
+          <ProjectListView
+            projects={filteredProjects}
+            onEdit={(p) => setEditingProject(p)}
+            onDelete={handleDelete}
+            onView={(p) => navigate(`/projects/${p.id}`)}
+          />
+        )
       ) : (
         <Card className="bg-[#FDF8F3] border-[#E8D5C4]">
           <CardContent className="p-12 text-center">
