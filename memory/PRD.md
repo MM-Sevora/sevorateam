@@ -1206,12 +1206,39 @@ The Manager Dashboard was already functional with:
 - [x] 9/9 backend tests passed (100%)
 - [x] All frontend features verified via Playwright
 
-### P1 - Microsoft Calendar Sync (PENDING)
-- [ ] Azure AD application registration and configuration
-- [ ] OAuth 2.0 authorization code flow implementation
-- [ ] Token management with refresh token handling
-- [ ] Create/Update/Delete calendar events via Graph API
-- [ ] Sync attendees to Outlook calendar invites
+### Phase 48e: Meeting Templates & MS Calendar Infrastructure (COMPLETE - December 2025)
+**Meeting Templates Feature:**
+- [x] Backend: MeetingTemplate model with name, description, category, meeting_type, duration, default_agenda
+- [x] Backend: `GET /api/meetings/templates` - List all templates (user's own + global)
+- [x] Backend: `POST /api/meetings/templates` - Create new template
+- [x] Backend: `GET/PUT/DELETE /api/meetings/templates/{id}` - CRUD operations
+- [x] Backend: `POST /api/meetings/templates/{id}/create-meeting` - Create meeting from template
+- [x] Frontend: MeetingTemplates.jsx page at /meetings/templates
+- [x] Frontend: Template cards with category badges, duration, agenda count, usage count
+- [x] Frontend: Create Template modal with agenda builder
+- [x] Frontend: Schedule from Template modal
+- [x] Frontend: Templates button in /meetings page header
+
+**Recurring Meeting Badge in List:**
+- [x] Backend: MeetingListItem model updated with recurrence_type field
+- [x] Backend: meeting_to_list_item() returns recurrence_type
+- [x] Frontend: Blue recurring badge with RefreshCw icon in MeetingCard (Upcoming & Past tabs)
+
+**MS Calendar Sync Infrastructure:**
+- [x] Backend: MSCalendarConnection model for OAuth state and tokens
+- [x] Backend: `GET /api/meetings/ms-calendar/status` - Connection status
+- [x] Backend: `POST /api/meetings/ms-calendar/connect` - Returns OAuth authorization URL
+- [x] Backend: `GET /api/meetings/ms-calendar/callback` - OAuth callback handler
+- [x] Backend: `POST /api/meetings/ms-calendar/disconnect` - Disconnect calendar
+- [x] Backend: `POST /api/meetings/{id}/sync-to-outlook` - Sync meeting to Outlook
+- [x] Azure AD credentials are pre-configured in environment
+
+**Bug Fixes:**
+- [x] Fixed FastAPI route order - /templates and /ms-calendar routes moved BEFORE /{meeting_id}
+
+**Testing:**
+- [x] 9/9 backend tests passed (100%)
+- [x] All frontend features verified via Playwright
 
 ### P3 - Backlog
 - [ ] Gantt Chart View for projects
