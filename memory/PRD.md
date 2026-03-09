@@ -1030,7 +1030,6 @@ The Manager Dashboard was already functional with:
 ## Pending Issues
 
 ### P1 - Upcoming Tasks
-- [ ] **Integrate Meetings with Goals & Objectives**: Add "Schedule Meeting" button and "Related Meetings" section to GoalDetail.jsx and ObjectiveDetail.jsx (similar to ProjectDetail integration)
 - [ ] Apply consistent Edit/Save/Cancel UX to other pages
 - [ ] Complete `server.py` route extraction
 
@@ -1294,6 +1293,37 @@ The Manager Dashboard was already functional with:
 - [x] 5/5 features verified via testing agent
 - [x] All backend endpoints tested with curl
 - [x] Frontend interactions verified via Playwright
+
+### Phase 48h: Goals & Objectives Meeting Integration (COMPLETE - March 9, 2026)
+**Sidebar Reorganization:**
+- [x] Reordered DEPARTMENT_CONFIG in Layout.jsx
+- [x] New order: Goals & Objectives → Meetings & Reviews → Project Management → Marketing Ops
+
+**Objective Detail Integration:**
+- [x] Added "Schedule Meeting" button in ObjectiveDetail.jsx header
+- [x] Added "Meetings" tab in ObjectiveDetail.jsx (between Projects and Updates)
+- [x] Added fetchRelatedMeetings() to load meetings linked to objective
+- [x] Navigation: `/meetings/new?objective_id={id}&type=okr_review`
+- [x] Meetings tab shows list of related meetings with status badges
+
+**Strategic Goals Integration:**
+- [x] Added "Schedule Meeting" option in GoalCard dropdown menu in StrategicGoals.jsx
+- [x] Navigation: `/meetings/new?goal_id={id}&type=okr_review`
+
+**Backend Enhancements:**
+- [x] Added `objective_id` filter parameter to list_meetings endpoint
+
+**Bug Fixes by Testing Agent:**
+- [x] Fixed CreateMeeting.jsx API endpoints:
+  - `/api/objectives` → `/api/goals/objectives`
+  - `/api/strategic-goals` → `/api/goals/strategic-goals`
+- [x] Fixed field name mismatch in dropdowns: `name` → `title` for goals and objectives
+
+**Testing:**
+- [x] 8/8 tests passed (100%)
+- [x] Sidebar order verified
+- [x] Schedule Meeting buttons/dropdowns verified
+- [x] URL pre-fills for goal_id and objective_id verified
 
 ### P3 - Backlog
 - [ ] Gantt Chart View for projects
