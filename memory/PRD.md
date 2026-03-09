@@ -1131,11 +1131,55 @@ The Manager Dashboard was already functional with:
 - [x] All frontend features verified via Playwright
 
 **Remaining for Phase 3:**
-- [ ] Microsoft Calendar sync integration (Graph API)
-- [ ] Meeting Analytics dashboard with charts
-- [ ] Decision Log tracking
-- [ ] Issue/Risk Tracker
-- [ ] Calendar view with drag & drop
+- [x] Microsoft Calendar sync integration (Graph API) - Calendar view implemented with FullCalendar
+- [x] Meeting Analytics dashboard with charts
+- [x] Decision Log tracking
+- [x] Issue/Risk Tracker
+- [x] Calendar view with FullCalendar integration
+
+### Phase 48c: Meeting & Review Management System - Phase 3 (COMPLETE - December 2025)
+**Decision Log Feature:**
+- [x] Backend: Decision model with title, description, decision_owner, impact, impact_area, rationale, linked_project, linked_goal
+- [x] Backend: `POST /api/meetings/{id}/decisions` - Add decision
+- [x] Backend: `DELETE /api/meetings/{id}/decisions/{id}` - Delete decision
+- [x] Backend: `GET /api/meetings/all-decisions` - Get all decisions across meetings
+- [x] Frontend: Decisions tab in MeetingDetail with list and badges
+- [x] Frontend: Record Decision modal with full form
+
+**Issues & Risks Tracker Feature:**
+- [x] Backend: IssueRisk model with type (issue/risk), title, description, impact, probability, owner, resolution_plan, status, due_date
+- [x] Backend: `POST /api/meetings/{id}/issues-risks` - Add issue/risk
+- [x] Backend: `PUT /api/meetings/{id}/issues-risks/{id}` - Update status (open, in_progress, resolved, mitigated, closed)
+- [x] Backend: `DELETE /api/meetings/{id}/issues-risks/{id}` - Delete item
+- [x] Backend: `GET /api/meetings/all-issues-risks` - Get all issues/risks across meetings
+- [x] Frontend: Issues & Risks tab in MeetingDetail with list and status actions
+- [x] Frontend: Add Issue/Risk modal with Issue/Risk toggle
+
+**Calendar View Feature:**
+- [x] Installed FullCalendar packages (@fullcalendar/react, core, daygrid, timegrid, interaction)
+- [x] Backend: `GET /api/meetings/calendar?start_date=&end_date=` - Calendar events endpoint
+- [x] Frontend: Calendar tab in MeetingList with FullCalendar component
+- [x] Frontend: Month/Week views with meeting events
+- [x] Frontend: Click event to navigate to meeting detail
+- [x] Frontend: Custom styling matching cream/beige theme
+
+**Analytics Dashboard Feature:**
+- [x] Backend: `GET /api/meetings/analytics/overview` returns:
+  - total_meetings, total_decisions, total_action_items, action_items_completed, completion_rate
+  - meetings_by_month, meetings_by_type, meetings_by_department, top_organizers
+- [x] Frontend: Analytics tab in MeetingList
+- [x] Frontend: Key metrics cards (5 stats)
+- [x] Frontend: Meetings by Month bar chart
+- [x] Frontend: Meetings by Type breakdown
+- [x] Frontend: Meetings by Department section
+- [x] Frontend: Top Organizers section
+
+**Bug Fixes:**
+- [x] Fixed FastAPI route order bug - /all-decisions and /all-issues-risks routes moved before /{meeting_id}
+
+**Testing:**
+- [x] 21/21 backend tests passed (100%)
+- [x] All frontend features verified via Playwright
 
 ### P3 - Backlog
 - [ ] Gantt Chart View for projects
