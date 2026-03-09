@@ -199,6 +199,7 @@ const MyTasks = () => {
   const [data, setData] = useState(null);
   const [personalProject, setPersonalProject] = useState(null);
   const [personalTasks, setPersonalTasks] = useState([]);
+  const [assignedByMe, setAssignedByMe] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [quickTaskData, setQuickTaskData] = useState({
@@ -225,6 +226,22 @@ const MyTasks = () => {
       toast.error('Failed to load tasks');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAssignedByMe = async () => {
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const response = await fetch(`${API}/api/projects/assigned-by-me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const tasks = await response.json();
+        setAssignedByMe(tasks);
+      }
+    } catch (error) {
+      console.error('Error fetching assigned tasks:', error);
     }
   };
 
@@ -256,6 +273,7 @@ const MyTasks = () => {
   useEffect(() => {
     fetchMyTasks();
     fetchPersonalProject();
+    fetchAssignedByMe();
   }, []);
 
   const handleQuickAddTask = async () => {
@@ -448,6 +466,7 @@ const MyTasks = () => {
       <div className="flex gap-2 border-b border-[#E8D5C4] pb-4 flex-wrap">
         {[
           { id: 'all', label: 'All Tasks', count: stats.total_assigned },
+          { id: 'assigned_by_me', label: 'Assigned by Me', count: assignedByMe.length },
           { id: 'in_progress', label: 'In Progress', count: stats.in_progress },
           { id: 'review', label: 'Pending Review', count: stats.pending_review },
           { id: 'completed', label: 'Recently Done', count: stats.completed_this_week }
@@ -455,6 +474,7 @@ const MyTasks = () => {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
+            data-testid={`tab-${tab.id}`}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               activeTab === tab.id 
                 ? 'bg-rose-600 text-white' 
@@ -565,6 +585,83 @@ const MyTasks = () => {
                   <PlayCircle className="w-16 h-16 mx-auto text-purple-200 mb-4" />
                   <h3 className="text-lg font-semibold text-[#4A3728] mb-2">No tasks in progress</h3>
                   <p className="text-[#5D4A3A]">Start working on a task to see it here.</p>
+                </div>
+              )}
+            </>
+          )}
+
+          {activeTab === 'assigned_by_me' && (
+            <>
+              {assignedByMe.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <User className="w-5 h-5 text-rose-600" />
+                    <h3 className="font-semibold text-[#4A3728]">Tasks You've Delegated</h3>
+                    <Badge className="bg-rose-100 text-rose-700">{assignedByMe.length}</Badge>
+                  </div>
+                  <div className="space-y-3">
+                    {assignedByMe.map(task => (
+                      <div 
+                        key={task.id}
+                        onClick={() => handleTaskClick(task)}
+                        className="bg-white p-4 rounded-lg border border-[#E8D5C4] hover:shadow-md transition-all cursor-pointer"
+                        data-testid={`delegated-task-${task.id}`}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                              <Badge variant="outline" className={`text-xs ${priorityColors[task.priority]}`}>
+                                <Flag className="w-3 h-3 mr-1" />
+                                {task.priority}
+                              </Badge>
+                              <Badge variant="outline" className={`text-xs ${statusConfig[task.status]?.color}`}>
+                                {statusConfig[task.status]?.label}
+                              </Badge>
+                              {task.project_name && (
+                                <Badge variant="outline" className="text-xs bg-[#F5EBE0] text-[#5D4A3A]">
+                                  <Folder className="w-3 h-3 mr-1" />
+                                  {task.project_name}
+                                </Badge>
+                              )}
+                            </div>
+                            <h4 className="font-medium text-[#4A3728]">{task.name}</h4>
+                            <div className="flex items-center gap-4 mt-2 text-sm text-[#6B5D52]">
+                              <span className="flex items-center gap-1">
+                                <User className="w-3.5 h-3.5" />
+                                Assigned to: {task.assigned_to_name || 'Unassigned'}
+                              </span>
+                              {task.due_date && (
+                                <span className={`flex items-center gap-1 ${
+                                  new Date(task.due_date) < new Date() ? 'text-red-600' : ''
+                                }`}>
+                                  <Calendar className="w-3.5 h-3.5" />
+                                  {new Date(task.due_date).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            {task.actual_hours > 0 && (
+                              <span className="text-xs text-[#6B5D52]">
+                                {task.actual_hours}h logged
+                              </span>
+                            )}
+                            {task.subtask_count > 0 && (
+                              <span className="text-xs text-[#6B5D52]">
+                                {task.checklist_completed || 0}/{task.subtask_count} subtasks
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <User className="w-16 h-16 mx-auto text-stone-200 mb-4" />
+                  <h3 className="text-lg font-semibold text-[#4A3728] mb-2">No delegated tasks</h3>
+                  <p className="text-[#5D4A3A]">Tasks you assign to others will appear here for monitoring.</p>
                 </div>
               )}
             </>

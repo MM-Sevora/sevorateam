@@ -4,6 +4,7 @@ Project Management System API Routes
 
 from fastapi import APIRouter, HTTPException, Depends, Query, UploadFile, File, Header, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 from dateutil.relativedelta import relativedelta
@@ -761,6 +762,127 @@ async def get_individual_tasks(
     
     enriched_tasks = [await enrich_task(t) for t in tasks]
     return enriched_tasks
+
+
+@router.get("/assigned-by-me", response_model=List[TaskResponse])
+async def get_tasks_assigned_by_me(
+    status: Optional[TaskStatus] = None,
+    priority: Optional[Priority] = None,
+    include_completed: bool = False,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get all tasks that current user has assigned to others"""
+    user_id = user["id"]
+    
+    query = {
+        "assigned_by": user_id,
+        "assigned_to": {"$ne": user_id}  # Exclude self-assigned tasks
+    }
+    
+    if not include_completed:
+        query["status"] = {"$nin": [TaskStatus.COMPLETED.value, TaskStatus.APPROVED.value]}
+    elif status:
+        query["status"] = status.value
+    
+    if priority:
+        query["priority"] = priority.value
+    
+    tasks = await db.pm_tasks.find(query, {"_id": 0}).sort("due_date", 1).to_list(100)
+    
+    enriched_tasks = [await enrich_task(t) for t in tasks]
+    return enriched_tasks
+
+
+# ============== TASK REMINDERS/FOLLOW-UPS ==============
+
+class TaskReminderCreate(BaseModel):
+    task_id: str
+    remind_at: str  # ISO datetime
+    message: Optional[str] = None
+
+class TaskReminderResponse(BaseModel):
+    id: str
+    task_id: str
+    task_name: Optional[str] = None
+    user_id: str
+    remind_at: str
+    message: Optional[str] = None
+    is_sent: bool = False
+    created_at: str
+
+@router.post("/reminders", response_model=TaskReminderResponse)
+async def create_task_reminder(
+    data: TaskReminderCreate,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Create a reminder/follow-up for a task"""
+    # Verify task exists
+    task = await db.pm_tasks.find_one({"id": data.task_id}, {"_id": 0, "name": 1})
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    reminder_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    reminder_doc = {
+        "id": reminder_id,
+        "task_id": data.task_id,
+        "user_id": user["id"],
+        "remind_at": data.remind_at,
+        "message": data.message,
+        "is_sent": False,
+        "created_at": now
+    }
+    
+    await db.task_reminders.insert_one(reminder_doc)
+    
+    reminder_doc["task_name"] = task.get("name")
+    if "_id" in reminder_doc:
+        del reminder_doc["_id"]
+    
+    return reminder_doc
+
+
+@router.get("/reminders", response_model=List[TaskReminderResponse])
+async def get_my_reminders(
+    task_id: Optional[str] = None,
+    include_sent: bool = False,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get all reminders for current user"""
+    query = {"user_id": user["id"]}
+    
+    if task_id:
+        query["task_id"] = task_id
+    
+    if not include_sent:
+        query["is_sent"] = False
+    
+    reminders = await db.task_reminders.find(query, {"_id": 0}).sort("remind_at", 1).to_list(100)
+    
+    # Enrich with task names
+    for reminder in reminders:
+        task = await db.pm_tasks.find_one({"id": reminder["task_id"]}, {"_id": 0, "name": 1})
+        reminder["task_name"] = task.get("name") if task else None
+    
+    return reminders
+
+
+@router.delete("/reminders/{reminder_id}")
+async def delete_reminder(
+    reminder_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Delete a reminder"""
+    result = await db.task_reminders.delete_one({
+        "id": reminder_id,
+        "user_id": user["id"]
+    })
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Reminder not found")
+    
+    return {"success": True}
 
 
 # ============== MANAGER DASHBOARD (Must be before /{project_id}) ==============

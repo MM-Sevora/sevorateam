@@ -377,3 +377,97 @@ def schedule_once(func: Callable, job_id: str, run_date: str, **kwargs) -> Optio
         trigger_args={'run_date': run_date},
         **kwargs
     )
+
+
+# ============== TASK REMINDER PROCESSING ==============
+
+async def process_task_reminders():
+    """Process due task reminders and send notifications"""
+    from motor.motor_asyncio import AsyncIOMotorClient
+    from routes.notifications import create_notification, NotificationType, NotificationCategory, NotificationPriority
+    
+    try:
+        client = AsyncIOMotorClient(MONGO_URL)
+        db = client[DB_NAME]
+        
+        now = datetime.now(timezone.utc).isoformat()
+        
+        # Find reminders that are due and not sent
+        due_reminders = await db.task_reminders.find({
+            "remind_at": {"$lte": now},
+            "is_sent": False
+        }, {"_id": 0}).to_list(100)
+        
+        for reminder in due_reminders:
+            try:
+                # Get task details
+                task = await db.pm_tasks.find_one(
+                    {"id": reminder["task_id"]}, 
+                    {"_id": 0, "name": 1, "project_id": 1, "assigned_to": 1, "status": 1}
+                )
+                
+                if task:
+                    # Create notification
+                    message = reminder.get("message") or f"Follow-up reminder for task: {task.get('name', 'Unknown')}"
+                    action_url = f"/projects/{task.get('project_id')}?task={reminder['task_id']}" if task.get('project_id') else f"/projects/my-tasks"
+                    
+                    await create_notification(
+                        user_id=reminder["user_id"],
+                        notification_type=NotificationType.TASK_DUE,
+                        category=NotificationCategory.TASK,
+                        title="Task Follow-up Reminder",
+                        message=message,
+                        priority=NotificationPriority.HIGH,
+                        entity_type="task",
+                        entity_id=reminder["task_id"],
+                        action_url=action_url,
+                        metadata={
+                            "task_name": task.get("name"),
+                            "task_status": task.get("status"),
+                            "reminder_id": reminder["id"]
+                        }
+                    )
+                
+                # Mark reminder as sent
+                await db.task_reminders.update_one(
+                    {"id": reminder["id"]},
+                    {"$set": {"is_sent": True, "sent_at": now}}
+                )
+                
+                logger.info(f"Processed task reminder {reminder['id']}")
+                
+            except Exception as e:
+                logger.error(f"Error processing reminder {reminder['id']}: {e}")
+        
+        client.close()
+        
+    except Exception as e:
+        logger.error(f"Error in process_task_reminders: {e}")
+
+
+def setup_reminder_job():
+    """Setup the task reminder processing job to run every 5 minutes"""
+    global scheduler
+    
+    if not APSCHEDULER_AVAILABLE or scheduler is None:
+        logger.warning("Cannot setup reminder job - scheduler not available")
+        return
+    
+    job_id = "process_task_reminders"
+    
+    # Remove existing job if present
+    try:
+        scheduler.remove_job(job_id)
+    except:
+        pass
+    
+    # Add new job
+    add_job(
+        func=process_task_reminders,
+        trigger='interval',
+        job_id=job_id,
+        trigger_args={'minutes': 5},
+        replace_existing=True
+    )
+    
+    logger.info("Task reminder processing job scheduled (every 5 minutes)")
