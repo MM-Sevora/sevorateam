@@ -74,6 +74,32 @@ class RecurrenceType(str, Enum):
     QUARTERLY = "quarterly"
 
 
+class DecisionImpact(str, Enum):
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
+class IssueRiskType(str, Enum):
+    ISSUE = "issue"
+    RISK = "risk"
+
+
+class IssueRiskStatus(str, Enum):
+    OPEN = "open"
+    IN_PROGRESS = "in_progress"
+    RESOLVED = "resolved"
+    CLOSED = "closed"
+    MITIGATED = "mitigated"
+
+
+class IssueRiskImpact(str, Enum):
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
 # ============== SUB-MODELS ==============
 
 class MeetingParticipant(BaseModel):
@@ -127,6 +153,43 @@ class ActionItem(BaseModel):
     converted_task_id: Optional[str] = None
     created_at: Optional[str] = None
     completed_at: Optional[str] = None
+
+
+class Decision(BaseModel):
+    """Decision made during a meeting"""
+    id: Optional[str] = None
+    title: str
+    description: Optional[str] = None
+    decision_owner: Optional[str] = None
+    decision_owner_name: Optional[str] = None
+    decision_date: Optional[str] = None
+    impact: DecisionImpact = DecisionImpact.MEDIUM
+    impact_area: Optional[str] = None  # e.g., "Budget", "Timeline", "Resources"
+    linked_goal_id: Optional[str] = None
+    linked_goal_name: Optional[str] = None
+    linked_project_id: Optional[str] = None
+    linked_project_name: Optional[str] = None
+    rationale: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class IssueRisk(BaseModel):
+    """Issue or Risk tracked during a meeting"""
+    id: Optional[str] = None
+    type: IssueRiskType = IssueRiskType.ISSUE
+    title: str
+    description: Optional[str] = None
+    impact: IssueRiskImpact = IssueRiskImpact.MEDIUM
+    probability: Optional[str] = None  # For risks: high, medium, low
+    owner: Optional[str] = None
+    owner_name: Optional[str] = None
+    resolution_plan: Optional[str] = None
+    status: IssueRiskStatus = IssueRiskStatus.OPEN
+    linked_project_id: Optional[str] = None
+    linked_project_name: Optional[str] = None
+    due_date: Optional[str] = None
+    resolved_date: Optional[str] = None
+    created_at: Optional[str] = None
 
 
 class PreReadDocument(BaseModel):
@@ -245,6 +308,8 @@ class MeetingResponse(BaseModel):
     pre_read_documents: List[PreReadDocument] = []
     discussion_notes: List[DiscussionNote] = []
     action_items: List[ActionItem] = []
+    decisions: List[Decision] = []
+    issues_risks: List[IssueRisk] = []
     
     # Settings
     visibility: MeetingVisibility = MeetingVisibility.PUBLIC

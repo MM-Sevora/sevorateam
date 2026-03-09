@@ -17,7 +17,8 @@ from models.meetings import (
     RecurrenceType, MeetingCreate, MeetingUpdate, MeetingResponse, MeetingListItem,
     MeetingMinutesCreate, MeetingMinutesResponse, ConvertActionItemRequest,
     MeetingDashboardResponse, MeetingAnalyticsResponse, PreviousMeetingContext,
-    AgendaItem, DiscussionNote, ActionItem, MeetingParticipant
+    AgendaItem, DiscussionNote, ActionItem, MeetingParticipant,
+    Decision, DecisionImpact, IssueRisk, IssueRiskType, IssueRiskStatus, IssueRiskImpact
 )
 
 # Database and auth will be set from server.py
@@ -1091,3 +1092,343 @@ async def get_meeting_analytics(
         meetings_by_type=meetings_by_type,
         top_organizers=top_organizers
     )
+
+
+
+# ============== DECISIONS ==============
+
+@router.post("/{meeting_id}/decisions")
+async def add_decision(
+    meeting_id: str,
+    title: str,
+    description: Optional[str] = None,
+    decision_owner: Optional[str] = None,
+    impact: DecisionImpact = DecisionImpact.MEDIUM,
+    impact_area: Optional[str] = None,
+    linked_goal_id: Optional[str] = None,
+    linked_project_id: Optional[str] = None,
+    rationale: Optional[str] = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Add a decision to a meeting"""
+    decision = {
+        "id": str(uuid.uuid4()),
+        "title": title,
+        "description": description,
+        "decision_owner": decision_owner,
+        "decision_owner_name": await get_user_name(decision_owner) if decision_owner else None,
+        "decision_date": datetime.now(timezone.utc).isoformat(),
+        "impact": impact.value,
+        "impact_area": impact_area,
+        "linked_goal_id": linked_goal_id,
+        "linked_goal_name": await get_goal_name(linked_goal_id) if linked_goal_id else None,
+        "linked_project_id": linked_project_id,
+        "linked_project_name": await get_project_name(linked_project_id) if linked_project_id else None,
+        "rationale": rationale,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    result = await db.meetings.update_one(
+        {"id": meeting_id},
+        {
+            "$push": {"decisions": decision},
+            "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}
+        }
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    
+    return decision
+
+
+@router.put("/{meeting_id}/decisions/{decision_id}")
+async def update_decision(
+    meeting_id: str,
+    decision_id: str,
+    title: Optional[str] = None,
+    description: Optional[str] = None,
+    decision_owner: Optional[str] = None,
+    impact: Optional[DecisionImpact] = None,
+    impact_area: Optional[str] = None,
+    rationale: Optional[str] = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Update a decision"""
+    meeting = await db.meetings.find_one({"id": meeting_id}, {"_id": 0})
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    
+    decisions = meeting.get("decisions", [])
+    item_found = False
+    
+    for item in decisions:
+        if item.get("id") == decision_id:
+            item_found = True
+            if title is not None:
+                item["title"] = title
+            if description is not None:
+                item["description"] = description
+            if decision_owner is not None:
+                item["decision_owner"] = decision_owner
+                item["decision_owner_name"] = await get_user_name(decision_owner)
+            if impact is not None:
+                item["impact"] = impact.value
+            if impact_area is not None:
+                item["impact_area"] = impact_area
+            if rationale is not None:
+                item["rationale"] = rationale
+            break
+    
+    if not item_found:
+        raise HTTPException(status_code=404, detail="Decision not found")
+    
+    await db.meetings.update_one(
+        {"id": meeting_id},
+        {
+            "$set": {
+                "decisions": decisions,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+    
+    return {"message": "Decision updated"}
+
+
+@router.delete("/{meeting_id}/decisions/{decision_id}")
+async def delete_decision(
+    meeting_id: str,
+    decision_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Delete a decision"""
+    result = await db.meetings.update_one(
+        {"id": meeting_id},
+        {
+            "$pull": {"decisions": {"id": decision_id}},
+            "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}
+        }
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    
+    return {"message": "Decision deleted"}
+
+
+# ============== ISSUES & RISKS ==============
+
+@router.post("/{meeting_id}/issues-risks")
+async def add_issue_risk(
+    meeting_id: str,
+    type: IssueRiskType,
+    title: str,
+    description: Optional[str] = None,
+    impact: IssueRiskImpact = IssueRiskImpact.MEDIUM,
+    probability: Optional[str] = None,
+    owner: Optional[str] = None,
+    resolution_plan: Optional[str] = None,
+    linked_project_id: Optional[str] = None,
+    due_date: Optional[str] = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Add an issue or risk to a meeting"""
+    issue_risk = {
+        "id": str(uuid.uuid4()),
+        "type": type.value,
+        "title": title,
+        "description": description,
+        "impact": impact.value,
+        "probability": probability,
+        "owner": owner,
+        "owner_name": await get_user_name(owner) if owner else None,
+        "resolution_plan": resolution_plan,
+        "status": IssueRiskStatus.OPEN.value,
+        "linked_project_id": linked_project_id,
+        "linked_project_name": await get_project_name(linked_project_id) if linked_project_id else None,
+        "due_date": due_date,
+        "resolved_date": None,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    result = await db.meetings.update_one(
+        {"id": meeting_id},
+        {
+            "$push": {"issues_risks": issue_risk},
+            "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}
+        }
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    
+    return issue_risk
+
+
+@router.put("/{meeting_id}/issues-risks/{item_id}")
+async def update_issue_risk(
+    meeting_id: str,
+    item_id: str,
+    title: Optional[str] = None,
+    description: Optional[str] = None,
+    impact: Optional[IssueRiskImpact] = None,
+    probability: Optional[str] = None,
+    owner: Optional[str] = None,
+    resolution_plan: Optional[str] = None,
+    status: Optional[IssueRiskStatus] = None,
+    due_date: Optional[str] = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Update an issue or risk"""
+    meeting = await db.meetings.find_one({"id": meeting_id}, {"_id": 0})
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    
+    issues_risks = meeting.get("issues_risks", [])
+    item_found = False
+    
+    for item in issues_risks:
+        if item.get("id") == item_id:
+            item_found = True
+            if title is not None:
+                item["title"] = title
+            if description is not None:
+                item["description"] = description
+            if impact is not None:
+                item["impact"] = impact.value
+            if probability is not None:
+                item["probability"] = probability
+            if owner is not None:
+                item["owner"] = owner
+                item["owner_name"] = await get_user_name(owner)
+            if resolution_plan is not None:
+                item["resolution_plan"] = resolution_plan
+            if status is not None:
+                item["status"] = status.value
+                if status in [IssueRiskStatus.RESOLVED, IssueRiskStatus.MITIGATED, IssueRiskStatus.CLOSED]:
+                    item["resolved_date"] = datetime.now(timezone.utc).isoformat()
+            if due_date is not None:
+                item["due_date"] = due_date
+            break
+    
+    if not item_found:
+        raise HTTPException(status_code=404, detail="Issue/Risk not found")
+    
+    await db.meetings.update_one(
+        {"id": meeting_id},
+        {
+            "$set": {
+                "issues_risks": issues_risks,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+    
+    return {"message": "Issue/Risk updated"}
+
+
+@router.delete("/{meeting_id}/issues-risks/{item_id}")
+async def delete_issue_risk(
+    meeting_id: str,
+    item_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Delete an issue or risk"""
+    result = await db.meetings.update_one(
+        {"id": meeting_id},
+        {
+            "$pull": {"issues_risks": {"id": item_id}},
+            "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}
+        }
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    
+    return {"message": "Issue/Risk deleted"}
+
+
+# ============== GLOBAL DECISION LOG ==============
+
+@router.get("/all-decisions")
+async def get_all_decisions(
+    project_id: Optional[str] = None,
+    goal_id: Optional[str] = None,
+    impact: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    limit: int = Query(default=50, le=200),
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get all decisions across meetings"""
+    pipeline = [
+        {"$unwind": "$decisions"},
+        {"$match": {"decisions": {"$exists": True}}}
+    ]
+    
+    if project_id:
+        pipeline.append({"$match": {"decisions.linked_project_id": project_id}})
+    if goal_id:
+        pipeline.append({"$match": {"decisions.linked_goal_id": goal_id}})
+    if impact:
+        pipeline.append({"$match": {"decisions.impact": impact}})
+    if start_date:
+        pipeline.append({"$match": {"decisions.decision_date": {"$gte": start_date}}})
+    if end_date:
+        pipeline.append({"$match": {"decisions.decision_date": {"$lte": end_date}}})
+    
+    pipeline.extend([
+        {"$project": {
+            "_id": 0,
+            "meeting_id": "$id",
+            "meeting_title": "$title",
+            "decision": "$decisions"
+        }},
+        {"$sort": {"decision.decision_date": -1}},
+        {"$limit": limit}
+    ])
+    
+    results = await db.meetings.aggregate(pipeline).to_list(limit)
+    return results
+
+
+# ============== GLOBAL ISSUES & RISKS ==============
+
+@router.get("/all-issues-risks")
+async def get_all_issues_risks(
+    type: Optional[str] = None,
+    status: Optional[str] = None,
+    project_id: Optional[str] = None,
+    impact: Optional[str] = None,
+    limit: int = Query(default=50, le=200),
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get all issues and risks across meetings"""
+    pipeline = [
+        {"$unwind": "$issues_risks"},
+        {"$match": {"issues_risks": {"$exists": True}}}
+    ]
+    
+    if type:
+        pipeline.append({"$match": {"issues_risks.type": type}})
+    if status:
+        pipeline.append({"$match": {"issues_risks.status": status}})
+    if project_id:
+        pipeline.append({"$match": {"issues_risks.linked_project_id": project_id}})
+    if impact:
+        pipeline.append({"$match": {"issues_risks.impact": impact}})
+    
+    pipeline.extend([
+        {"$project": {
+            "_id": 0,
+            "meeting_id": "$id",
+            "meeting_title": "$title",
+            "item": "$issues_risks"
+        }},
+        {"$sort": {"item.created_at": -1}},
+        {"$limit": limit}
+    ])
+    
+    results = await db.meetings.aggregate(pipeline).to_list(limit)
+    return results
