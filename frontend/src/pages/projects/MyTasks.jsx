@@ -438,6 +438,75 @@ const MyTasks = () => {
     setSelectedTaskId(task.id);
   };
 
+  const handleQuickRecurring = async (templateType) => {
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const today = new Date().toISOString().split('T')[0];
+      
+      const templates = {
+        daily_standup: {
+          name: 'Daily Standup',
+          description: 'Daily team sync to discuss progress and blockers',
+          recurrence_type: 'daily',
+          frequency: 1,
+          repeat_on_days: [0, 1, 2, 3, 4], // Monday to Friday
+          start_date: today,
+          task_due_offset_days: 0,
+          priority: 'medium'
+        },
+        weekly_report: {
+          name: 'Weekly Report',
+          description: 'Prepare and submit weekly status report',
+          recurrence_type: 'weekly',
+          frequency: 1,
+          repeat_on_days: [4], // Friday
+          start_date: today,
+          task_due_offset_days: 0,
+          priority: 'medium'
+        },
+        monthly_review: {
+          name: 'Monthly Review',
+          description: 'Monthly performance and goals review',
+          recurrence_type: 'monthly',
+          frequency: 1,
+          monthly_repeat_type: 'weekday_of_month',
+          week_of_month: -1, // Last week
+          weekday_of_month: 4, // Friday
+          start_date: today,
+          task_due_offset_days: 0,
+          priority: 'high'
+        }
+      };
+      
+      const templateData = templates[templateType];
+      if (!templateData) {
+        toast.error('Unknown template type');
+        return;
+      }
+      
+      const response = await fetch(`${API}/api/projects/recurring-templates`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(templateData)
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to create recurring task');
+      }
+      
+      toast.success(`${templateData.name} recurring task created!`);
+      // Navigate to recurring tasks page to see the new template
+      navigate('/projects/recurring');
+    } catch (error) {
+      console.error('Error creating quick recurring task:', error);
+      toast.error(error.message || 'Failed to create recurring task');
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-8 flex items-center justify-center min-h-[50vh]">
@@ -477,6 +546,50 @@ const MyTasks = () => {
             <Plus className="w-4 h-4 mr-2" />
             Quick Add Task
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                size="sm"
+                variant="outline"
+                className="border-indigo-300 text-indigo-600 hover:bg-indigo-50"
+                data-testid="quick-recurring-btn"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Quick Recurring
+                <ChevronDown className="w-4 h-4 ml-1" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="bg-white border-[#D4BBA6]" align="end">
+              <DropdownMenuItem 
+                onClick={() => handleQuickRecurring('daily_standup')}
+                className="cursor-pointer"
+              >
+                <Calendar className="w-4 h-4 mr-2 text-blue-500" />
+                Daily Standup
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => handleQuickRecurring('weekly_report')}
+                className="cursor-pointer"
+              >
+                <Calendar className="w-4 h-4 mr-2 text-indigo-500" />
+                Weekly Report
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => handleQuickRecurring('monthly_review')}
+                className="cursor-pointer"
+              >
+                <Calendar className="w-4 h-4 mr-2 text-purple-500" />
+                Monthly Review
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => navigate('/projects/recurring')}
+                className="cursor-pointer border-t border-[#E8D5C4] mt-1 pt-2"
+              >
+                <Plus className="w-4 h-4 mr-2 text-[#6B5D52]" />
+                Custom Recurring...
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button 
             size="sm"
             variant="outline"

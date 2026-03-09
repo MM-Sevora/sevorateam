@@ -3492,6 +3492,96 @@ async def _get_recurring_dashboard_impl(
         "created_at": {"$gte": week_start.isoformat()}
     })
     
+    # === NEW: Completion & Overdue Metrics ===
+    
+    # Total recurring tasks ever generated
+    total_generated = await db.pm_tasks.count_documents({
+        "parent_recurring_id": {"$ne": None}
+    })
+    
+    # Completed recurring tasks
+    completed_recurring = await db.pm_tasks.count_documents({
+        "parent_recurring_id": {"$ne": None},
+        "status": {"$in": ["completed", "done"]}
+    })
+    
+    # Completion rate
+    completion_rate = round((completed_recurring / total_generated * 100), 1) if total_generated > 0 else 0
+    
+    # Overdue recurring tasks
+    now = datetime.now(timezone.utc).isoformat()
+    overdue_recurring = await db.pm_tasks.count_documents({
+        "parent_recurring_id": {"$ne": None},
+        "status": {"$nin": ["completed", "done", "cancelled"]},
+        "due_date": {"$lt": now, "$ne": None}
+    })
+    
+    # In-progress recurring tasks
+    in_progress_recurring = await db.pm_tasks.count_documents({
+        "parent_recurring_id": {"$ne": None},
+        "status": {"$in": ["in_progress", "assigned", "review"]}
+    })
+    
+    # === NEW: By Project Stats ===
+    by_project_pipeline = [
+        {"$match": {"is_active": True, "project_id": {"$ne": None}}},
+        {"$group": {"_id": "$project_id", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 10}
+    ]
+    by_project_raw = await db.recurring_task_templates.aggregate(by_project_pipeline).to_list(10)
+    
+    by_project = []
+    for item in by_project_raw:
+        project = await db.projects.find_one({"id": item["_id"]}, {"_id": 0, "name": 1})
+        by_project.append({
+            "project_id": item["_id"],
+            "project_name": project.get("name") if project else "Unknown",
+            "template_count": item["count"]
+        })
+    
+    # === NEW: By Assignee Stats ===
+    by_assignee_pipeline = [
+        {"$match": {"is_active": True, "assigned_to": {"$ne": None}}},
+        {"$group": {"_id": "$assigned_to", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 10}
+    ]
+    by_assignee_raw = await db.recurring_task_templates.aggregate(by_assignee_pipeline).to_list(10)
+    
+    by_assignee = []
+    for item in by_assignee_raw:
+        user_name = await get_user_name(item["_id"])
+        by_assignee.append({
+            "user_id": item["_id"],
+            "user_name": user_name or "Unassigned",
+            "template_count": item["count"]
+        })
+    
+    # === NEW: Weekly Generation Trend (Last 4 weeks) ===
+    weekly_trend = []
+    for i in range(4):
+        week_end = today_start - timedelta(days=today_start.weekday()) - timedelta(weeks=i)
+        week_start_trend = week_end - timedelta(days=7)
+        count = await db.pm_tasks.count_documents({
+            "parent_recurring_id": {"$ne": None},
+            "created_at": {"$gte": week_start_trend.isoformat(), "$lt": week_end.isoformat()}
+        })
+        weekly_trend.append({
+            "week_start": week_start_trend.strftime("%b %d"),
+            "count": count
+        })
+    weekly_trend.reverse()
+    
+    # === NEW: Top Templates by Generation Count ===
+    top_templates_pipeline = [
+        {"$match": {"is_active": True}},
+        {"$sort": {"occurrences_generated": -1}},
+        {"$limit": 5},
+        {"$project": {"_id": 0, "id": 1, "name": 1, "occurrences_generated": 1, "recurrence_type": 1}}
+    ]
+    top_templates = await db.recurring_task_templates.aggregate(top_templates_pipeline).to_list(5)
+    
     # Upcoming occurrences (next 7 days)
     upcoming = []
     templates = await db.recurring_task_templates.find({
@@ -3507,8 +3597,14 @@ async def _get_recurring_dashboard_impl(
                 "name": t.get("name"),
                 "next_occurrence": next_occ.isoformat(),
                 "recurrence_type": t.get("recurrence_type"),
-                "assigned_to_name": await get_user_name(t.get("assigned_to"))
+                "assigned_to_name": await get_user_name(t.get("assigned_to")),
+                "project_name": None
             })
+            # Get project name if project_id exists
+            if t.get("project_id"):
+                project = await db.projects.find_one({"id": t.get("project_id")}, {"_id": 0, "name": 1})
+                if project:
+                    upcoming[-1]["project_name"] = project.get("name")
     
     # Sort upcoming by date
     upcoming.sort(key=lambda x: x["next_occurrence"])
@@ -3520,5 +3616,15 @@ async def _get_recurring_dashboard_impl(
         "by_frequency": by_frequency,
         "tasks_generated_today": tasks_today,
         "tasks_generated_this_week": tasks_this_week,
+        # New metrics
+        "total_generated_all_time": total_generated,
+        "completed_recurring": completed_recurring,
+        "completion_rate": completion_rate,
+        "overdue_recurring": overdue_recurring,
+        "in_progress_recurring": in_progress_recurring,
+        "by_project": by_project,
+        "by_assignee": by_assignee,
+        "weekly_trend": weekly_trend,
+        "top_templates": top_templates,
         "upcoming_occurrences": upcoming[:10]
     }
