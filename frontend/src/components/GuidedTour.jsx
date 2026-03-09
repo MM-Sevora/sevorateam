@@ -1,5 +1,6 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
-import Joyride, { STATUS, ACTIONS, EVENTS } from 'react-joyride';
+import React, { useState, useEffect, createContext, useContext, useRef, useCallback } from 'react';
+import introJs from 'intro.js';
+import 'intro.js/introjs.css';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../lib/api';
@@ -18,25 +19,24 @@ const TOUR_DEFINITIONS = {
         triggerPath: '/overview',
         steps: [
             {
-                target: '[data-tour="sidebar"]',
-                content: 'Welcome to Sevora! This is your navigation sidebar. Here you can access all platform modules.',
-                placement: 'right',
-                disableBeacon: true,
+                element: '[data-tour="sidebar"]',
+                intro: 'Welcome to Sevora! This is your navigation sidebar. Here you can access all platform modules.',
+                position: 'right',
             },
             {
-                target: '[data-tour="notifications"]',
-                content: 'Click here to see your notifications. You\'ll get alerts for task assignments, comments, and more.',
-                placement: 'bottom',
+                element: '[data-tour="notifications"]',
+                intro: 'Click here to see your notifications. You\'ll get alerts for task assignments, comments, and more.',
+                position: 'bottom',
             },
             {
-                target: '[data-tour="user-menu"]',
-                content: 'Access your profile settings, help center, and logout from here.',
-                placement: 'bottom-end',
+                element: '[data-tour="user-menu"]',
+                intro: 'Access your profile settings, help center, and logout from here.',
+                position: 'left',
             },
             {
-                target: '[data-testid="help-button"]',
-                content: 'Need help? Click this button anytime to get contextual help for the current page.',
-                placement: 'left',
+                element: '[data-testid="help-button"]',
+                intro: 'Need help? Click this button anytime to get contextual help for the current page.',
+                position: 'left',
             },
         ],
     },
@@ -47,152 +47,285 @@ const TOUR_DEFINITIONS = {
         triggerPath: '/projects',
         steps: [
             {
-                target: '[data-tour="projects-header"]',
-                content: 'Welcome to Project Management! Here you can create and manage all your projects.',
-                placement: 'bottom',
-                disableBeacon: true,
+                element: '[data-tour="projects-header"]',
+                intro: 'Welcome to Project Management! Here you can organize work into modules and projects.',
+                position: 'bottom',
             },
             {
-                target: '[data-tour="new-project-btn"]',
-                content: 'Click here to create a new project. You can set up team members, deadlines, and workflows.',
-                placement: 'bottom',
+                element: '[data-tour="project-modules"]',
+                intro: 'Projects are organized into modules. Each module can contain multiple related projects.',
+                position: 'right',
             },
             {
-                target: '[data-tour="project-card"]',
-                content: 'Each project shows its progress, task count, and priority. Click to view details.',
-                placement: 'right',
+                element: '[data-tour="create-task"]',
+                intro: 'Click here to create new tasks. You can assign them to team members and set due dates.',
+                position: 'left',
             },
             {
-                target: '[data-tour="project-filters"]',
-                content: 'Use these filters to find projects by status, priority, or module.',
-                placement: 'bottom',
+                element: '[data-tour="task-filters"]',
+                intro: 'Use these filters to quickly find tasks by status, priority, or assignee.',
+                position: 'bottom',
+            },
+            {
+                element: '[data-tour="my-tasks"]',
+                intro: 'Quick access to all tasks assigned to you across all projects.',
+                position: 'bottom',
             },
         ],
     },
-    help_center: {
-        id: 'help_center',
-        name: 'Help Center Tour',
-        description: 'Learn how to use the Help Center',
-        triggerPath: '/help',
+    marketing_ops: {
+        id: 'marketing_ops',
+        name: 'Marketing Operations Tour',
+        description: 'Learn about influencer and campaign management',
+        triggerPath: '/marketing',
         steps: [
             {
-                target: '[data-testid="help-search-input"]',
-                content: 'Search for help articles, FAQs, or topics across the entire help center.',
-                placement: 'bottom',
-                disableBeacon: true,
+                element: '[data-tour="marketing-nav"]',
+                intro: 'Welcome to Marketing Ops! Manage influencers, campaigns, and track your marketing performance.',
+                position: 'right',
             },
             {
-                target: '[data-testid="browse-tab"]',
-                content: 'Browse help by module. Each module has articles and FAQs to help you.',
-                placement: 'bottom',
+                element: '[data-tour="influencers-tab"]',
+                intro: 'Access your influencer database. Add new influencers, view profiles, and track partnerships.',
+                position: 'bottom',
             },
             {
-                target: '[data-testid="tickets-tab"]',
-                content: 'View your support tickets here. You can track status and add replies.',
-                placement: 'bottom',
+                element: '[data-tour="campaigns-tab"]',
+                intro: 'Create and manage marketing campaigns. Assign influencers and track campaign performance.',
+                position: 'bottom',
             },
             {
-                target: '[data-testid="submit-ticket-btn"]',
-                content: 'Can\'t find what you need? Submit a support ticket and our team will help you.',
-                placement: 'top',
+                element: '[data-tour="pipeline-tab"]',
+                intro: 'View your marketing pipeline. Track deals through stages from discovery to completion.',
+                position: 'bottom',
+            },
+            {
+                element: '[data-tour="ai-tools"]',
+                intro: 'Use AI-powered tools to discover influencers and optimize your campaigns.',
+                position: 'left',
+            },
+        ],
+    },
+    admin_panel: {
+        id: 'admin_panel',
+        name: 'Admin Panel Tour',
+        description: 'Learn about user and organization management',
+        triggerPath: '/admin',
+        steps: [
+            {
+                element: '[data-tour="admin-nav"]',
+                intro: 'Welcome to the Admin Panel! Manage users, employees, and organization settings.',
+                position: 'right',
+            },
+            {
+                element: '[data-tour="user-management"]',
+                intro: 'Manage user accounts, send invitations, and configure authentication settings.',
+                position: 'right',
+            },
+            {
+                element: '[data-tour="employee-database"]',
+                intro: 'Access the HR employee database. Onboard new employees and manage their profiles.',
+                position: 'right',
+            },
+            {
+                element: '[data-tour="access-control"]',
+                intro: 'Configure roles and permissions. Control what each role can access in the platform.',
+                position: 'right',
+            },
+            {
+                element: '[data-tour="organization"]',
+                intro: 'Manage your organization structure - departments, teams, positions, and grades.',
+                position: 'right',
+            },
+        ],
+    },
+    employee_onboarding: {
+        id: 'employee_onboarding',
+        name: 'Employee Onboarding Tour',
+        description: 'Learn how to onboard new employees',
+        triggerPath: '/admin/employees',
+        steps: [
+            {
+                element: '[data-tour="overview-tab"]',
+                intro: 'View employee statistics and see how your team is distributed across departments.',
+                position: 'bottom',
+            },
+            {
+                element: '[data-tour="employees-tab"]',
+                intro: 'Browse and search all employees. Filter by department, grade, or status.',
+                position: 'bottom',
+            },
+            {
+                element: '[data-tour="onboarding-tab"]',
+                intro: 'Onboard new employees here. Assign departments, roles, and reporting managers.',
+                position: 'bottom',
+            },
+        ],
+    },
+    social_media: {
+        id: 'social_media',
+        name: 'Social Media Tour',
+        description: 'Learn about social media management',
+        triggerPath: '/social',
+        steps: [
+            {
+                element: '[data-tour="social-dashboard"]',
+                intro: 'View your social media performance at a glance. Track engagement and growth.',
+                position: 'bottom',
+            },
+            {
+                element: '[data-tour="content-studio"]',
+                intro: 'Create and schedule content for multiple platforms. Use AI to generate captions.',
+                position: 'right',
+            },
+            {
+                element: '[data-tour="media-library"]',
+                intro: 'Access your media assets library. Store and organize images and videos.',
+                position: 'right',
+            },
+        ],
+    },
+    notifications_center: {
+        id: 'notifications_center',
+        name: 'Notifications Tour',
+        description: 'Learn about the notification system',
+        triggerPath: '/notifications',
+        steps: [
+            {
+                element: '[data-tour="notification-list"]',
+                intro: 'All your notifications appear here. Click on any notification to view details.',
+                position: 'right',
+            },
+            {
+                element: '[data-tour="notification-filters"]',
+                intro: 'Filter notifications by type - tasks, comments, mentions, and system alerts.',
+                position: 'bottom',
+            },
+            {
+                element: '[data-tour="mark-all-read"]',
+                intro: 'Quickly mark all notifications as read with one click.',
+                position: 'left',
             },
         ],
     },
 };
 
-// Custom tooltip component
-const CustomTooltip = ({
-    continuous,
-    index,
-    step,
-    backProps,
-    closeProps,
-    primaryProps,
-    tooltipProps,
-    size,
-}) => (
-    <div
-        {...tooltipProps}
-        className="bg-white rounded-xl shadow-2xl border border-[#E8D5C4] max-w-md"
-    >
-        <div className="p-5">
-            <p className="text-[#4A3728] text-base leading-relaxed">{step.content}</p>
-        </div>
-        <div className="flex items-center justify-between px-5 py-3 bg-[#FDF8F3] rounded-b-xl border-t border-[#E8D5C4]">
-            <span className="text-sm text-[#9C8C74]">
-                Step {index + 1} of {size}
-            </span>
-            <div className="flex gap-2">
-                {index > 0 && (
-                    <button
-                        {...backProps}
-                        className="px-4 py-2 text-sm text-[#6B5D52] hover:text-[#4A3728] transition-colors"
-                    >
-                        Back
-                    </button>
-                )}
-                {continuous && (
-                    <button
-                        {...primaryProps}
-                        className="px-4 py-2 text-sm bg-[#4A3728] text-white rounded-lg hover:bg-[#3A2A1E] transition-colors"
-                    >
-                        {index === size - 1 ? 'Finish' : 'Next'}
-                    </button>
-                )}
-                {!continuous && (
-                    <button
-                        {...closeProps}
-                        className="px-4 py-2 text-sm bg-[#4A3728] text-white rounded-lg hover:bg-[#3A2A1E] transition-colors"
-                    >
-                        Got it
-                    </button>
-                )}
-            </div>
-        </div>
-    </div>
-);
+// Custom intro.js styles
+const injectCustomStyles = () => {
+    const styleId = 'sevora-introjs-styles';
+    if (document.getElementById(styleId)) return;
+    
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+        .introjs-tooltip {
+            background: #1a1a1a !important;
+            color: #f5f5f5 !important;
+            border-radius: 12px !important;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3) !important;
+            min-width: 300px !important;
+            max-width: 400px !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        }
+        .introjs-tooltiptext {
+            padding: 16px 20px !important;
+            font-size: 14px !important;
+            line-height: 1.6 !important;
+        }
+        .introjs-tooltip-title {
+            font-size: 16px !important;
+            font-weight: 600 !important;
+            margin-bottom: 8px !important;
+            color: #c5a572 !important;
+        }
+        .introjs-arrow.top { border-bottom-color: #1a1a1a !important; }
+        .introjs-arrow.bottom { border-top-color: #1a1a1a !important; }
+        .introjs-arrow.left { border-right-color: #1a1a1a !important; }
+        .introjs-arrow.right { border-left-color: #1a1a1a !important; }
+        .introjs-tooltipbuttons {
+            border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+            padding: 12px 16px !important;
+        }
+        .introjs-button {
+            background: transparent !important;
+            color: #f5f5f5 !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            border-radius: 6px !important;
+            padding: 8px 16px !important;
+            font-size: 13px !important;
+            font-weight: 500 !important;
+            text-shadow: none !important;
+        }
+        .introjs-button:hover {
+            background: rgba(255, 255, 255, 0.1) !important;
+        }
+        .introjs-nextbutton, .introjs-donebutton {
+            background: #c5a572 !important;
+            color: #1a1a1a !important;
+            border-color: #c5a572 !important;
+        }
+        .introjs-nextbutton:hover, .introjs-donebutton:hover {
+            background: #b89660 !important;
+        }
+        .introjs-skipbutton {
+            color: #888 !important;
+            border: none !important;
+        }
+        .introjs-progress {
+            background: rgba(255, 255, 255, 0.1) !important;
+            height: 4px !important;
+        }
+        .introjs-progressbar {
+            background: #c5a572 !important;
+        }
+        .introjs-helperNumberLayer {
+            background: #c5a572 !important;
+            color: #1a1a1a !important;
+            font-weight: 600 !important;
+        }
+        .introjs-helperLayer {
+            border-radius: 8px !important;
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7), 0 0 0 4px rgba(197, 165, 114, 0.5) !important;
+        }
+        .introjs-bullets ul li a {
+            background: rgba(255, 255, 255, 0.2) !important;
+        }
+        .introjs-bullets ul li a.active {
+            background: #c5a572 !important;
+        }
+    `;
+    document.head.appendChild(style);
+};
 
 // Tour Provider Component
 export const TourProvider = ({ children }) => {
-    const { user, isAuthenticated } = useAuth();
-    const location = useLocation();
-    const [runTour, setRunTour] = useState(false);
-    const [currentTour, setCurrentTour] = useState(null);
     const [completedTours, setCompletedTours] = useState([]);
-    const [tourSteps, setTourSteps] = useState([]);
+    const [currentTour, setCurrentTour] = useState(null);
+    const [runTour, setRunTour] = useState(false);
+    const location = useLocation();
+    const { user } = useAuth() || {};
+    const introInstance = useRef(null);
 
-    // Fetch completed tours on mount
+    // Inject custom styles on mount
     useEffect(() => {
-        if (isAuthenticated && user?.id) {
+        injectCustomStyles();
+    }, []);
+
+    // Fetch completed tours
+    useEffect(() => {
+        if (user) {
             fetchCompletedTours();
         }
-    }, [isAuthenticated, user?.id]);
-
-    // Check if we should auto-start a tour when path changes
-    useEffect(() => {
-        if (!isAuthenticated || completedTours === null) return;
-        
-        const currentPath = location.pathname;
-        
-        // Find a tour that matches this path and hasn't been completed
-        for (const [tourId, tour] of Object.entries(TOUR_DEFINITIONS)) {
-            if (currentPath.startsWith(tour.triggerPath) && !completedTours.includes(tourId)) {
-                // Small delay to let the page render
-                const timer = setTimeout(() => {
-                    startTour(tourId);
-                }, 1500);
-                return () => clearTimeout(timer);
-            }
-        }
-    }, [location.pathname, completedTours, isAuthenticated]);
+    }, [user]);
 
     const fetchCompletedTours = async () => {
         try {
             const res = await api.get('/help/tours/completed');
-            setCompletedTours(res.data.completed_tours || []);
+            setCompletedTours(res.data?.completed_tours || []);
         } catch (e) {
-            // If endpoint doesn't exist yet, use empty array
-            setCompletedTours([]);
+            // Use localStorage fallback
+            const saved = localStorage.getItem('sevora_completed_tours');
+            setCompletedTours(saved ? JSON.parse(saved) : []);
         }
     };
 
@@ -201,37 +334,78 @@ export const TourProvider = ({ children }) => {
             await api.post(`/help/tours/${tourId}/complete`);
             setCompletedTours(prev => [...prev, tourId]);
         } catch (e) {
-            console.error('Failed to mark tour complete:', e);
+            // Fallback to localStorage
+            const newCompleted = [...completedTours, tourId];
+            localStorage.setItem('sevora_completed_tours', JSON.stringify(newCompleted));
+            setCompletedTours(newCompleted);
         }
     };
 
-    const startTour = (tourId) => {
+    const startTour = useCallback((tourId) => {
         const tour = TOUR_DEFINITIONS[tourId];
         if (!tour) return;
-        
+
+        // Filter steps to only include elements that exist
+        const validSteps = tour.steps.filter(step => {
+            if (!step.element) return true;
+            return document.querySelector(step.element);
+        });
+
+        if (validSteps.length === 0) {
+            console.warn(`No valid steps found for tour "${tourId}"`);
+            return;
+        }
+
         setCurrentTour(tourId);
-        setTourSteps(tour.steps);
         setRunTour(true);
-    };
+
+        // Create intro.js instance
+        introInstance.current = introJs();
+        
+        introInstance.current.setOptions({
+            steps: validSteps.map((step, index) => ({
+                element: step.element ? document.querySelector(step.element) : undefined,
+                intro: step.intro,
+                position: step.position || 'auto',
+                title: index === 0 ? tour.name : undefined
+            })),
+            showStepNumbers: true,
+            showBullets: true,
+            showProgress: true,
+            exitOnOverlayClick: false,
+            exitOnEsc: true,
+            nextLabel: 'Next →',
+            prevLabel: '← Back',
+            skipLabel: 'Skip',
+            doneLabel: 'Done!',
+            hidePrev: true,
+            scrollToElement: true,
+            scrollPadding: 80,
+        });
+
+        introInstance.current.oncomplete(() => {
+            markTourCompleted(tourId);
+            setRunTour(false);
+            setCurrentTour(null);
+        });
+
+        introInstance.current.onexit(() => {
+            setRunTour(false);
+            setCurrentTour(null);
+        });
+
+        introInstance.current.start();
+    }, [completedTours]);
 
     const resetTour = async (tourId) => {
         try {
             await api.delete(`/help/tours/${tourId}/reset`);
             setCompletedTours(prev => prev.filter(t => t !== tourId));
         } catch (e) {
-            console.error('Failed to reset tour:', e);
-        }
-    };
-
-    const handleJoyrideCallback = (data) => {
-        const { status, action, type } = data;
-        
-        if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
-            setRunTour(false);
-            if (status === STATUS.FINISHED && currentTour) {
-                markTourCompleted(currentTour);
-            }
-            setCurrentTour(null);
+            // Fallback to localStorage
+            const newCompleted = completedTours.filter(t => t !== tourId);
+            localStorage.setItem('sevora_completed_tours', JSON.stringify(newCompleted));
+            setCompletedTours(newCompleted);
         }
     };
 
@@ -246,30 +420,6 @@ export const TourProvider = ({ children }) => {
     return (
         <TourContext.Provider value={value}>
             {children}
-            <Joyride
-                steps={tourSteps}
-                run={runTour}
-                continuous
-                showProgress
-                showSkipButton
-                disableScrolling={false}
-                spotlightClicks
-                callback={handleJoyrideCallback}
-                tooltipComponent={CustomTooltip}
-                styles={{
-                    options: {
-                        zIndex: 10000,
-                        primaryColor: '#4A3728',
-                        overlayColor: 'rgba(0, 0, 0, 0.4)',
-                    },
-                    spotlight: {
-                        borderRadius: '8px',
-                    },
-                }}
-                floaterProps={{
-                    disableAnimation: true,
-                }}
-            />
         </TourContext.Provider>
     );
 };

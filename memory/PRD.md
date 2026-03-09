@@ -533,6 +533,30 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - [x] Added `database.py` with `DatabaseMixin` for clean DB access
 - [x] Module pattern ready for future route extraction
 
+**4. Modular Routes Created:**
+- [x] `/app/backend/modules/marketing/routes.py` - 25 routes extracted
+- [x] `/app/backend/modules/sales/routes.py` - 20 routes extracted
+- [x] `/app/backend/modules/social/routes.py` - 20 routes extracted
+- [x] Total: 65 modular routes ready for migration
+- [x] server.py inline routes preserved for backward compatibility
+
+### Phase 36: Guided Walkthrough Feature (COMPLETE - March 9, 2026)
+**Replaced react-joyride with intro.js:**
+- [x] Installed `intro.js@8.3.2`
+- [x] Updated `/app/frontend/src/components/GuidedTour.jsx` to use intro.js
+- [x] Created `/app/frontend/src/components/TourTrigger.jsx` - floating tour menu
+- [x] Created custom CSS styles matching Sevora theme
+- [x] Tour definitions for:
+  - Platform Overview (4 steps)
+  - Project Management (5 steps)
+  - Marketing Operations (5 steps)
+  - Admin Panel (5 steps)
+  - Employee Onboarding (3 steps)
+  - Social Media (3 steps)
+  - Notifications Center (3 steps)
+- [x] Features: Progress bar, step numbers, keyboard navigation, localStorage persistence
+- [x] Floating help button (?) in bottom-right corner for easy access
+
 ### Key API Endpoints
 - `GET /api/projects/manager-dashboard` - Aggregated dashboard data
 - `GET, POST /api/projects/modules` - CRUD for modules

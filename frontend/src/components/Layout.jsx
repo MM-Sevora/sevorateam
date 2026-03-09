@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { NotificationsDropdown, OnlineUsersIndicator } from './Notifications';
 import HelpButton from './HelpButton';
+import TourTrigger from './TourTrigger';
 import { 
     LayoutDashboard, Users, Target, MessageSquare, DollarSign, BarChart3,
     UserPlus, ShoppingBag, Calendar, QrCode, Building2, Settings,
@@ -459,6 +460,9 @@ export const Layout = ({ children }) => {
 
             {/* Floating Help Button */}
             <HelpButton position="bottom-right" />
+            
+            {/* Guided Tour Trigger */}
+            <TourTrigger currentModule={getCurrentDepartment() || 'dashboard'} />
         </div>
     );
 };
