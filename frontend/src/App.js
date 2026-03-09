@@ -5,6 +5,7 @@ import { MsalProvider } from "@azure/msal-react";
 import { Toaster } from "./components/ui/sonner";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { PermissionProvider } from "./context/PermissionContext";
+import { TourProvider } from "./components/GuidedTour";
 import { Layout } from "./components/Layout";
 import { msalConfig } from "./authConfig";
 
@@ -74,6 +75,7 @@ import HelpCenter from "./pages/help/HelpCenter";
 import HelpModuleDetail from "./pages/help/HelpModuleDetail";
 import TicketDetail from "./pages/help/TicketDetail";
 import ArticleViewer from "./pages/help/ArticleViewer";
+import HelpAdminDashboard from "./pages/help/HelpAdminDashboard";
 
 import "./App.css";
 
@@ -202,7 +204,11 @@ const ProtectedRoute = ({ children, requiredDepartment }) => {
         return <Navigate to="/" replace />;
     }
 
-    return <Layout>{children}</Layout>;
+    return (
+        <TourProvider>
+            <Layout>{children}</Layout>
+        </TourProvider>
+    );
 };
 
 // Public Route Component
@@ -315,6 +321,7 @@ function AppRoutes() {
 
             {/* Help & Support */}
             <Route path="/help" element={<ProtectedRoute><HelpCenter /></ProtectedRoute>} />
+            <Route path="/help/admin" element={<ProtectedRoute><HelpAdminDashboard /></ProtectedRoute>} />
             <Route path="/help/modules/:moduleKey" element={<ProtectedRoute><HelpModuleDetail /></ProtectedRoute>} />
             <Route path="/help/tickets/:ticketId" element={<ProtectedRoute><TicketDetail /></ProtectedRoute>} />
             <Route path="/help/articles/:articleId" element={<ProtectedRoute><ArticleViewer /></ProtectedRoute>} />

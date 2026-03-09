@@ -1016,3 +1016,199 @@ async def seed_initial_help_data(
         "message": f"Successfully seeded {len(initial_modules)} help modules with scaffolded content",
         "modules": [m["module_key"] for m in initial_modules]
     }
+
+
+
+# ============== GUIDED TOURS ==============
+
+@router.get("/tours/completed")
+async def get_completed_tours(
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get list of tours the user has completed"""
+    user_tours = await db.user_tours.find_one({"user_id": user["id"]}, {"_id": 0})
+    
+    return {
+        "completed_tours": user_tours.get("completed_tours", []) if user_tours else []
+    }
+
+
+@router.post("/tours/{tour_id}/complete")
+async def mark_tour_completed(
+    tour_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Mark a tour as completed for the current user"""
+    now = datetime.now(timezone.utc).isoformat()
+    
+    await db.user_tours.update_one(
+        {"user_id": user["id"]},
+        {
+            "$addToSet": {"completed_tours": tour_id},
+            "$set": {"updated_at": now},
+            "$setOnInsert": {"created_at": now}
+        },
+        upsert=True
+    )
+    
+    return {"message": f"Tour {tour_id} marked as completed"}
+
+
+@router.delete("/tours/{tour_id}/reset")
+async def reset_tour(
+    tour_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Reset a tour so the user can take it again"""
+    await db.user_tours.update_one(
+        {"user_id": user["id"]},
+        {"$pull": {"completed_tours": tour_id}}
+    )
+    
+    return {"message": f"Tour {tour_id} reset"}
+
+
+# ============== SUPPORT STAFF MANAGEMENT ==============
+
+@router.get("/support-staff")
+async def get_support_staff(
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get list of support staff members"""
+    if user.get("role") not in ["super_admin", "admin"]:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Get users with support_staff role or admin roles
+    staff = await db.users.find(
+        {"role": {"$in": ["super_admin", "admin", "support_staff"]}},
+        {"_id": 0, "id": 1, "name": 1, "email": 1, "role": 1}
+    ).to_list(100)
+    
+    # Get open ticket counts per staff
+    for s in staff:
+        s["open_tickets"] = await db.support_tickets.count_documents({
+            "assigned_to": s["id"],
+            "status": {"$in": ["open", "in_progress", "waiting_user"]}
+        })
+    
+    return staff
+
+
+@router.put("/tickets/{ticket_id}/assign")
+async def assign_ticket(
+    ticket_id: str,
+    staff_id: str = Query(..., description="ID of staff member to assign"),
+    user: dict = Depends(get_current_user_dep)
+):
+    """Assign a ticket to a support staff member"""
+    if user.get("role") not in ["super_admin", "admin", "support_staff"]:
+        raise HTTPException(status_code=403, detail="Support staff access required")
+    
+    # Verify staff member exists
+    staff = await db.users.find_one({"id": staff_id})
+    if not staff:
+        raise HTTPException(status_code=404, detail="Staff member not found")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.support_tickets.find_one_and_update(
+        {"id": ticket_id},
+        {
+            "$set": {
+                "assigned_to": staff_id,
+                "status": "in_progress",
+                "updated_at": now
+            }
+        },
+        return_document=True
+    )
+    
+    if not result:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    # Send notification to assigned staff
+    try:
+        from routes.notifications import create_notification, NotificationType, NotificationCategory, NotificationPriority
+        
+        await create_notification(
+            user_id=staff_id,
+            notification_type=NotificationType.TASK_ASSIGNED,
+            category=NotificationCategory.SYSTEM,
+            title="Ticket Assigned to You",
+            message=f"Ticket {result['ticket_number']}: {result['subject']}",
+            priority=NotificationPriority.HIGH if result.get('priority') == 'urgent' else NotificationPriority.MEDIUM,
+            entity_type="ticket",
+            entity_id=ticket_id,
+            action_url=f"/help/tickets/{ticket_id}"
+        )
+    except Exception as e:
+        logger.error(f"Failed to send assignment notification: {e}")
+    
+    return {"message": f"Ticket assigned to {staff.get('name', 'staff member')}"}
+
+
+# ============== ADMIN ANALYTICS ==============
+
+@router.get("/admin/dashboard")
+async def get_admin_dashboard(
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get admin dashboard data"""
+    if user.get("role") not in ["super_admin", "admin", "support_staff"]:
+        raise HTTPException(status_code=403, detail="Staff access required")
+    
+    # Ticket stats
+    total_tickets = await db.support_tickets.count_documents({})
+    open_tickets = await db.support_tickets.count_documents({"status": "open"})
+    in_progress = await db.support_tickets.count_documents({"status": "in_progress"})
+    resolved_today = await db.support_tickets.count_documents({
+        "status": "resolved",
+        "resolved_at": {"$gte": datetime.now(timezone.utc).replace(hour=0, minute=0, second=0).isoformat()}
+    })
+    
+    # Unassigned tickets
+    unassigned = await db.support_tickets.count_documents({
+        "assigned_to": None,
+        "status": {"$nin": ["resolved", "closed"]}
+    })
+    
+    # Article stats
+    total_articles = await db.help_articles.count_documents({})
+    published_articles = await db.help_articles.count_documents({"status": "published"})
+    draft_articles = await db.help_articles.count_documents({"status": "draft"})
+    
+    # FAQ stats
+    total_faqs = await db.help_faqs.count_documents({})
+    active_faqs = await db.help_faqs.count_documents({"is_active": True})
+    
+    # Recent tickets
+    recent_tickets = await db.support_tickets.find(
+        {},
+        {"_id": 0, "id": 1, "ticket_number": 1, "subject": 1, "status": 1, "priority": 1, "created_at": 1, "assigned_to": 1}
+    ).sort("created_at", -1).limit(10).to_list(10)
+    
+    # Get assignee names
+    for ticket in recent_tickets:
+        if ticket.get("assigned_to"):
+            assignee = await db.users.find_one({"id": ticket["assigned_to"]}, {"name": 1})
+            ticket["assigned_to_name"] = assignee.get("name") if assignee else None
+    
+    return {
+        "tickets": {
+            "total": total_tickets,
+            "open": open_tickets,
+            "in_progress": in_progress,
+            "resolved_today": resolved_today,
+            "unassigned": unassigned
+        },
+        "articles": {
+            "total": total_articles,
+            "published": published_articles,
+            "draft": draft_articles
+        },
+        "faqs": {
+            "total": total_faqs,
+            "active": active_faqs
+        },
+        "recent_tickets": recent_tickets
+    }

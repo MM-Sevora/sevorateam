@@ -230,7 +230,7 @@ export const Layout = ({ children }) => {
                 </div>
 
                 {/* Navigation */}
-                <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-2">
+                <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-2" data-tour="sidebar">
                     {/* Home Dashboard */}
                     <Link
                         to="/"
@@ -329,7 +329,7 @@ export const Layout = ({ children }) => {
                 </nav>
 
                 {/* User Section */}
-                <div className="p-4 border-t border-[#D4BBA6]">
+                <div className="p-4 border-t border-[#D4BBA6]" data-tour="user-menu">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <button className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-[#E8D5C4] transition-colors">
@@ -387,7 +387,7 @@ export const Layout = ({ children }) => {
                 {/* Top Header Bar */}
                 <div className="h-14 border-b border-[#E8D5C4] bg-white flex items-center justify-between px-6 sticky top-0 z-10">
                     <OnlineUsersIndicator />
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2" data-tour="notifications">
                         <NotificationsDropdown />
                     </div>
                 </div>
