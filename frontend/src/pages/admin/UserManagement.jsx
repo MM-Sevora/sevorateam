@@ -2,12 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import { 
   Users, Search, Plus, Edit, Trash2, RefreshCw,
-  CheckCircle, XCircle, UserPlus, Key, Eye, EyeOff
+  CheckCircle, XCircle, UserPlus, Key, Eye, EyeOff, Briefcase, ChevronDown, Shield
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
+import { Checkbox } from '../../components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -41,6 +42,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../../components/ui/alert-dialog';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '../../components/ui/popover';
 import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 import { toast } from 'sonner';
@@ -59,6 +65,24 @@ const UserManagementPage = () => {
   const [deleteDialog, setDeleteDialog] = useState({ open: false, user: null });
   const [showPassword, setShowPassword] = useState(false);
   
+  // Onboarding state
+  const [showOnboardModal, setShowOnboardModal] = useState(false);
+  const [selectedUserForOnboard, setSelectedUserForOnboard] = useState(null);
+  const [employees, setEmployees] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [grades, setGrades] = useState([]);
+  const [roles, setRoles] = useState([]);
+  const [onboardForm, setOnboardForm] = useState({
+    department_id: '',
+    grade_id: '',
+    reports_to: '',
+    custom_role_ids: [],
+    designation: '',
+    employment_type: 'full_time',
+    work_mode: 'office',
+    joining_date: new Date().toISOString().split('T')[0],
+  });
+  
   // Form state - simplified for platform access only
   const [formData, setFormData] = useState({
     name: '',
@@ -70,11 +94,18 @@ const UserManagementPage = () => {
   
   const [saving, setSaving] = useState(false);
 
+  // Check if user is onboarded (has employee record)
+  const isUserOnboarded = useCallback((userId) => {
+    return employees.some(emp => emp.user_id === userId);
+  }, [employees]);
+
   // Stats
   const stats = {
     total: users.length,
     active: users.filter(u => u.status === 'active').length,
     inactive: users.filter(u => u.status === 'inactive').length,
+    onboarded: users.filter(u => isUserOnboarded(u.id)).length,
+    pending: users.filter(u => !isUserOnboarded(u.id)).length,
   };
 
   const fetchUsers = useCallback(async () => {
@@ -90,9 +121,35 @@ const UserManagementPage = () => {
     }
   }, [api]);
 
+  const fetchEmployees = useCallback(async () => {
+    try {
+      const response = await api.get('/hr/v2/employees');
+      setEmployees(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch employees:', error);
+    }
+  }, [api]);
+
+  const fetchLookupData = useCallback(async () => {
+    try {
+      const [deptRes, gradeRes, roleRes] = await Promise.all([
+        api.get('/workos/departments'),
+        api.get('/hr/grades'),
+        api.get('/access/roles'),
+      ]);
+      setDepartments(deptRes.data || []);
+      setGrades(gradeRes.data || []);
+      setRoles(roleRes.data || []);
+    } catch (error) {
+      console.error('Failed to fetch lookup data:', error);
+    }
+  }, [api]);
+
   useEffect(() => {
     fetchUsers();
-  }, [fetchUsers]);
+    fetchEmployees();
+    fetchLookupData();
+  }, [fetchUsers, fetchEmployees, fetchLookupData]);
 
   // Filter users
   const filteredUsers = users.filter(user => {
@@ -204,6 +261,49 @@ const UserManagementPage = () => {
     setShowPassword(false);
   };
 
+  // Open onboard modal
+  const openOnboardModal = (user) => {
+    setSelectedUserForOnboard(user);
+    setOnboardForm({
+      department_id: '',
+      grade_id: '',
+      reports_to: '',
+      custom_role_ids: [],
+      designation: '',
+      employment_type: 'full_time',
+      work_mode: 'office',
+      joining_date: new Date().toISOString().split('T')[0],
+    });
+    setShowOnboardModal(true);
+  };
+
+  // Handle onboarding
+  const handleOnboard = async () => {
+    if (!selectedUserForOnboard || !onboardForm.department_id || onboardForm.custom_role_ids.length === 0) {
+      toast.error('Department and at least one Access Role are required');
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      const payload = {
+        ...onboardForm,
+        grade_id: onboardForm.grade_id || null,
+        reports_to: onboardForm.reports_to || null,
+      };
+      
+      await api.post(`/access/onboard/${selectedUserForOnboard.id}`, payload);
+      toast.success('Employee onboarded successfully!');
+      setShowOnboardModal(false);
+      setSelectedUserForOnboard(null);
+      fetchUsers();
+      fetchEmployees();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to onboard employee');
+    }
+    setSaving(false);
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6" data-testid="user-management-page">
       {/* Header */}
@@ -223,7 +323,7 @@ const UserManagementPage = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-5 gap-4">
         <Card className="border-[#E8D5C4]">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -239,7 +339,7 @@ const UserManagementPage = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-[#5D4A3A]">Active Users</p>
+                <p className="text-sm text-[#5D4A3A]">Active</p>
                 <p className="text-2xl font-bold text-green-600">{stats.active}</p>
               </div>
               <CheckCircle className="h-8 w-8 text-green-500" />
@@ -250,10 +350,32 @@ const UserManagementPage = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-[#5D4A3A]">Inactive Users</p>
+                <p className="text-sm text-[#5D4A3A]">Inactive</p>
                 <p className="text-2xl font-bold text-red-600">{stats.inactive}</p>
               </div>
               <XCircle className="h-8 w-8 text-red-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-green-200 bg-green-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-green-700">Onboarded</p>
+                <p className="text-2xl font-bold text-green-700">{stats.onboarded}</p>
+              </div>
+              <Briefcase className="h-8 w-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-amber-700">Pending Onboard</p>
+                <p className="text-2xl font-bold text-amber-700">{stats.pending}</p>
+              </div>
+              <UserPlus className="h-8 w-8 text-amber-600" />
             </div>
           </CardContent>
         </Card>
@@ -309,6 +431,7 @@ const UserManagementPage = () => {
                 <TableHead className="text-[#4A3728]">User</TableHead>
                 <TableHead className="text-[#4A3728]">User ID</TableHead>
                 <TableHead className="text-[#4A3728]">Status</TableHead>
+                <TableHead className="text-[#4A3728]">HR Status</TableHead>
                 <TableHead className="text-[#4A3728]">Created</TableHead>
                 <TableHead className="text-[#4A3728]">Last Login</TableHead>
                 <TableHead className="text-[#4A3728] text-right">Actions</TableHead>
@@ -317,13 +440,13 @@ const UserManagementPage = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
+                  <TableCell colSpan={7} className="text-center py-8">
                     <RefreshCw className="h-6 w-6 animate-spin mx-auto text-[#8B7355]" />
                   </TableCell>
                 </TableRow>
               ) : filteredUsers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-[#5D4A3A]">
+                  <TableCell colSpan={7} className="text-center py-8 text-[#5D4A3A]">
                     No users found
                   </TableCell>
                 </TableRow>
@@ -358,6 +481,17 @@ const UserManagementPage = () => {
                         {user.status === 'active' ? 'Active' : 'Inactive'}
                       </Badge>
                     </TableCell>
+                    <TableCell>
+                      {isUserOnboarded(user.id) ? (
+                        <Badge className="bg-green-100 text-green-800">
+                          <Briefcase className="h-3 w-3 mr-1" /> Onboarded
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-amber-100 text-amber-800">
+                          Pending
+                        </Badge>
+                      )}
+                    </TableCell>
                     <TableCell className="text-[#5D4A3A] text-sm">
                       {user.created_at ? format(new Date(user.created_at), 'MMM d, yyyy') : '-'}
                     </TableCell>
@@ -366,6 +500,16 @@ const UserManagementPage = () => {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {!isUserOnboarded(user.id) && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => openOnboardModal(user)}
+                            className="bg-[#4A3728] hover:bg-[#5D4A3A] text-white"
+                          >
+                            <Briefcase className="h-4 w-4 mr-1" /> Onboard
+                          </Button>
+                        )}
                         <Button
                           variant="outline"
                           size="sm"
@@ -536,6 +680,178 @@ const UserManagementPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Onboard Employee Modal */}
+      <Dialog open={showOnboardModal} onOpenChange={(open) => { setShowOnboardModal(open); if (!open) setSelectedUserForOnboard(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-[#4A3728]">Onboard Employee</DialogTitle>
+            <DialogDescription>
+              Convert this user to a full employee with HR records
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* User Info */}
+            <div className="bg-[#F5EDE5] p-3 rounded-lg">
+              <p className="text-sm text-[#5D4A3A]">User</p>
+              <p className="font-medium text-[#4A3728]">{selectedUserForOnboard?.name}</p>
+              <p className="text-sm text-[#5D4A3A]">{selectedUserForOnboard?.email}</p>
+            </div>
+
+            {/* Department */}
+            <div>
+              <Label className="text-[#4A3728]">Department *</Label>
+              <Select value={onboardForm.department_id} onValueChange={(v) => setOnboardForm({ ...onboardForm, department_id: v })}>
+                <SelectTrigger className="border-[#E8D5C4]">
+                  <SelectValue placeholder="Select department" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map(d => (
+                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Access Roles (Multi-select with checkboxes) */}
+            <div>
+              <Label className="text-[#4A3728]">Access Roles * (Select at least one)</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between border-[#E8D5C4]">
+                    {onboardForm.custom_role_ids.length > 0 
+                      ? `${onboardForm.custom_role_ids.length} role(s) selected`
+                      : 'Select roles...'}
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-2">
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {roles.map(role => (
+                      <label key={role.id} className="flex items-center gap-2 p-2 hover:bg-[#F5EDE5] rounded cursor-pointer">
+                        <Checkbox
+                          checked={onboardForm.custom_role_ids.includes(role.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setOnboardForm({ ...onboardForm, custom_role_ids: [...onboardForm.custom_role_ids, role.id] });
+                            } else {
+                              setOnboardForm({ ...onboardForm, custom_role_ids: onboardForm.custom_role_ids.filter(id => id !== role.id) });
+                            }
+                          }}
+                        />
+                        <div>
+                          <p className="text-sm font-medium">{role.name}</p>
+                          <p className="text-xs text-[#5D4A3A]">{role.code}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Grade */}
+            <div>
+              <Label className="text-[#4A3728]">Grade</Label>
+              <Select value={onboardForm.grade_id || "none"} onValueChange={(v) => setOnboardForm({ ...onboardForm, grade_id: v === "none" ? "" : v })}>
+                <SelectTrigger className="border-[#E8D5C4]">
+                  <SelectValue placeholder="Select grade" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Grade</SelectItem>
+                  {grades.map(g => (
+                    <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Reporting Manager */}
+            <div>
+              <Label className="text-[#4A3728]">Reporting Manager</Label>
+              <Select value={onboardForm.reports_to || "none"} onValueChange={(v) => setOnboardForm({ ...onboardForm, reports_to: v === "none" ? "" : v })}>
+                <SelectTrigger className="border-[#E8D5C4]">
+                  <SelectValue placeholder="Select manager" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Manager</SelectItem>
+                  {employees.map(emp => (
+                    <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Designation */}
+            <div>
+              <Label className="text-[#4A3728]">Designation</Label>
+              <Input 
+                value={onboardForm.designation} 
+                onChange={(e) => setOnboardForm({ ...onboardForm, designation: e.target.value })}
+                placeholder="e.g., Senior Developer"
+                className="border-[#E8D5C4]"
+              />
+            </div>
+
+            {/* Employment Type & Work Mode in row */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-[#4A3728]">Employment Type</Label>
+                <Select value={onboardForm.employment_type} onValueChange={(v) => setOnboardForm({ ...onboardForm, employment_type: v })}>
+                  <SelectTrigger className="border-[#E8D5C4]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="full_time">Full Time</SelectItem>
+                    <SelectItem value="part_time">Part Time</SelectItem>
+                    <SelectItem value="contract">Contract</SelectItem>
+                    <SelectItem value="intern">Intern</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-[#4A3728]">Work Mode</Label>
+                <Select value={onboardForm.work_mode} onValueChange={(v) => setOnboardForm({ ...onboardForm, work_mode: v })}>
+                  <SelectTrigger className="border-[#E8D5C4]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="office">Office</SelectItem>
+                    <SelectItem value="hybrid">Hybrid</SelectItem>
+                    <SelectItem value="remote">Remote</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Joining Date */}
+            <div>
+              <Label className="text-[#4A3728]">Joining Date</Label>
+              <Input 
+                type="date"
+                value={onboardForm.joining_date} 
+                onChange={(e) => setOnboardForm({ ...onboardForm, joining_date: e.target.value })}
+                className="border-[#E8D5C4]"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowOnboardModal(false); setSelectedUserForOnboard(null); }} className="border-[#E8D5C4]">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleOnboard}
+              disabled={saving || !onboardForm.department_id || onboardForm.custom_role_ids.length === 0}
+              className="bg-[#4A3728] hover:bg-[#5D4A3A] text-white"
+            >
+              {saving ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Briefcase className="h-4 w-4 mr-2" />}
+              Complete Onboarding
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
