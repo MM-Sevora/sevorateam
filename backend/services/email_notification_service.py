@@ -140,9 +140,12 @@ async def send_digest_emails(frequency: str = "hourly"):
         if not user or not user.get("email"):
             continue
         
-        # Build digest email
-        subject = f"[Sevora] You have {len(notifications)} notifications"
-        body = build_digest_email_html(notifications, user.get("name", "User"), frequency)
+        # Group notifications for better summary
+        grouped = group_notifications_for_digest(notifications)
+        
+        # Build digest email with smart grouping
+        subject = build_digest_subject(grouped, frequency)
+        body = build_smart_digest_email_html(grouped, user.get("name", "User"), frequency)
         
         try:
             await microsoft_email_service.send_email(
@@ -162,6 +165,201 @@ async def send_digest_emails(frequency: str = "hourly"):
             logger.info(f"Sent {frequency} digest to {user['email']} with {len(notifications)} notifications")
         except Exception as e:
             logger.error(f"Failed to send digest to {user_id}: {e}")
+
+
+def group_notifications_for_digest(notifications: List[dict]) -> Dict:
+    """Group notifications by category and type for digest"""
+    groups = {
+        "tasks": {"items": [], "count": 0},
+        "mentions": {"items": [], "count": 0},
+        "marketing": {"items": [], "count": 0},
+        "social": {"items": [], "count": 0},
+        "mail": {"items": [], "count": 0},
+        "other": {"items": [], "count": 0}
+    }
+    
+    for n in notifications:
+        category = n.get("category", "other")
+        notification_type = n.get("type", "")
+        
+        if category == "task" or notification_type.startswith("task_"):
+            groups["tasks"]["items"].append(n)
+            groups["tasks"]["count"] += 1
+        elif category == "mention" or notification_type == "user_mentioned":
+            groups["mentions"]["items"].append(n)
+            groups["mentions"]["count"] += 1
+        elif category == "marketing":
+            groups["marketing"]["items"].append(n)
+            groups["marketing"]["count"] += 1
+        elif category == "social":
+            groups["social"]["items"].append(n)
+            groups["social"]["count"] += 1
+        elif category == "mail":
+            groups["mail"]["items"].append(n)
+            groups["mail"]["count"] += 1
+        else:
+            groups["other"]["items"].append(n)
+            groups["other"]["count"] += 1
+    
+    return groups
+
+
+def build_digest_subject(grouped: Dict, frequency: str) -> str:
+    """Build smart subject line for digest email"""
+    parts = []
+    
+    if grouped["tasks"]["count"] > 0:
+        parts.append(f"{grouped['tasks']['count']} task update{'s' if grouped['tasks']['count'] > 1 else ''}")
+    if grouped["mentions"]["count"] > 0:
+        parts.append(f"{grouped['mentions']['count']} mention{'s' if grouped['mentions']['count'] > 1 else ''}")
+    if grouped["marketing"]["count"] > 0:
+        parts.append(f"{grouped['marketing']['count']} marketing alert{'s' if grouped['marketing']['count'] > 1 else ''}")
+    
+    total = sum(g["count"] for g in grouped.values())
+    
+    if len(parts) == 0:
+        return f"[Sevora] Your {frequency} summary ({total} notifications)"
+    elif len(parts) == 1:
+        return f"[Sevora] {parts[0]}"
+    elif len(parts) == 2:
+        return f"[Sevora] {parts[0]} and {parts[1]}"
+    else:
+        return f"[Sevora] {parts[0]}, {parts[1]} +{total - grouped['tasks']['count'] - grouped['mentions']['count']} more"
+
+
+def build_smart_digest_email_html(grouped: Dict, user_name: str, frequency: str) -> str:
+    """Build HTML email for notification digest with smart grouping"""
+    period = "hour" if frequency == "hourly" else "day"
+    total = sum(g["count"] for g in grouped.values())
+    
+    sections_html = ""
+    
+    # Tasks section
+    if grouped["tasks"]["count"] > 0:
+        task_items = ""
+        for n in grouped["tasks"]["items"][:5]:
+            task_items += f"""
+            <div style="padding: 8px 12px; border-left: 3px solid #3b82f6; background: #eff6ff; margin-bottom: 6px; border-radius: 4px;">
+                <strong style="color: #1e40af; font-size: 13px;">{n.get('title', 'Task Update')}</strong>
+                <p style="margin: 2px 0 0 0; color: #4b5563; font-size: 12px;">{n.get('message', '')[:80]}</p>
+            </div>
+            """
+        if grouped["tasks"]["count"] > 5:
+            task_items += f'<p style="color: #6b7280; font-size: 12px; margin: 4px 0;">+{grouped["tasks"]["count"] - 5} more task updates</p>'
+        
+        sections_html += f"""
+        <div style="margin-bottom: 20px;">
+            <h3 style="color: #3b82f6; font-size: 14px; margin: 0 0 10px 0; display: flex; align-items: center;">
+                📋 Tasks ({grouped["tasks"]["count"]})
+            </h3>
+            {task_items}
+        </div>
+        """
+    
+    # Mentions section
+    if grouped["mentions"]["count"] > 0:
+        mention_items = ""
+        for n in grouped["mentions"]["items"][:3]:
+            mention_items += f"""
+            <div style="padding: 8px 12px; border-left: 3px solid #f59e0b; background: #fffbeb; margin-bottom: 6px; border-radius: 4px;">
+                <strong style="color: #b45309; font-size: 13px;">{n.get('title', 'Mentioned')}</strong>
+                <p style="margin: 2px 0 0 0; color: #4b5563; font-size: 12px;">{n.get('message', '')[:80]}</p>
+            </div>
+            """
+        if grouped["mentions"]["count"] > 3:
+            mention_items += f'<p style="color: #6b7280; font-size: 12px; margin: 4px 0;">+{grouped["mentions"]["count"] - 3} more mentions</p>'
+        
+        sections_html += f"""
+        <div style="margin-bottom: 20px;">
+            <h3 style="color: #f59e0b; font-size: 14px; margin: 0 0 10px 0;">
+                💬 Mentions ({grouped["mentions"]["count"]})
+            </h3>
+            {mention_items}
+        </div>
+        """
+    
+    # Marketing section
+    if grouped["marketing"]["count"] > 0:
+        marketing_items = ""
+        for n in grouped["marketing"]["items"][:3]:
+            marketing_items += f"""
+            <div style="padding: 8px 12px; border-left: 3px solid #8b5cf6; background: #f5f3ff; margin-bottom: 6px; border-radius: 4px;">
+                <strong style="color: #6d28d9; font-size: 13px;">{n.get('title', 'Marketing')}</strong>
+                <p style="margin: 2px 0 0 0; color: #4b5563; font-size: 12px;">{n.get('message', '')[:80]}</p>
+            </div>
+            """
+        
+        sections_html += f"""
+        <div style="margin-bottom: 20px;">
+            <h3 style="color: #8b5cf6; font-size: 14px; margin: 0 0 10px 0;">
+                📢 Marketing ({grouped["marketing"]["count"]})
+            </h3>
+            {marketing_items}
+        </div>
+        """
+    
+    # Social section
+    if grouped["social"]["count"] > 0:
+        social_items = ""
+        for n in grouped["social"]["items"][:3]:
+            social_items += f"""
+            <div style="padding: 8px 12px; border-left: 3px solid #ec4899; background: #fdf2f8; margin-bottom: 6px; border-radius: 4px;">
+                <strong style="color: #be185d; font-size: 13px;">{n.get('title', 'Social')}</strong>
+                <p style="margin: 2px 0 0 0; color: #4b5563; font-size: 12px;">{n.get('message', '')[:80]}</p>
+            </div>
+            """
+        
+        sections_html += f"""
+        <div style="margin-bottom: 20px;">
+            <h3 style="color: #ec4899; font-size: 14px; margin: 0 0 10px 0;">
+                📱 Social ({grouped["social"]["count"]})
+            </h3>
+            {social_items}
+        </div>
+        """
+    
+    # Other notifications
+    other_count = grouped["mail"]["count"] + grouped["other"]["count"]
+    if other_count > 0:
+        sections_html += f"""
+        <div style="margin-bottom: 20px;">
+            <p style="color: #6b7280; font-size: 13px;">
+                +{other_count} other notification{'s' if other_count > 1 else ''}
+            </p>
+        </div>
+        """
+    
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #FDF8F3; margin: 0; padding: 20px;">
+        <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #4A3728 0%, #6B5D52 100%); color: white; padding: 24px;">
+                <h1 style="margin: 0; font-size: 20px; font-weight: 600;">Your {frequency.title()} Summary</h1>
+                <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 14px;">{total} notification{'s' if total > 1 else ''} in the last {period}</p>
+            </div>
+            <div style="padding: 24px;">
+                <p style="color: #6B5D52; margin: 0 0 20px 0; font-size: 15px;">Hi {user_name},</p>
+                {sections_html}
+                <a href="https://sevora-hub.preview.emergentagent.com/notifications" 
+                   style="display: inline-block; background: #4A3728; color: white; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 500; font-size: 14px;">
+                    View All Notifications
+                </a>
+            </div>
+            <div style="padding: 16px 24px; border-top: 1px solid #E8D5C4; background: #FDFBF9;">
+                <p style="color: #9C8C74; font-size: 12px; margin: 0;">
+                    You're receiving this {frequency} digest based on your notification preferences.
+                    <a href="https://sevora-hub.preview.emergentagent.com/notifications" style="color: #6B5D52;">Manage settings</a>
+                </p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
 
 
 def build_notification_email_html(notification: dict, user_name: str) -> str:

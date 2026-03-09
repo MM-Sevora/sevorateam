@@ -99,6 +99,123 @@ async def get_notification_summary(user: dict = Depends(get_current_user_dep)):
     }
 
 
+@router.get("/grouped")
+async def get_grouped_notifications(
+    user: dict = Depends(get_current_user_dep),
+    limit: int = Query(default=20, le=50)
+):
+    """
+    Get notifications grouped by similar type/entity for smart display.
+    Groups notifications like:
+    - Multiple task assignments -> "3 new tasks assigned"
+    - Multiple comments on same task -> "5 comments on Task X"
+    - Multiple mentions -> "You were mentioned 4 times"
+    """
+    # Get recent notifications
+    notifications = await db.notifications.find(
+        {"user_id": user["id"], "is_read": False},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(100).to_list(100)
+    
+    if not notifications:
+        return {"groups": [], "ungrouped": []}
+    
+    # Group by type + entity (for entity-specific) or just type (for general)
+    groups = {}
+    ungrouped = []
+    
+    for n in notifications:
+        notification_type = n.get("type", "")
+        entity_id = n.get("entity_id")
+        category = n.get("category", "system")
+        
+        # Determine grouping key
+        if notification_type in ["task_comment", "task_status_changed"] and entity_id:
+            # Group by specific entity
+            key = f"{notification_type}:{entity_id}"
+        elif notification_type in ["task_assigned", "user_mentioned", "email_received"]:
+            # Group by type only
+            key = notification_type
+        else:
+            # Don't group - show individually
+            ungrouped.append(n)
+            continue
+        
+        if key not in groups:
+            groups[key] = {
+                "type": notification_type,
+                "category": category,
+                "entity_id": entity_id,
+                "entity_type": n.get("entity_type"),
+                "notifications": [],
+                "count": 0,
+                "latest": n,
+                "priority": n.get("priority", "medium")
+            }
+        
+        groups[key]["notifications"].append(n)
+        groups[key]["count"] += 1
+        
+        # Keep highest priority
+        if n.get("priority") == "high":
+            groups[key]["priority"] = "high"
+    
+    # Build grouped response
+    grouped_result = []
+    for key, group in groups.items():
+        count = group["count"]
+        notification_type = group["type"]
+        latest = group["latest"]
+        
+        # Generate smart summary message
+        if notification_type == "task_assigned":
+            summary = f"You have {count} new task{'s' if count > 1 else ''} assigned"
+            title = "New Tasks Assigned" if count > 1 else latest.get("title")
+        elif notification_type == "task_comment":
+            task_name = latest.get("metadata", {}).get("task_name", "a task")
+            summary = f"{count} new comment{'s' if count > 1 else ''} on '{task_name}'"
+            title = "New Comments" if count > 1 else latest.get("title")
+        elif notification_type == "task_status_changed":
+            summary = f"Task status updated {count} time{'s' if count > 1 else ''}"
+            title = "Status Updates" if count > 1 else latest.get("title")
+        elif notification_type == "user_mentioned":
+            summary = f"You were mentioned {count} time{'s' if count > 1 else ''}"
+            title = "New Mentions" if count > 1 else latest.get("title")
+        elif notification_type == "email_received":
+            summary = f"You have {count} new email{'s' if count > 1 else ''}"
+            title = "New Emails" if count > 1 else latest.get("title")
+        else:
+            summary = latest.get("message", "")
+            title = latest.get("title", "Notification")
+        
+        grouped_result.append({
+            "id": f"group_{key}",
+            "type": notification_type,
+            "category": group["category"],
+            "title": title,
+            "message": summary,
+            "count": count,
+            "priority": group["priority"],
+            "entity_type": group["entity_type"],
+            "entity_id": group["entity_id"],
+            "action_url": latest.get("action_url"),
+            "notification_ids": [n["id"] for n in group["notifications"]],
+            "created_at": latest.get("created_at"),
+            "is_grouped": count > 1
+        })
+    
+    # Sort by priority then date
+    priority_order = {"high": 0, "medium": 1, "low": 2}
+    grouped_result.sort(key=lambda x: (priority_order.get(x["priority"], 1), x["created_at"]), reverse=True)
+    
+    return {
+        "groups": grouped_result[:limit],
+        "ungrouped": ungrouped[:limit],
+        "total_grouped": len(grouped_result),
+        "total_ungrouped": len(ungrouped)
+    }
+
+
 @router.put("/{notification_id}/read")
 async def mark_notification_read(
     notification_id: str,
