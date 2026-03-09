@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from "../../components/ui/select";
 import { toast } from 'sonner';
+import TaskDetailModal from './TaskDetailModal';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -50,7 +51,7 @@ const statusColumns = [
   { id: 'completed', label: 'Completed', color: 'border-emerald-500', bgColor: 'bg-emerald-500/10' }
 ];
 
-const TaskCard = ({ task, onStatusChange, onEdit, onDelete, onDragStart }) => {
+const TaskCard = ({ task, onStatusChange, onEdit, onDelete, onDragStart, onClick }) => {
   const formatDate = (dateStr) => {
     if (!dateStr) return null;
     const date = new Date(dateStr);
@@ -60,11 +61,18 @@ const TaskCard = ({ task, onStatusChange, onEdit, onDelete, onDragStart }) => {
   const isOverdue = task.due_date && new Date(task.due_date) < new Date() && 
     !['completed', 'approved'].includes(task.status);
 
+  const handleClick = (e) => {
+    // Don't open modal if clicking on dropdown
+    if (e.target.closest('[role="menu"]') || e.target.closest('button')) return;
+    onClick?.(task);
+  };
+
   return (
     <div
       draggable
       onDragStart={(e) => onDragStart(e, task)}
-      className="bg-slate-800 border border-slate-700 rounded-lg p-3 cursor-grab active:cursor-grabbing hover:border-slate-600 transition-all group"
+      onClick={handleClick}
+      className="bg-slate-800 border border-slate-700 rounded-lg p-3 cursor-pointer hover:border-slate-600 transition-all group"
       data-testid={`kanban-task-${task.id}`}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
@@ -122,7 +130,7 @@ const TaskCard = ({ task, onStatusChange, onEdit, onDelete, onDragStart }) => {
   );
 };
 
-const KanbanColumn = ({ column, tasks, onDrop, onDragOver, onStatusChange, onEditTask, onDeleteTask, onDragStart }) => {
+const KanbanColumn = ({ column, tasks, onDrop, onDragOver, onStatusChange, onEditTask, onDeleteTask, onDragStart, onTaskClick }) => {
   const columnTasks = tasks.filter(t => t.status === column.id);
   
   return (
@@ -147,6 +155,7 @@ const KanbanColumn = ({ column, tasks, onDrop, onDragOver, onStatusChange, onEdi
             onEdit={onEditTask}
             onDelete={onDeleteTask}
             onDragStart={onDragStart}
+            onClick={onTaskClick}
           />
         ))}
         {columnTasks.length === 0 && (
@@ -325,6 +334,7 @@ const ProjectDetail = () => {
   const [users, setUsers] = useState([]);
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [draggedTask, setDraggedTask] = useState(null);
+  const [selectedTaskId, setSelectedTaskId] = useState(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -425,8 +435,7 @@ const ProjectDetail = () => {
   };
 
   const handleEditTask = (task) => {
-    // For now, just show toast - can implement edit modal later
-    toast.info('Edit modal coming soon. Use My Tasks to update status.');
+    setSelectedTaskId(task.id);
   };
 
   if (loading) {
@@ -550,6 +559,7 @@ const ProjectDetail = () => {
                   onEditTask={handleEditTask}
                   onDeleteTask={handleDeleteTask}
                   onDragStart={handleDragStart}
+                  onTaskClick={(task) => setSelectedTaskId(task.id)}
                 />
               ))}
             </div>
@@ -563,6 +573,14 @@ const ProjectDetail = () => {
         projectId={projectId}
         users={users}
         onSuccess={fetchData}
+      />
+
+      <TaskDetailModal
+        open={!!selectedTaskId}
+        onClose={() => setSelectedTaskId(null)}
+        taskId={selectedTaskId}
+        onUpdate={fetchData}
+        users={users}
       />
     </div>
   );
