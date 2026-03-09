@@ -877,3 +877,63 @@ The Manager Dashboard was already functional with:
 - [x] At-Risk Projects Card: Projects with overdue tasks or past deadlines
 - [x] Upcoming Deadlines Card: Projects ending within 7 days
 - [x] Recent Activity Card: Latest activity log entries
+
+### Phase 44: Goals & Objectives Enhancements (COMPLETE - December 2025)
+**Rich Text Editors:**
+- [x] RichTextEditor component for Strategic Goals description field
+- [x] RichTextEditor component for Objectives description field
+- [x] Full Tiptap toolbar (bold, italic, underline, headings, lists, code, links, images, tables)
+- [x] Backend preserves HTML content in description fields
+
+**Multi-Select Quarters:**
+- [x] Objectives can now be linked to multiple quarters
+- [x] ObjectiveCreate.quarter_ids: List[str] (backend model)
+- [x] UI with badge-based multi-select + "Add more quarters" dropdown
+- [x] Backward compatible with old single quarter_id data
+
+**Dynamic Departments:**
+- [x] GET /api/goals/departments fetches from Organization Management
+- [x] Falls back to user departments if no departments collection
+- [x] Department dropdowns in Objectives form dynamically populated
+
+**Project Form Simplification:**
+- [x] Removed "Module" field from Create Project modal
+- [x] Removed "Project Type" field from Create Project modal
+- [x] Removed "Module" field from Edit Project modal
+- [x] Removed "Project Type" field from Edit Project modal
+- [x] Backend ProjectCreate model updated to make module_id optional
+
+**Objective Deadline Notifications (Scheduler):**
+- [x] process_objective_deadline_notifications() in scheduler_service.py
+- [x] Runs daily at 9 AM UTC via APScheduler cron job
+- [x] Notifies owners of objectives due in 7 days, 3 days, or overdue
+- [x] Priority: URGENT for overdue, HIGH for 3 days, MEDIUM for 7 days
+- [x] Creates notifications with action_url to objective detail page
+
+---
+
+## Pending Issues
+
+### P1 - Next Priority
+- [ ] Apply consistent Edit/Save/Cancel UX to other pages
+- [ ] Complete `server.py` route extraction
+
+### P2 - Future Tasks
+- [ ] Bulk Task Operations (checkboxes for bulk actions)
+- [ ] Time Tracking Rollup (aggregate to project level)
+- [ ] Task Status Change Notifications
+- [ ] Complete unification of Contacts frontend
+- [ ] Implement `@mentions` in comments (deferred)
+
+### P3 - Backlog
+- [ ] Gantt Chart View for projects
+- [ ] Slack/WhatsApp integration
+- [ ] AI-powered notification prioritization
+- [ ] Export/Reports (CSV/PDF)
+- [ ] Unify `roles` and `custom_roles` collections
+- [ ] Remove unused `react-joyride` dependency
+
+### Blocked Items
+- [ ] Social Module - Requires valid Instagram token
+- [ ] Help & Support Email Notifications - Blocked pending SMTP credentials
+- [ ] Real-time Notifications (WebSockets) - Blocked on infrastructure
