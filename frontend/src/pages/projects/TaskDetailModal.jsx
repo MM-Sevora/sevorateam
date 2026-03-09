@@ -1156,7 +1156,7 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
         ) : task ? (
           <div className="flex flex-col h-full">
             {/* Header */}
-            <div className="bg-white border-b border-[#E8D5C4] p-5">
+            <div className="bg-white border-b border-[#E8D5C4] p-5 pr-12">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   {editing ? (
@@ -1167,7 +1167,7 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
                       data-testid="task-name-edit"
                     />
                   ) : (
-                    <h2 className="text-xl font-bold text-[#4A3728] truncate">{task.name}</h2>
+                    <h2 className="text-xl font-bold text-[#4A3728] truncate pr-2">{task.name}</h2>
                   )}
                   <div className="flex items-center gap-2 mt-2 text-sm text-[#6B5D52]">
                     <Folder className="w-4 h-4" />
