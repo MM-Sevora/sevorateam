@@ -4,7 +4,7 @@ import {
   Plus, Search, Filter, FolderKanban, Calendar, Users, Flag,
   MoreVertical, Edit, Trash2, Eye, RefreshCw, ChevronDown,
   CheckCircle2, Clock, AlertTriangle, Folder, ArrowRight, ListTodo,
-  Lock, Globe
+  Lock, Globe, UserPlus, UserMinus, Paperclip, Upload, X, File
 } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -12,6 +12,8 @@ import { Badge } from '../../components/ui/badge';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
+import { RichTextEditor } from '../../components/ui/rich-text-editor';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -419,9 +421,14 @@ const CreateProjectModal = ({ open, onClose, modules, departments, users, onSucc
 };
 
 
-// Edit Project Modal
+// Edit Project Modal with Tabs
 const EditProjectModal = ({ open, onClose, project, modules, departments, users, onSuccess }) => {
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('details');
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [selectedMember, setSelectedMember] = useState('');
+  const [attachments, setAttachments] = useState([]);
+  const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     module_id: '',
@@ -451,11 +458,29 @@ const EditProjectModal = ({ open, onClose, project, modules, departments, users,
         start_date: project.start_date || '',
         end_date: project.end_date || ''
       });
+      setTeamMembers(project.team_members || []);
+      fetchAttachments();
     }
   }, [project]);
 
+  const fetchAttachments = async () => {
+    if (!project?.id) return;
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/projects/${project.id}/attachments`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAttachments(data);
+      }
+    } catch (e) {
+      console.error('Error fetching attachments:', e);
+    }
+  };
+
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     if (!formData.name) {
       toast.error('Name is required');
       return;
@@ -490,6 +515,96 @@ const EditProjectModal = ({ open, onClose, project, modules, departments, users,
     }
   };
 
+  const handleAddMember = async () => {
+    if (!selectedMember || teamMembers.includes(selectedMember)) return;
+    
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/projects/${project.id}/members`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: selectedMember })
+      });
+      
+      if (res.ok) {
+        setTeamMembers([...teamMembers, selectedMember]);
+        setSelectedMember('');
+        toast.success('Team member added');
+        onSuccess();
+      }
+    } catch (e) {
+      toast.error('Failed to add member');
+    }
+  };
+
+  const handleRemoveMember = async (memberId) => {
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/projects/${project.id}/members/${memberId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (res.ok) {
+        setTeamMembers(teamMembers.filter(id => id !== memberId));
+        toast.success('Team member removed');
+        onSuccess();
+      }
+    } catch (e) {
+      toast.error('Failed to remove member');
+    }
+  };
+
+  const handleFileUpload = async (e) => {
+    const files = e.target.files;
+    if (!files?.length) return;
+    
+    setUploading(true);
+    const token = localStorage.getItem('sevora_token');
+    
+    for (const file of files) {
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const res = await fetch(`${API}/api/projects/${project.id}/attachments`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData
+        });
+        
+        if (res.ok) {
+          toast.success(`Uploaded ${file.name}`);
+        }
+      } catch (e) {
+        toast.error(`Failed to upload ${file.name}`);
+      }
+    }
+    
+    setUploading(false);
+    fetchAttachments();
+    e.target.value = '';
+  };
+
+  const handleDeleteAttachment = async (attachmentId) => {
+    try {
+      const token = localStorage.getItem('sevora_token');
+      await fetch(`${API}/api/projects/${project.id}/attachments/${attachmentId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      toast.success('Attachment deleted');
+      fetchAttachments();
+    } catch (e) {
+      toast.error('Failed to delete');
+    }
+  };
+
+  const getMemberName = (memberId) => {
+    const user = users.find(u => u.id === memberId);
+    return user ? user.name : memberId;
+  };
+
   const projectTypes = [
     { value: 'marketing', label: 'Marketing' },
     { value: 'development', label: 'Development' },
@@ -507,195 +622,250 @@ const EditProjectModal = ({ open, onClose, project, modules, departments, users,
     { value: 'cancelled', label: 'Cancelled', color: 'bg-red-100 text-red-700' }
   ];
 
+  const availableUsers = users.filter(u => !teamMembers.includes(u.id));
+
   if (!project) return null;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="bg-white border-[#D4BBA6] max-w-xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-white border-[#D4BBA6] max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-[#4A3728] flex items-center gap-2">
             <Edit className="w-5 h-5 text-rose-600" />
-            Edit Project
+            Edit Project: {project.name}
           </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label className="text-[#4A3728]">Project Name *</Label>
-            <Input
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Enter project name"
-              className="border-[#D4BBA6] focus:border-rose-500 mt-1"
-            />
-          </div>
+        
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
+          <TabsList className="bg-[#F5EBE0] p-1 rounded-lg">
+            <TabsTrigger value="details" className="data-[state=active]:bg-white">Details</TabsTrigger>
+            <TabsTrigger value="team" className="data-[state=active]:bg-white">
+              Team ({teamMembers.length})
+            </TabsTrigger>
+            <TabsTrigger value="attachments" className="data-[state=active]:bg-white">
+              Files ({attachments.length})
+            </TabsTrigger>
+          </TabsList>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-[#4A3728]">Module</Label>
-              <Select
-                value={formData.module_id}
-                onValueChange={(value) => setFormData({ ...formData, module_id: value })}
-              >
-                <SelectTrigger className="border-[#D4BBA6] mt-1">
-                  <SelectValue placeholder="Select module" />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-[#D4BBA6]">
-                  {modules.map(module => (
-                    <SelectItem key={module.id} value={module.id}>
-                      {module.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-[#4A3728]">Project Type</Label>
-              <Select
-                value={formData.project_type}
-                onValueChange={(value) => setFormData({ ...formData, project_type: value })}
-              >
-                <SelectTrigger className="border-[#D4BBA6] mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-[#D4BBA6]">
-                  {projectTypes.map(type => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <div className="flex-1 overflow-y-auto mt-4">
+            <TabsContent value="details" className="mt-0 space-y-4">
+              <div>
+                <Label className="text-[#4A3728]">Project Name *</Label>
+                <Input
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Enter project name"
+                  className="border-[#D4BBA6] focus:border-rose-500 mt-1"
+                />
+              </div>
 
-          <div>
-            <Label className="text-[#4A3728]">Description</Label>
-            <Textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Project description..."
-              className="border-[#D4BBA6] focus:border-rose-500 mt-1"
-              rows={3}
-            />
-          </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-[#4A3728]">Module</Label>
+                  <Select
+                    value={formData.module_id}
+                    onValueChange={(value) => setFormData({ ...formData, module_id: value })}
+                  >
+                    <SelectTrigger className="border-[#D4BBA6] mt-1">
+                      <SelectValue placeholder="Select module" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border-[#D4BBA6]">
+                      {modules.map(module => (
+                        <SelectItem key={module.id} value={module.id}>{module.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-[#4A3728]">Project Type</Label>
+                  <Select
+                    value={formData.project_type}
+                    onValueChange={(value) => setFormData({ ...formData, project_type: value })}
+                  >
+                    <SelectTrigger className="border-[#D4BBA6] mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border-[#D4BBA6]">
+                      {projectTypes.map(type => (
+                        <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-[#4A3728]">Priority</Label>
-              <Select
-                value={formData.priority}
-                onValueChange={(value) => setFormData({ ...formData, priority: value })}
-              >
-                <SelectTrigger className="border-[#D4BBA6] mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-[#D4BBA6]">
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-[#4A3728]">Status</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) => setFormData({ ...formData, status: value })}
-              >
-                <SelectTrigger className="border-[#D4BBA6] mt-1" data-testid="project-status-select">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-[#D4BBA6]">
-                  {projectStatuses.map(status => (
-                    <SelectItem key={status.value} value={status.value}>
-                      <span className={`px-2 py-0.5 rounded text-sm ${status.color}`}>
-                        {status.label}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+              <div>
+                <Label className="text-[#4A3728]">Description</Label>
+                <RichTextEditor
+                  content={formData.description}
+                  onChange={(html) => setFormData({ ...formData, description: html })}
+                  placeholder="Project description..."
+                  minHeight="100px"
+                  className="mt-1"
+                />
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-[#4A3728]">Visibility</Label>
-              <Select
-                value={formData.visibility}
-                onValueChange={(value) => setFormData({ ...formData, visibility: value })}
-              >
-                <SelectTrigger className="border-[#D4BBA6] mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-[#D4BBA6]">
-                  <SelectItem value="public">
-                    <span className="flex items-center gap-2">
-                      <Globe className="w-4 h-4 text-emerald-600" />
-                      Public
-                    </span>
-                  </SelectItem>
-                  <SelectItem value="private">
-                    <span className="flex items-center gap-2">
-                      <Lock className="w-4 h-4 text-amber-600" />
-                      Private
-                    </span>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-[#4A3728]">Project Manager</Label>
-              <Select
-                value={formData.project_manager_id || 'none'}
-                onValueChange={(value) => setFormData({ ...formData, project_manager_id: value === 'none' ? '' : value })}
-              >
-                <SelectTrigger className="border-[#D4BBA6] mt-1">
-                  <SelectValue placeholder="Select PM" />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-[#D4BBA6] max-h-60">
-                  <SelectItem value="none">No PM assigned</SelectItem>
-                  {users.map(user => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-[#4A3728]">Priority</Label>
+                  <Select value={formData.priority} onValueChange={(value) => setFormData({ ...formData, priority: value })}>
+                    <SelectTrigger className="border-[#D4BBA6] mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent className="bg-white border-[#D4BBA6]">
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-[#4A3728]">Status</Label>
+                  <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
+                    <SelectTrigger className="border-[#D4BBA6] mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent className="bg-white border-[#D4BBA6]">
+                      {projectStatuses.map(status => (
+                        <SelectItem key={status.value} value={status.value}>
+                          <span className={`px-2 py-0.5 rounded text-sm ${status.color}`}>{status.label}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-[#4A3728]">Start Date</Label>
-              <Input
-                type="date"
-                value={formData.start_date}
-                onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                className="border-[#D4BBA6] mt-1"
-              />
-            </div>
-            <div>
-              <Label className="text-[#4A3728]">End Date</Label>
-              <Input
-                type="date"
-                value={formData.end_date}
-                onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                className="border-[#D4BBA6] mt-1"
-              />
-            </div>
-          </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-[#4A3728]">Visibility</Label>
+                  <Select value={formData.visibility} onValueChange={(value) => setFormData({ ...formData, visibility: value })}>
+                    <SelectTrigger className="border-[#D4BBA6] mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent className="bg-white border-[#D4BBA6]">
+                      <SelectItem value="public"><span className="flex items-center gap-2"><Globe className="w-4 h-4 text-emerald-600" />Public</span></SelectItem>
+                      <SelectItem value="private"><span className="flex items-center gap-2"><Lock className="w-4 h-4 text-amber-600" />Private</span></SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-[#4A3728]">Project Manager</Label>
+                  <Select value={formData.project_manager_id || 'none'} onValueChange={(value) => setFormData({ ...formData, project_manager_id: value === 'none' ? '' : value })}>
+                    <SelectTrigger className="border-[#D4BBA6] mt-1"><SelectValue placeholder="Select PM" /></SelectTrigger>
+                    <SelectContent className="bg-white border-[#D4BBA6] max-h-60">
+                      <SelectItem value="none">No PM assigned</SelectItem>
+                      {users.map(user => (<SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-          <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose} className="border-[#D4BBA6] text-[#4A3728]">
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading} className="bg-rose-600 hover:bg-rose-700 text-white">
-              {loading ? 'Saving...' : 'Save Changes'}
-            </Button>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-[#4A3728]">Start Date</Label>
+                  <Input type="date" value={formData.start_date} onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} className="border-[#D4BBA6] mt-1" />
+                </div>
+                <div>
+                  <Label className="text-[#4A3728]">End Date</Label>
+                  <Input type="date" value={formData.end_date} onChange={(e) => setFormData({ ...formData, end_date: e.target.value })} className="border-[#D4BBA6] mt-1" />
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="team" className="mt-0 space-y-4">
+              <div className="flex gap-2">
+                <Select value={selectedMember} onValueChange={setSelectedMember}>
+                  <SelectTrigger className="border-[#D4BBA6] flex-1">
+                    <SelectValue placeholder="Select user to add" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-[#D4BBA6] max-h-60">
+                    {availableUsers.map(user => (
+                      <SelectItem key={user.id} value={user.id}>{user.name} ({user.email})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button onClick={handleAddMember} disabled={!selectedMember} className="bg-rose-600 hover:bg-rose-700 text-white">
+                  <UserPlus className="w-4 h-4" />
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                {teamMembers.length === 0 ? (
+                  <p className="text-[#9C8C74] text-sm text-center py-4">No team members yet</p>
+                ) : (
+                  teamMembers.map(memberId => {
+                    const member = users.find(u => u.id === memberId);
+                    return (
+                      <div key={memberId} className="flex items-center justify-between p-3 bg-[#F5EBE0] rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center text-rose-600 font-medium">
+                            {getMemberName(memberId).charAt(0)}
+                          </div>
+                          <div>
+                            <p className="font-medium text-[#4A3728]">{getMemberName(memberId)}</p>
+                            {member && <p className="text-xs text-[#6B5D52]">{member.email}</p>}
+                          </div>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => handleRemoveMember(memberId)} className="text-red-600 hover:bg-red-50">
+                          <UserMinus className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="attachments" className="mt-0 space-y-4">
+              <div className="border-2 border-dashed border-[#D4BBA6] rounded-lg p-6 text-center">
+                <input
+                  type="file"
+                  multiple
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  id="project-file-upload"
+                />
+                <label htmlFor="project-file-upload" className="cursor-pointer">
+                  <Upload className="w-8 h-8 mx-auto text-[#9C8C74] mb-2" />
+                  <p className="text-[#6B5D52]">
+                    {uploading ? 'Uploading...' : 'Click to upload or drag files here'}
+                  </p>
+                </label>
+              </div>
+
+              <div className="space-y-2">
+                {attachments.length === 0 ? (
+                  <p className="text-[#9C8C74] text-sm text-center py-4">No attachments yet</p>
+                ) : (
+                  attachments.map(att => (
+                    <div key={att.id} className="flex items-center justify-between p-3 bg-[#F5EBE0] rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <File className="w-5 h-5 text-[#6B5D52]" />
+                        <div>
+                          <p className="font-medium text-[#4A3728] text-sm">{att.filename}</p>
+                          <p className="text-xs text-[#6B5D52]">{(att.size / 1024).toFixed(1)} KB</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <a href={att.url} target="_blank" rel="noopener noreferrer" className="text-rose-600 hover:text-rose-700">
+                          <Eye className="w-4 h-4" />
+                        </a>
+                        <Button variant="ghost" size="sm" onClick={() => handleDeleteAttachment(att.id)} className="text-red-600 hover:bg-red-50">
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </TabsContent>
           </div>
-        </form>
+        </Tabs>
+
+        <div className="flex justify-end gap-2 pt-4 border-t border-[#E8D5C4] mt-4">
+          <Button type="button" variant="outline" onClick={onClose} className="border-[#D4BBA6] text-[#4A3728]">
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={loading} className="bg-rose-600 hover:bg-rose-700 text-white">
+            {loading ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

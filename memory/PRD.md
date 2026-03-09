@@ -704,6 +704,13 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - `/app/backend/tests/test_expense_module.py` - Expense module backend tests
 - `/app/backend/tests/test_project_visibility_team.py` - Project visibility and team management tests
 
+### Phase 31: Enhanced Project Edit Modal (COMPLETE - March 9, 2026)
+- [x] **Rich Text Description**: TipTap editor with full formatting (Bold, Italic, H1/H2, Lists, Quote, Code, Links, Images, Tables)
+- [x] **Team Management Tab**: Add/remove team members directly in edit modal
+- [x] **Project Attachments Tab**: Upload, view, delete project files
+- [x] Backend: New project_attachments collection with CRUD endpoints
+- [x] Tabbed interface: Details | Team | Files
+
 ### Phase 30: Project Management Gap Fixes (COMPLETE - March 9, 2026)
 - [x] **Quick Add Task with Assign To**: Can now delegate tasks to others without going into a project
   - Added "Assign To" dropdown with user list in Quick Add modal

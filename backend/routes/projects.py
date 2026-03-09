@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query, UploadFile, File, 
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import List, Optional
+import os
 from datetime import datetime, timezone, timedelta
 from dateutil.relativedelta import relativedelta
 import uuid
@@ -1565,6 +1566,129 @@ async def remove_project_member(
         await log_activity("project", project_id, project.get("name"), "member_removed", user["id"], {"member_id": member_id})
     
     return {"message": "Member removed from project"}
+
+
+# ============== PROJECT ATTACHMENTS ==============
+
+class ProjectAttachmentResponse(BaseModel):
+    id: str
+    project_id: str
+    filename: str
+    file_type: str
+    size: int
+    url: str
+    uploaded_by: Optional[str] = None
+    uploaded_by_name: Optional[str] = None
+    created_at: str
+
+
+@router.get("/{project_id}/attachments", response_model=List[ProjectAttachmentResponse])
+async def list_project_attachments(
+    project_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """List all attachments for a project"""
+    attachments = await db.project_attachments.find(
+        {"project_id": project_id, "is_deleted": {"$ne": True}},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    
+    for att in attachments:
+        if att.get("uploaded_by"):
+            att["uploaded_by_name"] = await get_user_name(att["uploaded_by"])
+    
+    return attachments
+
+
+@router.post("/{project_id}/attachments", response_model=ProjectAttachmentResponse)
+async def upload_project_attachment(
+    project_id: str,
+    file: UploadFile = File(...),
+    user: dict = Depends(get_current_user_dep)
+):
+    """Upload an attachment to a project"""
+    project = await db.pm_projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Read file content
+    content = await file.read()
+    file_size = len(content)
+    
+    # Generate unique filename
+    unique_filename = f"{project_id}_{uuid.uuid4().hex[:8]}_{file.filename}"
+    
+    # Save to uploads directory
+    upload_dir = "/app/uploads/projects"
+    os.makedirs(upload_dir, exist_ok=True)
+    file_path = os.path.join(upload_dir, unique_filename)
+    
+    with open(file_path, 'wb') as f:
+        f.write(content)
+    
+    attachment_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    attachment_doc = {
+        "id": attachment_id,
+        "project_id": project_id,
+        "filename": file.filename,
+        "file_path": file_path,
+        "file_type": file.content_type or 'application/octet-stream',
+        "size": file_size,
+        "url": f"/api/projects/attachments/{attachment_id}/download",
+        "uploaded_by": user["id"],
+        "created_at": now,
+        "is_deleted": False
+    }
+    
+    await db.project_attachments.insert_one(attachment_doc)
+    
+    attachment_doc["uploaded_by_name"] = user.get("name")
+    if "_id" in attachment_doc:
+        del attachment_doc["_id"]
+    
+    return attachment_doc
+
+
+@router.delete("/{project_id}/attachments/{attachment_id}")
+async def delete_project_attachment(
+    project_id: str,
+    attachment_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Delete a project attachment"""
+    result = await db.project_attachments.update_one(
+        {"id": attachment_id, "project_id": project_id},
+        {"$set": {"is_deleted": True}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    
+    return {"message": "Attachment deleted"}
+
+
+@router.get("/attachments/{attachment_id}/download")
+async def download_project_attachment(
+    attachment_id: str
+):
+    """Download a project attachment"""
+    attachment = await db.project_attachments.find_one({"id": attachment_id, "is_deleted": {"$ne": True}})
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    
+    file_path = attachment.get("file_path")
+    if not file_path or not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    return Response(
+        content=open(file_path, 'rb').read(),
+        media_type=attachment.get("file_type", "application/octet-stream"),
+        headers={
+            "Content-Disposition": f"attachment; filename={attachment.get('filename')}"
+        }
+    )
 
 
 # ============== TASKS ==============
