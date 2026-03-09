@@ -3,7 +3,7 @@ import api from '../../lib/api';
 import { 
   Users, Award, Building2, ChevronRight, Plus, Edit2, Trash2,
   Loader2, RefreshCw, Search, UserPlus, Mail, Phone, Calendar, Briefcase, 
-  MapPin, Filter, TrendingUp, UserCheck, Shield, ChevronDown
+  MapPin, Filter, TrendingUp, UserCheck, Shield, ChevronDown, Check, X
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
@@ -35,7 +35,12 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { Label } from '../../components/ui/label';
-import { Textarea } from '../../components/ui/textarea';
+import { Checkbox } from '../../components/ui/checkbox';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '../../components/ui/popover';
 
 const EmployeeDatabase = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -63,14 +68,14 @@ const EmployeeDatabase = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  // Onboarding form
+  // Onboarding form - now with multi-role support
   const [onboardForm, setOnboardForm] = useState({
     department_id: '',
     team_id: '',
     position_id: '',
     grade_id: '',
     reports_to: '',
-    custom_role_id: '',
+    custom_role_ids: [], // Changed from custom_role_id to custom_role_ids array
     designation: '',
     employment_type: 'full_time',
     work_mode: 'office',
@@ -168,10 +173,10 @@ const EmployeeDatabase = () => {
     return () => clearTimeout(timer);
   }, [onboardingSearch, activeTab, fetchDraftUsers]);
 
-  // Onboard user
+  // Onboard user - updated for multi-role
   const handleOnboard = async () => {
-    if (!selectedUser || !onboardForm.department_id || !onboardForm.custom_role_id) {
-      toast.error('Department and Access Role are required');
+    if (!selectedUser || !onboardForm.department_id || onboardForm.custom_role_ids.length === 0) {
+      toast.error('Department and at least one Access Role are required');
       return;
     }
     
@@ -205,7 +210,7 @@ const EmployeeDatabase = () => {
       position_id: '',
       grade_id: '',
       reports_to: '',
-      custom_role_id: '',
+      custom_role_ids: [], // Multi-role support
       designation: '',
       employment_type: 'full_time',
       work_mode: 'office',
@@ -474,7 +479,7 @@ const EmployeeDatabase = () => {
               </div>
             </div>
 
-            {/* Reporting & Access */}
+            {/* Reporting & Access - Multi-role */}
             <div>
               <h4 className="font-medium text-[#4A3728] mb-3 flex items-center gap-2">
                 <Shield className="h-4 w-4" />
@@ -499,22 +504,105 @@ const EmployeeDatabase = () => {
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-[#4A3728]">Access Role *</Label>
-                  <Select 
-                    value={onboardForm.custom_role_id} 
-                    onValueChange={(v) => setOnboardForm({ ...onboardForm, custom_role_id: v })}
-                  >
-                    <SelectTrigger className="border-[#E8D5C4]">
-                      <SelectValue placeholder="Select role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roles.map(role => (
-                        <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label className="text-[#4A3728]">Access Roles * (Multi-select)</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        className="w-full justify-between border-[#E8D5C4] h-10 font-normal"
+                        data-testid="role-multi-select-trigger"
+                      >
+                        {onboardForm.custom_role_ids.length === 0 ? (
+                          <span className="text-muted-foreground">Select roles...</span>
+                        ) : (
+                          <span className="truncate">
+                            {onboardForm.custom_role_ids.length} role{onboardForm.custom_role_ids.length > 1 ? 's' : ''} selected
+                          </span>
+                        )}
+                        <ChevronDown className="h-4 w-4 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80 p-0 z-[100]" align="start">
+                      <div className="p-2 border-b">
+                        <p className="text-sm text-[#5D4A3A]">Select one or more access roles</p>
+                      </div>
+                      <div className="max-h-64 overflow-y-auto p-2">
+                        {roles.map(role => {
+                          const isSelected = onboardForm.custom_role_ids.includes(role.id);
+                          return (
+                            <div 
+                              key={role.id}
+                              className={`flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-[#F5EDE5] ${isSelected ? 'bg-[#E8D5C4]/50' : ''}`}
+                              onClick={() => {
+                                const newIds = isSelected
+                                  ? onboardForm.custom_role_ids.filter(id => id !== role.id)
+                                  : [...onboardForm.custom_role_ids, role.id];
+                                setOnboardForm({ ...onboardForm, custom_role_ids: newIds });
+                              }}
+                              data-testid={`role-option-${role.id}`}
+                            >
+                              <Checkbox 
+                                checked={isSelected}
+                                className="border-[#8B7355] data-[state=checked]:bg-[#4A3728] data-[state=checked]:border-[#4A3728]"
+                              />
+                              <div className="flex-1">
+                                <p className="font-medium text-[#4A3728] text-sm">{role.name}</p>
+                                {role.description && (
+                                  <p className="text-xs text-[#5D4A3A] truncate">{role.description}</p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {onboardForm.custom_role_ids.length > 0 && (
+                        <div className="p-2 border-t bg-[#F5EDE5]">
+                          <div className="flex flex-wrap gap-1">
+                            {onboardForm.custom_role_ids.map(roleId => {
+                              const role = roles.find(r => r.id === roleId);
+                              return role ? (
+                                <Badge 
+                                  key={roleId} 
+                                  variant="secondary" 
+                                  className="bg-[#4A3728] text-white text-xs"
+                                >
+                                  {role.name}
+                                  <X 
+                                    className="h-3 w-3 ml-1 cursor-pointer hover:text-red-300" 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOnboardForm({
+                                        ...onboardForm,
+                                        custom_role_ids: onboardForm.custom_role_ids.filter(id => id !== roleId)
+                                      });
+                                    }}
+                                  />
+                                </Badge>
+                              ) : null;
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
+              {/* Selected roles display */}
+              {onboardForm.custom_role_ids.length > 0 && (
+                <div className="mt-3 p-3 bg-[#F5EDE5] rounded-lg">
+                  <p className="text-xs text-[#5D4A3A] mb-2">Selected Roles:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {onboardForm.custom_role_ids.map(roleId => {
+                      const role = roles.find(r => r.id === roleId);
+                      return role ? (
+                        <Badge key={roleId} className="bg-[#4A3728] text-white">
+                          {role.name}
+                        </Badge>
+                      ) : null;
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -524,8 +612,9 @@ const EmployeeDatabase = () => {
             </Button>
             <Button
               onClick={handleOnboard}
-              disabled={saving || !onboardForm.department_id || !onboardForm.custom_role_id}
+              disabled={saving || !onboardForm.department_id || onboardForm.custom_role_ids.length === 0}
               className="bg-[#4A3728] hover:bg-[#5D4A3A] text-white"
+              data-testid="complete-onboarding-btn"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <UserPlus className="h-4 w-4 mr-2" />}
               Complete Onboarding

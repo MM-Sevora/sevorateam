@@ -201,6 +201,7 @@ async def onboard_user(
     Onboard a draft user - Updates the User record with organizational data.
     In the current architecture, User record serves both auth and HR purposes.
     This updates the user's organizational fields to complete their profile.
+    Supports multi-role assignment for access control.
     """
     db = get_db()
     
@@ -210,16 +211,27 @@ async def onboard_user(
         raise HTTPException(status_code=404, detail="User not found")
     
     # Check if already onboarded (has department and custom_role assigned)
-    if user.get("custom_role_id") and user.get("department_id"):
+    existing_roles = user.get("custom_role_ids", [])
+    if not existing_roles:
+        # Check legacy field
+        existing_roles = [user.get("custom_role_id")] if user.get("custom_role_id") else []
+    
+    if existing_roles and user.get("department_id"):
         raise HTTPException(
             status_code=400, 
             detail="User is already onboarded. Use employee update endpoints instead."
         )
     
-    # 2. Validate custom role exists
-    custom_role = await db.custom_roles.find_one({"id": data.custom_role_id})
-    if not custom_role:
-        raise HTTPException(status_code=400, detail="Invalid custom role ID")
+    # 2. Validate custom roles exist (multi-role support)
+    if not data.custom_role_ids or len(data.custom_role_ids) == 0:
+        raise HTTPException(status_code=400, detail="At least one access role is required")
+    
+    validated_roles = []
+    for role_id in data.custom_role_ids:
+        custom_role = await db.custom_roles.find_one({"id": role_id})
+        if not custom_role:
+            raise HTTPException(status_code=400, detail=f"Invalid custom role ID: {role_id}")
+        validated_roles.append(custom_role)
     
     # 3. Validate department exists
     department = await db.departments.find_one({"id": data.department_id})
@@ -266,7 +278,22 @@ async def onboard_user(
         else:
             employee_code = "EMP-0001"
     
-    # 6. Update User record with organizational data
+    # 6. Merge module access from all assigned roles
+    merged_module_access = set()
+    can_manage_users = False
+    can_manage_employees = False
+    can_manage_roles = False
+    
+    for role in validated_roles:
+        merged_module_access.update(role.get("module_access", []))
+        if role.get("can_manage_users"):
+            can_manage_users = True
+        if role.get("can_manage_employees"):
+            can_manage_employees = True
+        if role.get("can_manage_roles"):
+            can_manage_roles = True
+    
+    # 7. Update User record with organizational data
     now = datetime.now(timezone.utc).isoformat()
     
     update_data = {
@@ -285,8 +312,13 @@ async def onboard_user(
         "work_mode": data.work_mode,
         "joining_date": data.joining_date or now.split("T")[0],
         
-        # Access Control
-        "custom_role_id": data.custom_role_id,
+        # Access Control - Multi-role support
+        "custom_role_ids": data.custom_role_ids,
+        "custom_role_id": data.custom_role_ids[0] if data.custom_role_ids else None,  # Legacy field - use first role
+        "merged_module_access": list(merged_module_access),
+        "can_manage_users": can_manage_users,
+        "can_manage_employees": can_manage_employees,
+        "can_manage_roles": can_manage_roles,
         
         # Status
         "status": UserStatus.ONBOARDED.value,
@@ -306,12 +338,14 @@ async def onboard_user(
     
     await db.users.update_one({"id": user_id}, {"$set": update_data})
     
+    role_names = ", ".join([r.get("name", "") for r in validated_roles])
+    
     return OnboardingResponse(
         user_id=user_id,
         employee_id=user_id,  # In current architecture, user_id is the employee reference
         employee_code=employee_code,
         status="success",
-        message=f"User successfully onboarded as {employee_code}"
+        message=f"User successfully onboarded as {employee_code} with roles: {role_names}"
     )
 
 
@@ -455,7 +489,7 @@ async def check_module_access(
 
 @access_control_router.get("/my-access")
 async def get_my_access(user: dict = Depends(get_current_user_dep())):
-    """Get complete access profile for current user"""
+    """Get complete access profile for current user (supports multi-role)"""
     db = get_db()
     
     user_id = user.get("id")
@@ -468,15 +502,20 @@ async def get_my_access(user: dict = Depends(get_current_user_dep())):
             "user_id": user_id,
             "is_onboarded": False,
             "employee_id": None,
-            "custom_role": None,
+            "custom_roles": [],
             "module_access": ["dashboard", "help_support"],
             "can_manage_users": False,
             "can_manage_employees": False,
             "can_manage_roles": False
         }
     
-    # Check if user is onboarded (has custom_role_id and department_id)
-    is_onboarded = bool(full_user.get("custom_role_id") and full_user.get("department_id"))
+    # Check if user is onboarded (has custom_role_ids and department_id)
+    custom_role_ids = full_user.get("custom_role_ids", [])
+    if not custom_role_ids and full_user.get("custom_role_id"):
+        # Legacy single role support
+        custom_role_ids = [full_user.get("custom_role_id")]
+    
+    is_onboarded = bool(custom_role_ids and full_user.get("department_id"))
     
     # Legacy super_admin check
     if full_user.get("role") == "super_admin":
@@ -487,10 +526,11 @@ async def get_my_access(user: dict = Depends(get_current_user_dep())):
             "employee_code": full_user.get("employee_id"),
             "department_id": full_user.get("department_id"),
             "department_name": None,
-            "custom_role": {
+            "custom_roles": [{
+                "id": None,
                 "name": "Super Admin (Legacy)",
                 "code": "super_admin"
-            },
+            }],
             "module_access": list(MODULE_DEFINITIONS.keys()),
             "can_manage_users": True,
             "can_manage_employees": True,
@@ -504,7 +544,7 @@ async def get_my_access(user: dict = Depends(get_current_user_dep())):
             "user_id": user_id,
             "is_onboarded": False,
             "employee_id": None,
-            "custom_role": None,
+            "custom_roles": [],
             "module_access": ["dashboard", "help_support"],
             "can_manage_users": full_user.get("role") in ["admin"],
             "can_manage_employees": full_user.get("role") in ["admin"],
@@ -512,23 +552,28 @@ async def get_my_access(user: dict = Depends(get_current_user_dep())):
             "legacy_role": full_user.get("role")
         }
     
-    # Get custom role
-    custom_role = None
-    module_access = ["dashboard", "help_support"]
+    # Get custom roles (multi-role support)
+    custom_roles = []
+    module_access = set(["dashboard", "help_support"])
     can_manage_users = False
     can_manage_employees = False
     can_manage_roles = False
     
-    if full_user.get("custom_role_id"):
-        custom_role = await db.custom_roles.find_one(
-            {"id": full_user["custom_role_id"]}, 
-            {"_id": 0}
-        )
-        if custom_role:
-            module_access = custom_role.get("module_access", module_access)
-            can_manage_users = custom_role.get("can_manage_users", False)
-            can_manage_employees = custom_role.get("can_manage_employees", False)
-            can_manage_roles = custom_role.get("can_manage_roles", False)
+    for role_id in custom_role_ids:
+        role = await db.custom_roles.find_one({"id": role_id}, {"_id": 0})
+        if role:
+            custom_roles.append({
+                "id": role.get("id"),
+                "name": role.get("name"),
+                "code": role.get("code")
+            })
+            module_access.update(role.get("module_access", []))
+            if role.get("can_manage_users"):
+                can_manage_users = True
+            if role.get("can_manage_employees"):
+                can_manage_employees = True
+            if role.get("can_manage_roles"):
+                can_manage_roles = True
     
     # Enrich with department name
     dept_name = None
@@ -543,12 +588,8 @@ async def get_my_access(user: dict = Depends(get_current_user_dep())):
         "employee_code": full_user.get("employee_id"),
         "department_id": full_user.get("department_id"),
         "department_name": dept_name,
-        "custom_role": {
-            "id": custom_role.get("id") if custom_role else None,
-            "name": custom_role.get("name") if custom_role else None,
-            "code": custom_role.get("code") if custom_role else None
-        } if custom_role else None,
-        "module_access": module_access,
+        "custom_roles": custom_roles,
+        "module_access": list(module_access),
         "can_manage_users": can_manage_users,
         "can_manage_employees": can_manage_employees,
         "can_manage_roles": can_manage_roles,

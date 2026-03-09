@@ -445,6 +445,30 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - [x] Organization Management
 - [x] Org Chart
 
+### Phase 31: Multi-Role Access Support (COMPLETE - March 9, 2026)
+**Backend Changes:**
+- [x] Updated OnboardingData model: `custom_role_id` → `custom_role_ids: List[str]`
+- [x] Updated EmployeeWithAccess model: `custom_role_id` → `custom_role_ids: List[str]`
+- [x] Updated onboard endpoint to validate and store multiple roles
+- [x] Merged module access from all assigned roles
+- [x] Updated `/my-access` endpoint to return `custom_roles` array
+- [x] Backwards compatibility: still stores `custom_role_id` for legacy systems
+
+**Frontend Changes:**
+- [x] Replaced single Select with multi-select Popover in onboarding modal
+- [x] Checkbox-based role selection with role descriptions
+- [x] Selected roles displayed as badges with X remove buttons
+- [x] "Selected Roles:" section showing all chosen roles
+- [x] Validation: At least one role required
+- [x] z-index fix for Popover to display above Dialog
+
+**Data Storage:**
+- User record now contains:
+  - `custom_role_ids`: Array of role IDs (new)
+  - `custom_role_id`: First role ID (backwards compatible)
+  - `merged_module_access`: Combined module access from all roles
+  - `can_manage_users`, `can_manage_employees`, `can_manage_roles`: Merged from all roles
+
 ### Key API Endpoints
 - `GET /api/projects/manager-dashboard` - Aggregated dashboard data
 - `GET, POST /api/projects/modules` - CRUD for modules

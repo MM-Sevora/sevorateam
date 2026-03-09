@@ -229,8 +229,8 @@ class OnboardingData(BaseModel):
     work_mode: str = "office"
     joining_date: Optional[str] = None
     
-    # Access Control
-    custom_role_id: str  # Required - determines module access
+    # Access Control - Multi-role support
+    custom_role_ids: List[str] = []  # Required - determines module access (supports multiple roles)
     
     # Personal (optional during onboarding)
     phone: Optional[str] = None
@@ -296,9 +296,9 @@ class EmployeeWithAccess(BaseModel):
     status: str = "active"
     joining_date: Optional[str] = None
     
-    # Access Control
-    custom_role_id: Optional[str] = None
-    custom_role_name: Optional[str] = None
+    # Access Control - Multi-role support
+    custom_role_ids: List[str] = []
+    custom_role_names: List[str] = []
     module_access: List[str] = []
     can_manage_users: bool = False
     can_manage_employees: bool = False
