@@ -89,6 +89,16 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - [x] Priority color coding on calendar
 - [x] Overdue task indicators
 
+### Phase 10: Task Filtering/Search (COMPLETE - March 9, 2026)
+- [x] Filter bar in ProjectDetail page
+- [x] Search by task name
+- [x] Assignee dropdown filter
+- [x] Priority multi-select filter (popover with checkboxes)
+- [x] Due date filter (Overdue, Today, This Week, No Date)
+- [x] Filter count badge
+- [x] Clear filters button
+- [x] Filters persist across Kanban/Calendar views
+
 ---
 
 ## Pending Issues

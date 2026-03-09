@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Plus, Edit, Trash2, Users, Calendar, Flag, Clock,
   CheckCircle2, AlertTriangle, PlayCircle, Eye, MoreVertical,
   GripVertical, MessageSquare, ListTodo, RefreshCw, Settings,
-  User, Folder, AlertOctagon, LayoutGrid, CalendarDays
+  User, Folder, AlertOctagon, LayoutGrid, CalendarDays, Search,
+  Filter, X, ChevronDown
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -12,6 +13,7 @@ import { Badge } from '../../components/ui/badge';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
+import { Checkbox } from '../../components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -31,6 +33,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../../components/ui/popover";
 import { toast } from 'sonner';
 import TaskDetailModal from './TaskDetailModal';
 import TaskCalendarView from './TaskCalendarView';
@@ -349,6 +356,89 @@ const ProjectDetail = () => {
   const [draggedTask, setDraggedTask] = useState(null);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [viewMode, setViewMode] = useState('kanban'); // 'kanban' or 'calendar'
+  
+  // Filter state
+  const [filters, setFilters] = useState({
+    search: '',
+    assignee: 'all',
+    priorities: [],
+    dueDate: 'all' // 'all', 'overdue', 'today', 'this_week', 'no_date'
+  });
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Filter tasks
+  const filteredTasks = useMemo(() => {
+    return tasks.filter(task => {
+      // Search filter
+      if (filters.search && !task.name.toLowerCase().includes(filters.search.toLowerCase())) {
+        return false;
+      }
+      
+      // Assignee filter
+      if (filters.assignee !== 'all' && task.assigned_to !== filters.assignee) {
+        if (filters.assignee === 'unassigned' && task.assigned_to) return false;
+        if (filters.assignee !== 'unassigned' && task.assigned_to !== filters.assignee) return false;
+      }
+      
+      // Priority filter
+      if (filters.priorities.length > 0 && !filters.priorities.includes(task.priority)) {
+        return false;
+      }
+      
+      // Due date filter
+      if (filters.dueDate !== 'all') {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const taskDate = task.due_date ? new Date(task.due_date) : null;
+        
+        if (filters.dueDate === 'no_date' && taskDate) return false;
+        if (filters.dueDate === 'overdue') {
+          if (!taskDate || taskDate >= today || ['completed', 'approved'].includes(task.status)) return false;
+        }
+        if (filters.dueDate === 'today') {
+          if (!taskDate) return false;
+          const tomorrow = new Date(today);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          if (taskDate < today || taskDate >= tomorrow) return false;
+        }
+        if (filters.dueDate === 'this_week') {
+          if (!taskDate) return false;
+          const weekEnd = new Date(today);
+          weekEnd.setDate(weekEnd.getDate() + 7);
+          if (taskDate < today || taskDate >= weekEnd) return false;
+        }
+      }
+      
+      return true;
+    });
+  }, [tasks, filters]);
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.search) count++;
+    if (filters.assignee !== 'all') count++;
+    if (filters.priorities.length > 0) count++;
+    if (filters.dueDate !== 'all') count++;
+    return count;
+  }, [filters]);
+
+  const clearFilters = () => {
+    setFilters({
+      search: '',
+      assignee: 'all',
+      priorities: [],
+      dueDate: 'all'
+    });
+  };
+
+  const togglePriority = (priority) => {
+    setFilters(prev => ({
+      ...prev,
+      priorities: prev.priorities.includes(priority)
+        ? prev.priorities.filter(p => p !== priority)
+        : [...prev.priorities, priority]
+    }));
+  };
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -565,7 +655,7 @@ const ProjectDetail = () => {
 
       {/* Task Board - Kanban or Calendar */}
       <Card className="bg-[#FDF8F3] border-[#E8D5C4]">
-        <CardHeader className="border-b border-[#E8D5C4] bg-white/50">
+        <CardHeader className="border-b border-[#E8D5C4] bg-white/50 space-y-4">
           <div className="flex items-center justify-between">
             <CardTitle className="text-[#4A3728] flex items-center gap-2">
               {viewMode === 'kanban' ? (
@@ -574,6 +664,11 @@ const ProjectDetail = () => {
                 <CalendarDays className="w-5 h-5 text-rose-600" />
               )}
               {viewMode === 'kanban' ? 'Task Board' : 'Calendar View'}
+              {activeFilterCount > 0 && (
+                <Badge className="bg-rose-100 text-rose-700 ml-2">
+                  {filteredTasks.length} of {tasks.length}
+                </Badge>
+              )}
             </CardTitle>
             <div className="flex items-center gap-2 bg-[#F5EBE0] rounded-lg p-1">
               <Button
@@ -602,6 +697,116 @@ const ProjectDetail = () => {
               </Button>
             </div>
           </div>
+
+          {/* Filter Bar */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Search */}
+            <div className="relative flex-1 min-w-[200px] max-w-[300px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9C8C74]" />
+              <Input
+                value={filters.search}
+                onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                placeholder="Search tasks..."
+                className="pl-9 border-[#D4BBA6] bg-white focus:border-rose-500 h-9"
+                data-testid="task-search-input"
+              />
+              {filters.search && (
+                <button
+                  onClick={() => setFilters(prev => ({ ...prev, search: '' }))}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9C8C74] hover:text-[#4A3728]"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Assignee Filter */}
+            <Select
+              value={filters.assignee}
+              onValueChange={(value) => setFilters(prev => ({ ...prev, assignee: value }))}
+            >
+              <SelectTrigger className="w-[160px] border-[#D4BBA6] bg-white h-9">
+                <User className="w-4 h-4 mr-2 text-[#6B5D52]" />
+                <SelectValue placeholder="Assignee" />
+              </SelectTrigger>
+              <SelectContent className="bg-white border-[#D4BBA6]">
+                <SelectItem value="all">All Members</SelectItem>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
+                {users.map(user => (
+                  <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Priority Filter */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`border-[#D4BBA6] bg-white h-9 ${filters.priorities.length > 0 ? 'border-rose-400 bg-rose-50' : ''}`}
+                >
+                  <Flag className="w-4 h-4 mr-2 text-[#6B5D52]" />
+                  Priority
+                  {filters.priorities.length > 0 && (
+                    <Badge className="ml-2 bg-rose-500 text-white text-xs px-1.5">{filters.priorities.length}</Badge>
+                  )}
+                  <ChevronDown className="w-4 h-4 ml-2 text-[#6B5D52]" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-48 p-3 bg-white border-[#D4BBA6]" align="start">
+                <div className="space-y-2">
+                  {Object.entries(priorityConfig).map(([key, config]) => (
+                    <label key={key} className="flex items-center gap-2 cursor-pointer hover:bg-[#F5EBE0] p-1.5 rounded">
+                      <Checkbox
+                        checked={filters.priorities.includes(key)}
+                        onCheckedChange={() => togglePriority(key)}
+                        className="border-[#D4BBA6]"
+                      />
+                      <div className={`w-2 h-2 rounded-full ${config.dotColor}`} />
+                      <span className="text-sm text-[#4A3728]">{config.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            {/* Due Date Filter */}
+            <Select
+              value={filters.dueDate}
+              onValueChange={(value) => setFilters(prev => ({ ...prev, dueDate: value }))}
+            >
+              <SelectTrigger className={`w-[140px] border-[#D4BBA6] bg-white h-9 ${filters.dueDate !== 'all' ? 'border-rose-400 bg-rose-50' : ''}`}>
+                <Calendar className="w-4 h-4 mr-2 text-[#6B5D52]" />
+                <SelectValue placeholder="Due Date" />
+              </SelectTrigger>
+              <SelectContent className="bg-white border-[#D4BBA6]">
+                <SelectItem value="all">All Dates</SelectItem>
+                <SelectItem value="overdue">
+                  <span className="flex items-center gap-2">
+                    <AlertTriangle className="w-3 h-3 text-red-500" />
+                    Overdue
+                  </span>
+                </SelectItem>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="this_week">This Week</SelectItem>
+                <SelectItem value="no_date">No Due Date</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Clear Filters */}
+            {activeFilterCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="text-[#6B5D52] hover:text-rose-600 hover:bg-rose-50 h-9"
+              >
+                <X className="w-4 h-4 mr-1" />
+                Clear ({activeFilterCount})
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="p-6">
           {viewMode === 'kanban' ? (
@@ -610,7 +815,7 @@ const ProjectDetail = () => {
                 <KanbanColumn
                   key={column.id}
                   column={column}
-                  tasks={tasks}
+                  tasks={filteredTasks}
                   onDrop={handleDrop}
                   onDragOver={handleDragOver}
                   onStatusChange={() => {}}
@@ -623,7 +828,7 @@ const ProjectDetail = () => {
             </div>
           ) : (
             <TaskCalendarView
-              tasks={tasks}
+              tasks={filteredTasks}
               onTaskClick={(task) => setSelectedTaskId(task.id)}
             />
           )}
