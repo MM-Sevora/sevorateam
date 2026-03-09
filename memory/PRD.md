@@ -1181,6 +1181,38 @@ The Manager Dashboard was already functional with:
 - [x] 21/21 backend tests passed (100%)
 - [x] All frontend features verified via Playwright
 
+### Phase 48d: Meeting & Review Management System - Phase 3 Enhancements (COMPLETE - December 2025)
+**Recurring Meetings Feature:**
+- [x] Backend: `create_next_recurring_meeting()` helper function in routes/meetings.py
+- [x] Backend: Enhanced `POST /api/meetings/{id}/complete` - Auto-creates next occurrence for recurring meetings
+- [x] Backend: Returns `next_recurring_meeting_id` in response when recurring
+- [x] Backend: Supports daily, weekly, monthly, quarterly recurrence patterns
+- [x] Backend: Respects recurrence_end_date to stop auto-creation
+- [x] Backend: Next occurrence inherits agenda, participants, linked items
+- [x] Frontend: Recurring badge in meeting detail header (blue with RefreshCw icon)
+
+**Enhanced Meeting Minutes:**
+- [x] Backend: Auto-generate minutes now includes decisions from Decision Log
+- [x] Backend: Auto-generate minutes includes open issues/risks in next_steps section
+- [x] Backend: Better formatting with meeting type in summary
+
+**Enhanced Previous Meeting Context:**
+- [x] Backend: PreviousMeetingContext model updated with key_decisions (List[Decision])
+- [x] Backend: PreviousMeetingContext model updated with open_issues_risks (List[IssueRisk])
+- [x] Frontend: "Key Decisions from Previous Meeting" section in Previous Context tab (purple styling)
+- [x] Frontend: "Open Issues/Risks Carried Forward" section in Previous Context tab (amber styling)
+
+**Testing:**
+- [x] 9/9 backend tests passed (100%)
+- [x] All frontend features verified via Playwright
+
+### P1 - Microsoft Calendar Sync (PENDING)
+- [ ] Azure AD application registration and configuration
+- [ ] OAuth 2.0 authorization code flow implementation
+- [ ] Token management with refresh token handling
+- [ ] Create/Update/Delete calendar events via Graph API
+- [ ] Sync attendees to Outlook calendar invites
+
 ### P3 - Backlog
 - [ ] Gantt Chart View for projects
 - [ ] Slack/WhatsApp integration
