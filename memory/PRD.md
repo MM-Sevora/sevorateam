@@ -99,6 +99,21 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - [x] Clear filters button
 - [x] Filters persist across Kanban/Calendar views
 
+### Phase 11: Bulk Task Operations (COMPLETE - March 9, 2026)
+- [x] Selection checkboxes on task cards
+- [x] Column "select all" checkbox
+- [x] Bulk Action Bar (Move to, Priority, Assign, Delete)
+- [x] Selection count badge
+- [x] Clear selection / Cancel button
+- [x] API calls for bulk updates
+
+### Phase 12: TaskDetailModal UI Enhancement (COMPLETE - March 9, 2026)
+- [x] Wider modal (max-w-4xl)
+- [x] Cream/beige background matching design system
+- [x] Horizontal Quick Info Bar (Status, Priority, Assignee, Due Date)
+- [x] Cleaner tab layout with rounded active states
+- [x] Better visual hierarchy
+
 ---
 
 ## Pending Issues

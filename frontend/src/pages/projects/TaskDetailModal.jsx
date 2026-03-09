@@ -3,7 +3,7 @@ import {
   X, Calendar, User, Flag, Clock, CheckCircle2, Circle, Plus,
   MessageSquare, Trash2, Edit, Save, ListTodo, Timer, ChevronDown,
   AlertTriangle, Link2, Unlink, Paperclip, Upload, FileText, Image,
-  File, Download
+  File, Download, Folder
 } from 'lucide-react';
 
 // Animation styles
@@ -1146,67 +1146,71 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
     <Dialog open={open} onOpenChange={onClose}>
       {/* Inject animation styles */}
       <style>{animationStyles}</style>
-      <DialogContent className="bg-white border-[#D4BBA6] max-w-2xl max-h-[90vh] overflow-hidden flex flex-col modal-animate">
+      <DialogContent className="bg-[#FDF8F3] border-[#D4BBA6] max-w-4xl max-h-[90vh] overflow-hidden flex flex-col modal-animate p-0">
         {loading ? (
-          <div className="animate-pulse space-y-4 p-4">
+          <div className="animate-pulse space-y-4 p-6">
             <div className="h-8 bg-[#E8D5C4] rounded w-3/4"></div>
             <div className="h-4 bg-[#E8D5C4] rounded w-1/2"></div>
             <div className="h-32 bg-[#E8D5C4] rounded"></div>
           </div>
         ) : task ? (
-          <>
-            <DialogHeader className="border-b border-[#E8D5C4] pb-4">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
+          <div className="flex flex-col h-full">
+            {/* Header */}
+            <div className="bg-white border-b border-[#E8D5C4] p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
                   {editing ? (
                     <Input
                       value={editData.name}
                       onChange={(e) => setEditData({ ...editData, name: e.target.value })}
-                      className="border-[#D4BBA6] text-lg font-semibold text-[#4A3728] transition-all duration-200 focus:shadow-md"
+                      className="border-[#D4BBA6] text-xl font-semibold text-[#4A3728] bg-[#FDF8F3]"
                       data-testid="task-name-edit"
                     />
                   ) : (
-                    <DialogTitle className="text-[#4A3728] text-xl">{task.name}</DialogTitle>
+                    <h2 className="text-xl font-bold text-[#4A3728] truncate">{task.name}</h2>
                   )}
                   <div className="flex items-center gap-2 mt-2 text-sm text-[#6B5D52]">
+                    <Folder className="w-4 h-4" />
                     <span>{task.project_name}</span>
                     {task.module_name && (
                       <>
-                        <span>•</span>
+                        <span className="text-[#D4BBA6]">•</span>
                         <span>{task.module_name}</span>
                       </>
                     )}
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-shrink-0">
                   {editing ? (
                     <>
                       <Button onClick={saveTask} disabled={saving} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white btn-hover">
                         <Save className="w-4 h-4 mr-1" />
                         {saving ? 'Saving...' : 'Save'}
                       </Button>
-                      <Button onClick={() => setEditing(false)} variant="outline" size="sm" className="border-[#D4BBA6] text-[#4A3728] transition-all duration-200 hover:bg-[#F5EBE0]">
+                      <Button onClick={() => setEditing(false)} variant="outline" size="sm" className="border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0]">
                         Cancel
                       </Button>
                     </>
                   ) : (
-                    <Button onClick={() => setEditing(true)} variant="outline" size="sm" className="border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0] transition-all duration-200 hover:shadow-md">
+                    <Button onClick={() => setEditing(true)} variant="outline" size="sm" className="border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0]">
                       <Edit className="w-4 h-4 mr-1" />
                       Edit
                     </Button>
                   )}
                 </div>
               </div>
-            </DialogHeader>
+            </div>
 
-            <div className="flex-1 overflow-y-auto">
-              {/* Task Info Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 border-b border-[#E8D5C4]">
-                <div className="transition-all duration-200 hover:bg-[#FDF8F3] rounded-lg p-1 -m-1">
-                  <Label className="text-[#6B5D52] text-xs">Status</Label>
+            {/* Two Column Layout */}
+            <div className="flex-1 flex overflow-hidden">
+              {/* Main Content */}
+              <div className="flex-1 overflow-y-auto">
+                {/* Quick Info Bar */}
+                <div className="flex flex-wrap items-center gap-3 p-4 bg-white border-b border-[#E8D5C4]">
+                  {/* Status */}
                   {editing ? (
                     <Select value={editData.status} onValueChange={(v) => setEditData({ ...editData, status: v })}>
-                      <SelectTrigger className="border-[#D4BBA6] mt-1 h-9 transition-all duration-200 focus:shadow-md">
+                      <SelectTrigger className="w-[130px] border-[#D4BBA6] bg-[#FDF8F3] h-8">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-white border-[#D4BBA6]">
@@ -1216,17 +1220,16 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
                       </SelectContent>
                     </Select>
                   ) : (
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-[#F5EBE0] rounded-full">
                       <div className={`w-2 h-2 rounded-full ${statusConfig[task.status]?.color}`}></div>
-                      <span className="text-[#4A3728] text-sm">{statusConfig[task.status]?.label}</span>
+                      <span className="text-sm font-medium text-[#4A3728]">{statusConfig[task.status]?.label}</span>
                     </div>
                   )}
-                </div>
-                <div className="transition-all duration-200 hover:bg-[#FDF8F3] rounded-lg p-1 -m-1">
-                  <Label className="text-[#6B5D52] text-xs">Priority</Label>
+
+                  {/* Priority */}
                   {editing ? (
                     <Select value={editData.priority} onValueChange={(v) => setEditData({ ...editData, priority: v })}>
-                      <SelectTrigger className="border-[#D4BBA6] mt-1 h-9 transition-all duration-200 focus:shadow-md">
+                      <SelectTrigger className="w-[120px] border-[#D4BBA6] bg-[#FDF8F3] h-8">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-white border-[#D4BBA6]">
@@ -1236,17 +1239,19 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
                       </SelectContent>
                     </Select>
                   ) : (
-                    <Badge variant="outline" className={`mt-1 ${priorityConfig[task.priority]?.color} transition-all duration-200 hover:scale-105`}>
+                    <Badge variant="outline" className={`${priorityConfig[task.priority]?.color}`}>
                       <Flag className="w-3 h-3 mr-1" />
                       {task.priority}
                     </Badge>
                   )}
-                </div>
-                <div className="transition-all duration-200 hover:bg-[#FDF8F3] rounded-lg p-1 -m-1">
-                  <Label className="text-[#6B5D52] text-xs">Assignee</Label>
+
+                  <div className="h-5 w-px bg-[#E8D5C4]" />
+
+                  {/* Assignee */}
                   {editing ? (
                     <Select value={editData.assigned_to || 'unassigned'} onValueChange={(v) => setEditData({ ...editData, assigned_to: v === 'unassigned' ? '' : v })}>
-                      <SelectTrigger className="border-[#D4BBA6] mt-1 h-9 transition-all duration-200 focus:shadow-md">
+                      <SelectTrigger className="w-[150px] border-[#D4BBA6] bg-[#FDF8F3] h-8">
+                        <User className="w-3 h-3 mr-1 text-[#6B5D52]" />
                         <SelectValue placeholder="Unassigned" />
                       </SelectTrigger>
                       <SelectContent className="bg-white border-[#D4BBA6]">
@@ -1257,107 +1262,103 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
                       </SelectContent>
                     </Select>
                   ) : (
-                    <div className="flex items-center gap-2 mt-1">
-                      <User className="w-4 h-4 text-[#6B5D52]" />
-                      <span className="text-[#4A3728] text-sm">{task.assigned_to_name || 'Unassigned'}</span>
+                    <div className="flex items-center gap-2 text-sm text-[#6B5D52]">
+                      <User className="w-4 h-4" />
+                      <span>{task.assigned_to_name || 'Unassigned'}</span>
                     </div>
                   )}
-                </div>
-                <div className="transition-all duration-200 hover:bg-[#FDF8F3] rounded-lg p-1 -m-1">
-                  <Label className="text-[#6B5D52] text-xs">Due Date</Label>
+
+                  <div className="h-5 w-px bg-[#E8D5C4]" />
+
+                  {/* Due Date */}
                   {editing ? (
                     <Input
                       type="date"
                       value={editData.due_date}
                       onChange={(e) => setEditData({ ...editData, due_date: e.target.value })}
-                      className="border-[#D4BBA6] mt-1 h-9 transition-all duration-200 focus:shadow-md"
+                      className="w-[140px] border-[#D4BBA6] bg-[#FDF8F3] h-8"
                     />
                   ) : (
-                    <div className="flex items-center gap-2 mt-1">
-                      <Calendar className="w-4 h-4 text-[#6B5D52]" />
-                      <span className="text-[#4A3728] text-sm">{formatDate(task.due_date)}</span>
+                    <div className="flex items-center gap-2 text-sm text-[#6B5D52]">
+                      <Calendar className="w-4 h-4" />
+                      <span>{formatDate(task.due_date)}</span>
                     </div>
                   )}
                 </div>
+
+                {/* Description */}
+                <div className="p-4 bg-white border-b border-[#E8D5C4]">
+                  <Label className="text-[#6B5D52] text-xs font-medium mb-2 block">Description</Label>
+                  {editing ? (
+                    <Textarea
+                      value={editData.description}
+                      onChange={(e) => setEditData({ ...editData, description: e.target.value })}
+                      className="border-[#D4BBA6] bg-[#FDF8F3]"
+                      rows={3}
+                      placeholder="Add a description..."
+                    />
+                  ) : (
+                    <p className="text-[#6B5D52] text-sm whitespace-pre-wrap min-h-[40px]">
+                      {task.description || <span className="text-[#9C8C74] italic">No description</span>}
+                    </p>
+                  )}
+                </div>
+
+                {/* Tabs Section */}
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="p-4">
+                  <TabsList className="bg-white border border-[#E8D5C4] mb-4 p-1 h-auto flex-wrap gap-1">
+                    <TabsTrigger value="subtasks" className="data-[state=active]:bg-[#F5EBE0] data-[state=active]:text-[#4A3728] text-[#6B5D52] rounded-md px-3 py-1.5 text-sm">
+                      <ListTodo className="w-4 h-4 mr-1.5" />
+                      Subtasks
+                      {task.subtask_count > 0 && <Badge className="ml-1.5 bg-[#E8D5C4] text-[#4A3728] text-xs px-1.5">{task.subtask_count}</Badge>}
+                    </TabsTrigger>
+                    <TabsTrigger value="checklists" className="data-[state=active]:bg-[#F5EBE0] data-[state=active]:text-[#4A3728] text-[#6B5D52] rounded-md px-3 py-1.5 text-sm">
+                      <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                      Checklist
+                      {task.checklist_count > 0 && <Badge className="ml-1.5 bg-[#E8D5C4] text-[#4A3728] text-xs px-1.5">{task.checklist_completed}/{task.checklist_count}</Badge>}
+                    </TabsTrigger>
+                    <TabsTrigger value="comments" className="data-[state=active]:bg-[#F5EBE0] data-[state=active]:text-[#4A3728] text-[#6B5D52] rounded-md px-3 py-1.5 text-sm">
+                      <MessageSquare className="w-4 h-4 mr-1.5" />
+                      Comments
+                      {task.comment_count > 0 && <Badge className="ml-1.5 bg-[#E8D5C4] text-[#4A3728] text-xs px-1.5">{task.comment_count}</Badge>}
+                    </TabsTrigger>
+                    <TabsTrigger value="dependencies" className="data-[state=active]:bg-[#F5EBE0] data-[state=active]:text-[#4A3728] text-[#6B5D52] rounded-md px-3 py-1.5 text-sm">
+                      <Link2 className="w-4 h-4 mr-1.5" />
+                      Dependencies
+                    </TabsTrigger>
+                    <TabsTrigger value="time" className="data-[state=active]:bg-[#F5EBE0] data-[state=active]:text-[#4A3728] text-[#6B5D52] rounded-md px-3 py-1.5 text-sm">
+                      <Timer className="w-4 h-4 mr-1.5" />
+                      Time
+                    </TabsTrigger>
+                    <TabsTrigger value="attachments" className="data-[state=active]:bg-[#F5EBE0] data-[state=active]:text-[#4A3728] text-[#6B5D52] rounded-md px-3 py-1.5 text-sm">
+                      <Paperclip className="w-4 h-4 mr-1.5" />
+                      Files
+                      {task.attachment_count > 0 && <Badge className="ml-1.5 bg-[#E8D5C4] text-[#4A3728] text-xs px-1.5">{task.attachment_count}</Badge>}
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="subtasks" className="tab-content-animate mt-0">
+                    <SubtasksSection taskId={taskId} token={token} />
+                  </TabsContent>
+                  <TabsContent value="checklists" className="tab-content-animate mt-0">
+                    <ChecklistsSection taskId={taskId} token={token} />
+                  </TabsContent>
+                  <TabsContent value="comments" className="tab-content-animate mt-0">
+                    <CommentsSection taskId={taskId} token={token} />
+                  </TabsContent>
+                  <TabsContent value="dependencies" className="tab-content-animate mt-0">
+                    <DependenciesSection task={task} projectId={task.project_id} token={token} onUpdate={fetchTask} />
+                  </TabsContent>
+                  <TabsContent value="time" className="tab-content-animate mt-0">
+                    <TimeLogsSection taskId={taskId} task={task} token={token} onUpdate={fetchTask} />
+                  </TabsContent>
+                  <TabsContent value="attachments" className="tab-content-animate mt-0">
+                    <AttachmentsSection taskId={taskId} token={token} />
+                  </TabsContent>
+                </Tabs>
               </div>
-
-              {/* Description */}
-              <div className="p-4 border-b border-[#E8D5C4]">
-                <Label className="text-[#6B5D52] text-xs mb-2 block">Description</Label>
-                {editing ? (
-                  <Textarea
-                    value={editData.description}
-                    onChange={(e) => setEditData({ ...editData, description: e.target.value })}
-                    className="border-[#D4BBA6] transition-all duration-200 focus:shadow-md"
-                    rows={3}
-                    placeholder="Add a description..."
-                  />
-                ) : (
-                  <p className="text-[#6B5D52] text-sm whitespace-pre-wrap">
-                    {task.description || <span className="text-[#9C8C74]">No description</span>}
-                  </p>
-                )}
-              </div>
-
-              {/* Tabs for Subtasks, Checklists, Comments, Time */}
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="p-4">
-                <TabsList className="bg-[#F5EBE0] border border-[#E8D5C4] mb-4 flex-wrap">
-                  <TabsTrigger value="subtasks" className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728] text-[#6B5D52] tab-trigger-hover">
-                    <ListTodo className="w-4 h-4 mr-1" />
-                    Subtasks
-                    {task.subtask_count > 0 && <Badge variant="secondary" className="ml-1 bg-[#E8D5C4] text-[#4A3728]">{task.subtask_count}</Badge>}
-                  </TabsTrigger>
-                  <TabsTrigger value="checklists" className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728] text-[#6B5D52] tab-trigger-hover">
-                    <CheckCircle2 className="w-4 h-4 mr-1" />
-                    Checklist
-                    {task.checklist_count > 0 && <Badge variant="secondary" className="ml-1 bg-[#E8D5C4] text-[#4A3728]">{task.checklist_completed}/{task.checklist_count}</Badge>}
-                  </TabsTrigger>
-                  <TabsTrigger value="comments" className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728] text-[#6B5D52] tab-trigger-hover">
-                    <MessageSquare className="w-4 h-4 mr-1" />
-                    Comments
-                    {task.comment_count > 0 && <Badge variant="secondary" className="ml-1 bg-[#E8D5C4] text-[#4A3728]">{task.comment_count}</Badge>}
-                  </TabsTrigger>
-                  <TabsTrigger value="dependencies" className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728] text-[#6B5D52] tab-trigger-hover">
-                    <Link2 className="w-4 h-4 mr-1" />
-                    Dependencies
-                    {((task.blocked_by?.length || 0) + (task.blocks?.length || 0)) > 0 && (
-                      <Badge variant="secondary" className="ml-1 bg-[#E8D5C4] text-[#4A3728]">
-                        {(task.blocked_by?.length || 0) + (task.blocks?.length || 0)}
-                      </Badge>
-                    )}
-                  </TabsTrigger>
-                  <TabsTrigger value="time" className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728] text-[#6B5D52] tab-trigger-hover">
-                    <Timer className="w-4 h-4 mr-1" />
-                    Time
-                  </TabsTrigger>
-                  <TabsTrigger value="attachments" className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728] text-[#6B5D52] tab-trigger-hover">
-                    <Paperclip className="w-4 h-4 mr-1" />
-                    Files
-                    {task.attachment_count > 0 && <Badge variant="secondary" className="ml-1 bg-[#E8D5C4] text-[#4A3728]">{task.attachment_count}</Badge>}
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="subtasks" className="tab-content-animate">
-                  <SubtasksSection taskId={taskId} token={token} />
-                </TabsContent>
-                <TabsContent value="checklists" className="tab-content-animate">
-                  <ChecklistsSection taskId={taskId} token={token} />
-                </TabsContent>
-                <TabsContent value="comments" className="tab-content-animate">
-                  <CommentsSection taskId={taskId} token={token} />
-                </TabsContent>
-                <TabsContent value="dependencies" className="tab-content-animate">
-                  <DependenciesSection task={task} projectId={task.project_id} token={token} onUpdate={fetchTask} />
-                </TabsContent>
-                <TabsContent value="time" className="tab-content-animate">
-                  <TimeLogsSection taskId={taskId} task={task} token={token} onUpdate={fetchTask} />
-                </TabsContent>
-                <TabsContent value="attachments" className="tab-content-animate">
-                  <AttachmentsSection taskId={taskId} token={token} />
-                </TabsContent>
-              </Tabs>
             </div>
-          </>
+          </div>
         ) : (
           <div className="p-8 text-center text-[#9C8C74]">Task not found</div>
         )}

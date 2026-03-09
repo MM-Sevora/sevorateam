@@ -5,7 +5,7 @@ import {
   CheckCircle2, AlertTriangle, PlayCircle, Eye, MoreVertical,
   GripVertical, MessageSquare, ListTodo, RefreshCw, Settings,
   User, Folder, AlertOctagon, LayoutGrid, CalendarDays, Search,
-  Filter, X, ChevronDown
+  Filter, X, ChevronDown, CheckSquare, Square, Move
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -59,7 +59,7 @@ const statusColumns = [
   { id: 'completed', label: 'Completed', color: 'border-t-emerald-500', bgColor: 'bg-emerald-50/30' }
 ];
 
-const TaskCard = ({ task, onStatusChange, onEdit, onDelete, onDragStart, onClick }) => {
+const TaskCard = ({ task, onStatusChange, onEdit, onDelete, onDragStart, onClick, isSelected, onSelect, selectionMode }) => {
   const formatDate = (dateStr) => {
     if (!dateStr) return null;
     const date = new Date(dateStr);
@@ -70,28 +70,45 @@ const TaskCard = ({ task, onStatusChange, onEdit, onDelete, onDragStart, onClick
     !['completed', 'approved'].includes(task.status);
 
   const handleClick = (e) => {
-    if (e.target.closest('[role="menu"]') || e.target.closest('button')) return;
+    if (e.target.closest('[role="menu"]') || e.target.closest('button') || e.target.closest('[data-checkbox]')) return;
     onClick?.(task);
+  };
+
+  const handleCheckboxClick = (e) => {
+    e.stopPropagation();
+    onSelect?.(task.id);
   };
 
   return (
     <div
-      draggable={!task.is_blocked}
+      draggable={!task.is_blocked && !selectionMode}
       onDragStart={(e) => {
-        if (task.is_blocked) {
+        if (task.is_blocked || selectionMode) {
           e.preventDefault();
           return;
         }
         onDragStart(e, task);
       }}
       onClick={handleClick}
-      className={`bg-white p-4 rounded-lg border border-[#E8D5C4]/50 shadow-sm hover:shadow-md transition-all group cursor-pointer border-l-4 ${priorityConfig[task.priority]?.borderColor} ${
+      className={`bg-white p-4 rounded-lg border shadow-sm hover:shadow-md transition-all group cursor-pointer border-l-4 ${priorityConfig[task.priority]?.borderColor} ${
         task.is_blocked ? 'ring-2 ring-rose-400 ring-offset-1 bg-rose-50/50' : ''
-      }`}
+      } ${isSelected ? 'ring-2 ring-rose-500 bg-rose-50/30 border-[#E8D5C4]' : 'border-[#E8D5C4]/50'}`}
       data-testid={`kanban-task-${task.id}`}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-2">
+          {/* Selection Checkbox */}
+          <div 
+            data-checkbox
+            onClick={handleCheckboxClick}
+            className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer transition-all ${
+              isSelected 
+                ? 'bg-rose-500 border-rose-500' 
+                : 'border-[#D4BBA6] hover:border-rose-400 bg-white'
+            } ${selectionMode ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+          >
+            {isSelected && <CheckCircle2 className="w-3 h-3 text-white" />}
+          </div>
           {task.is_blocked && (
             <div className="w-5 h-5 rounded bg-rose-100 flex items-center justify-center" title="Blocked by dependencies">
               <AlertOctagon className="w-3 h-3 text-rose-600" />
@@ -150,8 +167,10 @@ const TaskCard = ({ task, onStatusChange, onEdit, onDelete, onDragStart, onClick
   );
 };
 
-const KanbanColumn = ({ column, tasks, onDrop, onDragOver, onStatusChange, onEditTask, onDeleteTask, onDragStart, onTaskClick }) => {
+const KanbanColumn = ({ column, tasks, onDrop, onDragOver, onStatusChange, onEditTask, onDeleteTask, onDragStart, onTaskClick, selectedTasks, onSelectTask, selectionMode, onSelectAllInColumn }) => {
   const columnTasks = tasks.filter(t => t.status === column.id);
+  const allSelected = columnTasks.length > 0 && columnTasks.every(t => selectedTasks.includes(t.id));
+  const someSelected = columnTasks.some(t => selectedTasks.includes(t.id));
   
   return (
     <div
@@ -161,7 +180,22 @@ const KanbanColumn = ({ column, tasks, onDrop, onDragOver, onStatusChange, onEdi
       data-testid={`kanban-column-${column.id}`}
     >
       <div className="flex items-center justify-between mb-4 px-1">
-        <h3 className="font-bold text-[#4A3728] text-base flex items-center gap-2">{column.label}</h3>
+        <div className="flex items-center gap-2">
+          {/* Select All Checkbox for Column */}
+          <div 
+            onClick={() => onSelectAllInColumn(column.id, columnTasks.map(t => t.id))}
+            className={`w-4 h-4 rounded border-2 flex items-center justify-center cursor-pointer transition-all ${
+              allSelected 
+                ? 'bg-rose-500 border-rose-500' 
+                : someSelected 
+                  ? 'bg-rose-200 border-rose-400' 
+                  : 'border-[#D4BBA6] hover:border-rose-400 bg-white'
+            } ${selectionMode ? 'opacity-100' : 'opacity-0 hover:opacity-100'}`}
+          >
+            {(allSelected || someSelected) && <CheckCircle2 className="w-2.5 h-2.5 text-white" />}
+          </div>
+          <h3 className="font-bold text-[#4A3728] text-base">{column.label}</h3>
+        </div>
         <span className="bg-[#4A3728]/10 text-[#4A3728] px-2 py-0.5 rounded-full text-xs font-bold">
           {columnTasks.length}
         </span>
@@ -176,6 +210,9 @@ const KanbanColumn = ({ column, tasks, onDrop, onDragOver, onStatusChange, onEdi
             onDelete={onDeleteTask}
             onDragStart={onDragStart}
             onClick={onTaskClick}
+            isSelected={selectedTasks.includes(task.id)}
+            onSelect={onSelectTask}
+            selectionMode={selectionMode}
           />
         ))}
         {columnTasks.length === 0 && (
@@ -438,6 +475,139 @@ const ProjectDetail = () => {
         ? prev.priorities.filter(p => p !== priority)
         : [...prev.priorities, priority]
     }));
+  };
+
+  // Bulk selection state
+  const [selectedTasks, setSelectedTasks] = useState([]);
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+
+  const selectionMode = selectedTasks.length > 0;
+
+  const toggleTaskSelection = (taskId) => {
+    setSelectedTasks(prev => 
+      prev.includes(taskId) 
+        ? prev.filter(id => id !== taskId)
+        : [...prev, taskId]
+    );
+  };
+
+  const selectAllInColumn = (columnId, taskIds) => {
+    const columnTaskIds = taskIds;
+    const allSelected = columnTaskIds.every(id => selectedTasks.includes(id));
+    
+    if (allSelected) {
+      // Deselect all in column
+      setSelectedTasks(prev => prev.filter(id => !columnTaskIds.includes(id)));
+    } else {
+      // Select all in column
+      setSelectedTasks(prev => [...new Set([...prev, ...columnTaskIds])]);
+    }
+  };
+
+  const selectAllTasks = () => {
+    if (selectedTasks.length === filteredTasks.length) {
+      setSelectedTasks([]);
+    } else {
+      setSelectedTasks(filteredTasks.map(t => t.id));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedTasks([]);
+  };
+
+  // Bulk actions
+  const bulkUpdateStatus = async (newStatus) => {
+    if (selectedTasks.length === 0) return;
+    setBulkActionLoading(true);
+    
+    try {
+      const token = localStorage.getItem('sevora_token');
+      await Promise.all(selectedTasks.map(taskId =>
+        fetch(`${API}/api/projects/tasks/${taskId}`, {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus })
+        })
+      ));
+      toast.success(`${selectedTasks.length} tasks moved to ${statusColumns.find(c => c.id === newStatus)?.label}`);
+      clearSelection();
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to update tasks');
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  const bulkUpdatePriority = async (newPriority) => {
+    if (selectedTasks.length === 0) return;
+    setBulkActionLoading(true);
+    
+    try {
+      const token = localStorage.getItem('sevora_token');
+      await Promise.all(selectedTasks.map(taskId =>
+        fetch(`${API}/api/projects/tasks/${taskId}`, {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ priority: newPriority })
+        })
+      ));
+      toast.success(`${selectedTasks.length} tasks updated to ${newPriority} priority`);
+      clearSelection();
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to update tasks');
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  const bulkAssign = async (userId) => {
+    if (selectedTasks.length === 0) return;
+    setBulkActionLoading(true);
+    
+    try {
+      const token = localStorage.getItem('sevora_token');
+      await Promise.all(selectedTasks.map(taskId =>
+        fetch(`${API}/api/projects/tasks/${taskId}`, {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ assigned_to: userId === 'unassigned' ? null : userId })
+        })
+      ));
+      const assigneeName = userId === 'unassigned' ? 'Unassigned' : users.find(u => u.id === userId)?.name;
+      toast.success(`${selectedTasks.length} tasks assigned to ${assigneeName}`);
+      clearSelection();
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to assign tasks');
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  const bulkDelete = async () => {
+    if (selectedTasks.length === 0) return;
+    if (!window.confirm(`Delete ${selectedTasks.length} selected tasks? This cannot be undone.`)) return;
+    
+    setBulkActionLoading(true);
+    try {
+      const token = localStorage.getItem('sevora_token');
+      await Promise.all(selectedTasks.map(taskId =>
+        fetch(`${API}/api/projects/tasks/${taskId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+      ));
+      toast.success(`${selectedTasks.length} tasks deleted`);
+      clearSelection();
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to delete tasks');
+    } finally {
+      setBulkActionLoading(false);
+    }
   };
 
   const fetchData = useCallback(async () => {
@@ -807,6 +977,133 @@ const ProjectDetail = () => {
               </Button>
             )}
           </div>
+
+          {/* Bulk Action Bar */}
+          {selectionMode && viewMode === 'kanban' && (
+            <div className="flex items-center gap-3 p-3 bg-rose-50 border border-rose-200 rounded-lg animate-in slide-in-from-top-2 duration-200">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={selectAllTasks}
+                  className="flex items-center gap-2 text-sm text-[#4A3728] hover:text-rose-600"
+                >
+                  {selectedTasks.length === filteredTasks.length ? (
+                    <CheckSquare className="w-4 h-4 text-rose-500" />
+                  ) : (
+                    <Square className="w-4 h-4" />
+                  )}
+                  {selectedTasks.length === filteredTasks.length ? 'Deselect All' : 'Select All'}
+                </button>
+                <Badge className="bg-rose-500 text-white">{selectedTasks.length} selected</Badge>
+              </div>
+              
+              <div className="h-6 w-px bg-rose-200" />
+              
+              {/* Move to Status */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={bulkActionLoading} className="border-rose-300 text-[#4A3728] hover:bg-rose-100 h-8">
+                    <Move className="w-4 h-4 mr-1" />
+                    Move to
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-40 p-2 bg-white border-[#D4BBA6]" align="start">
+                  <div className="space-y-1">
+                    {statusColumns.map(col => (
+                      <button
+                        key={col.id}
+                        onClick={() => bulkUpdateStatus(col.id)}
+                        className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-[#F5EBE0] text-[#4A3728] flex items-center gap-2"
+                      >
+                        <div className={`w-2 h-2 rounded-full ${col.color.replace('border-t-', 'bg-')}`} />
+                        {col.label}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {/* Change Priority */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={bulkActionLoading} className="border-rose-300 text-[#4A3728] hover:bg-rose-100 h-8">
+                    <Flag className="w-4 h-4 mr-1" />
+                    Priority
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-36 p-2 bg-white border-[#D4BBA6]" align="start">
+                  <div className="space-y-1">
+                    {Object.entries(priorityConfig).map(([key, config]) => (
+                      <button
+                        key={key}
+                        onClick={() => bulkUpdatePriority(key)}
+                        className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-[#F5EBE0] text-[#4A3728] flex items-center gap-2"
+                      >
+                        <div className={`w-2 h-2 rounded-full ${config.dotColor}`} />
+                        {config.label}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {/* Assign to */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={bulkActionLoading} className="border-rose-300 text-[#4A3728] hover:bg-rose-100 h-8">
+                    <User className="w-4 h-4 mr-1" />
+                    Assign
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-44 p-2 bg-white border-[#D4BBA6]" align="start">
+                  <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                    <button
+                      onClick={() => bulkAssign('unassigned')}
+                      className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-[#F5EBE0] text-[#9C8C74]"
+                    >
+                      Unassigned
+                    </button>
+                    {users.map(user => (
+                      <button
+                        key={user.id}
+                        onClick={() => bulkAssign(user.id)}
+                        className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-[#F5EBE0] text-[#4A3728] flex items-center gap-2"
+                      >
+                        <div className="w-5 h-5 rounded-full bg-[#E8D5C4] flex items-center justify-center text-xs">
+                          {user.name?.charAt(0)}
+                        </div>
+                        {user.name}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              <div className="h-6 w-px bg-rose-200" />
+
+              {/* Delete */}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={bulkDelete}
+                disabled={bulkActionLoading}
+                className="border-red-300 text-red-600 hover:bg-red-50 h-8"
+              >
+                <Trash2 className="w-4 h-4 mr-1" />
+                Delete
+              </Button>
+
+              {/* Clear Selection */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearSelection}
+                className="text-[#6B5D52] hover:text-[#4A3728] ml-auto h-8"
+              >
+                <X className="w-4 h-4 mr-1" />
+                Cancel
+              </Button>
+            </div>
+          )}
         </CardHeader>
         <CardContent className="p-6">
           {viewMode === 'kanban' ? (
@@ -823,6 +1120,10 @@ const ProjectDetail = () => {
                   onDeleteTask={handleDeleteTask}
                   onDragStart={handleDragStart}
                   onTaskClick={(task) => setSelectedTaskId(task.id)}
+                  selectedTasks={selectedTasks}
+                  onSelectTask={toggleTaskSelection}
+                  selectionMode={selectionMode}
+                  onSelectAllInColumn={selectAllInColumn}
                 />
               ))}
             </div>
