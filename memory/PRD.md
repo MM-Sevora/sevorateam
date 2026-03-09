@@ -704,6 +704,12 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - `/app/backend/tests/test_expense_module.py` - Expense module backend tests
 - `/app/backend/tests/test_project_visibility_team.py` - Project visibility and team management tests
 
+### Phase 29: Bug Fixes & UX Improvements (COMPLETE - March 9, 2026)
+- [x] Fixed: My Tasks clicking task now opens Task Detail Modal (not navigate away)
+- [x] Fixed: Project Edit modal added - can edit name, description, visibility, priority, dates
+- [x] Fixed: Add Team Members API - added POST endpoint accepting user_id in body
+- [x] Added: TaskDetailModal integration in MyTasks page with proper state management
+
 ### Phase 28: Task Assignment Control, Monitoring & Rich Text (COMPLETE - March 9, 2026)
 - [x] Backend: New endpoint `GET /api/projects/assigned-by-me` for tasks delegated to others
 - [x] Backend: Task Reminders CRUD - POST/GET/DELETE `/api/projects/reminders`
