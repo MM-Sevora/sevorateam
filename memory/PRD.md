@@ -385,6 +385,26 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - [x] Grades updated to company-specific: Grade I through Grade V(D)
 - [x] Departments updated to 13 company-specific departments
 
+### Phase 28: Access Control & Onboarding System (COMPLETE - March 9, 2026)
+- [x] Backend: Access Control models (CustomRole, SystemModule, RolePermission) in models/access_control.py
+- [x] Backend: 7 default custom roles seeded (Super Admin, HR Admin, Marketing Manager, Project Manager, Sales Manager, Content Creator, Employee)
+- [x] Backend: 8 system modules defined (dashboard, marketing_ops, project_management, mail, social, admin, hr, help_support)
+- [x] Backend: Custom Roles CRUD endpoints (GET, POST, PUT, DELETE)
+- [x] Backend: Module definitions endpoint
+- [x] Backend: Draft Users endpoint (users pending onboarding - no custom_role_id/department_id)
+- [x] Backend: Onboarding endpoint (POST /api/access/onboard/{user_id}) - assigns role, department, generates EMP code
+- [x] Backend: Permission check endpoints (/check/{module_key}, /my-access)
+- [x] Backend: Role-based module access validation
+- [x] Frontend: AccessControlPage.jsx with 2 tabs
+- [x] Frontend: Custom Roles tab - table with module access, permissions, employee count
+- [x] Frontend: User Onboarding tab - list of draft users with search and Onboard action
+- [x] Frontend: Create/Edit Role dialog with module checkboxes and admin permissions
+- [x] Frontend: Onboard User dialog with department, team, position, grade, role selection
+- [x] Frontend: Stats cards (Custom Roles, Pending Onboarding, System Modules, Active Employees)
+- [x] Frontend: Sidebar updated with Access Control link in Administration
+- [x] Route: /admin/access-control added to App.js
+- [x] Testing: 42/42 backend tests passed, all frontend elements verified
+
 ### Key API Endpoints
 - `GET /api/projects/manager-dashboard` - Aggregated dashboard data
 - `GET, POST /api/projects/modules` - CRUD for modules
@@ -401,6 +421,15 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - `GET /api/hr/stats/overview` - Get HR overview stats
 - `GET /api/hr/stats/by-department` - Get stats by department
 - `GET /api/hr/stats/by-grade` - Get stats by grade
+- `GET /api/access/roles` - List all custom roles
+- `POST /api/access/roles` - Create new custom role
+- `PUT /api/access/roles/{id}` - Update custom role
+- `DELETE /api/access/roles/{id}` - Delete (soft) custom role
+- `GET /api/access/modules` - Get system module definitions
+- `GET /api/access/draft-users` - List users pending onboarding
+- `POST /api/access/onboard/{user_id}` - Onboard a draft user
+- `GET /api/access/my-access` - Get current user's access profile
+- `GET /api/access/check/{module_key}` - Check module access permission
 
 ### 3rd Party Integrations
 - Microsoft Azure AD / Graph API (SSO, Email)
@@ -418,4 +447,6 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 
 ## Test Reports
 - `/app/test_reports/iteration_29.json`
+- `/app/test_reports/iteration_32.json` - Access Control tests (42/42 passed)
 - `/app/backend/tests/test_manager_dashboard.py`
+- `/app/backend/tests/test_access_control.py` - Access Control backend tests
