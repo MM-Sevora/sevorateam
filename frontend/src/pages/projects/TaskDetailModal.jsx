@@ -3,7 +3,7 @@ import {
   X, Calendar, User, Flag, Clock, CheckCircle2, Circle, Plus,
   MessageSquare, Trash2, Edit, Save, ListTodo, Timer, ChevronDown,
   AlertTriangle, Link2, Unlink, Paperclip, Upload, FileText, Image,
-  File, Download, Folder, Tag
+  File, Download, Folder, Tag, Repeat, RefreshCw
 } from 'lucide-react';
 
 // Animation styles
@@ -137,6 +137,11 @@ import {
   TabsList,
   TabsTrigger,
 } from "../../components/ui/tabs";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../../components/ui/popover";
 import { toast } from 'sonner';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -188,7 +193,7 @@ const AnimatedTabContent = ({ children, isActive }) => {
 };
 
 // Subtasks Section
-const SubtasksSection = ({ taskId, token }) => {
+const SubtasksSection = ({ taskId, token, users = [] }) => {
   const [subtasks, setSubtasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newSubtask, setNewSubtask] = useState('');
@@ -237,6 +242,18 @@ const SubtasksSection = ({ taskId, token }) => {
       });
       fetchSubtasks();
     } catch (e) { toast.error('Failed to update'); }
+  };
+
+  const assignSubtask = async (subtaskId, userId) => {
+    try {
+      await fetch(`${API}/api/projects/subtasks/${subtaskId}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assigned_to: userId === 'unassigned' ? null : userId })
+      });
+      fetchSubtasks();
+      toast.success('Subtask assigned');
+    } catch (e) { toast.error('Failed to assign'); }
   };
 
   const deleteSubtask = async (id) => {
@@ -288,6 +305,30 @@ const SubtasksSection = ({ taskId, token }) => {
               <span className={`flex-1 text-sm transition-all duration-200 ${st.status === 'completed' ? 'line-through text-[#9C8C74]' : 'text-[#4A3728]'}`}>
                 {st.name}
               </span>
+              {/* Assignee */}
+              <Select 
+                value={st.assigned_to || 'unassigned'} 
+                onValueChange={(v) => assignSubtask(st.id, v)}
+              >
+                <SelectTrigger className="w-[110px] h-7 text-xs border-[#D4BBA6] bg-white">
+                  {st.assigned_to_name ? (
+                    <div className="flex items-center gap-1">
+                      <div className="w-4 h-4 rounded-full bg-[#E8D5C4] flex items-center justify-center text-[10px] font-medium">
+                        {st.assigned_to_name.charAt(0)}
+                      </div>
+                      <span className="truncate">{st.assigned_to_name.split(' ')[0]}</span>
+                    </div>
+                  ) : (
+                    <span className="text-[#9C8C74]">Assign</span>
+                  )}
+                </SelectTrigger>
+                <SelectContent className="bg-white border-[#D4BBA6]">
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {users.map(u => (
+                    <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <button 
                 onClick={() => deleteSubtask(st.id)} 
                 className="text-[#9C8C74] hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
@@ -1308,7 +1349,11 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
           status: data.status,
           assigned_to: data.assigned_to || '',
           due_date: data.due_date ? data.due_date.split('T')[0] : '',
-          estimated_hours: data.estimated_hours || ''
+          estimated_hours: data.estimated_hours || '',
+          is_recurring: data.is_recurring || false,
+          recurrence_pattern: data.recurrence_pattern || 'weekly',
+          recurrence_interval: data.recurrence_interval || 1,
+          recurrence_end_date: data.recurrence_end_date ? data.recurrence_end_date.split('T')[0] : ''
         });
       }
     } catch (e) { 
@@ -1498,6 +1543,92 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
                       <span>{formatDate(task.due_date)}</span>
                     </div>
                   )}
+
+                  {/* Recurring Indicator */}
+                  {(task.is_recurring || editing) && (
+                    <>
+                      <div className="h-5 w-px bg-[#E8D5C4]" />
+                      {editing ? (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" size="sm" className={`h-8 border-[#D4BBA6] ${editData.is_recurring ? 'bg-blue-50 border-blue-300 text-blue-700' : ''}`}>
+                              <Repeat className="w-4 h-4 mr-1" />
+                              {editData.is_recurring ? editData.recurrence_pattern || 'Custom' : 'Repeat'}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-64 p-4 bg-white border-[#D4BBA6]" align="start">
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-sm text-[#4A3728]">Recurring Task</Label>
+                                <button
+                                  onClick={() => setEditData({
+                                    ...editData,
+                                    is_recurring: !editData.is_recurring,
+                                    recurrence_pattern: editData.is_recurring ? null : 'weekly'
+                                  })}
+                                  className={`w-10 h-6 rounded-full transition-colors ${editData.is_recurring ? 'bg-rose-500' : 'bg-[#D4BBA6]'}`}
+                                >
+                                  <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${editData.is_recurring ? 'translate-x-5' : 'translate-x-1'}`} />
+                                </button>
+                              </div>
+                              {editData.is_recurring && (
+                                <>
+                                  <div>
+                                    <Label className="text-xs text-[#6B5D52]">Repeat</Label>
+                                    <Select
+                                      value={editData.recurrence_pattern || 'weekly'}
+                                      onValueChange={(v) => setEditData({ ...editData, recurrence_pattern: v })}
+                                    >
+                                      <SelectTrigger className="mt-1 border-[#D4BBA6] h-8">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent className="bg-white border-[#D4BBA6]">
+                                        <SelectItem value="daily">Daily</SelectItem>
+                                        <SelectItem value="weekly">Weekly</SelectItem>
+                                        <SelectItem value="monthly">Monthly</SelectItem>
+                                        <SelectItem value="yearly">Yearly</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs text-[#6B5D52]">Every</Label>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <Input
+                                        type="number"
+                                        min="1"
+                                        value={editData.recurrence_interval || 1}
+                                        onChange={(e) => setEditData({ ...editData, recurrence_interval: parseInt(e.target.value) || 1 })}
+                                        className="w-16 border-[#D4BBA6] h-8"
+                                      />
+                                      <span className="text-sm text-[#6B5D52]">
+                                        {editData.recurrence_pattern === 'daily' ? 'day(s)' :
+                                         editData.recurrence_pattern === 'weekly' ? 'week(s)' :
+                                         editData.recurrence_pattern === 'monthly' ? 'month(s)' : 'year(s)'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs text-[#6B5D52]">End Date (optional)</Label>
+                                    <Input
+                                      type="date"
+                                      value={editData.recurrence_end_date || ''}
+                                      onChange={(e) => setEditData({ ...editData, recurrence_end_date: e.target.value })}
+                                      className="mt-1 border-[#D4BBA6] h-8"
+                                    />
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      ) : (
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-sm">
+                          <Repeat className="w-3.5 h-3.5" />
+                          <span className="capitalize">{task.recurrence_pattern}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
 
                 {/* Description */}
@@ -1557,7 +1688,7 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
                   </TabsList>
 
                   <TabsContent value="subtasks" className="tab-content-animate mt-0">
-                    <SubtasksSection taskId={taskId} token={token} />
+                    <SubtasksSection taskId={taskId} token={token} users={users} />
                   </TabsContent>
                   <TabsContent value="checklists" className="tab-content-animate mt-0">
                     <ChecklistsSection taskId={taskId} token={token} />

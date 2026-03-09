@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query, UploadFile, File, 
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
+from dateutil.relativedelta import relativedelta
 import uuid
 
 # Import models
@@ -1201,11 +1202,80 @@ async def update_task(
     if new_status and new_status != old_status:
         await log_activity("task", task_id, task.get("name"), "status_changed", user["id"], 
                           {"from": old_status, "to": new_status})
+        
+        # Handle recurring task - create next instance when completed
+        if new_status in ["completed", "approved"] and task.get("is_recurring"):
+            await create_next_recurring_task(task, user["id"])
     else:
         await log_activity("task", task_id, task.get("name"), "updated", user["id"], update_data)
     
     updated = await db.pm_tasks.find_one({"id": task_id}, {"_id": 0})
     return await enrich_task(updated)
+
+
+async def create_next_recurring_task(task: dict, user_id: str):
+    """Create the next instance of a recurring task"""
+    from dateutil.relativedelta import relativedelta
+    
+    pattern = task.get("recurrence_pattern")
+    interval = task.get("recurrence_interval", 1)
+    end_date = task.get("recurrence_end_date")
+    current_due = task.get("due_date")
+    
+    if not pattern or not current_due:
+        return
+    
+    # Check if we've passed the end date
+    if end_date and datetime.fromisoformat(end_date.replace('Z', '+00:00')) < datetime.now(timezone.utc):
+        return
+    
+    # Calculate next due date
+    current = datetime.fromisoformat(current_due.replace('Z', '+00:00'))
+    
+    if pattern == "daily":
+        next_due = current + timedelta(days=interval)
+    elif pattern == "weekly":
+        next_due = current + timedelta(weeks=interval)
+    elif pattern == "monthly":
+        next_due = current + relativedelta(months=interval)
+    elif pattern == "yearly":
+        next_due = current + relativedelta(years=interval)
+    else:
+        return
+    
+    # Check if next due date is past end date
+    if end_date and next_due > datetime.fromisoformat(end_date.replace('Z', '+00:00')):
+        return
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Create new task
+    new_task = {
+        "id": str(uuid.uuid4()),
+        "name": task.get("name"),
+        "project_id": task.get("project_id"),
+        "module_id": task.get("module_id"),
+        "description": task.get("description"),
+        "assigned_to": task.get("assigned_to"),
+        "priority": task.get("priority"),
+        "status": "draft",
+        "due_date": next_due.isoformat(),
+        "estimated_hours": task.get("estimated_hours"),
+        "tags": task.get("tags", []),
+        "label_ids": task.get("label_ids", []),
+        "is_recurring": True,
+        "recurrence_pattern": pattern,
+        "recurrence_interval": interval,
+        "recurrence_days": task.get("recurrence_days"),
+        "recurrence_end_date": end_date,
+        "parent_recurring_id": task.get("parent_recurring_id") or task.get("id"),
+        "created_by": user_id,
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.pm_tasks.insert_one(new_task)
+    await log_activity("task", new_task["id"], new_task["name"], "created", user_id, {"recurring": True})
 
 
 @router.delete("/tasks/{task_id}")

@@ -168,6 +168,12 @@ class TaskCreate(BaseModel):
     parent_task_id: Optional[str] = None  # For subtasks
     blocked_by: List[str] = []  # Task IDs that block this task
     blocks: List[str] = []  # Task IDs that this task blocks
+    # Recurrence fields
+    is_recurring: bool = False
+    recurrence_pattern: Optional[str] = None  # daily, weekly, monthly, custom
+    recurrence_interval: int = 1  # Every X days/weeks/months
+    recurrence_days: Optional[List[int]] = None  # For weekly: [0,1,2,3,4,5,6] = Mon-Sun
+    recurrence_end_date: Optional[str] = None
 
 
 class TaskUpdate(BaseModel):
@@ -182,6 +188,12 @@ class TaskUpdate(BaseModel):
     tags: Optional[List[str]] = None
     blocked_by: Optional[List[str]] = None
     blocks: Optional[List[str]] = None
+    # Recurrence fields
+    is_recurring: Optional[bool] = None
+    recurrence_pattern: Optional[str] = None
+    recurrence_interval: Optional[int] = None
+    recurrence_days: Optional[List[int]] = None
+    recurrence_end_date: Optional[str] = None
 
 
 class TaskResponse(BaseModel):
@@ -209,6 +221,14 @@ class TaskResponse(BaseModel):
     blocks: List[str] = []
     blocks_names: List[str] = []  # Names of tasks this blocks
     is_blocked: bool = False  # True if any blocking task is incomplete
+    # Recurrence fields
+    is_recurring: bool = False
+    recurrence_pattern: Optional[str] = None
+    recurrence_interval: int = 1
+    recurrence_days: Optional[List[int]] = None
+    recurrence_end_date: Optional[str] = None
+    parent_recurring_id: Optional[str] = None  # ID of the parent recurring task
+    # Counts
     subtask_count: int = 0
     checklist_count: int = 0
     checklist_completed: int = 0

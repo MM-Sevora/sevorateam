@@ -5,7 +5,8 @@ import {
   CheckCircle2, AlertTriangle, PlayCircle, Eye, MoreVertical,
   GripVertical, MessageSquare, ListTodo, RefreshCw, Settings,
   User, Folder, AlertOctagon, LayoutGrid, CalendarDays, Search,
-  Filter, X, ChevronDown, CheckSquare, Square, Move
+  Filter, X, ChevronDown, CheckSquare, Square, Move, List,
+  ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -41,6 +42,7 @@ import {
 import { toast } from 'sonner';
 import TaskDetailModal from './TaskDetailModal';
 import TaskCalendarView from './TaskCalendarView';
+import TaskListView from './TaskListView';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -883,6 +885,18 @@ const ProjectDetail = () => {
                 Kanban
               </Button>
               <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className={viewMode === 'list' 
+                  ? 'bg-white text-[#4A3728] shadow-sm' 
+                  : 'text-[#6B5D52] hover:text-[#4A3728]'
+                }
+              >
+                <List className="w-4 h-4 mr-1" />
+                List
+              </Button>
+              <Button
                 variant={viewMode === 'calendar' ? 'default' : 'ghost'}
                 size="sm"
                 onClick={() => setViewMode('calendar')}
@@ -1135,7 +1149,7 @@ const ProjectDetail = () => {
           )}
         </CardHeader>
         <CardContent className="p-6">
-          {viewMode === 'kanban' ? (
+          {viewMode === 'kanban' && (
             <div className="flex gap-6 overflow-x-auto pb-4 snap-x">
               {statusColumns.map(column => (
                 <KanbanColumn
@@ -1156,7 +1170,20 @@ const ProjectDetail = () => {
                 />
               ))}
             </div>
-          ) : (
+          )}
+          {viewMode === 'list' && (
+            <TaskListView
+              tasks={filteredTasks}
+              onTaskClick={(task) => setSelectedTaskId(task.id)}
+              onEditTask={handleEditTask}
+              onDeleteTask={handleDeleteTask}
+              selectedTasks={selectedTasks}
+              onSelectTask={toggleTaskSelection}
+              selectionMode={selectionMode}
+              users={users}
+            />
+          )}
+          {viewMode === 'calendar' && (
             <TaskCalendarView
               tasks={filteredTasks}
               onTaskClick={(task) => setSelectedTaskId(task.id)}
