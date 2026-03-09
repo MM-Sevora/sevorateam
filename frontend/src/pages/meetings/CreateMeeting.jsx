@@ -116,8 +116,11 @@ const CreateMeeting = () => {
         if (deptRes.ok) setDepartments(await deptRes.json());
 
         // Fetch projects
-        const projRes = await fetch(`${API}/api/projects`, { headers });
-        if (projRes.ok) setProjects(await projRes.json());
+        const projRes = await fetch(`${API}/api/projects/list`, { headers });
+        if (projRes.ok) {
+          const data = await projRes.json();
+          setProjects(data.projects || data || []);
+        }
 
         // Fetch goals
         const goalsRes = await fetch(`${API}/api/strategic-goals`, { headers });
