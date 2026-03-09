@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import { 
   Users, Search, Plus, Edit, Trash2, RefreshCw,
-  CheckCircle, XCircle, UserPlus, Key, Eye, EyeOff, Briefcase, ChevronDown, Shield
+  CheckCircle, XCircle, UserPlus, Key, Eye, EyeOff, Briefcase, ChevronDown, Shield, Building
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -72,6 +72,12 @@ const UserManagementPage = () => {
   const [departments, setDepartments] = useState([]);
   const [grades, setGrades] = useState([]);
   const [roles, setRoles] = useState([]);
+  
+  // Role assignment state
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [selectedUserForRole, setSelectedUserForRole] = useState(null);
+  const [selectedRoleIds, setSelectedRoleIds] = useState([]);
+  
   const [onboardForm, setOnboardForm] = useState({
     department_id: '',
     grade_id: '',
@@ -218,13 +224,22 @@ const UserManagementPage = () => {
     }
   };
 
-  // Toggle user status
+  // Toggle user status - also syncs employee status
   const toggleUserStatus = async (user) => {
     const newStatus = user.status === 'active' ? 'inactive' : 'active';
     try {
       await api.put(`/workos/users/${user.id}`, { status: newStatus });
+      
+      // Also update employee status if user is onboarded
+      const emp = employees.find(e => e.user_id === user.id);
+      if (emp) {
+        const empStatus = newStatus === 'active' ? 'active' : 'inactive';
+        await api.put(`/hr/v2/employees/${emp.id}`, { status: empStatus });
+      }
+      
       toast.success(`User ${newStatus === 'active' ? 'activated' : 'deactivated'}`);
       fetchUsers();
+      fetchEmployees();
     } catch (error) {
       toast.error('Failed to update user status');
     }
@@ -300,6 +315,39 @@ const UserManagementPage = () => {
       fetchEmployees();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to onboard employee');
+    }
+    setSaving(false);
+  };
+
+  // Open role assignment modal
+  const openRoleModal = (user) => {
+    const emp = employees.find(e => e.user_id === user.id);
+    setSelectedUserForRole(user);
+    setSelectedRoleIds(emp?.custom_role_ids || []);
+    setShowRoleModal(true);
+  };
+
+  // Save role assignment
+  const handleSaveRoles = async () => {
+    if (!selectedUserForRole) return;
+    
+    const emp = employees.find(e => e.user_id === selectedUserForRole.id);
+    if (!emp) {
+      toast.error('Employee record not found');
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      await api.put(`/hr/v2/employees/${emp.id}`, {
+        custom_role_ids: selectedRoleIds
+      });
+      toast.success('Roles updated successfully');
+      setShowRoleModal(false);
+      setSelectedUserForRole(null);
+      fetchEmployees();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to update roles');
     }
     setSaving(false);
   };
@@ -381,6 +429,31 @@ const UserManagementPage = () => {
         </Card>
       </div>
 
+      {/* Quick Links */}
+      <Card className="border-[#E8D5C4] bg-gradient-to-r from-[#F5EDE5] to-white">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Key className="w-5 h-5 text-[#8B7355]" />
+              <span className="text-sm font-medium text-[#4A3728]">Quick Links:</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <a href="/admin/employees" className="flex items-center gap-1 text-sm text-[#8B7355] hover:text-[#4A3728] transition-colors">
+                <Briefcase className="w-4 h-4" /> Employee Database
+              </a>
+              <span className="text-[#E8D5C4]">|</span>
+              <a href="/admin/access-control" className="flex items-center gap-1 text-sm text-purple-600 hover:text-purple-800 transition-colors">
+                <Shield className="w-4 h-4" /> Access Control
+              </a>
+              <span className="text-[#E8D5C4]">|</span>
+              <a href="/admin/organization" className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 transition-colors">
+                <Building className="w-4 h-4" /> Organization Management
+              </a>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Info Card */}
       <Card className="border-blue-200 bg-blue-50">
         <CardContent className="p-4">
@@ -432,8 +505,8 @@ const UserManagementPage = () => {
                 <TableHead className="text-[#4A3728]">User ID</TableHead>
                 <TableHead className="text-[#4A3728]">Status</TableHead>
                 <TableHead className="text-[#4A3728]">HR Status</TableHead>
+                <TableHead className="text-[#4A3728]">Roles</TableHead>
                 <TableHead className="text-[#4A3728]">Created</TableHead>
-                <TableHead className="text-[#4A3728]">Last Login</TableHead>
                 <TableHead className="text-[#4A3728] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -492,15 +565,33 @@ const UserManagementPage = () => {
                         </Badge>
                       )}
                     </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const emp = employees.find(e => e.user_id === user.id);
+                        const roleNames = emp?.custom_role_names || [];
+                        if (roleNames.length === 0) {
+                          return <span className="text-gray-400 text-sm">No roles</span>;
+                        }
+                        return (
+                          <div className="flex flex-wrap gap-1">
+                            {roleNames.slice(0, 2).map((name, idx) => (
+                              <Badge key={idx} variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+                                {name}
+                              </Badge>
+                            ))}
+                            {roleNames.length > 2 && (
+                              <Badge variant="outline" className="text-xs">+{roleNames.length - 2}</Badge>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </TableCell>
                     <TableCell className="text-[#5D4A3A] text-sm">
                       {user.created_at ? format(new Date(user.created_at), 'MMM d, yyyy') : '-'}
                     </TableCell>
-                    <TableCell className="text-[#5D4A3A] text-sm">
-                      {user.last_login ? format(new Date(user.last_login), 'MMM d, yyyy h:mm a') : 'Never'}
-                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {!isUserOnboarded(user.id) && (
+                        {!isUserOnboarded(user.id) ? (
                           <Button
                             variant="default"
                             size="sm"
@@ -508,6 +599,15 @@ const UserManagementPage = () => {
                             className="bg-[#4A3728] hover:bg-[#5D4A3A] text-white"
                           >
                             <Briefcase className="h-4 w-4 mr-1" /> Onboard
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openRoleModal(user)}
+                            className="border-purple-200 text-purple-700 hover:bg-purple-50"
+                          >
+                            <Shield className="h-4 w-4 mr-1" /> Roles
                           </Button>
                         )}
                         <Button
@@ -848,6 +948,75 @@ const UserManagementPage = () => {
             >
               {saving ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Briefcase className="h-4 w-4 mr-2" />}
               Complete Onboarding
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Role Assignment Modal */}
+      <Dialog open={showRoleModal} onOpenChange={(open) => { setShowRoleModal(open); if (!open) setSelectedUserForRole(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[#4A3728]">Manage Roles</DialogTitle>
+            <DialogDescription>
+              Assign access roles for {selectedUserForRole?.name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* User Info */}
+            <div className="bg-[#F5EDE5] p-3 rounded-lg">
+              <p className="font-medium text-[#4A3728]">{selectedUserForRole?.name}</p>
+              <p className="text-sm text-[#5D4A3A]">{selectedUserForRole?.email}</p>
+            </div>
+
+            {/* Role Selection */}
+            <div>
+              <Label className="text-[#4A3728] mb-3 block">Select Roles</Label>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {roles.map(role => (
+                  <label 
+                    key={role.id} 
+                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      selectedRoleIds.includes(role.id) 
+                        ? 'border-purple-300 bg-purple-50' 
+                        : 'border-[#E8D5C4] hover:bg-[#F5EDE5]'
+                    }`}
+                  >
+                    <Checkbox
+                      checked={selectedRoleIds.includes(role.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedRoleIds([...selectedRoleIds, role.id]);
+                        } else {
+                          setSelectedRoleIds(selectedRoleIds.filter(id => id !== role.id));
+                        }
+                      }}
+                    />
+                    <div className="flex-1">
+                      <p className="font-medium text-[#4A3728]">{role.name}</p>
+                      <p className="text-xs text-[#5D4A3A]">{role.description || role.code}</p>
+                    </div>
+                    {role.is_system_role && (
+                      <Badge variant="outline" className="text-xs">System</Badge>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowRoleModal(false); setSelectedUserForRole(null); }} className="border-[#E8D5C4]">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveRoles}
+              disabled={saving || selectedRoleIds.length === 0}
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              {saving ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Shield className="h-4 w-4 mr-2" />}
+              Save Roles
             </Button>
           </DialogFooter>
         </DialogContent>

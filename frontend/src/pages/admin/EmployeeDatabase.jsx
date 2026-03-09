@@ -3,7 +3,8 @@ import api from '../../lib/api';
 import { 
   Users, Award, Building2, ChevronRight, Plus, Edit2, Trash2,
   Loader2, RefreshCw, Search, UserPlus, Mail, Phone, Calendar, Briefcase, 
-  MapPin, Filter, TrendingUp, UserCheck, Shield, ChevronDown, Check, X
+  MapPin, Filter, TrendingUp, UserCheck, Shield, ChevronDown, Check, X, 
+  AlertTriangle, XCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
@@ -348,6 +349,9 @@ const EmployeeDatabase = () => {
             setSearchQuery={setOnboardingSearch}
             onOnboard={openOnboardModal}
             onRefresh={fetchDraftUsers}
+            departments={departments}
+            grades={grades}
+            roles={roles}
           />
         </TabsContent>
       </Tabs>
@@ -1089,9 +1093,51 @@ const EmployeesTab = ({ employees, loading, searchQuery, setSearchQuery, filters
 };
 
 // Onboarding Tab Component
-const OnboardingTab = ({ draftUsers, loading, searchQuery, setSearchQuery, onOnboard, onRefresh }) => {
+const OnboardingTab = ({ draftUsers, loading, searchQuery, setSearchQuery, onOnboard, onRefresh, departments = [], grades = [], roles = [] }) => {
+  const hasDepartments = departments.length > 0;
+  const hasGrades = grades.length > 0;
+  const hasRoles = roles.length > 0;
+  const hasAllPrereqs = hasDepartments && hasRoles;
+  
   return (
     <div className="space-y-4">
+      {/* Warning Banners for Missing Prerequisites */}
+      {!hasAllPrereqs && (
+        <Card className="border-amber-300 bg-amber-50">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-semibold text-amber-800 mb-2">Setup Required Before Onboarding</p>
+                <div className="space-y-1 text-sm text-amber-700">
+                  {!hasDepartments && (
+                    <p className="flex items-center gap-2">
+                      <XCircle className="w-4 h-4 text-red-500" />
+                      <span><strong>Departments</strong> not configured - </span>
+                      <a href="/admin/organization" className="underline hover:no-underline">Go to Organization Management →</a>
+                    </p>
+                  )}
+                  {!hasRoles && (
+                    <p className="flex items-center gap-2">
+                      <XCircle className="w-4 h-4 text-red-500" />
+                      <span><strong>Access Roles</strong> not configured - </span>
+                      <a href="/admin/access-control" className="underline hover:no-underline">Go to Access Control →</a>
+                    </p>
+                  )}
+                  {!hasGrades && (
+                    <p className="flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-500" />
+                      <span><strong>Grades</strong> not configured (optional) - </span>
+                      <a href="/admin/organization" className="underline hover:no-underline">Go to Organization Management →</a>
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Info Card */}
       <Card className="border-blue-200 bg-blue-50">
         <CardContent className="p-4">
