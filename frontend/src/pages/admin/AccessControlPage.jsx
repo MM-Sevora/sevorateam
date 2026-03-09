@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  Shield, Plus, Edit, Trash2, RefreshCw, Settings, Lock, Key, Layers
+  Shield, Plus, Edit, Trash2, RefreshCw, Settings, Lock, Key, Layers, Users, Search, Save
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -41,13 +41,21 @@ import { useAuth } from '../../context/AuthContext';
 
 const AccessControlPage = () => {
   const { api } = useAuth();
-  const [activeTab, setActiveTab] = useState('roles');
+  const [activeTab, setActiveTab] = useState('users');
   
   // Roles state
   const [roles, setRoles] = useState([]);
   const [loadingRoles, setLoadingRoles] = useState(true);
   const [modules, setModules] = useState({});
   const [moduleKeys, setModuleKeys] = useState([]);
+  
+  // Users state for user-level permissions
+  const [users, setUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [showUserPermDialog, setShowUserPermDialog] = useState(false);
+  const [userPermissions, setUserPermissions] = useState({});
   
   // Dialog states
   const [showRoleDialog, setShowRoleDialog] = useState(false);
@@ -93,10 +101,24 @@ const AccessControlPage = () => {
     }
   }, [api]);
 
+  // Fetch users for user-level permissions
+  const fetchUsers = useCallback(async () => {
+    setLoadingUsers(true);
+    try {
+      const response = await api.get('/admin/users');
+      setUsers(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+    } finally {
+      setLoadingUsers(false);
+    }
+  }, [api]);
+
   useEffect(() => {
     fetchRoles();
     fetchModules();
-  }, [fetchRoles, fetchModules]);
+    fetchUsers();
+  }, [fetchRoles, fetchModules, fetchUsers]);
 
   // Create/Update role
   const handleSaveRole = async () => {
@@ -138,6 +160,68 @@ const AccessControlPage = () => {
       toast.error(error.response?.data?.detail || 'Failed to delete role');
     }
   };
+
+  // Open user permissions dialog
+  const openUserPermissions = (user) => {
+    setSelectedUser(user);
+    // Initialize with existing custom_permissions or empty
+    setUserPermissions(user.custom_permissions || {});
+    setShowUserPermDialog(true);
+  };
+
+  // Toggle user module permission
+  const toggleUserModuleAccess = (moduleKey) => {
+    setUserPermissions(prev => {
+      if (prev[moduleKey]) {
+        const newPerms = { ...prev };
+        delete newPerms[moduleKey];
+        return newPerms;
+      } else {
+        return {
+          ...prev,
+          [moduleKey]: { create: true, read: true, update: true, delete: true }
+        };
+      }
+    });
+  };
+
+  // Toggle specific CRUD for user
+  const toggleUserPermission = (moduleKey, permType) => {
+    setUserPermissions(prev => ({
+      ...prev,
+      [moduleKey]: {
+        ...(prev[moduleKey] || { create: true, read: true, update: true, delete: true }),
+        [permType]: !(prev[moduleKey]?.[permType] ?? true)
+      }
+    }));
+  };
+
+  // Save user permissions
+  const saveUserPermissions = async () => {
+    if (!selectedUser) return;
+    
+    setSaving(true);
+    try {
+      const hasPermissions = Object.keys(userPermissions).length > 0;
+      await api.put(`/admin/users/${selectedUser.id}/permissions`, {
+        use_custom: hasPermissions,
+        permissions: userPermissions
+      });
+      toast.success('User permissions updated');
+      setShowUserPermDialog(false);
+      fetchUsers();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to save permissions');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Filter users by search
+  const filteredUsers = users.filter(user => 
+    user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.email?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   // Reset forms
   const resetRoleForm = () => {
@@ -211,6 +295,7 @@ const AccessControlPage = () => {
   };
 
   const tabs = [
+    { id: 'users', label: 'User Permissions', icon: Users, count: users.length },
     { id: 'roles', label: 'Custom Roles', icon: Shield, count: roles.length },
     { id: 'modules', label: 'System Modules', icon: Layers, count: moduleKeys.length },
   ];
@@ -272,6 +357,113 @@ const AccessControlPage = () => {
             </TabsTrigger>
           ))}
         </TabsList>
+
+        {/* User Permissions Tab */}
+        <TabsContent value="users" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-lg font-semibold text-[#4A3728]">User-Level Permissions</h2>
+              <p className="text-sm text-[#5D4A3A]">Set CRUD permissions for individual users across modules</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search users..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 w-64 border-[#E8D5C4]"
+                />
+              </div>
+              <Button variant="outline" onClick={fetchUsers} className="border-[#E8D5C4]">
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          <Card className="border-[#E8D5C4]">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-[#F5EDE5]">
+                    <TableHead className="text-[#4A3728]">User</TableHead>
+                    <TableHead className="text-[#4A3728]">Role</TableHead>
+                    <TableHead className="text-[#4A3728]">Module Permissions (CRUD)</TableHead>
+                    <TableHead className="text-[#4A3728] text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loadingUsers ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-8">
+                        <RefreshCw className="h-6 w-6 animate-spin mx-auto text-[#4A3728]" />
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredUsers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-8 text-[#5D4A3A]">
+                        No users found.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredUsers.map((user) => (
+                      <TableRow key={user.id} className="hover:bg-[#F5EDE5]">
+                        <TableCell>
+                          <div>
+                            <p className="font-medium text-[#4A3728]">{user.name || 'Unnamed'}</p>
+                            <p className="text-xs text-[#5D4A3A]">{user.email}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="text-xs">
+                            {user.role || user.custom_role_name || 'No Role'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1 max-w-[400px]">
+                            {user.custom_permissions && Object.keys(user.custom_permissions).length > 0 ? (
+                              Object.entries(user.custom_permissions).slice(0, 4).map(([modKey, perms]) => {
+                                const modName = modules[modKey]?.name || modKey;
+                                const permStr = [
+                                  perms.create ? 'C' : '',
+                                  perms.read ? 'R' : '',
+                                  perms.update ? 'U' : '',
+                                  perms.delete ? 'D' : ''
+                                ].filter(Boolean).join('');
+                                return (
+                                  <Badge key={modKey} variant="outline" className="text-xs">
+                                    {modName} <span className="text-[10px] opacity-70">({permStr})</span>
+                                  </Badge>
+                                );
+                              })
+                            ) : (
+                              <span className="text-xs text-gray-400">Using role defaults</span>
+                            )}
+                            {user.custom_permissions && Object.keys(user.custom_permissions).length > 4 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{Object.keys(user.custom_permissions).length - 4} more
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openUserPermissions(user)}
+                            className="border-[#E8D5C4]"
+                          >
+                            <Edit className="h-4 w-4 mr-1" /> Edit Permissions
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* Roles Tab */}
         <TabsContent value="roles" className="space-y-4">
@@ -643,6 +835,112 @@ const AccessControlPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* User Permissions Dialog */}
+      <Dialog open={showUserPermDialog} onOpenChange={setShowUserPermDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-[#4A3728]">
+              Edit Permissions - {selectedUser?.name || selectedUser?.email}
+            </DialogTitle>
+            <DialogDescription>
+              Set module-level CRUD permissions for this user. These override role defaults.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <p className="text-sm text-amber-800">
+                <strong>Note:</strong> User-level permissions override role-based permissions. 
+                If no permissions are set here, the user's role permissions will apply.
+              </p>
+            </div>
+
+            <div>
+              <Label className="text-[#4A3728] mb-3 block">Module Access & CRUD Permissions</Label>
+              <div className="space-y-3">
+                {moduleKeys.map((key) => {
+                  const module = modules[key] || {};
+                  const isSelected = !!userPermissions[key];
+                  const perms = userPermissions[key] || { create: true, read: true, update: true, delete: true };
+                  
+                  return (
+                    <div
+                      key={key}
+                      className={`p-3 rounded-lg border transition-colors ${
+                        isSelected
+                          ? 'border-[#8B7355] bg-[#F5EDE5]'
+                          : 'border-[#E8D5C4]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleUserModuleAccess(key)}
+                        />
+                        <div className="flex-1">
+                          <p className="font-medium text-[#4A3728] text-sm">{module.name || key}</p>
+                        </div>
+                      </div>
+                      
+                      {isSelected && (
+                        <div className="ml-6 mt-2 flex gap-4 flex-wrap">
+                          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                            <Checkbox
+                              checked={perms.create}
+                              onCheckedChange={() => toggleUserPermission(key, 'create')}
+                              className="h-3.5 w-3.5"
+                            />
+                            <span className="text-green-700 font-medium">Create</span>
+                          </label>
+                          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                            <Checkbox
+                              checked={perms.read}
+                              onCheckedChange={() => toggleUserPermission(key, 'read')}
+                              className="h-3.5 w-3.5"
+                            />
+                            <span className="text-blue-700 font-medium">Read</span>
+                          </label>
+                          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                            <Checkbox
+                              checked={perms.update}
+                              onCheckedChange={() => toggleUserPermission(key, 'update')}
+                              className="h-3.5 w-3.5"
+                            />
+                            <span className="text-amber-700 font-medium">Update</span>
+                          </label>
+                          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                            <Checkbox
+                              checked={perms.delete}
+                              onCheckedChange={() => toggleUserPermission(key, 'delete')}
+                              className="h-3.5 w-3.5"
+                            />
+                            <span className="text-red-700 font-medium">Delete</span>
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-6">
+            <Button variant="outline" onClick={() => setShowUserPermDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={saveUserPermissions}
+              disabled={saving}
+              className="bg-[#4A3728] hover:bg-[#5D4A3A] text-white"
+            >
+              {saving ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+              Save Permissions
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
