@@ -110,7 +110,7 @@ const DEPARTMENT_CONFIG = {
         ]
     },
     hr: {
-        name: 'Human Resource',
+        name: 'Admin/HR/Finance',
         icon: Briefcase,
         color: 'from-emerald-600 to-emerald-700',
         bgColor: 'bg-emerald-50',
