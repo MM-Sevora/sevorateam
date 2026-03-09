@@ -37,7 +37,7 @@ import { toast } from 'sonner';
 import { 
   Plus, Trash2, Upload, FileText, DollarSign, Clock, CheckCircle, 
   XCircle, Download, Eye, Filter, RefreshCw, Send, Receipt,
-  TrendingUp, Calendar, Building2, User
+  TrendingUp, Calendar, Building2, User, Users
 } from 'lucide-react';
 
 const EXPENSE_CATEGORIES = [
@@ -309,7 +309,9 @@ const ExpenseManagement = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[#4A3728]">Expense & Reimbursement</h1>
-          <p className="text-[#6B5D52] mt-1">Submit and track expense claims</p>
+          <p className="text-[#6B5D52] mt-1">
+            {isHR ? 'Manage and monitor all employee expense claims' : 'Submit and track your expense claims'}
+          </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => { fetchMyClaims(); if(isHR) fetchAllClaims(); }}>
@@ -323,13 +325,13 @@ const ExpenseManagement = () => {
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards - Personal Stats for All Users */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-blue-600">Total Claims</p>
+                <p className="text-sm text-blue-600">My Claims</p>
                 <p className="text-2xl font-bold text-blue-700">{myStats?.total_claims || 0}</p>
               </div>
               <FileText className="w-8 h-8 text-blue-500" />
@@ -340,7 +342,7 @@ const ExpenseManagement = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-amber-600">Pending</p>
+                <p className="text-sm text-amber-600">My Pending</p>
                 <p className="text-2xl font-bold text-amber-700">{myStats?.pending || 0}</p>
               </div>
               <Clock className="w-8 h-8 text-amber-500" />
@@ -351,7 +353,7 @@ const ExpenseManagement = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-green-600">Total Claimed</p>
+                <p className="text-sm text-green-600">My Total Claimed</p>
                 <p className="text-2xl font-bold text-green-700">₹{(myStats?.total_claimed || 0).toLocaleString()}</p>
               </div>
               <TrendingUp className="w-8 h-8 text-green-500" />
@@ -362,7 +364,7 @@ const ExpenseManagement = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-emerald-600">Total Approved</p>
+                <p className="text-sm text-emerald-600">My Approved</p>
                 <p className="text-2xl font-bold text-emerald-700">₹{(myStats?.total_approved || 0).toLocaleString()}</p>
               </div>
               <CheckCircle className="w-8 h-8 text-emerald-500" />
@@ -381,8 +383,8 @@ const ExpenseManagement = () => {
             <FileText className="w-4 h-4 mr-2" /> My Claims
           </TabsTrigger>
           {isHR && (
-            <TabsTrigger value="approval" data-testid="tab-approval">
-              <CheckCircle className="w-4 h-4 mr-2" /> HR Approval
+            <TabsTrigger value="approval" data-testid="tab-approval" className="bg-amber-100 data-[state=active]:bg-amber-200">
+              <Building2 className="w-4 h-4 mr-2" /> Admin Dashboard
             </TabsTrigger>
           )}
         </TabsList>
@@ -625,22 +627,33 @@ const ExpenseManagement = () => {
           </Card>
         </TabsContent>
 
-        {/* HR Approval Tab */}
+        {/* Admin Dashboard Tab */}
         {isHR && (
           <TabsContent value="approval" className="mt-6">
+            {/* Admin Header Banner */}
+            <div className="bg-gradient-to-r from-amber-600 to-amber-700 text-white p-4 rounded-lg mb-6">
+              <div className="flex items-center gap-3">
+                <Building2 className="w-8 h-8" />
+                <div>
+                  <h2 className="text-xl font-bold">Admin Dashboard - All Employee Claims</h2>
+                  <p className="text-amber-100 text-sm">Monitor, review and process expense claims from all employees</p>
+                </div>
+              </div>
+            </div>
+
             {/* HR Stats */}
             {hrStats && (
               <div className="grid grid-cols-4 gap-4 mb-6">
                 <Card className="bg-blue-50 border-blue-200">
                   <CardContent className="p-4 text-center">
                     <p className="text-3xl font-bold text-blue-700">{hrStats.total_claims}</p>
-                    <p className="text-sm text-blue-600">Total Claims</p>
+                    <p className="text-sm text-blue-600">Total Claims (All Employees)</p>
                   </CardContent>
                 </Card>
                 <Card className="bg-amber-50 border-amber-200">
                   <CardContent className="p-4 text-center">
                     <p className="text-3xl font-bold text-amber-700">{hrStats.pending}</p>
-                    <p className="text-sm text-amber-600">Pending Review</p>
+                    <p className="text-sm text-amber-600">Awaiting Review</p>
                   </CardContent>
                 </Card>
                 <Card className="bg-green-50 border-green-200">
@@ -652,16 +665,21 @@ const ExpenseManagement = () => {
                 <Card className="bg-purple-50 border-purple-200">
                   <CardContent className="p-4 text-center">
                     <p className="text-3xl font-bold text-purple-700">₹{(hrStats.this_month?.pending_amount || 0).toLocaleString()}</p>
-                    <p className="text-sm text-purple-600">Pending (This Month)</p>
+                    <p className="text-sm text-purple-600">Pending Amount (This Month)</p>
                   </CardContent>
                 </Card>
               </div>
             )}
 
             <Card>
-              <CardHeader>
+              <CardHeader className="bg-slate-50 border-b">
                 <div className="flex items-center justify-between">
-                  <CardTitle>All Expense Claims</CardTitle>
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="w-5 h-5" /> All Employee Expense Claims
+                    </CardTitle>
+                    <p className="text-sm text-gray-500 mt-1">Review and process claims submitted by employees</p>
+                  </div>
                   <div className="flex gap-2">
                     <Select value={statusFilter || "all"} onValueChange={(v) => { setStatusFilter(v === "all" ? "" : v); fetchAllClaims(); }}>
                       <SelectTrigger className="w-40">
