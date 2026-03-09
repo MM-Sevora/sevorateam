@@ -86,7 +86,8 @@ async def get_project_name(project_id: str) -> Optional[str]:
     """Get project name by ID"""
     if not project_id:
         return None
-    project = await db.projects.find_one({"id": project_id}, {"_id": 0, "name": 1})
+    # Projects are stored in pm_projects collection
+    project = await db.pm_projects.find_one({"id": project_id}, {"_id": 0, "name": 1})
     return project.get("name") if project else None
 
 
@@ -1191,6 +1192,91 @@ async def create_next_recurring_meeting(meeting: dict) -> Optional[str]:
     
     await db.meetings.insert_one(new_meeting)
     return new_meeting_id
+
+
+# ============== ATTENDANCE TRACKING ==============
+
+@router.put("/{meeting_id}/attendance/{user_id}")
+async def update_participant_attendance(
+    meeting_id: str,
+    user_id: str,
+    status: str = Query(..., description="Attendance status: present, absent, late, excused"),
+    user: dict = Depends(get_current_user_dep)
+):
+    """Update attendance status for a participant"""
+    valid_statuses = ["invited", "accepted", "declined", "tentative", "present", "absent", "late", "excused"]
+    if status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}")
+    
+    meeting = await db.meetings.find_one({"id": meeting_id}, {"_id": 0})
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    
+    # Update the participant's attendance status
+    participants = meeting.get("participants", [])
+    participant_found = False
+    
+    for p in participants:
+        if p.get("user_id") == user_id:
+            p["attendance_status"] = status
+            participant_found = True
+            break
+    
+    if not participant_found:
+        raise HTTPException(status_code=404, detail="Participant not found in meeting")
+    
+    await db.meetings.update_one(
+        {"id": meeting_id},
+        {
+            "$set": {
+                "participants": participants,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+    
+    return {"message": "Attendance updated", "status": status}
+
+
+@router.put("/{meeting_id}/attendance-bulk")
+async def update_bulk_attendance(
+    meeting_id: str,
+    attendance_data: List[dict],
+    user: dict = Depends(get_current_user_dep)
+):
+    """Update attendance status for multiple participants at once
+    
+    attendance_data: List of {user_id: str, status: str}
+    """
+    valid_statuses = ["invited", "accepted", "declined", "tentative", "present", "absent", "late", "excused"]
+    
+    meeting = await db.meetings.find_one({"id": meeting_id}, {"_id": 0})
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    
+    participants = meeting.get("participants", [])
+    
+    # Create a lookup for quick updates
+    attendance_lookup = {item.get("user_id"): item.get("status") for item in attendance_data}
+    
+    for p in participants:
+        user_id = p.get("user_id")
+        if user_id in attendance_lookup:
+            new_status = attendance_lookup[user_id]
+            if new_status in valid_statuses:
+                p["attendance_status"] = new_status
+    
+    await db.meetings.update_one(
+        {"id": meeting_id},
+        {
+            "$set": {
+                "participants": participants,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+    
+    return {"message": "Attendance updated for all participants"}
 
 
 # ============== DISCUSSION NOTES ==============

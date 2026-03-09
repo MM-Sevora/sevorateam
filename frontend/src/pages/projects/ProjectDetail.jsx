@@ -757,12 +757,12 @@ const ProjectDetail = () => {
     setLoadingMeetings(true);
     try {
       const token = localStorage.getItem('sevora_token');
-      const res = await fetch(`${API}/api/meetings?linked_project_id=${projectId}`, {
+      const res = await fetch(`${API}/api/meetings?project_id=${projectId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
         const data = await res.json();
-        setRelatedMeetings(data.meetings || []);
+        setRelatedMeetings(Array.isArray(data) ? data : data.meetings || []);
       }
     } catch (error) {
       console.error('Error fetching meetings:', error);

@@ -763,22 +763,40 @@ const MeetingDetail = () => {
       {/* Linked Items */}
       {(meeting.linked_project_name || meeting.linked_goal_name || meeting.department_name) && (
         <div className="flex flex-wrap gap-2">
-          {meeting.linked_project_name && (
-            <Badge variant="outline" className="bg-[#F5EBE0] text-[#5D4A3A] border-[#D4BBA6] px-3 py-1">
+          {meeting.linked_project_name && meeting.linked_project_id && (
+            <Badge 
+              variant="outline" 
+              className="bg-[#F5EBE0] text-[#5D4A3A] border-[#D4BBA6] px-3 py-1 cursor-pointer hover:bg-[#E8D5C4] transition-colors"
+              onClick={() => navigate(`/projects/${meeting.linked_project_id}`)}
+              data-testid="linked-project-badge"
+            >
               <Folder className="w-3.5 h-3.5 mr-1.5" />
               {meeting.linked_project_name}
+              <ExternalLink className="w-3 h-3 ml-1.5 opacity-60" />
             </Badge>
           )}
-          {meeting.linked_goal_name && (
-            <Badge variant="outline" className="bg-[#F5EBE0] text-[#5D4A3A] border-[#D4BBA6] px-3 py-1">
+          {meeting.linked_goal_name && meeting.linked_goal_id && (
+            <Badge 
+              variant="outline" 
+              className="bg-[#F5EBE0] text-[#5D4A3A] border-[#D4BBA6] px-3 py-1 cursor-pointer hover:bg-[#E8D5C4] transition-colors"
+              onClick={() => navigate(`/goals/${meeting.linked_goal_id}`)}
+              data-testid="linked-goal-badge"
+            >
               <Target className="w-3.5 h-3.5 mr-1.5" />
               {meeting.linked_goal_name}
+              <ExternalLink className="w-3 h-3 ml-1.5 opacity-60" />
             </Badge>
           )}
-          {meeting.department_name && (
-            <Badge variant="outline" className="bg-[#F5EBE0] text-[#5D4A3A] border-[#D4BBA6] px-3 py-1">
+          {meeting.department_name && meeting.department_id && (
+            <Badge 
+              variant="outline" 
+              className="bg-[#F5EBE0] text-[#5D4A3A] border-[#D4BBA6] px-3 py-1 cursor-pointer hover:bg-[#E8D5C4] transition-colors"
+              onClick={() => navigate(`/departments/${meeting.department_id}`)}
+              data-testid="linked-department-badge"
+            >
               <Building2 className="w-3.5 h-3.5 mr-1.5" />
               {meeting.department_name}
+              <ExternalLink className="w-3 h-3 ml-1.5 opacity-60" />
             </Badge>
           )}
         </div>
@@ -854,12 +872,19 @@ const MeetingDetail = () => {
               </CardContent>
             </Card>
 
-            {/* Participants */}
+            {/* Participants with Attendance Tracking */}
             <Card className="bg-white border-[#E8D5C4] shadow-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-[#4A3728] text-base flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  Participants ({meeting.participants?.length || 0})
+                <CardTitle className="text-[#4A3728] text-base flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-5 h-5" />
+                    Participants ({meeting.participants?.length || 0})
+                  </div>
+                  {(meeting.status === 'in_progress' || meeting.status === 'completed') && (
+                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">
+                      Attendance Tracking
+                    </Badge>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -874,11 +899,80 @@ const MeetingDetail = () => {
                           <p className="text-sm font-medium text-[#4A3728] truncate">{p.name}</p>
                           <p className="text-xs text-[#6B5D52] capitalize">{p.role}</p>
                         </div>
+                        {(meeting.status === 'in_progress' || meeting.status === 'completed') ? (
+                          <Select
+                            value={p.attendance_status || 'invited'}
+                            onValueChange={async (value) => {
+                              try {
+                                const token = localStorage.getItem('sevora_token');
+                                const res = await fetch(`${API}/api/meetings/${meetingId}/attendance/${p.user_id}?status=${value}`, {
+                                  method: 'PUT',
+                                  headers: { 'Authorization': `Bearer ${token}` }
+                                });
+                                if (res.ok) {
+                                  toast.success(`Attendance updated for ${p.name}`);
+                                  fetchMeeting();
+                                }
+                              } catch (error) {
+                                toast.error('Failed to update attendance');
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="w-[100px] h-7 text-xs border-[#D4BBA6] bg-white">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white border-[#D4BBA6]">
+                              <SelectItem value="invited">Invited</SelectItem>
+                              <SelectItem value="accepted">Accepted</SelectItem>
+                              <SelectItem value="present" className="text-emerald-600">Present</SelectItem>
+                              <SelectItem value="late" className="text-amber-600">Late</SelectItem>
+                              <SelectItem value="absent" className="text-red-600">Absent</SelectItem>
+                              <SelectItem value="excused" className="text-slate-600">Excused</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Badge 
+                            variant="outline" 
+                            className={`text-xs ${
+                              p.attendance_status === 'accepted' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                              p.attendance_status === 'declined' ? 'bg-red-50 text-red-700 border-red-200' :
+                              p.attendance_status === 'tentative' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                              p.attendance_status === 'present' ? 'bg-emerald-100 text-emerald-700 border-emerald-300' :
+                              p.attendance_status === 'absent' ? 'bg-red-100 text-red-700 border-red-300' :
+                              p.attendance_status === 'late' ? 'bg-amber-100 text-amber-700 border-amber-300' :
+                              p.attendance_status === 'excused' ? 'bg-slate-100 text-slate-700 border-slate-300' :
+                              'bg-white text-[#6B5D52] border-[#D4BBA6]'
+                            }`}
+                          >
+                            {p.attendance_status || 'invited'}
+                          </Badge>
+                        )}
                       </div>
                     ))}
                   </div>
                 ) : (
                   <p className="text-[#6B5D52] text-center py-4">No participants</p>
+                )}
+                
+                {/* Attendance Summary */}
+                {(meeting.status === 'in_progress' || meeting.status === 'completed') && meeting.participants?.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-[#E8D5C4]">
+                    <p className="text-xs font-medium text-[#4A3728] mb-2">Attendance Summary</p>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">
+                        Present: {meeting.participants.filter(p => p.attendance_status === 'present').length}
+                      </Badge>
+                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs">
+                        Late: {meeting.participants.filter(p => p.attendance_status === 'late').length}
+                      </Badge>
+                      <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-xs">
+                        Absent: {meeting.participants.filter(p => p.attendance_status === 'absent').length}
+                      </Badge>
+                      <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 text-xs">
+                        Excused: {meeting.participants.filter(p => p.attendance_status === 'excused').length}
+                      </Badge>
+                    </div>
+                  </div>
                 )}
               </CardContent>
             </Card>
