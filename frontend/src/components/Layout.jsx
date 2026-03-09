@@ -10,7 +10,7 @@ import {
     UserPlus, ShoppingBag, Calendar, QrCode, Building2, Settings,
     PenTool, Sparkles, Zap, Clock, Youtube, Image, LogOut, Menu, X,
     ChevronDown, ChevronRight, Briefcase, Mail, Check, Send, ListTodo, FolderKanban,
-    HelpCircle, Award, Network, Shield
+    HelpCircle, Award, Network, Shield, Flag, CalendarDays
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -28,6 +28,19 @@ import {
 } from './ui/dropdown-menu';
 
 const DEPARTMENT_CONFIG = {
+    goals: {
+        name: 'Goals & Objectives',
+        icon: Flag,
+        color: 'from-indigo-600 to-indigo-700',
+        bgColor: 'bg-indigo-50',
+        textColor: 'text-indigo-700',
+        routes: [
+            { path: '/goals', name: 'Dashboard', icon: BarChart3 },
+            { path: '/goals/strategic', name: 'Strategic Goals', icon: Flag },
+            { path: '/goals/objectives', name: 'Objectives', icon: Target },
+            { path: '/goals/fiscal-years', name: 'Fiscal Years', icon: CalendarDays },
+        ]
+    },
     marketing: {
         name: 'Marketing Ops',
         icon: Target,
@@ -136,7 +149,7 @@ export const Layout = ({ children }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(true);
-    const [expandedDepts, setExpandedDepts] = useState(['marketing', 'projects', 'mail', 'sales', 'social', 'admin', 'hr']);
+    const [expandedDepts, setExpandedDepts] = useState(['goals', 'marketing', 'projects', 'mail', 'sales', 'social', 'admin', 'hr']);
 
     const toggleDepartment = (dept) => {
         setExpandedDepts(prev => 
@@ -148,6 +161,7 @@ export const Layout = ({ children }) => {
 
     const getCurrentDepartment = () => {
         const path = location.pathname;
+        if (path.startsWith('/goals')) return 'goals';
         if (path.startsWith('/marketing')) return 'marketing';
         if (path.startsWith('/projects')) return 'projects';
         if (path.startsWith('/mail')) return 'mail';

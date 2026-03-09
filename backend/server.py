@@ -3388,6 +3388,15 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Expense routes: {e}")
 
+# Register Goals & Objectives routes
+try:
+    from routes.goals import router as goals_router, set_database as set_goals_db
+    set_goals_db(db)
+    api_router.include_router(goals_router)
+    logger.info("Goals & Objectives routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Goals & Objectives routes: {e}")
+
 app.include_router(api_router)
 
 # ============== WEBSOCKET FOR REAL-TIME NOTIFICATIONS ==============

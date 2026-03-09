@@ -801,6 +801,33 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - [x] Overdue tasks shown with red icon and "Overdue" badge
 - [x] At-risk projects shown in Overdue filter
 
+### Phase 41: Goals & Objectives Module - Phase 1 (COMPLETE - December 2025)
+**New Module Implementation:**
+- [x] Sidebar: "Goals & Objectives" menu added as FIRST item in navigation
+- [x] Sub-menus: Dashboard, Strategic Goals, Objectives, Fiscal Years
+
+**Backend (routes/goals.py):**
+- [x] Fiscal Years CRUD with auto-generated Q1-Q4 quarters
+- [x] Strategic Goals CRUD with progress calculation
+- [x] Objectives CRUD with linking to goals, quarters, departments
+- [x] Key Results CRUD with progress tracking
+- [x] Progress Updates for objectives
+- [x] Dashboard endpoint with statistics
+
+**Frontend Pages:**
+- [x] GoalsDashboard.jsx - Overview with stats, quarterly progress, dept breakdown
+- [x] StrategicGoals.jsx - Grid view with filters, create/edit modal
+- [x] FiscalYears.jsx - List with collapsible quarters, create/edit modal
+- [x] Objectives.jsx - Grid view with filters, create/edit modal
+
+**Database Collections:**
+- [x] fiscal_years - FY name, dates, status
+- [x] quarters - Linked to fiscal year, date ranges
+- [x] strategic_goals - Title, description, FY, owner, priority, status
+- [x] objectives - Title, goal, quarter, dept, owner, dates, progress
+- [x] key_results - Target/current values, progress tracking
+- [x] objective_updates - Progress history
+
 ### Manager Dashboard Status (Verified Working - December 2025)
 The Manager Dashboard was already functional with:
 - [x] Project Stats: Total, Active, Completed, On Hold, At Risk counts

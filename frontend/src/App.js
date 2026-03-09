@@ -68,6 +68,12 @@ import ProjectsList from "./pages/projects/ProjectsList";
 import ProjectDetail from "./pages/projects/ProjectDetail";
 import ManagerDashboard from "./pages/projects/ManagerDashboard";
 
+// Goals & Objectives Pages
+import GoalsDashboard from "./pages/goals/GoalsDashboard";
+import StrategicGoals from "./pages/goals/StrategicGoals";
+import FiscalYears from "./pages/goals/FiscalYears";
+import Objectives from "./pages/goals/Objectives";
+
 // Notifications
 import NotificationCenter from "./pages/notifications/NotificationCenter";
 
@@ -316,6 +322,12 @@ function AppRoutes() {
 
             {/* Settings Routes */}
             <Route path="/settings/automations" element={<ProtectedRoute><AutomationSettings /></ProtectedRoute>} />
+
+            {/* Goals & Objectives Routes */}
+            <Route path="/goals" element={<ProtectedRoute><GoalsDashboard /></ProtectedRoute>} />
+            <Route path="/goals/strategic" element={<ProtectedRoute><StrategicGoals /></ProtectedRoute>} />
+            <Route path="/goals/objectives" element={<ProtectedRoute><Objectives /></ProtectedRoute>} />
+            <Route path="/goals/fiscal-years" element={<ProtectedRoute><FiscalYears /></ProtectedRoute>} />
 
             {/* Project Management Routes */}
             <Route path="/projects" element={<ProtectedRoute><ProjectsList /></ProtectedRoute>} />
