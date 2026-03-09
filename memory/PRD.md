@@ -957,6 +957,42 @@ The Manager Dashboard was already functional with:
 - [x] FAQs displayed as expandable accordion
 - [x] Tags and related articles sidebar
 
+### Phase 47: Recurring Tasks Feature (COMPLETE - December 2025)
+**Backend Implementation:**
+- [x] Created `RecurringTaskTemplateCreate`, `RecurringTaskTemplateUpdate`, `RecurringTaskTemplateResponse` Pydantic models
+- [x] Created `RecurrenceType`, `RecurrenceEndType`, `MonthlyRepeatType` enums
+- [x] CRUD endpoints for recurring task templates:
+  - `GET /api/projects/recurring-templates` - List with filters (search, recurrence_type, is_active, is_paused)
+  - `POST /api/projects/recurring-templates` - Create template
+  - `GET /api/projects/recurring-templates/{id}` - Get single template
+  - `PUT /api/projects/recurring-templates/{id}` - Update template
+  - `DELETE /api/projects/recurring-templates/{id}` - Delete template
+  - `POST /api/projects/recurring-templates/{id}/pause` - Pause template
+  - `POST /api/projects/recurring-templates/{id}/resume` - Resume template
+  - `POST /api/projects/recurring-templates/{id}/generate-now` - Manually generate task
+  - `GET /api/projects/recurring-templates/{id}/generated-tasks` - List generated tasks
+- [x] Dashboard endpoint: `GET /api/projects/recurring-dashboard` with stats
+- [x] Route order fix: Recurring routes registered before `/{project_id}` catch-all
+- [x] Scheduler job `process_recurring_tasks()` runs hourly to auto-generate tasks
+
+**Frontend Implementation:**
+- [x] `RecurringTasks.jsx` page at `/projects/recurring`
+- [x] Dashboard stats cards: Active Templates, Paused, Generated Today, This Week
+- [x] Template cards with status badges, recurrence description, next occurrence
+- [x] Create/Edit modal with tabbed interface (Task Details, Recurrence)
+- [x] Actions dropdown menu (Edit, Generate Now, Pause/Resume, Delete)
+- [x] Upcoming Occurrences section (next 7 days)
+- [x] Filter bar with search, frequency filter, status filter
+
+**Task Integration:**
+- [x] Generated tasks have `parent_recurring_id` field linking to template
+- [x] Recurring indicator badge in `MyTasks.jsx` TaskCard component
+- [x] Recurring indicator in `TaskDetailModal.jsx` header
+
+**Testing:**
+- [x] 17/17 backend tests passed
+- [x] All frontend features verified
+
 ---
 
 ## Pending Issues
