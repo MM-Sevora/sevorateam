@@ -29,7 +29,9 @@ from models.projects import (
     ManagerDashboardResponse, TeamMemberWorkload, ProjectSummary,
     AttachmentResponse,
     LabelCreate, LabelUpdate, LabelResponse, TaskLabelResponse,
-    TaskTemplateCreate, TaskTemplateUpdate, TaskTemplateResponse
+    TaskTemplateCreate, TaskTemplateUpdate, TaskTemplateResponse,
+    RecurringTaskTemplateCreate, RecurringTaskTemplateUpdate, RecurringTaskTemplateResponse,
+    RecurrenceType, RecurrenceEndType, MonthlyRepeatType, GeneratedTaskInfo
 )
 
 # Import storage utilities
@@ -2869,3 +2871,561 @@ async def remove_label_from_task(
     )
     
     return {"message": "Label removed from task"}
+
+
+
+# ============== RECURRING TASK TEMPLATES ==============
+
+def get_recurrence_description(template: dict) -> str:
+    """Generate human-readable recurrence description"""
+    rec_type = template.get("recurrence_type", "weekly")
+    freq = template.get("frequency", 1)
+    
+    freq_text = "" if freq == 1 else f"{freq} "
+    
+    if rec_type == "daily":
+        return f"Every {freq_text}day{'s' if freq > 1 else ''}"
+    
+    elif rec_type == "weekly":
+        days = template.get("repeat_on_days", [])
+        day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        if days:
+            day_str = ", ".join([day_names[d] for d in sorted(days) if d < 7])
+            return f"Every {freq_text}week{'s' if freq > 1 else ''} on {day_str}"
+        return f"Every {freq_text}week{'s' if freq > 1 else ''}"
+    
+    elif rec_type == "monthly":
+        monthly_type = template.get("monthly_repeat_type", "day_of_month")
+        if monthly_type == "day_of_month":
+            day = template.get("day_of_month", 1)
+            suffix = "th" if 11 <= day <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
+            return f"Every {freq_text}month{'s' if freq > 1 else ''} on the {day}{suffix}"
+        else:
+            week = template.get("week_of_month", 1)
+            weekday = template.get("weekday_of_month", 0)
+            week_names = {1: "First", 2: "Second", 3: "Third", 4: "Fourth", -1: "Last"}
+            day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+            return f"Every {freq_text}month{'s' if freq > 1 else ''} on the {week_names.get(week, 'First')} {day_names[weekday]}"
+    
+    elif rec_type == "quarterly":
+        return f"Every {freq_text}quarter{'s' if freq > 1 else ''}"
+    
+    elif rec_type == "yearly":
+        return f"Every {freq_text}year{'s' if freq > 1 else ''}"
+    
+    return f"Custom ({rec_type})"
+
+
+def calculate_next_occurrence(template: dict, from_date: datetime = None) -> Optional[datetime]:
+    """Calculate the next occurrence date for a recurring task"""
+    if template.get("is_paused") or not template.get("is_active", True):
+        return None
+    
+    from_date = from_date or datetime.now(timezone.utc)
+    rec_type = template.get("recurrence_type", "weekly")
+    freq = template.get("frequency", 1)
+    start_date_str = template.get("start_date")
+    
+    if not start_date_str:
+        return None
+    
+    try:
+        start_date = datetime.fromisoformat(start_date_str.replace('Z', '+00:00'))
+        if start_date.tzinfo is None:
+            start_date = start_date.replace(tzinfo=timezone.utc)
+    except:
+        return None
+    
+    # If start date is in the future, that's the next occurrence
+    if start_date > from_date:
+        return start_date
+    
+    # Check end conditions
+    end_type = template.get("recurrence_end_type", "never")
+    if end_type == "end_date":
+        end_date_str = template.get("end_date")
+        if end_date_str:
+            try:
+                end_date = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
+                if end_date.tzinfo is None:
+                    end_date = end_date.replace(tzinfo=timezone.utc)
+                if from_date > end_date:
+                    return None
+            except:
+                pass
+    elif end_type == "after_occurrences":
+        max_occ = template.get("max_occurrences", 0)
+        generated = template.get("occurrences_generated", 0)
+        if max_occ > 0 and generated >= max_occ:
+            return None
+    
+    next_date = start_date
+    
+    if rec_type == "daily":
+        while next_date <= from_date:
+            next_date += timedelta(days=freq)
+    
+    elif rec_type == "weekly":
+        repeat_days = template.get("repeat_on_days", [])
+        if not repeat_days:
+            repeat_days = [start_date.weekday()]
+        
+        while True:
+            if next_date > from_date and next_date.weekday() in repeat_days:
+                break
+            next_date += timedelta(days=1)
+            # Check if we've passed a full week cycle
+            if (next_date - start_date).days > 365:
+                return None
+    
+    elif rec_type == "monthly":
+        monthly_type = template.get("monthly_repeat_type", "day_of_month")
+        
+        if monthly_type == "day_of_month":
+            day = template.get("day_of_month", start_date.day)
+            while next_date <= from_date:
+                next_date = next_date + relativedelta(months=freq)
+                try:
+                    next_date = next_date.replace(day=min(day, 28))
+                except:
+                    pass
+        else:
+            # weekday_of_month - e.g., "First Monday"
+            week = template.get("week_of_month", 1)
+            weekday = template.get("weekday_of_month", 0)
+            
+            while next_date <= from_date:
+                next_date = next_date + relativedelta(months=freq)
+                # Find the correct weekday occurrence
+                first_of_month = next_date.replace(day=1)
+                first_weekday = first_of_month.weekday()
+                
+                if week == -1:  # Last
+                    last_of_month = next_date.replace(day=28) + timedelta(days=4)
+                    last_of_month = last_of_month - timedelta(days=last_of_month.day)
+                    while last_of_month.weekday() != weekday:
+                        last_of_month -= timedelta(days=1)
+                    next_date = last_of_month
+                else:
+                    days_until_weekday = (weekday - first_weekday + 7) % 7
+                    target_day = 1 + days_until_weekday + (week - 1) * 7
+                    try:
+                        next_date = next_date.replace(day=target_day)
+                    except:
+                        pass
+    
+    elif rec_type == "quarterly":
+        while next_date <= from_date:
+            next_date = next_date + relativedelta(months=3 * freq)
+    
+    elif rec_type == "yearly":
+        while next_date <= from_date:
+            next_date = next_date + relativedelta(years=freq)
+    
+    return next_date
+
+
+@router.post("/recurring-templates", response_model=RecurringTaskTemplateResponse)
+async def create_recurring_template(
+    data: RecurringTaskTemplateCreate,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Create a new recurring task template"""
+    now = datetime.now(timezone.utc).isoformat()
+    template_id = str(uuid.uuid4())
+    
+    template_doc = {
+        "id": template_id,
+        "name": data.name,
+        "description": data.description,
+        "project_id": data.project_id,
+        "department_id": data.department_id,
+        "assigned_to": data.assigned_to,
+        "priority": data.priority.value,
+        "tags": data.tags,
+        "estimated_hours": data.estimated_hours,
+        "recurrence_type": data.recurrence_type.value,
+        "frequency": data.frequency,
+        "repeat_on_days": data.repeat_on_days,
+        "monthly_repeat_type": data.monthly_repeat_type.value,
+        "day_of_month": data.day_of_month,
+        "week_of_month": data.week_of_month,
+        "weekday_of_month": data.weekday_of_month,
+        "recurrence_end_type": data.recurrence_end_type.value,
+        "end_date": data.end_date,
+        "max_occurrences": data.max_occurrences,
+        "start_date": data.start_date,
+        "task_due_offset_days": data.task_due_offset_days,
+        "is_active": True,
+        "is_paused": False,
+        "occurrences_generated": 0,
+        "last_generated": None,
+        "created_by": user.get("id"),
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.recurring_task_templates.insert_one(template_doc)
+    
+    # Build response
+    response = {**template_doc}
+    response["project_name"] = await get_project_name(data.project_id) if data.project_id else None
+    response["department_name"] = await get_department_name(data.department_id) if data.department_id else None
+    response["assigned_to_name"] = await get_user_name(data.assigned_to) if data.assigned_to else None
+    response["created_by_name"] = await get_user_name(user.get("id"))
+    response["recurrence_description"] = get_recurrence_description(template_doc)
+    response["next_occurrence"] = calculate_next_occurrence(template_doc)
+    if response["next_occurrence"]:
+        response["next_occurrence"] = response["next_occurrence"].isoformat()
+    
+    return response
+
+
+async def get_project_name(project_id: str) -> Optional[str]:
+    """Get project name by ID"""
+    if not project_id:
+        return None
+    project = await db.pm_projects.find_one({"id": project_id}, {"name": 1})
+    return project.get("name") if project else None
+
+
+@router.get("/recurring-templates", response_model=List[RecurringTaskTemplateResponse])
+async def list_recurring_templates(
+    project_id: Optional[str] = None,
+    department_id: Optional[str] = None,
+    assigned_to: Optional[str] = None,
+    recurrence_type: Optional[str] = None,
+    is_active: Optional[bool] = None,
+    is_paused: Optional[bool] = None,
+    search: Optional[str] = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """List all recurring task templates"""
+    query = {}
+    
+    if project_id:
+        query["project_id"] = project_id
+    if department_id:
+        query["department_id"] = department_id
+    if assigned_to:
+        query["assigned_to"] = assigned_to
+    if recurrence_type:
+        query["recurrence_type"] = recurrence_type
+    if is_active is not None:
+        query["is_active"] = is_active
+    if is_paused is not None:
+        query["is_paused"] = is_paused
+    if search:
+        query["$or"] = [
+            {"name": {"$regex": search, "$options": "i"}},
+            {"description": {"$regex": search, "$options": "i"}}
+        ]
+    
+    templates = await db.recurring_task_templates.find(query).sort("created_at", -1).to_list(500)
+    
+    results = []
+    for t in templates:
+        t.pop("_id", None)
+        t["project_name"] = await get_project_name(t.get("project_id")) if t.get("project_id") else None
+        t["department_name"] = await get_department_name(t.get("department_id")) if t.get("department_id") else None
+        t["assigned_to_name"] = await get_user_name(t.get("assigned_to")) if t.get("assigned_to") else None
+        t["created_by_name"] = await get_user_name(t.get("created_by"))
+        t["recurrence_description"] = get_recurrence_description(t)
+        next_occ = calculate_next_occurrence(t)
+        t["next_occurrence"] = next_occ.isoformat() if next_occ else None
+        results.append(t)
+    
+    return results
+
+
+@router.get("/recurring-templates/{template_id}", response_model=RecurringTaskTemplateResponse)
+async def get_recurring_template(
+    template_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get a recurring task template by ID"""
+    template = await db.recurring_task_templates.find_one({"id": template_id})
+    
+    if not template:
+        raise HTTPException(status_code=404, detail="Recurring template not found")
+    
+    template.pop("_id", None)
+    template["project_name"] = await get_project_name(template.get("project_id")) if template.get("project_id") else None
+    template["department_name"] = await get_department_name(template.get("department_id")) if template.get("department_id") else None
+    template["assigned_to_name"] = await get_user_name(template.get("assigned_to")) if template.get("assigned_to") else None
+    template["created_by_name"] = await get_user_name(template.get("created_by"))
+    template["recurrence_description"] = get_recurrence_description(template)
+    next_occ = calculate_next_occurrence(template)
+    template["next_occurrence"] = next_occ.isoformat() if next_occ else None
+    
+    return template
+
+
+@router.put("/recurring-templates/{template_id}", response_model=RecurringTaskTemplateResponse)
+async def update_recurring_template(
+    template_id: str,
+    data: RecurringTaskTemplateUpdate,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Update a recurring task template"""
+    template = await db.recurring_task_templates.find_one({"id": template_id})
+    
+    if not template:
+        raise HTTPException(status_code=404, detail="Recurring template not found")
+    
+    update_data = {k: v for k, v in data.dict(exclude_unset=True).items() if v is not None}
+    
+    # Convert enums to values
+    if "recurrence_type" in update_data:
+        update_data["recurrence_type"] = update_data["recurrence_type"].value
+    if "recurrence_end_type" in update_data:
+        update_data["recurrence_end_type"] = update_data["recurrence_end_type"].value
+    if "monthly_repeat_type" in update_data:
+        update_data["monthly_repeat_type"] = update_data["monthly_repeat_type"].value
+    if "priority" in update_data:
+        update_data["priority"] = update_data["priority"].value
+    
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.recurring_task_templates.update_one(
+        {"id": template_id},
+        {"$set": update_data}
+    )
+    
+    return await get_recurring_template(template_id, user)
+
+
+@router.delete("/recurring-templates/{template_id}")
+async def delete_recurring_template(
+    template_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Delete a recurring task template"""
+    template = await db.recurring_task_templates.find_one({"id": template_id})
+    
+    if not template:
+        raise HTTPException(status_code=404, detail="Recurring template not found")
+    
+    await db.recurring_task_templates.delete_one({"id": template_id})
+    
+    return {"message": "Recurring template deleted successfully"}
+
+
+@router.post("/recurring-templates/{template_id}/pause")
+async def pause_recurring_template(
+    template_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Pause a recurring task template"""
+    template = await db.recurring_task_templates.find_one({"id": template_id})
+    
+    if not template:
+        raise HTTPException(status_code=404, detail="Recurring template not found")
+    
+    await db.recurring_task_templates.update_one(
+        {"id": template_id},
+        {"$set": {"is_paused": True, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"message": "Recurring template paused"}
+
+
+@router.post("/recurring-templates/{template_id}/resume")
+async def resume_recurring_template(
+    template_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Resume a paused recurring task template"""
+    template = await db.recurring_task_templates.find_one({"id": template_id})
+    
+    if not template:
+        raise HTTPException(status_code=404, detail="Recurring template not found")
+    
+    await db.recurring_task_templates.update_one(
+        {"id": template_id},
+        {"$set": {"is_paused": False, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"message": "Recurring template resumed"}
+
+
+@router.get("/recurring-templates/{template_id}/generated-tasks", response_model=List[GeneratedTaskInfo])
+async def get_generated_tasks(
+    template_id: str,
+    limit: int = 20,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get tasks generated from this recurring template"""
+    template = await db.recurring_task_templates.find_one({"id": template_id})
+    
+    if not template:
+        raise HTTPException(status_code=404, detail="Recurring template not found")
+    
+    tasks = await db.pm_tasks.find(
+        {"parent_recurring_id": template_id}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    results = []
+    for task in tasks:
+        results.append({
+            "id": task.get("id"),
+            "name": task.get("name"),
+            "status": task.get("status", "draft"),
+            "due_date": task.get("due_date"),
+            "assigned_to_name": await get_user_name(task.get("assigned_to")),
+            "generated_at": task.get("created_at")
+        })
+    
+    return results
+
+
+@router.post("/recurring-templates/{template_id}/generate-now")
+async def generate_task_now(
+    template_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Manually generate a task from a recurring template"""
+    template = await db.recurring_task_templates.find_one({"id": template_id})
+    
+    if not template:
+        raise HTTPException(status_code=404, detail="Recurring template not found")
+    
+    if not template.get("is_active", True):
+        raise HTTPException(status_code=400, detail="Template is not active")
+    
+    # Generate the task
+    task_id = await generate_task_from_template(template, user.get("id"))
+    
+    return {"message": "Task generated successfully", "task_id": task_id}
+
+
+async def generate_task_from_template(template: dict, triggered_by: str = None) -> str:
+    """Generate a task from a recurring template"""
+    now = datetime.now(timezone.utc)
+    task_id = str(uuid.uuid4())
+    
+    # Calculate due date
+    due_date = None
+    offset_days = template.get("task_due_offset_days", 0)
+    if offset_days > 0:
+        due_date = (now + timedelta(days=offset_days)).isoformat()
+    
+    task_doc = {
+        "id": task_id,
+        "name": template.get("name"),
+        "description": template.get("description"),
+        "project_id": template.get("project_id"),
+        "assigned_to": template.get("assigned_to"),
+        "priority": template.get("priority", "medium"),
+        "status": "assigned" if template.get("assigned_to") else "draft",
+        "due_date": due_date,
+        "estimated_hours": template.get("estimated_hours"),
+        "tags": template.get("tags", []),
+        "parent_recurring_id": template.get("id"),
+        "is_recurring": True,
+        "created_by": triggered_by or template.get("created_by"),
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.pm_tasks.insert_one(task_doc)
+    
+    # Update template stats
+    await db.recurring_task_templates.update_one(
+        {"id": template.get("id")},
+        {
+            "$inc": {"occurrences_generated": 1},
+            "$set": {"last_generated": now.isoformat(), "updated_at": now.isoformat()}
+        }
+    )
+    
+    # Send notification to assignee
+    if template.get("assigned_to"):
+        try:
+            await create_notification(
+                user_id=template.get("assigned_to"),
+                notification_type=NotificationType.TASK_ASSIGNED,
+                category=NotificationCategory.TASK,
+                title=f"Recurring Task: {template.get('name')}",
+                message="A new task has been generated from recurring template.",
+                priority=NotificationPriority.MEDIUM,
+                entity_type="task",
+                entity_id=task_id,
+                action_url=f"/projects/tasks/{task_id}",
+                metadata={
+                    "task_name": template.get("name"),
+                    "recurring_template_id": template.get("id"),
+                    "due_date": due_date
+                }
+            )
+        except Exception as e:
+            logger.error(f"Failed to send notification for recurring task: {e}")
+    
+    return task_id
+
+
+# ============== RECURRING TASK DASHBOARD ==============
+
+@router.get("/recurring-dashboard")
+async def get_recurring_dashboard(
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get recurring tasks dashboard data"""
+    # Total templates
+    total = await db.recurring_task_templates.count_documents({"is_active": True})
+    active = await db.recurring_task_templates.count_documents({"is_active": True, "is_paused": False})
+    paused = await db.recurring_task_templates.count_documents({"is_active": True, "is_paused": True})
+    
+    # By frequency
+    by_frequency = {}
+    for freq in ["daily", "weekly", "monthly", "quarterly", "yearly"]:
+        count = await db.recurring_task_templates.count_documents({
+            "is_active": True,
+            "recurrence_type": freq
+        })
+        by_frequency[freq] = count
+    
+    # Tasks generated today
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    tasks_today = await db.pm_tasks.count_documents({
+        "parent_recurring_id": {"$ne": None},
+        "created_at": {"$gte": today_start.isoformat()}
+    })
+    
+    # Tasks generated this week
+    week_start = today_start - timedelta(days=today_start.weekday())
+    tasks_this_week = await db.pm_tasks.count_documents({
+        "parent_recurring_id": {"$ne": None},
+        "created_at": {"$gte": week_start.isoformat()}
+    })
+    
+    # Upcoming occurrences (next 7 days)
+    upcoming = []
+    templates = await db.recurring_task_templates.find({
+        "is_active": True,
+        "is_paused": False
+    }).to_list(100)
+    
+    for t in templates:
+        next_occ = calculate_next_occurrence(t)
+        if next_occ and next_occ <= datetime.now(timezone.utc) + timedelta(days=7):
+            upcoming.append({
+                "template_id": t.get("id"),
+                "name": t.get("name"),
+                "next_occurrence": next_occ.isoformat(),
+                "recurrence_type": t.get("recurrence_type"),
+                "assigned_to_name": await get_user_name(t.get("assigned_to"))
+            })
+    
+    # Sort upcoming by date
+    upcoming.sort(key=lambda x: x["next_occurrence"])
+    
+    return {
+        "total_templates": total,
+        "active_templates": active,
+        "paused_templates": paused,
+        "by_frequency": by_frequency,
+        "tasks_generated_today": tasks_today,
+        "tasks_generated_this_week": tasks_this_week,
+        "upcoming_occurrences": upcoming[:10]
+    }

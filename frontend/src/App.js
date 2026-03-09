@@ -67,6 +67,7 @@ import MyTasks from "./pages/projects/MyTasks";
 import ProjectsList from "./pages/projects/ProjectsList";
 import ProjectDetail from "./pages/projects/ProjectDetail";
 import ManagerDashboard from "./pages/projects/ManagerDashboard";
+import RecurringTasks from "./pages/projects/RecurringTasks";
 
 // Goals & Objectives Pages
 import GoalsDashboard from "./pages/goals/GoalsDashboard";
@@ -334,6 +335,7 @@ function AppRoutes() {
             {/* Project Management Routes */}
             <Route path="/projects" element={<ProtectedRoute><ProjectsList /></ProtectedRoute>} />
             <Route path="/projects/my-tasks" element={<ProtectedRoute><MyTasks /></ProtectedRoute>} />
+            <Route path="/projects/recurring" element={<ProtectedRoute><RecurringTasks /></ProtectedRoute>} />
             <Route path="/projects/manager" element={<ProtectedRoute><ManagerDashboard /></ProtectedRoute>} />
             <Route path="/projects/:projectId" element={<ProtectedRoute><ProjectDetail /></ProtectedRoute>} />
 

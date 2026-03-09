@@ -10,7 +10,7 @@ import {
     UserPlus, ShoppingBag, Calendar, QrCode, Building2, Settings,
     PenTool, Sparkles, Zap, Clock, Youtube, Image, LogOut, Menu, X,
     ChevronDown, ChevronRight, Briefcase, Mail, Check, Send, ListTodo, FolderKanban,
-    HelpCircle, Award, Network, Shield, Flag, CalendarDays
+    HelpCircle, Award, Network, Shield, Flag, CalendarDays, RefreshCw
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -68,6 +68,7 @@ const DEPARTMENT_CONFIG = {
             { path: '/projects/manager', name: 'Manager Dashboard', icon: BarChart3 },
             { path: '/projects/my-tasks', name: 'My Tasks', icon: ListTodo },
             { path: '/projects', name: 'All Projects', icon: FolderKanban },
+            { path: '/projects/recurring', name: 'Recurring Tasks', icon: RefreshCw },
         ]
     },
     mail: {

@@ -5,6 +5,7 @@ Uses MongoDB for job persistence
 import os
 import logging
 import asyncio
+import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, Callable, List
 from pymongo import MongoClient
@@ -603,3 +604,230 @@ def setup_reminder_job():
     
     # Also setup objective deadline notifications
     setup_objective_deadline_job()
+    
+    # Also setup recurring task generation
+    setup_recurring_task_job()
+
+
+# ============== RECURRING TASK GENERATION ==============
+
+async def process_recurring_tasks():
+    """Process recurring task templates and generate new tasks"""
+    from motor.motor_asyncio import AsyncIOMotorClient
+    from routes.notifications import create_notification, NotificationType, NotificationCategory, NotificationPriority
+    from dateutil.relativedelta import relativedelta
+    
+    try:
+        client = AsyncIOMotorClient(MONGO_URL)
+        db = client[DB_NAME]
+        
+        now = datetime.now(timezone.utc)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # Get all active, non-paused templates
+        templates = await db.recurring_task_templates.find({
+            "is_active": True,
+            "is_paused": False
+        }).to_list(500)
+        
+        logger.info(f"Processing {len(templates)} recurring task templates")
+        
+        for template in templates:
+            try:
+                template_id = template.get("id")
+                
+                # Check if task was already generated today for this template
+                existing_today = await db.pm_tasks.find_one({
+                    "parent_recurring_id": template_id,
+                    "created_at": {"$gte": today_start.isoformat()}
+                })
+                
+                if existing_today:
+                    continue  # Already generated today
+                
+                # Calculate if we should generate today
+                should_generate = False
+                rec_type = template.get("recurrence_type", "weekly")
+                freq = template.get("frequency", 1)
+                
+                start_date_str = template.get("start_date")
+                if not start_date_str:
+                    continue
+                
+                try:
+                    start_date = datetime.fromisoformat(start_date_str.replace('Z', '+00:00'))
+                    if start_date.tzinfo is None:
+                        start_date = start_date.replace(tzinfo=timezone.utc)
+                except:
+                    continue
+                
+                # Check end conditions
+                end_type = template.get("recurrence_end_type", "never")
+                if end_type == "end_date":
+                    end_date_str = template.get("end_date")
+                    if end_date_str:
+                        try:
+                            end_date = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
+                            if end_date.tzinfo is None:
+                                end_date = end_date.replace(tzinfo=timezone.utc)
+                            if now > end_date:
+                                continue
+                        except:
+                            pass
+                elif end_type == "after_occurrences":
+                    max_occ = template.get("max_occurrences", 0)
+                    generated = template.get("occurrences_generated", 0)
+                    if max_occ > 0 and generated >= max_occ:
+                        continue
+                
+                # Determine if today is a generation day
+                if rec_type == "daily":
+                    days_since_start = (now - start_date).days
+                    if days_since_start >= 0 and days_since_start % freq == 0:
+                        should_generate = True
+                
+                elif rec_type == "weekly":
+                    repeat_days = template.get("repeat_on_days", [])
+                    today_weekday = now.weekday()
+                    if today_weekday in repeat_days:
+                        # Check if it's the right week
+                        weeks_since_start = (now - start_date).days // 7
+                        if weeks_since_start >= 0 and weeks_since_start % freq == 0:
+                            should_generate = True
+                
+                elif rec_type == "monthly":
+                    monthly_type = template.get("monthly_repeat_type", "day_of_month")
+                    
+                    if monthly_type == "day_of_month":
+                        day = template.get("day_of_month", start_date.day)
+                        if now.day == day:
+                            months_since_start = (now.year - start_date.year) * 12 + (now.month - start_date.month)
+                            if months_since_start >= 0 and months_since_start % freq == 0:
+                                should_generate = True
+                    else:
+                        # weekday_of_month
+                        week = template.get("week_of_month", 1)
+                        weekday = template.get("weekday_of_month", 0)
+                        
+                        if now.weekday() == weekday:
+                            # Check if it's the right week of month
+                            if week == -1:  # Last occurrence
+                                next_week = now + timedelta(days=7)
+                                if next_week.month != now.month:
+                                    should_generate = True
+                            else:
+                                # First, Second, Third, Fourth
+                                week_of_month = (now.day - 1) // 7 + 1
+                                if week_of_month == week:
+                                    should_generate = True
+                
+                elif rec_type == "quarterly":
+                    # Every 3 months from start
+                    months_since_start = (now.year - start_date.year) * 12 + (now.month - start_date.month)
+                    if months_since_start >= 0 and months_since_start % (3 * freq) == 0 and now.day == start_date.day:
+                        should_generate = True
+                
+                elif rec_type == "yearly":
+                    if now.month == start_date.month and now.day == start_date.day:
+                        years_since_start = now.year - start_date.year
+                        if years_since_start >= 0 and years_since_start % freq == 0:
+                            should_generate = True
+                
+                if should_generate:
+                    # Generate the task
+                    task_id = str(uuid.uuid4())
+                    
+                    # Calculate due date
+                    due_date = None
+                    offset_days = template.get("task_due_offset_days", 0)
+                    if offset_days > 0:
+                        due_date = (now + timedelta(days=offset_days)).isoformat()
+                    
+                    task_doc = {
+                        "id": task_id,
+                        "name": template.get("name"),
+                        "description": template.get("description"),
+                        "project_id": template.get("project_id"),
+                        "assigned_to": template.get("assigned_to"),
+                        "priority": template.get("priority", "medium"),
+                        "status": "assigned" if template.get("assigned_to") else "draft",
+                        "due_date": due_date,
+                        "estimated_hours": template.get("estimated_hours"),
+                        "tags": template.get("tags", []),
+                        "parent_recurring_id": template_id,
+                        "is_recurring": True,
+                        "created_by": template.get("created_by"),
+                        "created_at": now.isoformat(),
+                        "updated_at": now.isoformat()
+                    }
+                    
+                    await db.pm_tasks.insert_one(task_doc)
+                    
+                    # Update template stats
+                    await db.recurring_task_templates.update_one(
+                        {"id": template_id},
+                        {
+                            "$inc": {"occurrences_generated": 1},
+                            "$set": {"last_generated": now.isoformat(), "updated_at": now.isoformat()}
+                        }
+                    )
+                    
+                    # Send notification to assignee
+                    if template.get("assigned_to"):
+                        try:
+                            await create_notification(
+                                user_id=template.get("assigned_to"),
+                                notification_type=NotificationType.TASK_ASSIGNED,
+                                category=NotificationCategory.TASK,
+                                title=f"Recurring Task: {template.get('name')}",
+                                message="A new task has been generated from recurring template.",
+                                priority=NotificationPriority.MEDIUM,
+                                entity_type="task",
+                                entity_id=task_id,
+                                action_url=f"/projects/tasks/{task_id}",
+                                metadata={
+                                    "task_name": template.get("name"),
+                                    "recurring_template_id": template_id,
+                                    "due_date": due_date
+                                }
+                            )
+                        except Exception as e:
+                            logger.error(f"Failed to send notification for recurring task: {e}")
+                    
+                    logger.info(f"Generated recurring task '{template.get('name')}' (template: {template_id})")
+                    
+            except Exception as e:
+                logger.error(f"Error processing recurring template {template.get('id')}: {e}")
+        
+        client.close()
+        
+    except Exception as e:
+        logger.error(f"Error in process_recurring_tasks: {e}")
+
+
+def setup_recurring_task_job():
+    """Setup the recurring task generation job to run every hour"""
+    global scheduler
+    
+    if not APSCHEDULER_AVAILABLE or scheduler is None:
+        logger.warning("Cannot setup recurring task job - scheduler not available")
+        return
+    
+    job_id = "process_recurring_tasks"
+    
+    # Remove existing job if present
+    try:
+        scheduler.remove_job(job_id)
+    except:
+        pass
+    
+    # Add new job - runs every hour at minute 0
+    add_job(
+        func=process_recurring_tasks,
+        trigger='cron',
+        job_id=job_id,
+        trigger_args={'minute': 0},  # Every hour at :00
+        replace_existing=True
+    )
+    
+    logger.info("Recurring task generation job scheduled (hourly at :00)")

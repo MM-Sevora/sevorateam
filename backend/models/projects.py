@@ -569,3 +569,148 @@ class ManagerDashboardResponse(BaseModel):
     
     # Weekly Progress (for burndown-style chart)
     weekly_completion: List[Dict] = []
+
+
+
+# ============== RECURRING TASK MODELS ==============
+
+class RecurrenceType(str, Enum):
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"
+    QUARTERLY = "quarterly"
+    YEARLY = "yearly"
+    CUSTOM = "custom"
+
+
+class RecurrenceEndType(str, Enum):
+    NEVER = "never"
+    END_DATE = "end_date"
+    AFTER_OCCURRENCES = "after_occurrences"
+
+
+class MonthlyRepeatType(str, Enum):
+    DAY_OF_MONTH = "day_of_month"  # e.g., 15th of every month
+    WEEKDAY_OF_MONTH = "weekday_of_month"  # e.g., First Monday
+
+
+class RecurringTaskTemplateCreate(BaseModel):
+    """Template for recurring tasks"""
+    name: str
+    description: Optional[str] = None
+    project_id: Optional[str] = None  # Optional - can be standalone
+    department_id: Optional[str] = None
+    assigned_to: Optional[str] = None
+    priority: Priority = Priority.MEDIUM
+    tags: List[str] = []
+    estimated_hours: Optional[float] = None
+    
+    # Recurrence Settings
+    recurrence_type: RecurrenceType = RecurrenceType.WEEKLY
+    frequency: int = 1  # Every X days/weeks/months
+    
+    # Weekly settings
+    repeat_on_days: List[int] = []  # 0=Monday, 1=Tuesday, ..., 6=Sunday
+    
+    # Monthly settings
+    monthly_repeat_type: MonthlyRepeatType = MonthlyRepeatType.DAY_OF_MONTH
+    day_of_month: Optional[int] = None  # 1-31
+    week_of_month: Optional[int] = None  # 1=First, 2=Second, -1=Last
+    weekday_of_month: Optional[int] = None  # 0=Monday, ..., 6=Sunday
+    
+    # End settings
+    recurrence_end_type: RecurrenceEndType = RecurrenceEndType.NEVER
+    end_date: Optional[str] = None
+    max_occurrences: Optional[int] = None
+    
+    # Start settings
+    start_date: str  # When to start generating tasks
+    task_due_offset_days: int = 0  # Task due X days after generation
+
+
+class RecurringTaskTemplateUpdate(BaseModel):
+    """Update recurring task template"""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    project_id: Optional[str] = None
+    department_id: Optional[str] = None
+    assigned_to: Optional[str] = None
+    priority: Optional[Priority] = None
+    tags: Optional[List[str]] = None
+    estimated_hours: Optional[float] = None
+    
+    # Recurrence Settings
+    recurrence_type: Optional[RecurrenceType] = None
+    frequency: Optional[int] = None
+    repeat_on_days: Optional[List[int]] = None
+    monthly_repeat_type: Optional[MonthlyRepeatType] = None
+    day_of_month: Optional[int] = None
+    week_of_month: Optional[int] = None
+    weekday_of_month: Optional[int] = None
+    recurrence_end_type: Optional[RecurrenceEndType] = None
+    end_date: Optional[str] = None
+    max_occurrences: Optional[int] = None
+    start_date: Optional[str] = None
+    task_due_offset_days: Optional[int] = None
+    
+    # Status
+    is_active: Optional[bool] = None
+    is_paused: Optional[bool] = None
+
+
+class RecurringTaskTemplateResponse(BaseModel):
+    """Response for recurring task template"""
+    id: str
+    name: str
+    description: Optional[str] = None
+    project_id: Optional[str] = None
+    project_name: Optional[str] = None
+    department_id: Optional[str] = None
+    department_name: Optional[str] = None
+    assigned_to: Optional[str] = None
+    assigned_to_name: Optional[str] = None
+    priority: Priority = Priority.MEDIUM
+    tags: List[str] = []
+    estimated_hours: Optional[float] = None
+    
+    # Recurrence Settings
+    recurrence_type: RecurrenceType
+    frequency: int = 1
+    repeat_on_days: List[int] = []
+    monthly_repeat_type: MonthlyRepeatType = MonthlyRepeatType.DAY_OF_MONTH
+    day_of_month: Optional[int] = None
+    week_of_month: Optional[int] = None
+    weekday_of_month: Optional[int] = None
+    recurrence_end_type: RecurrenceEndType = RecurrenceEndType.NEVER
+    end_date: Optional[str] = None
+    max_occurrences: Optional[int] = None
+    start_date: str
+    task_due_offset_days: int = 0
+    
+    # Status
+    is_active: bool = True
+    is_paused: bool = False
+    
+    # Statistics
+    occurrences_generated: int = 0
+    next_occurrence: Optional[str] = None
+    last_generated: Optional[str] = None
+    
+    # Metadata
+    created_by: Optional[str] = None
+    created_by_name: Optional[str] = None
+    created_at: str
+    updated_at: str
+    
+    # Display helpers
+    recurrence_description: str = ""  # Human-readable recurrence description
+
+
+class GeneratedTaskInfo(BaseModel):
+    """Info about a generated task from a recurring template"""
+    id: str
+    name: str
+    status: TaskStatus
+    due_date: Optional[str] = None
+    assigned_to_name: Optional[str] = None
+    generated_at: str
