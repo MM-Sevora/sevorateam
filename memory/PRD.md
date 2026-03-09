@@ -202,6 +202,19 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - [x] Preferences: Email enabled/disabled toggle per user
 - [x] Preferences: Email frequency selection (instant/hourly/daily)
 
+### Phase 21: Alert & Notification System - P2 Smart Features (COMPLETE - December 2025)
+- [x] Backend: GET /api/notifications/grouped endpoint
+- [x] Backend: Grouping logic for task_assigned, task_comment, task_status_changed, user_mentioned, email_received
+- [x] Backend: Smart summary messages (e.g., "You have 3 new tasks assigned", "5 new comments on 'Task X'")
+- [x] Backend: Priority preservation (highest priority in group)
+- [x] Backend: Notification IDs list for bulk actions
+- [x] Frontend: "Smart View" tab in NotificationCenter (default view)
+- [x] Frontend: GroupedNotificationsList component with visual grouping
+- [x] Frontend: Count badges on grouped items
+- [x] Frontend: Separate sections for grouped vs ungrouped notifications
+- [x] Email Service: Enhanced digest grouping (group_notifications_for_digest)
+- [x] Email Service: Smart digest subject lines
+
 ---
 
 ## Pending Issues
@@ -216,8 +229,9 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - **Description**: Full health check of marketing modules requested
 
 ### P3 - WebSocket Notifications
-- **Status**: NOT STARTED (Recurring platform issue)
-- **Description**: Real-time notifications not working
+- **Status**: IN PROGRESS (Fix attempted but not verified)
+- **Description**: Real-time notifications via WebSocket have been unreliable
+- **Fix Applied**: Heartbeat/ping mechanism and improved error handling in useWebSocket.js and websocket_service.py
 
 ---
 

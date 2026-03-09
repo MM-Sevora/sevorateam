@@ -75,19 +75,21 @@ const PRIORITY_STYLES = {
 
 const NotificationCenter = () => {
     const [notifications, setNotifications] = useState([]);
+    const [groupedData, setGroupedData] = useState({ groups: [], ungrouped: [] });
     const [loading, setLoading] = useState(true);
     const [summary, setSummary] = useState({ total_unread: 0, by_category: {} });
     const [categoryFilter, setCategoryFilter] = useState('all');
     const [priorityFilter, setPriorityFilter] = useState('all');
     const [readFilter, setReadFilter] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeTab, setActiveTab] = useState('all');
+    const [activeTab, setActiveTab] = useState('smart');
     const [preferences, setPreferences] = useState(null);
     const [savingPrefs, setSavingPrefs] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
         fetchNotifications();
+        fetchGroupedNotifications();
         fetchSummary();
         fetchPreferences();
     }, [categoryFilter, priorityFilter, readFilter]);
@@ -107,6 +109,15 @@ const NotificationCenter = () => {
             toast.error('Failed to load notifications');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchGroupedNotifications = async () => {
+        try {
+            const res = await api.get('/notifications/grouped');
+            setGroupedData(res.data);
+        } catch (e) {
+            console.error('Failed to fetch grouped notifications:', e);
         }
     };
 
@@ -135,6 +146,7 @@ const NotificationCenter = () => {
                 n.id === notification.id ? { ...n, is_read: true } : n
             ));
             fetchSummary();
+            fetchGroupedNotifications();
         } catch (e) {
             toast.error('Failed to mark as read');
         }
@@ -144,6 +156,7 @@ const NotificationCenter = () => {
         try {
             await api.put('/notifications/read-all');
             setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+            setGroupedData({ groups: [], ungrouped: [] });
             fetchSummary();
             toast.success('All notifications marked as read');
         } catch (e) {
@@ -156,6 +169,7 @@ const NotificationCenter = () => {
             await api.delete(`/notifications/${notification.id}`);
             setNotifications(prev => prev.filter(n => n.id !== notification.id));
             fetchSummary();
+            fetchGroupedNotifications();
             toast.success('Notification deleted');
         } catch (e) {
             toast.error('Failed to delete notification');
@@ -167,6 +181,7 @@ const NotificationCenter = () => {
         try {
             await api.delete('/notifications?is_read_only=true');
             setNotifications(prev => prev.filter(n => !n.is_read));
+            fetchGroupedNotifications();
             toast.success('Read notifications deleted');
         } catch (e) {
             toast.error('Failed to delete notifications');
@@ -261,6 +276,9 @@ const NotificationCenter = () => {
 
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
                     <TabsList className="bg-white border border-[#E8D5C4]">
+                        <TabsTrigger value="smart" className="data-[state=active]:bg-[#4A3728] data-[state=active]:text-white">
+                            Smart View
+                        </TabsTrigger>
                         <TabsTrigger value="all" className="data-[state=active]:bg-[#4A3728] data-[state=active]:text-white">
                             All
                         </TabsTrigger>
@@ -272,6 +290,17 @@ const NotificationCenter = () => {
                             Settings
                         </TabsTrigger>
                     </TabsList>
+
+                    {/* Smart View Tab - Grouped Notifications */}
+                    <TabsContent value="smart" className="space-y-4">
+                        <GroupedNotificationsList
+                            groupedData={groupedData}
+                            loading={loading}
+                            onRefresh={() => { fetchNotifications(); fetchGroupedNotifications(); }}
+                            formatTime={formatTime}
+                            navigate={navigate}
+                        />
+                    </TabsContent>
 
                     {/* All / Unread Tabs Content */}
                     <TabsContent value="all" className="space-y-4">
@@ -560,6 +589,194 @@ const NotificationsList = ({
                 </CardContent>
             </Card>
         </>
+    );
+};
+
+// Smart View - Grouped Notifications List Component
+const GroupedNotificationsList = ({ groupedData, loading, onRefresh, formatTime, navigate }) => {
+    const { groups, ungrouped, total_grouped, total_ungrouped } = groupedData;
+    
+    const handleGroupClick = (group) => {
+        if (group.action_url) {
+            navigate(group.action_url);
+        }
+    };
+    
+    return (
+        <div className="space-y-4">
+            {/* Info Banner */}
+            <div className="bg-gradient-to-r from-[#4A3728] to-[#6B5D52] text-white p-4 rounded-lg flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                        <Bell className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <p className="font-medium">Smart Notification View</p>
+                        <p className="text-sm opacity-80">Similar notifications are grouped together</p>
+                    </div>
+                </div>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onRefresh}
+                    className="border-white/30 text-white hover:bg-white/10"
+                >
+                    <RefreshCw className="w-4 h-4 mr-1" />
+                    Refresh
+                </Button>
+            </div>
+
+            {loading ? (
+                <Card className="bg-white border-[#E8D5C4]">
+                    <CardContent className="flex items-center justify-center py-12">
+                        <Loader2 className="w-6 h-6 animate-spin text-[#9C8C74]" />
+                    </CardContent>
+                </Card>
+            ) : (groups.length === 0 && ungrouped.length === 0) ? (
+                <Card className="bg-white border-[#E8D5C4]">
+                    <CardContent className="text-center py-12 text-[#9C8C74]">
+                        <Bell className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                        <p className="font-medium">No unread notifications</p>
+                        <p className="text-sm mt-1">You're all caught up!</p>
+                    </CardContent>
+                </Card>
+            ) : (
+                <div className="space-y-4">
+                    {/* Grouped Notifications */}
+                    {groups.length > 0 && (
+                        <div>
+                            <h3 className="text-sm font-medium text-[#6B5D52] mb-3 flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-[#4A3728]"></span>
+                                Grouped ({total_grouped})
+                            </h3>
+                            <Card className="bg-white border-[#E8D5C4]">
+                                <CardContent className="p-0 divide-y divide-[#E8D5C4]">
+                                    {groups.map((group) => {
+                                        const Icon = NOTIFICATION_ICONS[group.type] || NOTIFICATION_ICONS.default;
+                                        const catConfig = CATEGORY_CONFIG[group.category] || {};
+                                        const priorityClass = PRIORITY_STYLES[group.priority] || '';
+                                        
+                                        return (
+                                            <div
+                                                key={group.id}
+                                                className={`p-4 hover:bg-[#FDF8F3] cursor-pointer transition-colors ${priorityClass}`}
+                                                onClick={() => handleGroupClick(group)}
+                                            >
+                                                <div className="flex items-start gap-4">
+                                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 relative ${catConfig.color || 'bg-gray-100 text-gray-600'}`}>
+                                                        <Icon className="w-6 h-6" />
+                                                        {group.count > 1 && (
+                                                            <span className="absolute -top-1 -right-1 w-6 h-6 bg-[#4A3728] text-white text-xs font-bold rounded-full flex items-center justify-center">
+                                                                {group.count}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <p className="text-base font-semibold text-[#4A3728]">
+                                                                {group.title}
+                                                            </p>
+                                                            {group.priority === 'high' && (
+                                                                <Badge className="text-[10px] px-1.5 py-0 bg-red-100 text-red-700 border-red-200">
+                                                                    Urgent
+                                                                </Badge>
+                                                            )}
+                                                            {group.is_grouped && (
+                                                                <Badge className="text-[10px] px-1.5 py-0 bg-[#4A3728] text-white">
+                                                                    {group.count} items
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-sm text-[#6B5D52]">
+                                                            {group.message}
+                                                        </p>
+                                                        <div className="flex items-center gap-3 mt-2">
+                                                            <span className="text-xs text-[#9C8C74]">
+                                                                {formatTime(group.created_at)}
+                                                            </span>
+                                                            {group.category && (
+                                                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-[#D4BBA6] text-[#6B5D52]">
+                                                                    {group.category}
+                                                                </Badge>
+                                                            )}
+                                                            {group.action_url && (
+                                                                <span className="text-xs text-blue-600 flex items-center gap-1">
+                                                                    <ExternalLink className="w-3 h-3" />
+                                                                    View
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
+
+                    {/* Ungrouped Notifications */}
+                    {ungrouped.length > 0 && (
+                        <div>
+                            <h3 className="text-sm font-medium text-[#6B5D52] mb-3 flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-[#9C8C74]"></span>
+                                Other Notifications ({total_ungrouped})
+                            </h3>
+                            <Card className="bg-white border-[#E8D5C4]">
+                                <CardContent className="p-0 divide-y divide-[#E8D5C4]">
+                                    {ungrouped.map((notification) => {
+                                        const Icon = NOTIFICATION_ICONS[notification.type] || NOTIFICATION_ICONS.default;
+                                        const catConfig = CATEGORY_CONFIG[notification.category] || {};
+                                        const priorityClass = PRIORITY_STYLES[notification.priority] || '';
+                                        
+                                        return (
+                                            <div
+                                                key={notification.id}
+                                                className={`p-4 hover:bg-[#FDF8F3] cursor-pointer transition-colors ${priorityClass}`}
+                                                onClick={() => notification.action_url && navigate(notification.action_url)}
+                                            >
+                                                <div className="flex items-start gap-4">
+                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${catConfig.color || 'bg-gray-100 text-gray-600'}`}>
+                                                        <Icon className="w-5 h-5" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <p className="text-sm font-medium text-[#4A3728]">
+                                                                {notification.title}
+                                                            </p>
+                                                            {notification.priority === 'high' && (
+                                                                <Badge className="text-[10px] px-1.5 py-0 bg-red-100 text-red-700 border-red-200">
+                                                                    Urgent
+                                                                </Badge>
+                                                            )}
+                                                            <span className="w-2 h-2 rounded-full bg-rose-500" />
+                                                        </div>
+                                                        <p className="text-sm text-[#6B5D52]">
+                                                            {notification.message}
+                                                        </p>
+                                                        <div className="flex items-center gap-3 mt-2">
+                                                            <span className="text-xs text-[#9C8C74]">
+                                                                {formatTime(notification.created_at)}
+                                                            </span>
+                                                            {notification.category && (
+                                                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-[#D4BBA6] text-[#6B5D52]">
+                                                                    {notification.category}
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
     );
 };
 
