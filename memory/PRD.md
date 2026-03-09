@@ -1240,6 +1240,26 @@ The Manager Dashboard was already functional with:
 - [x] 9/9 backend tests passed (100%)
 - [x] All frontend features verified via Playwright
 
+### Phase 48f: MS Calendar Sync UI (COMPLETE - December 2025)
+**Connect Outlook UI:**
+- [x] Frontend: "Connect Outlook" button in /meetings page header
+- [x] Frontend: MS Calendar connection modal with status display
+- [x] Frontend: Shows benefits list (sync, calendar invites, keep in sync)
+- [x] Frontend: "Connect with Microsoft" button opens OAuth popup
+- [x] Frontend: Polls for connection status after OAuth redirect
+- [x] Frontend: "Disconnect" option when connected
+- [x] Frontend: Shows connected email when authenticated
+
+**Sync to Outlook UI:**
+- [x] Frontend: "Sync to Outlook" button on meeting detail page header
+- [x] Frontend: Shows "Synced to Outlook" (green checkmark) when synced
+- [x] Frontend: Shows error toast when not connected to calendar
+- [x] Frontend: Loading state with spinner during sync
+
+**Testing:**
+- [x] 5/5 frontend tests passed (100%)
+- [x] All UI interactions verified via Playwright
+
 ### P3 - Backlog
 - [ ] Gantt Chart View for projects
 - [ ] Slack/WhatsApp integration
