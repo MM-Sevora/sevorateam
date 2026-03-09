@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { NotificationsDropdown, OnlineUsersIndicator } from './Notifications';
 import HelpButton from './HelpButton';
 import TourTrigger from './TourTrigger';
+import GlobalSearch from './GlobalSearch';
 import { 
     LayoutDashboard, Users, Target, MessageSquare, DollarSign, BarChart3,
     UserPlus, ShoppingBag, Calendar, QrCode, Building2, Settings,
@@ -402,7 +403,10 @@ export const Layout = ({ children }) => {
             <main className="flex-1 overflow-auto bg-white">
                 {/* Top Header Bar */}
                 <div className="h-14 border-b border-[#E8D5C4] bg-white flex items-center justify-between px-6 sticky top-0 z-10">
-                    <OnlineUsersIndicator />
+                    <div className="flex items-center gap-4">
+                        <OnlineUsersIndicator />
+                        <GlobalSearch />
+                    </div>
                     <div className="flex items-center gap-2" data-tour="notifications">
                         <NotificationsDropdown />
                     </div>
