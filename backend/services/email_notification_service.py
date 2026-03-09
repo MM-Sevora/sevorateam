@@ -465,3 +465,305 @@ def build_digest_email_html(notifications: List[dict], user_name: str, frequency
     </body>
     </html>
     """
+
+
+
+# ============== TICKET EMAIL NOTIFICATIONS ==============
+
+async def send_ticket_email(
+    recipient_email: str,
+    recipient_name: str,
+    ticket: dict,
+    email_type: str,
+    extra_data: dict = None
+):
+    """Send email notification for ticket events"""
+    if not microsoft_email_service:
+        logger.warning("Email service not initialized")
+        return
+    
+    # Build subject and body based on email type
+    ticket_number = ticket.get("ticket_number", "Unknown")
+    subject_prefix = f"[Sevora Support] [{ticket_number}]"
+    
+    if email_type == "resolved":
+        subject = f"{subject_prefix} Your ticket has been resolved"
+        body = build_ticket_resolved_email(ticket, recipient_name, extra_data)
+    elif email_type == "reply":
+        subject = f"{subject_prefix} New reply on your ticket"
+        body = build_ticket_reply_email(ticket, recipient_name, extra_data)
+    elif email_type == "assigned":
+        subject = f"{subject_prefix} Ticket assigned to you"
+        body = build_ticket_assigned_email(ticket, recipient_name, extra_data)
+    elif email_type == "created":
+        subject = f"{subject_prefix} Ticket received"
+        body = build_ticket_created_email(ticket, recipient_name)
+    else:
+        logger.warning(f"Unknown ticket email type: {email_type}")
+        return
+    
+    try:
+        result = await microsoft_email_service.send_email(
+            sender_email=DEFAULT_SENDER,
+            to_recipients=[recipient_email],
+            subject=subject,
+            body=body,
+            is_html=True
+        )
+        logger.info(f"Sent ticket {email_type} email to {recipient_email}")
+        return result
+    except Exception as e:
+        logger.error(f"Failed to send ticket email: {e}")
+
+
+def build_ticket_resolved_email(ticket: dict, recipient_name: str, extra_data: dict = None) -> str:
+    """Build HTML email for ticket resolution"""
+    resolution_notes = extra_data.get("resolution_notes", "") if extra_data else ""
+    
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; margin: 0; padding: 20px; }}
+            .container {{ max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }}
+            .header {{ background: linear-gradient(135deg, #4A3728 0%, #6B5D52 100%); color: white; padding: 30px; text-align: center; }}
+            .header h1 {{ margin: 0; font-size: 24px; }}
+            .content {{ padding: 30px; }}
+            .ticket-box {{ background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 20px; margin: 20px 0; }}
+            .ticket-number {{ color: #6B5D52; font-size: 14px; margin-bottom: 8px; }}
+            .ticket-subject {{ color: #4A3728; font-size: 18px; font-weight: 600; }}
+            .status-badge {{ display: inline-block; background: #22c55e; color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }}
+            .resolution {{ background: #f8fafc; border-left: 4px solid #4A3728; padding: 15px; margin: 20px 0; }}
+            .resolution h4 {{ margin: 0 0 10px 0; color: #4A3728; }}
+            .resolution p {{ margin: 0; color: #6B5D52; }}
+            .button {{ display: inline-block; background: #4A3728; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 500; }}
+            .footer {{ padding: 20px 30px; background: #f8fafc; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #9ca3af; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Ticket Resolved</h1>
+            </div>
+            <div class="content">
+                <p>Hi {recipient_name},</p>
+                <p>Great news! Your support ticket has been resolved.</p>
+                
+                <div class="ticket-box">
+                    <div class="ticket-number">{ticket.get('ticket_number', '')}</div>
+                    <div class="ticket-subject">{ticket.get('subject', '')}</div>
+                    <div style="margin-top: 12px;">
+                        <span class="status-badge">Resolved</span>
+                    </div>
+                </div>
+                
+                {f'''<div class="resolution">
+                    <h4>Resolution Notes</h4>
+                    <p>{resolution_notes}</p>
+                </div>''' if resolution_notes else ''}
+                
+                <p>If this doesn't fully address your issue, you can reply to reopen the ticket.</p>
+                
+                <p style="margin-top: 24px;">
+                    <a href="https://sevora-hub.preview.emergentagent.com/help/tickets/{ticket.get('id', '')}" class="button">
+                        View Ticket
+                    </a>
+                </p>
+            </div>
+            <div class="footer">
+                <p>This email was sent by Sevora Help Center</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+
+def build_ticket_reply_email(ticket: dict, recipient_name: str, extra_data: dict = None) -> str:
+    """Build HTML email for ticket reply"""
+    reply_content = extra_data.get("reply_content", "") if extra_data else ""
+    reply_by = extra_data.get("reply_by", "Support Team") if extra_data else "Support Team"
+    
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; margin: 0; padding: 20px; }}
+            .container {{ max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }}
+            .header {{ background: linear-gradient(135deg, #4A3728 0%, #6B5D52 100%); color: white; padding: 30px; text-align: center; }}
+            .header h1 {{ margin: 0; font-size: 24px; }}
+            .content {{ padding: 30px; }}
+            .ticket-ref {{ background: #f8fafc; border-radius: 8px; padding: 15px; margin: 15px 0; }}
+            .ticket-number {{ color: #6B5D52; font-size: 14px; }}
+            .ticket-subject {{ color: #4A3728; font-size: 16px; font-weight: 600; margin-top: 4px; }}
+            .reply-box {{ background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 20px; margin: 20px 0; }}
+            .reply-by {{ color: #3b82f6; font-weight: 600; margin-bottom: 8px; }}
+            .reply-content {{ color: #4A3728; }}
+            .button {{ display: inline-block; background: #4A3728; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 500; }}
+            .footer {{ padding: 20px 30px; background: #f8fafc; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #9ca3af; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>New Reply</h1>
+            </div>
+            <div class="content">
+                <p>Hi {recipient_name},</p>
+                <p>You have a new reply on your support ticket.</p>
+                
+                <div class="ticket-ref">
+                    <div class="ticket-number">{ticket.get('ticket_number', '')}</div>
+                    <div class="ticket-subject">{ticket.get('subject', '')}</div>
+                </div>
+                
+                <div class="reply-box">
+                    <div class="reply-by">{reply_by} replied:</div>
+                    <div class="reply-content">{reply_content}</div>
+                </div>
+                
+                <p style="margin-top: 24px;">
+                    <a href="https://sevora-hub.preview.emergentagent.com/help/tickets/{ticket.get('id', '')}" class="button">
+                        View & Reply
+                    </a>
+                </p>
+            </div>
+            <div class="footer">
+                <p>This email was sent by Sevora Help Center</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+
+def build_ticket_assigned_email(ticket: dict, recipient_name: str, extra_data: dict = None) -> str:
+    """Build HTML email for ticket assignment"""
+    priority_colors = {
+        'low': '#6b7280',
+        'medium': '#3b82f6',
+        'high': '#f97316',
+        'urgent': '#ef4444'
+    }
+    priority = ticket.get('priority', 'medium')
+    priority_color = priority_colors.get(priority, '#3b82f6')
+    
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; margin: 0; padding: 20px; }}
+            .container {{ max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }}
+            .header {{ background: linear-gradient(135deg, #4A3728 0%, #6B5D52 100%); color: white; padding: 30px; text-align: center; }}
+            .header h1 {{ margin: 0; font-size: 24px; }}
+            .content {{ padding: 30px; }}
+            .ticket-box {{ background: #fef3c7; border: 1px solid #fbbf24; border-radius: 8px; padding: 20px; margin: 20px 0; }}
+            .ticket-number {{ color: #6B5D52; font-size: 14px; margin-bottom: 8px; }}
+            .ticket-subject {{ color: #4A3728; font-size: 18px; font-weight: 600; }}
+            .meta {{ display: flex; gap: 12px; margin-top: 12px; }}
+            .badge {{ display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }}
+            .priority {{ background: {priority_color}20; color: {priority_color}; }}
+            .module {{ background: #f3f4f6; color: #6b7280; }}
+            .description {{ background: #f8fafc; border-radius: 8px; padding: 15px; margin: 20px 0; color: #4A3728; }}
+            .button {{ display: inline-block; background: #4A3728; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 500; }}
+            .footer {{ padding: 20px 30px; background: #f8fafc; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #9ca3af; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Ticket Assigned</h1>
+            </div>
+            <div class="content">
+                <p>Hi {recipient_name},</p>
+                <p>A support ticket has been assigned to you.</p>
+                
+                <div class="ticket-box">
+                    <div class="ticket-number">{ticket.get('ticket_number', '')}</div>
+                    <div class="ticket-subject">{ticket.get('subject', '')}</div>
+                    <div class="meta">
+                        <span class="badge priority">{priority.upper()}</span>
+                        <span class="badge module">{ticket.get('module_name', ticket.get('module_key', 'General'))}</span>
+                    </div>
+                </div>
+                
+                <div class="description">
+                    <strong>Description:</strong><br>
+                    {ticket.get('description', '')[:300]}{'...' if len(ticket.get('description', '')) > 300 else ''}
+                </div>
+                
+                <p style="margin-top: 24px;">
+                    <a href="https://sevora-hub.preview.emergentagent.com/help/tickets/{ticket.get('id', '')}" class="button">
+                        View Ticket
+                    </a>
+                </p>
+            </div>
+            <div class="footer">
+                <p>This email was sent by Sevora Help Center</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+
+def build_ticket_created_email(ticket: dict, recipient_name: str) -> str:
+    """Build HTML email for ticket creation confirmation"""
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; margin: 0; padding: 20px; }}
+            .container {{ max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }}
+            .header {{ background: linear-gradient(135deg, #4A3728 0%, #6B5D52 100%); color: white; padding: 30px; text-align: center; }}
+            .header h1 {{ margin: 0; font-size: 24px; }}
+            .content {{ padding: 30px; }}
+            .ticket-box {{ background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center; }}
+            .ticket-number {{ color: #4A3728; font-size: 24px; font-weight: 700; }}
+            .ticket-subject {{ color: #6B5D52; font-size: 16px; margin-top: 8px; }}
+            .info {{ background: #f8fafc; border-radius: 8px; padding: 15px; margin: 20px 0; }}
+            .info p {{ margin: 8px 0; color: #4A3728; }}
+            .button {{ display: inline-block; background: #4A3728; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 500; }}
+            .footer {{ padding: 20px 30px; background: #f8fafc; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #9ca3af; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Ticket Received</h1>
+            </div>
+            <div class="content">
+                <p>Hi {recipient_name},</p>
+                <p>We've received your support request and our team will get back to you soon.</p>
+                
+                <div class="ticket-box">
+                    <div class="ticket-number">{ticket.get('ticket_number', '')}</div>
+                    <div class="ticket-subject">{ticket.get('subject', '')}</div>
+                </div>
+                
+                <div class="info">
+                    <p><strong>What happens next?</strong></p>
+                    <p>Our support team will review your ticket and respond as soon as possible. You'll receive email updates when there's activity on your ticket.</p>
+                </div>
+                
+                <p style="margin-top: 24px;">
+                    <a href="https://sevora-hub.preview.emergentagent.com/help/tickets/{ticket.get('id', '')}" class="button">
+                        View Ticket
+                    </a>
+                </p>
+            </div>
+            <div class="footer">
+                <p>This email was sent by Sevora Help Center</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """

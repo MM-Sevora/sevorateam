@@ -664,6 +664,19 @@ async def create_ticket(
         logger.error(f"Failed to send ticket notification: {e}")
     
     logger.info(f"Created support ticket: {ticket_number}")
+    
+    # Send confirmation email to requester
+    try:
+        from services.email_notification_service import send_ticket_email
+        await send_ticket_email(
+            recipient_email=user.get("email", ""),
+            recipient_name=user.get("name", "User"),
+            ticket=ticket_doc,
+            email_type="created"
+        )
+    except Exception as e:
+        logger.error(f"Failed to send ticket creation email: {e}")
+    
     return ticket_doc
 
 
@@ -731,6 +744,22 @@ async def update_ticket(
             )
         except Exception as e:
             logger.error(f"Failed to send ticket update notification: {e}")
+    
+    # Send email notification for resolved tickets
+    if data.status == TicketStatus.RESOLVED:
+        try:
+            from services.email_notification_service import send_ticket_email
+            requester = await db.users.find_one({"id": result["requester_id"]}, {"email": 1, "name": 1})
+            if requester and requester.get("email"):
+                await send_ticket_email(
+                    recipient_email=requester["email"],
+                    recipient_name=requester.get("name", "User"),
+                    ticket=result,
+                    email_type="resolved",
+                    extra_data={"resolution_notes": data.resolution_notes or ""}
+                )
+        except Exception as e:
+            logger.error(f"Failed to send ticket resolution email: {e}")
     
     return result
 
@@ -809,6 +838,25 @@ async def add_ticket_comment(
             )
     except Exception as e:
         logger.error(f"Failed to send comment notification: {e}")
+    
+    # Send email to requester when support staff replies (not internal notes)
+    if user["id"] != ticket["requester_id"] and not data.is_internal:
+        try:
+            from services.email_notification_service import send_ticket_email
+            requester = await db.users.find_one({"id": ticket["requester_id"]}, {"email": 1, "name": 1})
+            if requester and requester.get("email"):
+                await send_ticket_email(
+                    recipient_email=requester["email"],
+                    recipient_name=requester.get("name", "User"),
+                    ticket=ticket,
+                    email_type="reply",
+                    extra_data={
+                        "reply_content": data.content,
+                        "reply_by": user.get("name", "Support Team")
+                    }
+                )
+        except Exception as e:
+            logger.error(f"Failed to send comment email: {e}")
     
     return comment_doc
 
@@ -1143,6 +1191,23 @@ async def assign_ticket(
         )
     except Exception as e:
         logger.error(f"Failed to send assignment notification: {e}")
+    
+    # Send email to assigned staff
+    try:
+        from services.email_notification_service import send_ticket_email
+        if staff.get("email"):
+            # Get module name
+            module = await db.help_modules.find_one({"module_key": result.get("module_key")})
+            result["module_name"] = module["module_name"] if module else result.get("module_key", "General")
+            
+            await send_ticket_email(
+                recipient_email=staff["email"],
+                recipient_name=staff.get("name", "Support Staff"),
+                ticket=result,
+                email_type="assigned"
+            )
+    except Exception as e:
+        logger.error(f"Failed to send assignment email: {e}")
     
     return {"message": f"Ticket assigned to {staff.get('name', 'staff member')}"}
 
