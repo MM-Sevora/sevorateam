@@ -3,12 +3,13 @@ Expense & Reimbursement Routes
 HR Module - Expense claim submission and approval
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, BackgroundTasks
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
 import base64
 import os
+import logging
 
 from models.expense import (
     ExpenseClaimCreate, ExpenseClaimUpdate, ExpenseClaimResponse,
@@ -16,6 +17,13 @@ from models.expense import (
 )
 
 expense_router = APIRouter(prefix="/expense", tags=["Expense & Reimbursement"])
+
+logger = logging.getLogger(__name__)
+
+# Import email service (lazy import to avoid circular deps)
+def get_email_service():
+    from services.graph_email_service import graph_email_service
+    return graph_email_service
 
 
 def get_db():
@@ -86,6 +94,7 @@ async def get_employee_details(db, user_id: str) -> dict:
 @expense_router.post("/claims", response_model=ExpenseClaimResponse)
 async def submit_expense_claim(
     data: ExpenseClaimCreate,
+    background_tasks: BackgroundTasks,
     user: dict = Depends(get_current_user_dep())
 ):
     """Submit a new expense claim"""
@@ -138,6 +147,23 @@ async def submit_expense_claim(
         "created_at": now
     }
     await db.notifications.insert_one(notification_doc)
+    
+    # Send email notification to HR (in background)
+    async def send_hr_email():
+        try:
+            email_service = get_email_service()
+            await email_service.notify_hr_new_claim(
+                claim_id=claim_id,
+                employee_name=emp_details.get("employee_name", "Unknown"),
+                employee_email=emp_details.get("employee_email", ""),
+                total_amount=total_amount,
+                department=emp_details.get("department_name"),
+                entries_count=len(data.entries)
+            )
+        except Exception as e:
+            logger.error(f"Failed to send HR email notification for claim {claim_id}: {e}")
+    
+    background_tasks.add_task(send_hr_email)
     
     if "_id" in claim_doc:
         del claim_doc["_id"]
@@ -307,6 +333,7 @@ async def get_claim_detail(claim_id: str, user: dict = Depends(get_current_user_
 @expense_router.put("/claims/{claim_id}/approve")
 async def approve_claim(
     claim_id: str,
+    background_tasks: BackgroundTasks,
     approved_amount: Optional[float] = None,
     hr_notes: Optional[str] = None,
     user: dict = Depends(require_hr())
@@ -325,10 +352,11 @@ async def approve_claim(
         raise HTTPException(status_code=400, detail="Only pending claims can be approved")
     
     now = datetime.now(timezone.utc).isoformat()
+    final_approved_amount = approved_amount or claim.get("total_amount")
     
     update_data = {
         "status": "approved",
-        "approved_amount": approved_amount or claim.get("total_amount"),
+        "approved_amount": final_approved_amount,
         "hr_notes": hr_notes,
         "reviewed_by": user.get("id"),
         "reviewed_by_name": user.get("name"),
@@ -338,18 +366,35 @@ async def approve_claim(
     
     await db.expense_claims.update_one({"id": claim["id"]}, {"$set": update_data})
     
-    # Notify employee
+    # Notify employee via in-app notification
     notification_doc = {
         "id": str(uuid.uuid4()),
         "user_id": claim.get("employee_id"),
         "type": "expense_approved",
         "title": f"Expense Claim Approved - {claim.get('claim_id')}",
-        "message": f"Your expense claim of ₹{update_data['approved_amount']:,.2f} has been approved.",
+        "message": f"Your expense claim of ₹{final_approved_amount:,.2f} has been approved.",
         "link": f"/hr/expenses/my",
         "read": False,
         "created_at": now
     }
     await db.notifications.insert_one(notification_doc)
+    
+    # Send email notification to employee (in background)
+    async def send_approval_email():
+        try:
+            email_service = get_email_service()
+            await email_service.notify_employee_claim_approved(
+                claim_id=claim.get("claim_id"),
+                employee_name=claim.get("employee_name", ""),
+                employee_email=claim.get("employee_email", ""),
+                total_amount=claim.get("total_amount", 0),
+                approved_amount=final_approved_amount,
+                hr_notes=hr_notes
+            )
+        except Exception as e:
+            logger.error(f"Failed to send approval email for claim {claim.get('claim_id')}: {e}")
+    
+    background_tasks.add_task(send_approval_email)
     
     return {"success": True, "message": "Claim approved", "claim_id": claim.get("claim_id")}
 
@@ -358,6 +403,7 @@ async def approve_claim(
 async def reject_claim(
     claim_id: str,
     rejection_reason: str,
+    background_tasks: BackgroundTasks,
     hr_notes: Optional[str] = None,
     user: dict = Depends(require_hr())
 ):
@@ -391,7 +437,7 @@ async def reject_claim(
     
     await db.expense_claims.update_one({"id": claim["id"]}, {"$set": update_data})
     
-    # Notify employee
+    # Notify employee via in-app notification
     notification_doc = {
         "id": str(uuid.uuid4()),
         "user_id": claim.get("employee_id"),
@@ -403,6 +449,23 @@ async def reject_claim(
         "created_at": now
     }
     await db.notifications.insert_one(notification_doc)
+    
+    # Send email notification to employee (in background)
+    async def send_rejection_email():
+        try:
+            email_service = get_email_service()
+            await email_service.notify_employee_claim_rejected(
+                claim_id=claim.get("claim_id"),
+                employee_name=claim.get("employee_name", ""),
+                employee_email=claim.get("employee_email", ""),
+                total_amount=claim.get("total_amount", 0),
+                rejection_reason=rejection_reason,
+                hr_notes=hr_notes
+            )
+        except Exception as e:
+            logger.error(f"Failed to send rejection email for claim {claim.get('claim_id')}: {e}")
+    
+    background_tasks.add_task(send_rejection_email)
     
     return {"success": True, "message": "Claim rejected", "claim_id": claim.get("claim_id")}
 

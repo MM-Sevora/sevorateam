@@ -564,12 +564,12 @@ const ExpenseManagement = () => {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>My Claim History</CardTitle>
-                <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); }}>
+                <Select value={statusFilter || "all"} onValueChange={(v) => { setStatusFilter(v === "all" ? "" : v); }}>
                   <SelectTrigger className="w-40">
                     <SelectValue placeholder="All Status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Status</SelectItem>
+                    <SelectItem value="all">All Status</SelectItem>
                     <SelectItem value="pending">Pending</SelectItem>
                     <SelectItem value="approved">Approved</SelectItem>
                     <SelectItem value="rejected">Rejected</SelectItem>
@@ -663,12 +663,12 @@ const ExpenseManagement = () => {
                 <div className="flex items-center justify-between">
                   <CardTitle>All Expense Claims</CardTitle>
                   <div className="flex gap-2">
-                    <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); fetchAllClaims(); }}>
+                    <Select value={statusFilter || "all"} onValueChange={(v) => { setStatusFilter(v === "all" ? "" : v); fetchAllClaims(); }}>
                       <SelectTrigger className="w-40">
                         <SelectValue placeholder="All Status" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All Status</SelectItem>
+                        <SelectItem value="all">All Status</SelectItem>
                         <SelectItem value="pending">Pending</SelectItem>
                         <SelectItem value="approved">Approved</SelectItem>
                         <SelectItem value="rejected">Rejected</SelectItem>
