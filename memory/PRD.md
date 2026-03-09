@@ -704,6 +704,28 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - `/app/backend/tests/test_expense_module.py` - Expense module backend tests
 - `/app/backend/tests/test_project_visibility_team.py` - Project visibility and team management tests
 
+### Phase 28: Task Assignment Control, Monitoring & Rich Text (COMPLETE - March 9, 2026)
+- [x] Backend: New endpoint `GET /api/projects/assigned-by-me` for tasks delegated to others
+- [x] Backend: Task Reminders CRUD - POST/GET/DELETE `/api/projects/reminders`
+- [x] Backend: Scheduler job for processing due reminders and sending notifications
+- [x] Frontend: "Assigned by Me" tab in My Tasks page showing delegated tasks with progress tracking
+- [x] Frontend: Follow-ups tab in Task Detail modal with Add Reminder form (datetime + message)
+- [x] Frontend: Rich Text Editor component using TipTap with:
+  - Bold, Italic, Underline formatting
+  - Headings (H1, H2)
+  - Bullet and numbered lists
+  - Blockquotes and code blocks
+  - Links and images
+  - Tables
+  - Undo/Redo
+- [x] Frontend: Comments now support rich text with HTML rendering
+- [x] Frontend: Task descriptions display HTML content
+
+### Task Assignment Monitoring Features
+- **Assigned by Me Tab**: See all tasks you've delegated with assignee names, status, due dates
+- **Follow-up Reminders**: Set scheduled reminders for any task, receive notifications when due
+- **Rich Text**: Full formatting support in comments and descriptions
+
 ---
 
 ## Recent Additions (March 2026)
