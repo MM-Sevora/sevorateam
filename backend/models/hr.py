@@ -154,6 +154,7 @@ class TeamCreate(BaseModel):
     department_id: str
     team_lead_id: Optional[str] = None
     description: Optional[str] = None
+    member_ids: List[str] = []
 
 
 class TeamUpdate(BaseModel):
@@ -161,6 +162,7 @@ class TeamUpdate(BaseModel):
     department_id: Optional[str] = None
     team_lead_id: Optional[str] = None
     description: Optional[str] = None
+    member_ids: Optional[List[str]] = None
     is_active: Optional[bool] = None
 
 
@@ -173,6 +175,7 @@ class TeamResponse(BaseModel):
     team_lead_id: Optional[str] = None
     team_lead_name: Optional[str] = None
     description: Optional[str] = None
+    member_ids: List[str] = []
     member_count: int = 0
     is_active: bool = True
     created_at: Optional[str] = None

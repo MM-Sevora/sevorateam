@@ -40,6 +40,12 @@ import {
 } from '../../components/ui/dropdown-menu';
 import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
+import { Checkbox } from '../../components/ui/checkbox';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '../../components/ui/popover';
 
 const OrganizationManagement = () => {
   const [activeTab, setActiveTab] = useState('org-chart');
@@ -852,28 +858,240 @@ const GradeModal = ({ grade, onClose, onSave }) => {
 };
 
 const TeamModal = ({ team, departments, employees, onClose, onSave }) => {
-  const [form, setForm] = useState({ name: team?.name || '', code: team?.code || '', department_id: team?.department_id || '', team_lead_id: team?.team_lead_id || '', description: team?.description || '' });
+  const [form, setForm] = useState({ 
+    name: team?.name || '', 
+    code: team?.code || '', 
+    department_id: team?.department_id || '', 
+    team_lead_id: team?.team_lead_id || '', 
+    description: team?.description || '',
+    member_ids: team?.member_ids || []
+  });
   const [saving, setSaving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Filter employees for search
+  const filteredEmployees = employees.filter(emp => 
+    emp.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    emp.email?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Toggle member
+  const toggleMember = (empId) => {
+    setForm(prev => ({
+      ...prev,
+      member_ids: prev.member_ids.includes(empId)
+        ? prev.member_ids.filter(id => id !== empId)
+        : [...prev.member_ids, empId]
+    }));
+  };
+
+  // Remove member
+  const removeMember = (empId) => {
+    setForm(prev => ({
+      ...prev,
+      member_ids: prev.member_ids.filter(id => id !== empId)
+    }));
+  };
+
+  // Get employee by ID
+  const getEmployee = (empId) => employees.find(e => e.id === empId);
+
   const handleSubmit = async (e) => {
-    e.preventDefault(); setSaving(true);
+    e.preventDefault(); 
+    setSaving(true);
     try {
-      if (team) { await api.put(`/hr/teams/${team.id}`, form); toast.success('Team updated'); }
-      else { await api.post('/hr/teams', form); toast.success('Team created'); }
+      const payload = {
+        ...form,
+        team_lead_id: form.team_lead_id || null,
+      };
+      if (team) { 
+        await api.put(`/hr/teams/${team.id}`, payload); 
+        toast.success('Team updated'); 
+      } else { 
+        await api.post('/hr/teams', payload); 
+        toast.success('Team created'); 
+      }
       onSave();
-    } catch (err) { toast.error(err.response?.data?.detail || 'Failed to save'); }
+    } catch (err) { 
+      toast.error(err.response?.data?.detail || 'Failed to save'); 
+    }
     setSaving(false);
   };
+
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
-        <DialogHeader><DialogTitle>{team ? 'Edit Team' : 'Add Team'}</DialogTitle></DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-[#4A3728]">{team ? 'Edit Team' : 'Add Team'}</DialogTitle>
+        </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div><Label>Name *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className="border-[#E8D5C4]" /></div>
-          <div><Label>Code *</Label><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toLowerCase().replace(/\s+/g, '-') })} required disabled={!!team} className="border-[#E8D5C4]" /></div>
-          <div><Label>Department *</Label><Select value={form.department_id} onValueChange={(v) => setForm({ ...form, department_id: v })}><SelectTrigger className="border-[#E8D5C4]"><SelectValue placeholder="Select..." /></SelectTrigger><SelectContent>{departments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent></Select></div>
-          <div><Label>Team Lead</Label><Select value={form.team_lead_id || "none"} onValueChange={(v) => setForm({ ...form, team_lead_id: v === "none" ? "" : v })}><SelectTrigger className="border-[#E8D5C4]"><SelectValue placeholder="None" /></SelectTrigger><SelectContent><SelectItem value="none">None</SelectItem>{employees.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}</SelectContent></Select></div>
-          <div><Label>Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} className="border-[#E8D5C4]" /></div>
-          <DialogFooter><Button type="button" variant="outline" onClick={onClose} className="border-[#E8D5C4]">Cancel</Button><Button type="submit" disabled={saving} className="bg-[#8B7355] hover:bg-[#6B5A45]">{saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}{team ? 'Update' : 'Create'}</Button></DialogFooter>
+          {/* Basic Info Row */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-[#4A3728]">Team Name *</Label>
+              <Input 
+                value={form.name} 
+                onChange={(e) => setForm({ ...form, name: e.target.value })} 
+                required 
+                className="border-[#E8D5C4]" 
+                placeholder="e.g., Marketing Team"
+              />
+            </div>
+            <div>
+              <Label className="text-[#4A3728]">Team Code *</Label>
+              <Input 
+                value={form.code} 
+                onChange={(e) => setForm({ ...form, code: e.target.value.toLowerCase().replace(/\s+/g, '-') })} 
+                required 
+                disabled={!!team} 
+                className="border-[#E8D5C4]" 
+                placeholder="e.g., marketing-team"
+              />
+            </div>
+          </div>
+
+          {/* Department & Team Lead Row */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-[#4A3728]">Department *</Label>
+              <Select value={form.department_id} onValueChange={(v) => setForm({ ...form, department_id: v })}>
+                <SelectTrigger className="border-[#E8D5C4]">
+                  <SelectValue placeholder="Select department" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-[#4A3728]">Team Lead</Label>
+              <Select value={form.team_lead_id || "none"} onValueChange={(v) => setForm({ ...form, team_lead_id: v === "none" ? "" : v })}>
+                <SelectTrigger className="border-[#E8D5C4]">
+                  <SelectValue placeholder="Select team lead" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Team Lead</SelectItem>
+                  {employees.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <Label className="text-[#4A3728]">Description</Label>
+            <Textarea 
+              value={form.description} 
+              onChange={(e) => setForm({ ...form, description: e.target.value })} 
+              rows={2} 
+              className="border-[#E8D5C4]" 
+              placeholder="Brief description of the team's purpose..."
+            />
+          </div>
+
+          {/* Team Members Section */}
+          <div className="border-t border-[#E8D5C4] pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <Label className="text-[#4A3728] text-base font-semibold">
+                Team Members ({form.member_ids.length})
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="outline" size="sm" className="border-[#E8D5C4]">
+                    <Plus className="w-4 h-4 mr-1" /> Add Members
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-3" align="end">
+                  <div className="space-y-3">
+                    <Input 
+                      placeholder="Search employees..." 
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="border-[#E8D5C4]"
+                    />
+                    <div className="max-h-48 overflow-y-auto space-y-1">
+                      {filteredEmployees.length === 0 ? (
+                        <p className="text-sm text-gray-500 text-center py-2">No employees found</p>
+                      ) : (
+                        filteredEmployees.map(emp => (
+                          <label 
+                            key={emp.id} 
+                            className="flex items-center gap-2 p-2 hover:bg-[#F5EDE5] rounded cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={form.member_ids.includes(emp.id)}
+                              onCheckedChange={() => toggleMember(emp.id)}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{emp.name}</p>
+                              <p className="text-xs text-gray-500 truncate">{emp.email}</p>
+                            </div>
+                            {emp.id === form.team_lead_id && (
+                              <Badge variant="outline" className="text-xs shrink-0">Lead</Badge>
+                            )}
+                          </label>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Selected Members List */}
+            {form.member_ids.length === 0 ? (
+              <div className="bg-[#F5EDE5] rounded-lg p-4 text-center">
+                <Users className="w-8 h-8 mx-auto text-[#8B7355] mb-2" />
+                <p className="text-sm text-[#5D4A3A]">No team members added yet</p>
+                <p className="text-xs text-[#8B7355]">Click "Add Members" to select employees</p>
+              </div>
+            ) : (
+              <div className="bg-[#F5EDE5] rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
+                {form.member_ids.map(memberId => {
+                  const member = getEmployee(memberId);
+                  if (!member) return null;
+                  return (
+                    <div 
+                      key={memberId} 
+                      className="flex items-center gap-3 bg-white p-2 rounded-lg border border-[#E8D5C4]"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-[#E8D5C4] flex items-center justify-center shrink-0">
+                        <span className="text-[#4A3728] font-medium text-sm">
+                          {member.name?.charAt(0)?.toUpperCase() || 'E'}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-[#4A3728] text-sm truncate">{member.name}</p>
+                        <p className="text-xs text-[#5D4A3A] truncate">{member.email}</p>
+                      </div>
+                      {memberId === form.team_lead_id && (
+                        <Badge className="bg-amber-100 text-amber-800 shrink-0">Lead</Badge>
+                      )}
+                      <Button 
+                        type="button"
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => removeMember(memberId)}
+                        className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="pt-4 border-t border-[#E8D5C4]">
+            <Button type="button" variant="outline" onClick={onClose} className="border-[#E8D5C4]">
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving || !form.name || !form.code || !form.department_id} className="bg-[#8B7355] hover:bg-[#6B5A45]">
+              {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              {team ? 'Update Team' : 'Create Team'}
+            </Button>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

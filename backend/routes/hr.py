@@ -190,7 +190,13 @@ async def get_team(team_id: str, user: dict = Depends(get_current_user_dep())):
     if team.get("team_lead_id"):
         lead = await db.users.find_one({"id": team["team_lead_id"]}, {"name": 1})
         team["team_lead_name"] = lead.get("name") if lead else None
-    team["member_count"] = await db.users.count_documents({"team_id": team_id})
+    
+    # Get member_ids if not already stored
+    if "member_ids" not in team:
+        members = await db.employees.find({"team_id": team_id}, {"id": 1}).to_list(None)
+        team["member_ids"] = [m["id"] for m in members]
+    
+    team["member_count"] = len(team.get("member_ids", []))
     
     return team
 
@@ -212,12 +218,20 @@ async def create_team(data: TeamCreate, user: dict = Depends(require_admin())):
         "id": team_id,
         **data.model_dump(),
         "is_active": True,
-        "member_count": 0,
+        "member_count": len(data.member_ids),
         "created_at": now,
         "updated_at": now
     }
     
     await db.teams.insert_one(team_doc)
+    
+    # Update team_id for all members
+    if data.member_ids:
+        await db.employees.update_many(
+            {"id": {"$in": data.member_ids}},
+            {"$set": {"team_id": team_id}}
+        )
+    
     del team_doc["_id"]
     
     # Enrich for response
@@ -240,6 +254,29 @@ async def update_team(team_id: str, data: TeamUpdate, user: dict = Depends(requi
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     
+    # Handle member_ids update
+    if data.member_ids is not None:
+        old_member_ids = existing.get("member_ids", [])
+        new_member_ids = data.member_ids
+        
+        # Remove team_id from old members who are no longer in the team
+        removed_members = [m for m in old_member_ids if m not in new_member_ids]
+        if removed_members:
+            await db.employees.update_many(
+                {"id": {"$in": removed_members}},
+                {"$set": {"team_id": None}}
+            )
+        
+        # Add team_id to new members
+        added_members = [m for m in new_member_ids if m not in old_member_ids]
+        if added_members:
+            await db.employees.update_many(
+                {"id": {"$in": added_members}},
+                {"$set": {"team_id": team_id}}
+            )
+        
+        update_data["member_count"] = len(new_member_ids)
+    
     await db.teams.update_one({"id": team_id}, {"$set": update_data})
     
     updated = await db.teams.find_one({"id": team_id}, {"_id": 0})
@@ -249,7 +286,6 @@ async def update_team(team_id: str, data: TeamUpdate, user: dict = Depends(requi
     if updated.get("team_lead_id"):
         lead = await db.users.find_one({"id": updated["team_lead_id"]}, {"name": 1})
         updated["team_lead_name"] = lead.get("name") if lead else None
-    updated["member_count"] = await db.users.count_documents({"team_id": team_id})
     
     return updated
 
