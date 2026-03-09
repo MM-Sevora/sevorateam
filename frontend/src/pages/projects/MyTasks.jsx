@@ -71,6 +71,8 @@ const TaskCard = ({ task, onStatusChange, onClick }) => {
   const isOverdue = task.due_date && new Date(task.due_date) < new Date() && 
     !['completed', 'approved'].includes(task.status);
 
+  const isIndividualTask = !task.project_id || task.is_individual;
+
   return (
     <div 
       data-testid={`task-card-${task.id}`}
@@ -84,7 +86,12 @@ const TaskCard = ({ task, onStatusChange, onClick }) => {
               <Flag className="w-3 h-3 mr-1" />
               {task.priority}
             </Badge>
-            {task.module_name && (
+            {isIndividualTask ? (
+              <Badge variant="outline" className="text-xs bg-rose-50 text-rose-700 border-rose-200">
+                <User className="w-3 h-3 mr-1" />
+                Individual
+              </Badge>
+            ) : task.module_name && (
               <Badge variant="outline" className="text-xs bg-[#F5EBE0] text-[#5D4A3A] border-[#D4BBA6]">
                 <Folder className="w-3 h-3 mr-1" />
                 {task.module_name}
@@ -260,28 +267,35 @@ const MyTasks = () => {
     setSubmitting(true);
     try {
       const token = localStorage.getItem('sevora_token');
+      const payload = {
+        name: quickTaskData.name,
+        description: quickTaskData.description,
+        priority: quickTaskData.priority,
+        due_date: quickTaskData.due_date || null
+      };
+      
+      // If personal project exists, link to it. Otherwise create individual task
+      if (personalProject?.id) {
+        payload.project_id = personalProject.id;
+      }
+      // Note: if project_id is not set, this creates an individual task
+      
       const response = await fetch(`${API}/api/projects/tasks`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          name: quickTaskData.name,
-          project_id: personalProject.id,
-          description: quickTaskData.description,
-          priority: quickTaskData.priority,
-          due_date: quickTaskData.due_date || null
-        })
+        body: JSON.stringify(payload)
       });
       
       if (!response.ok) throw new Error('Failed to create task');
       
-      toast.success('Personal task created!');
+      toast.success('Task created!');
       setShowQuickAdd(false);
       setQuickTaskData({ name: '', description: '', priority: 'medium', due_date: '' });
       fetchMyTasks();
-      fetchPersonalProject();
+      if (personalProject) fetchPersonalProject();
     } catch (error) {
       console.error('Error creating task:', error);
       toast.error('Failed to create task');

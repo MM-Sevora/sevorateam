@@ -10,6 +10,11 @@ from datetime import datetime
 
 # ============== ENUMS ==============
 
+class ProjectVisibility(str, Enum):
+    PUBLIC = "public"    # Visible to all employees
+    PRIVATE = "private"  # Only visible to team members
+
+
 class ProjectStatus(str, Enum):
     DRAFT = "draft"
     ACTIVE = "active"
@@ -102,6 +107,7 @@ class ProjectCreate(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     priority: Priority = Priority.MEDIUM
+    visibility: str = "public"  # public or private
     team_members: List[str] = []
     stakeholders: List[str] = []
     tags: List[str] = []
@@ -118,6 +124,7 @@ class ProjectUpdate(BaseModel):
     end_date: Optional[str] = None
     priority: Optional[Priority] = None
     status: Optional[ProjectStatus] = None
+    visibility: Optional[str] = None  # public or private
     team_members: Optional[List[str]] = None
     stakeholders: Optional[List[str]] = None
     tags: Optional[List[str]] = None
@@ -141,6 +148,7 @@ class ProjectResponse(BaseModel):
     end_date: Optional[str] = None
     priority: Priority = Priority.MEDIUM
     status: ProjectStatus = ProjectStatus.DRAFT
+    visibility: str = "public"  # public or private
     team_members: List[str] = []
     team_member_names: List[str] = []
     stakeholders: List[str] = []
@@ -168,7 +176,7 @@ class ExternalLink(BaseModel):
 
 class TaskCreate(BaseModel):
     name: str
-    project_id: str
+    project_id: Optional[str] = None  # Optional for individual tasks
     description: Optional[str] = None
     assigned_to: Optional[str] = None
     priority: Priority = Priority.MEDIUM
@@ -211,7 +219,7 @@ class TaskUpdate(BaseModel):
 class TaskResponse(BaseModel):
     id: str
     name: str
-    project_id: str
+    project_id: Optional[str] = None  # Optional for individual tasks
     project_name: Optional[str] = None
     module_id: Optional[str] = None
     module_name: Optional[str] = None
@@ -233,6 +241,7 @@ class TaskResponse(BaseModel):
     blocks: List[str] = []
     blocks_names: List[str] = []  # Names of tasks this blocks
     is_blocked: bool = False  # True if any blocking task is incomplete
+    is_individual: bool = False  # True if not linked to any project
     # Recurrence fields
     is_recurring: bool = False
     recurrence_pattern: Optional[str] = None

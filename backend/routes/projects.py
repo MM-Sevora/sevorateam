@@ -201,6 +201,12 @@ async def enrich_task(task: dict) -> dict:
             if project.get("module_id"):
                 module = await db.pm_modules.find_one({"id": project["module_id"]}, {"name": 1})
                 task["module_name"] = module.get("name") if module else None
+        task["is_individual"] = False
+    else:
+        # Individual task (not linked to any project)
+        task["is_individual"] = True
+        task["project_name"] = None
+        task["module_name"] = None
     
     # Get counts
     task["subtask_count"] = await db.pm_subtasks.count_documents({"parent_task_id": task["id"]})
@@ -418,10 +424,14 @@ async def list_projects(
     status: Optional[ProjectStatus] = None,
     owner_id: Optional[str] = None,
     priority: Optional[Priority] = None,
+    visibility: Optional[str] = None,
     search: Optional[str] = None,
     user: dict = Depends(get_current_user_dep)
 ):
-    """List all projects with filters"""
+    """List all projects with filters, respecting visibility settings"""
+    user_id = user["id"]
+    
+    # Build base query
     query = {}
     
     if module_id:
@@ -436,6 +446,8 @@ async def list_projects(
         query["owner_id"] = owner_id
     if priority:
         query["priority"] = priority.value
+    if visibility:
+        query["visibility"] = visibility
     if search:
         query["$or"] = [
             {"name": {"$regex": search, "$options": "i"}},
@@ -443,10 +455,43 @@ async def list_projects(
             {"project_id": {"$regex": search, "$options": "i"}}
         ]
     
+    # Get user role level for access control
+    user_role = user.get("role", "viewer")
+    role_level = user.get("role_level", 10)
+    is_admin = role_level >= 80 or user_role in ["super_admin", "admin"]
+    
     projects = await db.pm_projects.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
     
-    # Enrich projects
+    # Filter projects based on visibility
+    filtered_projects = []
     for project in projects:
+        project_visibility = project.get("visibility", "public")
+        team_members = project.get("team_members", [])
+        owner_id_proj = project.get("owner_id")
+        project_manager_id = project.get("project_manager_id")
+        
+        # Admins can see all projects
+        if is_admin:
+            filtered_projects.append(project)
+            continue
+        
+        # Public projects are visible to all
+        if project_visibility == "public":
+            filtered_projects.append(project)
+            continue
+        
+        # Private projects: check if user is owner, PM, or team member
+        if (user_id == owner_id_proj or 
+            user_id == project_manager_id or 
+            user_id in team_members):
+            filtered_projects.append(project)
+    
+    # Enrich projects
+    for project in filtered_projects:
+        # Ensure visibility field exists
+        if not project.get("visibility"):
+            project["visibility"] = "public"
+        
         # Ensure project_id exists (for backward compatibility)
         if not project.get("project_id"):
             project["project_id"] = f"PRJ-{project['id'][:4].upper()}"
@@ -493,7 +538,7 @@ async def list_projects(
         project["completed_task_count"] = completed_tasks
         project["progress"] = round((completed_tasks / total_tasks * 100), 1) if total_tasks > 0 else 0
     
-    return projects
+    return filtered_projects
 
 
 @router.post("", response_model=ProjectResponse)
@@ -501,7 +546,7 @@ async def create_project(
     data: ProjectCreate,
     user: dict = Depends(get_current_user_dep)
 ):
-    """Create a new project"""
+    """Create a new project. Creator is automatically added to team members."""
     # Verify module exists
     module = await db.pm_modules.find_one({"id": data.module_id})
     if not module:
@@ -517,6 +562,9 @@ async def create_project(
     project_id = await generate_project_id()  # Auto-generated PRJ-XXXX
     now = datetime.now(timezone.utc).isoformat()
     
+    # Auto-add creator to team members (best practice)
+    team_members = list(set([user["id"]] + data.team_members))
+    
     project_doc = {
         "id": project_uuid,
         "project_id": project_id,
@@ -531,7 +579,8 @@ async def create_project(
         "end_date": data.end_date,
         "priority": data.priority.value,
         "status": ProjectStatus.DRAFT.value,
-        "team_members": data.team_members,
+        "visibility": data.visibility,  # public or private
+        "team_members": team_members,
         "stakeholders": data.stakeholders,
         "tags": data.tags,
         "created_by": user["id"],
@@ -549,7 +598,7 @@ async def create_project(
     project_doc["department_name"] = await get_department_name(data.department_id) if data.department_id else None
     
     project_doc["team_member_names"] = []
-    for member_id in data.team_members:
+    for member_id in team_members:
         name = await get_user_name(member_id)
         if name:
             project_doc["team_member_names"].append(name)
@@ -682,6 +731,36 @@ async def get_my_tasks(
         recently_completed=enriched_completed,
         stats=stats
     )
+
+
+@router.get("/individual-tasks", response_model=List[TaskResponse])
+async def get_individual_tasks(
+    status: Optional[TaskStatus] = None,
+    priority: Optional[Priority] = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get all individual tasks (not linked to any project) for current user"""
+    user_id = user["id"]
+    
+    query = {
+        "$or": [
+            {"project_id": None},
+            {"project_id": {"$exists": False}},
+            {"is_individual": True}
+        ],
+        "assigned_to": user_id,
+        "parent_task_id": None  # Only top-level tasks
+    }
+    
+    if status:
+        query["status"] = status.value
+    if priority:
+        query["priority"] = priority.value
+    
+    tasks = await db.pm_tasks.find(query, {"_id": 0}).sort("due_date", 1).to_list(100)
+    
+    enriched_tasks = [await enrich_task(t) for t in tasks]
+    return enriched_tasks
 
 
 # ============== MANAGER DASHBOARD (Must be before /{project_id}) ==============
@@ -1402,11 +1481,14 @@ async def create_task(
     data: TaskCreate,
     user: dict = Depends(get_current_user_dep)
 ):
-    """Create a new task"""
-    # Verify project exists
-    project = await db.pm_projects.find_one({"id": data.project_id})
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    """Create a new task. Can be linked to a project or be an individual task."""
+    project = None
+    
+    # If project_id provided, verify project exists
+    if data.project_id:
+        project = await db.pm_projects.find_one({"id": data.project_id})
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
     
     # If parent_task_id provided, verify it exists
     if data.parent_task_id:
@@ -1420,9 +1502,9 @@ async def create_task(
     task_doc = {
         "id": task_id,
         "name": data.name,
-        "project_id": data.project_id,
+        "project_id": data.project_id,  # Can be None for individual tasks
         "description": data.description,
-        "assigned_to": data.assigned_to,
+        "assigned_to": data.assigned_to or user["id"],  # Default to creator for individual tasks
         "assigned_by": user["id"] if data.assigned_to else None,
         "priority": data.priority.value,
         "status": TaskStatus.DRAFT.value if not data.assigned_to else TaskStatus.ASSIGNED.value,
@@ -1434,6 +1516,7 @@ async def create_task(
         "blocked_by": data.blocked_by,
         "blocks": data.blocks,
         "external_links": [link.model_dump() for link in data.external_links] if data.external_links else [],
+        "is_individual": data.project_id is None,  # Flag for individual tasks
         "created_by": user["id"],
         "created_at": now,
         "updated_at": now
@@ -1457,9 +1540,10 @@ async def create_task(
     
     await log_activity("task", task_id, data.name, "created", user["id"])
     
-    # Send notification if task is assigned to someone
+    # Send notification if task is assigned to someone else
     if data.assigned_to and data.assigned_to != user["id"]:
         try:
+            action_url = f"/projects/{data.project_id}?task={task_id}" if data.project_id else f"/projects/my-tasks?task={task_id}"
             await create_notification(
                 user_id=data.assigned_to,
                 notification_type=NotificationType.TASK_ASSIGNED,
@@ -1469,8 +1553,8 @@ async def create_task(
                 priority=NotificationPriority.HIGH if data.priority.value in ['high', 'urgent'] else NotificationPriority.MEDIUM,
                 entity_type="task",
                 entity_id=task_id,
-                action_url=f"/projects/{data.project_id}?task={task_id}",
-                metadata={"project_name": project.get("name"), "assigner": user.get("name")}
+                action_url=action_url,
+                metadata={"project_name": project.get("name") if project else "Individual Task", "assigner": user.get("name")}
             )
         except Exception as e:
             logger.error(f"Failed to send task assignment notification: {e}")

@@ -6,7 +6,7 @@ import {
   GripVertical, MessageSquare, ListTodo, RefreshCw, Settings,
   User, Folder, AlertOctagon, LayoutGrid, CalendarDays, Search,
   Filter, X, ChevronDown, CheckSquare, Square, Move, List,
-  ArrowUpDown, ArrowUp, ArrowDown, BookCopy
+  ArrowUpDown, ArrowUp, ArrowDown, BookCopy, Lock, Globe, UserPlus, UserMinus
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -414,6 +414,235 @@ const CreateTaskModal = ({ open, onClose, projectId, users, onSuccess }) => {
   );
 };
 
+
+// Team Management Modal
+const TeamManagementModal = ({ open, onClose, project, users, onSuccess }) => {
+  const [loading, setLoading] = useState(false);
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [selectedMember, setSelectedMember] = useState('');
+  const [visibility, setVisibility] = useState('public');
+
+  useEffect(() => {
+    if (project) {
+      setTeamMembers(project.team_members || []);
+      setVisibility(project.visibility || 'public');
+    }
+  }, [project]);
+
+  const handleAddMember = async () => {
+    if (!selectedMember || teamMembers.includes(selectedMember)) return;
+
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const response = await fetch(`${API}/api/projects/${project.id}/members`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ user_id: selectedMember })
+      });
+
+      if (!response.ok) throw new Error('Failed to add member');
+      
+      setTeamMembers([...teamMembers, selectedMember]);
+      setSelectedMember('');
+      toast.success('Team member added');
+      onSuccess();
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error('Failed to add member');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemoveMember = async (memberId) => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const response = await fetch(`${API}/api/projects/${project.id}/members/${memberId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to remove member');
+      
+      setTeamMembers(teamMembers.filter(id => id !== memberId));
+      toast.success('Team member removed');
+      onSuccess();
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error('Failed to remove member');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateVisibility = async (newVisibility) => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const response = await fetch(`${API}/api/projects/${project.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ visibility: newVisibility })
+      });
+
+      if (!response.ok) throw new Error('Failed to update visibility');
+      
+      setVisibility(newVisibility);
+      toast.success(`Project visibility set to ${newVisibility}`);
+      onSuccess();
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error('Failed to update visibility');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getMemberName = (memberId) => {
+    const user = users.find(u => u.id === memberId);
+    return user ? user.name : memberId;
+  };
+
+  const availableUsers = users.filter(u => !teamMembers.includes(u.id));
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="bg-white border-[#D4BBA6] max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-[#4A3728] flex items-center gap-2">
+            <Users className="w-5 h-5 text-rose-600" />
+            Team & Visibility Settings
+          </DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-6">
+          {/* Visibility Section */}
+          <div>
+            <Label className="text-[#4A3728] font-medium">Project Visibility</Label>
+            <p className="text-sm text-[#6B5D52] mb-2">Control who can see this project</p>
+            <Select
+              value={visibility}
+              onValueChange={handleUpdateVisibility}
+              disabled={loading}
+            >
+              <SelectTrigger className="border-[#D4BBA6]" data-testid="project-visibility-select">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-white border-[#D4BBA6]">
+                <SelectItem value="public">
+                  <span className="flex items-center gap-2">
+                    <Globe className="w-4 h-4 text-emerald-600" />
+                    Public - Visible to all employees
+                  </span>
+                </SelectItem>
+                <SelectItem value="private">
+                  <span className="flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-amber-600" />
+                    Private - Only team members
+                  </span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Team Members Section */}
+          <div>
+            <Label className="text-[#4A3728] font-medium">Team Members</Label>
+            <p className="text-sm text-[#6B5D52] mb-3">
+              {visibility === 'private' 
+                ? 'Only these members can access this project' 
+                : 'Team members for task assignment'}
+            </p>
+
+            {/* Add Member */}
+            <div className="flex gap-2 mb-4">
+              <Select
+                value={selectedMember}
+                onValueChange={setSelectedMember}
+                disabled={loading}
+              >
+                <SelectTrigger className="border-[#D4BBA6] flex-1" data-testid="add-member-select">
+                  <SelectValue placeholder="Select a user to add" />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-[#D4BBA6] max-h-60">
+                  {availableUsers.map(user => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.name} ({user.email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button 
+                onClick={handleAddMember} 
+                disabled={loading || !selectedMember}
+                className="bg-rose-600 hover:bg-rose-700 text-white"
+                data-testid="add-member-btn"
+              >
+                <UserPlus className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {/* Members List */}
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {teamMembers.length === 0 ? (
+                <p className="text-sm text-[#6B5D52] italic">No team members yet</p>
+              ) : (
+                teamMembers.map(memberId => {
+                  const memberUser = users.find(u => u.id === memberId);
+                  return (
+                    <div 
+                      key={memberId} 
+                      className="flex items-center justify-between p-2 bg-[#F5EBE0] rounded-lg"
+                      data-testid={`team-member-${memberId}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center">
+                          <User className="w-4 h-4 text-rose-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-[#4A3728]">{getMemberName(memberId)}</p>
+                          {memberUser && (
+                            <p className="text-xs text-[#6B5D52]">{memberUser.email}</p>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveMember(memberId)}
+                        disabled={loading}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        data-testid={`remove-member-${memberId}`}
+                      >
+                        <UserMinus className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end pt-4 border-t border-[#E8D5C4]">
+          <Button variant="outline" onClick={onClose} className="border-[#D4BBA6] text-[#4A3728]">
+            Close
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+
 const ProjectDetail = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
@@ -422,6 +651,7 @@ const ProjectDetail = () => {
   const [tasks, setTasks] = useState([]);
   const [users, setUsers] = useState([]);
   const [showCreateTask, setShowCreateTask] = useState(false);
+  const [showTeamModal, setShowTeamModal] = useState(false);
   const [draggedTask, setDraggedTask] = useState(null);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [viewMode, setViewMode] = useState('kanban'); // 'kanban' or 'calendar'
@@ -785,8 +1015,19 @@ const ProjectDetail = () => {
           <CardContent className="p-8">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
+                <div className="flex items-center gap-3 mb-2 flex-wrap">
                   <h1 className="text-3xl font-bold text-[#4A3728]" data-testid="project-title">{project.name}</h1>
+                  {project.visibility === 'private' ? (
+                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                      <Lock className="w-3 h-3 mr-1" />
+                      Private
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                      <Globe className="w-3 h-3 mr-1" />
+                      Public
+                    </Badge>
+                  )}
                   <Badge variant="outline" className={priorityConfig[project.priority]?.color}>
                     <Flag className="w-3 h-3 mr-1" />
                     {project.priority}
@@ -801,7 +1042,7 @@ const ProjectDetail = () => {
                 {project.description && (
                   <p className="text-[#6B5D52] mb-4">{project.description}</p>
                 )}
-                <div className="flex items-center gap-6 text-sm text-[#6B5D52]">
+                <div className="flex items-center gap-6 text-sm text-[#6B5D52] flex-wrap">
                   {project.owner_name && (
                     <span className="flex items-center gap-1">
                       <User className="w-4 h-4" />
@@ -812,9 +1053,23 @@ const ProjectDetail = () => {
                     <CheckCircle2 className="w-4 h-4" />
                     {project.completed_task_count}/{project.task_count} tasks
                   </span>
+                  <span className="flex items-center gap-1">
+                    <Users className="w-4 h-4" />
+                    {project.team_members?.length || 0} team members
+                  </span>
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setShowTeamModal(true)} 
+                  className="border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0]"
+                  data-testid="manage-team-btn"
+                >
+                  <Users className="w-4 h-4 mr-2" />
+                  Team
+                </Button>
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -1224,6 +1479,14 @@ const ProjectDetail = () => {
         onUpdate={fetchData}
         users={users}
         projectId={projectId}
+      />
+
+      <TeamManagementModal
+        open={showTeamModal}
+        onClose={() => setShowTeamModal(false)}
+        project={project}
+        users={users}
+        onSuccess={fetchData}
       />
 
       <TaskTemplatesPanel

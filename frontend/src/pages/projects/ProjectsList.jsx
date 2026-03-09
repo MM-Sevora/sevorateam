@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Plus, Search, Filter, FolderKanban, Calendar, Users, Flag,
   MoreVertical, Edit, Trash2, Eye, RefreshCw, ChevronDown,
-  CheckCircle2, Clock, AlertTriangle, Folder, ArrowRight, ListTodo
+  CheckCircle2, Clock, AlertTriangle, Folder, ArrowRight, ListTodo,
+  Lock, Globe
 } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -57,6 +58,8 @@ const ProjectCard = ({ project, onEdit, onDelete, onView }) => {
                         project.progress >= 50 ? 'bg-blue-500' : 
                         project.progress >= 25 ? 'bg-amber-500' : 'bg-stone-400';
 
+  const isPrivate = project.visibility === 'private';
+
   return (
     <Card 
       className="bg-white border-[#E8D5C4] hover:border-[#D4BBA6] transition-all cursor-pointer group shadow-sm hover:shadow-md"
@@ -69,6 +72,12 @@ const ProjectCard = ({ project, onEdit, onDelete, onView }) => {
             {project.project_id && (
               <Badge variant="secondary" className="bg-[#E8D5C4] text-[#4A3728] text-xs font-mono">
                 {project.project_id}
+              </Badge>
+            )}
+            {isPrivate && (
+              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                <Lock className="w-3 h-3 mr-1" />
+                Private
               </Badge>
             )}
             <Badge variant="outline" className={priorityConfig[project.priority]?.color}>
@@ -165,6 +174,7 @@ const CreateProjectModal = ({ open, onClose, modules, departments, users, onSucc
     department_id: '',
     description: '',
     priority: 'medium',
+    visibility: 'public',
     project_manager_id: '',
     start_date: '',
     end_date: ''
@@ -198,7 +208,7 @@ const CreateProjectModal = ({ open, onClose, modules, departments, users, onSucc
       toast.success('Project created successfully');
       onSuccess();
       onClose();
-      setFormData({ name: '', module_id: '', project_type: 'other', department_id: '', description: '', priority: 'medium', project_manager_id: '', start_date: '', end_date: '' });
+      setFormData({ name: '', module_id: '', project_type: 'other', department_id: '', description: '', priority: 'medium', visibility: 'public', project_manager_id: '', start_date: '', end_date: '' });
     } catch (error) {
       console.error('Error:', error);
       toast.error('Failed to create project');
@@ -328,7 +338,7 @@ const CreateProjectModal = ({ open, onClose, modules, departments, users, onSucc
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <Label className="text-[#4A3728]">Priority</Label>
               <Select
@@ -346,6 +356,34 @@ const CreateProjectModal = ({ open, onClose, modules, departments, users, onSucc
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <Label className="text-[#4A3728]">Visibility</Label>
+              <Select
+                value={formData.visibility}
+                onValueChange={(value) => setFormData({ ...formData, visibility: value })}
+              >
+                <SelectTrigger className="border-[#D4BBA6] mt-1" data-testid="visibility-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-[#D4BBA6]">
+                  <SelectItem value="public">
+                    <span className="flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-emerald-600" />
+                      Public - Visible to all
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="private">
+                    <span className="flex items-center gap-2">
+                      <Lock className="w-4 h-4 text-amber-600" />
+                      Private - Team only
+                    </span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <Label className="text-[#4A3728]">Start Date</Label>
               <Input
