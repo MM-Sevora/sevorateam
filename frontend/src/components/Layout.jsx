@@ -52,6 +52,19 @@ const DEPARTMENT_CONFIG = {
             { path: '/meetings/new', name: 'Schedule Meeting', icon: Plus },
         ]
     },
+    projects: {
+        name: 'Project Management',
+        icon: FolderKanban,
+        color: 'from-rose-600 to-rose-700',
+        bgColor: 'bg-rose-50',
+        textColor: 'text-rose-700',
+        routes: [
+            { path: '/projects/manager', name: 'Manager Dashboard', icon: BarChart3 },
+            { path: '/projects/my-tasks', name: 'My Tasks', icon: ListTodo },
+            { path: '/projects', name: 'All Projects', icon: FolderKanban },
+            { path: '/projects/recurring', name: 'Recurring Tasks', icon: RefreshCw },
+        ]
+    },
     marketing: {
         name: 'Marketing Ops',
         icon: Target,
@@ -67,19 +80,6 @@ const DEPARTMENT_CONFIG = {
             { path: '/marketing/assets', name: 'Content & Assets', icon: Image },
             { path: '/marketing/budget', name: 'Budget Overview', icon: DollarSign },
             { path: '/marketing/ai-tools', name: 'AI Tools & Discovery', icon: Sparkles },
-        ]
-    },
-    projects: {
-        name: 'Project Management',
-        icon: FolderKanban,
-        color: 'from-rose-600 to-rose-700',
-        bgColor: 'bg-rose-50',
-        textColor: 'text-rose-700',
-        routes: [
-            { path: '/projects/manager', name: 'Manager Dashboard', icon: BarChart3 },
-            { path: '/projects/my-tasks', name: 'My Tasks', icon: ListTodo },
-            { path: '/projects', name: 'All Projects', icon: FolderKanban },
-            { path: '/projects/recurring', name: 'Recurring Tasks', icon: RefreshCw },
         ]
     },
     mail: {

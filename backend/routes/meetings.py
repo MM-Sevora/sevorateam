@@ -219,6 +219,7 @@ async def list_meetings(
     department_id: Optional[str] = None,
     project_id: Optional[str] = None,
     goal_id: Optional[str] = None,
+    objective_id: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     organizer_id: Optional[str] = None,
@@ -241,6 +242,8 @@ async def list_meetings(
         query["linked_project_id"] = project_id
     if goal_id:
         query["linked_goal_id"] = goal_id
+    if objective_id:
+        query["linked_objective_id"] = objective_id
     if organizer_id:
         query["organizer_id"] = organizer_id
     if participant_id:

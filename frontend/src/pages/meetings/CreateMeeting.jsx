@@ -122,12 +122,12 @@ const CreateMeeting = () => {
           setProjects(data.projects || data || []);
         }
 
-        // Fetch goals
-        const goalsRes = await fetch(`${API}/api/strategic-goals`, { headers });
+        // Fetch goals from goals module
+        const goalsRes = await fetch(`${API}/api/goals/strategic-goals`, { headers });
         if (goalsRes.ok) setGoals(await goalsRes.json());
 
-        // Fetch objectives
-        const objRes = await fetch(`${API}/api/objectives`, { headers });
+        // Fetch objectives from goals module
+        const objRes = await fetch(`${API}/api/goals/objectives`, { headers });
         if (objRes.ok) setObjectives(await objRes.json());
 
         // Fetch users
@@ -529,7 +529,7 @@ const CreateMeeting = () => {
                       <SelectContent className="bg-white border-[#D4BBA6]">
                         <SelectItem value="none">None</SelectItem>
                         {goals.map(goal => (
-                          <SelectItem key={goal.id} value={goal.id}>{goal.name}</SelectItem>
+                          <SelectItem key={goal.id} value={goal.id}>{goal.title}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -545,7 +545,7 @@ const CreateMeeting = () => {
                       <SelectContent className="bg-white border-[#D4BBA6]">
                         <SelectItem value="none">None</SelectItem>
                         {objectives.map(obj => (
-                          <SelectItem key={obj.id} value={obj.id}>{obj.name}</SelectItem>
+                          <SelectItem key={obj.id} value={obj.id}>{obj.title}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

@@ -49,7 +49,7 @@ const priorityColors = {
   low: 'bg-stone-100 text-stone-600'
 };
 
-const GoalCard = ({ goal, onEdit, onDelete, onView }) => (
+const GoalCard = ({ goal, onEdit, onDelete, onView, onScheduleMeeting }) => (
   <Card className="border-[#E8D5C4] hover:shadow-md hover:border-indigo-300 transition-all">
     <CardContent className="p-5">
       <div className="flex items-start justify-between mb-3">
@@ -71,6 +71,9 @@ const GoalCard = ({ goal, onEdit, onDelete, onView }) => (
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => onView(goal)}>
               <Eye className="w-4 h-4 mr-2" /> View Details
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onScheduleMeeting(goal)}>
+              <Calendar className="w-4 h-4 mr-2" /> Schedule Meeting
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onEdit(goal)}>
               <Edit className="w-4 h-4 mr-2" /> Edit
@@ -304,6 +307,10 @@ export default function StrategicGoals() {
     navigate(`/goals/objectives?strategic_goal_id=${goal.id}`);
   };
 
+  const handleScheduleMeeting = (goal) => {
+    navigate(`/meetings/new?goal_id=${goal.id}&type=okr_review`);
+  };
+
   return (
     <div className="p-6 space-y-6" data-testid="strategic-goals-page">
       {/* Header */}
@@ -417,6 +424,7 @@ export default function StrategicGoals() {
               onEdit={handleOpenModal}
               onDelete={handleDelete}
               onView={handleView}
+              onScheduleMeeting={handleScheduleMeeting}
             />
           ))}
         </div>

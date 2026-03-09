@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Target, ArrowLeft, Edit, Flag, Calendar, User, Building2, Clock,
   Plus, Trash2, AlertTriangle, CheckCircle2, FolderKanban, TrendingUp,
-  Loader2, BarChart3, MessageSquare, ChevronRight
+  Loader2, BarChart3, MessageSquare, ChevronRight, Video, Users, CalendarDays
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -178,6 +178,8 @@ export default function ObjectiveDetail() {
   const [keyResults, setKeyResults] = useState([]);
   const [linkedProjects, setLinkedProjects] = useState([]);
   const [updates, setUpdates] = useState([]);
+  const [relatedMeetings, setRelatedMeetings] = useState([]);
+  const [loadingMeetings, setLoadingMeetings] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
 
   // Key Result Modal
@@ -262,15 +264,33 @@ export default function ObjectiveDetail() {
     }
   }, [objectiveId]);
 
+  const fetchRelatedMeetings = useCallback(async () => {
+    setLoadingMeetings(true);
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/meetings?objective_id=${objectiveId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setRelatedMeetings(Array.isArray(data) ? data : data.meetings || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch related meetings:', error);
+    } finally {
+      setLoadingMeetings(false);
+    }
+  }, [objectiveId]);
+
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       await fetchObjective();
-      await Promise.all([fetchKeyResults(), fetchLinkedProjects(), fetchUpdates()]);
+      await Promise.all([fetchKeyResults(), fetchLinkedProjects(), fetchUpdates(), fetchRelatedMeetings()]);
       setLoading(false);
     };
     loadData();
-  }, [fetchObjective, fetchKeyResults, fetchLinkedProjects, fetchUpdates]);
+  }, [fetchObjective, fetchKeyResults, fetchLinkedProjects, fetchUpdates, fetchRelatedMeetings]);
 
   // Key Result handlers
   const handleOpenKRModal = (kr = null) => {
@@ -469,6 +489,14 @@ export default function ObjectiveDetail() {
         </div>
         <div className="flex items-center gap-2">
           <Button 
+            variant="outline"
+            onClick={() => navigate(`/meetings/new?objective_id=${objectiveId}&type=okr_review`)}
+            className="border-violet-300 text-violet-700 hover:bg-violet-50"
+          >
+            <CalendarDays className="w-4 h-4 mr-2" />
+            Schedule Meeting
+          </Button>
+          <Button 
             variant="outline" 
             onClick={() => {
               setUpdateFormData({ progress: objective.progress?.toString() || '', note: '', blockers: '' });
@@ -523,6 +551,7 @@ export default function ObjectiveDetail() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="key-results">Key Results ({keyResults.length})</TabsTrigger>
           <TabsTrigger value="projects">Projects ({linkedProjects.length})</TabsTrigger>
+          <TabsTrigger value="meetings">Meetings ({relatedMeetings.length})</TabsTrigger>
           <TabsTrigger value="updates">Updates ({updates.length})</TabsTrigger>
         </TabsList>
 
@@ -665,6 +694,90 @@ export default function ObjectiveDetail() {
                       project={project}
                       onClick={() => navigate(`/projects/${project.id}`)}
                     />
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Meetings Tab */}
+        <TabsContent value="meetings" className="mt-4">
+          <Card className="border-[#E8D5C4]">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-lg text-[#4A3728] flex items-center gap-2">
+                  <Video className="w-5 h-5 text-violet-600" />
+                  Related Meetings
+                  {relatedMeetings.length > 0 && (
+                    <Badge className="bg-violet-100 text-violet-700 ml-2">{relatedMeetings.length}</Badge>
+                  )}
+                </CardTitle>
+                <CardDescription>Meetings linked to this objective</CardDescription>
+              </div>
+              <Button
+                onClick={() => navigate(`/meetings/new?objective_id=${objectiveId}&type=okr_review`)}
+                className="bg-violet-600 hover:bg-violet-700 text-white"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Schedule Meeting
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {loadingMeetings ? (
+                <div className="text-center py-8 text-[#6B5D52]">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
+                  Loading meetings...
+                </div>
+              ) : relatedMeetings.length === 0 ? (
+                <div className="text-center py-12">
+                  <Video className="w-16 h-16 mx-auto text-[#D4BBA6] mb-3" />
+                  <h3 className="font-semibold text-[#4A3728]">No Meetings Yet</h3>
+                  <p className="text-sm text-[#6B5D52] mt-1">Schedule a meeting to discuss this objective</p>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate(`/meetings/new?objective_id=${objectiveId}&type=okr_review`)}
+                    className="mt-4 border-[#D4BBA6]"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Schedule First Meeting
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {relatedMeetings.map(meeting => (
+                    <div 
+                      key={meeting.id}
+                      onClick={() => navigate(`/meetings/${meeting.id}`)}
+                      className="flex items-center justify-between p-3 bg-[#F5EBE0] rounded-lg hover:bg-[#EDE3D8] cursor-pointer transition-colors"
+                    >
+                      <div className="flex-1">
+                        <p className="font-medium text-[#4A3728]">{meeting.title}</p>
+                        <div className="flex items-center gap-3 text-xs text-[#6B5D52] mt-1">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {new Date(meeting.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {new Date(meeting.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          {meeting.participant_count > 0 && (
+                            <span className="flex items-center gap-1">
+                              <Users className="w-3 h-3" />
+                              {meeting.participant_count}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <Badge variant="outline" className={
+                        meeting.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                        meeting.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                        'bg-amber-100 text-amber-700'
+                      }>
+                        {meeting.status.replace('_', ' ')}
+                      </Badge>
+                    </div>
                   ))}
                 </div>
               )}
