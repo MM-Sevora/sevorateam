@@ -60,6 +60,9 @@ import TeamDashboard from "./pages/admin/TeamDashboard";
 // Settings Pages
 import AutomationSettings from "./pages/settings/AutomationSettings";
 
+// Project Management Pages
+import MyTasks from "./pages/projects/MyTasks";
+
 import "./App.css";
 
 // Initialize MSAL instance
@@ -288,6 +291,9 @@ function AppRoutes() {
 
             {/* Settings Routes */}
             <Route path="/settings/automations" element={<ProtectedRoute><AutomationSettings /></ProtectedRoute>} />
+
+            {/* Project Management Routes */}
+            <Route path="/projects/my-tasks" element={<ProtectedRoute><MyTasks /></ProtectedRoute>} />
 
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" replace />} />

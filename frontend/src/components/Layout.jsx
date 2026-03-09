@@ -6,7 +6,7 @@ import {
     LayoutDashboard, Users, Target, MessageSquare, DollarSign, BarChart3,
     UserPlus, ShoppingBag, Calendar, QrCode, Building2, Settings,
     PenTool, Sparkles, Zap, Clock, Youtube, Image, LogOut, Menu, X,
-    ChevronDown, ChevronRight, Briefcase, Mail, Check, Send
+    ChevronDown, ChevronRight, Briefcase, Mail, Check, Send, ListTodo, FolderKanban
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -285,6 +285,22 @@ export const Layout = ({ children }) => {
                             </div>
                         );
                     })}
+
+                    {/* Projects Section - Always visible */}
+                    <div className="mt-4 pt-4 border-t border-[#D4BBA6]">
+                        <Link
+                            to="/projects/my-tasks"
+                            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
+                                location.pathname.startsWith('/projects')
+                                    ? 'bg-gradient-to-r from-rose-600 to-rose-700 text-white font-medium shadow-sm'
+                                    : 'text-[#4A3728] hover:bg-[#E8D5C4]'
+                            }`}
+                            data-testid="sidebar-my-tasks"
+                        >
+                            <ListTodo className="w-5 h-5" />
+                            {sidebarOpen && <span className="font-semibold">My Tasks</span>}
+                        </Link>
+                    </div>
 
                     {/* Settings Section */}
                     <div className="mt-4 pt-4 border-t border-[#D4BBA6]">

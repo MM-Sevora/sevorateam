@@ -3277,6 +3277,15 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Scheduler routes: {e}")
 
+# Register Project Management routes
+try:
+    from routes.projects import router as projects_router, init_router as init_projects_router
+    init_projects_router(db, get_current_user)
+    api_router.include_router(projects_router)
+    logger.info("Project Management routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Project Management routes: {e}")
+
 app.include_router(api_router)
 
 # ============== WEBSOCKET FOR REAL-TIME NOTIFICATIONS ==============
