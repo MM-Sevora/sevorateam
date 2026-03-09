@@ -18,7 +18,8 @@ from models.projects import (
     TaskCommentCreate, TaskCommentResponse,
     ActivityLogResponse,
     TimeLogCreate, TimeLogResponse,
-    MyTasksResponse, ProjectDashboardResponse
+    MyTasksResponse, ProjectDashboardResponse,
+    ManagerDashboardResponse, TeamMemberWorkload, ProjectSummary
 )
 
 router = APIRouter(prefix="/projects", tags=["Project Management"])
@@ -563,6 +564,239 @@ async def get_my_tasks(
         tasks_pending_review=enriched_pending_review,
         recently_completed=enriched_completed,
         stats=stats
+    )
+
+
+# ============== MANAGER DASHBOARD (Must be before /{project_id}) ==============
+
+@router.get("/manager-dashboard", response_model=ManagerDashboardResponse)
+async def get_manager_dashboard(
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get manager's overview dashboard for all projects"""
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    today_str = today.isoformat()
+    week_from_now = (today + timedelta(days=7)).isoformat()
+    
+    # ===== PROJECT STATS =====
+    total_projects = await db.pm_projects.count_documents({})
+    active_projects = await db.pm_projects.count_documents({"status": ProjectStatus.ACTIVE.value})
+    completed_projects = await db.pm_projects.count_documents({"status": ProjectStatus.COMPLETED.value})
+    on_hold_projects = await db.pm_projects.count_documents({"status": ProjectStatus.ON_HOLD.value})
+    
+    # Projects by status
+    projects_by_status = {
+        "draft": await db.pm_projects.count_documents({"status": ProjectStatus.DRAFT.value}),
+        "active": active_projects,
+        "on_hold": on_hold_projects,
+        "completed": completed_projects,
+        "cancelled": await db.pm_projects.count_documents({"status": ProjectStatus.CANCELLED.value})
+    }
+    
+    # Projects by priority
+    projects_by_priority = {
+        "urgent": await db.pm_projects.count_documents({"priority": Priority.URGENT.value}),
+        "high": await db.pm_projects.count_documents({"priority": Priority.HIGH.value}),
+        "medium": await db.pm_projects.count_documents({"priority": Priority.MEDIUM.value}),
+        "low": await db.pm_projects.count_documents({"priority": Priority.LOW.value})
+    }
+    
+    # ===== TASK STATS =====
+    total_tasks = await db.pm_tasks.count_documents({"parent_task_id": None})
+    completed_tasks = await db.pm_tasks.count_documents({
+        "parent_task_id": None,
+        "status": {"$in": [TaskStatus.COMPLETED.value, TaskStatus.APPROVED.value]}
+    })
+    overdue_tasks = await db.pm_tasks.count_documents({
+        "parent_task_id": None,
+        "due_date": {"$lt": today_str},
+        "status": {"$nin": [TaskStatus.COMPLETED.value, TaskStatus.APPROVED.value]}
+    })
+    unassigned_tasks = await db.pm_tasks.count_documents({
+        "parent_task_id": None,
+        "assigned_to": None,
+        "status": {"$nin": [TaskStatus.COMPLETED.value, TaskStatus.APPROVED.value]}
+    })
+    blocked_tasks = await db.pm_tasks.count_documents({
+        "parent_task_id": None,
+        "blocked_by": {"$ne": []},
+        "status": {"$nin": [TaskStatus.COMPLETED.value, TaskStatus.APPROVED.value]}
+    })
+    
+    # Tasks by status
+    tasks_by_status = {
+        "draft": await db.pm_tasks.count_documents({"parent_task_id": None, "status": TaskStatus.DRAFT.value}),
+        "assigned": await db.pm_tasks.count_documents({"parent_task_id": None, "status": TaskStatus.ASSIGNED.value}),
+        "in_progress": await db.pm_tasks.count_documents({"parent_task_id": None, "status": TaskStatus.IN_PROGRESS.value}),
+        "pending_review": await db.pm_tasks.count_documents({"parent_task_id": None, "status": TaskStatus.PENDING_REVIEW.value}),
+        "completed": await db.pm_tasks.count_documents({"parent_task_id": None, "status": TaskStatus.COMPLETED.value}),
+        "approved": await db.pm_tasks.count_documents({"parent_task_id": None, "status": TaskStatus.APPROVED.value}),
+        "on_hold": await db.pm_tasks.count_documents({"parent_task_id": None, "status": TaskStatus.ON_HOLD.value})
+    }
+    
+    # ===== TEAM WORKLOAD =====
+    # Get all users with tasks
+    pipeline = [
+        {"$match": {"parent_task_id": None, "assigned_to": {"$ne": None}}},
+        {"$group": {
+            "_id": "$assigned_to",
+            "total": {"$sum": 1},
+            "completed": {"$sum": {"$cond": [{"$in": ["$status", ["completed", "approved"]]}, 1, 0]}},
+            "in_progress": {"$sum": {"$cond": [{"$eq": ["$status", "in_progress"]}, 1, 0]}}
+        }}
+    ]
+    workload_data = await db.pm_tasks.aggregate(pipeline).to_list(100)
+    
+    team_workload = []
+    for entry in workload_data:
+        user_id = entry["_id"]
+        user_name = await get_user_name(user_id)
+        if user_name:
+            # Count overdue for this user
+            user_overdue = await db.pm_tasks.count_documents({
+                "assigned_to": user_id,
+                "parent_task_id": None,
+                "due_date": {"$lt": today_str},
+                "status": {"$nin": [TaskStatus.COMPLETED.value, TaskStatus.APPROVED.value]}
+            })
+            team_workload.append(TeamMemberWorkload(
+                user_id=user_id,
+                user_name=user_name,
+                total_tasks=entry["total"],
+                completed_tasks=entry["completed"],
+                in_progress_tasks=entry["in_progress"],
+                overdue_tasks=user_overdue
+            ))
+    
+    # Sort by total tasks descending
+    team_workload.sort(key=lambda x: x.total_tasks, reverse=True)
+    
+    # ===== AT-RISK PROJECTS =====
+    # Projects with overdue tasks or past end date
+    at_risk_project_list = []
+    at_risk_projects_count = 0
+    
+    # Get active projects
+    active_project_docs = await db.pm_projects.find(
+        {"status": ProjectStatus.ACTIVE.value}, 
+        {"_id": 0}
+    ).to_list(100)
+    
+    for project in active_project_docs:
+        project_id = project["id"]
+        # Count overdue tasks in this project
+        overdue_count = await db.pm_tasks.count_documents({
+            "project_id": project_id,
+            "parent_task_id": None,
+            "due_date": {"$lt": today_str},
+            "status": {"$nin": [TaskStatus.COMPLETED.value, TaskStatus.APPROVED.value]}
+        })
+        
+        # Check if project is past end date
+        is_past_deadline = False
+        if project.get("end_date") and project["end_date"] < today_str:
+            is_past_deadline = True
+        
+        is_at_risk = overdue_count > 0 or is_past_deadline
+        
+        if is_at_risk:
+            at_risk_projects_count += 1
+            total_tasks_proj = await db.pm_tasks.count_documents({"project_id": project_id, "parent_task_id": None})
+            completed_tasks_proj = await db.pm_tasks.count_documents({
+                "project_id": project_id,
+                "parent_task_id": None,
+                "status": {"$in": [TaskStatus.COMPLETED.value, TaskStatus.APPROVED.value]}
+            })
+            progress = round((completed_tasks_proj / total_tasks_proj * 100), 1) if total_tasks_proj > 0 else 0
+            
+            at_risk_project_list.append(ProjectSummary(
+                id=project_id,
+                project_id=project.get("project_id", f"PRJ-{project_id[:4].upper()}"),
+                name=project["name"],
+                status=project["status"],
+                priority=project.get("priority", "medium"),
+                progress=progress,
+                task_count=total_tasks_proj,
+                completed_task_count=completed_tasks_proj,
+                overdue_task_count=overdue_count,
+                end_date=project.get("end_date"),
+                is_at_risk=True
+            ))
+    
+    # ===== UPCOMING DEADLINES =====
+    # Projects ending within next 7 days
+    upcoming_deadline_projects = await db.pm_projects.find({
+        "status": ProjectStatus.ACTIVE.value,
+        "end_date": {"$gte": today_str, "$lte": week_from_now}
+    }, {"_id": 0}).sort("end_date", 1).to_list(10)
+    
+    upcoming_deadlines = []
+    for project in upcoming_deadline_projects:
+        project_id = project["id"]
+        total_tasks_proj = await db.pm_tasks.count_documents({"project_id": project_id, "parent_task_id": None})
+        completed_tasks_proj = await db.pm_tasks.count_documents({
+            "project_id": project_id,
+            "parent_task_id": None,
+            "status": {"$in": [TaskStatus.COMPLETED.value, TaskStatus.APPROVED.value]}
+        })
+        progress = round((completed_tasks_proj / total_tasks_proj * 100), 1) if total_tasks_proj > 0 else 0
+        
+        upcoming_deadlines.append(ProjectSummary(
+            id=project_id,
+            project_id=project.get("project_id", f"PRJ-{project_id[:4].upper()}"),
+            name=project["name"],
+            status=project["status"],
+            priority=project.get("priority", "medium"),
+            progress=progress,
+            task_count=total_tasks_proj,
+            completed_task_count=completed_tasks_proj,
+            overdue_task_count=0,
+            end_date=project.get("end_date"),
+            is_at_risk=False
+        ))
+    
+    # ===== RECENT ACTIVITY =====
+    recent_logs = await db.pm_activity_logs.find({}, {"_id": 0}).sort("created_at", -1).to_list(15)
+    recent_activity = [ActivityLogResponse(**log) for log in recent_logs]
+    
+    # ===== WEEKLY COMPLETION (Last 7 days) =====
+    weekly_completion = []
+    for i in range(7):
+        day = today - timedelta(days=6-i)
+        day_start = day.isoformat()
+        day_end = (day + timedelta(days=1)).isoformat()
+        
+        completed_on_day = await db.pm_tasks.count_documents({
+            "parent_task_id": None,
+            "status": {"$in": [TaskStatus.COMPLETED.value, TaskStatus.APPROVED.value]},
+            "updated_at": {"$gte": day_start, "$lt": day_end}
+        })
+        
+        weekly_completion.append({
+            "date": day.strftime("%a"),  # Mon, Tue, etc.
+            "full_date": day.strftime("%Y-%m-%d"),
+            "completed": completed_on_day
+        })
+    
+    return ManagerDashboardResponse(
+        total_projects=total_projects,
+        active_projects=active_projects,
+        completed_projects=completed_projects,
+        on_hold_projects=on_hold_projects,
+        at_risk_projects=at_risk_projects_count,
+        total_tasks=total_tasks,
+        completed_tasks=completed_tasks,
+        overdue_tasks=overdue_tasks,
+        unassigned_tasks=unassigned_tasks,
+        blocked_tasks=blocked_tasks,
+        projects_by_status=projects_by_status,
+        projects_by_priority=projects_by_priority,
+        tasks_by_status=tasks_by_status,
+        team_workload=team_workload,
+        at_risk_project_list=at_risk_project_list,
+        upcoming_deadlines=upcoming_deadlines,
+        recent_activity=recent_activity,
+        weekly_completion=weekly_completion
     )
 
 

@@ -347,3 +347,63 @@ class ProjectDashboardResponse(BaseModel):
     team_workload: List[Dict] = []
     recent_activity: List[ActivityLogResponse] = []
     upcoming_deadlines: List[TaskResponse] = []
+
+
+class TeamMemberWorkload(BaseModel):
+    user_id: str
+    user_name: str
+    total_tasks: int = 0
+    completed_tasks: int = 0
+    in_progress_tasks: int = 0
+    overdue_tasks: int = 0
+
+
+class ProjectSummary(BaseModel):
+    id: str
+    project_id: str
+    name: str
+    status: str
+    priority: str
+    progress: float = 0.0
+    task_count: int = 0
+    completed_task_count: int = 0
+    overdue_task_count: int = 0
+    end_date: Optional[str] = None
+    is_at_risk: bool = False
+
+
+class ManagerDashboardResponse(BaseModel):
+    """Manager's overview dashboard for project management"""
+    # Project Stats
+    total_projects: int = 0
+    active_projects: int = 0
+    completed_projects: int = 0
+    on_hold_projects: int = 0
+    at_risk_projects: int = 0
+    
+    # Task Stats
+    total_tasks: int = 0
+    completed_tasks: int = 0
+    overdue_tasks: int = 0
+    unassigned_tasks: int = 0
+    blocked_tasks: int = 0
+    
+    # Breakdowns
+    projects_by_status: Dict[str, int] = {}
+    projects_by_priority: Dict[str, int] = {}
+    tasks_by_status: Dict[str, int] = {}
+    
+    # Team Workload
+    team_workload: List[TeamMemberWorkload] = []
+    
+    # At-Risk Projects (overdue/blocked/stalled)
+    at_risk_project_list: List[ProjectSummary] = []
+    
+    # Upcoming Deadlines (projects ending soon)
+    upcoming_deadlines: List[ProjectSummary] = []
+    
+    # Recent Activity
+    recent_activity: List[ActivityLogResponse] = []
+    
+    # Weekly Progress (for burndown-style chart)
+    weekly_completion: List[Dict] = []

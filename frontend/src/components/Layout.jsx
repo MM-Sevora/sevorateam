@@ -48,6 +48,7 @@ const DEPARTMENT_CONFIG = {
         bgColor: 'bg-rose-50',
         textColor: 'text-rose-700',
         routes: [
+            { path: '/projects/manager', name: 'Manager Dashboard', icon: BarChart3 },
             { path: '/projects/my-tasks', name: 'My Tasks', icon: ListTodo },
             { path: '/projects', name: 'All Projects', icon: FolderKanban },
         ]
