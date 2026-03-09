@@ -443,7 +443,6 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - [x] Employee Database
 - [x] Access Control & Permissions
 - [x] Organization Management
-- [x] Org Chart
 
 ### Phase 31: Multi-Role Access Support (COMPLETE - March 9, 2026)
 **Backend Changes:**
@@ -468,6 +467,15 @@ Build a comprehensive, production-grade **Project Management System** as a core 
   - `custom_role_id`: First role ID (backwards compatible)
   - `merged_module_access`: Combined module access from all roles
   - `can_manage_users`, `can_manage_employees`, `can_manage_roles`: Merged from all roles
+
+### Phase 32: Organization Pages Merge (COMPLETE - March 9, 2026)
+**Merged Organization Structure into Organization Management:**
+- [x] Deleted redundant `/app/frontend/src/pages/admin/OrganizationStructure.jsx`
+- [x] Removed import statement from `App.js`
+- [x] Changed `/admin/org-structure` route to redirect to `/admin/organization`
+- [x] Removed "Org Chart" link from sidebar in `Layout.jsx`
+- [x] Consolidated page now has 5 tabs: Org Chart, Departments, Positions, Teams, Grades
+- [x] Admin sidebar now has 4 clean items: User Management, Employee Database, Access Control & Permissions, Organization Management
 
 ### Key API Endpoints
 - `GET /api/projects/manager-dashboard` - Aggregated dashboard data

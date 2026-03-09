@@ -55,7 +55,6 @@ import EmailPage from "./pages/marketing/EmailPage";
 // Admin Pages
 import UserManagementPage from "./pages/admin/UserManagement";
 import OrganizationManagement from "./pages/admin/OrganizationManagement";
-import OrganizationStructure from "./pages/admin/OrganizationStructure";
 import TeamDashboard from "./pages/admin/TeamDashboard";
 import EmployeeDatabase from "./pages/admin/EmployeeDatabase";
 import AccessControlPage from "./pages/admin/AccessControlPage";
@@ -308,7 +307,8 @@ function AppRoutes() {
             <Route path="/admin/employees" element={<ProtectedRoute requiredDepartment="admin"><EmployeeDatabase /></ProtectedRoute>} />
             <Route path="/admin/access-control" element={<ProtectedRoute requiredDepartment="admin"><AccessControlPage /></ProtectedRoute>} />
             <Route path="/admin/organization" element={<ProtectedRoute requiredDepartment="admin"><OrganizationManagement /></ProtectedRoute>} />
-            <Route path="/admin/org-structure" element={<ProtectedRoute requiredDepartment="admin"><OrganizationStructure /></ProtectedRoute>} />
+            {/* /admin/org-structure merged into /admin/organization */}
+            <Route path="/admin/org-structure" element={<Navigate to="/admin/organization" replace />} />
             <Route path="/admin/team" element={<ProtectedRoute><TeamDashboard /></ProtectedRoute>} />
 
             {/* Settings Routes */}

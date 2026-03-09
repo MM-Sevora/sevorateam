@@ -106,7 +106,6 @@ const DEPARTMENT_CONFIG = {
             { path: '/admin/employees', name: 'Employee Database', icon: Award },
             { path: '/admin/access-control', name: 'Access Control & Permissions', icon: Shield },
             { path: '/admin/organization', name: 'Organization Management', icon: Building2 },
-            { path: '/admin/org-structure', name: 'Org Chart', icon: Network },
         ]
     }
 };
