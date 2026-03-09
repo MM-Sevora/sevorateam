@@ -323,6 +323,9 @@ async def get_users_enhanced(
             manager = await db.users.find_one({"id": u["reports_to"]}, {"name": 1})
             u["manager_name"] = manager.get("name") if manager else None
         
+        # Clean Architecture: Add is_onboarded flag
+        u["is_onboarded"] = bool(u.get("employee_id"))
+        
         # Get direct reports
         direct_reports = await db.users.find({"reports_to": u["id"]}, {"id": 1}).to_list(100)
         u["direct_reports"] = [r["id"] for r in direct_reports]
@@ -352,6 +355,9 @@ async def get_user_enhanced(user_id: str, current_user: dict = Depends(get_curre
     if user.get("reports_to"):
         manager = await db.users.find_one({"id": user["reports_to"]}, {"name": 1})
         user["manager_name"] = manager.get("name") if manager else None
+    
+    # Clean Architecture: Add is_onboarded flag
+    user["is_onboarded"] = bool(user.get("employee_id"))
     
     direct_reports = await db.users.find({"reports_to": user_id}, {"id": 1}).to_list(100)
     user["direct_reports"] = [r["id"] for r in direct_reports]

@@ -3298,6 +3298,14 @@ try:
 except Exception as e:
     logger.error(f"Failed to load HR routes: {e}")
 
+# Register Access Control routes (Custom Roles, Onboarding, Permissions)
+try:
+    from routes.access_control import access_control_router
+    api_router.include_router(access_control_router)
+    logger.info("Access Control routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Access Control routes: {e}")
+
 # Register Scheduler routes (Background jobs)
 try:
     from routes.scheduler import scheduler_router

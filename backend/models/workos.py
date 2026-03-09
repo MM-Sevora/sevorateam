@@ -1,11 +1,22 @@
 """
 WorkOS Models - Organization, Departments, Roles, Permissions
+Clean Architecture: User (Auth) <-> Employee (HR + Access)
 """
 
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List, Dict
 from enum import Enum
 from datetime import datetime
+
+
+# ============== USER STATUS ENUM ==============
+
+class UserStatus(str, Enum):
+    DRAFT = "draft"           # Newly synced from AD, not yet onboarded
+    PENDING = "pending"       # Awaiting admin action
+    ONBOARDED = "onboarded"   # Has employee record, pending activation
+    ACTIVE = "active"         # Fully active user
+    INACTIVE = "inactive"     # Deactivated
 
 
 # ============== DEPARTMENT MODELS ==============
@@ -112,6 +123,13 @@ class UserEnhancedResponse(BaseModel):
     id: str
     email: str
     name: str
+    
+    # Auth-related fields
+    status: str = "active"     # UserStatus enum value
+    employee_id: Optional[str] = None  # Link to Employee record (Clean Architecture)
+    is_onboarded: bool = False  # Derived: True if employee_id exists
+    
+    # Legacy org fields (migrating to Employee model)
     department_id: Optional[str] = None
     department_name: Optional[str] = None
     role_id: Optional[str] = None
@@ -121,9 +139,12 @@ class UserEnhancedResponse(BaseModel):
     reports_to: Optional[str] = None
     manager_name: Optional[str] = None
     title: Optional[str] = None
+    
+    # Contact info
     phone: Optional[str] = None
     avatar_url: Optional[str] = None
-    status: str = "active"
+    
+    # Metadata
     last_login: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
