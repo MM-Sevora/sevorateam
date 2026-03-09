@@ -124,6 +124,31 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - [x] Frontend: Create/delete labels UI
 - [x] Frontend: Labels displayed on Kanban task cards
 
+### Phase 14: List View (COMPLETE - December 2025)
+- [x] New TaskListView.jsx component
+- [x] Table-based task display
+- [x] Sortable columns: Name, Status, Priority, Assignee, Due Date
+- [x] View toggle (Kanban/Calendar/List) in ProjectDetail
+- [x] Click row to open TaskDetailModal
+- [x] Labels and subtask count display
+- [x] Selection checkboxes for bulk operations
+
+### Phase 15: Subtask Assignment (COMPLETE - December 2025)
+- [x] Backend: assigned_to field on subtasks
+- [x] Backend: PUT /api/projects/subtasks/{id} updates assigned_to
+- [x] Backend: GET subtasks returns assigned_to_name
+- [x] Frontend: Assign dropdown in SubtasksSection
+- [x] Frontend: User list populated from project members
+
+### Phase 16: Recurring Tasks (COMPLETE - December 2025)
+- [x] Backend: is_recurring, recurrence_pattern, recurrence_interval, recurrence_end_date fields on tasks
+- [x] Backend: create_next_recurring_task() function in projects.py
+- [x] Backend: Automatic task creation when recurring task marked complete
+- [x] Frontend: Recurring toggle in TaskDetailModal Edit mode
+- [x] Frontend: Pattern options (Daily/Weekly/Monthly/Yearly)
+- [x] Frontend: Interval and end date configuration
+- [x] Frontend: Recurring indicator badge in task header
+
 ---
 
 ## Pending Issues
@@ -154,13 +179,16 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - Manage users, assign departments/roles
 - Set up reporting hierarchy
 
-### P3 - Additional Features
+### P3 - Additional Features (Future)
+- Gantt Chart View
+- Project Templates
+- Export/Reports (CSV/PDF)
+- Milestones
 - PR Analytics Dashboard
 - AI pitch writing feature
 - Session Management
 - Scheduled Azure AD Sync
 - Twilio WhatsApp production approval
-- Calendar views for projects
 - Approval workflows based on hierarchy
 
 ---
