@@ -149,6 +149,18 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - [x] Frontend: Interval and end date configuration
 - [x] Frontend: Recurring indicator badge in task header
 
+### Phase 17: Task Templates (COMPLETE - December 2025)
+- [x] Backend: TaskTemplate model with all settings (name, description, priority, assignee, hours, recurring, checklist)
+- [x] Backend: CRUD endpoints for templates (GET, POST, PUT, DELETE)
+- [x] Backend: Create task from template endpoint with overrides
+- [x] Backend: Template usage count tracking
+- [x] Backend: Global vs Project-specific template scoping
+- [x] Frontend: TaskTemplatesPanel.jsx component (right-side sheet)
+- [x] Frontend: Templates button on ProjectDetail page
+- [x] Frontend: Create/Edit template form dialog
+- [x] Frontend: Use template dialog with overrides (name, due date, assignee)
+- [x] Frontend: Templates list with details (priority, hours, recurring, checklist count, usage)
+
 ---
 
 ## Pending Issues
