@@ -157,6 +157,12 @@ const MeetingCard = ({ meeting, onClick, onEdit, onDelete, onStart }) => {
 
         {/* Linked Items */}
         <div className="flex flex-wrap gap-1.5 mt-3">
+          {meeting.recurrence_type && meeting.recurrence_type !== 'none' && (
+            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+              <RefreshCw className="w-3 h-3 mr-1" />
+              {meeting.recurrence_type.charAt(0).toUpperCase() + meeting.recurrence_type.slice(1)}
+            </Badge>
+          )}
           {meeting.linked_project_name && (
             <Badge variant="outline" className="text-xs bg-[#F5EBE0] text-[#5D4A3A] border-[#D4BBA6]">
               <Folder className="w-3 h-3 mr-1" />
@@ -383,6 +389,16 @@ const MeetingList = () => {
           <p className="text-[#5D4A3A] mt-1">Schedule and manage meetings linked to goals and projects</p>
         </div>
         <div className="flex gap-2">
+          <Button 
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/meetings/templates')}
+            className="border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0]"
+            data-testid="templates-btn"
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            Templates
+          </Button>
           <Button 
             variant="outline"
             size="sm"

@@ -18,7 +18,10 @@ from models.meetings import (
     MeetingMinutesCreate, MeetingMinutesResponse, ConvertActionItemRequest,
     MeetingDashboardResponse, MeetingAnalyticsResponse, PreviousMeetingContext,
     AgendaItem, DiscussionNote, ActionItem, MeetingParticipant,
-    Decision, DecisionImpact, IssueRisk, IssueRiskType, IssueRiskStatus, IssueRiskImpact
+    Decision, DecisionImpact, IssueRisk, IssueRiskType, IssueRiskStatus, IssueRiskImpact,
+    MeetingTemplateCreate, MeetingTemplateUpdate, MeetingTemplateResponse,
+    MeetingTemplateCategory, CreateMeetingFromTemplateRequest,
+    MSCalendarSyncStatus, MSCalendarConnection
 )
 
 # Database and auth will be set from server.py
@@ -134,7 +137,9 @@ def meeting_to_list_item(meeting: dict) -> dict:
         "linked_project_name": meeting.get("linked_project_name"),
         "linked_goal_name": meeting.get("linked_goal_name"),
         "department_name": meeting.get("department_name"),
-        "has_action_items": len(meeting.get("action_items", [])) > 0
+        "has_action_items": len(meeting.get("action_items", [])) > 0,
+        "recurrence_type": meeting.get("recurrence_type"),
+        "parent_recurring_id": meeting.get("parent_recurring_id")
     }
 
 
@@ -421,6 +426,436 @@ async def get_all_issues_risks(
     results = await db.meetings.aggregate(pipeline).to_list(limit)
     return results
 
+
+# ============== MEETING TEMPLATES ==============
+# NOTE: These routes must come BEFORE /{meeting_id} routes to avoid path conflicts
+
+@router.get("/templates", response_model=List[MeetingTemplateResponse])
+async def list_meeting_templates(
+    category: Optional[str] = None,
+    meeting_type: Optional[str] = None,
+    search: Optional[str] = None,
+    include_global: bool = True,
+    user: dict = Depends(get_current_user_dep)
+):
+    """List meeting templates"""
+    query = {"$or": [{"created_by": user.get("id")}]}
+    
+    if include_global:
+        query["$or"].append({"is_global": True})
+    
+    if category:
+        query["category"] = category
+    if meeting_type:
+        query["meeting_type"] = meeting_type
+    if search:
+        query["name"] = {"$regex": search, "$options": "i"}
+    
+    templates = await db.meeting_templates.find(
+        query, {"_id": 0}
+    ).sort("usage_count", -1).to_list(100)
+    
+    result = []
+    for template in templates:
+        template["department_name"] = await get_department_name(template.get("department_id"))
+        template["linked_project_name"] = await get_project_name(template.get("linked_project_id"))
+        template["created_by_name"] = await get_user_name(template.get("created_by"))
+        result.append(template)
+    
+    return result
+
+
+@router.post("/templates", response_model=MeetingTemplateResponse)
+async def create_meeting_template(
+    data: MeetingTemplateCreate,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Create a new meeting template"""
+    template_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Generate IDs for agenda items
+    agenda = []
+    for idx, item in enumerate(data.default_agenda):
+        item_dict = item.dict()
+        if not item_dict.get("id"):
+            item_dict["id"] = str(uuid.uuid4())
+        item_dict["order"] = idx
+        agenda.append(item_dict)
+    
+    # Generate IDs for pre-read documents
+    pre_reads = []
+    for item in data.default_pre_read_documents:
+        item_dict = item.dict()
+        if not item_dict.get("id"):
+            item_dict["id"] = str(uuid.uuid4())
+        pre_reads.append(item_dict)
+    
+    template = {
+        "id": template_id,
+        "name": data.name,
+        "description": data.description,
+        "category": data.category.value,
+        "meeting_type": data.meeting_type.value,
+        "duration_minutes": data.duration_minutes,
+        "default_agenda": agenda,
+        "default_pre_read_documents": pre_reads,
+        "visibility": data.visibility.value,
+        "recurrence_type": data.recurrence_type.value,
+        "is_global": data.is_global,
+        "department_id": data.department_id,
+        "linked_project_id": data.linked_project_id,
+        "created_by": user.get("id"),
+        "usage_count": 0,
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.meeting_templates.insert_one(template)
+    
+    template["department_name"] = await get_department_name(data.department_id)
+    template["linked_project_name"] = await get_project_name(data.linked_project_id)
+    template["created_by_name"] = await get_user_name(user.get("id"))
+    
+    return MeetingTemplateResponse(**template)
+
+
+@router.get("/templates/{template_id}", response_model=MeetingTemplateResponse)
+async def get_meeting_template(
+    template_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get a specific meeting template"""
+    template = await db.meeting_templates.find_one({"id": template_id}, {"_id": 0})
+    
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    template["department_name"] = await get_department_name(template.get("department_id"))
+    template["linked_project_name"] = await get_project_name(template.get("linked_project_id"))
+    template["created_by_name"] = await get_user_name(template.get("created_by"))
+    
+    return MeetingTemplateResponse(**template)
+
+
+@router.put("/templates/{template_id}", response_model=MeetingTemplateResponse)
+async def update_meeting_template(
+    template_id: str,
+    data: MeetingTemplateUpdate,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Update a meeting template"""
+    template = await db.meeting_templates.find_one({"id": template_id}, {"_id": 0})
+    
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    update_data = {k: v for k, v in data.dict(exclude_unset=True).items() if v is not None}
+    
+    # Convert enums to values
+    if "category" in update_data:
+        update_data["category"] = update_data["category"].value
+    if "meeting_type" in update_data:
+        update_data["meeting_type"] = update_data["meeting_type"].value
+    if "visibility" in update_data:
+        update_data["visibility"] = update_data["visibility"].value
+    if "recurrence_type" in update_data:
+        update_data["recurrence_type"] = update_data["recurrence_type"].value
+    if "default_agenda" in update_data:
+        agenda = []
+        for idx, item in enumerate(update_data["default_agenda"]):
+            item_dict = item.dict() if hasattr(item, 'dict') else item
+            if not item_dict.get("id"):
+                item_dict["id"] = str(uuid.uuid4())
+            item_dict["order"] = idx
+            agenda.append(item_dict)
+        update_data["default_agenda"] = agenda
+    
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.meeting_templates.update_one(
+        {"id": template_id},
+        {"$set": update_data}
+    )
+    
+    template = await db.meeting_templates.find_one({"id": template_id}, {"_id": 0})
+    template["department_name"] = await get_department_name(template.get("department_id"))
+    template["linked_project_name"] = await get_project_name(template.get("linked_project_id"))
+    template["created_by_name"] = await get_user_name(template.get("created_by"))
+    
+    return MeetingTemplateResponse(**template)
+
+
+@router.delete("/templates/{template_id}")
+async def delete_meeting_template(
+    template_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Delete a meeting template"""
+    result = await db.meeting_templates.delete_one({"id": template_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    return {"message": "Template deleted"}
+
+
+@router.post("/templates/{template_id}/create-meeting", response_model=MeetingResponse)
+async def create_meeting_from_template(
+    template_id: str,
+    data: CreateMeetingFromTemplateRequest,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Create a meeting from a template"""
+    template = await db.meeting_templates.find_one({"id": template_id}, {"_id": 0})
+    
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    meeting_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Calculate end time if not provided
+    end_time = data.end_time
+    if not end_time:
+        start_dt = datetime.fromisoformat(data.start_time.replace("Z", "+00:00"))
+        end_dt = start_dt + timedelta(minutes=template.get("duration_minutes", 60))
+        end_time = end_dt.isoformat()
+    
+    meeting = {
+        "id": meeting_id,
+        "title": data.title,
+        "meeting_type": template.get("meeting_type"),
+        "description": template.get("description"),
+        "start_time": data.start_time,
+        "end_time": end_time,
+        "timezone": "UTC",
+        "location": data.location,
+        "meeting_link": data.meeting_link,
+        "organizer_id": user.get("id"),
+        "participants": [p.dict() for p in data.participants],
+        "department_id": data.department_id or template.get("department_id"),
+        "linked_goal_id": data.linked_goal_id,
+        "linked_objective_id": None,
+        "linked_project_id": data.linked_project_id or template.get("linked_project_id"),
+        "linked_milestone_id": None,
+        "agenda": template.get("default_agenda", []),
+        "pre_read_documents": template.get("default_pre_read_documents", []),
+        "discussion_notes": [],
+        "action_items": [],
+        "decisions": [],
+        "issues_risks": [],
+        "visibility": template.get("visibility", "public"),
+        "status": MeetingStatus.SCHEDULED.value,
+        "recurrence_type": template.get("recurrence_type", "none"),
+        "recurrence_day_of_week": None,
+        "recurrence_day_of_month": None,
+        "recurrence_end_date": None,
+        "parent_recurring_id": None,
+        "sync_to_outlook": False,
+        "outlook_event_id": None,
+        "source_template_id": template_id,
+        "created_by": user.get("id"),
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.meetings.insert_one(meeting)
+    
+    # Increment usage count
+    await db.meeting_templates.update_one(
+        {"id": template_id},
+        {"$inc": {"usage_count": 1}}
+    )
+    
+    # Enrich and return
+    meeting = await enrich_meeting(meeting)
+    return MeetingResponse(**meeting)
+
+
+# ============== MS CALENDAR SYNC ==============
+# NOTE: These routes must come BEFORE /{meeting_id} routes to avoid path conflicts
+
+@router.get("/ms-calendar/status")
+async def get_ms_calendar_status(
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get Microsoft Calendar connection status for current user"""
+    connection = await db.ms_calendar_connections.find_one(
+        {"user_id": user.get("id")}, {"_id": 0}
+    )
+    
+    if not connection:
+        return {
+            "is_connected": False,
+            "sync_status": MSCalendarSyncStatus.NOT_CONNECTED.value,
+            "ms_email": None,
+            "last_sync_at": None
+        }
+    
+    return {
+        "is_connected": connection.get("is_connected", False),
+        "sync_status": connection.get("sync_status", MSCalendarSyncStatus.NOT_CONNECTED.value),
+        "ms_email": connection.get("ms_email"),
+        "last_sync_at": connection.get("last_sync_at")
+    }
+
+
+@router.post("/ms-calendar/connect")
+async def initiate_ms_calendar_connection(
+    user: dict = Depends(get_current_user_dep)
+):
+    """Initiate Microsoft Calendar OAuth connection"""
+    import os
+    
+    client_id = os.environ.get("AZURE_CLIENT_ID")
+    tenant_id = os.environ.get("AZURE_TENANT_ID")
+    redirect_uri = os.environ.get("AZURE_REDIRECT_URI", "http://localhost:8000/api/meetings/ms-calendar/callback")
+    
+    if not client_id or not tenant_id:
+        return {
+            "status": "not_configured",
+            "message": "Microsoft Calendar integration requires Azure AD configuration",
+            "required_env_vars": ["AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET", "AZURE_TENANT_ID"],
+            "auth_url": None
+        }
+    
+    state = str(uuid.uuid4())
+    
+    await db.ms_calendar_connections.update_one(
+        {"user_id": user.get("id")},
+        {
+            "$set": {
+                "user_id": user.get("id"),
+                "oauth_state": state,
+                "sync_status": MSCalendarSyncStatus.NOT_CONNECTED.value,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            },
+            "$setOnInsert": {
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+        },
+        upsert=True
+    )
+    
+    scopes = "Calendars.ReadWrite offline_access"
+    auth_url = (
+        f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/authorize"
+        f"?client_id={client_id}"
+        f"&response_type=code"
+        f"&redirect_uri={redirect_uri}"
+        f"&scope={scopes}"
+        f"&state={state}"
+    )
+    
+    return {
+        "status": "ready",
+        "auth_url": auth_url,
+        "message": "Redirect user to auth_url to complete connection"
+    }
+
+
+@router.get("/ms-calendar/callback")
+async def ms_calendar_oauth_callback(
+    code: str,
+    state: str
+):
+    """Handle Microsoft OAuth callback"""
+    import os
+    import httpx
+    
+    connection = await db.ms_calendar_connections.find_one(
+        {"oauth_state": state}, {"_id": 0}
+    )
+    
+    if not connection:
+        raise HTTPException(status_code=400, detail="Invalid OAuth state")
+    
+    client_id = os.environ.get("AZURE_CLIENT_ID")
+    client_secret = os.environ.get("AZURE_CLIENT_SECRET")
+    tenant_id = os.environ.get("AZURE_TENANT_ID")
+    redirect_uri = os.environ.get("AZURE_REDIRECT_URI", "http://localhost:8000/api/meetings/ms-calendar/callback")
+    
+    if not client_id or not client_secret or not tenant_id:
+        raise HTTPException(status_code=500, detail="Azure AD not configured")
+    
+    token_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                token_url,
+                data={
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "code": code,
+                    "redirect_uri": redirect_uri,
+                    "grant_type": "authorization_code",
+                    "scope": "Calendars.ReadWrite offline_access"
+                }
+            )
+            
+            if response.status_code != 200:
+                raise HTTPException(status_code=400, detail="Token exchange failed")
+            
+            token_data = response.json()
+            
+            user_response = await client.get(
+                "https://graph.microsoft.com/v1.0/me",
+                headers={"Authorization": f"Bearer {token_data['access_token']}"}
+            )
+            
+            ms_user_info = user_response.json() if user_response.status_code == 200 else {}
+            
+            expires_in = token_data.get("expires_in", 3600)
+            expires_at = (datetime.now(timezone.utc) + timedelta(seconds=expires_in)).isoformat()
+            
+            await db.ms_calendar_connections.update_one(
+                {"oauth_state": state},
+                {
+                    "$set": {
+                        "is_connected": True,
+                        "ms_user_id": ms_user_info.get("id"),
+                        "ms_email": ms_user_info.get("mail") or ms_user_info.get("userPrincipalName"),
+                        "access_token": token_data.get("access_token"),
+                        "refresh_token": token_data.get("refresh_token"),
+                        "token_expires_at": expires_at,
+                        "sync_status": MSCalendarSyncStatus.CONNECTED.value,
+                        "last_sync_at": datetime.now(timezone.utc).isoformat(),
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    },
+                    "$unset": {"oauth_state": ""}
+                }
+            )
+            
+            return {"status": "connected", "email": ms_user_info.get("mail")}
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"OAuth error: {str(e)}")
+
+
+@router.post("/ms-calendar/disconnect")
+async def disconnect_ms_calendar(
+    user: dict = Depends(get_current_user_dep)
+):
+    """Disconnect Microsoft Calendar for current user"""
+    await db.ms_calendar_connections.update_one(
+        {"user_id": user.get("id")},
+        {
+            "$set": {
+                "is_connected": False,
+                "access_token": None,
+                "refresh_token": None,
+                "sync_status": MSCalendarSyncStatus.NOT_CONNECTED.value,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+    
+    return {"message": "Microsoft Calendar disconnected"}
+
+
+# ============== MEETING DETAIL ROUTES (Dynamic {meeting_id}) ==============
 
 @router.get("/{meeting_id}", response_model=MeetingResponse)
 async def get_meeting(

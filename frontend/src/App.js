@@ -80,6 +80,7 @@ import ObjectiveDetail from "./pages/goals/ObjectiveDetail";
 import MeetingList from "./pages/meetings/MeetingList";
 import CreateMeeting from "./pages/meetings/CreateMeeting";
 import MeetingDetail from "./pages/meetings/MeetingDetail";
+import MeetingTemplates from "./pages/meetings/MeetingTemplates";
 
 // Notifications
 import NotificationCenter from "./pages/notifications/NotificationCenter";
@@ -357,6 +358,7 @@ function AppRoutes() {
             {/* Meetings & Reviews */}
             <Route path="/meetings" element={<ProtectedRoute><MeetingList /></ProtectedRoute>} />
             <Route path="/meetings/new" element={<ProtectedRoute><CreateMeeting /></ProtectedRoute>} />
+            <Route path="/meetings/templates" element={<ProtectedRoute><MeetingTemplates /></ProtectedRoute>} />
             <Route path="/meetings/:meetingId" element={<ProtectedRoute><MeetingDetail /></ProtectedRoute>} />
             <Route path="/meetings/:meetingId/edit" element={<ProtectedRoute><CreateMeeting /></ProtectedRoute>} />
 

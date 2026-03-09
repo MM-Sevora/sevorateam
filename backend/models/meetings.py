@@ -353,6 +353,8 @@ class MeetingListItem(BaseModel):
     linked_goal_name: Optional[str] = None
     department_name: Optional[str] = None
     has_action_items: bool = False
+    recurrence_type: Optional[RecurrenceType] = None
+    parent_recurring_id: Optional[str] = None
 
 
 # ============== MEETING MINUTES MODELS ==============
@@ -470,3 +472,118 @@ class PreviousMeetingContext(BaseModel):
     
     # Issues/Risks carried forward
     open_issues_risks: List[IssueRisk] = []
+
+
+
+# ============== MEETING TEMPLATES ==============
+
+class MeetingTemplateCategory(str, Enum):
+    STRATEGIC = "strategic"
+    DEPARTMENTAL = "departmental"
+    PROJECT = "project"
+    OPERATIONAL = "operational"
+    INDIVIDUAL = "individual"
+    OTHER = "other"
+
+
+class MeetingTemplateCreate(BaseModel):
+    """Create a new meeting template"""
+    name: str
+    description: Optional[str] = None
+    category: MeetingTemplateCategory = MeetingTemplateCategory.OTHER
+    meeting_type: MeetingType = MeetingType.GENERAL
+    duration_minutes: int = 60
+    default_agenda: List[AgendaItem] = []
+    default_pre_read_documents: List[PreReadDocument] = []
+    visibility: MeetingVisibility = MeetingVisibility.PUBLIC
+    recurrence_type: RecurrenceType = RecurrenceType.NONE
+    is_global: bool = False  # True = available to all, False = user's own templates
+    department_id: Optional[str] = None
+    linked_project_id: Optional[str] = None
+
+
+class MeetingTemplateUpdate(BaseModel):
+    """Update a meeting template"""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[MeetingTemplateCategory] = None
+    meeting_type: Optional[MeetingType] = None
+    duration_minutes: Optional[int] = None
+    default_agenda: Optional[List[AgendaItem]] = None
+    default_pre_read_documents: Optional[List[PreReadDocument]] = None
+    visibility: Optional[MeetingVisibility] = None
+    recurrence_type: Optional[RecurrenceType] = None
+    is_global: Optional[bool] = None
+    department_id: Optional[str] = None
+    linked_project_id: Optional[str] = None
+
+
+class MeetingTemplateResponse(BaseModel):
+    """Meeting template response"""
+    id: str
+    name: str
+    description: Optional[str] = None
+    category: MeetingTemplateCategory
+    meeting_type: MeetingType
+    duration_minutes: int = 60
+    default_agenda: List[AgendaItem] = []
+    default_pre_read_documents: List[PreReadDocument] = []
+    visibility: MeetingVisibility = MeetingVisibility.PUBLIC
+    recurrence_type: RecurrenceType = RecurrenceType.NONE
+    is_global: bool = False
+    department_id: Optional[str] = None
+    department_name: Optional[str] = None
+    linked_project_id: Optional[str] = None
+    linked_project_name: Optional[str] = None
+    created_by: Optional[str] = None
+    created_by_name: Optional[str] = None
+    usage_count: int = 0
+    created_at: str
+    updated_at: str
+
+
+class CreateMeetingFromTemplateRequest(BaseModel):
+    """Request to create a meeting from template"""
+    title: str
+    start_time: str
+    end_time: Optional[str] = None  # If not provided, calculate from duration
+    location: Optional[str] = None
+    meeting_link: Optional[str] = None
+    participants: List[MeetingParticipant] = []
+    department_id: Optional[str] = None
+    linked_goal_id: Optional[str] = None
+    linked_project_id: Optional[str] = None
+
+
+# ============== MS CALENDAR SYNC ==============
+
+class MSCalendarSyncStatus(str, Enum):
+    NOT_CONNECTED = "not_connected"
+    CONNECTED = "connected"
+    SYNC_PENDING = "sync_pending"
+    SYNCED = "synced"
+    SYNC_FAILED = "sync_failed"
+
+
+class MSCalendarConnection(BaseModel):
+    """Microsoft Calendar connection status"""
+    user_id: str
+    is_connected: bool = False
+    ms_user_id: Optional[str] = None
+    ms_email: Optional[str] = None
+    access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
+    token_expires_at: Optional[str] = None
+    last_sync_at: Optional[str] = None
+    sync_status: MSCalendarSyncStatus = MSCalendarSyncStatus.NOT_CONNECTED
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class MSCalendarEvent(BaseModel):
+    """Microsoft Calendar event mapping"""
+    meeting_id: str
+    ms_event_id: Optional[str] = None
+    sync_status: MSCalendarSyncStatus = MSCalendarSyncStatus.SYNC_PENDING
+    last_sync_at: Optional[str] = None
+    sync_error: Optional[str] = None
