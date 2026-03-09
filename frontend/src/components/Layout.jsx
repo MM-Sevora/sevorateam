@@ -102,12 +102,11 @@ const DEPARTMENT_CONFIG = {
         bgColor: 'bg-slate-50',
         textColor: 'text-slate-700',
         routes: [
-            { path: '/admin/access-control', name: 'Access Control', icon: Shield },
-            { path: '/admin/organization', name: 'Departments & Roles', icon: Building2 },
-            { path: '/admin/org-structure', name: 'Org Structure', icon: Network },
-            { path: '/admin/employees', name: 'Employee Database', icon: Award },
             { path: '/admin/users', name: 'User Management', icon: Users },
-            { path: '/admin/permissions', name: 'Permissions', icon: Settings },
+            { path: '/admin/employees', name: 'Employee Database', icon: Award },
+            { path: '/admin/access-control', name: 'Access Control & Permissions', icon: Shield },
+            { path: '/admin/organization', name: 'Organization Management', icon: Building2 },
+            { path: '/admin/org-structure', name: 'Org Chart', icon: Network },
         ]
     }
 };

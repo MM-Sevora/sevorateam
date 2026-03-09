@@ -1,483 +1,699 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import api from '../../lib/api';
 import { 
-  Building2, Users, Shield, Settings, ChevronRight, Plus, Edit2, Trash2,
-  Loader2, RefreshCw, Search, UserPlus, GitBranch, Check, X, AlertTriangle,
-  MoreVertical, Mail, Phone, Crown, Eye
+  Building2, Network, Award, ChevronRight, Plus, Edit2, Trash2,
+  Loader2, RefreshCw, Search, Briefcase, Layers, MoreVertical, Users
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Badge } from '../../components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../components/ui/dropdown-menu';
+import { Label } from '../../components/ui/label';
+import { Textarea } from '../../components/ui/textarea';
 
 const OrganizationManagement = () => {
   const [activeTab, setActiveTab] = useState('departments');
   const [departments, setDepartments] = useState([]);
-  const [roles, setRoles] = useState([]);
-  const [users, setUsers] = useState([]);
+  const [positions, setPositions] = useState([]);
   const [grades, setGrades] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
   
   // Modal states
   const [showDeptModal, setShowDeptModal] = useState(false);
-  const [showRoleModal, setShowRoleModal] = useState(false);
-  const [showUserModal, setShowUserModal] = useState(false);
+  const [showPositionModal, setShowPositionModal] = useState(false);
+  const [showGradeModal, setShowGradeModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  
+  // View modes
+  const [deptView, setDeptView] = useState('hierarchy');
+  const [positionView, setPositionView] = useState('hierarchy');
+  const [expandedDepts, setExpandedDepts] = useState(new Set());
+  const [expandedPositions, setExpandedPositions] = useState(new Set());
 
   useEffect(() => {
-    fetchGrades();
+    fetchInitialData();
   }, []);
 
   useEffect(() => {
-    fetchData();
+    if (activeTab === 'departments') {
+      fetchDepartments();
+    } else if (activeTab === 'positions') {
+      fetchPositions();
+    } else if (activeTab === 'grades') {
+      fetchGrades();
+    }
   }, [activeTab]);
 
-  const fetchGrades = async () => {
+  const fetchInitialData = async () => {
     try {
-      const res = await api.get('/hr/grades');
-      setGrades(res.data);
+      const [deptRes, empRes] = await Promise.all([
+        api.get('/hr/departments'),
+        api.get('/hr/employees?limit=200')
+      ]);
+      setDepartments(deptRes.data || []);
+      setEmployees(empRes.data || []);
     } catch (err) {
-      console.error('Failed to fetch grades:', err);
+      console.error('Failed to fetch initial data:', err);
     }
   };
 
-  const fetchData = async () => {
+  const fetchDepartments = async () => {
     setLoading(true);
     try {
-      if (activeTab === 'departments') {
-        const res = await api.get('/workos/departments');
-        setDepartments(res.data);
-      } else if (activeTab === 'roles') {
-        const res = await api.get('/workos/roles');
-        setRoles(res.data);
-      } else if (activeTab === 'users') {
-        const res = await api.get('/workos/users');
-        setUsers(res.data);
-      }
+      const res = await api.get('/hr/departments');
+      setDepartments(res.data || []);
     } catch (err) {
-      console.error('Failed to fetch data:', err);
-      toast.error('Failed to load data');
+      toast.error('Failed to load departments');
     }
     setLoading(false);
   };
 
+  const fetchPositions = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/hr/positions');
+      setPositions(res.data || []);
+    } catch (err) {
+      toast.error('Failed to load positions');
+    }
+    setLoading(false);
+  };
+
+  const fetchGrades = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/hr/grades');
+      setGrades(res.data || []);
+    } catch (err) {
+      toast.error('Failed to load grades');
+    }
+    setLoading(false);
+  };
+
+  const seedPositions = async () => {
+    try {
+      const res = await api.post('/hr/seed-positions');
+      toast.success(res.data.message);
+      fetchPositions();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to seed positions');
+    }
+  };
+
   const tabs = [
     { id: 'departments', label: 'Departments', icon: Building2, count: departments.length },
-    { id: 'roles', label: 'Roles & Permissions', icon: Shield, count: roles.length },
-    { id: 'users', label: 'Team Members', icon: Users, count: users.length },
+    { id: 'positions', label: 'Position Hierarchy', icon: Briefcase, count: positions.length },
+    { id: 'grades', label: 'Grade Types', icon: Award, count: grades.length },
   ];
 
-  const filteredDepartments = departments.filter(d => 
-    d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    d.code.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const filteredRoles = roles.filter(r =>
-    r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.code.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const filteredUsers = users.filter(u =>
-    u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    u.email?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  if (loading && departments.length === 0 && roles.length === 0 && users.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-8 h-8 animate-spin text-[#8B7355]" />
-      </div>
-    );
-  }
-
   return (
-    <div className="p-6 max-w-7xl mx-auto" data-testid="organization-management">
+    <div className="p-6 max-w-7xl mx-auto space-y-6" data-testid="organization-management">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-2 text-sm text-[#8B7355] mb-2">
-          <Settings className="w-4 h-4" />
-          <span>Admin</span>
-          <ChevronRight className="w-4 h-4" />
-          <span>Organization</span>
+      <div className="flex items-center gap-2 text-sm text-[#8B7355] mb-2">
+        <Building2 className="w-4 h-4" />
+        <span>Administration</span>
+        <ChevronRight className="w-4 h-4" />
+        <span>Organization Management</span>
+      </div>
+      
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-[#4A3728]">Organization Management</h1>
+          <p className="text-[#5D4A3A] text-sm mt-1">Manage departments, positions, and grade types</p>
         </div>
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-[#3D2E22]">Organization Management</h1>
-            <p className="text-[#8B7355] mt-1">Manage departments, roles, and team members</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={fetchData}
-              className="p-2 rounded-lg border border-[#E8D5C4] hover:bg-[#F5EDE4] transition-colors"
-              data-testid="refresh-btn"
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => {
+              if (activeTab === 'departments') fetchDepartments();
+              else if (activeTab === 'positions') fetchPositions();
+              else fetchGrades();
+            }}
+            className="border-[#E8D5C4]"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+          {activeTab === 'departments' && (
+            <Button
+              onClick={() => { setEditingItem(null); setShowDeptModal(true); }}
+              className="bg-[#8B7355] hover:bg-[#6B5A45]"
             >
-              <RefreshCw className={`w-5 h-5 text-[#5D4A3A] ${loading ? 'animate-spin' : ''}`} />
-            </button>
-            {activeTab === 'departments' && (
-              <button
-                onClick={() => { setEditingItem(null); setShowDeptModal(true); }}
-                className="flex items-center gap-2 px-4 py-2 bg-[#8B7355] text-white rounded-lg hover:bg-[#6B5A45] transition-colors"
-                data-testid="add-department-btn"
-              >
-                <Plus className="w-4 h-4" />
-                Add Department
-              </button>
-            )}
-            {activeTab === 'roles' && (
-              <button
-                onClick={() => { setEditingItem(null); setShowRoleModal(true); }}
-                className="flex items-center gap-2 px-4 py-2 bg-[#8B7355] text-white rounded-lg hover:bg-[#6B5A45] transition-colors"
-                data-testid="add-role-btn"
-              >
-                <Plus className="w-4 h-4" />
-                Add Role
-              </button>
-            )}
-          </div>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Department
+            </Button>
+          )}
+          {activeTab === 'positions' && (
+            <Button
+              onClick={() => { setEditingItem(null); setShowPositionModal(true); }}
+              className="bg-[#8B7355] hover:bg-[#6B5A45]"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Position
+            </Button>
+          )}
+          {activeTab === 'grades' && (
+            <Button
+              onClick={() => { setEditingItem(null); setShowGradeModal(true); }}
+              className="bg-[#8B7355] hover:bg-[#6B5A45]"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Grade
+            </Button>
+          )}
         </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-3 gap-4">
+        <Card className="border-[#E8D5C4]">
+          <CardContent className="p-4 text-center">
+            <Building2 className="h-8 w-8 mx-auto text-[#8B7355] mb-2" />
+            <p className="text-2xl font-bold text-[#4A3728]">{departments.length}</p>
+            <p className="text-xs text-[#5D4A3A]">Departments</p>
+          </CardContent>
+        </Card>
+        <Card className="border-[#E8D5C4]">
+          <CardContent className="p-4 text-center">
+            <Briefcase className="h-8 w-8 mx-auto text-blue-600 mb-2" />
+            <p className="text-2xl font-bold text-[#4A3728]">{positions.length}</p>
+            <p className="text-xs text-[#5D4A3A]">Positions</p>
+          </CardContent>
+        </Card>
+        <Card className="border-[#E8D5C4]">
+          <CardContent className="p-4 text-center">
+            <Award className="h-8 w-8 mx-auto text-purple-600 mb-2" />
+            <p className="text-2xl font-bold text-[#4A3728]">{grades.length}</p>
+            <p className="text-xs text-[#5D4A3A]">Grades</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-[#F5EDE4] p-1 rounded-lg w-fit">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => { setActiveTab(tab.id); setSearchQuery(''); }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-colors ${
-              activeTab === tab.id 
-                ? 'bg-white text-[#3D2E22] shadow-sm' 
-                : 'text-[#8B7355] hover:text-[#5D4A3A]'
-            }`}
-            data-testid={`tab-${tab.id}`}
-          >
-            <tab.icon className="w-4 h-4" />
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Search */}
-      <div className="relative mb-6 max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8B7355]" />
-        <input
-          type="text"
-          placeholder={`Search ${activeTab}...`}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none"
-          data-testid="search-input"
-        />
-      </div>
-
-      {/* Departments Tab */}
-      {activeTab === 'departments' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredDepartments.map(dept => (
-            <DepartmentCard 
-              key={dept.id} 
-              department={dept}
-              onEdit={() => { setEditingItem(dept); setShowDeptModal(true); }}
-              onRefresh={fetchData}
-            />
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="bg-[#F5EDE4] p-1">
+          {tabs.map(tab => (
+            <TabsTrigger 
+              key={tab.id} 
+              value={tab.id}
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm"
+              data-testid={`tab-${tab.id}`}
+            >
+              <tab.icon className="w-4 h-4 mr-2" />
+              {tab.label}
+              {tab.count > 0 && (
+                <Badge variant="secondary" className="ml-2 bg-[#8B7355]/10">
+                  {tab.count}
+                </Badge>
+              )}
+            </TabsTrigger>
           ))}
-          {filteredDepartments.length === 0 && (
-            <div className="col-span-full text-center py-12">
-              <Building2 className="w-12 h-12 text-[#C4B5A5] mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-[#3D2E22]">No departments found</h3>
-              <p className="text-[#8B7355]">Create your first department to get started</p>
-            </div>
-          )}
-        </div>
-      )}
+        </TabsList>
 
-      {/* Roles Tab */}
-      {activeTab === 'roles' && (
-        <div className="space-y-4">
-          {filteredRoles.map(role => (
-            <RoleCard 
-              key={role.id} 
-              role={role}
-              onEdit={() => { setEditingItem(role); setShowRoleModal(true); }}
-              onRefresh={fetchData}
-            />
-          ))}
-          {filteredRoles.length === 0 && (
-            <div className="text-center py-12">
-              <Shield className="w-12 h-12 text-[#C4B5A5] mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-[#3D2E22]">No roles found</h3>
-              <p className="text-[#8B7355]">Create your first role to define permissions</p>
-            </div>
-          )}
-        </div>
-      )}
+        {/* Departments Tab */}
+        <TabsContent value="departments">
+          <DepartmentsTab 
+            departments={departments}
+            employees={employees}
+            loading={loading}
+            onEdit={(dept) => { setEditingItem(dept); setShowDeptModal(true); }}
+            onRefresh={fetchDepartments}
+            viewMode={deptView}
+            setViewMode={setDeptView}
+            expandedDepts={expandedDepts}
+            setExpandedDepts={setExpandedDepts}
+          />
+        </TabsContent>
 
-      {/* Users Tab */}
-      {activeTab === 'users' && (
-        <div className="bg-white rounded-xl border border-[#E8D5C4] overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-[#F5EDE4]">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">User</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">Department</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">Grade</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">Role</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">Reports To</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#E8D5C4]">
-              {filteredUsers.map(user => (
-                <UserRow 
-                  key={user.id} 
-                  user={user}
-                  departments={departments}
-                  roles={roles}
-                  allUsers={users}
-                  onEdit={() => { setEditingItem(user); setShowUserModal(true); }}
-                  onRefresh={fetchData}
-                />
-              ))}
-            </tbody>
-          </table>
-          {filteredUsers.length === 0 && (
-            <div className="text-center py-12">
-              <Users className="w-12 h-12 text-[#C4B5A5] mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-[#3D2E22]">No users found</h3>
-              <p className="text-[#8B7355]">Invite team members to get started</p>
-            </div>
-          )}
-        </div>
-      )}
+        {/* Positions Tab */}
+        <TabsContent value="positions">
+          <PositionsTab 
+            positions={positions}
+            departments={departments}
+            loading={loading}
+            onEdit={(pos) => { setEditingItem(pos); setShowPositionModal(true); }}
+            onRefresh={fetchPositions}
+            onSeed={seedPositions}
+            viewMode={positionView}
+            setViewMode={setPositionView}
+            expandedPositions={expandedPositions}
+            setExpandedPositions={setExpandedPositions}
+          />
+        </TabsContent>
+
+        {/* Grades Tab */}
+        <TabsContent value="grades">
+          <GradesTab 
+            grades={grades}
+            loading={loading}
+            onEdit={(grade) => { setEditingItem(grade); setShowGradeModal(true); }}
+            onRefresh={fetchGrades}
+          />
+        </TabsContent>
+      </Tabs>
 
       {/* Modals */}
       {showDeptModal && (
         <DepartmentModal
           department={editingItem}
-          onClose={() => setShowDeptModal(false)}
-          onSave={() => { setShowDeptModal(false); fetchData(); }}
-        />
-      )}
-      {showRoleModal && (
-        <RoleModal
-          role={editingItem}
-          onClose={() => setShowRoleModal(false)}
-          onSave={() => { setShowRoleModal(false); fetchData(); }}
-        />
-      )}
-      {showUserModal && (
-        <UserModal
-          user={editingItem}
           departments={departments}
-          roles={roles}
-          grades={grades}
-          allUsers={users}
-          onClose={() => setShowUserModal(false)}
-          onSave={() => { setShowUserModal(false); fetchData(); }}
+          employees={employees}
+          onClose={() => setShowDeptModal(false)}
+          onSave={() => { setShowDeptModal(false); fetchDepartments(); }}
+        />
+      )}
+      {showPositionModal && (
+        <PositionModal
+          position={editingItem}
+          departments={departments}
+          positions={positions}
+          onClose={() => setShowPositionModal(false)}
+          onSave={() => { setShowPositionModal(false); fetchPositions(); }}
+        />
+      )}
+      {showGradeModal && (
+        <GradeModal
+          grade={editingItem}
+          onClose={() => setShowGradeModal(false)}
+          onSave={() => { setShowGradeModal(false); fetchGrades(); }}
         />
       )}
     </div>
   );
 };
 
-// Department Card Component
-const DepartmentCard = ({ department, onEdit, onRefresh }) => {
-  const [deleting, setDeleting] = useState(false);
+// Departments Tab
+const DepartmentsTab = ({ departments, employees, loading, onEdit, onRefresh, viewMode, setViewMode, expandedDepts, setExpandedDepts }) => {
+  const [deleting, setDeleting] = useState(null);
 
-  const handleDelete = async () => {
-    if (!confirm(`Delete "${department.name}" department?`)) return;
-    setDeleting(true);
+  const deptHierarchy = useMemo(() => {
+    const rootDepts = departments.filter(d => !d.parent_department_id);
+    const buildTree = (parentId) => {
+      return departments
+        .filter(d => d.parent_department_id === parentId)
+        .map(dept => ({ ...dept, children: buildTree(dept.id) }));
+    };
+    return rootDepts.map(dept => ({ ...dept, children: buildTree(dept.id) }));
+  }, [departments]);
+
+  const toggleDept = (deptId) => {
+    setExpandedDepts(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(deptId)) newSet.delete(deptId);
+      else newSet.add(deptId);
+      return newSet;
+    });
+  };
+
+  const handleDelete = async (deptId) => {
+    if (!confirm('Delete this department?')) return;
+    setDeleting(deptId);
     try {
-      await api.delete(`/workos/departments/${department.id}`);
+      await api.delete(`/workos/departments/${deptId}`);
       toast.success('Department deleted');
       onRefresh();
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Failed to delete');
     }
-    setDeleting(false);
+    setDeleting(null);
   };
 
+  const renderDeptNode = (dept, level = 0) => {
+    const hasChildren = dept.children && dept.children.length > 0;
+    const isExpanded = expandedDepts.has(dept.id);
+
+    return (
+      <div key={dept.id}>
+        <div 
+          className="flex items-center gap-3 p-4 bg-white border border-[#E8D5C4] rounded-lg hover:shadow-md transition-all mb-2"
+          style={{ marginLeft: level > 0 ? `${level * 24}px` : 0 }}
+        >
+          {hasChildren ? (
+            <button onClick={() => toggleDept(dept.id)} className="p-1 hover:bg-[#F5EDE4] rounded">
+              <ChevronRight className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+            </button>
+          ) : (
+            <div className="w-6" />
+          )}
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${dept.color || '#8B7355'}20` }}>
+            <Building2 className="w-5 h-5" style={{ color: dept.color || '#8B7355' }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-[#3D2E22]">{dept.name}</p>
+            <p className="text-sm text-[#8B7355]">{dept.code}</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <p className="text-sm font-medium text-[#3D2E22]">{dept.member_count || 0}</p>
+              <p className="text-xs text-[#8B7355]">Members</p>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onEdit(dept)}>
+                  <Edit2 className="w-4 h-4 mr-2" /> Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleDelete(dept.id)} disabled={dept.member_count > 0} className="text-red-600">
+                  <Trash2 className="w-4 h-4 mr-2" /> Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+        {hasChildren && isExpanded && <div>{dept.children.map(child => renderDeptNode(child, level + 1))}</div>}
+      </div>
+    );
+  };
+
+  if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-[#8B7355]" /></div>;
+
   return (
-    <div className="bg-white rounded-xl border border-[#E8D5C4] p-5 hover:shadow-md transition-shadow" data-testid={`dept-card-${department.id}`}>
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg" style={{ backgroundColor: `${department.color}20` }}>
-            <Building2 className="w-5 h-5" style={{ color: department.color }} />
-          </div>
-          <div>
-            <h3 className="font-semibold text-[#3D2E22]">{department.name}</h3>
-            <p className="text-sm text-[#8B7355]">{department.code}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1">
-          <button onClick={onEdit} className="p-1.5 hover:bg-[#F5EDE4] rounded-md transition-colors">
-            <Edit2 className="w-4 h-4 text-[#8B7355]" />
-          </button>
-          <button onClick={handleDelete} disabled={deleting} className="p-1.5 hover:bg-red-50 rounded-md transition-colors">
-            {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4 text-red-500" />}
-          </button>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-[#3D2E22]">Department Hierarchy</h3>
+        <div className="flex gap-2">
+          <Button variant={viewMode === 'hierarchy' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('hierarchy')} className={viewMode === 'hierarchy' ? 'bg-[#8B7355]' : 'border-[#E8D5C4]'}>
+            <Network className="w-4 h-4 mr-1" /> Hierarchy
+          </Button>
+          <Button variant={viewMode === 'cards' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('cards')} className={viewMode === 'cards' ? 'bg-[#8B7355]' : 'border-[#E8D5C4]'}>
+            <Layers className="w-4 h-4 mr-1" /> Cards
+          </Button>
         </div>
       </div>
-      
-      {department.description && (
-        <p className="text-sm text-[#5D4A3A] mb-4">{department.description}</p>
+      {viewMode === 'hierarchy' ? (
+        <div className="space-y-2">{deptHierarchy.map(dept => renderDeptNode(dept))}</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {departments.map(dept => (
+            <Card key={dept.id} className="border-[#E8D5C4] hover:shadow-md transition-shadow">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between">
+                  <div className="w-12 h-12 rounded-lg flex items-center justify-center mb-3" style={{ backgroundColor: `${dept.color || '#8B7355'}20` }}>
+                    <Building2 className="w-6 h-6" style={{ color: dept.color || '#8B7355' }} />
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => onEdit(dept)}><Edit2 className="w-4 h-4" /></Button>
+                </div>
+                <h4 className="font-semibold text-[#3D2E22]">{dept.name}</h4>
+                <p className="text-sm text-[#8B7355] mb-3">{dept.description || 'No description'}</p>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-[#8B7355]">{dept.member_count || 0} members</span>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
-      
-      <div className="flex items-center justify-between text-sm">
-        <div className="flex items-center gap-2 text-[#8B7355]">
-          <Users className="w-4 h-4" />
-          <span>{department.member_count || 0} members</span>
-        </div>
-        {department.lead_name && (
-          <div className="flex items-center gap-1 text-[#8B7355]">
-            <Crown className="w-4 h-4" />
-            <span>{department.lead_name}</span>
-          </div>
-        )}
-      </div>
     </div>
   );
 };
 
-// Role Card Component
-const RoleCard = ({ role, onEdit, onRefresh }) => {
-  const [expanded, setExpanded] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+// Positions Tab
+const PositionsTab = ({ positions, departments, loading, onEdit, onRefresh, onSeed, viewMode, setViewMode, expandedPositions, setExpandedPositions }) => {
+  const [deleting, setDeleting] = useState(null);
 
-  const handleDelete = async () => {
-    if (!confirm(`Delete "${role.name}" role?`)) return;
-    setDeleting(true);
+  const levelOrder = ['ceo', 'vp', 'director', 'manager', 'lead', 'executive', 'associate'];
+  const levelColors = {
+    ceo: { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-200' },
+    vp: { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-200' },
+    director: { bg: 'bg-pink-100', text: 'text-pink-700', border: 'border-pink-200' },
+    manager: { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-200' },
+    lead: { bg: 'bg-indigo-100', text: 'text-indigo-700', border: 'border-indigo-200' },
+    executive: { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-200' },
+    associate: { bg: 'bg-stone-100', text: 'text-stone-700', border: 'border-stone-200' }
+  };
+
+  const positionHierarchy = useMemo(() => {
+    const rootPositions = positions.filter(p => !p.reporting_position_id);
+    const buildTree = (parentId) => {
+      return positions.filter(p => p.reporting_position_id === parentId).map(pos => ({ ...pos, children: buildTree(pos.id) }));
+    };
+    return rootPositions.map(pos => ({ ...pos, children: buildTree(pos.id) }));
+  }, [positions]);
+
+  const togglePosition = (posId) => {
+    setExpandedPositions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(posId)) newSet.delete(posId);
+      else newSet.add(posId);
+      return newSet;
+    });
+  };
+
+  const handleDelete = async (posId) => {
+    if (!confirm('Delete this position?')) return;
+    setDeleting(posId);
     try {
-      await api.delete(`/workos/roles/${role.id}`);
-      toast.success('Role deleted');
+      await api.delete(`/hr/positions/${posId}`);
+      toast.success('Position deleted');
       onRefresh();
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Failed to delete');
     }
-    setDeleting(false);
+    setDeleting(null);
   };
 
-  const permissionCount = Object.values(role.permissions || {}).reduce(
-    (acc, dept) => acc + Object.values(dept).reduce((a, acts) => a + acts.length, 0), 0
-  );
+  const renderPositionNode = (pos, level = 0) => {
+    const hasChildren = pos.children && pos.children.length > 0;
+    const isExpanded = expandedPositions.has(pos.id);
+    const colors = levelColors[pos.level] || levelColors.associate;
+
+    return (
+      <div key={pos.id}>
+        <div className={`flex items-center gap-3 p-4 bg-white border ${colors.border} rounded-lg hover:shadow-md transition-all mb-2`} style={{ marginLeft: level > 0 ? `${level * 24}px` : 0 }}>
+          {hasChildren ? (
+            <button onClick={() => togglePosition(pos.id)} className="p-1 hover:bg-[#F5EDE4] rounded">
+              <ChevronRight className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+            </button>
+          ) : (
+            <div className="w-6" />
+          )}
+          <div className={`w-10 h-10 rounded-lg ${colors.bg} flex items-center justify-center`}>
+            <Briefcase className={`w-5 h-5 ${colors.text}`} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="font-medium text-[#3D2E22]">{pos.title}</p>
+              <Badge className={`${colors.bg} ${colors.text} text-xs`}>{pos.level.toUpperCase()}</Badge>
+            </div>
+            <p className="text-sm text-[#8B7355]">{pos.code}</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <p className="text-sm font-medium text-[#3D2E22]">{pos.employee_count || 0}</p>
+              <p className="text-xs text-[#8B7355]">Employees</p>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="w-4 h-4" /></Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onEdit(pos)}><Edit2 className="w-4 h-4 mr-2" /> Edit</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleDelete(pos.id)} disabled={pos.employee_count > 0} className="text-red-600">
+                  <Trash2 className="w-4 h-4 mr-2" /> Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+        {hasChildren && isExpanded && <div>{pos.children.map(child => renderPositionNode(child, level + 1))}</div>}
+      </div>
+    );
+  };
+
+  if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-[#8B7355]" /></div>;
+
+  if (positions.length === 0) {
+    return (
+      <Card className="border-[#E8D5C4]">
+        <CardContent className="text-center py-12">
+          <Briefcase className="w-12 h-12 text-[#C4B5A5] mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-[#3D2E22]">No Positions Found</h3>
+          <p className="text-[#8B7355] mb-4">Set up position hierarchy for your organization</p>
+          <Button onClick={onSeed} className="bg-[#8B7355] hover:bg-[#6B5A45]">Seed Default Positions</Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
-    <div className="bg-white rounded-xl border border-[#E8D5C4] overflow-hidden" data-testid={`role-card-${role.id}`}>
-      <div className="p-5 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="p-2 bg-[#8B7355]/10 rounded-lg">
-            <Shield className="w-5 h-5 text-[#8B7355]" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-[#3D2E22]">{role.name}</h3>
-              {role.is_system && (
-                <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded-full">System</span>
-              )}
-            </div>
-            <p className="text-sm text-[#8B7355]">{role.description}</p>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-4">
-          <div className="text-right">
-            <p className="text-sm font-medium text-[#3D2E22]">Level {role.level}</p>
-            <p className="text-xs text-[#8B7355]">{role.user_count || 0} users • {permissionCount} permissions</p>
-          </div>
-          <div className="flex items-center gap-1">
-            <button onClick={() => setExpanded(!expanded)} className="p-1.5 hover:bg-[#F5EDE4] rounded-md transition-colors">
-              <Eye className="w-4 h-4 text-[#8B7355]" />
-            </button>
-            {!role.is_system && (
-              <>
-                <button onClick={onEdit} className="p-1.5 hover:bg-[#F5EDE4] rounded-md transition-colors">
-                  <Edit2 className="w-4 h-4 text-[#8B7355]" />
-                </button>
-                <button onClick={handleDelete} disabled={deleting} className="p-1.5 hover:bg-red-50 rounded-md transition-colors">
-                  {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4 text-red-500" />}
-                </button>
-              </>
-            )}
-          </div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-[#3D2E22]">
+          Position Hierarchy
+          <span className="text-sm font-normal text-[#8B7355] ml-2">(CEO → VP → Director → Manager → Lead → Executive → Associate)</span>
+        </h3>
+        <div className="flex gap-2">
+          <Button variant={viewMode === 'hierarchy' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('hierarchy')} className={viewMode === 'hierarchy' ? 'bg-[#8B7355]' : 'border-[#E8D5C4]'}>
+            <Network className="w-4 h-4 mr-1" /> Hierarchy
+          </Button>
+          <Button variant={viewMode === 'table' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('table')} className={viewMode === 'table' ? 'bg-[#8B7355]' : 'border-[#E8D5C4]'}>
+            <Layers className="w-4 h-4 mr-1" /> Table
+          </Button>
         </div>
       </div>
-      
-      {expanded && role.permissions && (
-        <div className="px-5 pb-5 pt-0 border-t border-[#E8D5C4]">
-          <p className="text-xs font-semibold text-[#8B7355] uppercase tracking-wider mb-3 pt-4">Permissions</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {Object.entries(role.permissions).map(([dept, modules]) => (
-              <div key={dept} className="bg-[#F5EDE4] rounded-lg p-3">
-                <p className="text-sm font-medium text-[#3D2E22] capitalize mb-2">{dept}</p>
-                <div className="space-y-1">
-                  {Object.entries(modules).map(([mod, actions]) => (
-                    <div key={mod} className="flex items-center justify-between text-xs">
-                      <span className="text-[#5D4A3A] capitalize">{mod.replace('_', ' ')}</span>
-                      <span className="text-[#8B7355]">{actions.join(', ')}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+      <div className="flex flex-wrap gap-2 mb-2">
+        {levelOrder.map(level => <Badge key={level} className={`${levelColors[level].bg} ${levelColors[level].text} text-xs`}>{level.toUpperCase()}</Badge>)}
+      </div>
+      {viewMode === 'hierarchy' ? (
+        <div className="space-y-2">{positionHierarchy.map(pos => renderPositionNode(pos))}</div>
+      ) : (
+        <Card className="border-[#E8D5C4]">
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-[#F5EDE5]">
+                  <TableHead className="text-[#4A3728]">Position</TableHead>
+                  <TableHead className="text-[#4A3728]">Code</TableHead>
+                  <TableHead className="text-[#4A3728]">Level</TableHead>
+                  <TableHead className="text-[#4A3728]">Department</TableHead>
+                  <TableHead className="text-[#4A3728]">Employees</TableHead>
+                  <TableHead className="text-[#4A3728] text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {positions.sort((a, b) => levelOrder.indexOf(a.level) - levelOrder.indexOf(b.level)).map(pos => {
+                  const colors = levelColors[pos.level] || levelColors.associate;
+                  return (
+                    <TableRow key={pos.id} className="hover:bg-[#F5EDE5]/50">
+                      <TableCell><p className="font-medium text-[#3D2E22]">{pos.title}</p></TableCell>
+                      <TableCell><span className="font-mono text-sm text-[#5D4A3A]">{pos.code}</span></TableCell>
+                      <TableCell><Badge className={`${colors.bg} ${colors.text} text-xs`}>{pos.level.toUpperCase()}</Badge></TableCell>
+                      <TableCell className="text-[#5D4A3A]">{pos.department_name || 'All'}</TableCell>
+                      <TableCell className="text-[#5D4A3A]">{pos.employee_count}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button variant="ghost" size="icon" onClick={() => onEdit(pos)}><Edit2 className="w-4 h-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(pos.id)} disabled={deleting === pos.id || pos.employee_count > 0} className="text-red-500 hover:text-red-600 hover:bg-red-50">
+                            {deleting === pos.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
 };
 
-// User Row Component
-const UserRow = ({ user, departments, roles, allUsers, onEdit, onRefresh }) => {
-  const statusColors = {
-    active: 'bg-green-100 text-green-700',
-    inactive: 'bg-stone-100 text-stone-600',
-    pending: 'bg-amber-100 text-amber-700'
+// Grades Tab
+const GradesTab = ({ grades, loading, onEdit, onRefresh }) => {
+  const [deleting, setDeleting] = useState(null);
+
+  const handleDelete = async (gradeId) => {
+    if (!confirm('Delete this grade?')) return;
+    setDeleting(gradeId);
+    try {
+      await api.delete(`/hr/grades/${gradeId}`);
+      toast.success('Grade deleted');
+      onRefresh();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to delete');
+    }
+    setDeleting(null);
   };
 
+  if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-[#8B7355]" /></div>;
+
   return (
-    <tr className="hover:bg-[#F5EDE4]/50" data-testid={`user-row-${user.id}`}>
-      <td className="px-6 py-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#8B7355]/10 flex items-center justify-center">
-            <span className="text-[#8B7355] font-medium">{user.name?.charAt(0) || '?'}</span>
-          </div>
-          <div>
-            <p className="font-medium text-[#3D2E22]">{user.name || 'Unnamed'}</p>
-            <p className="text-sm text-[#8B7355]">{user.email}</p>
-          </div>
-        </div>
-      </td>
-      <td className="px-6 py-4">
-        <span className="text-[#5D4A3A]">{user.department_name || '-'}</span>
-      </td>
-      <td className="px-6 py-4">
-        <span className="text-[#5D4A3A]">{user.grade_name || '-'}</span>
-      </td>
-      <td className="px-6 py-4">
-        <span className="text-[#5D4A3A]">{user.role_name || user.role || '-'}</span>
-      </td>
-      <td className="px-6 py-4">
-        <span className="text-[#5D4A3A]">{user.manager_name || '-'}</span>
-      </td>
-      <td className="px-6 py-4">
-        <span className={`px-2 py-1 text-xs rounded-full capitalize ${statusColors[user.status] || statusColors.pending}`}>
-          {user.status || 'pending'}
-        </span>
-      </td>
-      <td className="px-6 py-4 text-right">
-        <button onClick={onEdit} className="p-1.5 hover:bg-[#F5EDE4] rounded-md transition-colors">
-          <Edit2 className="w-4 h-4 text-[#8B7355]" />
-        </button>
-      </td>
-    </tr>
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-[#3D2E22]">Grade Types</h3>
+      <Card className="border-[#E8D5C4]">
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-[#F5EDE5]">
+                <TableHead className="text-[#4A3728]">Grade</TableHead>
+                <TableHead className="text-[#4A3728]">Code</TableHead>
+                <TableHead className="text-[#4A3728]">Level</TableHead>
+                <TableHead className="text-[#4A3728]">Employees</TableHead>
+                <TableHead className="text-[#4A3728] text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {grades.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8 text-[#5D4A3A]">No grades found</TableCell>
+                </TableRow>
+              ) : (
+                grades.sort((a, b) => (a.level || 0) - (b.level || 0)).map(grade => (
+                  <TableRow key={grade.id} className="hover:bg-[#F5EDE5]/50">
+                    <TableCell>
+                      <div>
+                        <p className="font-medium text-[#3D2E22]">{grade.name}</p>
+                        {grade.description && <p className="text-sm text-[#8B7355]">{grade.description}</p>}
+                      </div>
+                    </TableCell>
+                    <TableCell><code className="text-sm bg-[#F5EDE5] px-2 py-1 rounded">{grade.code}</code></TableCell>
+                    <TableCell><Badge variant="outline">{grade.level || 0}</Badge></TableCell>
+                    <TableCell className="text-[#5D4A3A]">{grade.employee_count || 0}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => onEdit(grade)}><Edit2 className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(grade.id)} disabled={deleting === grade.id || grade.employee_count > 0} className="text-red-500 hover:text-red-600 hover:bg-red-50">
+                          {deleting === grade.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
 // Department Modal
-const DepartmentModal = ({ department, onClose, onSave }) => {
+const DepartmentModal = ({ department, departments, employees, onClose, onSave }) => {
   const [form, setForm] = useState({
     name: department?.name || '',
     code: department?.code || '',
     description: department?.description || '',
     color: department?.color || '#8B7355',
+    parent_department_id: department?.parent_department_id || '',
+    department_head_id: department?.department_head_id || '',
   });
   const [saving, setSaving] = useState(false);
 
@@ -485,11 +701,12 @@ const DepartmentModal = ({ department, onClose, onSave }) => {
     e.preventDefault();
     setSaving(true);
     try {
+      const payload = { ...form, parent_department_id: form.parent_department_id || null, department_head_id: form.department_head_id || null };
       if (department) {
-        await api.put(`/workos/departments/${department.id}`, form);
+        await api.put(`/hr/departments/${department.id}`, payload);
         toast.success('Department updated');
       } else {
-        await api.post('/workos/departments', form);
+        await api.post('/workos/departments', payload);
         toast.success('Department created');
       }
       onSave();
@@ -499,75 +716,56 @@ const DepartmentModal = ({ department, onClose, onSave }) => {
     setSaving(false);
   };
 
+  const parentDepts = departments.filter(d => d.id !== department?.id);
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl w-full max-w-md mx-4" data-testid="department-modal">
-        <div className="p-6 border-b border-[#E8D5C4]">
-          <h2 className="text-lg font-semibold text-[#3D2E22]">
-            {department ? 'Edit Department' : 'New Department'}
-          </h2>
-        </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>{department ? 'Edit Department' : 'Add Department'}</DialogTitle></DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div><Label>Department Name *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className="border-[#E8D5C4]" /></div>
+          <div><Label>Code *</Label><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toLowerCase().replace(/\s+/g, '_') })} required disabled={!!department} className="border-[#E8D5C4]" /></div>
+          <div><Label>Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} className="border-[#E8D5C4]" /></div>
           <div>
-            <label className="block text-sm font-medium text-[#3D2E22] mb-1">Name</label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none"
-              required
-            />
+            <Label>Parent Department</Label>
+            <Select value={form.parent_department_id || "none"} onValueChange={(v) => setForm({ ...form, parent_department_id: v === "none" ? "" : v })}>
+              <SelectTrigger className="border-[#E8D5C4]"><SelectValue placeholder="None (Top Level)" /></SelectTrigger>
+              <SelectContent><SelectItem value="none">None (Top Level)</SelectItem>{parentDepts.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent>
+            </Select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-[#3D2E22] mb-1">Code</label>
-            <input
-              type="text"
-              value={form.code}
-              onChange={(e) => setForm({ ...form, code: e.target.value.toLowerCase().replace(/\s/g, '_') })}
-              className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none"
-              required
-              disabled={!!department}
-            />
+            <Label>Department Head</Label>
+            <Select value={form.department_head_id || "none"} onValueChange={(v) => setForm({ ...form, department_head_id: v === "none" ? "" : v })}>
+              <SelectTrigger className="border-[#E8D5C4]"><SelectValue placeholder="Select head..." /></SelectTrigger>
+              <SelectContent><SelectItem value="none">None</SelectItem>{employees.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}</SelectContent>
+            </Select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-[#3D2E22] mb-1">Description</label>
-            <textarea
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none resize-none"
-              rows={3}
-            />
+            <Label>Color</Label>
+            <div className="flex items-center gap-2">
+              <input type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} className="w-10 h-10 rounded cursor-pointer" />
+              <Input value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} className="flex-1 border-[#E8D5C4]" />
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-[#3D2E22] mb-1">Color</label>
-            <input
-              type="color"
-              value={form.color}
-              onChange={(e) => setForm({ ...form, color: e.target.value })}
-              className="w-16 h-10 rounded-lg cursor-pointer"
-            />
-          </div>
-          <div className="flex justify-end gap-3 pt-4">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-[#5D4A3A] hover:bg-[#F5EDE4] rounded-lg transition-colors">
-              Cancel
-            </button>
-            <button type="submit" disabled={saving} className="px-4 py-2 bg-[#8B7355] text-white rounded-lg hover:bg-[#6B5A45] transition-colors disabled:opacity-50">
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (department ? 'Update' : 'Create')}
-            </button>
-          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose} className="border-[#E8D5C4]">Cancel</Button>
+            <Button type="submit" disabled={saving} className="bg-[#8B7355] hover:bg-[#6B5A45]">{saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}{department ? 'Update' : 'Create'}</Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
-// Role Modal (simplified)
-const RoleModal = ({ role, onClose, onSave }) => {
+// Position Modal
+const PositionModal = ({ position, departments, positions, onClose, onSave }) => {
   const [form, setForm] = useState({
-    name: role?.name || '',
-    code: role?.code || '',
-    description: role?.description || '',
-    level: role?.level || 30,
+    title: position?.title || '',
+    code: position?.code || '',
+    level: position?.level || 'associate',
+    department_id: position?.department_id || '',
+    reporting_position_id: position?.reporting_position_id || '',
+    description: position?.description || '',
   });
   const [saving, setSaving] = useState(false);
 
@@ -575,12 +773,87 @@ const RoleModal = ({ role, onClose, onSave }) => {
     e.preventDefault();
     setSaving(true);
     try {
-      if (role) {
-        await api.put(`/workos/roles/${role.id}`, form);
-        toast.success('Role updated');
+      const payload = { ...form };
+      if (!payload.department_id) delete payload.department_id;
+      if (!payload.reporting_position_id) delete payload.reporting_position_id;
+      if (position) {
+        await api.put(`/hr/positions/${position.id}`, payload);
+        toast.success('Position updated');
       } else {
-        await api.post('/workos/roles', { ...form, permissions: {} });
-        toast.success('Role created');
+        await api.post('/hr/positions', payload);
+        toast.success('Position created');
+      }
+      onSave();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to save');
+    }
+    setSaving(false);
+  };
+
+  const parentPositions = positions.filter(p => p.id !== position?.id);
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>{position ? 'Edit Position' : 'Add Position'}</DialogTitle></DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div><Label>Position Title *</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required className="border-[#E8D5C4]" /></div>
+          <div><Label>Code *</Label><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase().replace(/\s+/g, '-') })} required disabled={!!position} className="border-[#E8D5C4]" /></div>
+          <div>
+            <Label>Level *</Label>
+            <Select value={form.level} onValueChange={(v) => setForm({ ...form, level: v })}>
+              <SelectTrigger className="border-[#E8D5C4]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ceo">CEO</SelectItem><SelectItem value="vp">Vice President</SelectItem><SelectItem value="director">Director</SelectItem>
+                <SelectItem value="manager">Manager</SelectItem><SelectItem value="lead">Team Lead</SelectItem><SelectItem value="executive">Executive</SelectItem><SelectItem value="associate">Associate</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Department</Label>
+            <Select value={form.department_id || "none"} onValueChange={(v) => setForm({ ...form, department_id: v === "none" ? "" : v })}>
+              <SelectTrigger className="border-[#E8D5C4]"><SelectValue placeholder="All Departments" /></SelectTrigger>
+              <SelectContent><SelectItem value="none">All Departments</SelectItem>{departments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Reports To Position</Label>
+            <Select value={form.reporting_position_id || "none"} onValueChange={(v) => setForm({ ...form, reporting_position_id: v === "none" ? "" : v })}>
+              <SelectTrigger className="border-[#E8D5C4]"><SelectValue placeholder="None (Top Level)" /></SelectTrigger>
+              <SelectContent><SelectItem value="none">None (Top Level)</SelectItem>{parentPositions.map(p => <SelectItem key={p.id} value={p.id}>{p.title} ({p.code})</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div><Label>Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} className="border-[#E8D5C4]" /></div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose} className="border-[#E8D5C4]">Cancel</Button>
+            <Button type="submit" disabled={saving} className="bg-[#8B7355] hover:bg-[#6B5A45]">{saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}{position ? 'Update' : 'Create'}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// Grade Modal
+const GradeModal = ({ grade, onClose, onSave }) => {
+  const [form, setForm] = useState({
+    name: grade?.name || '',
+    code: grade?.code || '',
+    description: grade?.description || '',
+    level: grade?.level || 1,
+  });
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      if (grade) {
+        await api.put(`/hr/grades/${grade.id}`, form);
+        toast.success('Grade updated');
+      } else {
+        await api.post('/hr/grades', form);
+        toast.success('Grade created');
       }
       onSave();
     } catch (err) {
@@ -590,199 +863,21 @@ const RoleModal = ({ role, onClose, onSave }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl w-full max-w-md mx-4" data-testid="role-modal">
-        <div className="p-6 border-b border-[#E8D5C4]">
-          <h2 className="text-lg font-semibold text-[#3D2E22]">
-            {role ? 'Edit Role' : 'New Role'}
-          </h2>
-        </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-[#3D2E22] mb-1">Name</label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-[#3D2E22] mb-1">Code</label>
-            <input
-              type="text"
-              value={form.code}
-              onChange={(e) => setForm({ ...form, code: e.target.value.toLowerCase().replace(/\s/g, '_') })}
-              className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none"
-              required
-              disabled={!!role}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-[#3D2E22] mb-1">Description</label>
-            <textarea
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none resize-none"
-              rows={2}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-[#3D2E22] mb-1">Level (1-100)</label>
-            <input
-              type="number"
-              value={form.level}
-              onChange={(e) => setForm({ ...form, level: parseInt(e.target.value) || 10 })}
-              className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none"
-              min="1"
-              max="100"
-            />
-            <p className="text-xs text-[#8B7355] mt-1">Higher level = more access. Super Admin = 100</p>
-          </div>
-          <div className="flex justify-end gap-3 pt-4">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-[#5D4A3A] hover:bg-[#F5EDE4] rounded-lg transition-colors">
-              Cancel
-            </button>
-            <button type="submit" disabled={saving} className="px-4 py-2 bg-[#8B7355] text-white rounded-lg hover:bg-[#6B5A45] transition-colors disabled:opacity-50">
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (role ? 'Update' : 'Create')}
-            </button>
-          </div>
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>{grade ? 'Edit Grade' : 'Add Grade'}</DialogTitle></DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div><Label>Grade Name *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g., Grade III" required className="border-[#E8D5C4]" /></div>
+          <div><Label>Code *</Label><Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase().replace(/\s+/g, '-') })} placeholder="e.g., G3" required disabled={!!grade} className="border-[#E8D5C4]" /></div>
+          <div><Label>Level</Label><Input type="number" value={form.level} onChange={(e) => setForm({ ...form, level: parseInt(e.target.value) || 1 })} min={1} max={20} className="border-[#E8D5C4]" /></div>
+          <div><Label>Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} className="border-[#E8D5C4]" /></div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose} className="border-[#E8D5C4]">Cancel</Button>
+            <Button type="submit" disabled={saving} className="bg-[#8B7355] hover:bg-[#6B5A45]">{saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}{grade ? 'Update' : 'Create'}</Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
-  );
-};
-
-// User Modal
-const UserModal = ({ user, departments, roles, grades, allUsers, onClose, onSave }) => {
-  const [form, setForm] = useState({
-    name: user?.name || '',
-    department_id: user?.department_id || '',
-    role_id: user?.role_id || '',
-    grade_id: user?.grade_id || '',
-    reports_to: user?.reports_to || '',
-    title: user?.title || '',
-    status: user?.status || 'active',
-  });
-  const [saving, setSaving] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await api.put(`/workos/users/${user.id}`, form);
-      toast.success('User updated');
-      onSave();
-    } catch (err) {
-      toast.error(err.response?.data?.detail || 'Failed to save');
-    }
-    setSaving(false);
-  };
-
-  const managers = allUsers.filter(u => u.id !== user?.id);
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl w-full max-w-lg mx-4" data-testid="user-modal">
-        <div className="p-6 border-b border-[#E8D5C4]">
-          <h2 className="text-lg font-semibold text-[#3D2E22]">Edit User</h2>
-        </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-          <div>
-            <label className="block text-sm font-medium text-[#3D2E22] mb-1">Name</label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-[#3D2E22] mb-1">Title</label>
-            <input
-              type="text"
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none"
-              placeholder="e.g., Marketing Executive"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-[#3D2E22] mb-1">Department</label>
-            <select
-              value={form.department_id}
-              onChange={(e) => setForm({ ...form, department_id: e.target.value })}
-              className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none"
-            >
-              <option value="">Select department...</option>
-              {departments.map(d => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-[#3D2E22] mb-1">Grade</label>
-            <select
-              value={form.grade_id}
-              onChange={(e) => setForm({ ...form, grade_id: e.target.value })}
-              className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none"
-            >
-              <option value="">Select grade...</option>
-              {grades?.map(g => (
-                <option key={g.id} value={g.id}>{g.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-[#3D2E22] mb-1">Role</label>
-            <select
-              value={form.role_id}
-              onChange={(e) => setForm({ ...form, role_id: e.target.value })}
-              className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none"
-            >
-              <option value="">Select role...</option>
-              {roles.map(r => (
-                <option key={r.id} value={r.id}>{r.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-[#3D2E22] mb-1">Reports To</label>
-            <select
-              value={form.reports_to}
-              onChange={(e) => setForm({ ...form, reports_to: e.target.value })}
-              className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none"
-            >
-              <option value="">No manager</option>
-              {managers.map(m => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-[#3D2E22] mb-1">Status</label>
-            <select
-              value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value })}
-              className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none"
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="pending">Pending</option>
-            </select>
-          </div>
-          <div className="flex justify-end gap-3 pt-4">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-[#5D4A3A] hover:bg-[#F5EDE4] rounded-lg transition-colors">
-              Cancel
-            </button>
-            <button type="submit" disabled={saving} className="px-4 py-2 bg-[#8B7355] text-white rounded-lg hover:bg-[#6B5A45] transition-colors disabled:opacity-50">
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Update'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

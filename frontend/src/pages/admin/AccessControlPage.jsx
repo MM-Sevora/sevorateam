@@ -1,21 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  Shield, Users, Plus, Edit, Trash2, Check, X, RefreshCw,
-  UserPlus, Settings, ChevronRight, Search, Building2, Briefcase
+  Shield, Plus, Edit, Trash2, RefreshCw, Settings, Lock, Key, Layers
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Checkbox } from '../../components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../components/ui/select';
 import {
   Table,
   TableBody,
@@ -57,23 +49,9 @@ const AccessControlPage = () => {
   const [modules, setModules] = useState({});
   const [moduleKeys, setModuleKeys] = useState([]);
   
-  // Draft users state
-  const [draftUsers, setDraftUsers] = useState([]);
-  const [loadingDraft, setLoadingDraft] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  
-  // Lookup data
-  const [departments, setDepartments] = useState([]);
-  const [teams, setTeams] = useState([]);
-  const [positions, setPositions] = useState([]);
-  const [grades, setGrades] = useState([]);
-  const [employees, setEmployees] = useState([]);
-  
   // Dialog states
   const [showRoleDialog, setShowRoleDialog] = useState(false);
-  const [showOnboardDialog, setShowOnboardDialog] = useState(false);
   const [selectedRole, setSelectedRole] = useState(null);
-  const [selectedUser, setSelectedUser] = useState(null);
   const [deleteDialog, setDeleteDialog] = useState({ open: false, role: null });
   
   // Form states
@@ -85,19 +63,6 @@ const AccessControlPage = () => {
     can_manage_users: false,
     can_manage_employees: false,
     can_manage_roles: false
-  });
-  
-  const [onboardForm, setOnboardForm] = useState({
-    department_id: '',
-    team_id: '',
-    position_id: '',
-    grade_id: '',
-    reports_to: '',
-    custom_role_id: '',
-    designation: '',
-    employment_type: 'full_time',
-    work_mode: 'office',
-    joining_date: new Date().toISOString().split('T')[0]
   });
   
   const [saving, setSaving] = useState(false);
@@ -127,62 +92,10 @@ const AccessControlPage = () => {
     }
   }, [api]);
 
-  // Fetch draft users
-  const fetchDraftUsers = useCallback(async () => {
-    setLoadingDraft(true);
-    try {
-      let url = '/access/draft-users';
-      if (searchQuery) url += `?search=${encodeURIComponent(searchQuery)}`;
-      const response = await api.get(url);
-      setDraftUsers(response.data || []);
-    } catch (error) {
-      console.error('Failed to fetch draft users:', error);
-    } finally {
-      setLoadingDraft(false);
-    }
-  }, [api, searchQuery]);
-
-  // Fetch lookup data
-  const fetchLookupData = useCallback(async () => {
-    try {
-      const [deptRes, teamRes, posRes, gradeRes, empRes] = await Promise.all([
-        api.get('/workos/departments'),
-        api.get('/hr/teams'),
-        api.get('/hr/positions'),
-        api.get('/hr/grades'),
-        api.get('/hr/employees')
-      ]);
-      setDepartments(deptRes.data || []);
-      setTeams(teamRes.data || []);
-      setPositions(posRes.data || []);
-      setGrades(gradeRes.data || []);
-      setEmployees(empRes.data || []);
-    } catch (error) {
-      console.error('Failed to fetch lookup data:', error);
-    }
-  }, [api]);
-
   useEffect(() => {
     fetchRoles();
     fetchModules();
-    fetchLookupData();
-  }, [fetchRoles, fetchModules, fetchLookupData]);
-
-  useEffect(() => {
-    if (activeTab === 'onboarding') {
-      fetchDraftUsers();
-    }
-  }, [activeTab, fetchDraftUsers]);
-
-  // Search debounce
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (activeTab === 'onboarding') {
-        fetchDraftUsers();
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [fetchRoles, fetchModules]);
 
   // Create/Update role
   const handleSaveRole = async () => {
@@ -225,37 +138,6 @@ const AccessControlPage = () => {
     }
   };
 
-  // Onboard user
-  const handleOnboard = async () => {
-    if (!selectedUser || !onboardForm.department_id || !onboardForm.custom_role_id) {
-      toast.error('Department and Role are required');
-      return;
-    }
-    
-    setSaving(true);
-    try {
-      // Clean up empty string values before sending to API
-      const payload = {
-        ...onboardForm,
-        team_id: onboardForm.team_id || null,
-        position_id: onboardForm.position_id || null,
-        grade_id: onboardForm.grade_id || null,
-        reports_to: onboardForm.reports_to || null,
-      };
-      
-      const response = await api.post(`/access/onboard/${selectedUser.id}`, payload);
-      toast.success(response.data?.message || 'User onboarded successfully');
-      setShowOnboardDialog(false);
-      setSelectedUser(null);
-      resetOnboardForm();
-      fetchDraftUsers();
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to onboard user');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   // Reset forms
   const resetRoleForm = () => {
     setRoleForm({
@@ -266,21 +148,6 @@ const AccessControlPage = () => {
       can_manage_users: false,
       can_manage_employees: false,
       can_manage_roles: false
-    });
-  };
-
-  const resetOnboardForm = () => {
-    setOnboardForm({
-      department_id: '',
-      team_id: '',
-      position_id: '',
-      grade_id: '',
-      reports_to: '',
-      custom_role_id: '',
-      designation: '',
-      employment_type: 'full_time',
-      work_mode: 'office',
-      joining_date: new Date().toISOString().split('T')[0]
     });
   };
 
@@ -299,13 +166,6 @@ const AccessControlPage = () => {
     setShowRoleDialog(true);
   };
 
-  // Open onboard dialog
-  const openOnboardDialog = (user) => {
-    setSelectedUser(user);
-    resetOnboardForm();
-    setShowOnboardDialog(true);
-  };
-
   // Toggle module access
   const toggleModule = (moduleKey) => {
     setRoleForm(prev => ({
@@ -316,21 +176,23 @@ const AccessControlPage = () => {
     }));
   };
 
-  // Filter teams by department
-  const filteredTeams = teams.filter(t => !onboardForm.department_id || t.department_id === onboardForm.department_id);
+  const tabs = [
+    { id: 'roles', label: 'Custom Roles', icon: Shield, count: roles.length },
+    { id: 'modules', label: 'System Modules', icon: Layers, count: moduleKeys.length },
+  ];
 
   return (
-    <div className="p-8 space-y-6" data-testid="access-control-page">
+    <div className="p-6 max-w-7xl mx-auto space-y-6" data-testid="access-control-page">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#4A3728]">Access Control</h1>
-          <p className="text-[#5D4A3A] text-sm">Manage roles, permissions, and user onboarding</p>
+          <h1 className="text-2xl font-bold text-[#4A3728]">Access Control & Permissions</h1>
+          <p className="text-[#5D4A3A] text-sm">Manage system roles, permissions, and module access</p>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <Card className="border-[#E8D5C4]">
           <CardContent className="p-4 text-center">
             <Shield className="h-8 w-8 mx-auto text-[#8B7355] mb-2" />
@@ -340,23 +202,18 @@ const AccessControlPage = () => {
         </Card>
         <Card className="border-[#E8D5C4]">
           <CardContent className="p-4 text-center">
-            <Users className="h-8 w-8 mx-auto text-yellow-600 mb-2" />
-            <p className="text-2xl font-bold text-[#4A3728]">{draftUsers.length}</p>
-            <p className="text-xs text-[#5D4A3A]">Pending Onboarding</p>
-          </CardContent>
-        </Card>
-        <Card className="border-[#E8D5C4]">
-          <CardContent className="p-4 text-center">
-            <Settings className="h-8 w-8 mx-auto text-blue-600 mb-2" />
+            <Layers className="h-8 w-8 mx-auto text-blue-600 mb-2" />
             <p className="text-2xl font-bold text-[#4A3728]">{moduleKeys.length}</p>
             <p className="text-xs text-[#5D4A3A]">System Modules</p>
           </CardContent>
         </Card>
         <Card className="border-[#E8D5C4]">
           <CardContent className="p-4 text-center">
-            <Building2 className="h-8 w-8 mx-auto text-green-600 mb-2" />
-            <p className="text-2xl font-bold text-[#4A3728]">{employees.length}</p>
-            <p className="text-xs text-[#5D4A3A]">Active Employees</p>
+            <Key className="h-8 w-8 mx-auto text-green-600 mb-2" />
+            <p className="text-2xl font-bold text-[#4A3728]">
+              {roles.reduce((acc, r) => acc + (r.module_access?.length || 0), 0)}
+            </p>
+            <p className="text-xs text-[#5D4A3A]">Total Permissions</p>
           </CardContent>
         </Card>
       </div>
@@ -364,14 +221,22 @@ const AccessControlPage = () => {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-[#E8D5C4]">
-          <TabsTrigger value="roles" className="data-[state=active]:bg-white">
-            <Shield className="h-4 w-4 mr-2" />
-            Custom Roles
-          </TabsTrigger>
-          <TabsTrigger value="onboarding" className="data-[state=active]:bg-white">
-            <UserPlus className="h-4 w-4 mr-2" />
-            User Onboarding
-          </TabsTrigger>
+          {tabs.map(tab => (
+            <TabsTrigger 
+              key={tab.id}
+              value={tab.id} 
+              className="data-[state=active]:bg-white"
+              data-testid={`tab-${tab.id}`}
+            >
+              <tab.icon className="h-4 w-4 mr-2" />
+              {tab.label}
+              {tab.count > 0 && (
+                <Badge variant="secondary" className="ml-2 bg-[#8B7355]/10">
+                  {tab.count}
+                </Badge>
+              )}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         {/* Roles Tab */}
@@ -399,7 +264,7 @@ const AccessControlPage = () => {
                   <TableRow className="bg-[#F5EDE5]">
                     <TableHead className="text-[#4A3728]">Role</TableHead>
                     <TableHead className="text-[#4A3728]">Module Access</TableHead>
-                    <TableHead className="text-[#4A3728]">Permissions</TableHead>
+                    <TableHead className="text-[#4A3728]">Admin Permissions</TableHead>
                     <TableHead className="text-[#4A3728]">Employees</TableHead>
                     <TableHead className="text-[#4A3728] text-right">Actions</TableHead>
                   </TableRow>
@@ -490,99 +355,39 @@ const AccessControlPage = () => {
           </Card>
         </TabsContent>
 
-        {/* Onboarding Tab */}
-        <TabsContent value="onboarding" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-[#4A3728]">Users Pending Onboarding</h2>
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#5D4A3A]" />
-              <Input
-                placeholder="Search users..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 border-[#E8D5C4]"
-              />
-            </div>
+        {/* Modules Tab */}
+        <TabsContent value="modules" className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-[#4A3728] mb-4">System Modules</h2>
+            <p className="text-sm text-[#5D4A3A] mb-4">
+              These are the available modules that can be assigned to roles for access control.
+            </p>
           </div>
-
-          <Card className="border-[#E8D5C4]">
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-[#F5EDE5]">
-                    <TableHead className="text-[#4A3728]">User</TableHead>
-                    <TableHead className="text-[#4A3728]">Source</TableHead>
-                    <TableHead className="text-[#4A3728]">Status</TableHead>
-                    <TableHead className="text-[#4A3728]">Created</TableHead>
-                    <TableHead className="text-[#4A3728] text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loadingDraft ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8">
-                        <RefreshCw className="h-6 w-6 animate-spin mx-auto text-[#4A3728]" />
-                      </TableCell>
-                    </TableRow>
-                  ) : draftUsers.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-[#5D4A3A]">
-                        No users pending onboarding
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    draftUsers.map((user) => (
-                      <TableRow key={user.id} className="hover:bg-[#F5EDE5]" data-testid={`draft-user-${user.id}`}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-[#E8D5C4] flex items-center justify-center">
-                              <span className="text-[#4A3728] font-medium">
-                                {user.name?.charAt(0)?.toUpperCase() || 'U'}
-                              </span>
-                            </div>
-                            <div>
-                              <p className="font-medium text-[#4A3728]">{user.name}</p>
-                              <p className="text-xs text-[#5D4A3A]">{user.email}</p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-xs">
-                            {user.microsoft_id ? 'Microsoft AD' : 'Manual'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={
-                            user.status === 'draft' ? 'bg-gray-100 text-gray-800' :
-                            user.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-blue-100 text-blue-800'
-                          }>
-                            {user.status || 'draft'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm text-[#5D4A3A]">
-                            {user.created_at ? new Date(user.created_at).toLocaleDateString() : '-'}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            onClick={() => openOnboardDialog(user)}
-                            className="bg-[#4A3728] hover:bg-[#5D4A3A] text-white"
-                            size="sm"
-                            data-testid={`onboard-btn-${user.id}`}
-                          >
-                            <UserPlus className="h-4 w-4 mr-1" />
-                            Onboard
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {moduleKeys.map((key) => {
+              const module = modules[key] || {};
+              return (
+                <Card key={key} className="border-[#E8D5C4]">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Layers className="h-5 w-5 text-[#8B7355]" />
+                        <h4 className="font-medium text-[#4A3728]">{module.name || key}</h4>
+                      </div>
+                      {module.default_access && (
+                        <Badge variant="outline" className="text-xs">Default</Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-[#5D4A3A] mb-3">{module.description || 'No description'}</p>
+                    <div className="text-xs text-[#8B7355]">
+                      Key: <code className="bg-[#F5EDE5] px-1 rounded">{key}</code>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -728,232 +533,6 @@ const AccessControlPage = () => {
             >
               {saving ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : null}
               {selectedRole ? 'Update Role' : 'Create Role'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Onboard Dialog */}
-      <Dialog open={showOnboardDialog} onOpenChange={setShowOnboardDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-[#4A3728]">Onboard User</DialogTitle>
-            <DialogDescription>
-              Complete the employee profile for {selectedUser?.name}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-6">
-            {/* User Info (Read-only) */}
-            <Card className="border-[#E8D5C4]">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-[#E8D5C4] flex items-center justify-center">
-                    <span className="text-[#4A3728] font-bold text-lg">
-                      {selectedUser?.name?.charAt(0)?.toUpperCase() || 'U'}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-[#4A3728]">{selectedUser?.name}</p>
-                    <p className="text-sm text-[#5D4A3A]">{selectedUser?.email}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Organization */}
-            <div>
-              <h4 className="font-medium text-[#4A3728] mb-3 flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                Organization
-              </h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-[#4A3728]">Department *</Label>
-                  <Select 
-                    value={onboardForm.department_id} 
-                    onValueChange={(v) => setOnboardForm({ ...onboardForm, department_id: v, team_id: '' })}
-                  >
-                    <SelectTrigger className="border-[#E8D5C4]">
-                      <SelectValue placeholder="Select department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {departments.map(dept => (
-                        <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-[#4A3728]">Team</Label>
-                  <Select 
-                    value={onboardForm.team_id || "none"} 
-                    onValueChange={(v) => setOnboardForm({ ...onboardForm, team_id: v === "none" ? "" : v })}
-                  >
-                    <SelectTrigger className="border-[#E8D5C4]">
-                      <SelectValue placeholder="Select team" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {filteredTeams.map(team => (
-                        <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-[#4A3728]">Position</Label>
-                  <Select 
-                    value={onboardForm.position_id || "none"} 
-                    onValueChange={(v) => setOnboardForm({ ...onboardForm, position_id: v === "none" ? "" : v })}
-                  >
-                    <SelectTrigger className="border-[#E8D5C4]">
-                      <SelectValue placeholder="Select position" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {positions.map(pos => (
-                        <SelectItem key={pos.id} value={pos.id}>{pos.title}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-[#4A3728]">Grade</Label>
-                  <Select 
-                    value={onboardForm.grade_id || "none"} 
-                    onValueChange={(v) => setOnboardForm({ ...onboardForm, grade_id: v === "none" ? "" : v })}
-                  >
-                    <SelectTrigger className="border-[#E8D5C4]">
-                      <SelectValue placeholder="Select grade" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {grades.map(grade => (
-                        <SelectItem key={grade.id} value={grade.id}>{grade.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-
-            {/* Employment */}
-            <div>
-              <h4 className="font-medium text-[#4A3728] mb-3 flex items-center gap-2">
-                <Briefcase className="h-4 w-4" />
-                Employment
-              </h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-[#4A3728]">Designation</Label>
-                  <Input
-                    value={onboardForm.designation}
-                    onChange={(e) => setOnboardForm({ ...onboardForm, designation: e.target.value })}
-                    placeholder="e.g., Senior Developer"
-                    className="border-[#E8D5C4]"
-                  />
-                </div>
-                <div>
-                  <Label className="text-[#4A3728]">Joining Date</Label>
-                  <Input
-                    type="date"
-                    value={onboardForm.joining_date}
-                    onChange={(e) => setOnboardForm({ ...onboardForm, joining_date: e.target.value })}
-                    className="border-[#E8D5C4]"
-                  />
-                </div>
-                <div>
-                  <Label className="text-[#4A3728]">Employment Type</Label>
-                  <Select 
-                    value={onboardForm.employment_type} 
-                    onValueChange={(v) => setOnboardForm({ ...onboardForm, employment_type: v })}
-                  >
-                    <SelectTrigger className="border-[#E8D5C4]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="full_time">Full Time</SelectItem>
-                      <SelectItem value="part_time">Part Time</SelectItem>
-                      <SelectItem value="contract">Contract</SelectItem>
-                      <SelectItem value="intern">Intern</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-[#4A3728]">Work Mode</Label>
-                  <Select 
-                    value={onboardForm.work_mode} 
-                    onValueChange={(v) => setOnboardForm({ ...onboardForm, work_mode: v })}
-                  >
-                    <SelectTrigger className="border-[#E8D5C4]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="office">Office</SelectItem>
-                      <SelectItem value="hybrid">Hybrid</SelectItem>
-                      <SelectItem value="remote">Remote</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-
-            {/* Reporting & Access */}
-            <div>
-              <h4 className="font-medium text-[#4A3728] mb-3 flex items-center gap-2">
-                <Shield className="h-4 w-4" />
-                Reporting & Access
-              </h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-[#4A3728]">Reports To</Label>
-                  <Select 
-                    value={onboardForm.reports_to || "none"} 
-                    onValueChange={(v) => setOnboardForm({ ...onboardForm, reports_to: v === "none" ? "" : v })}
-                  >
-                    <SelectTrigger className="border-[#E8D5C4]">
-                      <SelectValue placeholder="Select manager" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {employees.map(emp => (
-                        <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-[#4A3728]">Access Role *</Label>
-                  <Select 
-                    value={onboardForm.custom_role_id} 
-                    onValueChange={(v) => setOnboardForm({ ...onboardForm, custom_role_id: v })}
-                  >
-                    <SelectTrigger className="border-[#E8D5C4]">
-                      <SelectValue placeholder="Select role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roles.map(role => (
-                        <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowOnboardDialog(false)} className="border-[#E8D5C4]">
-              Cancel
-            </Button>
-            <Button
-              onClick={handleOnboard}
-              disabled={saving || !onboardForm.department_id || !onboardForm.custom_role_id}
-              className="bg-[#4A3728] hover:bg-[#5D4A3A] text-white"
-            >
-              {saving ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <UserPlus className="h-4 w-4 mr-2" />}
-              Complete Onboarding
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -54,7 +54,6 @@ import EmailPage from "./pages/marketing/EmailPage";
 
 // Admin Pages
 import UserManagementPage from "./pages/admin/UserManagement";
-import PermissionsPage from "./pages/admin/PermissionsPage";
 import OrganizationManagement from "./pages/admin/OrganizationManagement";
 import OrganizationStructure from "./pages/admin/OrganizationStructure";
 import TeamDashboard from "./pages/admin/TeamDashboard";
@@ -306,11 +305,10 @@ function AppRoutes() {
 
             {/* Admin Routes */}
             <Route path="/admin/users" element={<ProtectedRoute requiredDepartment="admin"><UserManagementPage /></ProtectedRoute>} />
-            <Route path="/admin/permissions" element={<ProtectedRoute requiredDepartment="admin"><PermissionsPage /></ProtectedRoute>} />
-            <Route path="/admin/organization" element={<ProtectedRoute requiredDepartment="admin"><OrganizationManagement /></ProtectedRoute>} />
-            <Route path="/admin/org-structure" element={<ProtectedRoute requiredDepartment="admin"><OrganizationStructure /></ProtectedRoute>} />
             <Route path="/admin/employees" element={<ProtectedRoute requiredDepartment="admin"><EmployeeDatabase /></ProtectedRoute>} />
             <Route path="/admin/access-control" element={<ProtectedRoute requiredDepartment="admin"><AccessControlPage /></ProtectedRoute>} />
+            <Route path="/admin/organization" element={<ProtectedRoute requiredDepartment="admin"><OrganizationManagement /></ProtectedRoute>} />
+            <Route path="/admin/org-structure" element={<ProtectedRoute requiredDepartment="admin"><OrganizationStructure /></ProtectedRoute>} />
             <Route path="/admin/team" element={<ProtectedRoute><TeamDashboard /></ProtectedRoute>} />
 
             {/* Settings Routes */}
