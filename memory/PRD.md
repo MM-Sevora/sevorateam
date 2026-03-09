@@ -584,6 +584,65 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - [x] ContactsHubPage.jsx: `data-tour="marketing-contacts"`, `data-tour="add-influencer"`
 - [x] MyTasks.jsx: `data-tour="my-tasks"`, `data-tour="create-task"`
 
+### Phase 38: Human Resource - Expense & Reimbursement Module (COMPLETE - March 9, 2026)
+**1. Backend Implementation:**
+- [x] Created `/app/backend/routes/expense.py` with full CRUD API:
+  - `POST /api/expense/claims` - Submit new expense claim
+  - `GET /api/expense/claims/my` - User's claims history
+  - `GET /api/expense/claims/my/stats` - User statistics
+  - `GET /api/expense/claims` - All claims (HR only)
+  - `GET /api/expense/claims/stats` - HR statistics
+  - `GET /api/expense/claims/{id}` - Claim detail (by UUID or SEVRC ID)
+  - `PUT /api/expense/claims/{id}/approve` - Approve claim with optional notes
+  - `PUT /api/expense/claims/{id}/reject` - Reject claim (requires reason)
+  - `POST /api/expense/upload-receipt` - File upload for receipts
+  - `GET /api/expense/receipts/{filename}` - Serve uploaded files
+  - `GET /api/expense/limits` - Get expense limits by grade
+  - `POST /api/expense/limits` - Set expense limit for a grade
+  - `GET /api/expense/export/csv` - Export claims to CSV
+- [x] Created `/app/backend/models/expense.py` with Pydantic models
+- [x] Auto-generated claim IDs in SEVRC001 format
+- [x] File upload with validation (5MB limit, JPEG/PNG/WebP/PDF only)
+- [x] In-app notifications on claim submission and status change
+
+**2. Email Notifications via Microsoft Graph API:**
+- [x] Created `/app/backend/services/graph_email_service.py`
+- [x] Beautiful HTML email templates for:
+  - HR notification on new claim submission
+  - Employee notification on claim approval
+  - Employee notification on claim rejection
+- [x] Background task processing (non-blocking)
+- [x] Graceful fallback if Graph API not configured
+
+**3. Frontend Implementation:**
+- [x] Created `/app/frontend/src/pages/hr/ExpenseManagement.jsx`
+- [x] Three-tab interface: Submit Claim, My Claims, HR Approval
+- [x] Submit Claim tab:
+  - Employee info auto-populated
+  - Multiple expense entries with date range, category, description, amount
+  - Receipt upload per entry
+  - Total amount calculation
+  - Declaration checkbox required
+- [x] My Claims tab:
+  - Claim history table with status badges
+  - Status filter dropdown
+  - View claim details modal
+- [x] HR Approval tab (for admin/HR users):
+  - HR-specific statistics cards
+  - All claims table with employee details
+  - Review modal with approve/reject actions
+  - Rejection reason required for rejection
+- [x] Added "Human Resource" module to sidebar in Layout.jsx
+- [x] Added route `/hr/expenses` in App.js
+
+**4. Testing:**
+- [x] Backend tests: 24/24 passed (`/app/backend/tests/test_expense_module.py`)
+- [x] Frontend UI testing: All features verified
+- [x] Email notifications confirmed working via backend logs
+
+**Documentation:**
+- [x] Created `/app/memory/GRAPH_EMAIL_SETUP.md` - Guide for Azure AD setup
+
 ### Key API Endpoints
 - `GET /api/projects/manager-dashboard` - Aggregated dashboard data
 - `GET, POST /api/projects/modules` - CRUD for modules
@@ -628,6 +687,8 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - `/app/test_reports/iteration_29.json`
 - `/app/test_reports/iteration_32.json` - Access Control tests (42/42 passed)
 - `/app/test_reports/iteration_33.json` - Organization Structure tests (19/19 passed)
+- `/app/test_reports/iteration_34.json` - Expense & Reimbursement tests (24/24 passed)
 - `/app/backend/tests/test_manager_dashboard.py`
 - `/app/backend/tests/test_access_control.py` - Access Control backend tests
 - `/app/backend/tests/test_organization_structure.py` - Organization Structure backend tests
+- `/app/backend/tests/test_expense_module.py` - Expense module backend tests
