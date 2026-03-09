@@ -5,7 +5,7 @@ import {
   Plus, Trash2, ArrowLeft, Save, Video, FileText, Link as LinkIcon,
   Play, CheckCircle2, AlertCircle, Edit, MoreVertical, MessageSquare,
   ListTodo, RefreshCw, ChevronRight, ExternalLink, Copy, Check,
-  PauseCircle, XCircle, ArrowRight, Zap
+  PauseCircle, XCircle, ArrowRight, Zap, Scale, ShieldAlert, TrendingUp
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -80,6 +80,21 @@ const actionItemStatusColors = {
   converted_to_task: 'bg-purple-100 text-purple-700'
 };
 
+const impactColors = {
+  critical: 'bg-red-100 text-red-700 border-red-200',
+  high: 'bg-orange-100 text-orange-700 border-orange-200',
+  medium: 'bg-amber-100 text-amber-700 border-amber-200',
+  low: 'bg-slate-100 text-slate-700 border-slate-200'
+};
+
+const issueRiskStatusColors = {
+  open: 'bg-red-100 text-red-700',
+  in_progress: 'bg-blue-100 text-blue-700',
+  resolved: 'bg-emerald-100 text-emerald-700',
+  closed: 'bg-slate-100 text-slate-700',
+  mitigated: 'bg-teal-100 text-teal-700'
+};
+
 const MeetingDetail = () => {
   const navigate = useNavigate();
   const { meetingId } = useParams();
@@ -93,13 +108,19 @@ const MeetingDetail = () => {
   const [showActionItemModal, setShowActionItemModal] = useState(false);
   const [showConvertModal, setShowConvertModal] = useState(false);
   const [showMinutesModal, setShowMinutesModal] = useState(false);
+  const [showDecisionModal, setShowDecisionModal] = useState(false);
+  const [showIssueRiskModal, setShowIssueRiskModal] = useState(false);
   const [selectedActionItem, setSelectedActionItem] = useState(null);
+  const [editingDecision, setEditingDecision] = useState(null);
+  const [editingIssueRisk, setEditingIssueRisk] = useState(null);
   
   // Form states
   const [noteForm, setNoteForm] = useState({ topic: '', notes: '', related_goal_id: '', related_project_id: '' });
   const [actionItemForm, setActionItemForm] = useState({ title: '', description: '', assigned_to: '', deadline: '', priority: 'medium', linked_project_id: '' });
   const [convertForm, setConvertForm] = useState({ project_id: '', module_id: '' });
   const [minutesForm, setMinutesForm] = useState({ summary: '', key_discussions: '', decisions: '', next_steps: '' });
+  const [decisionForm, setDecisionForm] = useState({ title: '', description: '', decision_owner: '', impact: 'medium', impact_area: '', rationale: '', linked_project_id: '', linked_goal_id: '' });
+  const [issueRiskForm, setIssueRiskForm] = useState({ type: 'issue', title: '', description: '', impact: 'medium', probability: '', owner: '', resolution_plan: '', due_date: '', linked_project_id: '' });
   
   // Options
   const [users, setUsers] = useState([]);
@@ -376,6 +397,132 @@ const MeetingDetail = () => {
     }
   };
 
+  // Decisions
+  const handleAddDecision = async () => {
+    if (!decisionForm.title) {
+      toast.error('Please enter decision title');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const params = new URLSearchParams({ title: decisionForm.title });
+      if (decisionForm.description) params.append('description', decisionForm.description);
+      if (decisionForm.decision_owner) params.append('decision_owner', decisionForm.decision_owner);
+      if (decisionForm.impact) params.append('impact', decisionForm.impact);
+      if (decisionForm.impact_area) params.append('impact_area', decisionForm.impact_area);
+      if (decisionForm.rationale) params.append('rationale', decisionForm.rationale);
+      if (decisionForm.linked_project_id) params.append('linked_project_id', decisionForm.linked_project_id);
+      if (decisionForm.linked_goal_id) params.append('linked_goal_id', decisionForm.linked_goal_id);
+
+      const res = await fetch(`${API}/api/meetings/${meetingId}/decisions?${params}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (res.ok) {
+        toast.success('Decision recorded');
+        setShowDecisionModal(false);
+        setDecisionForm({ title: '', description: '', decision_owner: '', impact: 'medium', impact_area: '', rationale: '', linked_project_id: '', linked_goal_id: '' });
+        fetchMeeting();
+      }
+    } catch (error) {
+      toast.error('Error adding decision');
+    }
+  };
+
+  const handleDeleteDecision = async (decisionId) => {
+    if (!window.confirm('Delete this decision?')) return;
+
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/meetings/${meetingId}/decisions/${decisionId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (res.ok) {
+        toast.success('Decision deleted');
+        fetchMeeting();
+      }
+    } catch (error) {
+      toast.error('Error deleting decision');
+    }
+  };
+
+  // Issues & Risks
+  const handleAddIssueRisk = async () => {
+    if (!issueRiskForm.title) {
+      toast.error('Please enter title');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const params = new URLSearchParams({ 
+        type: issueRiskForm.type,
+        title: issueRiskForm.title 
+      });
+      if (issueRiskForm.description) params.append('description', issueRiskForm.description);
+      if (issueRiskForm.impact) params.append('impact', issueRiskForm.impact);
+      if (issueRiskForm.probability) params.append('probability', issueRiskForm.probability);
+      if (issueRiskForm.owner) params.append('owner', issueRiskForm.owner);
+      if (issueRiskForm.resolution_plan) params.append('resolution_plan', issueRiskForm.resolution_plan);
+      if (issueRiskForm.due_date) params.append('due_date', issueRiskForm.due_date);
+      if (issueRiskForm.linked_project_id) params.append('linked_project_id', issueRiskForm.linked_project_id);
+
+      const res = await fetch(`${API}/api/meetings/${meetingId}/issues-risks?${params}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (res.ok) {
+        toast.success(`${issueRiskForm.type === 'risk' ? 'Risk' : 'Issue'} added`);
+        setShowIssueRiskModal(false);
+        setIssueRiskForm({ type: 'issue', title: '', description: '', impact: 'medium', probability: '', owner: '', resolution_plan: '', due_date: '', linked_project_id: '' });
+        fetchMeeting();
+      }
+    } catch (error) {
+      toast.error('Error adding issue/risk');
+    }
+  };
+
+  const handleUpdateIssueRiskStatus = async (itemId, status) => {
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/meetings/${meetingId}/issues-risks/${itemId}?status=${status}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (res.ok) {
+        toast.success('Status updated');
+        fetchMeeting();
+      }
+    } catch (error) {
+      toast.error('Error updating status');
+    }
+  };
+
+  const handleDeleteIssueRisk = async (itemId) => {
+    if (!window.confirm('Delete this item?')) return;
+
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/meetings/${meetingId}/issues-risks/${itemId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (res.ok) {
+        toast.success('Item deleted');
+        fetchMeeting();
+      }
+    } catch (error) {
+      toast.error('Error deleting item');
+    }
+  };
+
   const formatDateTime = (dateStr) => {
     if (!dateStr) return '';
     const date = new Date(dateStr);
@@ -513,6 +660,18 @@ const MeetingDetail = () => {
             Action Items
             {meeting.action_items?.length > 0 && (
               <Badge className="ml-2 bg-amber-500 text-white text-xs">{meeting.action_items.length}</Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="decisions" className="data-[state=active]:bg-white px-6">
+            Decisions
+            {meeting.decisions?.length > 0 && (
+              <Badge className="ml-2 bg-purple-500 text-white text-xs">{meeting.decisions.length}</Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="issues" className="data-[state=active]:bg-white px-6">
+            Issues & Risks
+            {meeting.issues_risks?.length > 0 && (
+              <Badge className="ml-2 bg-red-500 text-white text-xs">{meeting.issues_risks.length}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="previous" className="data-[state=active]:bg-white px-6">
@@ -799,6 +958,228 @@ const MeetingDetail = () => {
                 <Button size="sm" onClick={() => setShowActionItemModal(true)} className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white">
                   <Plus className="w-4 h-4 mr-2" />
                   Add First Action Item
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* Decisions Tab */}
+        <TabsContent value="decisions" className="mt-6 space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="font-semibold text-[#4A3728]">Decision Log</h3>
+            <Button size="sm" onClick={() => setShowDecisionModal(true)} className="bg-purple-600 hover:bg-purple-700 text-white">
+              <Plus className="w-4 h-4 mr-2" />
+              Record Decision
+            </Button>
+          </div>
+
+          {meeting.decisions?.length > 0 ? (
+            <div className="space-y-3">
+              {meeting.decisions.map((decision, idx) => (
+                <Card key={decision.id || idx} className="bg-white border-[#E8D5C4] shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="outline" className={impactColors[decision.impact]}>
+                            {decision.impact} impact
+                          </Badge>
+                          {decision.impact_area && (
+                            <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                              {decision.impact_area}
+                            </Badge>
+                          )}
+                        </div>
+                        <h4 className="font-semibold text-[#4A3728]">{decision.title}</h4>
+                        {decision.description && (
+                          <p className="text-sm text-[#5D4A3A] mt-1">{decision.description}</p>
+                        )}
+                        {decision.rationale && (
+                          <div className="mt-2 p-2 bg-[#F5EBE0] rounded text-sm">
+                            <span className="font-medium text-[#4A3728]">Rationale:</span> {decision.rationale}
+                          </div>
+                        )}
+                        <div className="flex flex-wrap gap-3 mt-2 text-xs text-[#6B5D52]">
+                          {decision.decision_owner_name && (
+                            <span className="flex items-center gap-1">
+                              <Users className="w-3 h-3" />
+                              Owner: {decision.decision_owner_name}
+                            </span>
+                          )}
+                          {decision.decision_date && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {formatDate(decision.decision_date)}
+                            </span>
+                          )}
+                          {decision.linked_project_name && (
+                            <span className="flex items-center gap-1">
+                              <Folder className="w-3 h-3" />
+                              {decision.linked_project_name}
+                            </span>
+                          )}
+                          {decision.linked_goal_name && (
+                            <span className="flex items-center gap-1">
+                              <Target className="w-3 h-3" />
+                              {decision.linked_goal_name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteDecision(decision.id)}
+                        className="text-red-600 h-8 w-8 p-0"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card className="bg-white border-[#E8D5C4]">
+              <CardContent className="py-12 text-center">
+                <Scale className="w-12 h-12 mx-auto text-[#D4BBA6] mb-3" />
+                <h3 className="font-semibold text-[#4A3728] mb-1">No Decisions Recorded</h3>
+                <p className="text-[#6B5D52] text-sm mb-4">Document key decisions made during this meeting</p>
+                <Button size="sm" onClick={() => setShowDecisionModal(true)} className="bg-purple-600 hover:bg-purple-700 text-white">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Record First Decision
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* Issues & Risks Tab */}
+        <TabsContent value="issues" className="mt-6 space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="font-semibold text-[#4A3728]">Issues & Risks Tracker</h3>
+            <Button size="sm" onClick={() => setShowIssueRiskModal(true)} className="bg-red-600 hover:bg-red-700 text-white">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Issue/Risk
+            </Button>
+          </div>
+
+          {meeting.issues_risks?.length > 0 ? (
+            <div className="space-y-3">
+              {meeting.issues_risks.map((item, idx) => (
+                <Card key={item.id || idx} className="bg-white border-[#E8D5C4] shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="outline" className={item.type === 'risk' ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-red-100 text-red-700 border-red-200'}>
+                            {item.type === 'risk' ? <ShieldAlert className="w-3 h-3 mr-1" /> : <AlertCircle className="w-3 h-3 mr-1" />}
+                            {item.type}
+                          </Badge>
+                          <Badge variant="outline" className={issueRiskStatusColors[item.status]}>
+                            {item.status.replace('_', ' ')}
+                          </Badge>
+                          <Badge variant="outline" className={impactColors[item.impact]}>
+                            {item.impact} impact
+                          </Badge>
+                        </div>
+                        <h4 className="font-semibold text-[#4A3728]">{item.title}</h4>
+                        {item.description && (
+                          <p className="text-sm text-[#5D4A3A] mt-1">{item.description}</p>
+                        )}
+                        {item.resolution_plan && (
+                          <div className="mt-2 p-2 bg-emerald-50 rounded text-sm">
+                            <span className="font-medium text-emerald-700">Resolution Plan:</span> {item.resolution_plan}
+                          </div>
+                        )}
+                        <div className="flex flex-wrap gap-3 mt-2 text-xs text-[#6B5D52]">
+                          {item.owner_name && (
+                            <span className="flex items-center gap-1">
+                              <Users className="w-3 h-3" />
+                              Owner: {item.owner_name}
+                            </span>
+                          )}
+                          {item.probability && (
+                            <span className="flex items-center gap-1">
+                              <TrendingUp className="w-3 h-3" />
+                              Probability: {item.probability}
+                            </span>
+                          )}
+                          {item.due_date && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              Due: {formatDate(item.due_date)}
+                            </span>
+                          )}
+                          {item.linked_project_name && (
+                            <span className="flex items-center gap-1">
+                              <Folder className="w-3 h-3" />
+                              {item.linked_project_name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="bg-white border-[#D4BBA6]">
+                          {item.status === 'open' && (
+                            <DropdownMenuItem 
+                              onClick={() => handleUpdateIssueRiskStatus(item.id, 'in_progress')}
+                              className="cursor-pointer"
+                            >
+                              <RefreshCw className="w-4 h-4 mr-2" />
+                              Mark In Progress
+                            </DropdownMenuItem>
+                          )}
+                          {item.status !== 'resolved' && item.status !== 'closed' && (
+                            <>
+                              <DropdownMenuItem 
+                                onClick={() => handleUpdateIssueRiskStatus(item.id, item.type === 'risk' ? 'mitigated' : 'resolved')}
+                                className="cursor-pointer text-emerald-600"
+                              >
+                                <CheckCircle2 className="w-4 h-4 mr-2" />
+                                {item.type === 'risk' ? 'Mark Mitigated' : 'Mark Resolved'}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => handleUpdateIssueRiskStatus(item.id, 'closed')}
+                                className="cursor-pointer"
+                              >
+                                <XCircle className="w-4 h-4 mr-2" />
+                                Close
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          <DropdownMenuSeparator className="bg-[#E8D5C4]" />
+                          <DropdownMenuItem 
+                            onClick={() => handleDeleteIssueRisk(item.id)}
+                            className="cursor-pointer text-red-600"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card className="bg-white border-[#E8D5C4]">
+              <CardContent className="py-12 text-center">
+                <ShieldAlert className="w-12 h-12 mx-auto text-[#D4BBA6] mb-3" />
+                <h3 className="font-semibold text-[#4A3728] mb-1">No Issues or Risks</h3>
+                <p className="text-[#6B5D52] text-sm mb-4">Track issues and risks identified during this meeting</p>
+                <Button size="sm" onClick={() => setShowIssueRiskModal(true)} className="bg-red-600 hover:bg-red-700 text-white">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add First Issue/Risk
                 </Button>
               </CardContent>
             </Card>
@@ -1185,6 +1566,252 @@ const MeetingDetail = () => {
             <Button onClick={() => handleGenerateMinutes(false)} className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white">
               <Save className="w-4 h-4 mr-2" />
               Save Minutes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Decision Modal */}
+      <Dialog open={showDecisionModal} onOpenChange={setShowDecisionModal}>
+        <DialogContent className="bg-white border-[#D4BBA6] max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-[#4A3728]">Record Decision</DialogTitle>
+            <DialogDescription className="text-[#6B5D52]">
+              Document a key decision made during this meeting.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-[#4A3728]">Decision Title *</Label>
+              <Input
+                value={decisionForm.title}
+                onChange={(e) => setDecisionForm({ ...decisionForm, title: e.target.value })}
+                placeholder="Brief decision statement"
+                className="border-[#D4BBA6]"
+              />
+            </div>
+            <div>
+              <Label className="text-[#4A3728]">Description</Label>
+              <Textarea
+                value={decisionForm.description}
+                onChange={(e) => setDecisionForm({ ...decisionForm, description: e.target.value })}
+                placeholder="Detailed description of the decision..."
+                className="border-[#D4BBA6]"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-[#4A3728]">Decision Owner</Label>
+                <Select value={decisionForm.decision_owner || 'none'} onValueChange={(v) => setDecisionForm({ ...decisionForm, decision_owner: v === 'none' ? '' : v })}>
+                  <SelectTrigger className="border-[#D4BBA6]">
+                    <SelectValue placeholder="Select owner" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-[#D4BBA6]">
+                    <SelectItem value="none">Unassigned</SelectItem>
+                    {users.map(u => (
+                      <SelectItem key={u.id} value={u.id}>{u.first_name} {u.last_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-[#4A3728]">Impact Level</Label>
+                <Select value={decisionForm.impact} onValueChange={(v) => setDecisionForm({ ...decisionForm, impact: v })}>
+                  <SelectTrigger className="border-[#D4BBA6]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-[#D4BBA6]">
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="critical">Critical</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-[#4A3728]">Impact Area</Label>
+                <Input
+                  value={decisionForm.impact_area}
+                  onChange={(e) => setDecisionForm({ ...decisionForm, impact_area: e.target.value })}
+                  placeholder="e.g., Budget, Timeline, Resources"
+                  className="border-[#D4BBA6]"
+                />
+              </div>
+              <div>
+                <Label className="text-[#4A3728]">Linked Project</Label>
+                <Select value={decisionForm.linked_project_id || 'none'} onValueChange={(v) => setDecisionForm({ ...decisionForm, linked_project_id: v === 'none' ? '' : v })}>
+                  <SelectTrigger className="border-[#D4BBA6]">
+                    <SelectValue placeholder="Select project" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-[#D4BBA6]">
+                    <SelectItem value="none">None</SelectItem>
+                    {projects.map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label className="text-[#4A3728]">Rationale</Label>
+              <Textarea
+                value={decisionForm.rationale}
+                onChange={(e) => setDecisionForm({ ...decisionForm, rationale: e.target.value })}
+                placeholder="Why was this decision made..."
+                className="border-[#D4BBA6]"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDecisionModal(false)} className="border-[#D4BBA6]">
+              Cancel
+            </Button>
+            <Button onClick={handleAddDecision} className="bg-purple-600 hover:bg-purple-700 text-white">
+              Record Decision
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Issue/Risk Modal */}
+      <Dialog open={showIssueRiskModal} onOpenChange={setShowIssueRiskModal}>
+        <DialogContent className="bg-white border-[#D4BBA6] max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-[#4A3728]">Add Issue or Risk</DialogTitle>
+            <DialogDescription className="text-[#6B5D52]">
+              Track an issue or risk identified during this meeting.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex gap-4">
+              <Button
+                type="button"
+                variant={issueRiskForm.type === 'issue' ? 'default' : 'outline'}
+                className={issueRiskForm.type === 'issue' ? 'bg-red-600 hover:bg-red-700 text-white' : 'border-[#D4BBA6]'}
+                onClick={() => setIssueRiskForm({ ...issueRiskForm, type: 'issue' })}
+              >
+                <AlertCircle className="w-4 h-4 mr-2" />
+                Issue
+              </Button>
+              <Button
+                type="button"
+                variant={issueRiskForm.type === 'risk' ? 'default' : 'outline'}
+                className={issueRiskForm.type === 'risk' ? 'bg-amber-600 hover:bg-amber-700 text-white' : 'border-[#D4BBA6]'}
+                onClick={() => setIssueRiskForm({ ...issueRiskForm, type: 'risk' })}
+              >
+                <ShieldAlert className="w-4 h-4 mr-2" />
+                Risk
+              </Button>
+            </div>
+            <div>
+              <Label className="text-[#4A3728]">Title *</Label>
+              <Input
+                value={issueRiskForm.title}
+                onChange={(e) => setIssueRiskForm({ ...issueRiskForm, title: e.target.value })}
+                placeholder={issueRiskForm.type === 'risk' ? 'Describe the risk' : 'Describe the issue'}
+                className="border-[#D4BBA6]"
+              />
+            </div>
+            <div>
+              <Label className="text-[#4A3728]">Description</Label>
+              <Textarea
+                value={issueRiskForm.description}
+                onChange={(e) => setIssueRiskForm({ ...issueRiskForm, description: e.target.value })}
+                placeholder="Detailed description..."
+                className="border-[#D4BBA6]"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-[#4A3728]">Impact</Label>
+                <Select value={issueRiskForm.impact} onValueChange={(v) => setIssueRiskForm({ ...issueRiskForm, impact: v })}>
+                  <SelectTrigger className="border-[#D4BBA6]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-[#D4BBA6]">
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="critical">Critical</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {issueRiskForm.type === 'risk' && (
+                <div>
+                  <Label className="text-[#4A3728]">Probability</Label>
+                  <Select value={issueRiskForm.probability || 'none'} onValueChange={(v) => setIssueRiskForm({ ...issueRiskForm, probability: v === 'none' ? '' : v })}>
+                    <SelectTrigger className="border-[#D4BBA6]">
+                      <SelectValue placeholder="Select probability" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border-[#D4BBA6]">
+                      <SelectItem value="none">Not set</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {issueRiskForm.type === 'issue' && (
+                <div>
+                  <Label className="text-[#4A3728]">Due Date</Label>
+                  <Input
+                    type="date"
+                    value={issueRiskForm.due_date}
+                    onChange={(e) => setIssueRiskForm({ ...issueRiskForm, due_date: e.target.value })}
+                    className="border-[#D4BBA6]"
+                  />
+                </div>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-[#4A3728]">Owner</Label>
+                <Select value={issueRiskForm.owner || 'none'} onValueChange={(v) => setIssueRiskForm({ ...issueRiskForm, owner: v === 'none' ? '' : v })}>
+                  <SelectTrigger className="border-[#D4BBA6]">
+                    <SelectValue placeholder="Select owner" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-[#D4BBA6]">
+                    <SelectItem value="none">Unassigned</SelectItem>
+                    {users.map(u => (
+                      <SelectItem key={u.id} value={u.id}>{u.first_name} {u.last_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-[#4A3728]">Linked Project</Label>
+                <Select value={issueRiskForm.linked_project_id || 'none'} onValueChange={(v) => setIssueRiskForm({ ...issueRiskForm, linked_project_id: v === 'none' ? '' : v })}>
+                  <SelectTrigger className="border-[#D4BBA6]">
+                    <SelectValue placeholder="Select project" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-[#D4BBA6]">
+                    <SelectItem value="none">None</SelectItem>
+                    {projects.map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label className="text-[#4A3728]">Resolution/Mitigation Plan</Label>
+              <Textarea
+                value={issueRiskForm.resolution_plan}
+                onChange={(e) => setIssueRiskForm({ ...issueRiskForm, resolution_plan: e.target.value })}
+                placeholder={issueRiskForm.type === 'risk' ? 'How will this risk be mitigated...' : 'How will this issue be resolved...'}
+                className="border-[#D4BBA6]"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowIssueRiskModal(false)} className="border-[#D4BBA6]">
+              Cancel
+            </Button>
+            <Button onClick={handleAddIssueRisk} className={issueRiskForm.type === 'risk' ? 'bg-amber-600 hover:bg-amber-700 text-white' : 'bg-red-600 hover:bg-red-700 text-white'}>
+              Add {issueRiskForm.type === 'risk' ? 'Risk' : 'Issue'}
             </Button>
           </DialogFooter>
         </DialogContent>

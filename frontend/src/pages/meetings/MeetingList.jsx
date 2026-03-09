@@ -4,8 +4,12 @@ import {
   Calendar, Plus, Search, Filter, Clock, Users, MapPin, Video,
   ChevronLeft, ChevronRight, MoreVertical, Edit, Trash2, Play,
   CheckCircle2, AlertCircle, Target, Folder, Building2, RefreshCw,
-  FileText, ListTodo
+  FileText, ListTodo, BarChart3
 } from 'lucide-react';
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import interactionPlugin from '@fullcalendar/interaction';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
@@ -188,7 +192,9 @@ const MeetingList = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [meetings, setMeetings] = useState([]);
+  const [calendarMeetings, setCalendarMeetings] = useState([]);
   const [dashboard, setDashboard] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
   const [activeTab, setActiveTab] = useState('upcoming');
   const [filters, setFilters] = useState({
     search: '',
@@ -232,10 +238,65 @@ const MeetingList = () => {
     }
   };
 
+  const fetchCalendarMeetings = async (startDate, endDate) => {
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/meetings/calendar?start_date=${startDate}&end_date=${endDate}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setCalendarMeetings(data.map(m => ({
+          id: m.id,
+          title: m.title,
+          start: m.start,
+          end: m.end,
+          backgroundColor: meetingTypeColors[m.meeting_type]?.includes('bg-purple') ? '#8B5CF6' :
+                          meetingTypeColors[m.meeting_type]?.includes('bg-blue') ? '#3B82F6' :
+                          meetingTypeColors[m.meeting_type]?.includes('bg-emerald') ? '#10B981' :
+                          meetingTypeColors[m.meeting_type]?.includes('bg-amber') ? '#F59E0B' :
+                          meetingTypeColors[m.meeting_type]?.includes('bg-rose') ? '#F43F5E' :
+                          '#6B7280',
+          borderColor: 'transparent',
+          extendedProps: {
+            meeting_type: m.meeting_type,
+            status: m.status,
+            location: m.location,
+            organizer_name: m.organizer_name,
+            participant_count: m.participant_count,
+            linked_project_name: m.linked_project_name
+          }
+        })));
+      }
+    } catch (error) {
+      console.error('Error fetching calendar meetings:', error);
+    }
+  };
+
+  const fetchAnalytics = async () => {
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/meetings/analytics/overview`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (res.ok) {
+        setAnalytics(await res.json());
+      }
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+    }
+  };
+
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([fetchMeetings(), fetchDashboard()]);
+      // Get calendar range (current month)
+      const now = new Date();
+      const startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const endDate = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString();
+      await Promise.all([fetchMeetings(), fetchDashboard(), fetchCalendarMeetings(startDate, endDate), fetchAnalytics()]);
       setLoading(false);
     };
     loadData();
@@ -289,6 +350,14 @@ const MeetingList = () => {
     } catch (error) {
       toast.error('Error starting meeting');
     }
+  };
+
+  const handleCalendarEventClick = (info) => {
+    navigate(`/meetings/${info.event.id}`);
+  };
+
+  const handleCalendarDateChange = (dateInfo) => {
+    fetchCalendarMeetings(dateInfo.startStr, dateInfo.endStr);
   };
 
   // Filter meetings by tab
@@ -406,6 +475,9 @@ const MeetingList = () => {
             <TabsTrigger value="calendar" className="data-[state=active]:bg-white px-6">
               Calendar
             </TabsTrigger>
+            <TabsTrigger value="analytics" className="data-[state=active]:bg-white px-6">
+              Analytics
+            </TabsTrigger>
           </TabsList>
 
           {/* Filters */}
@@ -497,12 +569,235 @@ const MeetingList = () => {
         {/* Calendar Tab */}
         <TabsContent value="calendar" className="space-y-4">
           <Card className="bg-white border-[#E8D5C4]">
-            <CardContent className="py-16 text-center">
-              <Calendar className="w-16 h-16 mx-auto text-[#D4BBA6] mb-4" />
-              <h3 className="text-lg font-semibold text-[#4A3728] mb-2">Calendar View</h3>
-              <p className="text-[#6B5D52]">Coming soon - Full calendar view with drag & drop scheduling</p>
+            <CardContent className="p-4">
+              <style>{`
+                .fc {
+                  --fc-border-color: #E8D5C4;
+                  --fc-button-bg-color: #4A3728;
+                  --fc-button-border-color: #4A3728;
+                  --fc-button-hover-bg-color: #3A2A1E;
+                  --fc-button-hover-border-color: #3A2A1E;
+                  --fc-button-active-bg-color: #2D1F16;
+                  --fc-button-active-border-color: #2D1F16;
+                  --fc-today-bg-color: #F5EBE0;
+                }
+                .fc .fc-toolbar-title {
+                  color: #4A3728;
+                  font-weight: 600;
+                }
+                .fc .fc-col-header-cell-cushion {
+                  color: #5D4A3A;
+                  font-weight: 500;
+                }
+                .fc .fc-daygrid-day-number {
+                  color: #4A3728;
+                }
+                .fc .fc-event {
+                  border-radius: 4px;
+                  font-size: 12px;
+                  padding: 2px 4px;
+                  cursor: pointer;
+                }
+                .fc .fc-event:hover {
+                  opacity: 0.9;
+                }
+                .fc .fc-daygrid-event-dot {
+                  display: none;
+                }
+                .fc .fc-timegrid-slot-label {
+                  color: #6B5D52;
+                }
+              `}</style>
+              <FullCalendar
+                plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                initialView="dayGridMonth"
+                headerToolbar={{
+                  left: 'prev,next today',
+                  center: 'title',
+                  right: 'dayGridMonth,timeGridWeek'
+                }}
+                events={calendarMeetings}
+                eventClick={handleCalendarEventClick}
+                datesSet={handleCalendarDateChange}
+                height="auto"
+                dayMaxEvents={3}
+                eventDisplay="block"
+                eventTimeFormat={{
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  meridiem: 'short'
+                }}
+                eventContent={(eventInfo) => (
+                  <div className="truncate px-1">
+                    <span className="font-medium">{eventInfo.timeText}</span>
+                    <span className="ml-1">{eventInfo.event.title}</span>
+                  </div>
+                )}
+              />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Analytics Tab */}
+        <TabsContent value="analytics" className="space-y-6">
+          {analytics ? (
+            <>
+              {/* Key Metrics */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <Card className="bg-white border-[#E8D5C4] shadow-sm">
+                  <CardContent className="p-4">
+                    <p className="text-[#5D4A3A] text-sm">Total Meetings</p>
+                    <p className="text-2xl font-bold text-[#4A3728] mt-1">{analytics.total_meetings}</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-white border-[#E8D5C4] shadow-sm">
+                  <CardContent className="p-4">
+                    <p className="text-[#5D4A3A] text-sm">Total Decisions</p>
+                    <p className="text-2xl font-bold text-purple-600 mt-1">{analytics.total_decisions}</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-white border-[#E8D5C4] shadow-sm">
+                  <CardContent className="p-4">
+                    <p className="text-[#5D4A3A] text-sm">Action Items</p>
+                    <p className="text-2xl font-bold text-amber-600 mt-1">{analytics.total_action_items}</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-white border-[#E8D5C4] shadow-sm">
+                  <CardContent className="p-4">
+                    <p className="text-[#5D4A3A] text-sm">Items Completed</p>
+                    <p className="text-2xl font-bold text-emerald-600 mt-1">{analytics.action_items_completed}</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-white border-[#E8D5C4] shadow-sm">
+                  <CardContent className="p-4">
+                    <p className="text-[#5D4A3A] text-sm">Completion Rate</p>
+                    <p className="text-2xl font-bold text-blue-600 mt-1">{analytics.completion_rate}%</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Meetings by Month */}
+                <Card className="bg-white border-[#E8D5C4] shadow-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-[#4A3728] text-base flex items-center gap-2">
+                      <BarChart3 className="w-5 h-5" />
+                      Meetings by Month
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {analytics.meetings_by_month?.length > 0 ? (
+                      <div className="space-y-3">
+                        {analytics.meetings_by_month.map((item, idx) => (
+                          <div key={idx} className="flex items-center gap-3">
+                            <span className="text-sm text-[#5D4A3A] w-20">{item.month}</span>
+                            <div className="flex-1 bg-[#F5EBE0] rounded-full h-4 overflow-hidden">
+                              <div 
+                                className="bg-[#4A3728] h-full rounded-full transition-all duration-500"
+                                style={{ width: `${Math.min(100, (item.count / Math.max(...analytics.meetings_by_month.map(m => m.count))) * 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-sm font-medium text-[#4A3728] w-8">{item.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[#6B5D52] text-center py-4">No data available</p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Meetings by Type */}
+                <Card className="bg-white border-[#E8D5C4] shadow-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-[#4A3728] text-base flex items-center gap-2">
+                      <Calendar className="w-5 h-5" />
+                      Meetings by Type
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {analytics.meetings_by_type?.length > 0 ? (
+                      <div className="space-y-2">
+                        {analytics.meetings_by_type.slice(0, 8).map((item, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-2 bg-[#F5EBE0] rounded-lg">
+                            <Badge variant="outline" className={meetingTypeColors[item.type] || 'bg-slate-100'}>
+                              {meetingTypeLabels[item.type] || item.type}
+                            </Badge>
+                            <span className="font-medium text-[#4A3728]">{item.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[#6B5D52] text-center py-4">No data available</p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Meetings by Department */}
+                <Card className="bg-white border-[#E8D5C4] shadow-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-[#4A3728] text-base flex items-center gap-2">
+                      <Building2 className="w-5 h-5" />
+                      Meetings by Department
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {analytics.meetings_by_department?.length > 0 ? (
+                      <div className="space-y-2">
+                        {analytics.meetings_by_department.map((item, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-2 bg-[#F5EBE0] rounded-lg">
+                            <span className="text-[#4A3728] font-medium">{item.department_name}</span>
+                            <span className="font-bold text-[#4A3728]">{item.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[#6B5D52] text-center py-4">No department data</p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Top Organizers */}
+                <Card className="bg-white border-[#E8D5C4] shadow-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-[#4A3728] text-base flex items-center gap-2">
+                      <Users className="w-5 h-5" />
+                      Top Organizers
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {analytics.top_organizers?.length > 0 ? (
+                      <div className="space-y-2">
+                        {analytics.top_organizers.map((item, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-2 bg-[#F5EBE0] rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-[#4A3728] text-white flex items-center justify-center text-sm font-medium">
+                                {item.name?.charAt(0) || '?'}
+                              </div>
+                              <span className="text-[#4A3728] font-medium">{item.name}</span>
+                            </div>
+                            <Badge variant="outline" className="bg-white">
+                              {item.meetings_organized} meetings
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[#6B5D52] text-center py-4">No organizer data</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </>
+          ) : (
+            <Card className="bg-white border-[#E8D5C4]">
+              <CardContent className="py-16 text-center">
+                <BarChart3 className="w-16 h-16 mx-auto text-[#D4BBA6] mb-4" />
+                <h3 className="text-lg font-semibold text-[#4A3728] mb-2">Loading Analytics...</h3>
+                <p className="text-[#6B5D52]">Please wait while we gather your meeting data</p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>

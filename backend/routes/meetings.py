@@ -337,6 +337,91 @@ async def get_my_meetings(
     return result
 
 
+# ============== GLOBAL DECISION LOG (must be before /{meeting_id}) ==============
+
+@router.get("/all-decisions")
+async def get_all_decisions(
+    project_id: Optional[str] = None,
+    goal_id: Optional[str] = None,
+    impact: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    limit: int = Query(default=50, le=200),
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get all decisions across meetings"""
+    pipeline = [
+        {"$unwind": "$decisions"},
+        {"$match": {"decisions": {"$exists": True}}}
+    ]
+    
+    if project_id:
+        pipeline.append({"$match": {"decisions.linked_project_id": project_id}})
+    if goal_id:
+        pipeline.append({"$match": {"decisions.linked_goal_id": goal_id}})
+    if impact:
+        pipeline.append({"$match": {"decisions.impact": impact}})
+    if start_date:
+        pipeline.append({"$match": {"decisions.decision_date": {"$gte": start_date}}})
+    if end_date:
+        pipeline.append({"$match": {"decisions.decision_date": {"$lte": end_date}}})
+    
+    pipeline.extend([
+        {"$project": {
+            "_id": 0,
+            "meeting_id": "$id",
+            "meeting_title": "$title",
+            "decision": "$decisions"
+        }},
+        {"$sort": {"decision.decision_date": -1}},
+        {"$limit": limit}
+    ])
+    
+    results = await db.meetings.aggregate(pipeline).to_list(limit)
+    return results
+
+
+# ============== GLOBAL ISSUES & RISKS (must be before /{meeting_id}) ==============
+
+@router.get("/all-issues-risks")
+async def get_all_issues_risks(
+    type: Optional[str] = None,
+    status: Optional[str] = None,
+    project_id: Optional[str] = None,
+    impact: Optional[str] = None,
+    limit: int = Query(default=50, le=200),
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get all issues and risks across meetings"""
+    pipeline = [
+        {"$unwind": "$issues_risks"},
+        {"$match": {"issues_risks": {"$exists": True}}}
+    ]
+    
+    if type:
+        pipeline.append({"$match": {"issues_risks.type": type}})
+    if status:
+        pipeline.append({"$match": {"issues_risks.status": status}})
+    if project_id:
+        pipeline.append({"$match": {"issues_risks.linked_project_id": project_id}})
+    if impact:
+        pipeline.append({"$match": {"issues_risks.impact": impact}})
+    
+    pipeline.extend([
+        {"$project": {
+            "_id": 0,
+            "meeting_id": "$id",
+            "meeting_title": "$title",
+            "item": "$issues_risks"
+        }},
+        {"$sort": {"item.created_at": -1}},
+        {"$limit": limit}
+    ])
+    
+    results = await db.meetings.aggregate(pipeline).to_list(limit)
+    return results
+
+
 @router.get("/{meeting_id}", response_model=MeetingResponse)
 async def get_meeting(
     meeting_id: str,
@@ -1347,88 +1432,3 @@ async def delete_issue_risk(
         raise HTTPException(status_code=404, detail="Meeting not found")
     
     return {"message": "Issue/Risk deleted"}
-
-
-# ============== GLOBAL DECISION LOG ==============
-
-@router.get("/all-decisions")
-async def get_all_decisions(
-    project_id: Optional[str] = None,
-    goal_id: Optional[str] = None,
-    impact: Optional[str] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    limit: int = Query(default=50, le=200),
-    user: dict = Depends(get_current_user_dep)
-):
-    """Get all decisions across meetings"""
-    pipeline = [
-        {"$unwind": "$decisions"},
-        {"$match": {"decisions": {"$exists": True}}}
-    ]
-    
-    if project_id:
-        pipeline.append({"$match": {"decisions.linked_project_id": project_id}})
-    if goal_id:
-        pipeline.append({"$match": {"decisions.linked_goal_id": goal_id}})
-    if impact:
-        pipeline.append({"$match": {"decisions.impact": impact}})
-    if start_date:
-        pipeline.append({"$match": {"decisions.decision_date": {"$gte": start_date}}})
-    if end_date:
-        pipeline.append({"$match": {"decisions.decision_date": {"$lte": end_date}}})
-    
-    pipeline.extend([
-        {"$project": {
-            "_id": 0,
-            "meeting_id": "$id",
-            "meeting_title": "$title",
-            "decision": "$decisions"
-        }},
-        {"$sort": {"decision.decision_date": -1}},
-        {"$limit": limit}
-    ])
-    
-    results = await db.meetings.aggregate(pipeline).to_list(limit)
-    return results
-
-
-# ============== GLOBAL ISSUES & RISKS ==============
-
-@router.get("/all-issues-risks")
-async def get_all_issues_risks(
-    type: Optional[str] = None,
-    status: Optional[str] = None,
-    project_id: Optional[str] = None,
-    impact: Optional[str] = None,
-    limit: int = Query(default=50, le=200),
-    user: dict = Depends(get_current_user_dep)
-):
-    """Get all issues and risks across meetings"""
-    pipeline = [
-        {"$unwind": "$issues_risks"},
-        {"$match": {"issues_risks": {"$exists": True}}}
-    ]
-    
-    if type:
-        pipeline.append({"$match": {"issues_risks.type": type}})
-    if status:
-        pipeline.append({"$match": {"issues_risks.status": status}})
-    if project_id:
-        pipeline.append({"$match": {"issues_risks.linked_project_id": project_id}})
-    if impact:
-        pipeline.append({"$match": {"issues_risks.impact": impact}})
-    
-    pipeline.extend([
-        {"$project": {
-            "_id": 0,
-            "meeting_id": "$id",
-            "meeting_title": "$title",
-            "item": "$issues_risks"
-        }},
-        {"$sort": {"item.created_at": -1}},
-        {"$limit": limit}
-    ])
-    
-    results = await db.meetings.aggregate(pipeline).to_list(limit)
-    return results
