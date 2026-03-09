@@ -4481,8 +4481,38 @@ async def start_scheduler():
     except Exception as e:
         logger.warning(f"Object storage init failed (non-fatal): {e}")
     
+    # Initialize email notification service
+    try:
+        from services.email_notification_service import init_email_notification_service
+        init_email_notification_service(db, microsoft_email_service)
+        logger.info("Email notification service initialized")
+    except Exception as e:
+        logger.warning(f"Email notification service init failed (non-fatal): {e}")
+    
     # Run scheduled posts check every 5 minutes
     scheduler.add_job(process_scheduled_posts, IntervalTrigger(minutes=5), id="process_scheduled_posts", replace_existing=True)
+    
+    # Run hourly notification digest every hour
+    async def send_hourly_digests():
+        try:
+            from services.email_notification_service import send_digest_emails
+            await send_digest_emails("hourly")
+        except Exception as e:
+            logger.error(f"Hourly digest error: {e}")
+    
+    scheduler.add_job(send_hourly_digests, IntervalTrigger(hours=1), id="hourly_notification_digest", replace_existing=True)
+    
+    # Run daily notification digest at 8 AM UTC
+    async def send_daily_digests():
+        try:
+            from services.email_notification_service import send_digest_emails
+            await send_digest_emails("daily")
+        except Exception as e:
+            logger.error(f"Daily digest error: {e}")
+    
+    from apscheduler.triggers.cron import CronTrigger
+    scheduler.add_job(send_daily_digests, CronTrigger(hour=8, minute=0), id="daily_notification_digest", replace_existing=True)
+    
     scheduler.start()
     logger.info("Automation scheduler started")
 

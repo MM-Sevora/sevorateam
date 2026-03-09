@@ -23,6 +23,8 @@ class ConnectionManager:
             "social": set(),
             "all": set()  # For admins
         }
+        # Track connection health
+        self._heartbeat_tasks: Dict[str, asyncio.Task] = {}
     
     async def connect(self, websocket: WebSocket, user_id: str, departments: List[str]):
         """Connect a user's WebSocket"""
@@ -57,22 +59,37 @@ class ConnectionManager:
     
     async def send_personal_notification(self, user_id: str, notification: dict):
         """Send notification to a specific user"""
-        if user_id in self.active_connections:
-            message = json.dumps({
-                "type": "notification",
-                "data": notification
-            })
-            disconnected = set()
-            for connection in self.active_connections[user_id]:
-                try:
-                    await connection.send_text(message)
-                except Exception as e:
-                    logger.error(f"Error sending to {user_id}: {e}")
-                    disconnected.add(connection)
-            
-            # Clean up disconnected
-            for conn in disconnected:
-                self.active_connections[user_id].discard(conn)
+        if user_id not in self.active_connections:
+            logger.debug(f"User {user_id} not connected, skipping WebSocket notification")
+            return
+        
+        message = json.dumps({
+            "type": "notification",
+            "data": notification
+        })
+        
+        disconnected = set()
+        for connection in self.active_connections[user_id].copy():
+            try:
+                await asyncio.wait_for(
+                    connection.send_text(message),
+                    timeout=5.0
+                )
+                logger.debug(f"Sent notification to user {user_id}")
+            except asyncio.TimeoutError:
+                logger.warning(f"Timeout sending to user {user_id}, marking for disconnect")
+                disconnected.add(connection)
+            except Exception as e:
+                logger.error(f"Error sending to {user_id}: {e}")
+                disconnected.add(connection)
+        
+        # Clean up disconnected
+        for conn in disconnected:
+            self.active_connections[user_id].discard(conn)
+            if not self.active_connections[user_id]:
+                del self.active_connections[user_id]
+                for dept_users in self.department_subscriptions.values():
+                    dept_users.discard(user_id)
     
     async def broadcast_to_department(self, department: str, notification: dict):
         """Broadcast notification to all users in a department"""

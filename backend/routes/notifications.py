@@ -7,6 +7,7 @@ from typing import List, Optional
 from datetime import datetime, timezone
 import uuid
 import logging
+import asyncio
 
 from models.notifications import (
     NotificationCreate, NotificationResponse, NotificationPriority,
@@ -287,6 +288,14 @@ async def create_notification(
             await ws_manager.send_personal_notification(user_id, notification_doc)
         except Exception as e:
             logger.error(f"Failed to send WebSocket notification: {e}")
+    
+    # Send email notification (async, don't block)
+    try:
+        from services.email_notification_service import send_instant_email_notification
+        # Fire and forget - don't wait for email
+        asyncio.create_task(send_instant_email_notification(user_id, notification_doc))
+    except Exception as e:
+        logger.error(f"Failed to queue email notification: {e}")
     
     logger.info(f"Notification created: {notification_id} for user {user_id}")
     return notification_doc
