@@ -229,17 +229,39 @@ Created `/app/backend/routes/marketing/` package with modular structure:
 
 ### P1 (High)
 1. PR Analytics Dashboard
-2. Task Dependencies (blocked by/blocks relationships)
-3. Manager Dashboard (team workload, resource allocation)
+2. Manager Dashboard (team workload, resource allocation)
+3. Calendar view for tasks
 
 ### P2 (Medium)
 1. AI pitch writing feature
 2. Automated media monitoring
-3. Calendar view for tasks
-4. Time tracking reports (by project, by user)
+3. Time tracking reports (by project, by user)
 
 ### P3 (Low)
 1. WebSocket notifications (platform-level issue)
+
+## Project Management System (Enhanced) - IMPLEMENTED ✅ (March 9, 2026)
+
+### Enhanced Project Fields
+- **Auto-generated Project ID**: PRJ-XXXX format (e.g., PRJ-1001) auto-incremented
+- **Project Type**: Marketing, Development, PR, Design, Operations, Other
+- **Department**: Links to WorkOS departments with name enrichment
+- **Project Manager**: Separate from Owner, user selector with name display
+- **Stakeholders**: View-only access users (multi-select)
+
+### Project-Level RBAC (Planned)
+- Owner: Full control
+- Manager: Manage tasks & members
+- Team Member: Work on tasks
+- Stakeholder: View only
+
+### Task Dependencies ✅
+- **"Blocked By"**: Tasks that must complete first
+- **"Blocks"**: Tasks waiting on this task
+- **Visual Indicators**: Red border + warning icon on blocked Kanban cards
+- **Drag Prevention**: Blocked tasks cannot be dragged on Kanban
+- **Backend Validation**: Returns 400 error when attempting invalid status changes
+- **Auto Reverse Relationships**: Adding A blocks B automatically adds B blocked-by A
 
 ## Project Management System (Phase 3) - IMPLEMENTED ✅ (March 9, 2026)
 
