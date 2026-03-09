@@ -11,7 +11,7 @@ import uuid
 # Import models
 from models.projects import (
     PMModuleCreate, PMModuleUpdate, PMModuleResponse,
-    ProjectCreate, ProjectUpdate, ProjectResponse, ProjectStatus,
+    ProjectCreate, ProjectUpdate, ProjectResponse, ProjectStatus, ProjectType,
     TaskCreate, TaskUpdate, TaskResponse, TaskStatus, Priority,
     SubtaskCreate, SubtaskUpdate, SubtaskResponse,
     ChecklistItemCreate, ChecklistItemUpdate, ChecklistItemResponse,
@@ -51,6 +51,42 @@ async def get_user_name(user_id: str) -> str:
         return None
     user = await db.users.find_one({"id": user_id}, {"name": 1})
     return user.get("name") if user else None
+
+
+async def get_department_name(dept_id: str) -> str:
+    """Get department name by ID"""
+    if not dept_id:
+        return None
+    dept = await db.departments.find_one({"id": dept_id}, {"name": 1})
+    return dept.get("name") if dept else None
+
+
+async def generate_project_id() -> str:
+    """Generate auto-incrementing project ID like PRJ-1001"""
+    # Find the highest existing project_id
+    last_project = await db.pm_projects.find_one(
+        {"project_id": {"$regex": "^PRJ-"}},
+        sort=[("project_id", -1)]
+    )
+    
+    if last_project and last_project.get("project_id"):
+        try:
+            last_num = int(last_project["project_id"].split("-")[1])
+            next_num = last_num + 1
+        except:
+            next_num = 1001
+    else:
+        next_num = 1001
+    
+    return f"PRJ-{next_num}"
+
+
+async def get_task_name(task_id: str) -> str:
+    """Get task name by ID"""
+    if not task_id:
+        return None
+    task = await db.pm_tasks.find_one({"id": task_id}, {"name": 1})
+    return task.get("name") if task else None
 
 
 async def log_activity(entity_type: str, entity_id: str, entity_name: str, action: str, user_id: str, details: dict = None):
@@ -96,6 +132,35 @@ async def enrich_task(task: dict) -> dict:
     task["checklist_completed"] = await db.pm_checklists.count_documents({"task_id": task["id"], "is_completed": True})
     task["comment_count"] = await db.pm_comments.count_documents({"task_id": task["id"]})
     task["attachment_count"] = await db.pm_attachments.count_documents({"task_id": task["id"]})
+    
+    # Get dependency info
+    blocked_by = task.get("blocked_by", [])
+    blocks = task.get("blocks", [])
+    
+    # Get names of blocking tasks
+    blocked_by_names = []
+    is_blocked = False
+    for blocking_id in blocked_by:
+        blocking_task = await db.pm_tasks.find_one({"id": blocking_id}, {"name": 1, "status": 1})
+        if blocking_task:
+            blocked_by_names.append(blocking_task.get("name", "Unknown"))
+            # Task is blocked if any blocking task is not completed
+            if blocking_task.get("status") not in ["completed", "approved"]:
+                is_blocked = True
+    task["blocked_by_names"] = blocked_by_names
+    task["is_blocked"] = is_blocked
+    
+    # Get names of tasks this blocks
+    blocks_names = []
+    for blocked_id in blocks:
+        blocked_task = await db.pm_tasks.find_one({"id": blocked_id}, {"name": 1})
+        if blocked_task:
+            blocks_names.append(blocked_task.get("name", "Unknown"))
+    task["blocks_names"] = blocks_names
+    
+    # Ensure blocked_by and blocks are lists
+    task["blocked_by"] = blocked_by
+    task["blocks"] = blocks
     
     return task
 
@@ -230,6 +295,8 @@ async def delete_module(
 @router.get("/list", response_model=List[ProjectResponse])
 async def list_projects(
     module_id: Optional[str] = None,
+    department_id: Optional[str] = None,
+    project_type: Optional[ProjectType] = None,
     status: Optional[ProjectStatus] = None,
     owner_id: Optional[str] = None,
     priority: Optional[Priority] = None,
@@ -241,6 +308,10 @@ async def list_projects(
     
     if module_id:
         query["module_id"] = module_id
+    if department_id:
+        query["department_id"] = department_id
+    if project_type:
+        query["project_type"] = project_type.value
     if status:
         query["status"] = status.value
     if owner_id:
@@ -250,30 +321,52 @@ async def list_projects(
     if search:
         query["$or"] = [
             {"name": {"$regex": search, "$options": "i"}},
-            {"description": {"$regex": search, "$options": "i"}}
+            {"description": {"$regex": search, "$options": "i"}},
+            {"project_id": {"$regex": search, "$options": "i"}}
         ]
     
     projects = await db.pm_projects.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
     
     # Enrich projects
     for project in projects:
+        # Ensure project_id exists (for backward compatibility)
+        if not project.get("project_id"):
+            project["project_id"] = f"PRJ-{project['id'][:4].upper()}"
+        
         # Get module name
         if project.get("module_id"):
             module = await db.pm_modules.find_one({"id": project["module_id"]}, {"name": 1})
             project["module_name"] = module.get("name") if module else None
         
+        # Get department name
+        if project.get("department_id"):
+            project["department_name"] = await get_department_name(project["department_id"])
+        
         # Get owner name
         if project.get("owner_id"):
             project["owner_name"] = await get_user_name(project["owner_id"])
         
+        # Get project manager name
+        if project.get("project_manager_id"):
+            project["project_manager_name"] = await get_user_name(project["project_manager_id"])
+        
         # Get team member names
-        if project.get("team_members"):
-            names = []
-            for member_id in project["team_members"]:
-                name = await get_user_name(member_id)
-                if name:
-                    names.append(name)
-            project["team_member_names"] = names
+        team_members = project.get("team_members", [])
+        names = []
+        for member_id in team_members:
+            name = await get_user_name(member_id)
+            if name:
+                names.append(name)
+        project["team_member_names"] = names
+        
+        # Get stakeholder names
+        stakeholders = project.get("stakeholders", [])
+        stakeholder_names = []
+        for stakeholder_id in stakeholders:
+            name = await get_user_name(stakeholder_id)
+            if name:
+                stakeholder_names.append(name)
+        project["stakeholder_names"] = stakeholder_names
         
         # Get task counts and progress
         total_tasks = await db.pm_tasks.count_documents({"project_id": project["id"]})
@@ -296,20 +389,32 @@ async def create_project(
     if not module:
         raise HTTPException(status_code=404, detail="Module not found")
     
-    project_id = str(uuid.uuid4())
+    # Verify department exists if provided
+    if data.department_id:
+        dept = await db.departments.find_one({"id": data.department_id})
+        if not dept:
+            raise HTTPException(status_code=404, detail="Department not found")
+    
+    project_uuid = str(uuid.uuid4())
+    project_id = await generate_project_id()  # Auto-generated PRJ-XXXX
     now = datetime.now(timezone.utc).isoformat()
     
     project_doc = {
-        "id": project_id,
+        "id": project_uuid,
+        "project_id": project_id,
         "name": data.name,
         "module_id": data.module_id,
+        "project_type": data.project_type.value,
+        "department_id": data.department_id,
         "description": data.description,
         "owner_id": data.owner_id or user["id"],
+        "project_manager_id": data.project_manager_id,
         "start_date": data.start_date,
         "end_date": data.end_date,
         "priority": data.priority.value,
         "status": ProjectStatus.DRAFT.value,
         "team_members": data.team_members,
+        "stakeholders": data.stakeholders,
         "tags": data.tags,
         "created_by": user["id"],
         "created_at": now,
@@ -317,16 +422,26 @@ async def create_project(
     }
     
     await db.pm_projects.insert_one(project_doc)
-    await log_activity("project", project_id, data.name, "created", user["id"])
+    await log_activity("project", project_uuid, data.name, "created", user["id"])
     
     # Enrich response
     project_doc["module_name"] = module.get("name")
     project_doc["owner_name"] = await get_user_name(project_doc["owner_id"])
+    project_doc["project_manager_name"] = await get_user_name(data.project_manager_id) if data.project_manager_id else None
+    project_doc["department_name"] = await get_department_name(data.department_id) if data.department_id else None
+    
     project_doc["team_member_names"] = []
     for member_id in data.team_members:
         name = await get_user_name(member_id)
         if name:
             project_doc["team_member_names"].append(name)
+    
+    project_doc["stakeholder_names"] = []
+    for stakeholder_id in data.stakeholders:
+        name = await get_user_name(stakeholder_id)
+        if name:
+            project_doc["stakeholder_names"].append(name)
+    
     project_doc["task_count"] = 0
     project_doc["completed_task_count"] = 0
     project_doc["progress"] = 0
@@ -461,6 +576,18 @@ async def get_project(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
+    # Ensure project_id exists (backward compatibility)
+    if not project.get("project_id"):
+        project["project_id"] = f"PRJ-{project['id'][:4].upper()}"
+    
+    # Get department name
+    if project.get("department_id"):
+        project["department_name"] = await get_department_name(project["department_id"])
+    
+    # Get project manager name
+    if project.get("project_manager_id"):
+        project["project_manager_name"] = await get_user_name(project["project_manager_id"])
+    
     # Enrich
     if project.get("module_id"):
         module = await db.pm_modules.find_one({"id": project["module_id"]}, {"name": 1})
@@ -469,12 +596,19 @@ async def get_project(
     if project.get("owner_id"):
         project["owner_name"] = await get_user_name(project["owner_id"])
     
-    if project.get("team_members"):
-        project["team_member_names"] = []
-        for member_id in project["team_members"]:
-            name = await get_user_name(member_id)
-            if name:
-                project["team_member_names"].append(name)
+    team_members = project.get("team_members", [])
+    project["team_member_names"] = []
+    for member_id in team_members:
+        name = await get_user_name(member_id)
+        if name:
+            project["team_member_names"].append(name)
+    
+    stakeholders = project.get("stakeholders", [])
+    project["stakeholder_names"] = []
+    for stakeholder_id in stakeholders:
+        name = await get_user_name(stakeholder_id)
+        if name:
+            project["stakeholder_names"].append(name)
     
     total_tasks = await db.pm_tasks.count_documents({"project_id": project_id})
     completed_tasks = await db.pm_tasks.count_documents({"project_id": project_id, "status": "completed"})
@@ -690,12 +824,29 @@ async def create_task(
         "actual_hours": 0,
         "tags": data.tags,
         "parent_task_id": data.parent_task_id,
+        "blocked_by": data.blocked_by,
+        "blocks": data.blocks,
         "created_by": user["id"],
         "created_at": now,
         "updated_at": now
     }
     
     await db.pm_tasks.insert_one(task_doc)
+    
+    # Update reverse relationships for blocks
+    for blocked_task_id in data.blocks:
+        await db.pm_tasks.update_one(
+            {"id": blocked_task_id},
+            {"$addToSet": {"blocked_by": task_id}}
+        )
+    
+    # Update reverse relationships for blocked_by
+    for blocking_task_id in data.blocked_by:
+        await db.pm_tasks.update_one(
+            {"id": blocking_task_id},
+            {"$addToSet": {"blocks": task_id}}
+        )
+    
     await log_activity("task", task_id, data.name, "created", user["id"])
     
     if "_id" in task_doc:
@@ -740,11 +891,60 @@ async def update_task(
     old_status = task.get("status")
     new_status = update_data.get("status")
     
+    # Check if task is blocked before allowing status change to in_progress or beyond
+    if new_status and new_status not in [TaskStatus.DRAFT.value, TaskStatus.ASSIGNED.value, TaskStatus.ON_HOLD.value]:
+        blocked_by = task.get("blocked_by", [])
+        for blocking_id in blocked_by:
+            blocking_task = await db.pm_tasks.find_one({"id": blocking_id}, {"status": 1, "name": 1})
+            if blocking_task and blocking_task.get("status") not in ["completed", "approved"]:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Cannot move task: blocked by '{blocking_task.get('name')}' which is not completed"
+                )
+    
     # If assigning to someone, update assigned_by
     if "assigned_to" in update_data and update_data["assigned_to"] != task.get("assigned_to"):
         update_data["assigned_by"] = user["id"]
         if not new_status and old_status == TaskStatus.DRAFT.value:
             update_data["status"] = TaskStatus.ASSIGNED.value
+    
+    # Handle blocked_by updates
+    if "blocked_by" in update_data:
+        old_blocked_by = set(task.get("blocked_by", []))
+        new_blocked_by = set(update_data["blocked_by"])
+        
+        # Remove this task from "blocks" of tasks no longer blocking
+        for removed_id in old_blocked_by - new_blocked_by:
+            await db.pm_tasks.update_one(
+                {"id": removed_id},
+                {"$pull": {"blocks": task_id}}
+            )
+        
+        # Add this task to "blocks" of new blocking tasks
+        for added_id in new_blocked_by - old_blocked_by:
+            await db.pm_tasks.update_one(
+                {"id": added_id},
+                {"$addToSet": {"blocks": task_id}}
+            )
+    
+    # Handle blocks updates
+    if "blocks" in update_data:
+        old_blocks = set(task.get("blocks", []))
+        new_blocks = set(update_data["blocks"])
+        
+        # Remove this task from "blocked_by" of tasks no longer blocked
+        for removed_id in old_blocks - new_blocks:
+            await db.pm_tasks.update_one(
+                {"id": removed_id},
+                {"$pull": {"blocked_by": task_id}}
+            )
+        
+        # Add this task to "blocked_by" of new blocked tasks
+        for added_id in new_blocks - old_blocks:
+            await db.pm_tasks.update_one(
+                {"id": added_id},
+                {"$addToSet": {"blocked_by": task_id}}
+            )
     
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     

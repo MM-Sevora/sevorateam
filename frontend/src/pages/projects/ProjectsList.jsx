@@ -65,7 +65,12 @@ const ProjectCard = ({ project, onEdit, onDelete, onView }) => {
     >
       <CardContent className="p-5">
         <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {project.project_id && (
+              <Badge variant="secondary" className="bg-slate-700 text-slate-300 text-xs">
+                {project.project_id}
+              </Badge>
+            )}
             <Badge variant="outline" className={priorityConfig[project.priority]?.color}>
               <Flag className="w-3 h-3 mr-1" />
               {project.priority}
@@ -151,13 +156,16 @@ const ProjectCard = ({ project, onEdit, onDelete, onView }) => {
   );
 };
 
-const CreateProjectModal = ({ open, onClose, modules, onSuccess }) => {
+const CreateProjectModal = ({ open, onClose, modules, departments, users, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     module_id: '',
+    project_type: 'other',
+    department_id: '',
     description: '',
     priority: 'medium',
+    project_manager_id: '',
     start_date: '',
     end_date: ''
   });
@@ -172,13 +180,17 @@ const CreateProjectModal = ({ open, onClose, modules, onSuccess }) => {
     setLoading(true);
     try {
       const token = localStorage.getItem('sevora_token');
+      const payload = { ...formData };
+      if (!payload.department_id) delete payload.department_id;
+      if (!payload.project_manager_id) delete payload.project_manager_id;
+      
       const response = await fetch(`${API}/api/projects`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) throw new Error('Failed to create project');
@@ -186,7 +198,7 @@ const CreateProjectModal = ({ open, onClose, modules, onSuccess }) => {
       toast.success('Project created successfully');
       onSuccess();
       onClose();
-      setFormData({ name: '', module_id: '', description: '', priority: 'medium', start_date: '', end_date: '' });
+      setFormData({ name: '', module_id: '', project_type: 'other', department_id: '', description: '', priority: 'medium', project_manager_id: '', start_date: '', end_date: '' });
     } catch (error) {
       console.error('Error:', error);
       toast.error('Failed to create project');
@@ -195,9 +207,18 @@ const CreateProjectModal = ({ open, onClose, modules, onSuccess }) => {
     }
   };
 
+  const projectTypes = [
+    { value: 'marketing', label: 'Marketing' },
+    { value: 'development', label: 'Development' },
+    { value: 'pr', label: 'PR' },
+    { value: 'design', label: 'Design' },
+    { value: 'operations', label: 'Operations' },
+    { value: 'other', label: 'Other' }
+  ];
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="bg-slate-800 border-slate-700 max-w-lg">
+      <DialogContent className="bg-slate-800 border-slate-700 max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-white flex items-center gap-2">
             <FolderKanban className="w-5 h-5 text-rose-500" />
@@ -216,23 +237,84 @@ const CreateProjectModal = ({ open, onClose, modules, onSuccess }) => {
             />
           </div>
 
-          <div>
-            <Label className="text-slate-300">Module *</Label>
-            <Select
-              value={formData.module_id}
-              onValueChange={(value) => setFormData({ ...formData, module_id: value })}
-            >
-              <SelectTrigger className="bg-slate-900 border-slate-600 mt-1" data-testid="module-select">
-                <SelectValue placeholder="Select a module" />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-800 border-slate-700">
-                {modules.map(module => (
-                  <SelectItem key={module.id} value={module.id}>
-                    {module.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-slate-300">Module *</Label>
+              <Select
+                value={formData.module_id}
+                onValueChange={(value) => setFormData({ ...formData, module_id: value })}
+              >
+                <SelectTrigger className="bg-slate-900 border-slate-600 mt-1" data-testid="module-select">
+                  <SelectValue placeholder="Select module" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-700">
+                  {modules.map(module => (
+                    <SelectItem key={module.id} value={module.id}>
+                      {module.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-slate-300">Project Type</Label>
+              <Select
+                value={formData.project_type}
+                onValueChange={(value) => setFormData({ ...formData, project_type: value })}
+              >
+                <SelectTrigger className="bg-slate-900 border-slate-600 mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-700">
+                  {projectTypes.map(type => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-slate-300">Department</Label>
+              <Select
+                value={formData.department_id || 'none'}
+                onValueChange={(value) => setFormData({ ...formData, department_id: value === 'none' ? '' : value })}
+              >
+                <SelectTrigger className="bg-slate-900 border-slate-600 mt-1">
+                  <SelectValue placeholder="Select department" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-700">
+                  <SelectItem value="none">None</SelectItem>
+                  {departments?.map(dept => (
+                    <SelectItem key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-slate-300">Project Manager</Label>
+              <Select
+                value={formData.project_manager_id || 'none'}
+                onValueChange={(value) => setFormData({ ...formData, project_manager_id: value === 'none' ? '' : value })}
+              >
+                <SelectTrigger className="bg-slate-900 border-slate-600 mt-1">
+                  <SelectValue placeholder="Select manager" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-700">
+                  <SelectItem value="none">None</SelectItem>
+                  {users?.map(user => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div>
@@ -246,7 +328,7 @@ const CreateProjectModal = ({ open, onClose, modules, onSuccess }) => {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <Label className="text-slate-300">Priority</Label>
               <Select
@@ -273,16 +355,15 @@ const CreateProjectModal = ({ open, onClose, modules, onSuccess }) => {
                 className="bg-slate-900 border-slate-600 mt-1"
               />
             </div>
-          </div>
-
-          <div>
-            <Label className="text-slate-300">End Date</Label>
-            <Input
-              type="date"
-              value={formData.end_date}
-              onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-              className="bg-slate-900 border-slate-600 mt-1"
-            />
+            <div>
+              <Label className="text-slate-300">End Date</Label>
+              <Input
+                type="date"
+                value={formData.end_date}
+                onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                className="bg-slate-900 border-slate-600 mt-1"
+              />
+            </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
@@ -304,6 +385,8 @@ const ProjectsList = () => {
   const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState([]);
   const [modules, setModules] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [users, setUsers] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [filters, setFilters] = useState({
     search: '',
@@ -318,9 +401,11 @@ const ProjectsList = () => {
       const token = localStorage.getItem('sevora_token');
       const headers = { 'Authorization': `Bearer ${token}` };
 
-      const [projectsRes, modulesRes] = await Promise.all([
+      const [projectsRes, modulesRes, deptsRes, usersRes] = await Promise.all([
         fetch(`${API}/api/projects/list`, { headers }),
-        fetch(`${API}/api/projects/modules`, { headers })
+        fetch(`${API}/api/projects/modules`, { headers }),
+        fetch(`${API}/api/workos/departments`, { headers }),
+        fetch(`${API}/api/workos/users`, { headers })
       ]);
 
       if (!projectsRes.ok || !modulesRes.ok) throw new Error('Failed to fetch data');
@@ -329,9 +414,14 @@ const ProjectsList = () => {
         projectsRes.json(),
         modulesRes.json()
       ]);
+      
+      const deptsData = deptsRes.ok ? await deptsRes.json() : [];
+      const usersData = usersRes.ok ? await usersRes.json() : { users: [] };
 
       setProjects(projectsData);
       setModules(modulesData);
+      setDepartments(deptsData);
+      setUsers(usersData.users || usersData || []);
     } catch (error) {
       console.error('Error:', error);
       toast.error('Failed to load projects');
@@ -562,6 +652,8 @@ const ProjectsList = () => {
         open={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         modules={modules}
+        departments={departments}
+        users={users}
         onSuccess={fetchData}
       />
     </div>

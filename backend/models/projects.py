@@ -18,6 +18,22 @@ class ProjectStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
+class ProjectType(str, Enum):
+    MARKETING = "marketing"
+    DEVELOPMENT = "development"
+    PR = "pr"
+    DESIGN = "design"
+    OPERATIONS = "operations"
+    OTHER = "other"
+
+
+class ProjectRole(str, Enum):
+    OWNER = "owner"           # Full control
+    MANAGER = "manager"       # Manage tasks & members
+    MEMBER = "member"         # Work on tasks
+    STAKEHOLDER = "stakeholder"  # View only
+
+
 class TaskStatus(str, Enum):
     DRAFT = "draft"
     ASSIGNED = "assigned"
@@ -70,44 +86,65 @@ class PMModuleResponse(BaseModel):
 
 # ============== PROJECT MODELS ==============
 
+class ProjectMemberCreate(BaseModel):
+    user_id: str
+    role: ProjectRole = ProjectRole.MEMBER
+
+
 class ProjectCreate(BaseModel):
     name: str
     module_id: str
+    project_type: ProjectType = ProjectType.OTHER
+    department_id: Optional[str] = None
     description: Optional[str] = None
     owner_id: Optional[str] = None
+    project_manager_id: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     priority: Priority = Priority.MEDIUM
     team_members: List[str] = []
+    stakeholders: List[str] = []
     tags: List[str] = []
 
 
 class ProjectUpdate(BaseModel):
     name: Optional[str] = None
+    project_type: Optional[ProjectType] = None
+    department_id: Optional[str] = None
     description: Optional[str] = None
     owner_id: Optional[str] = None
+    project_manager_id: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     priority: Optional[Priority] = None
     status: Optional[ProjectStatus] = None
     team_members: Optional[List[str]] = None
+    stakeholders: Optional[List[str]] = None
     tags: Optional[List[str]] = None
 
 
 class ProjectResponse(BaseModel):
     id: str
+    project_id: str  # Auto-generated PRJ-XXXX format
     name: str
     module_id: str
     module_name: Optional[str] = None
+    project_type: ProjectType = ProjectType.OTHER
+    department_id: Optional[str] = None
+    department_name: Optional[str] = None
     description: Optional[str] = None
     owner_id: Optional[str] = None
     owner_name: Optional[str] = None
+    project_manager_id: Optional[str] = None
+    project_manager_name: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     priority: Priority = Priority.MEDIUM
     status: ProjectStatus = ProjectStatus.DRAFT
     team_members: List[str] = []
     team_member_names: List[str] = []
+    stakeholders: List[str] = []
+    stakeholder_names: List[str] = []
     tags: List[str] = []
     task_count: int = 0
     completed_task_count: int = 0
@@ -129,6 +166,8 @@ class TaskCreate(BaseModel):
     estimated_hours: Optional[float] = None
     tags: List[str] = []
     parent_task_id: Optional[str] = None  # For subtasks
+    blocked_by: List[str] = []  # Task IDs that block this task
+    blocks: List[str] = []  # Task IDs that this task blocks
 
 
 class TaskUpdate(BaseModel):
@@ -141,6 +180,8 @@ class TaskUpdate(BaseModel):
     estimated_hours: Optional[float] = None
     actual_hours: Optional[float] = None
     tags: Optional[List[str]] = None
+    blocked_by: Optional[List[str]] = None
+    blocks: Optional[List[str]] = None
 
 
 class TaskResponse(BaseModel):
@@ -162,6 +203,11 @@ class TaskResponse(BaseModel):
     actual_hours: Optional[float] = None
     tags: List[str] = []
     parent_task_id: Optional[str] = None
+    blocked_by: List[str] = []
+    blocked_by_names: List[str] = []  # Names of blocking tasks
+    blocks: List[str] = []
+    blocks_names: List[str] = []  # Names of tasks this blocks
+    is_blocked: bool = False  # True if any blocking task is incomplete
     subtask_count: int = 0
     checklist_count: int = 0
     checklist_completed: int = 0

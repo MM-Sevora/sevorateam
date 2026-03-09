@@ -69,14 +69,27 @@ const TaskCard = ({ task, onStatusChange, onEdit, onDelete, onDragStart, onClick
 
   return (
     <div
-      draggable
-      onDragStart={(e) => onDragStart(e, task)}
+      draggable={!task.is_blocked}
+      onDragStart={(e) => {
+        if (task.is_blocked) {
+          e.preventDefault();
+          return;
+        }
+        onDragStart(e, task);
+      }}
       onClick={handleClick}
-      className="bg-slate-800 border border-slate-700 rounded-lg p-3 cursor-pointer hover:border-slate-600 transition-all group"
+      className={`bg-slate-800 border rounded-lg p-3 cursor-pointer hover:border-slate-600 transition-all group ${
+        task.is_blocked ? 'border-red-500/30 opacity-75' : 'border-slate-700'
+      }`}
       data-testid={`kanban-task-${task.id}`}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-2">
+          {task.is_blocked && (
+            <div className="w-5 h-5 rounded bg-red-500/20 flex items-center justify-center" title="Blocked by dependencies">
+              <AlertTriangle className="w-3 h-3 text-red-400" />
+            </div>
+          )}
           <div className={`w-2 h-2 rounded-full ${priorityConfig[task.priority]?.dotColor}`} />
           <span className="text-xs text-slate-400 capitalize">{task.priority}</span>
         </div>
