@@ -128,18 +128,88 @@ export const useWebSocket = () => {
         setNotifications([]);
     }, []);
 
+    // Polling fallback when WebSocket fails
+    const pollIntervalRef = useRef(null);
+    const lastPollTimeRef = useRef(null);
+    
+    const startPollingFallback = useCallback(() => {
+        if (pollIntervalRef.current) return; // Already polling
+        
+        console.log('Starting polling fallback for notifications...');
+        lastPollTimeRef.current = new Date().toISOString();
+        
+        pollIntervalRef.current = setInterval(async () => {
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/notifications?limit=10&is_read=false`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    // Only add notifications newer than last poll
+                    const newNotifs = data.filter(n => 
+                        new Date(n.created_at) > new Date(lastPollTimeRef.current)
+                    );
+                    
+                    if (newNotifs.length > 0) {
+                        setNotifications(prev => [...newNotifs, ...prev.slice(0, 49)]);
+                        playNotificationSound();
+                    }
+                    lastPollTimeRef.current = new Date().toISOString();
+                }
+            } catch (e) {
+                console.error('Polling fallback error:', e);
+            }
+        }, 15000); // Poll every 15 seconds
+    }, [token]);
+    
+    const stopPollingFallback = useCallback(() => {
+        if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+        }
+    }, []);
+
     // Connect when authenticated
     useEffect(() => {
         if (isAuthenticated && token) {
             connect();
+            
+            // Start polling fallback after 10 seconds if WS not connected
+            const fallbackTimeout = setTimeout(() => {
+                if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+                    startPollingFallback();
+                }
+            }, 10000);
+            
+            return () => {
+                clearTimeout(fallbackTimeout);
+                disconnect();
+                stopPollingFallback();
+            };
         } else {
             disconnect();
+            stopPollingFallback();
         }
-
-        return () => {
-            disconnect();
-        };
-    }, [isAuthenticated, token, connect, disconnect]);
+    }, [isAuthenticated, token, connect, disconnect, startPollingFallback, stopPollingFallback]);
+    
+    // Stop polling when WebSocket connects, start when it disconnects
+    useEffect(() => {
+        if (isConnected) {
+            stopPollingFallback();
+        } else if (isAuthenticated && token) {
+            // Give WS a chance to reconnect before falling back to polling
+            const fallbackDelay = setTimeout(() => {
+                if (!isConnected) {
+                    startPollingFallback();
+                }
+            }, 8000);
+            return () => clearTimeout(fallbackDelay);
+        }
+    }, [isConnected, isAuthenticated, token, startPollingFallback, stopPollingFallback]);
 
     return {
         isConnected,
@@ -148,7 +218,8 @@ export const useWebSocket = () => {
         onlineUsers,
         markNotificationRead,
         clearNotifications,
-        unreadCount: notifications.filter(n => !n.read).length
+        unreadCount: notifications.filter(n => !n.read && !n.is_read).length,
+        isPolling: !!pollIntervalRef.current
     };
 };
 

@@ -74,15 +74,23 @@ const PRIORITY_STYLES = {
 };
 
 export const NotificationsDropdown = () => {
-    const { notifications, unreadCount, markNotificationRead, isConnected } = useWebSocket();
+    const { notifications, unreadCount, markNotificationRead, isConnected, isPolling } = useWebSocket();
     const [loading, setLoading] = useState(false);
     const [dbNotifications, setDbNotifications] = useState([]);
     const navigate = useNavigate();
 
-    // Fetch notifications from DB on mount
+    // Fetch notifications from DB on mount and periodically if polling
     useEffect(() => {
         fetchNotifications();
     }, []);
+    
+    // Refresh when polling mode brings new notifications
+    useEffect(() => {
+        if (isPolling) {
+            const refreshInterval = setInterval(fetchNotifications, 30000);
+            return () => clearInterval(refreshInterval);
+        }
+    }, [isPolling]);
 
     const fetchNotifications = async () => {
         try {
@@ -164,7 +172,10 @@ export const NotificationsDropdown = () => {
                         </Badge>
                     )}
                     {isConnected && (
-                        <span className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 rounded-full" title="Connected" />
+                        <span className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 rounded-full" title="Live updates" />
+                    )}
+                    {!isConnected && isPolling && (
+                        <span className="absolute bottom-0 right-0 w-2 h-2 bg-amber-500 rounded-full animate-pulse" title="Polling for updates" />
                     )}
                 </Button>
             </DropdownMenuTrigger>

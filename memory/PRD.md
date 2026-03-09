@@ -229,9 +229,11 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - **Description**: Full health check of marketing modules requested
 
 ### P3 - WebSocket Notifications
-- **Status**: IN PROGRESS (Fix attempted but not verified)
-- **Description**: Real-time notifications via WebSocket have been unreliable
-- **Fix Applied**: Heartbeat/ping mechanism and improved error handling in useWebSocket.js and websocket_service.py
+- **Status**: MITIGATED (Infrastructure limitation)
+- **Root Cause**: Kubernetes ingress/proxy doesn't properly forward WebSocket upgrade requests
+- **Evidence**: WebSocket works locally (direct to backend) but fails through external URL
+- **Mitigation**: Implemented polling fallback (15-second interval) with visual indicator
+- **Full Fix**: Requires infrastructure team to configure WebSocket support in ingress
 
 ---
 
