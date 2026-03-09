@@ -120,10 +120,11 @@ const ExpenseManagement = () => {
     }
   };
 
-  const fetchMyClaims = async () => {
+  const fetchMyClaims = async (filterOverride = null) => {
     setLoading(true);
     try {
-      const params = statusFilter ? `?status=${statusFilter}` : '';
+      const filter = filterOverride !== null ? filterOverride : statusFilter;
+      const params = filter ? `?status=${filter}` : '';
       const res = await api.get(`/expense/claims/my${params}`);
       setMyClaims(res.data || []);
     } catch (err) {
@@ -132,10 +133,11 @@ const ExpenseManagement = () => {
     setLoading(false);
   };
 
-  const fetchAllClaims = async () => {
+  const fetchAllClaims = async (filterOverride = null) => {
     setLoading(true);
     try {
-      const params = statusFilter ? `?status=${statusFilter}` : '';
+      const filter = filterOverride !== null ? filterOverride : statusFilter;
+      const params = filter ? `?status=${filter}` : '';
       const res = await api.get(`/expense/claims${params}`);
       setAllClaims(res.data || []);
     } catch (err) {
@@ -566,7 +568,7 @@ const ExpenseManagement = () => {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>My Claim History</CardTitle>
-                <Select value={statusFilter || "all"} onValueChange={(v) => { setStatusFilter(v === "all" ? "" : v); }}>
+                <Select value={statusFilter || "all"} onValueChange={(v) => { const newFilter = v === "all" ? "" : v; setStatusFilter(newFilter); fetchMyClaims(newFilter); }}>
                   <SelectTrigger className="w-40">
                     <SelectValue placeholder="All Status" />
                   </SelectTrigger>
@@ -681,7 +683,7 @@ const ExpenseManagement = () => {
                     <p className="text-sm text-gray-500 mt-1">Review and process claims submitted by employees</p>
                   </div>
                   <div className="flex gap-2">
-                    <Select value={statusFilter || "all"} onValueChange={(v) => { setStatusFilter(v === "all" ? "" : v); fetchAllClaims(); }}>
+                    <Select value={statusFilter || "all"} onValueChange={(v) => { const newFilter = v === "all" ? "" : v; setStatusFilter(newFilter); fetchAllClaims(newFilter); }}>
                       <SelectTrigger className="w-40">
                         <SelectValue placeholder="All Status" />
                       </SelectTrigger>
