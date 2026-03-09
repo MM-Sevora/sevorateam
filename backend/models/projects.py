@@ -98,8 +98,8 @@ class ProjectMemberCreate(BaseModel):
 
 class ProjectCreate(BaseModel):
     name: str
-    module_id: str
-    project_type: ProjectType = ProjectType.OTHER
+    module_id: Optional[str] = None  # Made optional - Module field removed from UI
+    project_type: Optional[ProjectType] = ProjectType.OTHER  # Made optional - Project Type field removed from UI
     department_id: Optional[str] = None
     description: Optional[str] = None
     owner_id: Optional[str] = None
@@ -136,9 +136,9 @@ class ProjectResponse(BaseModel):
     id: str
     project_id: str  # Auto-generated PRJ-XXXX format
     name: str
-    module_id: str
+    module_id: Optional[str] = None  # Made optional - Module field removed from UI
     module_name: Optional[str] = None
-    project_type: ProjectType = ProjectType.OTHER
+    project_type: Optional[ProjectType] = ProjectType.OTHER  # Made optional
     department_id: Optional[str] = None
     department_name: Optional[str] = None
     description: Optional[str] = None

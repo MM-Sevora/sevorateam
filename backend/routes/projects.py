@@ -602,10 +602,12 @@ async def create_project(
     user: dict = Depends(get_current_user_dep)
 ):
     """Create a new project. Creator is automatically added to team members."""
-    # Verify module exists
-    module = await db.pm_modules.find_one({"id": data.module_id})
-    if not module:
-        raise HTTPException(status_code=404, detail="Module not found")
+    # Verify module exists only if module_id is provided (module is now optional)
+    module = None
+    if data.module_id:
+        module = await db.pm_modules.find_one({"id": data.module_id})
+        if not module:
+            raise HTTPException(status_code=404, detail="Module not found")
     
     # Verify department exists if provided
     if data.department_id:
@@ -625,7 +627,7 @@ async def create_project(
         "project_id": project_id,
         "name": data.name,
         "module_id": data.module_id,
-        "project_type": data.project_type.value,
+        "project_type": data.project_type.value if data.project_type else ProjectType.OTHER.value,
         "department_id": data.department_id,
         "description": data.description,
         "owner_id": data.owner_id or user["id"],
@@ -648,7 +650,7 @@ async def create_project(
     await log_activity("project", project_uuid, data.name, "created", user["id"])
     
     # Enrich response
-    project_doc["module_name"] = module.get("name")
+    project_doc["module_name"] = module.get("name") if module else None
     project_doc["owner_name"] = await get_user_name(project_doc["owner_id"])
     project_doc["project_manager_name"] = await get_user_name(data.project_manager_id) if data.project_manager_id else None
     project_doc["department_name"] = await get_department_name(data.department_id) if data.department_id else None

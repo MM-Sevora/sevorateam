@@ -182,8 +182,6 @@ const CreateProjectModal = ({ open, onClose, modules, departments, users, onSucc
   const [objectives, setObjectives] = useState([]);
   const [formData, setFormData] = useState({
     name: '',
-    module_id: '',
-    project_type: 'other',
     department_id: '',
     description: '',
     priority: 'medium',
@@ -215,8 +213,8 @@ const CreateProjectModal = ({ open, onClose, modules, departments, users, onSucc
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.module_id) {
-      toast.error('Name and Module are required');
+    if (!formData.name) {
+      toast.error('Project name is required');
       return;
     }
 
@@ -242,7 +240,7 @@ const CreateProjectModal = ({ open, onClose, modules, departments, users, onSucc
       toast.success('Project created successfully');
       onSuccess();
       onClose();
-      setFormData({ name: '', module_id: '', project_type: 'other', department_id: '', description: '', priority: 'medium', visibility: 'public', project_manager_id: '', start_date: '', end_date: '', linked_objective_id: '' });
+      setFormData({ name: '', department_id: '', description: '', priority: 'medium', visibility: 'public', project_manager_id: '', start_date: '', end_date: '', linked_objective_id: '' });
     } catch (error) {
       console.error('Error:', error);
       toast.error('Failed to create project');
@@ -250,15 +248,6 @@ const CreateProjectModal = ({ open, onClose, modules, departments, users, onSucc
       setLoading(false);
     }
   };
-
-  const projectTypes = [
-    { value: 'marketing', label: 'Marketing' },
-    { value: 'development', label: 'Development' },
-    { value: 'pr', label: 'PR' },
-    { value: 'design', label: 'Design' },
-    { value: 'operations', label: 'Operations' },
-    { value: 'other', label: 'Other' }
-  ];
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -279,45 +268,6 @@ const CreateProjectModal = ({ open, onClose, modules, departments, users, onSucc
               className="border-[#D4BBA6] focus:border-rose-500 mt-1"
               data-testid="project-name-input"
             />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-[#4A3728]">Module *</Label>
-              <Select
-                value={formData.module_id}
-                onValueChange={(value) => setFormData({ ...formData, module_id: value })}
-              >
-                <SelectTrigger className="border-[#D4BBA6] mt-1" data-testid="module-select">
-                  <SelectValue placeholder="Select module" />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-[#D4BBA6]">
-                  {modules.map(module => (
-                    <SelectItem key={module.id} value={module.id}>
-                      {module.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-[#4A3728]">Project Type</Label>
-              <Select
-                value={formData.project_type}
-                onValueChange={(value) => setFormData({ ...formData, project_type: value })}
-              >
-                <SelectTrigger className="border-[#D4BBA6] mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-[#D4BBA6]">
-                  {projectTypes.map(type => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -488,8 +438,6 @@ const EditProjectModal = ({ open, onClose, project, modules, departments, users,
   const [objectives, setObjectives] = useState([]);
   const [formData, setFormData] = useState({
     name: '',
-    module_id: '',
-    project_type: 'other',
     department_id: '',
     description: '',
     priority: 'medium',
@@ -524,8 +472,6 @@ const EditProjectModal = ({ open, onClose, project, modules, departments, users,
     if (project) {
       setFormData({
         name: project.name || '',
-        module_id: project.module_id || '',
-        project_type: project.project_type || 'other',
         department_id: project.department_id || '',
         description: project.description || '',
         priority: project.priority || 'medium',
@@ -683,15 +629,6 @@ const EditProjectModal = ({ open, onClose, project, modules, departments, users,
     return user ? user.name : memberId;
   };
 
-  const projectTypes = [
-    { value: 'marketing', label: 'Marketing' },
-    { value: 'development', label: 'Development' },
-    { value: 'pr', label: 'PR' },
-    { value: 'design', label: 'Design' },
-    { value: 'operations', label: 'Operations' },
-    { value: 'other', label: 'Other' }
-  ];
-
   const projectStatuses = [
     { value: 'draft', label: 'Draft', color: 'bg-stone-100 text-stone-700' },
     { value: 'active', label: 'Active', color: 'bg-emerald-100 text-emerald-700' },
@@ -737,41 +674,6 @@ const EditProjectModal = ({ open, onClose, project, modules, departments, users,
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-[#4A3728]">Module</Label>
-                  <Select
-                    value={formData.module_id}
-                    onValueChange={(value) => setFormData({ ...formData, module_id: value })}
-                  >
-                    <SelectTrigger className="border-[#D4BBA6] mt-1">
-                      <SelectValue placeholder="Select module" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white border-[#D4BBA6]">
-                      {modules.map(module => (
-                        <SelectItem key={module.id} value={module.id}>{module.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-[#4A3728]">Project Type</Label>
-                  <Select
-                    value={formData.project_type}
-                    onValueChange={(value) => setFormData({ ...formData, project_type: value })}
-                  >
-                    <SelectTrigger className="border-[#D4BBA6] mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white border-[#D4BBA6]">
-                      {projectTypes.map(type => (
-                        <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
               <div>
                 <Label className="text-[#4A3728]">Description</Label>
                 <RichTextEditor
@@ -785,6 +687,23 @@ const EditProjectModal = ({ open, onClose, project, modules, departments, users,
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
+                  <Label className="text-[#4A3728]">Department</Label>
+                  <Select
+                    value={formData.department_id || 'none'}
+                    onValueChange={(value) => setFormData({ ...formData, department_id: value === 'none' ? '' : value })}
+                  >
+                    <SelectTrigger className="border-[#D4BBA6] mt-1">
+                      <SelectValue placeholder="Select department" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border-[#D4BBA6]">
+                      <SelectItem value="none">None</SelectItem>
+                      {departments?.map(dept => (
+                        <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
                   <Label className="text-[#4A3728]">Priority</Label>
                   <Select value={formData.priority} onValueChange={(value) => setFormData({ ...formData, priority: value })}>
                     <SelectTrigger className="border-[#D4BBA6] mt-1"><SelectValue /></SelectTrigger>
@@ -796,6 +715,9 @@ const EditProjectModal = ({ open, onClose, project, modules, departments, users,
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-[#4A3728]">Status</Label>
                   <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
@@ -809,9 +731,6 @@ const EditProjectModal = ({ open, onClose, project, modules, departments, users,
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-[#4A3728]">Visibility</Label>
                   <Select value={formData.visibility} onValueChange={(value) => setFormData({ ...formData, visibility: value })}>
@@ -822,16 +741,17 @@ const EditProjectModal = ({ open, onClose, project, modules, departments, users,
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label className="text-[#4A3728]">Project Manager</Label>
-                  <Select value={formData.project_manager_id || 'none'} onValueChange={(value) => setFormData({ ...formData, project_manager_id: value === 'none' ? '' : value })}>
-                    <SelectTrigger className="border-[#D4BBA6] mt-1"><SelectValue placeholder="Select PM" /></SelectTrigger>
-                    <SelectContent className="bg-white border-[#D4BBA6] max-h-60">
-                      <SelectItem value="none">No PM assigned</SelectItem>
-                      {users.map(user => (<SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              </div>
+
+              <div>
+                <Label className="text-[#4A3728]">Project Manager</Label>
+                <Select value={formData.project_manager_id || 'none'} onValueChange={(value) => setFormData({ ...formData, project_manager_id: value === 'none' ? '' : value })}>
+                  <SelectTrigger className="border-[#D4BBA6] mt-1"><SelectValue placeholder="Select PM" /></SelectTrigger>
+                  <SelectContent className="bg-white border-[#D4BBA6] max-h-60">
+                    <SelectItem value="none">No PM assigned</SelectItem>
+                    {users.map(user => (<SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

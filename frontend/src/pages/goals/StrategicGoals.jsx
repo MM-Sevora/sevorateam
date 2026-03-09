@@ -9,8 +9,8 @@ import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { Textarea } from '../../components/ui/textarea';
 import { Progress } from '../../components/ui/progress';
+import { RichTextEditor } from '../../components/ui/rich-text-editor';
 import {
   Dialog,
   DialogContent,
@@ -83,7 +83,7 @@ const GoalCard = ({ goal, onEdit, onDelete, onView }) => (
       </div>
 
       {goal.description && (
-        <p className="text-sm text-[#6B5D52] mb-3 line-clamp-2">{goal.description}</p>
+        <p className="text-sm text-[#6B5D52] mb-3 line-clamp-2" dangerouslySetInnerHTML={{ __html: goal.description.replace(/<[^>]*>/g, ' ').slice(0, 100) + '...' }} />
       )}
 
       <div className="flex items-center gap-2 mb-3 flex-wrap">
@@ -445,11 +445,12 @@ export default function StrategicGoals() {
 
             <div>
               <Label className="text-[#4A3728]">Description</Label>
-              <Textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              <RichTextEditor
+                content={formData.description}
+                onChange={(html) => setFormData({ ...formData, description: html })}
                 placeholder="Describe the strategic goal..."
-                className="mt-1.5 border-[#D4BBA6] min-h-[80px]"
+                minHeight="100px"
+                className="mt-1.5"
               />
             </div>
 

@@ -89,6 +89,18 @@ async def get_quarter_name(quarter_id: str) -> Optional[str]:
         return None
 
 
+async def get_quarter_names(quarter_ids: list) -> list:
+    """Get multiple quarter names by IDs"""
+    if not quarter_ids:
+        return []
+    names = []
+    for qid in quarter_ids:
+        name = await get_quarter_name(qid)
+        if name:
+            names.append(name)
+    return names
+
+
 async def get_goal_title(goal_id: str) -> Optional[str]:
     """Get strategic goal title by ID"""
     if not goal_id:
@@ -436,12 +448,17 @@ async def delete_strategic_goal(goal_id: str):
 @router.post("/objectives", response_model=ObjectiveResponse)
 async def create_objective(data: ObjectiveCreate):
     """Create a new objective"""
+    # Handle quarter_ids as array
+    quarter_ids = data.quarter_ids if data.quarter_ids else []
+    quarter_id = quarter_ids[0] if quarter_ids else None
+    
     doc = {
         "title": data.title,
         "description": data.description,
         "strategic_goal_id": data.strategic_goal_id,
         "fiscal_year_id": data.fiscal_year_id,
-        "quarter_id": data.quarter_id,
+        "quarter_ids": quarter_ids,
+        "quarter_id": quarter_id,  # Keep for backward compatibility
         "department": data.department,
         "owner_id": data.owner_id,
         "sponsor_id": data.sponsor_id,
@@ -460,7 +477,8 @@ async def create_objective(data: ObjectiveCreate):
     response = serialize_doc(doc)
     response["strategic_goal_title"] = await get_goal_title(data.strategic_goal_id)
     response["fiscal_year_name"] = await get_fiscal_year_name(data.fiscal_year_id)
-    response["quarter_name"] = await get_quarter_name(data.quarter_id)
+    response["quarter_names"] = await get_quarter_names(quarter_ids)
+    response["quarter_name"] = response["quarter_names"][0] if response["quarter_names"] else None
     response["owner_name"] = await get_user_name(data.owner_id)
     response["sponsor_name"] = await get_user_name(data.sponsor_id)
     response["linked_projects_count"] = 0
@@ -485,7 +503,11 @@ async def list_objectives(
     if fiscal_year_id:
         query["fiscal_year_id"] = fiscal_year_id
     if quarter_id:
-        query["quarter_id"] = quarter_id
+        # Support both old single quarter_id and new quarter_ids array
+        query["$or"] = [
+            {"quarter_id": quarter_id},
+            {"quarter_ids": quarter_id}
+        ]
     if strategic_goal_id:
         query["strategic_goal_id"] = strategic_goal_id
     if department:
@@ -509,7 +531,13 @@ async def list_objectives(
         obj_data = serialize_doc(obj)
         obj_data["strategic_goal_title"] = await get_goal_title(obj.get("strategic_goal_id"))
         obj_data["fiscal_year_name"] = await get_fiscal_year_name(obj.get("fiscal_year_id"))
-        obj_data["quarter_name"] = await get_quarter_name(obj.get("quarter_id"))
+        
+        # Handle both old quarter_id and new quarter_ids
+        quarter_ids = obj.get("quarter_ids") or ([obj.get("quarter_id")] if obj.get("quarter_id") else [])
+        obj_data["quarter_ids"] = quarter_ids
+        obj_data["quarter_names"] = await get_quarter_names(quarter_ids)
+        obj_data["quarter_name"] = obj_data["quarter_names"][0] if obj_data["quarter_names"] else await get_quarter_name(obj.get("quarter_id"))
+        
         obj_data["owner_name"] = await get_user_name(obj.get("owner_id"))
         obj_data["sponsor_name"] = await get_user_name(obj.get("sponsor_id"))
         
@@ -540,7 +568,13 @@ async def get_objective(objective_id: str):
     obj_data = serialize_doc(obj)
     obj_data["strategic_goal_title"] = await get_goal_title(obj.get("strategic_goal_id"))
     obj_data["fiscal_year_name"] = await get_fiscal_year_name(obj.get("fiscal_year_id"))
-    obj_data["quarter_name"] = await get_quarter_name(obj.get("quarter_id"))
+    
+    # Handle both old quarter_id and new quarter_ids
+    quarter_ids = obj.get("quarter_ids") or ([obj.get("quarter_id")] if obj.get("quarter_id") else [])
+    obj_data["quarter_ids"] = quarter_ids
+    obj_data["quarter_names"] = await get_quarter_names(quarter_ids)
+    obj_data["quarter_name"] = obj_data["quarter_names"][0] if obj_data["quarter_names"] else await get_quarter_name(obj.get("quarter_id"))
+    
     obj_data["owner_name"] = await get_user_name(obj.get("owner_id"))
     obj_data["sponsor_name"] = await get_user_name(obj.get("sponsor_id"))
     
@@ -575,6 +609,10 @@ async def update_objective(objective_id: str, data: ObjectiveUpdate):
         update_data["start_date"] = datetime.combine(update_data["start_date"], datetime.min.time())
     if "target_date" in update_data:
         update_data["target_date"] = datetime.combine(update_data["target_date"], datetime.min.time())
+    
+    # Handle quarter_ids update - also update quarter_id for backward compatibility
+    if "quarter_ids" in update_data and update_data["quarter_ids"]:
+        update_data["quarter_id"] = update_data["quarter_ids"][0]
     
     update_data["updated_at"] = datetime.now(timezone.utc)
     
@@ -854,10 +892,17 @@ async def list_users_for_assignment():
 
 @router.get("/departments")
 async def list_departments():
-    """Get list of departments"""
-    # Get unique departments from users
-    departments = await db.users.distinct("department")
+    """Get list of departments from organization management"""
+    # First try to get departments from the departments collection (WorkOS)
+    departments = await db.departments.find({"is_active": {"$ne": False}}, {"_id": 0, "id": 1, "name": 1, "code": 1}).to_list(100)
+    
+    if departments and len(departments) > 0:
+        return departments
+    
+    # Fallback: Get unique departments from users if no departments collection exists
+    user_departments = await db.users.distinct("department")
     # Add common departments if not present
     common_depts = ["Product", "Engineering", "Marketing", "Sales", "Operations", "HR", "Finance"]
-    all_depts = list(set(departments + common_depts))
+    all_depts = list(set(user_departments + common_depts))
+    # Return as list of strings for backward compatibility
     return sorted([d for d in all_depts if d])

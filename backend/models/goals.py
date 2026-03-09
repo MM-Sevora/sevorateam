@@ -140,7 +140,7 @@ class ObjectiveCreate(BaseModel):
     description: Optional[str] = None
     strategic_goal_id: str
     fiscal_year_id: str
-    quarter_id: str
+    quarter_ids: List[str] = []  # Changed to array for multi-select
     department: Optional[str] = None
     owner_id: Optional[str] = None
     sponsor_id: Optional[str] = None
@@ -155,7 +155,7 @@ class ObjectiveUpdate(BaseModel):
     description: Optional[str] = None
     strategic_goal_id: Optional[str] = None
     fiscal_year_id: Optional[str] = None
-    quarter_id: Optional[str] = None
+    quarter_ids: Optional[List[str]] = None  # Changed to array for multi-select
     department: Optional[str] = None
     owner_id: Optional[str] = None
     sponsor_id: Optional[str] = None
@@ -174,8 +174,10 @@ class ObjectiveResponse(BaseModel):
     strategic_goal_title: Optional[str] = None
     fiscal_year_id: str
     fiscal_year_name: Optional[str] = None
-    quarter_id: str
-    quarter_name: Optional[str] = None
+    quarter_ids: List[str] = []  # Changed to array for multi-select
+    quarter_id: Optional[str] = None  # Keep for backward compatibility
+    quarter_name: Optional[str] = None  # Primary quarter name (first in list)
+    quarter_names: List[str] = []  # All quarter names
     department: Optional[str] = None
     owner_id: Optional[str] = None
     owner_name: Optional[str] = None

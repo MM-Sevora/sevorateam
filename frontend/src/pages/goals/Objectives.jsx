@@ -3,15 +3,15 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Target, Plus, Search, Filter, MoreVertical, Edit, Trash2, Eye,
   Loader2, Flag, Calendar, User, ChevronRight, ArrowLeft, Building2,
-  AlertTriangle, Clock
+  AlertTriangle, Clock, X
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { Textarea } from '../../components/ui/textarea';
 import { Progress } from '../../components/ui/progress';
+import { RichTextEditor } from '../../components/ui/rich-text-editor';
 import {
   Dialog,
   DialogContent,
@@ -101,7 +101,7 @@ const ObjectiveCard = ({ objective, onEdit, onDelete, onClick }) => (
       </div>
 
       {objective.description && (
-        <p className="text-sm text-[#6B5D52] mb-3 line-clamp-2">{objective.description}</p>
+        <p className="text-sm text-[#6B5D52] mb-3 line-clamp-2" dangerouslySetInnerHTML={{ __html: objective.description.replace(/<[^>]*>/g, ' ').slice(0, 100) + '...' }} />
       )}
 
       <div className="flex items-center gap-2 mb-3 flex-wrap">
@@ -176,7 +176,7 @@ export default function Objectives() {
     description: '',
     strategic_goal_id: '',
     fiscal_year_id: '',
-    quarter_id: '',
+    quarter_ids: [], // Changed to array for multi-select
     department: '',
     owner_id: '',
     sponsor_id: '',
@@ -265,12 +265,14 @@ export default function Objectives() {
   const handleOpenModal = (obj = null) => {
     if (obj) {
       setEditingObj(obj);
+      // Handle both old single quarter_id and new quarter_ids array
+      const quarterIds = obj.quarter_ids || (obj.quarter_id ? [obj.quarter_id] : []);
       setFormData({
         title: obj.title,
         description: obj.description || '',
         strategic_goal_id: obj.strategic_goal_id,
         fiscal_year_id: obj.fiscal_year_id,
-        quarter_id: obj.quarter_id,
+        quarter_ids: quarterIds,
         department: obj.department || '',
         owner_id: obj.owner_id || '',
         sponsor_id: obj.sponsor_id || '',
@@ -287,7 +289,7 @@ export default function Objectives() {
         description: '',
         strategic_goal_id: filterGoal !== 'all' ? filterGoal : '',
         fiscal_year_id: activeFY?.id || '',
-        quarter_id: '',
+        quarter_ids: [],
         department: '',
         owner_id: '',
         sponsor_id: '',
@@ -305,8 +307,8 @@ export default function Objectives() {
       toast.error('Objective title is required');
       return;
     }
-    if (!formData.strategic_goal_id || !formData.fiscal_year_id || !formData.quarter_id) {
-      toast.error('Please select strategic goal, fiscal year, and quarter');
+    if (!formData.strategic_goal_id || !formData.fiscal_year_id || formData.quarter_ids.length === 0) {
+      toast.error('Please select strategic goal, fiscal year, and at least one quarter');
       return;
     }
 
@@ -444,7 +446,7 @@ export default function Objectives() {
               <SelectContent>
                 <SelectItem value="all">All Depts</SelectItem>
                 {departments.map(d => (
-                  <SelectItem key={d} value={d}>{d}</SelectItem>
+                  <SelectItem key={d.id || d} value={d.name || d}>{d.name || d}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -516,11 +518,12 @@ export default function Objectives() {
 
             <div>
               <Label className="text-[#4A3728]">Description</Label>
-              <Textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              <RichTextEditor
+                content={formData.description}
+                onChange={(html) => setFormData({ ...formData, description: html })}
                 placeholder="Describe the objective..."
-                className="mt-1.5 border-[#D4BBA6] min-h-[80px]"
+                minHeight="100px"
+                className="mt-1.5"
               />
             </div>
 
@@ -553,7 +556,7 @@ export default function Objectives() {
                   </SelectTrigger>
                   <SelectContent>
                     {departments.map(d => (
-                      <SelectItem key={d} value={d}>{d}</SelectItem>
+                      <SelectItem key={d.id || d} value={d.name || d}>{d.name || d}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -565,7 +568,7 @@ export default function Objectives() {
                 <Label className="text-[#4A3728]">Fiscal Year *</Label>
                 <Select 
                   value={formData.fiscal_year_id} 
-                  onValueChange={(v) => setFormData({ ...formData, fiscal_year_id: v, quarter_id: '' })}
+                  onValueChange={(v) => setFormData({ ...formData, fiscal_year_id: v, quarter_ids: [] })}
                 >
                   <SelectTrigger className="mt-1.5 border-[#D4BBA6]">
                     <SelectValue placeholder="Select year" />
@@ -579,21 +582,44 @@ export default function Objectives() {
               </div>
 
               <div>
-                <Label className="text-[#4A3728]">Quarter *</Label>
-                <Select 
-                  value={formData.quarter_id} 
-                  onValueChange={(v) => setFormData({ ...formData, quarter_id: v })}
-                  disabled={!formData.fiscal_year_id}
-                >
-                  <SelectTrigger className="mt-1.5 border-[#D4BBA6]">
-                    <SelectValue placeholder="Select quarter" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {formQuarters.map(q => (
-                      <SelectItem key={q.id} value={q.id}>{q.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="text-[#4A3728]">Quarters * (Multi-select)</Label>
+                <div className="mt-1.5 border border-[#D4BBA6] rounded-md p-2 min-h-[40px] bg-white">
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {formData.quarter_ids.map(qId => {
+                      const q = formQuarters.find(fq => fq.id === qId);
+                      return q ? (
+                        <Badge key={qId} variant="secondary" className="bg-indigo-100 text-indigo-700 gap-1">
+                          {q.name}
+                          <X
+                            className="w-3 h-3 cursor-pointer hover:text-red-600"
+                            onClick={() => setFormData({
+                              ...formData,
+                              quarter_ids: formData.quarter_ids.filter(id => id !== qId)
+                            })}
+                          />
+                        </Badge>
+                      ) : null;
+                    })}
+                  </div>
+                  <Select
+                    value=""
+                    onValueChange={(v) => {
+                      if (v && !formData.quarter_ids.includes(v)) {
+                        setFormData({ ...formData, quarter_ids: [...formData.quarter_ids, v] });
+                      }
+                    }}
+                    disabled={!formData.fiscal_year_id}
+                  >
+                    <SelectTrigger className="border-0 p-0 h-auto shadow-none focus:ring-0">
+                      <SelectValue placeholder={formData.quarter_ids.length > 0 ? "Add more quarters..." : "Select quarters"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {formQuarters.filter(q => !formData.quarter_ids.includes(q.id)).map(q => (
+                        <SelectItem key={q.id} value={q.id}>{q.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 

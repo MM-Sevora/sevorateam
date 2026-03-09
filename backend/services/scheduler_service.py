@@ -5,7 +5,7 @@ Uses MongoDB for job persistence
 import os
 import logging
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, Callable, List
 from pymongo import MongoClient
 
@@ -379,6 +379,135 @@ def schedule_once(func: Callable, job_id: str, run_date: str, **kwargs) -> Optio
     )
 
 
+# ============== OBJECTIVE DEADLINE NOTIFICATIONS ==============
+
+async def process_objective_deadline_notifications():
+    """Process objective deadline notifications and send to owners"""
+    from motor.motor_asyncio import AsyncIOMotorClient
+    from routes.notifications import create_notification, NotificationType, NotificationCategory, NotificationPriority
+    
+    try:
+        client = AsyncIOMotorClient(MONGO_URL)
+        db = client[DB_NAME]
+        
+        now = datetime.now(timezone.utc)
+        
+        # Get objectives that are not completed and have target dates
+        objectives = await db.objectives.find({
+            "status": {"$nin": ["completed", "archived"]},
+            "target_date": {"$ne": None}
+        }).to_list(500)
+        
+        for obj in objectives:
+            try:
+                target_date = obj.get("target_date")
+                if not target_date:
+                    continue
+                
+                # Ensure target_date is datetime
+                if isinstance(target_date, str):
+                    target_date = datetime.fromisoformat(target_date.replace('Z', '+00:00'))
+                
+                owner_id = obj.get("owner_id")
+                if not owner_id:
+                    continue
+                
+                obj_id = str(obj["_id"])
+                obj_title = obj.get("title", "Unknown Objective")
+                
+                # Check if notification was already sent today for this objective
+                notification_key = f"objective_deadline_{obj_id}"
+                today_start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
+                
+                existing_notification = await db.notifications.find_one({
+                    "metadata.notification_key": notification_key,
+                    "created_at": {"$gte": today_start.isoformat()}
+                })
+                
+                if existing_notification:
+                    continue
+                
+                # Determine notification type and message
+                days_until_deadline = (target_date - now).days
+                
+                if days_until_deadline < 0:
+                    # Overdue
+                    days_overdue = abs(days_until_deadline)
+                    title = f"Objective Overdue: {obj_title}"
+                    message = f"This objective is {days_overdue} day{'s' if days_overdue > 1 else ''} overdue. Please update the status or adjust the timeline."
+                    priority = NotificationPriority.URGENT
+                elif days_until_deadline <= 3:
+                    # Due soon (within 3 days)
+                    title = f"Objective Due Soon: {obj_title}"
+                    message = f"This objective is due in {days_until_deadline} day{'s' if days_until_deadline > 1 else ''}. Current progress: {obj.get('progress', 0):.0f}%"
+                    priority = NotificationPriority.HIGH
+                elif days_until_deadline <= 7:
+                    # Upcoming (within 7 days)
+                    title = f"Upcoming Deadline: {obj_title}"
+                    message = f"This objective is due in {days_until_deadline} days. Current progress: {obj.get('progress', 0):.0f}%"
+                    priority = NotificationPriority.MEDIUM
+                else:
+                    continue  # Don't notify for deadlines more than 7 days away
+                
+                # Create notification
+                await create_notification(
+                    user_id=owner_id,
+                    notification_type=NotificationType.TASK_DUE,
+                    category=NotificationCategory.TASK,
+                    title=title,
+                    message=message,
+                    priority=priority,
+                    entity_type="objective",
+                    entity_id=obj_id,
+                    action_url=f"/goals/objectives/{obj_id}",
+                    metadata={
+                        "objective_title": obj_title,
+                        "target_date": target_date.isoformat() if isinstance(target_date, datetime) else target_date,
+                        "days_until_deadline": days_until_deadline,
+                        "progress": obj.get("progress", 0),
+                        "notification_key": notification_key
+                    }
+                )
+                
+                logger.info(f"Sent deadline notification for objective {obj_id} to user {owner_id}")
+                
+            except Exception as e:
+                logger.error(f"Error processing objective {obj.get('_id')}: {e}")
+        
+        client.close()
+        
+    except Exception as e:
+        logger.error(f"Error in process_objective_deadline_notifications: {e}")
+
+
+def setup_objective_deadline_job():
+    """Setup the objective deadline notification job to run daily at 9 AM UTC"""
+    global scheduler
+    
+    if not APSCHEDULER_AVAILABLE or scheduler is None:
+        logger.warning("Cannot setup objective deadline job - scheduler not available")
+        return
+    
+    job_id = "process_objective_deadlines"
+    
+    # Remove existing job if present
+    try:
+        scheduler.remove_job(job_id)
+    except:
+        pass
+    
+    # Add new job - runs daily at 9 AM UTC
+    add_job(
+        func=process_objective_deadline_notifications,
+        trigger='cron',
+        job_id=job_id,
+        trigger_args={'hour': 9, 'minute': 0},
+        replace_existing=True
+    )
+    
+    logger.info("Objective deadline notification job scheduled (daily at 9 AM UTC)")
+
+
 # ============== TASK REMINDER PROCESSING ==============
 
 async def process_task_reminders():
@@ -409,7 +538,7 @@ async def process_task_reminders():
                 if task:
                     # Create notification
                     message = reminder.get("message") or f"Follow-up reminder for task: {task.get('name', 'Unknown')}"
-                    action_url = f"/projects/{task.get('project_id')}?task={reminder['task_id']}" if task.get('project_id') else f"/projects/my-tasks"
+                    action_url = f"/projects/{task.get('project_id')}?task={reminder['task_id']}" if task.get('project_id') else "/projects/my-tasks"
                     
                     await create_notification(
                         user_id=reminder["user_id"],
@@ -471,3 +600,6 @@ def setup_reminder_job():
     )
     
     logger.info("Task reminder processing job scheduled (every 5 minutes)")
+    
+    # Also setup objective deadline notifications
+    setup_objective_deadline_job()
