@@ -669,6 +669,15 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - `GET /api/access/my-access` - Get current user's access profile
 - `GET /api/access/check/{module_key}` - Check module access permission
 
+### Project Management Enhanced Endpoints (New)
+- `POST /api/projects` - Create project with visibility field (public/private), creator auto-added to team
+- `GET /api/projects/list` - List projects with visibility filtering (admins see all, others see public + team member projects)
+- `PUT /api/projects/{id}` - Update project visibility and other fields
+- `POST /api/projects/{project_id}/members` - Add team member to project
+- `DELETE /api/projects/{project_id}/members/{member_id}` - Remove team member from project
+- `POST /api/projects/tasks` - Create task with optional project_id (individual tasks)
+- `GET /api/projects/individual-tasks` - Get individual tasks (not linked to any project)
+
 ### 3rd Party Integrations
 - Microsoft Azure AD / Graph API (SSO, Email)
 - OpenAI GPT-4o (via emergentintegrations)
@@ -688,7 +697,33 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - `/app/test_reports/iteration_32.json` - Access Control tests (42/42 passed)
 - `/app/test_reports/iteration_33.json` - Organization Structure tests (19/19 passed)
 - `/app/test_reports/iteration_34.json` - Expense & Reimbursement tests (24/24 passed)
+- `/app/test_reports/iteration_35.json` - Project Visibility & Team Management tests (16/16 passed)
 - `/app/backend/tests/test_manager_dashboard.py`
 - `/app/backend/tests/test_access_control.py` - Access Control backend tests
 - `/app/backend/tests/test_organization_structure.py` - Organization Structure backend tests
 - `/app/backend/tests/test_expense_module.py` - Expense module backend tests
+- `/app/backend/tests/test_project_visibility_team.py` - Project visibility and team management tests
+
+---
+
+## Recent Additions (March 2026)
+
+### Phase 27: Project Visibility & Team Management (COMPLETE - March 9, 2026)
+- [x] Backend: Added `visibility` field (public/private) to ProjectCreate, ProjectUpdate, ProjectResponse
+- [x] Backend: Creator auto-added to team_members on project creation
+- [x] Backend: Visibility-based filtering in list_projects (admins see all, others see public + their team projects)
+- [x] Backend: Made `project_id` optional in TaskCreate for individual tasks
+- [x] Backend: Added `is_individual` flag to TaskResponse
+- [x] Backend: New endpoint `GET /api/projects/individual-tasks` for standalone tasks
+- [x] Frontend: Visibility toggle (Public/Private) in CreateProjectModal
+- [x] Frontend: Private badge with Lock icon on project cards and detail page
+- [x] Frontend: Team button and TeamManagementModal in ProjectDetail for managing team members
+- [x] Frontend: Add/remove team members with user selector
+- [x] Frontend: Update visibility from modal
+- [x] Frontend: Individual badge on tasks without project in MyTasks page
+- [x] Frontend: Quick Add Task now supports individual tasks
+
+### Decoupled Task Structure
+- Project Tasks: Linked to a specific project, visible to project team
+- Individual Tasks: Standalone tasks for daily responsibilities, not linked to any project
+- Both task types appear in My Tasks dashboard with appropriate badges
