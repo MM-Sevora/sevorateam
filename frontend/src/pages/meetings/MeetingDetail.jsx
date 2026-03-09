@@ -6,7 +6,7 @@ import {
   Play, CheckCircle2, AlertCircle, Edit, MoreVertical, MessageSquare,
   ListTodo, RefreshCw, ChevronRight, ExternalLink, Copy, Check,
   PauseCircle, XCircle, ArrowRight, Zap, Scale, ShieldAlert, TrendingUp,
-  CloudUpload
+  CloudUpload, Unlink
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -131,6 +131,9 @@ const MeetingDetail = () => {
   // Outlook sync state
   const [syncingToOutlook, setSyncingToOutlook] = useState(false);
   const [outlookSyncStatus, setOutlookSyncStatus] = useState(null);
+  const [msCalendarStatus, setMsCalendarStatus] = useState(null);
+  const [showConnectOutlookModal, setShowConnectOutlookModal] = useState(false);
+  const [connectingToMs, setConnectingToMs] = useState(false);
 
   const fetchMeeting = useCallback(async () => {
     try {
@@ -529,7 +532,70 @@ const MeetingDetail = () => {
   };
 
   // Outlook Sync
+  const fetchMsCalendarStatus = async () => {
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/meetings/ms-calendar/status`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setMsCalendarStatus(await res.json());
+      }
+    } catch (error) {
+      console.error('Error fetching MS Calendar status:', error);
+    }
+  };
+
+  const handleConnectMsCalendar = async () => {
+    setConnectingToMs(true);
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/meetings/ms-calendar/connect`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === 'ready' && data.auth_url) {
+          window.open(data.auth_url, '_blank', 'width=600,height=700');
+          toast.info('Complete the Microsoft login in the popup window');
+          // Poll for connection status
+          const pollInterval = setInterval(async () => {
+            const statusRes = await fetch(`${API}/api/meetings/ms-calendar/status`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (statusRes.ok) {
+              const status = await statusRes.json();
+              if (status.is_connected) {
+                clearInterval(pollInterval);
+                setMsCalendarStatus(status);
+                setShowConnectOutlookModal(false);
+                toast.success(`Connected to Outlook as ${status.ms_email}`);
+                // Auto-sync after connection
+                handleSyncToOutlook();
+              }
+            }
+          }, 3000);
+          setTimeout(() => clearInterval(pollInterval), 120000);
+        } else if (data.status === 'not_configured') {
+          toast.error('Microsoft Calendar integration is not configured');
+        }
+      }
+    } catch (error) {
+      toast.error('Error connecting to Microsoft Calendar');
+    } finally {
+      setConnectingToMs(false);
+    }
+  };
+
   const handleSyncToOutlook = async () => {
+    // First check if connected
+    if (!msCalendarStatus?.is_connected) {
+      setShowConnectOutlookModal(true);
+      return;
+    }
+    
     setSyncingToOutlook(true);
     try {
       const token = localStorage.getItem('sevora_token');
@@ -545,8 +611,8 @@ const MeetingDetail = () => {
         setOutlookSyncStatus('synced');
         fetchMeeting();
       } else if (res.status === 400) {
-        // User not connected to Outlook
-        toast.error(data.detail || 'Please connect your Outlook calendar first from the Meetings page');
+        // User not connected - show connect modal
+        setShowConnectOutlookModal(true);
         setOutlookSyncStatus('not_connected');
       } else {
         toast.error(data.message || data.detail || 'Failed to sync to Outlook');
@@ -559,6 +625,11 @@ const MeetingDetail = () => {
       setSyncingToOutlook(false);
     }
   };
+
+  // Fetch MS Calendar status on mount
+  useEffect(() => {
+    fetchMsCalendarStatus();
+  }, []);
 
   const formatDateTime = (dateStr) => {
     if (!dateStr) return '';
@@ -1944,6 +2015,65 @@ const MeetingDetail = () => {
               Add {issueRiskForm.type === 'risk' ? 'Risk' : 'Issue'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Connect Outlook Modal */}
+      <Dialog open={showConnectOutlookModal} onOpenChange={setShowConnectOutlookModal}>
+        <DialogContent className="bg-white border-[#D4BBA6] max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[#4A3728] flex items-center gap-2">
+              <Calendar className="w-5 h-5" />
+              Connect Microsoft Outlook
+            </DialogTitle>
+            <DialogDescription className="text-[#6B5D52]">
+              Connect your Outlook calendar to sync this meeting.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-4 bg-[#F5EBE0] rounded-lg">
+                <Calendar className="w-8 h-8 text-[#4A3728]" />
+                <div>
+                  <p className="font-medium text-[#4A3728]">Outlook Not Connected</p>
+                  <p className="text-sm text-[#5D4A3A]">Connect to sync meetings to your calendar</p>
+                </div>
+              </div>
+              
+              <div className="text-sm text-[#6B5D52] space-y-1">
+                <p>✓ Sync this meeting to your Outlook calendar</p>
+                <p>✓ Send calendar invites to participants</p>
+                <p>✓ Keep meeting changes in sync</p>
+              </div>
+              
+              <Button
+                onClick={handleConnectMsCalendar}
+                disabled={connectingToMs}
+                className="w-full bg-[#0078d4] hover:bg-[#106ebe] text-white"
+              >
+                {connectingToMs ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  <>
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Connect with Microsoft
+                  </>
+                )}
+              </Button>
+              
+              <Button
+                variant="outline"
+                onClick={() => setShowConnectOutlookModal(false)}
+                className="w-full border-[#D4BBA6]"
+              >
+                Maybe Later
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
