@@ -57,6 +57,7 @@ import UserManagementPage from "./pages/admin/UserManagement";
 import PermissionsPage from "./pages/admin/PermissionsPage";
 import OrganizationManagement from "./pages/admin/OrganizationManagement";
 import TeamDashboard from "./pages/admin/TeamDashboard";
+import EmployeeDatabase from "./pages/admin/EmployeeDatabase";
 
 // Settings Pages
 import AutomationSettings from "./pages/settings/AutomationSettings";
@@ -305,6 +306,7 @@ function AppRoutes() {
             <Route path="/admin/users" element={<ProtectedRoute requiredDepartment="admin"><UserManagementPage /></ProtectedRoute>} />
             <Route path="/admin/permissions" element={<ProtectedRoute requiredDepartment="admin"><PermissionsPage /></ProtectedRoute>} />
             <Route path="/admin/organization" element={<ProtectedRoute requiredDepartment="admin"><OrganizationManagement /></ProtectedRoute>} />
+            <Route path="/admin/employees" element={<ProtectedRoute requiredDepartment="admin"><EmployeeDatabase /></ProtectedRoute>} />
             <Route path="/admin/team" element={<ProtectedRoute><TeamDashboard /></ProtectedRoute>} />
 
             {/* Settings Routes */}

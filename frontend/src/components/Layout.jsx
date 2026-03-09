@@ -8,7 +8,7 @@ import {
     UserPlus, ShoppingBag, Calendar, QrCode, Building2, Settings,
     PenTool, Sparkles, Zap, Clock, Youtube, Image, LogOut, Menu, X,
     ChevronDown, ChevronRight, Briefcase, Mail, Check, Send, ListTodo, FolderKanban,
-    HelpCircle
+    HelpCircle, Award
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -103,6 +103,7 @@ const DEPARTMENT_CONFIG = {
         textColor: 'text-slate-700',
         routes: [
             { path: '/admin/organization', name: 'Organization', icon: Building2 },
+            { path: '/admin/employees', name: 'Employee Database', icon: Award },
             { path: '/admin/users', name: 'User Management', icon: Users },
             { path: '/admin/permissions', name: 'Permissions', icon: Settings },
         ]

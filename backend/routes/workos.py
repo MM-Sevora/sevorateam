@@ -308,7 +308,7 @@ async def get_users_enhanced(
     
     users = await db.users.find(query, {"_id": 0, "password": 0}).limit(limit).to_list(limit)
     
-    # Enrich with department, role, and manager names
+    # Enrich with department, role, grade, and manager names
     for u in users:
         if u.get("department_id"):
             dept = await db.departments.find_one({"id": u["department_id"]}, {"name": 1})
@@ -316,6 +316,9 @@ async def get_users_enhanced(
         if u.get("role_id"):
             role = await db.roles.find_one({"id": u["role_id"]}, {"name": 1})
             u["role_name"] = role.get("name") if role else None
+        if u.get("grade_id"):
+            grade = await db.grade_types.find_one({"id": u["grade_id"]}, {"name": 1})
+            u["grade_name"] = grade.get("name") if grade else None
         if u.get("reports_to"):
             manager = await db.users.find_one({"id": u["reports_to"]}, {"name": 1})
             u["manager_name"] = manager.get("name") if manager else None
@@ -343,6 +346,9 @@ async def get_user_enhanced(user_id: str, current_user: dict = Depends(get_curre
     if user.get("role_id"):
         role = await db.roles.find_one({"id": user["role_id"]}, {"name": 1})
         user["role_name"] = role.get("name") if role else None
+    if user.get("grade_id"):
+        grade = await db.grade_types.find_one({"id": user["grade_id"]}, {"name": 1})
+        user["grade_name"] = grade.get("name") if grade else None
     if user.get("reports_to"):
         manager = await db.users.find_one({"id": user["reports_to"]}, {"name": 1})
         user["manager_name"] = manager.get("name") if manager else None
@@ -379,6 +385,9 @@ async def update_user_enhanced(
     if updated.get("role_id"):
         role = await db.roles.find_one({"id": updated["role_id"]}, {"name": 1})
         updated["role_name"] = role.get("name") if role else None
+    if updated.get("grade_id"):
+        grade = await db.grade_types.find_one({"id": updated["grade_id"]}, {"name": 1})
+        updated["grade_name"] = grade.get("name") if grade else None
     if updated.get("reports_to"):
         manager = await db.users.find_one({"id": updated["reports_to"]}, {"name": 1})
         updated["manager_name"] = manager.get("name") if manager else None

@@ -12,6 +12,7 @@ const OrganizationManagement = () => {
   const [departments, setDepartments] = useState([]);
   const [roles, setRoles] = useState([]);
   const [users, setUsers] = useState([]);
+  const [grades, setGrades] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -22,8 +23,21 @@ const OrganizationManagement = () => {
   const [editingItem, setEditingItem] = useState(null);
 
   useEffect(() => {
+    fetchGrades();
+  }, []);
+
+  useEffect(() => {
     fetchData();
   }, [activeTab]);
+
+  const fetchGrades = async () => {
+    try {
+      const res = await api.get('/hr/grades');
+      setGrades(res.data);
+    } catch (err) {
+      console.error('Failed to fetch grades:', err);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -203,6 +217,7 @@ const OrganizationManagement = () => {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">User</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">Department</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">Grade</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">Role</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">Reports To</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">Status</th>
@@ -253,6 +268,7 @@ const OrganizationManagement = () => {
           user={editingItem}
           departments={departments}
           roles={roles}
+          grades={grades}
           allUsers={users}
           onClose={() => setShowUserModal(false)}
           onSave={() => { setShowUserModal(false); fetchData(); }}
@@ -431,6 +447,9 @@ const UserRow = ({ user, departments, roles, allUsers, onEdit, onRefresh }) => {
       </td>
       <td className="px-6 py-4">
         <span className="text-[#5D4A3A]">{user.department_name || '-'}</span>
+      </td>
+      <td className="px-6 py-4">
+        <span className="text-[#5D4A3A]">{user.grade_name || '-'}</span>
       </td>
       <td className="px-6 py-4">
         <span className="text-[#5D4A3A]">{user.role_name || user.role || '-'}</span>
@@ -636,11 +655,12 @@ const RoleModal = ({ role, onClose, onSave }) => {
 };
 
 // User Modal
-const UserModal = ({ user, departments, roles, allUsers, onClose, onSave }) => {
+const UserModal = ({ user, departments, roles, grades, allUsers, onClose, onSave }) => {
   const [form, setForm] = useState({
     name: user?.name || '',
     department_id: user?.department_id || '',
     role_id: user?.role_id || '',
+    grade_id: user?.grade_id || '',
     reports_to: user?.reports_to || '',
     title: user?.title || '',
     status: user?.status || 'active',
@@ -664,11 +684,11 @@ const UserModal = ({ user, departments, roles, allUsers, onClose, onSave }) => {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl w-full max-w-md mx-4" data-testid="user-modal">
+      <div className="bg-white rounded-xl w-full max-w-lg mx-4" data-testid="user-modal">
         <div className="p-6 border-b border-[#E8D5C4]">
           <h2 className="text-lg font-semibold text-[#3D2E22]">Edit User</h2>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
           <div>
             <label className="block text-sm font-medium text-[#3D2E22] mb-1">Name</label>
             <input
@@ -698,6 +718,19 @@ const UserModal = ({ user, departments, roles, allUsers, onClose, onSave }) => {
               <option value="">Select department...</option>
               {departments.map(d => (
                 <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#3D2E22] mb-1">Grade</label>
+            <select
+              value={form.grade_id}
+              onChange={(e) => setForm({ ...form, grade_id: e.target.value })}
+              className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none"
+            >
+              <option value="">Select grade...</option>
+              {grades?.map(g => (
+                <option key={g.id} value={g.id}>{g.name}</option>
               ))}
             </select>
           </div>

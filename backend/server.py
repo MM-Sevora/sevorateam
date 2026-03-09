@@ -3290,6 +3290,14 @@ try:
 except Exception as e:
     logger.error(f"Failed to load WorkOS routes: {e}")
 
+# Register HR routes (Employee Database, Grade Types, Reporting Structure)
+try:
+    from routes.hr import hr_router
+    api_router.include_router(hr_router)
+    logger.info("HR routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load HR routes: {e}")
+
 # Register Scheduler routes (Background jobs)
 try:
     from routes.scheduler import scheduler_router

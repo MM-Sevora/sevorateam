@@ -100,6 +100,7 @@ class UserEnhancedUpdate(BaseModel):
     name: Optional[str] = None
     department_id: Optional[str] = None
     role_id: Optional[str] = None
+    grade_id: Optional[str] = None  # HR Grade Type
     reports_to: Optional[str] = None
     title: Optional[str] = None
     phone: Optional[str] = None
@@ -111,10 +112,12 @@ class UserEnhancedResponse(BaseModel):
     id: str
     email: str
     name: str
-    department_id: str
+    department_id: Optional[str] = None
     department_name: Optional[str] = None
-    role_id: str
+    role_id: Optional[str] = None
     role_name: Optional[str] = None
+    grade_id: Optional[str] = None
+    grade_name: Optional[str] = None
     reports_to: Optional[str] = None
     manager_name: Optional[str] = None
     title: Optional[str] = None
@@ -122,9 +125,12 @@ class UserEnhancedResponse(BaseModel):
     avatar_url: Optional[str] = None
     status: str = "active"
     last_login: Optional[str] = None
-    created_at: str
-    updated_at: str
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
     direct_reports: List[str] = []  # IDs of users reporting to this user
+    
+    class Config:
+        extra = "ignore"
 
 
 # ============== ORGANIZATION MODELS ==============
