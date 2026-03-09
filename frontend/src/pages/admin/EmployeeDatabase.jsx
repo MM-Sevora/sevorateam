@@ -477,10 +477,17 @@ const EmployeesTable = ({ employees, departments, grades, loading, onEdit, onRef
   const statusColors = {
     active: 'bg-green-100 text-green-700',
     probation: 'bg-amber-100 text-amber-700',
-    on_notice: 'bg-orange-100 text-orange-700',
+    confirmed: 'bg-green-100 text-green-700',
+    notice_period: 'bg-orange-100 text-orange-700',
     on_leave: 'bg-blue-100 text-blue-700',
     terminated: 'bg-stone-100 text-stone-600',
     resigned: 'bg-stone-100 text-stone-600'
+  };
+
+  const workModeIcons = {
+    office: '🏢',
+    hybrid: '🔄',
+    remote: '🏠'
   };
 
   if (loading) {
@@ -496,18 +503,20 @@ const EmployeesTable = ({ employees, departments, grades, loading, onEdit, onRef
       <table className="w-full">
         <thead className="bg-[#F5EDE4]">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">Employee</th>
-            <th className="px-6 py-3 text-left text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">Department</th>
-            <th className="px-6 py-3 text-left text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">Grade</th>
-            <th className="px-6 py-3 text-left text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">Reports To</th>
-            <th className="px-6 py-3 text-left text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">Status</th>
-            <th className="px-6 py-3 text-right text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">Actions</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">Employee</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">Department</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">Designation</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">Grade</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">Reports To</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">Work Mode</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">Status</th>
+            <th className="px-4 py-3 text-right text-xs font-semibold text-[#5D4A3A] uppercase tracking-wider">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[#E8D5C4]">
           {employees.map(emp => (
             <tr key={emp.id} className="hover:bg-[#F5EDE4]/50" data-testid={`emp-row-${emp.id}`}>
-              <td className="px-6 py-4">
+              <td className="px-4 py-3">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-[#8B7355]/10 flex items-center justify-center">
                     {emp.avatar_url ? (
@@ -518,28 +527,37 @@ const EmployeesTable = ({ employees, departments, grades, loading, onEdit, onRef
                   </div>
                   <div>
                     <p className="font-medium text-[#3D2E22]">{emp.name || 'Unnamed'}</p>
-                    <p className="text-sm text-[#8B7355]">{emp.title || emp.email}</p>
-                    {emp.employee_id && (
-                      <p className="text-xs text-[#8B7355]">{emp.employee_id}</p>
-                    )}
+                    <p className="text-xs text-[#8B7355]">{emp.employee_id || emp.email}</p>
                   </div>
                 </div>
               </td>
-              <td className="px-6 py-4">
+              <td className="px-4 py-3">
                 <span className="text-[#5D4A3A]">{emp.department_name || '-'}</span>
+                {emp.team_name && <p className="text-xs text-[#8B7355]">{emp.team_name}</p>}
               </td>
-              <td className="px-6 py-4">
+              <td className="px-4 py-3">
+                <span className="text-[#5D4A3A]">{emp.designation || emp.position_title || '-'}</span>
+              </td>
+              <td className="px-4 py-3">
                 <span className="text-[#5D4A3A]">{emp.grade_name || '-'}</span>
               </td>
-              <td className="px-6 py-4">
+              <td className="px-4 py-3">
                 <span className="text-[#5D4A3A]">{emp.manager_name || '-'}</span>
+                {emp.secondary_manager_name && (
+                  <p className="text-xs text-[#8B7355]">+ {emp.secondary_manager_name}</p>
+                )}
               </td>
-              <td className="px-6 py-4">
+              <td className="px-4 py-3">
+                <span className="text-sm">
+                  {workModeIcons[emp.work_mode] || '🏢'} {emp.work_mode ? emp.work_mode.charAt(0).toUpperCase() + emp.work_mode.slice(1) : 'Office'}
+                </span>
+              </td>
+              <td className="px-4 py-3">
                 <span className={`px-2 py-1 text-xs rounded-full capitalize ${statusColors[emp.status] || statusColors.active}`}>
                   {emp.status?.replace('_', ' ') || 'active'}
                 </span>
               </td>
-              <td className="px-6 py-4 text-right">
+              <td className="px-4 py-3 text-right">
                 <button 
                   onClick={() => onEdit(emp)} 
                   className="p-1.5 hover:bg-[#F5EDE4] rounded-md transition-colors"
@@ -691,29 +709,58 @@ const EmployeeModal = ({ employee, departments, grades, allEmployees, onClose, o
     email: employee?.email || '',
     employee_id: employee?.employee_id || '',
     department_id: employee?.department_id || '',
+    team_id: employee?.team_id || '',
+    position_id: employee?.position_id || '',
     role_id: employee?.role_id || '',
     grade_id: employee?.grade_id || '',
     reports_to: employee?.reports_to || '',
-    title: employee?.title || '',
+    secondary_manager_id: employee?.secondary_manager_id || '',
+    designation: employee?.designation || '',
     employment_type: employee?.employment_type || 'full_time',
+    work_mode: employee?.work_mode || 'office',
     status: employee?.status || 'active',
     joining_date: employee?.joining_date || '',
     phone: employee?.phone || '',
+    gender: employee?.gender || '',
     work_location: employee?.work_location || '',
   });
   const [saving, setSaving] = useState(false);
   const [roles, setRoles] = useState([]);
+  const [teams, setTeams] = useState([]);
+  const [positions, setPositions] = useState([]);
 
   useEffect(() => {
-    fetchRoles();
+    fetchOptions();
   }, []);
 
-  const fetchRoles = async () => {
+  useEffect(() => {
+    // Fetch teams when department changes
+    if (form.department_id) {
+      fetchTeamsByDept(form.department_id);
+    }
+  }, [form.department_id]);
+
+  const fetchOptions = async () => {
     try {
-      const res = await api.get('/workos/roles');
-      setRoles(res.data);
+      const [rolesRes, teamsRes, positionsRes] = await Promise.all([
+        api.get('/workos/roles'),
+        api.get('/hr/teams'),
+        api.get('/hr/positions')
+      ]);
+      setRoles(rolesRes.data);
+      setTeams(teamsRes.data);
+      setPositions(positionsRes.data);
     } catch (err) {
-      console.error('Failed to fetch roles');
+      console.error('Failed to fetch options');
+    }
+  };
+
+  const fetchTeamsByDept = async (deptId) => {
+    try {
+      const res = await api.get(`/hr/teams?department_id=${deptId}`);
+      setTeams(res.data);
+    } catch (err) {
+      console.error('Failed to fetch teams');
     }
   };
 
@@ -736,17 +783,19 @@ const EmployeeModal = ({ employee, departments, grades, allEmployees, onClose, o
   };
 
   const managers = allEmployees.filter(e => e.id !== employee?.id);
+  const filteredTeams = form.department_id ? teams.filter(t => t.department_id === form.department_id) : teams;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto py-8">
-      <div className="bg-white rounded-xl w-full max-w-2xl mx-4 my-auto" data-testid="employee-modal">
+      <div className="bg-white rounded-xl w-full max-w-3xl mx-4 my-auto" data-testid="employee-modal">
         <div className="p-6 border-b border-[#E8D5C4]">
           <h2 className="text-lg font-semibold text-[#3D2E22]">
             {employee ? 'Edit Employee' : 'Add Employee'}
           </h2>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-          <div className="grid grid-cols-2 gap-4">
+          {/* Basic Info */}
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-[#3D2E22] mb-1">Full Name *</label>
               <input
@@ -768,43 +817,45 @@ const EmployeeModal = ({ employee, departments, grades, allEmployees, onClose, o
                 disabled={!!employee}
               />
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-[#3D2E22] mb-1">Employee ID</label>
               <input
                 type="text"
                 value={form.employee_id}
                 onChange={(e) => setForm({ ...form, employee_id: e.target.value })}
-                placeholder="Auto-generated if empty"
-                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-[#3D2E22] mb-1">Job Title</label>
-              <input
-                type="text"
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                placeholder="e.g., Marketing Manager"
-                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none"
+                placeholder="Auto: EMP-0001"
+                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg bg-[#F5EDE4]/50"
+                disabled={!!employee}
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          {/* Organization */}
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-[#3D2E22] mb-1">Department *</label>
               <select
                 value={form.department_id}
-                onChange={(e) => setForm({ ...form, department_id: e.target.value })}
-                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none"
+                onChange={(e) => setForm({ ...form, department_id: e.target.value, team_id: '' })}
+                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg"
                 required
               >
-                <option value="">Select department...</option>
+                <option value="">Select...</option>
                 {departments.map(d => (
                   <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[#3D2E22] mb-1">Team</label>
+              <select
+                value={form.team_id}
+                onChange={(e) => setForm({ ...form, team_id: e.target.value })}
+                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg"
+              >
+                <option value="">Select team...</option>
+                {filteredTeams.map(t => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
                 ))}
               </select>
             </div>
@@ -813,7 +864,7 @@ const EmployeeModal = ({ employee, departments, grades, allEmployees, onClose, o
               <select
                 value={form.grade_id}
                 onChange={(e) => setForm({ ...form, grade_id: e.target.value })}
-                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none"
+                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg"
               >
                 <option value="">Select grade...</option>
                 {grades.map(g => (
@@ -823,13 +874,37 @@ const EmployeeModal = ({ employee, departments, grades, allEmployees, onClose, o
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          {/* Position & Designation */}
+          <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-[#3D2E22] mb-1">Role</label>
+              <label className="block text-sm font-medium text-[#3D2E22] mb-1">Position</label>
+              <select
+                value={form.position_id}
+                onChange={(e) => setForm({ ...form, position_id: e.target.value })}
+                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg"
+              >
+                <option value="">Select position...</option>
+                {positions.map(p => (
+                  <option key={p.id} value={p.id}>{p.title}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[#3D2E22] mb-1">Designation</label>
+              <input
+                type="text"
+                value={form.designation}
+                onChange={(e) => setForm({ ...form, designation: e.target.value })}
+                placeholder="e.g., Senior Developer"
+                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[#3D2E22] mb-1">System Role</label>
               <select
                 value={form.role_id}
                 onChange={(e) => setForm({ ...form, role_id: e.target.value })}
-                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none"
+                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg"
               >
                 <option value="">Select role...</option>
                 {roles.map(r => (
@@ -837,28 +912,46 @@ const EmployeeModal = ({ employee, departments, grades, allEmployees, onClose, o
                 ))}
               </select>
             </div>
+          </div>
+
+          {/* Reporting */}
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-[#3D2E22] mb-1">Reports To</label>
+              <label className="block text-sm font-medium text-[#3D2E22] mb-1">Reporting Manager</label>
               <select
                 value={form.reports_to}
                 onChange={(e) => setForm({ ...form, reports_to: e.target.value })}
-                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none"
+                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg"
               >
                 <option value="">No manager</option>
                 {managers.map(m => (
-                  <option key={m.id} value={m.id}>{m.name} ({m.title || m.email})</option>
+                  <option key={m.id} value={m.id}>{m.name} ({m.designation || m.email})</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[#3D2E22] mb-1">Secondary Manager (Dotted Line)</label>
+              <select
+                value={form.secondary_manager_id}
+                onChange={(e) => setForm({ ...form, secondary_manager_id: e.target.value })}
+                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg"
+              >
+                <option value="">None</option>
+                {managers.filter(m => m.id !== form.reports_to).map(m => (
+                  <option key={m.id} value={m.id}>{m.name} ({m.designation || m.email})</option>
                 ))}
               </select>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          {/* Employment Details */}
+          <div className="grid grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium text-[#3D2E22] mb-1">Employment Type</label>
               <select
                 value={form.employment_type}
                 onChange={(e) => setForm({ ...form, employment_type: e.target.value })}
-                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none"
+                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg"
               >
                 <option value="full_time">Full Time</option>
                 <option value="part_time">Part Time</option>
@@ -868,16 +961,29 @@ const EmployeeModal = ({ employee, departments, grades, allEmployees, onClose, o
               </select>
             </div>
             <div>
+              <label className="block text-sm font-medium text-[#3D2E22] mb-1">Work Mode</label>
+              <select
+                value={form.work_mode}
+                onChange={(e) => setForm({ ...form, work_mode: e.target.value })}
+                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg"
+              >
+                <option value="office">Office</option>
+                <option value="hybrid">Hybrid</option>
+                <option value="remote">Remote</option>
+              </select>
+            </div>
+            <div>
               <label className="block text-sm font-medium text-[#3D2E22] mb-1">Status</label>
               <select
                 value={form.status}
                 onChange={(e) => setForm({ ...form, status: e.target.value })}
-                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none"
+                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg"
               >
                 <option value="active">Active</option>
                 <option value="probation">Probation</option>
-                <option value="on_notice">On Notice</option>
-                <option value="on_leave">On Leave</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="notice_period">Notice Period</option>
+                <option value="resigned">Resigned</option>
                 <option value="terminated">Terminated</option>
               </select>
             </div>
@@ -887,20 +993,34 @@ const EmployeeModal = ({ employee, departments, grades, allEmployees, onClose, o
                 type="date"
                 value={form.joining_date}
                 onChange={(e) => setForm({ ...form, joining_date: e.target.value })}
-                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none"
+                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          {/* Personal Info */}
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-[#3D2E22] mb-1">Phone</label>
               <input
                 type="tel"
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none"
+                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[#3D2E22] mb-1">Gender</label>
+              <select
+                value={form.gender}
+                onChange={(e) => setForm({ ...form, gender: e.target.value })}
+                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg"
+              >
+                <option value="">Select...</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-[#3D2E22] mb-1">Work Location</label>
@@ -909,7 +1029,7 @@ const EmployeeModal = ({ employee, departments, grades, allEmployees, onClose, o
                 value={form.work_location}
                 onChange={(e) => setForm({ ...form, work_location: e.target.value })}
                 placeholder="e.g., Mumbai Office"
-                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg focus:ring-2 focus:ring-[#8B7355]/20 focus:border-[#8B7355] outline-none"
+                className="w-full px-3 py-2 border border-[#E8D5C4] rounded-lg"
               />
             </div>
           </div>

@@ -1,5 +1,5 @@
 """
-HR Routes - Employee Database, Grade Types, Reporting Structure, Org Chart
+HR Routes - Employee Database, Grade Types, Teams, Positions, Reporting Structure, Org Chart
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -10,8 +10,11 @@ from datetime import datetime, timezone
 from models.hr import (
     GradeTypeCreate, GradeTypeUpdate, GradeTypeResponse,
     EmployeeCreate, EmployeeUpdate, EmployeeResponse, EmployeeDetailResponse,
+    TeamCreate, TeamUpdate, TeamResponse,
+    PositionCreate, PositionUpdate, PositionResponse,
+    DepartmentEnhancedUpdate, DepartmentEnhancedResponse,
     ReportingLineCreate, ReportingLineResponse,
-    OrgChartNode, DEFAULT_GRADE_TYPES
+    OrgChartNode, DEFAULT_GRADE_TYPES, DEFAULT_POSITIONS
 )
 
 hr_router = APIRouter(prefix="/hr", tags=["HR - Employee Management"])
@@ -140,6 +143,386 @@ async def delete_grade_type(grade_id: str, user: dict = Depends(require_admin())
     return {"success": True, "message": "Grade type deactivated"}
 
 
+# ============== TEAMS ==============
+
+@hr_router.get("/teams", response_model=List[TeamResponse])
+async def get_teams(
+    department_id: Optional[str] = None,
+    include_inactive: bool = False,
+    user: dict = Depends(get_current_user_dep())
+):
+    """Get all teams"""
+    db = get_db()
+    
+    query = {}
+    if department_id:
+        query["department_id"] = department_id
+    if not include_inactive:
+        query["is_active"] = {"$ne": False}
+    
+    teams = await db.teams.find(query, {"_id": 0}).to_list(100)
+    
+    # Enrich
+    for team in teams:
+        if team.get("department_id"):
+            dept = await db.departments.find_one({"id": team["department_id"]}, {"name": 1})
+            team["department_name"] = dept.get("name") if dept else None
+        if team.get("team_lead_id"):
+            lead = await db.users.find_one({"id": team["team_lead_id"]}, {"name": 1})
+            team["team_lead_name"] = lead.get("name") if lead else None
+        team["member_count"] = await db.users.count_documents({"team_id": team["id"]})
+    
+    return teams
+
+
+@hr_router.get("/teams/{team_id}", response_model=TeamResponse)
+async def get_team(team_id: str, user: dict = Depends(get_current_user_dep())):
+    """Get a single team"""
+    db = get_db()
+    
+    team = await db.teams.find_one({"id": team_id}, {"_id": 0})
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    if team.get("department_id"):
+        dept = await db.departments.find_one({"id": team["department_id"]}, {"name": 1})
+        team["department_name"] = dept.get("name") if dept else None
+    if team.get("team_lead_id"):
+        lead = await db.users.find_one({"id": team["team_lead_id"]}, {"name": 1})
+        team["team_lead_name"] = lead.get("name") if lead else None
+    team["member_count"] = await db.users.count_documents({"team_id": team_id})
+    
+    return team
+
+
+@hr_router.post("/teams", response_model=TeamResponse)
+async def create_team(data: TeamCreate, user: dict = Depends(require_admin())):
+    """Create a new team"""
+    db = get_db()
+    
+    # Check for duplicate code
+    existing = await db.teams.find_one({"code": data.code})
+    if existing:
+        raise HTTPException(status_code=400, detail="Team code already exists")
+    
+    team_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    team_doc = {
+        "id": team_id,
+        **data.model_dump(),
+        "is_active": True,
+        "member_count": 0,
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.teams.insert_one(team_doc)
+    del team_doc["_id"]
+    
+    # Enrich for response
+    if team_doc.get("department_id"):
+        dept = await db.departments.find_one({"id": team_doc["department_id"]}, {"name": 1})
+        team_doc["department_name"] = dept.get("name") if dept else None
+    
+    return team_doc
+
+
+@hr_router.put("/teams/{team_id}", response_model=TeamResponse)
+async def update_team(team_id: str, data: TeamUpdate, user: dict = Depends(require_admin())):
+    """Update a team"""
+    db = get_db()
+    
+    existing = await db.teams.find_one({"id": team_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.teams.update_one({"id": team_id}, {"$set": update_data})
+    
+    updated = await db.teams.find_one({"id": team_id}, {"_id": 0})
+    if updated.get("department_id"):
+        dept = await db.departments.find_one({"id": updated["department_id"]}, {"name": 1})
+        updated["department_name"] = dept.get("name") if dept else None
+    if updated.get("team_lead_id"):
+        lead = await db.users.find_one({"id": updated["team_lead_id"]}, {"name": 1})
+        updated["team_lead_name"] = lead.get("name") if lead else None
+    updated["member_count"] = await db.users.count_documents({"team_id": team_id})
+    
+    return updated
+
+
+@hr_router.delete("/teams/{team_id}")
+async def delete_team(team_id: str, user: dict = Depends(require_admin())):
+    """Delete a team (soft delete)"""
+    db = get_db()
+    
+    member_count = await db.users.count_documents({"team_id": team_id})
+    if member_count > 0:
+        raise HTTPException(status_code=400, detail=f"Cannot delete team with {member_count} members")
+    
+    await db.teams.update_one(
+        {"id": team_id},
+        {"$set": {"is_active": False, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"success": True, "message": "Team deactivated"}
+
+
+# ============== POSITIONS ==============
+
+@hr_router.get("/positions", response_model=List[PositionResponse])
+async def get_positions(
+    department_id: Optional[str] = None,
+    level: Optional[str] = None,
+    include_inactive: bool = False,
+    user: dict = Depends(get_current_user_dep())
+):
+    """Get all positions"""
+    db = get_db()
+    
+    query = {}
+    if department_id:
+        query["department_id"] = department_id
+    if level:
+        query["level"] = level
+    if not include_inactive:
+        query["is_active"] = {"$ne": False}
+    
+    positions = await db.positions.find(query, {"_id": 0}).to_list(100)
+    
+    # Enrich
+    for pos in positions:
+        if pos.get("department_id"):
+            dept = await db.departments.find_one({"id": pos["department_id"]}, {"name": 1})
+            pos["department_name"] = dept.get("name") if dept else None
+        if pos.get("reporting_position_id"):
+            parent = await db.positions.find_one({"id": pos["reporting_position_id"]}, {"title": 1})
+            pos["reporting_position_title"] = parent.get("title") if parent else None
+        pos["employee_count"] = await db.users.count_documents({"position_id": pos["id"]})
+    
+    return positions
+
+
+@hr_router.get("/positions/{position_id}", response_model=PositionResponse)
+async def get_position(position_id: str, user: dict = Depends(get_current_user_dep())):
+    """Get a single position"""
+    db = get_db()
+    
+    pos = await db.positions.find_one({"id": position_id}, {"_id": 0})
+    if not pos:
+        raise HTTPException(status_code=404, detail="Position not found")
+    
+    if pos.get("department_id"):
+        dept = await db.departments.find_one({"id": pos["department_id"]}, {"name": 1})
+        pos["department_name"] = dept.get("name") if dept else None
+    if pos.get("reporting_position_id"):
+        parent = await db.positions.find_one({"id": pos["reporting_position_id"]}, {"title": 1})
+        pos["reporting_position_title"] = parent.get("title") if parent else None
+    pos["employee_count"] = await db.users.count_documents({"position_id": position_id})
+    
+    return pos
+
+
+@hr_router.post("/positions", response_model=PositionResponse)
+async def create_position(data: PositionCreate, user: dict = Depends(require_admin())):
+    """Create a new position"""
+    db = get_db()
+    
+    existing = await db.positions.find_one({"code": data.code})
+    if existing:
+        raise HTTPException(status_code=400, detail="Position code already exists")
+    
+    pos_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    pos_doc = {
+        "id": pos_id,
+        **data.model_dump(),
+        "level": data.level.value if hasattr(data.level, 'value') else data.level,
+        "employee_count": 0,
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.positions.insert_one(pos_doc)
+    del pos_doc["_id"]
+    
+    return pos_doc
+
+
+@hr_router.put("/positions/{position_id}", response_model=PositionResponse)
+async def update_position(position_id: str, data: PositionUpdate, user: dict = Depends(require_admin())):
+    """Update a position"""
+    db = get_db()
+    
+    existing = await db.positions.find_one({"id": position_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Position not found")
+    
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    if "level" in update_data and hasattr(update_data["level"], 'value'):
+        update_data["level"] = update_data["level"].value
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.positions.update_one({"id": position_id}, {"$set": update_data})
+    
+    updated = await db.positions.find_one({"id": position_id}, {"_id": 0})
+    return updated
+
+
+@hr_router.delete("/positions/{position_id}")
+async def delete_position(position_id: str, user: dict = Depends(require_admin())):
+    """Delete a position (soft delete)"""
+    db = get_db()
+    
+    employee_count = await db.users.count_documents({"position_id": position_id})
+    if employee_count > 0:
+        raise HTTPException(status_code=400, detail=f"Cannot delete position with {employee_count} employees")
+    
+    await db.positions.update_one(
+        {"id": position_id},
+        {"$set": {"is_active": False, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"success": True, "message": "Position deactivated"}
+
+
+@hr_router.post("/seed-positions")
+async def seed_positions(user: dict = Depends(require_admin())):
+    """Seed default positions"""
+    db = get_db()
+    now = datetime.now(timezone.utc).isoformat()
+    
+    count = await db.positions.count_documents({})
+    if count > 0:
+        return {"message": "Positions already exist", "count": count}
+    
+    created = 0
+    for pos in DEFAULT_POSITIONS:
+        pos_id = str(uuid.uuid4())
+        pos_doc = {
+            "id": pos_id,
+            **pos,
+            "is_active": True,
+            "employee_count": 0,
+            "created_at": now,
+            "updated_at": now
+        }
+        await db.positions.insert_one(pos_doc)
+        created += 1
+    
+    return {"success": True, "message": f"Created {created} positions", "count": created}
+
+
+# ============== ENHANCED DEPARTMENTS ==============
+
+@hr_router.get("/departments", response_model=List[DepartmentEnhancedResponse])
+async def get_departments_enhanced(
+    include_inactive: bool = False,
+    user: dict = Depends(get_current_user_dep())
+):
+    """Get all departments with enhanced info"""
+    db = get_db()
+    
+    query = {}
+    if not include_inactive:
+        query["is_active"] = {"$ne": False}
+    
+    depts = await db.departments.find(query, {"_id": 0}).to_list(100)
+    
+    for dept in depts:
+        # Parent department
+        if dept.get("parent_department_id"):
+            parent = await db.departments.find_one({"id": dept["parent_department_id"]}, {"name": 1})
+            dept["parent_department_name"] = parent.get("name") if parent else None
+        # Department head
+        if dept.get("department_head_id"):
+            head = await db.users.find_one({"id": dept["department_head_id"]}, {"name": 1})
+            dept["department_head_name"] = head.get("name") if head else None
+        # Counts
+        dept["member_count"] = await db.users.count_documents({"department_id": dept["id"]})
+        dept["team_count"] = await db.teams.count_documents({"department_id": dept["id"]})
+    
+    return depts
+
+
+@hr_router.put("/departments/{department_id}", response_model=DepartmentEnhancedResponse)
+async def update_department_enhanced(
+    department_id: str,
+    data: DepartmentEnhancedUpdate,
+    user: dict = Depends(require_admin())
+):
+    """Update a department with enhanced fields"""
+    db = get_db()
+    
+    existing = await db.departments.find_one({"id": department_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Department not found")
+    
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.departments.update_one({"id": department_id}, {"$set": update_data})
+    
+    updated = await db.departments.find_one({"id": department_id}, {"_id": 0})
+    
+    # Enrich
+    if updated.get("parent_department_id"):
+        parent = await db.departments.find_one({"id": updated["parent_department_id"]}, {"name": 1})
+        updated["parent_department_name"] = parent.get("name") if parent else None
+    if updated.get("department_head_id"):
+        head = await db.users.find_one({"id": updated["department_head_id"]}, {"name": 1})
+        updated["department_head_name"] = head.get("name") if head else None
+    updated["member_count"] = await db.users.count_documents({"department_id": department_id})
+    updated["team_count"] = await db.teams.count_documents({"department_id": department_id})
+    
+    return updated
+
+
+@hr_router.get("/departments/{department_id}/hierarchy")
+async def get_department_hierarchy(department_id: str, user: dict = Depends(get_current_user_dep())):
+    """Get department hierarchy (parent chain and children)"""
+    db = get_db()
+    
+    dept = await db.departments.find_one({"id": department_id}, {"_id": 0})
+    if not dept:
+        raise HTTPException(status_code=404, detail="Department not found")
+    
+    # Get parent chain
+    parent_chain = []
+    current_id = dept.get("parent_department_id")
+    visited = set()
+    while current_id and current_id not in visited:
+        visited.add(current_id)
+        parent = await db.departments.find_one({"id": current_id}, {"_id": 0, "id": 1, "name": 1, "parent_department_id": 1})
+        if not parent:
+            break
+        parent_chain.append(parent)
+        current_id = parent.get("parent_department_id")
+    
+    # Get children
+    children = await db.departments.find(
+        {"parent_department_id": department_id},
+        {"_id": 0, "id": 1, "name": 1, "code": 1}
+    ).to_list(100)
+    
+    # Get teams in this department
+    teams = await db.teams.find(
+        {"department_id": department_id, "is_active": {"$ne": False}},
+        {"_id": 0, "id": 1, "name": 1}
+    ).to_list(100)
+    
+    return {
+        "department": dept,
+        "parent_chain": parent_chain,
+        "children": children,
+        "teams": teams
+    }
+
+
 # ============== EMPLOYEES ==============
 
 @hr_router.get("/employees", response_model=List[EmployeeResponse])
@@ -213,17 +596,30 @@ async def create_employee(data: EmployeeCreate, user: dict = Depends(require_adm
     emp_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     
-    # Generate employee ID if not provided
+    # Generate employee ID in format EMP-0001 if not provided
     employee_code = data.employee_id
     if not employee_code:
-        count = await db.users.count_documents({})
-        employee_code = f"EMP{str(count + 1).zfill(4)}"
+        # Get highest existing employee number
+        last_emp = await db.users.find_one(
+            {"employee_id": {"$regex": "^EMP-"}},
+            sort=[("employee_id", -1)]
+        )
+        if last_emp and last_emp.get("employee_id"):
+            try:
+                last_num = int(last_emp["employee_id"].split("-")[1])
+                employee_code = f"EMP-{str(last_num + 1).zfill(4)}"
+            except:
+                count = await db.users.count_documents({})
+                employee_code = f"EMP-{str(count + 1).zfill(4)}"
+        else:
+            employee_code = "EMP-0001"
     
     emp_doc = {
         "id": emp_id,
-        **data.model_dump(exclude={"employment_type"}),
+        **data.model_dump(exclude={"employment_type", "work_mode"}),
         "employee_id": employee_code,
         "employment_type": data.employment_type.value if hasattr(data.employment_type, 'value') else data.employment_type,
+        "work_mode": data.work_mode.value if hasattr(data.work_mode, 'value') else data.work_mode,
         "status": "active",
         "is_active": True,
         "created_at": now,
@@ -697,6 +1093,16 @@ async def _enrich_employee(db, emp: dict, full_details: bool = False) -> dict:
         dept = await db.departments.find_one({"id": emp["department_id"]}, {"name": 1})
         emp["department_name"] = dept.get("name") if dept else None
     
+    # Team name
+    if emp.get("team_id"):
+        team = await db.teams.find_one({"id": emp["team_id"]}, {"name": 1})
+        emp["team_name"] = team.get("name") if team else None
+    
+    # Position title
+    if emp.get("position_id"):
+        pos = await db.positions.find_one({"id": emp["position_id"]}, {"title": 1})
+        emp["position_title"] = pos.get("title") if pos else None
+    
     # Role name
     if emp.get("role_id"):
         role = await db.roles.find_one({"id": emp["role_id"]}, {"name": 1})
@@ -707,10 +1113,15 @@ async def _enrich_employee(db, emp: dict, full_details: bool = False) -> dict:
         grade = await db.grade_types.find_one({"id": emp["grade_id"]}, {"name": 1})
         emp["grade_name"] = grade.get("name") if grade else None
     
-    # Manager name
+    # Primary Manager name
     if emp.get("reports_to"):
         manager = await db.users.find_one({"id": emp["reports_to"]}, {"name": 1})
         emp["manager_name"] = manager.get("name") if manager else None
+    
+    # Secondary Manager name
+    if emp.get("secondary_manager_id"):
+        sec_mgr = await db.users.find_one({"id": emp["secondary_manager_id"]}, {"name": 1})
+        emp["secondary_manager_name"] = sec_mgr.get("name") if sec_mgr else None
     
     # Direct reports
     direct_reports = await db.users.find({"reports_to": emp["id"]}, {"id": 1}).to_list(100)

@@ -79,33 +79,128 @@ class EmploymentType(str, Enum):
     CONTRACT = "contract"
     INTERN = "intern"
     CONSULTANT = "consultant"
-    FREELANCER = "freelancer"
 
 
 class EmploymentStatus(str, Enum):
     ACTIVE = "active"
-    ON_NOTICE = "on_notice"
-    ON_LEAVE = "on_leave"
-    TERMINATED = "terminated"
-    RESIGNED = "resigned"
     PROBATION = "probation"
+    CONFIRMED = "confirmed"
+    NOTICE_PERIOD = "notice_period"
+    RESIGNED = "resigned"
+    TERMINATED = "terminated"
+
+
+class WorkMode(str, Enum):
+    OFFICE = "office"
+    HYBRID = "hybrid"
+    REMOTE = "remote"
+
+
+# ============== POSITION MODELS ==============
+
+class PositionLevel(str, Enum):
+    CEO = "ceo"
+    VP = "vp"
+    DIRECTOR = "director"
+    MANAGER = "manager"
+    LEAD = "lead"
+    EXECUTIVE = "executive"
+    ASSOCIATE = "associate"
+
+
+class PositionCreate(BaseModel):
+    title: str  # e.g., "Marketing Head", "Senior Developer"
+    code: str  # e.g., "MKT-HEAD", "SR-DEV"
+    level: PositionLevel = PositionLevel.ASSOCIATE
+    department_id: Optional[str] = None
+    reporting_position_id: Optional[str] = None  # Parent position
+    description: Optional[str] = None
+    is_active: bool = True
+
+
+class PositionUpdate(BaseModel):
+    title: Optional[str] = None
+    level: Optional[PositionLevel] = None
+    department_id: Optional[str] = None
+    reporting_position_id: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class PositionResponse(BaseModel):
+    id: str
+    title: str
+    code: str
+    level: str
+    department_id: Optional[str] = None
+    department_name: Optional[str] = None
+    reporting_position_id: Optional[str] = None
+    reporting_position_title: Optional[str] = None
+    description: Optional[str] = None
+    is_active: bool = True
+    employee_count: int = 0
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    
+    class Config:
+        extra = "ignore"
+
+
+# ============== TEAM MODELS ==============
+
+class TeamCreate(BaseModel):
+    name: str
+    code: str
+    department_id: str
+    team_lead_id: Optional[str] = None
+    description: Optional[str] = None
+
+
+class TeamUpdate(BaseModel):
+    name: Optional[str] = None
+    department_id: Optional[str] = None
+    team_lead_id: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class TeamResponse(BaseModel):
+    id: str
+    name: str
+    code: str
+    department_id: str
+    department_name: Optional[str] = None
+    team_lead_id: Optional[str] = None
+    team_lead_name: Optional[str] = None
+    description: Optional[str] = None
+    member_count: int = 0
+    is_active: bool = True
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    
+    class Config:
+        extra = "ignore"
 
 
 class EmployeeCreate(BaseModel):
     # Basic Info
     email: EmailStr
     name: str
-    employee_id: Optional[str] = None  # Employee code like EMP001
+    employee_id: Optional[str] = None  # Employee code like EMP-0001
     
     # Organization
     department_id: str
-    role_id: Optional[str] = None
+    team_id: Optional[str] = None  # Team within department
+    position_id: Optional[str] = None  # Position in hierarchy
+    role_id: Optional[str] = None  # System role for access
     grade_id: Optional[str] = None
-    reports_to: Optional[str] = None  # Manager's user ID
+    reports_to: Optional[str] = None  # Primary Manager's user ID
+    secondary_manager_id: Optional[str] = None  # Secondary/Dotted line manager
     
     # Employment Details
-    title: Optional[str] = None  # Job title
+    designation: Optional[str] = None  # Job title/designation
     employment_type: EmploymentType = EmploymentType.FULL_TIME
+    work_mode: WorkMode = WorkMode.OFFICE
     joining_date: Optional[str] = None
     probation_end_date: Optional[str] = None
     confirmation_date: Optional[str] = None
@@ -152,11 +247,15 @@ class EmployeeUpdate(BaseModel):
     name: Optional[str] = None
     employee_id: Optional[str] = None
     department_id: Optional[str] = None
+    team_id: Optional[str] = None
+    position_id: Optional[str] = None
     role_id: Optional[str] = None
     grade_id: Optional[str] = None
     reports_to: Optional[str] = None
-    title: Optional[str] = None
+    secondary_manager_id: Optional[str] = None
+    designation: Optional[str] = None
     employment_type: Optional[EmploymentType] = None
+    work_mode: Optional[WorkMode] = None
     status: Optional[EmploymentStatus] = None
     joining_date: Optional[str] = None
     probation_end_date: Optional[str] = None
@@ -199,16 +298,23 @@ class EmployeeResponse(BaseModel):
     # Organization
     department_id: Optional[str] = None
     department_name: Optional[str] = None
+    team_id: Optional[str] = None
+    team_name: Optional[str] = None
+    position_id: Optional[str] = None
+    position_title: Optional[str] = None
     role_id: Optional[str] = None
     role_name: Optional[str] = None
     grade_id: Optional[str] = None
     grade_name: Optional[str] = None
     reports_to: Optional[str] = None
     manager_name: Optional[str] = None
+    secondary_manager_id: Optional[str] = None
+    secondary_manager_name: Optional[str] = None
     
     # Employment
-    title: Optional[str] = None
+    designation: Optional[str] = None
     employment_type: str = "full_time"
+    work_mode: str = "office"
     status: str = "active"
     joining_date: Optional[str] = None
     probation_end_date: Optional[str] = None
@@ -302,6 +408,55 @@ class ReportingLineResponse(BaseModel):
     is_primary: bool = True
     relationship_type: str = "direct"
     is_active: bool = True
+
+
+# ============== ENHANCED DEPARTMENT MODELS ==============
+
+class DepartmentEnhancedUpdate(BaseModel):
+    name: Optional[str] = None
+    code: Optional[str] = None
+    description: Optional[str] = None
+    color: Optional[str] = None
+    icon: Optional[str] = None
+    parent_department_id: Optional[str] = None  # For hierarchy
+    department_head_id: Optional[str] = None  # Department head employee
+    is_active: Optional[bool] = None
+
+
+class DepartmentEnhancedResponse(BaseModel):
+    id: str
+    name: str
+    code: str
+    description: Optional[str] = None
+    color: str = "#8B7355"
+    icon: str = "Building2"
+    parent_department_id: Optional[str] = None
+    parent_department_name: Optional[str] = None
+    department_head_id: Optional[str] = None
+    department_head_name: Optional[str] = None
+    member_count: int = 0
+    team_count: int = 0
+    is_active: bool = True
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    
+    class Config:
+        extra = "ignore"
+
+
+# ============== DEFAULT POSITION HIERARCHY ==============
+
+DEFAULT_POSITIONS = [
+    {"title": "CEO", "code": "CEO", "level": "ceo", "description": "Chief Executive Officer"},
+    {"title": "Vice President", "code": "VP", "level": "vp", "description": "Vice President"},
+    {"title": "Director", "code": "DIR", "level": "director", "description": "Director level"},
+    {"title": "Senior Manager", "code": "SR-MGR", "level": "manager", "description": "Senior Manager"},
+    {"title": "Manager", "code": "MGR", "level": "manager", "description": "Manager"},
+    {"title": "Team Lead", "code": "TL", "level": "lead", "description": "Team Lead"},
+    {"title": "Senior Executive", "code": "SR-EXEC", "level": "executive", "description": "Senior Executive"},
+    {"title": "Executive", "code": "EXEC", "level": "executive", "description": "Executive"},
+    {"title": "Associate", "code": "ASSOC", "level": "associate", "description": "Associate"},
+]
 
 
 # ============== DEFAULT GRADE TYPES ==============
