@@ -3,17 +3,35 @@ import { useNavigate } from 'react-router-dom';
 import { 
   CheckCircle2, Clock, AlertTriangle, ListTodo, ChevronRight,
   Calendar, User, Flag, Folder, LayoutGrid, PlayCircle, Eye,
-  RefreshCw, Plus, ChevronDown, FolderKanban
+  RefreshCw, Plus, ChevronDown, FolderKanban, Link as LinkIcon, ExternalLink
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select';
+import { Textarea } from '../../components/ui/textarea';
 import { toast } from 'sonner';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -125,6 +143,12 @@ const TaskCard = ({ task, onStatusChange, onClick }) => {
             {task.subtask_count} subtasks
           </span>
         )}
+        {task.external_links?.length > 0 && (
+          <span className="flex items-center gap-1 text-blue-600">
+            <LinkIcon className="w-3.5 h-3.5" />
+            {task.external_links.length} links
+          </span>
+        )}
       </div>
     </div>
   );
@@ -166,7 +190,17 @@ const MyTasks = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
+  const [personalProject, setPersonalProject] = useState(null);
+  const [personalTasks, setPersonalTasks] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [quickTaskData, setQuickTaskData] = useState({
+    name: '',
+    description: '',
+    priority: 'medium',
+    due_date: ''
+  });
+  const [submitting, setSubmitting] = useState(false);
 
   const fetchMyTasks = async () => {
     setLoading(true);
@@ -187,9 +221,74 @@ const MyTasks = () => {
     }
   };
 
+  const fetchPersonalProject = async () => {
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const response = await fetch(`${API}/api/projects/personal`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const project = await response.json();
+        setPersonalProject(project);
+        
+        // Fetch personal tasks
+        const tasksResponse = await fetch(`${API}/api/projects/${project.id}/tasks`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (tasksResponse.ok) {
+          const tasks = await tasksResponse.json();
+          setPersonalTasks(tasks);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching personal project:', error);
+    }
+  };
+
   useEffect(() => {
     fetchMyTasks();
+    fetchPersonalProject();
   }, []);
+
+  const handleQuickAddTask = async () => {
+    if (!quickTaskData.name.trim()) {
+      toast.error('Task name is required');
+      return;
+    }
+    
+    setSubmitting(true);
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const response = await fetch(`${API}/api/projects/tasks`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: quickTaskData.name,
+          project_id: personalProject.id,
+          description: quickTaskData.description,
+          priority: quickTaskData.priority,
+          due_date: quickTaskData.due_date || null
+        })
+      });
+      
+      if (!response.ok) throw new Error('Failed to create task');
+      
+      toast.success('Personal task created!');
+      setShowQuickAdd(false);
+      setQuickTaskData({ name: '', description: '', priority: 'medium', due_date: '' });
+      fetchMyTasks();
+      fetchPersonalProject();
+    } catch (error) {
+      console.error('Error creating task:', error);
+      toast.error('Failed to create task');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleStatusChange = async (taskId, newStatus) => {
     try {
@@ -251,8 +350,18 @@ const MyTasks = () => {
           </Button>
           <Button 
             size="sm"
+            onClick={() => setShowQuickAdd(true)}
+            className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white"
+            data-testid="quick-add-task-btn"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Quick Add Task
+          </Button>
+          <Button 
+            size="sm"
+            variant="outline"
             onClick={() => navigate('/projects')}
-            className="bg-rose-600 hover:bg-rose-700 text-white"
+            className="border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0]"
             data-testid="view-all-projects-btn"
           >
             <FolderKanban className="w-4 h-4 mr-2" />
@@ -489,6 +598,108 @@ const MyTasks = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Personal Tasks Section */}
+      {personalTasks.length > 0 && (
+        <Card className="bg-white border-[#E8D5C4]">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg text-[#4A3728] flex items-center gap-2">
+                <User className="w-5 h-5" />
+                Personal Tasks
+              </CardTitle>
+              <Badge className="bg-[#E8D5C4] text-[#4A3728]">
+                {personalTasks.filter(t => t.status !== 'completed').length} active
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {personalTasks.filter(t => t.status !== 'completed').map(task => (
+                <TaskCard 
+                  key={task.id} 
+                  task={task} 
+                  onStatusChange={handleStatusChange}
+                  onClick={handleTaskClick}
+                />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Quick Add Task Dialog */}
+      <Dialog open={showQuickAdd} onOpenChange={setShowQuickAdd}>
+        <DialogContent className="bg-white sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[#4A3728]">Quick Add Personal Task</DialogTitle>
+            <DialogDescription className="text-[#6B5D52]">
+              Add a standalone task to your personal task list
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-[#4A3728]">Task Name *</Label>
+              <Input
+                placeholder="What do you need to do?"
+                value={quickTaskData.name}
+                onChange={(e) => setQuickTaskData({...quickTaskData, name: e.target.value})}
+                className="border-[#D4BBA6]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[#4A3728]">Description</Label>
+              <Textarea
+                placeholder="Add more details..."
+                value={quickTaskData.description}
+                onChange={(e) => setQuickTaskData({...quickTaskData, description: e.target.value})}
+                className="border-[#D4BBA6]"
+                rows={2}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-[#4A3728]">Priority</Label>
+                <Select
+                  value={quickTaskData.priority}
+                  onValueChange={(v) => setQuickTaskData({...quickTaskData, priority: v})}
+                >
+                  <SelectTrigger className="border-[#D4BBA6]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-[#D4BBA6]">
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[#4A3728]">Due Date</Label>
+                <Input
+                  type="date"
+                  value={quickTaskData.due_date}
+                  onChange={(e) => setQuickTaskData({...quickTaskData, due_date: e.target.value})}
+                  className="border-[#D4BBA6]"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowQuickAdd(false)} className="border-[#D4BBA6]">
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleQuickAddTask}
+              disabled={submitting}
+              className="bg-[#4A3728] hover:bg-[#3A2A1E]"
+            >
+              {submitting ? 'Creating...' : 'Add Task'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

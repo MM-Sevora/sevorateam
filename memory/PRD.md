@@ -317,6 +317,22 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 
 ---
 
+## Recent Additions (December 2025)
+
+### External Links on Tasks
+- [x] Added `external_links` field to task models (URL, title, description, link_type)
+- [x] Updated task creation and update endpoints
+- [x] Frontend displays link count on task cards
+
+### Personal Project & Standalone Tasks
+- [x] Auto-create "My Tasks" personal project for each user
+- [x] GET `/api/projects/personal` endpoint
+- [x] Quick Add Task dialog in My Tasks page
+- [x] Personal tasks have: name, due dates, priority, comments
+- [x] Personal tasks appear in My Tasks dashboard
+
+---
+
 ## Key Technical Architecture
 
 ### Backend

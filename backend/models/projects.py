@@ -154,6 +154,16 @@ class ProjectResponse(BaseModel):
     updated_at: str
 
 
+# ============== EXTERNAL LINK MODEL ==============
+
+class ExternalLink(BaseModel):
+    """External link/reference attached to a task"""
+    url: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    link_type: str = "url"  # url, document, video, image, other
+
+
 # ============== TASK MODELS ==============
 
 class TaskCreate(BaseModel):
@@ -168,6 +178,7 @@ class TaskCreate(BaseModel):
     parent_task_id: Optional[str] = None  # For subtasks
     blocked_by: List[str] = []  # Task IDs that block this task
     blocks: List[str] = []  # Task IDs that this task blocks
+    external_links: List[ExternalLink] = []  # External URLs/documents
     # Recurrence fields
     is_recurring: bool = False
     recurrence_pattern: Optional[str] = None  # daily, weekly, monthly, custom
@@ -188,6 +199,7 @@ class TaskUpdate(BaseModel):
     tags: Optional[List[str]] = None
     blocked_by: Optional[List[str]] = None
     blocks: Optional[List[str]] = None
+    external_links: Optional[List[ExternalLink]] = None
     # Recurrence fields
     is_recurring: Optional[bool] = None
     recurrence_pattern: Optional[str] = None
@@ -234,6 +246,7 @@ class TaskResponse(BaseModel):
     checklist_completed: int = 0
     comment_count: int = 0
     attachment_count: int = 0
+    external_links: List[ExternalLink] = []
     created_by: Optional[str] = None
     created_at: str
     updated_at: str

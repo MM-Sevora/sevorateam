@@ -105,6 +105,66 @@ async def get_task_name(task_id: str) -> str:
     return task.get("name") if task else None
 
 
+async def get_or_create_personal_project(user_id: str, user_name: str) -> dict:
+    """Get or create a personal project for a user"""
+    # Check if personal project exists
+    personal_project = await db.pm_projects.find_one({
+        "owner_id": user_id,
+        "is_personal": True
+    }, {"_id": 0})
+    
+    if personal_project:
+        return personal_project
+    
+    # Create personal project
+    now = datetime.now(timezone.utc).isoformat()
+    project_id = await generate_project_id()
+    
+    # Get or create a default module for personal projects
+    personal_module = await db.pm_modules.find_one({"name": "Personal"}, {"_id": 0})
+    if not personal_module:
+        personal_module = {
+            "id": str(uuid.uuid4()),
+            "name": "Personal",
+            "description": "Personal tasks and projects",
+            "color": "#6366F1",
+            "icon": "User",
+            "is_active": True,
+            "created_at": now,
+            "updated_at": now
+        }
+        await db.pm_modules.insert_one(personal_module)
+    
+    personal_project = {
+        "id": str(uuid.uuid4()),
+        "project_id": project_id,
+        "name": "My Tasks",
+        "module_id": personal_module["id"],
+        "project_type": "other",
+        "description": f"Personal tasks and day-to-day work for {user_name}",
+        "owner_id": user_id,
+        "project_manager_id": user_id,
+        "start_date": now[:10],
+        "priority": "medium",
+        "status": "active",
+        "is_personal": True,  # Flag to identify personal projects
+        "team_members": [user_id],
+        "stakeholders": [],
+        "tags": ["personal"],
+        "created_by": user_id,
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.pm_projects.insert_one(personal_project)
+    logger.info(f"Created personal project for user {user_id}")
+    
+    if "_id" in personal_project:
+        del personal_project["_id"]
+    
+    return personal_project
+
+
 async def log_activity(entity_type: str, entity_id: str, entity_name: str, action: str, user_id: str, details: dict = None):
     """Log an activity for audit trail"""
     user_name = await get_user_name(user_id)
@@ -185,6 +245,9 @@ async def enrich_task(task: dict) -> dict:
         label_docs = await db.pm_labels.find({"id": {"$in": label_ids}}, {"_id": 0, "id": 1, "name": 1, "color": 1}).to_list(50)
         labels = label_docs
     task["labels"] = labels
+    
+    # Ensure external_links is present
+    task["external_links"] = task.get("external_links", [])
     
     return task
 
@@ -315,6 +378,37 @@ async def delete_module(
 
 
 # ============== PROJECTS ==============
+
+@router.get("/personal", response_model=ProjectResponse)
+async def get_personal_project(
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get or create the user's personal project for standalone tasks"""
+    personal_project = await get_or_create_personal_project(user["id"], user.get("name", "User"))
+    
+    # Enrich with names
+    personal_project["owner_name"] = user.get("name")
+    personal_project["project_manager_name"] = user.get("name")
+    
+    # Get module name
+    module = await db.pm_modules.find_one({"id": personal_project.get("module_id")}, {"name": 1})
+    personal_project["module_name"] = module.get("name") if module else "Personal"
+    
+    # Get task counts
+    task_count = await db.pm_tasks.count_documents({"project_id": personal_project["id"]})
+    completed_count = await db.pm_tasks.count_documents({
+        "project_id": personal_project["id"],
+        "status": "completed"
+    })
+    
+    personal_project["task_count"] = task_count
+    personal_project["completed_task_count"] = completed_count
+    personal_project["progress"] = (completed_count / task_count * 100) if task_count > 0 else 0
+    personal_project["team_member_names"] = [user.get("name")]
+    personal_project["stakeholder_names"] = []
+    
+    return personal_project
+
 
 @router.get("/list", response_model=List[ProjectResponse])
 async def list_projects(
@@ -1339,6 +1433,7 @@ async def create_task(
         "parent_task_id": data.parent_task_id,
         "blocked_by": data.blocked_by,
         "blocks": data.blocks,
+        "external_links": [link.model_dump() for link in data.external_links] if data.external_links else [],
         "created_by": user["id"],
         "created_at": now,
         "updated_at": now
