@@ -6,7 +6,8 @@ import {
   GripVertical, MessageSquare, ListTodo, RefreshCw, Settings,
   User, Folder, AlertOctagon, LayoutGrid, CalendarDays, Search,
   Filter, X, ChevronDown, CheckSquare, Square, Move, List,
-  ArrowUpDown, ArrowUp, ArrowDown, BookCopy, Lock, Globe, UserPlus, UserMinus
+  ArrowUpDown, ArrowUp, ArrowDown, BookCopy, Lock, Globe, UserPlus, UserMinus,
+  Video
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -744,8 +745,31 @@ const ProjectDetail = () => {
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [projectLabels, setProjectLabels] = useState([]);
+  
+  // Related meetings
+  const [relatedMeetings, setRelatedMeetings] = useState([]);
+  const [loadingMeetings, setLoadingMeetings] = useState(false);
 
   const selectionMode = selectedTasks.length > 0;
+  
+  const fetchRelatedMeetings = useCallback(async () => {
+    if (!projectId) return;
+    setLoadingMeetings(true);
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/meetings?linked_project_id=${projectId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setRelatedMeetings(data.meetings || []);
+      }
+    } catch (error) {
+      console.error('Error fetching meetings:', error);
+    } finally {
+      setLoadingMeetings(false);
+    }
+  }, [projectId]);
 
   const toggleTaskSelection = (taskId) => {
     setSelectedTasks(prev => 
@@ -909,7 +933,8 @@ const ProjectDetail = () => {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    fetchRelatedMeetings();
+  }, [fetchData, fetchRelatedMeetings]);
 
   const handleDragStart = (e, task) => {
     setDraggedTask(task);
@@ -1060,6 +1085,16 @@ const ProjectDetail = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => navigate(`/meetings/new?project_id=${project.id}&type=project_review`)}
+                  className="border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0]"
+                  data-testid="schedule-meeting-btn"
+                >
+                  <Video className="w-4 h-4 mr-2" />
+                  Schedule Meeting
+                </Button>
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -1460,6 +1495,95 @@ const ProjectDetail = () => {
               tasks={filteredTasks}
               onTaskClick={(task) => setSelectedTaskId(task.id)}
             />
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Related Meetings Section */}
+      <Card className="bg-white border-[#E8D5C4] shadow-sm mt-6">
+        <CardHeader className="border-b border-[#E8D5C4]">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-[#4A3728] flex items-center gap-2">
+              <Video className="w-5 h-5 text-rose-600" />
+              Related Meetings
+              {relatedMeetings.length > 0 && (
+                <Badge className="bg-rose-100 text-rose-700 ml-2">{relatedMeetings.length}</Badge>
+              )}
+            </CardTitle>
+            <Button
+              size="sm"
+              onClick={() => navigate(`/meetings/new?project_id=${project.id}&type=project_review`)}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Schedule Meeting
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="p-4">
+          {loadingMeetings ? (
+            <div className="text-center py-8 text-[#6B5D52]">Loading meetings...</div>
+          ) : relatedMeetings.length === 0 ? (
+            <div className="text-center py-8">
+              <Video className="w-12 h-12 mx-auto text-[#D4BBA6] mb-3" />
+              <p className="text-[#6B5D52]">No meetings linked to this project yet</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate(`/meetings/new?project_id=${project.id}&type=project_review`)}
+                className="mt-3 border-[#D4BBA6]"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Schedule First Meeting
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {relatedMeetings.slice(0, 5).map(meeting => (
+                <div 
+                  key={meeting.id}
+                  onClick={() => navigate(`/meetings/${meeting.id}`)}
+                  className="flex items-center justify-between p-3 bg-[#F5EBE0] rounded-lg hover:bg-[#EDE3D8] cursor-pointer transition-colors"
+                >
+                  <div className="flex-1">
+                    <p className="font-medium text-[#4A3728]">{meeting.title}</p>
+                    <div className="flex items-center gap-3 text-xs text-[#6B5D52] mt-1">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {new Date(meeting.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {new Date(meeting.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      {meeting.participant_count > 0 && (
+                        <span className="flex items-center gap-1">
+                          <Users className="w-3 h-3" />
+                          {meeting.participant_count}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <Badge variant="outline" className={
+                    meeting.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                    meeting.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                    'bg-amber-100 text-amber-700'
+                  }>
+                    {meeting.status.replace('_', ' ')}
+                  </Badge>
+                </div>
+              ))}
+              {relatedMeetings.length > 5 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`/meetings?project_id=${project.id}`)}
+                  className="w-full border-[#D4BBA6]"
+                >
+                  View All {relatedMeetings.length} Meetings
+                </Button>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>

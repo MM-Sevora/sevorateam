@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Calendar, Clock, MapPin, Users, Target, Folder, Building2,
-  Plus, Trash2, ArrowLeft, Save, Video, FileText, Link as LinkIcon
+  Plus, Trash2, ArrowLeft, Save, Video, FileText, Link as LinkIcon,
+  RefreshCw
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -40,8 +41,17 @@ const meetingTypes = [
   { value: 'performance_discussion', label: 'Performance Discussion', category: 'Individual' }
 ];
 
+const recurrenceTypes = [
+  { value: 'none', label: 'No Recurrence' },
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'quarterly', label: 'Quarterly' }
+];
+
 const CreateMeeting = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
   
@@ -68,12 +78,32 @@ const CreateMeeting = () => {
     linked_objective_id: '',
     linked_project_id: '',
     visibility: 'public',
-    sync_to_outlook: false
+    sync_to_outlook: false,
+    recurrence_type: 'none',
+    recurrence_end_date: ''
   });
   
   const [agenda, setAgenda] = useState([]);
   const [participants, setParticipants] = useState([]);
   const [preReadDocuments, setPreReadDocuments] = useState([]);
+
+  // Pre-fill from URL params (when creating from Project/Goal page)
+  useEffect(() => {
+    const projectId = searchParams.get('project_id');
+    const goalId = searchParams.get('goal_id');
+    const objectiveId = searchParams.get('objective_id');
+    const meetingType = searchParams.get('type');
+    
+    if (projectId || goalId || objectiveId || meetingType) {
+      setFormData(prev => ({
+        ...prev,
+        linked_project_id: projectId || '',
+        linked_goal_id: goalId || '',
+        linked_objective_id: objectiveId || '',
+        meeting_type: meetingType || 'general'
+      }));
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchOptions = async () => {
@@ -194,7 +224,9 @@ const CreateMeeting = () => {
         agenda: agenda.filter(a => a.title),
         participants: participants,
         pre_read_documents: preReadDocuments.filter(d => d.title),
-        sync_to_outlook: formData.sync_to_outlook
+        sync_to_outlook: formData.sync_to_outlook,
+        recurrence_type: formData.recurrence_type || 'none',
+        recurrence_end_date: formData.recurrence_end_date ? `${formData.recurrence_end_date}T23:59:59Z` : null
       };
 
       const res = await fetch(`${API}/api/meetings`, {
@@ -402,6 +434,62 @@ const CreateMeeting = () => {
                     onCheckedChange={(v) => setFormData({ ...formData, sync_to_outlook: v })}
                   />
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Recurrence Settings */}
+            <Card className="bg-white border-[#E8D5C4] shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-[#4A3728] text-base flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4" />
+                  Recurring Meeting
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label className="text-[#4A3728]">Recurrence Pattern</Label>
+                  <Select 
+                    value={formData.recurrence_type} 
+                    onValueChange={(v) => setFormData({ ...formData, recurrence_type: v })}
+                  >
+                    <SelectTrigger className="border-[#D4BBA6]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border-[#D4BBA6]">
+                      {recurrenceTypes.map(type => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {formData.recurrence_type !== 'none' && (
+                  <>
+                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <p className="text-sm text-blue-700">
+                        <RefreshCw className="w-4 h-4 inline mr-1" />
+                        This meeting will automatically repeat <strong>{formData.recurrence_type}</strong>.
+                        When you complete a meeting, the next occurrence will be created automatically.
+                      </p>
+                    </div>
+
+                    <div>
+                      <Label className="text-[#4A3728]">Recurrence End Date (Optional)</Label>
+                      <Input
+                        type="date"
+                        value={formData.recurrence_end_date}
+                        onChange={(e) => setFormData({ ...formData, recurrence_end_date: e.target.value })}
+                        className="border-[#D4BBA6]"
+                        min={formData.start_date}
+                      />
+                      <p className="text-xs text-[#6B5D52] mt-1">
+                        Leave empty for indefinite recurrence
+                      </p>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
 
