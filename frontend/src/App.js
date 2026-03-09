@@ -78,6 +78,9 @@ import TicketDetail from "./pages/help/TicketDetail";
 import ArticleViewer from "./pages/help/ArticleViewer";
 import HelpAdminDashboard from "./pages/help/HelpAdminDashboard";
 
+// HR Pages
+import ExpenseManagement from "./pages/hr/ExpenseManagement";
+
 import "./App.css";
 
 // Initialize MSAL instance
@@ -329,6 +332,9 @@ function AppRoutes() {
             <Route path="/help/modules/:moduleKey" element={<ProtectedRoute><HelpModuleDetail /></ProtectedRoute>} />
             <Route path="/help/tickets/:ticketId" element={<ProtectedRoute><TicketDetail /></ProtectedRoute>} />
             <Route path="/help/articles/:articleId" element={<ProtectedRoute><ArticleViewer /></ProtectedRoute>} />
+
+            {/* HR Routes */}
+            <Route path="/hr/expenses" element={<ProtectedRoute><ExpenseManagement /></ProtectedRoute>} />
 
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" replace />} />

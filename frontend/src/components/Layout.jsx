@@ -108,6 +108,16 @@ const DEPARTMENT_CONFIG = {
             { path: '/admin/access-control', name: 'Access Control & Permissions', icon: Shield },
             { path: '/admin/organization', name: 'Organization Management', icon: Building2 },
         ]
+    },
+    hr: {
+        name: 'Human Resource',
+        icon: Briefcase,
+        color: 'from-emerald-600 to-emerald-700',
+        bgColor: 'bg-emerald-50',
+        textColor: 'text-emerald-700',
+        routes: [
+            { path: '/hr/expenses', name: 'Expense & Reimbursement', icon: DollarSign },
+        ]
     }
 };
 
@@ -125,7 +135,7 @@ export const Layout = ({ children }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(true);
-    const [expandedDepts, setExpandedDepts] = useState(['marketing', 'projects', 'mail', 'sales', 'social', 'admin']);
+    const [expandedDepts, setExpandedDepts] = useState(['marketing', 'projects', 'mail', 'sales', 'social', 'admin', 'hr']);
 
     const toggleDepartment = (dept) => {
         setExpandedDepts(prev => 
@@ -143,6 +153,7 @@ export const Layout = ({ children }) => {
         if (path.startsWith('/sales')) return 'sales';
         if (path.startsWith('/social')) return 'social';
         if (path.startsWith('/admin')) return 'admin';
+        if (path.startsWith('/hr')) return 'hr';
         return null;
     };
 

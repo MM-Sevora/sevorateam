@@ -3380,6 +3380,14 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Unified Contacts routes: {e}")
 
+# Register Expense & Reimbursement routes
+try:
+    from routes.expense import expense_router
+    api_router.include_router(expense_router)
+    logger.info("Expense routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Expense routes: {e}")
+
 app.include_router(api_router)
 
 # ============== WEBSOCKET FOR REAL-TIME NOTIFICATIONS ==============
