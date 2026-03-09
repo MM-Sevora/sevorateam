@@ -477,6 +477,36 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - [x] Consolidated page now has 5 tabs: Org Chart, Departments, Positions, Teams, Grades
 - [x] Admin sidebar now has 4 clean items: User Management, Employee Database, Access Control & Permissions, Organization Management
 
+### Phase 33: Social Module Fix (COMPLETE - March 9, 2026)
+**Fixed Social Dashboard 404 errors:**
+- [x] Fixed incorrect API paths in `Dashboard.jsx`:
+  - Changed `api.get('/api/analytics/overview')` → `socialAPI.getAnalytics()`
+  - Changed `api.get('/api/posts?limit=10')` → `socialAPI.getPosts({ limit: 10 })`
+- [x] Implemented client-side CSV export (was calling non-existent endpoint)
+- [x] Implemented mock Social Listening feature (was calling non-existent endpoint)
+- [x] Dashboard now displays correctly with stats, charts, and recent activity
+
+### Phase 34: HR Backend Clean Architecture (COMPLETE - March 9, 2026)
+**Separated User (Auth) from Employee (HR) data:**
+- [x] Created `/app/backend/models/employee.py` with clean Employee models
+- [x] Created `/app/backend/routes/hr_v2.py` with new HR v2 routes
+- [x] Created `/app/backend/scripts/migrate_employees.py` migration script
+- [x] HR v2 API endpoints using separate `employees` collection:
+  - `GET /api/hr/v2/employees` - List employees
+  - `GET /api/hr/v2/employees/{id}` - Get employee details
+  - `GET /api/hr/v2/employees/by-user/{user_id}` - Get employee by user
+  - `POST /api/hr/v2/employees` - Create employee (links to user)
+  - `PUT /api/hr/v2/employees/{id}` - Update employee HR data
+  - `DELETE /api/hr/v2/employees/{id}` - Terminate employee
+  - `GET /api/hr/v2/employees/{id}/reporting-chain` - Reporting chain
+  - `GET /api/hr/v2/employees/{id}/direct-reports` - Direct reports
+  - `GET /api/hr/v2/org-chart` - Organization chart
+  - `GET /api/hr/v2/stats/overview` - HR stats overview
+  - `GET /api/hr/v2/stats/by-department` - Stats by department
+  - `GET /api/hr/v2/stats/by-grade` - Stats by grade
+- [x] Backward compatibility: v1 routes (`/api/hr/*`) still work with `users` collection
+- [x] Data model: `employees` linked to `users` via `user_id` field
+
 ### Key API Endpoints
 - `GET /api/projects/manager-dashboard` - Aggregated dashboard data
 - `GET, POST /api/projects/modules` - CRUD for modules

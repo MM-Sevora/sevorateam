@@ -3298,6 +3298,14 @@ try:
 except Exception as e:
     logger.error(f"Failed to load HR routes: {e}")
 
+# Register HR v2 routes (Clean Architecture - separate employees collection)
+try:
+    from routes.hr_v2 import hr_v2_router
+    api_router.include_router(hr_v2_router)
+    logger.info("HR v2 routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load HR v2 routes: {e}")
+
 # Register Access Control routes (Custom Roles, Onboarding, Permissions)
 try:
     from routes.access_control import access_control_router
