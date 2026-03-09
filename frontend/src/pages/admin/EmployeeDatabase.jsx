@@ -760,22 +760,27 @@ const EmployeesTab = ({ employees, loading, searchQuery, setSearchQuery, filters
 
       {/* Table */}
       <Card className="border-[#E8D5C4]">
-        <CardContent className="p-0">
+        <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="bg-[#F5EDE5]">
-                <TableHead className="text-[#4A3728]">Employee</TableHead>
-                <TableHead className="text-[#4A3728]">Employee ID</TableHead>
-                <TableHead className="text-[#4A3728]">Department</TableHead>
-                <TableHead className="text-[#4A3728]">Grade</TableHead>
-                <TableHead className="text-[#4A3728]">Status</TableHead>
-                <TableHead className="text-[#4A3728]">Joined</TableHead>
+                <TableHead className="text-[#4A3728] whitespace-nowrap">User ID</TableHead>
+                <TableHead className="text-[#4A3728] whitespace-nowrap">Employee ID</TableHead>
+                <TableHead className="text-[#4A3728] whitespace-nowrap">Name</TableHead>
+                <TableHead className="text-[#4A3728] whitespace-nowrap">Email ID</TableHead>
+                <TableHead className="text-[#4A3728] whitespace-nowrap">Department</TableHead>
+                <TableHead className="text-[#4A3728] whitespace-nowrap">Role</TableHead>
+                <TableHead className="text-[#4A3728] whitespace-nowrap">Grade</TableHead>
+                <TableHead className="text-[#4A3728] whitespace-nowrap">Reporting Manager</TableHead>
+                <TableHead className="text-[#4A3728] whitespace-nowrap">Joining Date</TableHead>
+                <TableHead className="text-[#4A3728] whitespace-nowrap">Employment Type</TableHead>
+                <TableHead className="text-[#4A3728] whitespace-nowrap">Employee Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {employees.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-[#5D4A3A]">
+                  <TableCell colSpan={11} className="text-center py-8 text-[#5D4A3A]">
                     No employees found
                   </TableCell>
                 </TableRow>
@@ -783,40 +788,88 @@ const EmployeesTab = ({ employees, loading, searchQuery, setSearchQuery, filters
                 employees.map((emp) => (
                   <TableRow key={emp.id} className="hover:bg-[#F5EDE5]">
                     <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-[#E8D5C4] flex items-center justify-center">
-                          <span className="text-[#4A3728] font-medium">
+                      <code className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600">
+                        {emp.user_id?.slice(0, 8) || '-'}
+                      </code>
+                    </TableCell>
+                    <TableCell>
+                      <code className="text-xs bg-[#F5EDE5] px-2 py-1 rounded font-medium text-[#4A3728]">
+                        {emp.employee_id || emp.employee_code || '-'}
+                      </code>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-[#E8D5C4] flex items-center justify-center flex-shrink-0">
+                          <span className="text-[#4A3728] font-medium text-sm">
                             {emp.name?.charAt(0)?.toUpperCase() || 'E'}
                           </span>
                         </div>
-                        <div>
-                          <p className="font-medium text-[#4A3728]">{emp.name}</p>
-                          <p className="text-sm text-[#5D4A3A]">{emp.email}</p>
-                        </div>
+                        <span className="font-medium text-[#4A3728] whitespace-nowrap">{emp.name || '-'}</span>
                       </div>
                     </TableCell>
+                    <TableCell className="text-[#5D4A3A] text-sm">{emp.email || '-'}</TableCell>
                     <TableCell>
-                      <code className="text-xs bg-[#F5EDE5] px-2 py-1 rounded">
-                        {emp.employee_id || '-'}
-                      </code>
+                      {emp.department_name ? (
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                          {emp.department_name}
+                        </Badge>
+                      ) : '-'}
                     </TableCell>
-                    <TableCell className="text-[#5D4A3A]">{emp.department_name || '-'}</TableCell>
                     <TableCell>
-                      {emp.grade_name && (
-                        <Badge variant="outline">{emp.grade_name}</Badge>
+                      {emp.custom_role_names?.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {emp.custom_role_names.slice(0, 2).map((role, idx) => (
+                            <Badge key={idx} variant="secondary" className="text-xs">
+                              {role}
+                            </Badge>
+                          ))}
+                          {emp.custom_role_names.length > 2 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{emp.custom_role_names.length - 2}
+                            </Badge>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">-</span>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      {emp.grade_name ? (
+                        <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                          {emp.grade_name}
+                        </Badge>
+                      ) : '-'}
+                    </TableCell>
+                    <TableCell className="text-[#5D4A3A] text-sm whitespace-nowrap">
+                      {emp.manager_name || emp.reports_to_name || '-'}
+                    </TableCell>
+                    <TableCell className="text-[#5D4A3A] text-sm whitespace-nowrap">
+                      {emp.joining_date ? new Date(emp.joining_date).toLocaleDateString() : '-'}
+                    </TableCell>
+                    <TableCell>
+                      {emp.employment_type ? (
+                        <Badge className={
+                          emp.employment_type === 'full_time' ? 'bg-green-100 text-green-800' :
+                          emp.employment_type === 'part_time' ? 'bg-blue-100 text-blue-800' :
+                          emp.employment_type === 'contract' ? 'bg-orange-100 text-orange-800' :
+                          emp.employment_type === 'intern' ? 'bg-purple-100 text-purple-800' :
+                          'bg-gray-100 text-gray-800'
+                        }>
+                          {emp.employment_type.replace('_', ' ')}
+                        </Badge>
+                      ) : '-'}
                     </TableCell>
                     <TableCell>
                       <Badge className={
                         emp.status === 'active' ? 'bg-green-100 text-green-800' :
                         emp.status === 'probation' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
+                        emp.status === 'notice_period' ? 'bg-orange-100 text-orange-800' :
+                        emp.status === 'resigned' ? 'bg-red-100 text-red-800' :
+                        emp.status === 'terminated' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
                       }>
-                        {emp.status || 'active'}
+                        {emp.status?.replace('_', ' ') || 'active'}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-[#5D4A3A] text-sm">
-                      {emp.joining_date ? new Date(emp.joining_date).toLocaleDateString() : '-'}
                     </TableCell>
                   </TableRow>
                 ))
