@@ -366,8 +366,8 @@ export default function Objectives() {
   };
 
   const handleClick = (obj) => {
-    // For now, just open edit modal. Later can navigate to detail page
-    handleOpenModal(obj);
+    // Navigate to objective detail page
+    navigate(`/goals/objectives/${obj.id}`);
   };
 
   // Get quarters for selected fiscal year in form

@@ -73,6 +73,7 @@ import GoalsDashboard from "./pages/goals/GoalsDashboard";
 import StrategicGoals from "./pages/goals/StrategicGoals";
 import FiscalYears from "./pages/goals/FiscalYears";
 import Objectives from "./pages/goals/Objectives";
+import ObjectiveDetail from "./pages/goals/ObjectiveDetail";
 
 // Notifications
 import NotificationCenter from "./pages/notifications/NotificationCenter";
@@ -327,6 +328,7 @@ function AppRoutes() {
             <Route path="/goals" element={<ProtectedRoute><GoalsDashboard /></ProtectedRoute>} />
             <Route path="/goals/strategic" element={<ProtectedRoute><StrategicGoals /></ProtectedRoute>} />
             <Route path="/goals/objectives" element={<ProtectedRoute><Objectives /></ProtectedRoute>} />
+            <Route path="/goals/objectives/:objectiveId" element={<ProtectedRoute><ObjectiveDetail /></ProtectedRoute>} />
             <Route path="/goals/fiscal-years" element={<ProtectedRoute><FiscalYears /></ProtectedRoute>} />
 
             {/* Project Management Routes */}

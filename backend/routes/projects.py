@@ -466,6 +466,7 @@ async def list_projects(
     owner_id: Optional[str] = None,
     priority: Optional[Priority] = None,
     visibility: Optional[str] = None,
+    linked_objective_id: Optional[str] = None,
     search: Optional[str] = None,
     user: dict = Depends(get_current_user_dep)
 ):
@@ -489,6 +490,8 @@ async def list_projects(
         query["priority"] = priority.value
     if visibility:
         query["visibility"] = visibility
+    if linked_objective_id:
+        query["linked_objective_id"] = linked_objective_id
     if search:
         query["$or"] = [
             {"name": {"$regex": search, "$options": "i"}},
