@@ -92,6 +92,15 @@ MODULE_DEFINITIONS = {
 }
 
 
+# ============== MODULE PERMISSIONS ==============
+
+class ModulePermissions(BaseModel):
+    create: bool = True
+    read: bool = True
+    update: bool = True
+    delete: bool = True
+
+
 # ============== CUSTOM ROLE MODELS ==============
 
 class CustomRoleCreate(BaseModel):
@@ -99,6 +108,7 @@ class CustomRoleCreate(BaseModel):
     code: str  # e.g., "marketing_manager", "hr_admin"
     description: Optional[str] = None
     module_access: List[str] = []  # List of module keys
+    module_permissions: Dict[str, ModulePermissions] = {}  # CRUD per module
     is_system_role: bool = False  # True for built-in roles
     can_manage_users: bool = False
     can_manage_employees: bool = False
@@ -109,6 +119,7 @@ class CustomRoleUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     module_access: Optional[List[str]] = None
+    module_permissions: Optional[Dict[str, dict]] = None  # CRUD per module
     can_manage_users: Optional[bool] = None
     can_manage_employees: Optional[bool] = None
     can_manage_roles: Optional[bool] = None
@@ -121,6 +132,7 @@ class CustomRoleResponse(BaseModel):
     code: str
     description: Optional[str] = None
     module_access: List[str] = []
+    module_permissions: Dict[str, dict] = {}  # CRUD per module
     module_names: List[str] = []  # Human readable module names
     is_system_role: bool = False
     can_manage_users: bool = False

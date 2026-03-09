@@ -60,6 +60,7 @@ const AccessControlPage = () => {
     code: '',
     description: '',
     module_access: [],
+    module_permissions: {}, // New: { module_key: { create: true, read: true, update: true, delete: false } }
     can_manage_users: false,
     can_manage_employees: false,
     can_manage_roles: false
@@ -145,6 +146,7 @@ const AccessControlPage = () => {
       code: '',
       description: '',
       module_access: [],
+      module_permissions: {},
       can_manage_users: false,
       can_manage_employees: false,
       can_manage_roles: false
@@ -159,6 +161,7 @@ const AccessControlPage = () => {
       code: role.code,
       description: role.description || '',
       module_access: role.module_access || [],
+      module_permissions: role.module_permissions || {},
       can_manage_users: role.can_manage_users || false,
       can_manage_employees: role.can_manage_employees || false,
       can_manage_roles: role.can_manage_roles || false
@@ -168,11 +171,42 @@ const AccessControlPage = () => {
 
   // Toggle module access
   const toggleModule = (moduleKey) => {
+    setRoleForm(prev => {
+      const isCurrentlySelected = prev.module_access.includes(moduleKey);
+      if (isCurrentlySelected) {
+        // Remove module and its permissions
+        const newPermissions = { ...prev.module_permissions };
+        delete newPermissions[moduleKey];
+        return {
+          ...prev,
+          module_access: prev.module_access.filter(m => m !== moduleKey),
+          module_permissions: newPermissions
+        };
+      } else {
+        // Add module with default permissions (all true)
+        return {
+          ...prev,
+          module_access: [...prev.module_access, moduleKey],
+          module_permissions: {
+            ...prev.module_permissions,
+            [moduleKey]: { create: true, read: true, update: true, delete: true }
+          }
+        };
+      }
+    });
+  };
+
+  // Toggle specific CRUD permission for a module
+  const togglePermission = (moduleKey, permType) => {
     setRoleForm(prev => ({
       ...prev,
-      module_access: prev.module_access.includes(moduleKey)
-        ? prev.module_access.filter(m => m !== moduleKey)
-        : [...prev.module_access, moduleKey]
+      module_permissions: {
+        ...prev.module_permissions,
+        [moduleKey]: {
+          ...(prev.module_permissions[moduleKey] || { create: true, read: true, update: true, delete: true }),
+          [permType]: !(prev.module_permissions[moduleKey]?.[permType] ?? true)
+        }
+      }
     }));
   };
 
@@ -263,7 +297,7 @@ const AccessControlPage = () => {
                 <TableHeader>
                   <TableRow className="bg-[#F5EDE5]">
                     <TableHead className="text-[#4A3728]">Role</TableHead>
-                    <TableHead className="text-[#4A3728]">Module Access</TableHead>
+                    <TableHead className="text-[#4A3728]">Module Access & CRUD</TableHead>
                     <TableHead className="text-[#4A3728]">Admin Permissions</TableHead>
                     <TableHead className="text-[#4A3728]">Employees</TableHead>
                     <TableHead className="text-[#4A3728] text-right">Actions</TableHead>
@@ -295,12 +329,23 @@ const AccessControlPage = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex flex-wrap gap-1 max-w-[300px]">
-                            {(role.module_names || []).slice(0, 3).map((name, idx) => (
-                              <Badge key={idx} variant="secondary" className="text-xs">
-                                {name}
-                              </Badge>
-                            ))}
+                          <div className="flex flex-wrap gap-1 max-w-[350px]">
+                            {(role.module_names || []).slice(0, 3).map((name, idx) => {
+                              const moduleKey = (role.module_access || [])[idx];
+                              const perms = role.module_permissions?.[moduleKey] || {};
+                              const permStr = [
+                                perms.create ? 'C' : '',
+                                perms.read ? 'R' : '',
+                                perms.update ? 'U' : '',
+                                perms.delete ? 'D' : ''
+                              ].filter(Boolean).join('');
+                              return (
+                                <Badge key={idx} variant="secondary" className="text-xs">
+                                  {name}
+                                  {permStr && <span className="ml-1 text-[10px] opacity-70">({permStr})</span>}
+                                </Badge>
+                              );
+                            })}
                             {(role.module_names || []).length > 3 && (
                               <Badge variant="outline" className="text-xs">
                                 +{role.module_names.length - 3} more
@@ -442,39 +487,81 @@ const AccessControlPage = () => {
               />
             </div>
 
-            {/* Module Access */}
+            {/* Module Access with CRUD Permissions */}
             <div>
-              <Label className="text-[#4A3728] mb-3 block">Module Access</Label>
-              <div className="grid grid-cols-2 gap-3">
+              <Label className="text-[#4A3728] mb-3 block">Module Access & CRUD Permissions</Label>
+              <p className="text-xs text-[#5D4A3A] mb-3">Select modules and configure Create, Read, Update, Delete permissions for each.</p>
+              <div className="space-y-3">
                 {moduleKeys.map((key) => {
                   const module = modules[key] || {};
                   const isDefault = module.default_access;
                   const isSelected = roleForm.module_access.includes(key);
+                  const perms = roleForm.module_permissions[key] || { create: true, read: true, update: true, delete: true };
                   
                   return (
                     <div
                       key={key}
-                      className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                      className={`p-3 rounded-lg border transition-colors ${
                         isSelected || isDefault
                           ? 'border-[#8B7355] bg-[#F5EDE5]'
-                          : 'border-[#E8D5C4] hover:border-[#8B7355]'
-                      } ${selectedRole?.is_system_role ? 'opacity-60 pointer-events-none' : ''}`}
-                      onClick={() => !isDefault && toggleModule(key)}
+                          : 'border-[#E8D5C4]'
+                      } ${selectedRole?.is_system_role ? 'opacity-60' : ''}`}
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 mb-2">
                         <Checkbox
                           checked={isSelected || isDefault}
                           disabled={isDefault || selectedRole?.is_system_role}
-                          className="pointer-events-none"
+                          onCheckedChange={() => !isDefault && toggleModule(key)}
                         />
                         <div className="flex-1">
                           <p className="font-medium text-[#4A3728] text-sm">{module.name || key}</p>
-                          <p className="text-xs text-[#5D4A3A]">{module.description}</p>
                         </div>
                         {isDefault && (
                           <Badge variant="outline" className="text-xs">Default</Badge>
                         )}
                       </div>
+                      
+                      {/* CRUD Permissions - Only show when module is selected */}
+                      {(isSelected || isDefault) && (
+                        <div className="ml-6 mt-2 flex gap-4 flex-wrap">
+                          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                            <Checkbox
+                              checked={perms.create}
+                              disabled={selectedRole?.is_system_role}
+                              onCheckedChange={() => togglePermission(key, 'create')}
+                              className="h-3.5 w-3.5"
+                            />
+                            <span className="text-green-700 font-medium">Create</span>
+                          </label>
+                          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                            <Checkbox
+                              checked={perms.read}
+                              disabled={selectedRole?.is_system_role}
+                              onCheckedChange={() => togglePermission(key, 'read')}
+                              className="h-3.5 w-3.5"
+                            />
+                            <span className="text-blue-700 font-medium">Read</span>
+                          </label>
+                          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                            <Checkbox
+                              checked={perms.update}
+                              disabled={selectedRole?.is_system_role}
+                              onCheckedChange={() => togglePermission(key, 'update')}
+                              className="h-3.5 w-3.5"
+                            />
+                            <span className="text-amber-700 font-medium">Update</span>
+                          </label>
+                          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                            <Checkbox
+                              checked={perms.delete}
+                              disabled={selectedRole?.is_system_role}
+                              onCheckedChange={() => togglePermission(key, 'delete')}
+                              className="h-3.5 w-3.5"
+                            />
+                            <span className="text-red-700 font-medium">Delete</span>
+                          </label>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
