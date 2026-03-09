@@ -570,7 +570,14 @@ const InfluencerDetailPage = () => {
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div className="flex-1">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">Influencer Profile</p>
+          <div className="flex items-center gap-2">
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-gray-500 mb-1">Influencer Profile</p>
+            {isEditMode && (
+              <Badge className="bg-amber-100 text-amber-700 text-xs animate-pulse">
+                Editing Mode
+              </Badge>
+            )}
+          </div>
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-semibold text-gray-900">{form.name || 'New Influencer'}</h1>
             <Badge className={`${tier.color} border font-normal`}>{tier.label}</Badge>
@@ -617,16 +624,22 @@ const InfluencerDetailPage = () => {
                     }
                   }
                 }}
+                className="border-gray-300"
+                data-testid="cancel-edit-btn"
               >
-                <X className="w-4 h-4 mr-2" /> Cancel
+                <X className="w-4 h-4 mr-2" /> {hasChanges ? 'Discard' : 'Cancel'}
               </Button>
               <Button 
                 onClick={handleSave} 
                 disabled={!hasChanges || saving}
-                className="bg-[#c4a35a] hover:bg-[#b39349] text-white"
+                className={hasChanges 
+                  ? "bg-[#c4a35a] hover:bg-[#b39349] text-white" 
+                  : "bg-gray-200 text-gray-500 cursor-not-allowed"
+                }
                 data-testid="save-changes-btn"
               >
-                <Save className="w-4 h-4 mr-2" /> {saving ? 'Saving...' : 'Save'}
+                <Save className="w-4 h-4 mr-2" /> 
+                {saving ? 'Saving...' : hasChanges ? 'Save Changes' : 'No Changes'}
               </Button>
             </>
           ) : (
@@ -634,8 +647,9 @@ const InfluencerDetailPage = () => {
               variant="outline"
               onClick={() => setIsEditMode(true)}
               data-testid="edit-mode-btn"
+              className="border-[#c4a35a] text-[#c4a35a] hover:bg-[#c4a35a]/10"
             >
-              <Edit3 className="w-4 h-4 mr-2" /> Edit
+              <Edit3 className="w-4 h-4 mr-2" /> Edit Profile
             </Button>
           )}
         </div>
