@@ -4391,6 +4391,14 @@ async def process_scheduled_posts():
 # Start scheduler on app startup
 @app.on_event("startup")
 async def start_scheduler():
+    # Initialize object storage
+    try:
+        from utils.storage import init_storage
+        init_storage()
+        logger.info("Object storage initialized")
+    except Exception as e:
+        logger.warning(f"Object storage init failed (non-fatal): {e}")
+    
     # Run scheduled posts check every 5 minutes
     scheduler.add_job(process_scheduled_posts, IntervalTrigger(minutes=5), id="process_scheduled_posts", replace_existing=True)
     scheduler.start()

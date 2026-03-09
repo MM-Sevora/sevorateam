@@ -2,7 +2,7 @@
 Project Management System API Routes
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, UploadFile, File, Header, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
@@ -19,8 +19,12 @@ from models.projects import (
     ActivityLogResponse,
     TimeLogCreate, TimeLogResponse,
     MyTasksResponse, ProjectDashboardResponse,
-    ManagerDashboardResponse, TeamMemberWorkload, ProjectSummary
+    ManagerDashboardResponse, TeamMemberWorkload, ProjectSummary,
+    AttachmentResponse
 )
+
+# Import storage utilities
+from utils.storage import init_storage, put_object, get_object, get_mime_type, generate_storage_path
 
 router = APIRouter(prefix="/projects", tags=["Project Management"])
 
@@ -132,7 +136,7 @@ async def enrich_task(task: dict) -> dict:
     task["checklist_count"] = await db.pm_checklists.count_documents({"task_id": task["id"]})
     task["checklist_completed"] = await db.pm_checklists.count_documents({"task_id": task["id"], "is_completed": True})
     task["comment_count"] = await db.pm_comments.count_documents({"task_id": task["id"]})
-    task["attachment_count"] = await db.pm_attachments.count_documents({"task_id": task["id"]})
+    task["attachment_count"] = await db.pm_attachments.count_documents({"task_id": task["id"], "is_deleted": False})
     
     # Get dependency info
     blocked_by = task.get("blocked_by", [])
@@ -1563,6 +1567,147 @@ async def create_time_log(
     log_doc["task_name"] = task.get("name")
     
     return log_doc
+
+
+# ============== ATTACHMENT ROUTES ==============
+
+@router.get("/tasks/{task_id}/attachments", response_model=List[AttachmentResponse])
+async def list_attachments(
+    task_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """List all attachments for a task"""
+    task = await db.pm_tasks.find_one({"id": task_id})
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    attachments = await db.pm_attachments.find(
+        {"task_id": task_id, "is_deleted": False}, 
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    
+    for att in attachments:
+        att["uploaded_by_name"] = await get_user_name(att.get("uploaded_by"))
+    
+    return attachments
+
+
+@router.post("/tasks/{task_id}/attachments", response_model=AttachmentResponse)
+async def upload_attachment(
+    task_id: str,
+    file: UploadFile = File(...),
+    user: dict = Depends(get_current_user_dep)
+):
+    """Upload an attachment to a task"""
+    task = await db.pm_tasks.find_one({"id": task_id})
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    # Validate file size (max 10MB)
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File size exceeds 10MB limit")
+    
+    # Generate unique ID and storage path
+    attachment_id = str(uuid.uuid4())
+    content_type = file.content_type or get_mime_type(file.filename)
+    storage_path = generate_storage_path(user["id"], file.filename, attachment_id)
+    
+    try:
+        # Upload to storage
+        result = put_object(storage_path, content, content_type)
+        
+        now = datetime.now(timezone.utc).isoformat()
+        
+        # Store reference in database
+        attachment_doc = {
+            "id": attachment_id,
+            "task_id": task_id,
+            "original_filename": file.filename,
+            "storage_path": result["path"],
+            "content_type": content_type,
+            "size": result.get("size", len(content)),
+            "uploaded_by": user["id"],
+            "is_deleted": False,
+            "created_at": now
+        }
+        
+        await db.pm_attachments.insert_one(attachment_doc)
+        
+        # Log activity
+        await log_activity("task", task_id, task.get("name"), "attachment_added", user["id"], {
+            "filename": file.filename
+        })
+        
+        if "_id" in attachment_doc:
+            del attachment_doc["_id"]
+        
+        attachment_doc["uploaded_by_name"] = user.get("name")
+        
+        return attachment_doc
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(e)}")
+
+
+@router.get("/attachments/{attachment_id}/download")
+async def download_attachment(
+    attachment_id: str,
+    authorization: str = Header(None),
+    auth: str = Query(None),
+    user: dict = Depends(get_current_user_dep)
+):
+    """Download an attachment"""
+    attachment = await db.pm_attachments.find_one({
+        "id": attachment_id,
+        "is_deleted": False
+    }, {"_id": 0})
+    
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    
+    try:
+        content, content_type = get_object(attachment["storage_path"])
+        
+        return Response(
+            content=content,
+            media_type=attachment.get("content_type", content_type),
+            headers={
+                "Content-Disposition": f'attachment; filename="{attachment["original_filename"]}"'
+            }
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to download file: {str(e)}")
+
+
+@router.delete("/attachments/{attachment_id}")
+async def delete_attachment(
+    attachment_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Soft delete an attachment"""
+    attachment = await db.pm_attachments.find_one({
+        "id": attachment_id,
+        "is_deleted": False
+    })
+    
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    
+    # Soft delete (storage doesn't support delete)
+    await db.pm_attachments.update_one(
+        {"id": attachment_id},
+        {"$set": {"is_deleted": True, "deleted_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    # Get task for activity log
+    task = await db.pm_tasks.find_one({"id": attachment["task_id"]})
+    
+    await log_activity("task", attachment["task_id"], task.get("name") if task else None, "attachment_removed", user["id"], {
+        "filename": attachment["original_filename"]
+    })
+    
+    return {"message": "Attachment deleted"}
 
 
 # Note: Activity log endpoint moved above /{project_id} route to avoid matching issues

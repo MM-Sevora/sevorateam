@@ -70,6 +70,15 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - [x] Progress bar smooth animation
 - [x] Input focus shadow effects
 
+### Phase 8: File Attachments (COMPLETE - March 9, 2026)
+- [x] Backend: AttachmentResponse model in models/projects.py
+- [x] Backend: Emergent Object Storage integration (utils/storage.py)
+- [x] Backend: Upload/download/delete endpoints in routes/projects.py
+- [x] Frontend: AttachmentsSection component with drag-drop
+- [x] Frontend: Files tab in TaskDetailModal
+- [x] File list with icons, size, date, uploader
+- [x] 10MB file size limit validation
+
 ---
 
 ## Pending Issues

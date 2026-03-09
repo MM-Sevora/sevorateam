@@ -305,6 +305,20 @@ class ActivityLogResponse(BaseModel):
     created_at: str
 
 
+# ============== ATTACHMENT MODELS ==============
+
+class AttachmentResponse(BaseModel):
+    id: str
+    task_id: str
+    original_filename: str
+    storage_path: str
+    content_type: str
+    size: int
+    uploaded_by: Optional[str] = None
+    uploaded_by_name: Optional[str] = None
+    created_at: str
+
+
 # ============== TIME LOG MODELS ==============
 
 class TimeLogCreate(BaseModel):
