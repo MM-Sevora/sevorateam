@@ -774,3 +774,28 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - Project Tasks: Linked to a specific project, visible to project team
 - Individual Tasks: Standalone tasks for daily responsibilities, not linked to any project
 - Both task types appear in My Tasks dashboard with appropriate badges
+
+### Phase 39: Global Search Feature (COMPLETE - December 2025)
+- [x] Frontend: New GlobalSearch.jsx component with dialog-based search UI
+- [x] Frontend: Cmd/Ctrl+K keyboard shortcut to open search anywhere in the app
+- [x] Frontend: Search trigger button in header with ⌘K hint
+- [x] Frontend: Search results showing Projects section (project_id, status, progress)
+- [x] Frontend: Search results showing Tasks section (priority, project, assignee, due date)
+- [x] Frontend: Click result navigates to project or task detail
+- [x] Frontend: Empty state with helpful instructions
+- [x] Frontend: Footer with keyboard hints (↵ to select, esc to close)
+- [x] Backend: Projects search via GET /api/projects/list?search=<query>
+- [x] Backend: Tasks search via GET /api/projects/tasks/all?search=<query>
+- [x] Layout.jsx updated to include GlobalSearch component in header
+
+### Manager Dashboard Status (Verified Working - December 2025)
+The Manager Dashboard was already functional with:
+- [x] Project Stats: Total, Active, Completed, On Hold, At Risk counts
+- [x] Task Stats: Total, Completed, Overdue, Unassigned, Blocked counts
+- [x] Donut Chart: Projects by Status (Draft/Active/On Hold/Completed/Cancelled)
+- [x] Donut Chart: Projects by Priority (Urgent/High/Medium/Low)
+- [x] Bar Chart: Weekly Task Completion (last 7 days)
+- [x] Team Workload Card: Shows members with task counts and completion %
+- [x] At-Risk Projects Card: Projects with overdue tasks or past deadlines
+- [x] Upcoming Deadlines Card: Projects ending within 7 days
+- [x] Recent Activity Card: Latest activity log entries
