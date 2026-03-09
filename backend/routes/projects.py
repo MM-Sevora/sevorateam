@@ -20,7 +20,8 @@ from models.projects import (
     TimeLogCreate, TimeLogResponse,
     MyTasksResponse, ProjectDashboardResponse,
     ManagerDashboardResponse, TeamMemberWorkload, ProjectSummary,
-    AttachmentResponse
+    AttachmentResponse,
+    LabelCreate, LabelUpdate, LabelResponse, TaskLabelResponse
 )
 
 # Import storage utilities
@@ -166,6 +167,14 @@ async def enrich_task(task: dict) -> dict:
     # Ensure blocked_by and blocks are lists
     task["blocked_by"] = blocked_by
     task["blocks"] = blocks
+    
+    # Get labels
+    label_ids = task.get("label_ids", [])
+    labels = []
+    if label_ids:
+        label_docs = await db.pm_labels.find({"id": {"$in": label_ids}}, {"_id": 0, "id": 1, "name": 1, "color": 1}).to_list(50)
+        labels = label_docs
+    task["labels"] = labels
     
     return task
 
@@ -1708,6 +1717,132 @@ async def delete_attachment(
     })
     
     return {"message": "Attachment deleted"}
+
+
+# ============== LABEL ROUTES ==============
+
+@router.get("/labels", response_model=List[LabelResponse])
+async def list_labels(
+    project_id: Optional[str] = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """List all labels, optionally filtered by project"""
+    query = {}
+    if project_id:
+        query["$or"] = [{"project_id": project_id}, {"project_id": None}]
+    
+    labels = await db.pm_labels.find(query, {"_id": 0}).sort("name", 1).to_list(100)
+    return labels
+
+
+@router.post("/labels", response_model=LabelResponse)
+async def create_label(
+    label: LabelCreate,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Create a new label"""
+    now = datetime.now(timezone.utc).isoformat()
+    
+    label_doc = {
+        "id": str(uuid.uuid4()),
+        "name": label.name,
+        "color": label.color,
+        "project_id": label.project_id,
+        "created_by": user["id"],
+        "created_at": now
+    }
+    
+    await db.pm_labels.insert_one(label_doc)
+    
+    if "_id" in label_doc:
+        del label_doc["_id"]
+    
+    return label_doc
+
+
+@router.put("/labels/{label_id}", response_model=LabelResponse)
+async def update_label(
+    label_id: str,
+    label: LabelUpdate,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Update a label"""
+    existing = await db.pm_labels.find_one({"id": label_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Label not found")
+    
+    update_data = {k: v for k, v in label.dict().items() if v is not None}
+    
+    if update_data:
+        await db.pm_labels.update_one({"id": label_id}, {"$set": update_data})
+    
+    updated = await db.pm_labels.find_one({"id": label_id}, {"_id": 0})
+    return updated
+
+
+@router.delete("/labels/{label_id}")
+async def delete_label(
+    label_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Delete a label and remove it from all tasks"""
+    existing = await db.pm_labels.find_one({"id": label_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Label not found")
+    
+    # Remove label from all tasks
+    await db.pm_tasks.update_many(
+        {"label_ids": label_id},
+        {"$pull": {"label_ids": label_id}}
+    )
+    
+    # Delete the label
+    await db.pm_labels.delete_one({"id": label_id})
+    
+    return {"message": "Label deleted"}
+
+
+@router.post("/tasks/{task_id}/labels/{label_id}")
+async def add_label_to_task(
+    task_id: str,
+    label_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Add a label to a task"""
+    task = await db.pm_tasks.find_one({"id": task_id})
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    label = await db.pm_labels.find_one({"id": label_id})
+    if not label:
+        raise HTTPException(status_code=404, detail="Label not found")
+    
+    # Add label if not already present
+    await db.pm_tasks.update_one(
+        {"id": task_id},
+        {"$addToSet": {"label_ids": label_id}}
+    )
+    
+    return {"message": "Label added to task"}
+
+
+@router.delete("/tasks/{task_id}/labels/{label_id}")
+async def remove_label_from_task(
+    task_id: str,
+    label_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Remove a label from a task"""
+    task = await db.pm_tasks.find_one({"id": task_id})
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    await db.pm_tasks.update_one(
+        {"id": task_id},
+        {"$pull": {"label_ids": label_id}}
+    )
+    
+    return {"message": "Label removed from task"}
 
 
 # Note: Activity log endpoint moved above /{project_id} route to avoid matching issues

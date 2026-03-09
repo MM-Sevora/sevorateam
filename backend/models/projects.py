@@ -202,6 +202,7 @@ class TaskResponse(BaseModel):
     estimated_hours: Optional[float] = None
     actual_hours: Optional[float] = None
     tags: List[str] = []
+    labels: List[Dict] = []  # List of {id, name, color}
     parent_task_id: Optional[str] = None
     blocked_by: List[str] = []
     blocked_by_names: List[str] = []  # Names of blocking tasks
@@ -317,6 +318,34 @@ class AttachmentResponse(BaseModel):
     uploaded_by: Optional[str] = None
     uploaded_by_name: Optional[str] = None
     created_at: str
+
+
+# ============== LABEL MODELS ==============
+
+class LabelCreate(BaseModel):
+    name: str
+    color: str = "blue"  # red, orange, yellow, green, blue, purple, pink, gray
+    project_id: Optional[str] = None  # If None, label is available for all projects
+
+
+class LabelUpdate(BaseModel):
+    name: Optional[str] = None
+    color: Optional[str] = None
+
+
+class LabelResponse(BaseModel):
+    id: str
+    name: str
+    color: str
+    project_id: Optional[str] = None
+    created_by: Optional[str] = None
+    created_at: str
+
+
+class TaskLabelResponse(BaseModel):
+    id: str
+    name: str
+    color: str
 
 
 # ============== TIME LOG MODELS ==============

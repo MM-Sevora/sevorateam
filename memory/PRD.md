@@ -113,6 +113,16 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - [x] Horizontal Quick Info Bar (Status, Priority, Assignee, Due Date)
 - [x] Cleaner tab layout with rounded active states
 - [x] Better visual hierarchy
+- [x] Fixed Edit/Close button overlap
+
+### Phase 13: Task Labels/Tags (COMPLETE - March 9, 2026)
+- [x] Backend: Label model (name, color, project_id)
+- [x] Backend: CRUD endpoints for labels
+- [x] Backend: Add/remove labels from tasks endpoints
+- [x] Frontend: Labels tab in TaskDetailModal
+- [x] Frontend: 8 color options picker
+- [x] Frontend: Create/delete labels UI
+- [x] Frontend: Labels displayed on Kanban task cards
 
 ---
 

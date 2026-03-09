@@ -59,6 +59,18 @@ const statusColumns = [
   { id: 'completed', label: 'Completed', color: 'border-t-emerald-500', bgColor: 'bg-emerald-50/30' }
 ];
 
+// Label colors
+const labelColors = {
+  red: 'bg-red-100 text-red-700 border-red-200',
+  orange: 'bg-orange-100 text-orange-700 border-orange-200',
+  yellow: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  green: 'bg-green-100 text-green-700 border-green-200',
+  blue: 'bg-blue-100 text-blue-700 border-blue-200',
+  purple: 'bg-purple-100 text-purple-700 border-purple-200',
+  pink: 'bg-pink-100 text-pink-700 border-pink-200',
+  gray: 'bg-gray-100 text-gray-700 border-gray-200'
+};
+
 const TaskCard = ({ task, onStatusChange, onEdit, onDelete, onDragStart, onClick, isSelected, onSelect, selectionMode }) => {
   const formatDate = (dateStr) => {
     if (!dateStr) return null;
@@ -135,6 +147,23 @@ const TaskCard = ({ task, onStatusChange, onEdit, onDelete, onDragStart, onClick
       </div>
 
       <h4 className="font-medium text-[#4A3728] text-sm mb-2 line-clamp-2 group-hover:text-rose-600 transition-colors">{task.name}</h4>
+
+      {/* Labels */}
+      {task.labels && task.labels.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-2">
+          {task.labels.slice(0, 3).map(label => (
+            <span 
+              key={label.id}
+              className={`text-[10px] px-1.5 py-0.5 rounded border ${labelColors[label.color] || labelColors.gray}`}
+            >
+              {label.name}
+            </span>
+          ))}
+          {task.labels.length > 3 && (
+            <span className="text-[10px] px-1.5 py-0.5 text-[#6B5D52]">+{task.labels.length - 3}</span>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center justify-between text-xs text-[#6B5D52] mt-2 pt-2 border-t border-[#F5EBE0]">
         <div className="flex items-center gap-3">
