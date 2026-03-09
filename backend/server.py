@@ -3397,6 +3397,15 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Goals & Objectives routes: {e}")
 
+# Register Meetings & Reviews routes
+try:
+    from routes.meetings import router as meetings_router, set_database as set_meetings_db
+    set_meetings_db(db, get_current_user)
+    api_router.include_router(meetings_router)
+    logger.info("Meetings & Reviews routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Meetings & Reviews routes: {e}")
+
 app.include_router(api_router)
 
 # ============== WEBSOCKET FOR REAL-TIME NOTIFICATIONS ==============

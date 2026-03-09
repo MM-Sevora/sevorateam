@@ -10,7 +10,7 @@ import {
     UserPlus, ShoppingBag, Calendar, QrCode, Building2, Settings,
     PenTool, Sparkles, Zap, Clock, Youtube, Image, LogOut, Menu, X,
     ChevronDown, ChevronRight, Briefcase, Mail, Check, Send, ListTodo, FolderKanban,
-    HelpCircle, Award, Network, Shield, Flag, CalendarDays, RefreshCw
+    HelpCircle, Award, Network, Shield, Flag, CalendarDays, RefreshCw, Plus
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -39,6 +39,17 @@ const DEPARTMENT_CONFIG = {
             { path: '/goals/strategic', name: 'Strategic Goals', icon: Flag },
             { path: '/goals/objectives', name: 'Objectives', icon: Target },
             { path: '/goals/fiscal-years', name: 'Fiscal Years', icon: CalendarDays },
+        ]
+    },
+    meetings: {
+        name: 'Meetings & Reviews',
+        icon: CalendarDays,
+        color: 'from-violet-600 to-violet-700',
+        bgColor: 'bg-violet-50',
+        textColor: 'text-violet-700',
+        routes: [
+            { path: '/meetings', name: 'All Meetings', icon: CalendarDays },
+            { path: '/meetings/new', name: 'Schedule Meeting', icon: Plus },
         ]
     },
     marketing: {

@@ -76,6 +76,10 @@ import FiscalYears from "./pages/goals/FiscalYears";
 import Objectives from "./pages/goals/Objectives";
 import ObjectiveDetail from "./pages/goals/ObjectiveDetail";
 
+// Meetings & Reviews Pages
+import MeetingList from "./pages/meetings/MeetingList";
+import CreateMeeting from "./pages/meetings/CreateMeeting";
+
 // Notifications
 import NotificationCenter from "./pages/notifications/NotificationCenter";
 
@@ -348,6 +352,12 @@ function AppRoutes() {
             <Route path="/help/modules/:moduleKey" element={<ProtectedRoute><HelpModuleDetail /></ProtectedRoute>} />
             <Route path="/help/tickets/:ticketId" element={<ProtectedRoute><TicketDetail /></ProtectedRoute>} />
             <Route path="/help/articles/:articleId" element={<ProtectedRoute><ArticleViewer /></ProtectedRoute>} />
+
+            {/* Meetings & Reviews */}
+            <Route path="/meetings" element={<ProtectedRoute><MeetingList /></ProtectedRoute>} />
+            <Route path="/meetings/new" element={<ProtectedRoute><CreateMeeting /></ProtectedRoute>} />
+            <Route path="/meetings/:meetingId" element={<ProtectedRoute><MeetingList /></ProtectedRoute>} />
+            <Route path="/meetings/:meetingId/edit" element={<ProtectedRoute><CreateMeeting /></ProtectedRoute>} />
 
             {/* HR Routes */}
             <Route path="/hr/expenses" element={<ProtectedRoute><ExpenseManagement /></ProtectedRoute>} />
