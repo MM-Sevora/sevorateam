@@ -155,11 +155,14 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - [x] Backend: Create task from template endpoint with overrides
 - [x] Backend: Template usage count tracking
 - [x] Backend: Global vs Project-specific template scoping
+- [x] Backend: Template categories (meetings, reports, sprints, checklists, other)
 - [x] Frontend: TaskTemplatesPanel.jsx component (right-side sheet)
 - [x] Frontend: Templates button on ProjectDetail page
-- [x] Frontend: Create/Edit template form dialog
+- [x] Frontend: Create/Edit template form dialog with category selector
 - [x] Frontend: Use template dialog with overrides (name, due date, assignee)
 - [x] Frontend: Templates list with details (priority, hours, recurring, checklist count, usage)
+- [x] Frontend: Category filter buttons (All, Meetings, Reports, Sprints, Checklists, Other)
+- [x] Frontend: Category badges on template cards with color-coded icons
 
 ---
 

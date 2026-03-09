@@ -820,15 +820,19 @@ async def get_manager_dashboard(
 @router.get("/templates", response_model=List[TaskTemplateResponse])
 async def list_templates(
     project_id: Optional[str] = None,
+    category: Optional[str] = None,
     user: dict = Depends(get_current_user_dep)
 ):
-    """List task templates - global and/or project-specific"""
+    """List task templates - global and/or project-specific, optionally filtered by category"""
     query = {}
     if project_id:
         # Get templates for this project + global templates
         query["$or"] = [{"project_id": project_id}, {"project_id": None}]
     
-    templates = await db.pm_task_templates.find(query, {"_id": 0}).sort("name", 1).to_list(100)
+    if category:
+        query["category"] = category
+    
+    templates = await db.pm_task_templates.find(query, {"_id": 0}).sort([("category", 1), ("name", 1)]).to_list(100)
     
     # Enrich templates
     for template in templates:
@@ -875,6 +879,7 @@ async def create_template(
         "name": data.name,
         "description": data.description,
         "project_id": data.project_id,
+        "category": data.category.value,
         "default_priority": data.default_priority.value,
         "default_assignee": data.default_assignee,
         "estimated_hours": data.estimated_hours,
@@ -956,6 +961,8 @@ async def update_template(
     for k, v in data.model_dump().items():
         if v is not None:
             if k == "default_priority":
+                update_data[k] = v.value
+            elif k == "category":
                 update_data[k] = v.value
             elif k == "checklist_items":
                 update_data[k] = [item if isinstance(item, dict) else item.model_dump() for item in v]

@@ -371,6 +371,14 @@ class TaskLabelResponse(BaseModel):
 
 # ============== TASK TEMPLATE MODELS ==============
 
+class TemplateCategory(str, Enum):
+    MEETINGS = "meetings"
+    REPORTS = "reports"
+    SPRINTS = "sprints"
+    CHECKLISTS = "checklists"
+    OTHER = "other"
+
+
 class TaskTemplateChecklistItem(BaseModel):
     text: str
     assigned_to: Optional[str] = None
@@ -380,6 +388,7 @@ class TaskTemplateCreate(BaseModel):
     name: str
     description: Optional[str] = None
     project_id: Optional[str] = None  # None = global template
+    category: TemplateCategory = TemplateCategory.OTHER
     default_priority: Priority = Priority.MEDIUM
     default_assignee: Optional[str] = None
     estimated_hours: Optional[float] = None
@@ -395,6 +404,7 @@ class TaskTemplateCreate(BaseModel):
 class TaskTemplateUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
+    category: Optional[TemplateCategory] = None
     default_priority: Optional[Priority] = None
     default_assignee: Optional[str] = None
     estimated_hours: Optional[float] = None
@@ -412,6 +422,7 @@ class TaskTemplateResponse(BaseModel):
     description: Optional[str] = None
     project_id: Optional[str] = None
     project_name: Optional[str] = None  # "Global" if project_id is None
+    category: str = "other"
     default_priority: Priority = Priority.MEDIUM
     default_assignee: Optional[str] = None
     default_assignee_name: Optional[str] = None

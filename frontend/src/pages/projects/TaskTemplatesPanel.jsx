@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   BookCopy, Plus, Edit, Trash2, X, Clock, Flag, User,
-  Repeat, CheckSquare, Tag, Loader2, Copy
+  Repeat, CheckSquare, Loader2, Copy, Calendar, FileText, Zap, ListChecks, Filter
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -31,6 +31,14 @@ import { toast } from 'sonner';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
+const categoryConfig = {
+  meetings: { label: 'Meetings', icon: Calendar, color: 'bg-blue-100 text-blue-700 border-blue-200' },
+  reports: { label: 'Reports', icon: FileText, color: 'bg-purple-100 text-purple-700 border-purple-200' },
+  sprints: { label: 'Sprints', icon: Zap, color: 'bg-orange-100 text-orange-700 border-orange-200' },
+  checklists: { label: 'Checklists', icon: ListChecks, color: 'bg-green-100 text-green-700 border-green-200' },
+  other: { label: 'Other', icon: BookCopy, color: 'bg-gray-100 text-gray-700 border-gray-200' }
+};
+
 const priorityConfig = {
   urgent: { label: 'Urgent', color: 'bg-red-100 text-red-700 border-red-200' },
   high: { label: 'High', color: 'bg-orange-100 text-orange-700 border-orange-200' },
@@ -56,12 +64,14 @@ const TaskTemplatesPanel = ({ open, onClose, projectId, users = [], labels = [],
   const [editingTemplate, setEditingTemplate] = useState(null);
   const [showUseTemplate, setShowUseTemplate] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const token = localStorage.getItem('sevora_token');
 
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     project_id: null, // null = global
+    category: 'other',
     default_priority: 'medium',
     default_assignee: '',
     estimated_hours: '',
@@ -107,6 +117,7 @@ const TaskTemplatesPanel = ({ open, onClose, projectId, users = [], labels = [],
       name: '',
       description: '',
       project_id: projectId || null,
+      category: 'other',
       default_priority: 'medium',
       default_assignee: '',
       estimated_hours: '',
@@ -131,6 +142,7 @@ const TaskTemplatesPanel = ({ open, onClose, projectId, users = [], labels = [],
       name: template.name,
       description: template.description || '',
       project_id: template.project_id,
+      category: template.category || 'other',
       default_priority: template.default_priority,
       default_assignee: template.default_assignee || '',
       estimated_hours: template.estimated_hours || '',
@@ -281,27 +293,60 @@ const TaskTemplatesPanel = ({ open, onClose, projectId, users = [], labels = [],
           {/* Create Button */}
           <Button
             onClick={openCreateForm}
-            className="w-full mb-6 bg-rose-600 hover:bg-rose-700 text-white"
+            className="w-full mb-4 bg-rose-600 hover:bg-rose-700 text-white"
             data-testid="create-template-btn"
           >
             <Plus className="w-4 h-4 mr-2" />
             Create Template
           </Button>
 
+          {/* Category Filter */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            <button
+              onClick={() => setCategoryFilter('all')}
+              className={`text-xs px-3 py-1.5 rounded-full transition-all ${
+                categoryFilter === 'all' 
+                  ? 'bg-[#4A3728] text-white' 
+                  : 'bg-white border border-[#D4BBA6] text-[#6B5D52] hover:bg-[#F5EBE0]'
+              }`}
+            >
+              All
+            </button>
+            {Object.entries(categoryConfig).map(([key, { label, icon: Icon }]) => (
+              <button
+                key={key}
+                onClick={() => setCategoryFilter(key)}
+                className={`text-xs px-3 py-1.5 rounded-full transition-all flex items-center gap-1.5 ${
+                  categoryFilter === key 
+                    ? 'bg-[#4A3728] text-white' 
+                    : 'bg-white border border-[#D4BBA6] text-[#6B5D52] hover:bg-[#F5EBE0]'
+                }`}
+              >
+                <Icon className="w-3 h-3" />
+                {label}
+              </button>
+            ))}
+          </div>
+
           {/* Templates List */}
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-[#9C8C74]" />
             </div>
-          ) : templates.length === 0 ? (
+          ) : templates.filter(t => categoryFilter === 'all' || t.category === categoryFilter).length === 0 ? (
             <div className="text-center py-12 text-[#9C8C74]">
               <BookCopy className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p className="text-sm">No templates yet</p>
+              <p className="text-sm">{categoryFilter === 'all' ? 'No templates yet' : `No ${categoryConfig[categoryFilter]?.label || categoryFilter} templates`}</p>
               <p className="text-xs mt-1">Create templates to quickly add recurring tasks</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {templates.map(template => (
+              {templates
+                .filter(t => categoryFilter === 'all' || t.category === categoryFilter)
+                .map(template => {
+                  const catConfig = categoryConfig[template.category] || categoryConfig.other;
+                  const CatIcon = catConfig.icon;
+                  return (
                 <div
                   key={template.id}
                   className="p-4 bg-white rounded-lg border border-[#E8D5C4] hover:border-[#D4BBA6] transition-all group"
@@ -309,7 +354,13 @@ const TaskTemplatesPanel = ({ open, onClose, projectId, users = [], labels = [],
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div>
-                      <h4 className="font-medium text-[#4A3728]">{template.name}</h4>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-medium text-[#4A3728]">{template.name}</h4>
+                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${catConfig.color}`}>
+                          <CatIcon className="w-3 h-3 mr-1" />
+                          {catConfig.label}
+                        </Badge>
+                      </div>
                       <span className="text-xs text-[#9C8C74]">{template.project_name}</span>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -399,7 +450,8 @@ const TaskTemplatesPanel = ({ open, onClose, projectId, users = [], labels = [],
                     </p>
                   )}
                 </div>
-              ))}
+              );
+              })}
             </div>
           )}
         </div>
@@ -452,6 +504,29 @@ const TaskTemplatesPanel = ({ open, onClose, projectId, users = [], labels = [],
                 <SelectContent className="bg-white border-[#D4BBA6]">
                   <SelectItem value="global">Global (All Projects)</SelectItem>
                   {projectId && <SelectItem value={projectId}>This Project Only</SelectItem>}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Category */}
+            <div>
+              <Label className="text-[#6B5D52]">Category</Label>
+              <Select
+                value={formData.category}
+                onValueChange={(v) => setFormData({ ...formData, category: v })}
+              >
+                <SelectTrigger className="mt-1 border-[#D4BBA6]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-[#D4BBA6]">
+                  {Object.entries(categoryConfig).map(([key, { label, icon: Icon }]) => (
+                    <SelectItem key={key} value={key}>
+                      <span className="flex items-center gap-2">
+                        <Icon className="w-4 h-4" />
+                        {label}
+                      </span>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
