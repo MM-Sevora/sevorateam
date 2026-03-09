@@ -619,6 +619,74 @@ async def seed_grade_types(user: dict = Depends(require_admin())):
     return {"success": True, "message": f"Created {created} grade types", "count": created}
 
 
+@hr_router.post("/reset-and-seed")
+async def reset_and_seed_hr_data(user: dict = Depends(require_admin())):
+    """Reset and seed all HR data (grades and departments)"""
+    db = get_db()
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Clear existing grades
+    await db.grade_types.delete_many({})
+    
+    # Seed new grades
+    grades_created = 0
+    for grade in DEFAULT_GRADE_TYPES:
+        grade_id = str(uuid.uuid4())
+        grade_doc = {
+            "id": grade_id,
+            **grade,
+            "is_active": True,
+            "employee_count": 0,
+            "created_at": now,
+            "updated_at": now
+        }
+        await db.grade_types.insert_one(grade_doc)
+        grades_created += 1
+    
+    # Define company departments
+    company_departments = [
+        {"name": "Warehouse & Inventory", "code": "warehouse", "description": "Warehouse operations and inventory management", "color": "#795548", "icon": "Package"},
+        {"name": "Fulfilment", "code": "fulfilment", "description": "Order fulfilment operations", "color": "#FF9800", "icon": "Box"},
+        {"name": "Delivery", "code": "delivery", "description": "Delivery and logistics", "color": "#4CAF50", "icon": "Truck"},
+        {"name": "Stylist", "code": "stylist", "description": "Fashion styling team", "color": "#E91E63", "icon": "Sparkles"},
+        {"name": "Marketing & Growth", "code": "marketing", "description": "Marketing and growth initiatives", "color": "#9C27B0", "icon": "Target"},
+        {"name": "Customer Support", "code": "customer_support", "description": "Customer service and support", "color": "#00BCD4", "icon": "Headphones"},
+        {"name": "Catalogue Management", "code": "catalogue", "description": "Product catalogue management", "color": "#3F51B5", "icon": "BookOpen"},
+        {"name": "Product Design", "code": "product_design", "description": "Product design and development", "color": "#FF5722", "icon": "Palette"},
+        {"name": "Sourcing & Procurement", "code": "sourcing", "description": "Sourcing and procurement operations", "color": "#607D8B", "icon": "Search"},
+        {"name": "Assortment Planning", "code": "assortment", "description": "Product assortment planning", "color": "#8BC34A", "icon": "LayoutGrid"},
+        {"name": "Merchandise Planning", "code": "merchandise", "description": "Merchandise planning and strategy", "color": "#673AB7", "icon": "Calendar"},
+        {"name": "Finance & Accounts", "code": "finance", "description": "Finance and accounting", "color": "#2196F3", "icon": "DollarSign"},
+        {"name": "HR & Admin", "code": "admin", "description": "Human resources and administration", "color": "#8B7355", "icon": "Users"},
+    ]
+    
+    # Clear and reseed departments
+    await db.departments.delete_many({})
+    
+    depts_created = 0
+    for dept in company_departments:
+        dept_id = str(uuid.uuid4())
+        await db.departments.insert_one({
+            "id": dept_id,
+            **dept,
+            "is_active": True,
+            "member_count": 0,
+            "created_at": now,
+            "updated_at": now
+        })
+        depts_created += 1
+    
+    # Clear user department and grade assignments (optional - keeps users but clears assignments)
+    await db.users.update_many({}, {"$unset": {"department_id": "", "grade_id": ""}})
+    
+    return {
+        "success": True,
+        "message": f"Reset complete. Created {grades_created} grades and {depts_created} departments",
+        "grades_created": grades_created,
+        "departments_created": depts_created
+    }
+
+
 # ============== HELPER FUNCTIONS ==============
 
 async def _enrich_employee(db, emp: dict, full_details: bool = False) -> dict:
