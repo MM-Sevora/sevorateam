@@ -62,6 +62,8 @@ import AutomationSettings from "./pages/settings/AutomationSettings";
 
 // Project Management Pages
 import MyTasks from "./pages/projects/MyTasks";
+import ProjectsList from "./pages/projects/ProjectsList";
+import ProjectDetail from "./pages/projects/ProjectDetail";
 
 import "./App.css";
 
@@ -293,7 +295,9 @@ function AppRoutes() {
             <Route path="/settings/automations" element={<ProtectedRoute><AutomationSettings /></ProtectedRoute>} />
 
             {/* Project Management Routes */}
+            <Route path="/projects" element={<ProtectedRoute><ProjectsList /></ProtectedRoute>} />
             <Route path="/projects/my-tasks" element={<ProtectedRoute><MyTasks /></ProtectedRoute>} />
+            <Route path="/projects/:projectId" element={<ProtectedRoute><ProjectDetail /></ProtectedRoute>} />
 
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" replace />} />
