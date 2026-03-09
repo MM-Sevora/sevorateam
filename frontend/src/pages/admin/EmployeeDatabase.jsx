@@ -67,6 +67,17 @@ const EmployeeDatabase = () => {
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [saving, setSaving] = useState(false);
+  
+  // Edit employee form
+  const [editForm, setEditForm] = useState({
+    status: '',
+    employment_type: '',
+    department_id: '',
+    grade_id: '',
+    reports_to: '',
+    designation: '',
+    work_mode: '',
+  });
 
   // Onboarding form - now with multi-role support
   const [onboardForm, setOnboardForm] = useState({
@@ -96,6 +107,21 @@ const EmployeeDatabase = () => {
       fetchDraftUsers();
     }
   }, [activeTab, filters]);
+
+  // Populate edit form when editing employee changes
+  useEffect(() => {
+    if (editingEmployee) {
+      setEditForm({
+        status: editingEmployee.status || 'active',
+        employment_type: editingEmployee.employment_type || 'full_time',
+        department_id: editingEmployee.department_id || '',
+        grade_id: editingEmployee.grade_id || '',
+        reports_to: editingEmployee.reports_to || '',
+        designation: editingEmployee.designation || '',
+        work_mode: editingEmployee.work_mode || 'office',
+      });
+    }
+  }, [editingEmployee]);
 
   const fetchLookupData = async () => {
     try {
@@ -219,6 +245,23 @@ const EmployeeDatabase = () => {
     });
   };
 
+  // Save employee changes
+  const handleSaveEmployee = async () => {
+    if (!editingEmployee) return;
+    
+    setSaving(true);
+    try {
+      await api.put(`/hr/v2/employees/${editingEmployee.id}`, editForm);
+      toast.success('Employee updated successfully');
+      setShowEmployeeModal(false);
+      setEditingEmployee(null);
+      fetchEmployees();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to update employee');
+    }
+    setSaving(false);
+  };
+
   const openOnboardModal = (user) => {
     setSelectedUser(user);
     resetOnboardForm();
@@ -289,6 +332,10 @@ const EmployeeDatabase = () => {
             departments={departments}
             grades={grades}
             onRefresh={fetchEmployees}
+            onEditEmployee={(emp) => {
+              setEditingEmployee(emp);
+              setShowEmployeeModal(true);
+            }}
           />
         </TabsContent>
 
@@ -623,6 +670,150 @@ const EmployeeDatabase = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Employee Modal */}
+      <Dialog open={showEmployeeModal} onOpenChange={(open) => { setShowEmployeeModal(open); if(!open) setEditingEmployee(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-[#4A3728]">Edit Employee</DialogTitle>
+            <DialogDescription>
+              Update employee details for {editingEmployee?.name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Employee Info (Read-only) */}
+            <div className="bg-[#F5EDE5] p-3 rounded-lg">
+              <p className="text-sm text-[#5D4A3A]">Employee</p>
+              <p className="font-medium text-[#4A3728]">{editingEmployee?.name}</p>
+              <p className="text-sm text-[#5D4A3A]">{editingEmployee?.email}</p>
+              <p className="text-xs text-[#8B7355] mt-1">ID: {editingEmployee?.employee_code}</p>
+            </div>
+
+            {/* Status */}
+            <div>
+              <Label className="text-[#4A3728]">Employee Status *</Label>
+              <Select value={editForm.status} onValueChange={(v) => setEditForm({ ...editForm, status: v })}>
+                <SelectTrigger className="border-[#E8D5C4]">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="probation">Probation</SelectItem>
+                  <SelectItem value="notice_period">Notice Period</SelectItem>
+                  <SelectItem value="resigned">Resigned</SelectItem>
+                  <SelectItem value="terminated">Terminated</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Employment Type */}
+            <div>
+              <Label className="text-[#4A3728]">Employment Type</Label>
+              <Select value={editForm.employment_type} onValueChange={(v) => setEditForm({ ...editForm, employment_type: v })}>
+                <SelectTrigger className="border-[#E8D5C4]">
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="full_time">Full Time</SelectItem>
+                  <SelectItem value="part_time">Part Time</SelectItem>
+                  <SelectItem value="contract">Contract</SelectItem>
+                  <SelectItem value="intern">Intern</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Department */}
+            <div>
+              <Label className="text-[#4A3728]">Department</Label>
+              <Select value={editForm.department_id || "none"} onValueChange={(v) => setEditForm({ ...editForm, department_id: v === "none" ? "" : v })}>
+                <SelectTrigger className="border-[#E8D5C4]">
+                  <SelectValue placeholder="Select department" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Department</SelectItem>
+                  {departments.map(d => (
+                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Grade */}
+            <div>
+              <Label className="text-[#4A3728]">Grade</Label>
+              <Select value={editForm.grade_id || "none"} onValueChange={(v) => setEditForm({ ...editForm, grade_id: v === "none" ? "" : v })}>
+                <SelectTrigger className="border-[#E8D5C4]">
+                  <SelectValue placeholder="Select grade" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Grade</SelectItem>
+                  {grades.map(g => (
+                    <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Reporting Manager */}
+            <div>
+              <Label className="text-[#4A3728]">Reporting Manager</Label>
+              <Select value={editForm.reports_to || "none"} onValueChange={(v) => setEditForm({ ...editForm, reports_to: v === "none" ? "" : v })}>
+                <SelectTrigger className="border-[#E8D5C4]">
+                  <SelectValue placeholder="Select manager" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Manager</SelectItem>
+                  {employees.filter(e => e.id !== editingEmployee?.id).map(emp => (
+                    <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Designation */}
+            <div>
+              <Label className="text-[#4A3728]">Designation</Label>
+              <Input 
+                value={editForm.designation} 
+                onChange={(e) => setEditForm({ ...editForm, designation: e.target.value })}
+                placeholder="e.g., Senior Developer"
+                className="border-[#E8D5C4]"
+              />
+            </div>
+
+            {/* Work Mode */}
+            <div>
+              <Label className="text-[#4A3728]">Work Mode</Label>
+              <Select value={editForm.work_mode} onValueChange={(v) => setEditForm({ ...editForm, work_mode: v })}>
+                <SelectTrigger className="border-[#E8D5C4]">
+                  <SelectValue placeholder="Select work mode" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="office">Office</SelectItem>
+                  <SelectItem value="hybrid">Hybrid</SelectItem>
+                  <SelectItem value="remote">Remote</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowEmployeeModal(false); setEditingEmployee(null); }} className="border-[#E8D5C4]">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveEmployee}
+              disabled={saving}
+              className="bg-[#4A3728] hover:bg-[#5D4A3A] text-white"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
@@ -703,7 +894,7 @@ const OverviewTab = ({ stats, loading, departments }) => {
 };
 
 // Employees Tab Component
-const EmployeesTab = ({ employees, loading, searchQuery, setSearchQuery, filters, setFilters, departments, grades, onRefresh }) => {
+const EmployeesTab = ({ employees, loading, searchQuery, setSearchQuery, filters, setFilters, departments, grades, onRefresh, onEditEmployee }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -751,6 +942,9 @@ const EmployeesTab = ({ employees, loading, searchQuery, setSearchQuery, filters
             <SelectItem value="active">Active</SelectItem>
             <SelectItem value="inactive">Inactive</SelectItem>
             <SelectItem value="probation">Probation</SelectItem>
+            <SelectItem value="notice_period">Notice Period</SelectItem>
+            <SelectItem value="resigned">Resigned</SelectItem>
+            <SelectItem value="terminated">Terminated</SelectItem>
           </SelectContent>
         </Select>
         <Button variant="outline" onClick={onRefresh} className="border-[#E8D5C4]">
@@ -775,6 +969,7 @@ const EmployeesTab = ({ employees, loading, searchQuery, setSearchQuery, filters
                 <TableHead className="text-[#4A3728] whitespace-nowrap">Joining Date</TableHead>
                 <TableHead className="text-[#4A3728] whitespace-nowrap">Employment Type</TableHead>
                 <TableHead className="text-[#4A3728] whitespace-nowrap">Employee Status</TableHead>
+                <TableHead className="text-[#4A3728] whitespace-nowrap text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -866,10 +1061,21 @@ const EmployeesTab = ({ employees, loading, searchQuery, setSearchQuery, filters
                         emp.status === 'notice_period' ? 'bg-orange-100 text-orange-800' :
                         emp.status === 'resigned' ? 'bg-red-100 text-red-800' :
                         emp.status === 'terminated' ? 'bg-red-100 text-red-800' :
+                        emp.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
                         'bg-gray-100 text-gray-800'
                       }>
                         {emp.status?.replace('_', ' ') || 'active'}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => onEditEmployee(emp)}
+                        className="border-[#E8D5C4] hover:bg-[#F5EDE5]"
+                      >
+                        <Edit2 className="h-4 w-4 mr-1" /> Edit
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
