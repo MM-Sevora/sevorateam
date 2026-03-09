@@ -788,6 +788,19 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - [x] Backend: Tasks search via GET /api/projects/tasks/all?search=<query>
 - [x] Layout.jsx updated to include GlobalSearch component in header
 
+### Phase 40: Global Search Quick Filters (COMPLETE - December 2025)
+- [x] Frontend: Quick filter bar below search input with 5 filter options
+- [x] Filter: "All" (default) - Shows both projects and tasks
+- [x] Filter: "Projects" - Shows only project results (10 max)
+- [x] Filter: "Tasks" - Shows only task results (12 max)
+- [x] Filter: "My Tasks" - Shows tasks assigned to current user
+- [x] Filter: "Overdue" - Shows overdue tasks and at-risk projects
+- [x] Active filter highlighted in rose color with visual feedback
+- [x] Filter label shown in footer when active
+- [x] Placeholder text updates based on active filter
+- [x] Overdue tasks shown with red icon and "Overdue" badge
+- [x] At-risk projects shown in Overdue filter
+
 ### Manager Dashboard Status (Verified Working - December 2025)
 The Manager Dashboard was already functional with:
 - [x] Project Stats: Total, Active, Completed, On Hold, At Risk counts
