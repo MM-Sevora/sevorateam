@@ -1029,7 +1029,8 @@ The Manager Dashboard was already functional with:
 
 ## Pending Issues
 
-### P1 - Next Priority
+### P1 - Upcoming Tasks
+- [ ] **Integrate Meetings with Goals & Objectives**: Add "Schedule Meeting" button and "Related Meetings" section to GoalDetail.jsx and ObjectiveDetail.jsx (similar to ProjectDetail integration)
 - [ ] Apply consistent Edit/Save/Cancel UX to other pages
 - [ ] Complete `server.py` route extraction
 
@@ -1259,6 +1260,40 @@ The Manager Dashboard was already functional with:
 **Testing:**
 - [x] 5/5 frontend tests passed (100%)
 - [x] All UI interactions verified via Playwright
+
+### Phase 48g: Meeting Module Enhancements (COMPLETE - March 9, 2026)
+**Project Integration - Schedule Meeting from Project:**
+- [x] Backend: Fixed `get_project_name()` function - was querying wrong collection (projects → pm_projects)
+- [x] Frontend: "Schedule Meeting" button added to ProjectDetail.jsx header
+- [x] Frontend: Navigation to `/meetings/new?project_id={id}&type=project_review`
+- [x] Frontend: Fixed API endpoint in ProjectDetail.jsx (linked_project_id → project_id)
+- [x] Frontend: CreateMeeting.jsx correctly pre-fills project dropdown from URL params
+
+**Clickable Linked Items:**
+- [x] Frontend: Project badge in MeetingDetail.jsx now clickable → navigates to project detail
+- [x] Frontend: Goal badge now clickable → navigates to goal detail
+- [x] Frontend: Department badge now clickable → navigates to department detail
+- [x] Frontend: External link icons added to indicate navigation
+- [x] Frontend: Hover effects and cursor pointer for better UX
+
+**Attendance Tracking Feature:**
+- [x] Backend: `PUT /api/meetings/{id}/attendance/{user_id}` - Update individual attendance
+- [x] Backend: `PUT /api/meetings/{id}/attendance-bulk` - Bulk update attendance
+- [x] Backend: Valid statuses: invited, accepted, declined, tentative, present, late, absent, excused
+- [x] Frontend: Attendance dropdown in Participants section (for in_progress/completed meetings)
+- [x] Frontend: "Attendance Tracking" badge in header when meeting is active
+- [x] Frontend: Attendance Summary section showing Present/Late/Absent/Excused counts
+- [x] Frontend: Real-time update on status change with toast notification
+
+**Recurring Meeting Visibility:**
+- [x] Frontend: Recurrence type dropdown in CreateMeeting form (None, Daily, Weekly, Monthly, Quarterly)
+- [x] Frontend: Blue recurring badge on meeting cards in MeetingList
+- [x] Backend: `recurrence_type` field exposed in list API
+
+**Testing:**
+- [x] 5/5 features verified via testing agent
+- [x] All backend endpoints tested with curl
+- [x] Frontend interactions verified via Playwright
 
 ### P3 - Backlog
 - [ ] Gantt Chart View for projects
