@@ -993,6 +993,38 @@ The Manager Dashboard was already functional with:
 - [x] 17/17 backend tests passed
 - [x] All frontend features verified
 
+### Phase 47b: Recurring Tasks Dashboard & Reporting (COMPLETE - December 2025)
+**Enhanced Dashboard Metrics:**
+- [x] completion_rate - percentage of completed recurring tasks
+- [x] overdue_recurring - count of overdue generated tasks
+- [x] in_progress_recurring - count of in-progress tasks
+- [x] by_project - array with project stats
+- [x] by_assignee - array with assignee stats
+- [x] weekly_trend - 4 weeks of generation data
+- [x] top_templates - top 5 by occurrences_generated
+
+**Dashboard & Reports Tab:**
+- [x] 6 key metrics cards (Total, Generated, Completion Rate, Completed, In Progress, Overdue)
+- [x] Weekly Generation Trend bar chart
+- [x] Templates by Frequency breakdown
+- [x] Top Templates ranking
+- [x] By Project section
+- [x] By Assignee section
+
+**Project Integration:**
+- [x] Project filter dropdown in Templates tab
+- [x] project_id filter parameter for API
+
+**Quick Recurring Button (My Tasks):**
+- [x] Daily Standup - Creates daily template (Mon-Fri)
+- [x] Weekly Report - Creates weekly template (Fridays)
+- [x] Monthly Review - Creates monthly template (Last Friday)
+- [x] Custom Recurring... link to full page
+
+**Testing:**
+- [x] 11/11 Phase 2 backend tests passed
+- [x] All frontend features verified
+
 ---
 
 ## Pending Issues
