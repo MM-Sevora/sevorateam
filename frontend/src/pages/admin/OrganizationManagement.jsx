@@ -80,7 +80,7 @@ const OrganizationManagement = () => {
     try {
       const [deptRes, empRes] = await Promise.all([
         api.get('/hr/departments'),
-        api.get('/hr/employees?limit=200')
+        api.get('/hr/v2/employees?limit=200')
       ]);
       setDepartments(deptRes.data || []);
       setEmployees(empRes.data || []);
@@ -92,7 +92,7 @@ const OrganizationManagement = () => {
   const fetchOrgChart = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/hr/org-chart');
+      const res = await api.get('/hr/v2/org-chart');
       setOrgChart(Array.isArray(res.data) ? res.data : [res.data]);
     } catch (err) {
       console.error('Failed to fetch org chart:', err);

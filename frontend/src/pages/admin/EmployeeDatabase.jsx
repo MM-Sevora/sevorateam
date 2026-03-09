@@ -120,8 +120,8 @@ const EmployeeDatabase = () => {
     setLoading(true);
     try {
       const [overviewRes, deptRes] = await Promise.all([
-        api.get('/hr/stats/overview'),
-        api.get('/hr/stats/by-department'),
+        api.get('/hr/v2/stats/overview'),
+        api.get('/hr/v2/stats/by-department'),
       ]);
       setStats({
         overview: overviewRes.data,
@@ -142,7 +142,7 @@ const EmployeeDatabase = () => {
       if (filters.status) params.append('status', filters.status);
       if (searchQuery) params.append('search', searchQuery);
       
-      const res = await api.get(`/hr/employees?${params.toString()}`);
+      const res = await api.get(`/hr/v2/employees?${params.toString()}`);
       setEmployees(res.data || []);
     } catch (err) {
       toast.error('Failed to load employees');
