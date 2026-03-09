@@ -111,6 +111,7 @@ class ProjectCreate(BaseModel):
     team_members: List[str] = []
     stakeholders: List[str] = []
     tags: List[str] = []
+    linked_objective_id: Optional[str] = None  # Link to Goals & Objectives module
 
 
 class ProjectUpdate(BaseModel):
@@ -128,6 +129,7 @@ class ProjectUpdate(BaseModel):
     team_members: Optional[List[str]] = None
     stakeholders: Optional[List[str]] = None
     tags: Optional[List[str]] = None
+    linked_objective_id: Optional[str] = None  # Link to Goals & Objectives module
 
 
 class ProjectResponse(BaseModel):
@@ -157,6 +159,8 @@ class ProjectResponse(BaseModel):
     task_count: int = 0
     completed_task_count: int = 0
     progress: float = 0.0
+    linked_objective_id: Optional[str] = None
+    linked_objective_title: Optional[str] = None
     created_by: Optional[str] = None
     created_at: str
     updated_at: str

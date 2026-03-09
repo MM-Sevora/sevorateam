@@ -11,6 +11,7 @@ from datetime import datetime, timezone, timedelta
 from dateutil.relativedelta import relativedelta
 import uuid
 import logging
+from bson import ObjectId
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +106,44 @@ async def get_task_name(task_id: str) -> str:
         return None
     task = await db.pm_tasks.find_one({"id": task_id}, {"name": 1})
     return task.get("name") if task else None
+
+
+async def recalculate_objective_progress(objective_id: str):
+    """Recalculate objective progress based on linked projects"""
+    if not objective_id:
+        return
+    
+    try:
+        from bson import ObjectId as BsonObjectId
+        
+        # Get all projects linked to this objective
+        linked_projects = await db.pm_projects.find(
+            {"linked_objective_id": objective_id}
+        ).to_list(100)
+        
+        if not linked_projects:
+            return
+        
+        # Calculate average progress
+        total_progress = 0
+        for project in linked_projects:
+            project_id = project.get("id")
+            total_tasks = await db.pm_tasks.count_documents({"project_id": project_id})
+            completed_tasks = await db.pm_tasks.count_documents({"project_id": project_id, "status": "completed"})
+            project_progress = (completed_tasks / total_tasks * 100) if total_tasks > 0 else 0
+            total_progress += project_progress
+        
+        avg_progress = total_progress / len(linked_projects) if linked_projects else 0
+        
+        # Update objective progress
+        await db.objectives.update_one(
+            {"_id": BsonObjectId(objective_id)},
+            {"$set": {"progress": round(avg_progress, 1), "updated_at": datetime.now(timezone.utc)}}
+        )
+        
+        logger.info(f"Updated objective {objective_id} progress to {avg_progress:.1f}%")
+    except Exception as e:
+        logger.error(f"Failed to recalculate objective progress: {e}")
 
 
 async def get_or_create_personal_project(user_id: str, user_name: str) -> dict:
@@ -539,6 +578,17 @@ async def list_projects(
         project["task_count"] = total_tasks
         project["completed_task_count"] = completed_tasks
         project["progress"] = round((completed_tasks / total_tasks * 100), 1) if total_tasks > 0 else 0
+        
+        # Get linked objective title
+        project["linked_objective_id"] = project.get("linked_objective_id")
+        project["linked_objective_title"] = None
+        if project.get("linked_objective_id"):
+            try:
+                objective = await db.objectives.find_one({"_id": ObjectId(project["linked_objective_id"])})
+                if objective:
+                    project["linked_objective_title"] = objective.get("title")
+            except:
+                pass
     
     return filtered_projects
 
@@ -585,6 +635,7 @@ async def create_project(
         "team_members": team_members,
         "stakeholders": data.stakeholders,
         "tags": data.tags,
+        "linked_objective_id": data.linked_objective_id,  # Link to Goals & Objectives
         "created_by": user["id"],
         "created_at": now,
         "updated_at": now
@@ -614,6 +665,13 @@ async def create_project(
     project_doc["task_count"] = 0
     project_doc["completed_task_count"] = 0
     project_doc["progress"] = 0
+    project_doc["linked_objective_title"] = None
+    
+    # Get linked objective title if linked
+    if data.linked_objective_id:
+        objective = await db.objectives.find_one({"_id": ObjectId(data.linked_objective_id)})
+        if objective:
+            project_doc["linked_objective_title"] = objective.get("title")
     
     if "_id" in project_doc:
         del project_doc["_id"]
@@ -1375,6 +1433,49 @@ async def create_task_from_template(
     return await enrich_task(task_doc)
 
 
+# ============== OBJECTIVES FOR LINKING (Must be before /{project_id}) ==============
+
+@router.get("/objectives-list")
+async def get_objectives_for_linking(
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get active objectives for linking to projects"""
+    try:
+        # Get objectives that are not completed
+        objectives = await db.objectives.find(
+            {"status": {"$nin": ["completed"]}},
+            {"_id": 1, "title": 1, "quarter_id": 1, "fiscal_year_id": 1, "status": 1, "department": 1}
+        ).sort("created_at", -1).to_list(100)
+        
+        results = []
+        for obj in objectives:
+            # Get quarter name
+            quarter_name = None
+            if obj.get("quarter_id"):
+                quarter = await db.quarters.find_one({"_id": ObjectId(obj["quarter_id"])}, {"name": 1})
+                quarter_name = quarter.get("name") if quarter else None
+            
+            # Get fiscal year name
+            fy_name = None
+            if obj.get("fiscal_year_id"):
+                fy = await db.fiscal_years.find_one({"_id": ObjectId(obj["fiscal_year_id"])}, {"name": 1})
+                fy_name = fy.get("name") if fy else None
+            
+            results.append({
+                "id": str(obj["_id"]),
+                "title": obj.get("title"),
+                "quarter_name": quarter_name,
+                "fiscal_year_name": fy_name,
+                "status": obj.get("status"),
+                "department": obj.get("department")
+            })
+        
+        return results
+    except Exception as e:
+        logger.error(f"Failed to get objectives for linking: {e}")
+        return []
+
+
 @router.get("/{project_id}", response_model=ProjectResponse)
 async def get_project(
     project_id: str,
@@ -1969,6 +2070,12 @@ async def update_task(
         # Handle recurring task - create next instance when completed
         if new_status in ["completed", "approved"] and task.get("is_recurring"):
             await create_next_recurring_task(task, user["id"])
+        
+        # Recalculate objective progress if project is linked to an objective
+        if task.get("project_id"):
+            project = await db.pm_projects.find_one({"id": task.get("project_id")}, {"linked_objective_id": 1})
+            if project and project.get("linked_objective_id"):
+                await recalculate_objective_progress(project["linked_objective_id"])
         
         # Notify task assignee about status change (if not the one making the change)
         assignee = task.get("assigned_to")

@@ -4,7 +4,7 @@ import {
   Plus, Search, Filter, FolderKanban, Calendar, Users, Flag,
   MoreVertical, Edit, Trash2, Eye, RefreshCw, ChevronDown,
   CheckCircle2, Clock, AlertTriangle, Folder, ArrowRight, ListTodo,
-  Lock, Globe, UserPlus, UserMinus, Paperclip, Upload, X, File
+  Lock, Globe, UserPlus, UserMinus, Paperclip, Upload, X, File, Target
 } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -117,10 +117,20 @@ const ProjectCard = ({ project, onEdit, onDelete, onView }) => {
         <h3 className="font-semibold text-[#4A3728] text-lg mb-1">{project.name}</h3>
         
         {project.module_name && (
-          <p className="text-sm text-[#5D4A3A] flex items-center gap-1 mb-3">
+          <p className="text-sm text-[#5D4A3A] flex items-center gap-1 mb-2">
             <Folder className="w-3.5 h-3.5" />
             {project.module_name}
           </p>
+        )}
+
+        {/* Linked Objective Badge */}
+        {project.linked_objective_title && (
+          <div className="mb-3">
+            <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">
+              <Target className="w-3 h-3 mr-1" />
+              {project.linked_objective_title}
+            </Badge>
+          </div>
         )}
 
         {project.description && (
@@ -169,6 +179,7 @@ const ProjectCard = ({ project, onEdit, onDelete, onView }) => {
 
 const CreateProjectModal = ({ open, onClose, modules, departments, users, onSuccess }) => {
   const [loading, setLoading] = useState(false);
+  const [objectives, setObjectives] = useState([]);
   const [formData, setFormData] = useState({
     name: '',
     module_id: '',
@@ -179,8 +190,28 @@ const CreateProjectModal = ({ open, onClose, modules, departments, users, onSucc
     visibility: 'public',
     project_manager_id: '',
     start_date: '',
-    end_date: ''
+    end_date: '',
+    linked_objective_id: ''
   });
+
+  // Fetch objectives for dropdown
+  useEffect(() => {
+    const fetchObjectives = async () => {
+      try {
+        const token = localStorage.getItem('sevora_token');
+        const res = await fetch(`${API}/api/projects/objectives-list`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setObjectives(data);
+        }
+      } catch (e) {
+        console.error('Error fetching objectives:', e);
+      }
+    };
+    if (open) fetchObjectives();
+  }, [open]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -195,6 +226,7 @@ const CreateProjectModal = ({ open, onClose, modules, departments, users, onSucc
       const payload = { ...formData };
       if (!payload.department_id) delete payload.department_id;
       if (!payload.project_manager_id) delete payload.project_manager_id;
+      if (!payload.linked_objective_id) delete payload.linked_objective_id;
       
       const response = await fetch(`${API}/api/projects`, {
         method: 'POST',
@@ -210,7 +242,7 @@ const CreateProjectModal = ({ open, onClose, modules, departments, users, onSucc
       toast.success('Project created successfully');
       onSuccess();
       onClose();
-      setFormData({ name: '', module_id: '', project_type: 'other', department_id: '', description: '', priority: 'medium', visibility: 'public', project_manager_id: '', start_date: '', end_date: '' });
+      setFormData({ name: '', module_id: '', project_type: 'other', department_id: '', description: '', priority: 'medium', visibility: 'public', project_manager_id: '', start_date: '', end_date: '', linked_objective_id: '' });
     } catch (error) {
       console.error('Error:', error);
       toast.error('Failed to create project');
@@ -406,6 +438,30 @@ const CreateProjectModal = ({ open, onClose, modules, departments, users, onSucc
             </div>
           </div>
 
+          {/* Linked Objective */}
+          {objectives.length > 0 && (
+            <div>
+              <Label className="text-[#4A3728]">Link to Objective (Optional)</Label>
+              <Select
+                value={formData.linked_objective_id || 'none'}
+                onValueChange={(value) => setFormData({ ...formData, linked_objective_id: value === 'none' ? '' : value })}
+              >
+                <SelectTrigger className="border-[#D4BBA6] mt-1">
+                  <SelectValue placeholder="Link to an objective..." />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-[#D4BBA6] max-h-60">
+                  <SelectItem value="none">No linked objective</SelectItem>
+                  {objectives.map(obj => (
+                    <SelectItem key={obj.id} value={obj.id}>
+                      {obj.title} ({obj.quarter_name} - {obj.fiscal_year_name})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-[#9C8C74] mt-1">Contribute to company objectives from Goals & Objectives module</p>
+            </div>
+          )}
+
           <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={onClose} className="border-[#D4BBA6] text-[#4A3728]">
               Cancel
@@ -429,6 +485,7 @@ const EditProjectModal = ({ open, onClose, project, modules, departments, users,
   const [selectedMember, setSelectedMember] = useState('');
   const [attachments, setAttachments] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [objectives, setObjectives] = useState([]);
   const [formData, setFormData] = useState({
     name: '',
     module_id: '',
@@ -440,8 +497,28 @@ const EditProjectModal = ({ open, onClose, project, modules, departments, users,
     status: 'draft',
     project_manager_id: '',
     start_date: '',
-    end_date: ''
+    end_date: '',
+    linked_objective_id: ''
   });
+
+  // Fetch objectives for dropdown
+  useEffect(() => {
+    const fetchObjectives = async () => {
+      try {
+        const token = localStorage.getItem('sevora_token');
+        const res = await fetch(`${API}/api/projects/objectives-list`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setObjectives(data);
+        }
+      } catch (e) {
+        console.error('Error fetching objectives:', e);
+      }
+    };
+    if (open) fetchObjectives();
+  }, [open]);
 
   useEffect(() => {
     if (project) {
@@ -456,7 +533,8 @@ const EditProjectModal = ({ open, onClose, project, modules, departments, users,
         status: project.status || 'draft',
         project_manager_id: project.project_manager_id || '',
         start_date: project.start_date || '',
-        end_date: project.end_date || ''
+        end_date: project.end_date || '',
+        linked_objective_id: project.linked_objective_id || ''
       });
       setTeamMembers(project.team_members || []);
       fetchAttachments();
@@ -765,6 +843,28 @@ const EditProjectModal = ({ open, onClose, project, modules, departments, users,
                   <Label className="text-[#4A3728]">End Date</Label>
                   <Input type="date" value={formData.end_date} onChange={(e) => setFormData({ ...formData, end_date: e.target.value })} className="border-[#D4BBA6] mt-1" />
                 </div>
+              </div>
+
+              {/* Linked Objective */}
+              <div>
+                <Label className="text-[#4A3728]">Linked Objective (Goals & Objectives)</Label>
+                <Select
+                  value={formData.linked_objective_id || 'none'}
+                  onValueChange={(value) => setFormData({ ...formData, linked_objective_id: value === 'none' ? '' : value })}
+                >
+                  <SelectTrigger className="border-[#D4BBA6] mt-1">
+                    <SelectValue placeholder="Link to an objective..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-[#D4BBA6] max-h-60">
+                    <SelectItem value="none">No linked objective</SelectItem>
+                    {objectives.map(obj => (
+                      <SelectItem key={obj.id} value={obj.id}>
+                        {obj.title} ({obj.quarter_name} - {obj.fiscal_year_name})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-[#9C8C74] mt-1">Link this project to a company objective. Project progress will contribute to objective completion.</p>
               </div>
             </TabsContent>
 

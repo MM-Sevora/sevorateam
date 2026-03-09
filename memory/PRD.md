@@ -828,6 +828,20 @@ Build a comprehensive, production-grade **Project Management System** as a core 
 - [x] key_results - Target/current values, progress tracking
 - [x] objective_updates - Progress history
 
+### Phase 42: Project-Objective Linking (COMPLETE - December 2025)
+**Backend:**
+- [x] Added `linked_objective_id` field to ProjectCreate/ProjectUpdate models
+- [x] Added `linked_objective_title` field to ProjectResponse model
+- [x] GET /api/projects/objectives-list - Returns active objectives for dropdown
+- [x] Auto-recalculate objective progress when task status changes
+- [x] `recalculate_objective_progress()` helper function aggregates linked project progress
+
+**Frontend:**
+- [x] "Link to Objective" dropdown in Create Project modal
+- [x] "Linked Objective" dropdown in Edit Project modal (Details tab)
+- [x] Objective badge on project cards showing linked objective title
+- [x] Target icon imported for objective indicators
+
 ### Manager Dashboard Status (Verified Working - December 2025)
 The Manager Dashboard was already functional with:
 - [x] Project Stats: Total, Active, Completed, On Hold, At Risk counts
