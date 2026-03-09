@@ -5,7 +5,8 @@ import {
   Plus, Trash2, ArrowLeft, Save, Video, FileText, Link as LinkIcon,
   Play, CheckCircle2, AlertCircle, Edit, MoreVertical, MessageSquare,
   ListTodo, RefreshCw, ChevronRight, ExternalLink, Copy, Check,
-  PauseCircle, XCircle, ArrowRight, Zap, Scale, ShieldAlert, TrendingUp
+  PauseCircle, XCircle, ArrowRight, Zap, Scale, ShieldAlert, TrendingUp,
+  CloudUpload
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -126,6 +127,10 @@ const MeetingDetail = () => {
   const [users, setUsers] = useState([]);
   const [projects, setProjects] = useState([]);
   const [goals, setGoals] = useState([]);
+  
+  // Outlook sync state
+  const [syncingToOutlook, setSyncingToOutlook] = useState(false);
+  const [outlookSyncStatus, setOutlookSyncStatus] = useState(null);
 
   const fetchMeeting = useCallback(async () => {
     try {
@@ -523,6 +528,37 @@ const MeetingDetail = () => {
     }
   };
 
+  // Outlook Sync
+  const handleSyncToOutlook = async () => {
+    setSyncingToOutlook(true);
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/meetings/${meetingId}/sync-to-outlook`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      const data = await res.json();
+      
+      if (data.status === 'synced') {
+        toast.success('Meeting synced to Outlook');
+        setOutlookSyncStatus('synced');
+        fetchMeeting();
+      } else if (res.status === 400) {
+        toast.error('Please connect your Outlook calendar first');
+        setOutlookSyncStatus('not_connected');
+      } else {
+        toast.error(data.message || 'Failed to sync to Outlook');
+        setOutlookSyncStatus('failed');
+      }
+    } catch (error) {
+      toast.error('Error syncing to Outlook');
+      setOutlookSyncStatus('error');
+    } finally {
+      setSyncingToOutlook(false);
+    }
+  };
+
   const formatDateTime = (dateStr) => {
     if (!dateStr) return '';
     const date = new Date(dateStr);
@@ -601,6 +637,32 @@ const MeetingDetail = () => {
 
         {/* Action Buttons */}
         <div className="flex gap-2">
+          {/* Sync to Outlook Button */}
+          <Button
+            variant="outline"
+            onClick={handleSyncToOutlook}
+            disabled={syncingToOutlook}
+            className={`border-[#D4BBA6] ${meeting.sync_to_outlook ? 'text-emerald-600 border-emerald-300 bg-emerald-50' : ''}`}
+            data-testid="sync-outlook-btn"
+          >
+            {syncingToOutlook ? (
+              <>
+                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                Syncing...
+              </>
+            ) : meeting.sync_to_outlook ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                Synced to Outlook
+              </>
+            ) : (
+              <>
+                <CloudUpload className="w-4 h-4 mr-2" />
+                Sync to Outlook
+              </>
+            )}
+          </Button>
+          
           {meeting.status === 'scheduled' && (
             <Button onClick={handleStartMeeting} className="bg-emerald-600 hover:bg-emerald-700 text-white">
               <Play className="w-4 h-4 mr-2" />
