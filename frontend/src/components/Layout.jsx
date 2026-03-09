@@ -41,6 +41,17 @@ const DEPARTMENT_CONFIG = {
             { path: '/marketing/ai-tools', name: 'AI Tools & Discovery', icon: Sparkles },
         ]
     },
+    projects: {
+        name: 'Project Management',
+        icon: FolderKanban,
+        color: 'from-rose-600 to-rose-700',
+        bgColor: 'bg-rose-50',
+        textColor: 'text-rose-700',
+        routes: [
+            { path: '/projects/my-tasks', name: 'My Tasks', icon: ListTodo },
+            { path: '/projects', name: 'All Projects', icon: FolderKanban },
+        ]
+    },
     mail: {
         name: 'Mail',
         icon: Mail,
@@ -109,7 +120,7 @@ export const Layout = ({ children }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(true);
-    const [expandedDepts, setExpandedDepts] = useState(['marketing', 'mail', 'sales', 'social', 'admin']);
+    const [expandedDepts, setExpandedDepts] = useState(['marketing', 'projects', 'mail', 'sales', 'social', 'admin']);
 
     const toggleDepartment = (dept) => {
         setExpandedDepts(prev => 
@@ -122,6 +133,7 @@ export const Layout = ({ children }) => {
     const getCurrentDepartment = () => {
         const path = location.pathname;
         if (path.startsWith('/marketing')) return 'marketing';
+        if (path.startsWith('/projects')) return 'projects';
         if (path.startsWith('/mail')) return 'mail';
         if (path.startsWith('/sales')) return 'sales';
         if (path.startsWith('/social')) return 'social';
@@ -285,34 +297,6 @@ export const Layout = ({ children }) => {
                             </div>
                         );
                     })}
-
-                    {/* Projects Section - Always visible */}
-                    <div className="mt-4 pt-4 border-t border-[#D4BBA6]">
-                        <Link
-                            to="/projects"
-                            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all mb-1 ${
-                                location.pathname === '/projects'
-                                    ? 'bg-gradient-to-r from-rose-600 to-rose-700 text-white font-medium shadow-sm'
-                                    : 'text-[#4A3728] hover:bg-[#E8D5C4]'
-                            }`}
-                            data-testid="sidebar-projects"
-                        >
-                            <FolderKanban className="w-5 h-5" />
-                            {sidebarOpen && <span className="font-semibold">Projects</span>}
-                        </Link>
-                        <Link
-                            to="/projects/my-tasks"
-                            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
-                                location.pathname === '/projects/my-tasks'
-                                    ? 'bg-gradient-to-r from-rose-600 to-rose-700 text-white font-medium shadow-sm'
-                                    : 'text-[#4A3728] hover:bg-[#E8D5C4]'
-                            }`}
-                            data-testid="sidebar-my-tasks"
-                        >
-                            <ListTodo className="w-5 h-5" />
-                            {sidebarOpen && <span className="font-semibold">My Tasks</span>}
-                        </Link>
-                    </div>
 
                     {/* Settings Section */}
                     <div className="mt-4 pt-4 border-t border-[#D4BBA6]">
