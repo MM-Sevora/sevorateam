@@ -69,6 +69,9 @@ import ManagerDashboard from "./pages/projects/ManagerDashboard";
 // Notifications
 import NotificationCenter from "./pages/notifications/NotificationCenter";
 
+// Help & Support
+import HelpCenter from "./pages/help/HelpCenter";
+
 import "./App.css";
 
 // Initialize MSAL instance
@@ -306,6 +309,11 @@ function AppRoutes() {
 
             {/* Notifications */}
             <Route path="/notifications" element={<ProtectedRoute><NotificationCenter /></ProtectedRoute>} />
+
+            {/* Help & Support */}
+            <Route path="/help" element={<ProtectedRoute><HelpCenter /></ProtectedRoute>} />
+            <Route path="/help/modules/:moduleKey" element={<ProtectedRoute><HelpCenter /></ProtectedRoute>} />
+            <Route path="/help/tickets/:ticketId" element={<ProtectedRoute><HelpCenter /></ProtectedRoute>} />
 
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" replace />} />

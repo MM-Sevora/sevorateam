@@ -3317,6 +3317,15 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Notifications routes: {e}")
 
+# Register Help & Support routes
+try:
+    from routes.help_support import router as help_router, init_help_router
+    init_help_router(db, get_current_user)
+    api_router.include_router(help_router)
+    logger.info("Help & Support routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Help & Support routes: {e}")
+
 app.include_router(api_router)
 
 # ============== WEBSOCKET FOR REAL-TIME NOTIFICATIONS ==============

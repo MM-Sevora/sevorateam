@@ -6,7 +6,8 @@ import {
     LayoutDashboard, Users, Target, MessageSquare, DollarSign, BarChart3,
     UserPlus, ShoppingBag, Calendar, QrCode, Building2, Settings,
     PenTool, Sparkles, Zap, Clock, Youtube, Image, LogOut, Menu, X,
-    ChevronDown, ChevronRight, Briefcase, Mail, Check, Send, ListTodo, FolderKanban
+    ChevronDown, ChevronRight, Briefcase, Mail, Check, Send, ListTodo, FolderKanban,
+    HelpCircle
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -359,6 +360,13 @@ export const Layout = ({ children }) => {
                             >
                                 <Settings className="w-4 h-4 mr-2" />
                                 Settings
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                                onClick={() => navigate('/help')}
+                                className="text-[#4A3728] hover:bg-[#F5EDE5] cursor-pointer"
+                            >
+                                <HelpCircle className="w-4 h-4 mr-2" />
+                                Help & Support
                             </DropdownMenuItem>
                             <DropdownMenuSeparator className="bg-[#E8D5C4]" />
                             <DropdownMenuItem 
