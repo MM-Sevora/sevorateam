@@ -198,12 +198,12 @@ const EmailCampaignsPage = () => {
   const brandsWithEmail = brands.filter(b => b.email || b.contact_email);
 
   return (
-    <div className="p-6 space-y-6" data-testid="email-campaigns-page">
+    <div className="p-6 space-y-6 bg-[#F5EBE0] min-h-screen" data-testid="email-campaigns-page">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-gray-500 uppercase tracking-wider">Buying & Sourcing</p>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
+          <p className="text-sm text-[#9C8C74] uppercase tracking-wider font-medium">Buying & Sourcing</p>
+          <h1 className="text-3xl font-bold text-[#4A3728] flex items-center gap-2">
             <Mail className="h-8 w-8 text-orange-500" /> Email Campaigns
           </h1>
         </div>
@@ -223,7 +223,7 @@ const EmailCampaignsPage = () => {
             </span>
           </div>
           
-          <Button onClick={() => setShowSingleEmail(true)} variant="outline">
+          <Button onClick={() => setShowSingleEmail(true)} variant="outline" className="border-[#E8D5C4] text-[#4A3728] hover:bg-[#E8D5C4]/50">
             <Send className="h-4 w-4 mr-2" /> Single Email
           </Button>
           <Button onClick={() => setShowBulkEmail(true)} className="bg-orange-600 hover:bg-orange-700">

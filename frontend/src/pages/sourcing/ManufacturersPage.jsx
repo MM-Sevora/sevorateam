@@ -139,25 +139,25 @@ const ManufacturersPage = () => {
   const availableCities = CITIES[newItem.country] || [];
 
   return (
-    <div className="p-6 space-y-6" data-testid="manufacturers-page">
+    <div className="p-6 space-y-6 bg-[#F5EBE0] min-h-screen" data-testid="manufacturers-page">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-gray-500 uppercase tracking-wider">Buying & Sourcing</p>
-          <h1 className="text-3xl font-bold text-gray-900">Manufacturer Database</h1>
+          <p className="text-sm text-[#9C8C74] uppercase tracking-wider font-medium">Buying & Sourcing</p>
+          <h1 className="text-3xl font-bold text-[#4A3728]">Manufacturer Database</h1>
         </div>
-        <Button onClick={() => setShowAddModal(true)} className="bg-gray-900 hover:bg-gray-800">
+        <Button onClick={() => setShowAddModal(true)} className="bg-[#4A3728] hover:bg-[#3A2A1E]">
           <Plus className="h-4 w-4 mr-2" /> Add Manufacturer
         </Button>
       </div>
 
       {/* Search & Filters */}
-      <Card>
+      <Card className="border-[#E8D5C4] bg-white/80">
         <CardContent className="p-4">
           <div className="flex flex-wrap gap-4">
             <div className="flex-1 min-w-[200px] relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && fetchManufacturers()} placeholder="Search manufacturers..." className="pl-10" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#9C8C74]" />
+              <Input value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && fetchManufacturers()} placeholder="Search manufacturers..." className="pl-10 border-[#E8D5C4] focus:border-[#D4BBA6] focus:ring-[#D4BBA6]" />
             </div>
             <Select value={filters.manufacturer_type || 'all'} onValueChange={(v) => setFilters(prev => ({ ...prev, manufacturer_type: v === 'all' ? '' : v }))}>
               <SelectTrigger className="w-[200px]"><SelectValue placeholder="All Types" /></SelectTrigger>

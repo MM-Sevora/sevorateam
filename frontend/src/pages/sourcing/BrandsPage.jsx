@@ -170,30 +170,30 @@ const BrandsPage = () => {
   };
 
   return (
-    <div className="p-6 space-y-6" data-testid="brands-page">
+    <div className="p-6 space-y-6 bg-[#F5EBE0] min-h-screen" data-testid="brands-page">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-gray-500 uppercase tracking-wider">Buying & Sourcing</p>
-          <h1 className="text-3xl font-bold text-gray-900">Brand Database</h1>
+          <p className="text-sm text-[#9C8C74] uppercase tracking-wider font-medium">Buying & Sourcing</p>
+          <h1 className="text-3xl font-bold text-[#4A3728]">Brand Database</h1>
         </div>
-        <Button onClick={() => setShowAddModal(true)} className="bg-gray-900 hover:bg-gray-800">
+        <Button onClick={() => setShowAddModal(true)} className="bg-[#4A3728] hover:bg-[#3A2A1E]">
           <Plus className="h-4 w-4 mr-2" /> Add Brand
         </Button>
       </div>
 
       {/* Search & Filters */}
-      <Card>
+      <Card className="border-[#E8D5C4] bg-white/80">
         <CardContent className="p-4">
           <div className="flex flex-wrap gap-4">
             <form onSubmit={handleSearch} className="flex-1 min-w-[200px]">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#9C8C74]" />
                 <Input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search brands..."
-                  className="pl-10"
+                  className="pl-10 border-[#E8D5C4] focus:border-[#D4BBA6] focus:ring-[#D4BBA6]"
                 />
               </div>
             </form>

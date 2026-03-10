@@ -90,12 +90,12 @@ const AIDiscoveryPage = () => {
   }
 
   return (
-    <div className="p-6 space-y-6" data-testid="ai-discovery-page">
+    <div className="p-6 space-y-6 bg-[#F5EBE0] min-h-screen" data-testid="ai-discovery-page">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-gray-500 uppercase tracking-wider">Buying & Sourcing</p>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
+          <p className="text-sm text-[#9C8C74] uppercase tracking-wider font-medium">Buying & Sourcing</p>
+          <h1 className="text-3xl font-bold text-[#4A3728] flex items-center gap-2">
             <Sparkles className="h-8 w-8 text-orange-500" /> AI Brand Discovery
           </h1>
         </div>
@@ -116,8 +116,8 @@ const AIDiscoveryPage = () => {
       </div>
 
       <Tabs defaultValue="discover" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="discover" className="flex items-center gap-2">
+        <TabsList className="bg-[#E8D5C4]/50">
+          <TabsTrigger value="discover" className="flex items-center gap-2 data-[state=active]:bg-white">
             <Search className="h-4 w-4" /> Discover Brands
           </TabsTrigger>
           <TabsTrigger value="history" className="flex items-center gap-2">

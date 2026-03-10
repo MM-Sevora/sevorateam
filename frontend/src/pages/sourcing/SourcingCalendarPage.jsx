@@ -401,12 +401,12 @@ const SourcingCalendarPage = () => {
   };
 
   return (
-    <div className="p-6 space-y-6" data-testid="sourcing-calendar-page">
+    <div className="p-6 space-y-6 bg-[#F5EBE0] min-h-screen" data-testid="sourcing-calendar-page">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-gray-500 uppercase tracking-wider">Buying & Sourcing</p>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
+          <p className="text-sm text-[#9C8C74] uppercase tracking-wider font-medium">Buying & Sourcing</p>
+          <h1 className="text-3xl font-bold text-[#4A3728] flex items-center gap-2">
             <CalendarIcon className="h-8 w-8 text-orange-500" /> Follow-up Calendar
           </h1>
         </div>
@@ -414,7 +414,7 @@ const SourcingCalendarPage = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+        <Card className="border-[#E8D5C4] bg-white/80">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
               <Clock className="h-5 w-5 text-red-600" />
@@ -427,49 +427,49 @@ const SourcingCalendarPage = () => {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-[#E8D5C4] bg-white/80">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
               <Building2 className="h-5 w-5 text-orange-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold">
+              <p className="text-2xl font-bold text-[#4A3728]">
                 {followUps.filter(f => f.entity_type === 'brand').length}
               </p>
-              <p className="text-sm text-gray-500">Brand Follow-ups</p>
+              <p className="text-sm text-[#9C8C74]">Brand Follow-ups</p>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-[#E8D5C4] bg-white/80">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
               <Package className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold">
+              <p className="text-2xl font-bold text-[#4A3728]">
                 {followUps.filter(f => f.entity_type === 'supplier').length}
               </p>
-              <p className="text-sm text-gray-500">Supplier Follow-ups</p>
+              <p className="text-sm text-[#9C8C74]">Supplier Follow-ups</p>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-[#E8D5C4] bg-white/80">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
               <Factory className="h-5 w-5 text-purple-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold">
+              <p className="text-2xl font-bold text-[#4A3728]">
                 {followUps.filter(f => f.entity_type === 'manufacturer').length}
               </p>
-              <p className="text-sm text-gray-500">Manufacturer Follow-ups</p>
+              <p className="text-sm text-[#9C8C74]">Manufacturer Follow-ups</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Calendar */}
-      <Card>
+      <Card className="border-[#E8D5C4] bg-white/80">
         <CardContent className="p-6">
           {renderHeader()}
           

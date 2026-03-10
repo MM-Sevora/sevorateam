@@ -68,12 +68,12 @@ const SourcingDashboard = () => {
   );
 
   return (
-    <div className="p-6 space-y-6" data-testid="sourcing-dashboard">
+    <div className="p-6 space-y-6 bg-[#F5EBE0] min-h-screen" data-testid="sourcing-dashboard">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-gray-500 uppercase tracking-wider">Overview</p>
-          <h1 className="text-3xl font-bold text-gray-900">Buying & Sourcing</h1>
+          <p className="text-sm text-[#9C8C74] uppercase tracking-wider font-medium">Overview</p>
+          <h1 className="text-3xl font-bold text-[#4A3728]">Buying & Sourcing</h1>
         </div>
         <div className="flex items-center gap-2">
           <Button 
@@ -130,12 +130,12 @@ const SourcingDashboard = () => {
       {/* Pipeline & Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Brand Pipeline */}
-        <Card>
+        <Card className="border-[#E8D5C4] bg-white/80">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2 text-[#4A3728]">
               <Building2 className="h-5 w-5" /> Brand Pipeline
             </CardTitle>
-            <Button variant="ghost" size="sm" onClick={() => navigate('/sourcing/brands/pipeline')}>
+            <Button variant="ghost" size="sm" className="text-[#6B5D52] hover:text-[#4A3728] hover:bg-[#E8D5C4]/50" onClick={() => navigate('/sourcing/brands/pipeline')}>
               View Pipeline <ArrowRight className="h-4 w-4 ml-1" />
             </Button>
           </CardHeader>
@@ -154,20 +154,20 @@ const SourcingDashboard = () => {
                         stage === 'Discovery' ? 'bg-gray-400' :
                         'bg-red-500'
                       }`}></div>
-                      <span className="text-sm font-medium">{stage}</span>
+                      <span className="text-sm font-medium text-[#4A3728]">{stage}</span>
                     </div>
-                    <Badge variant="secondary">{count}</Badge>
+                    <Badge variant="secondary" className="bg-[#E8D5C4] text-[#4A3728]">{count}</Badge>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
-                <Building2 className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+              <div className="text-center py-8 text-[#9C8C74]">
+                <Building2 className="h-12 w-12 mx-auto mb-2 text-[#D4BBA6]" />
                 <p>No brands in pipeline yet</p>
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="mt-2"
+                  className="mt-2 border-[#E8D5C4] text-[#4A3728] hover:bg-[#E8D5C4]/50"
                   onClick={() => navigate('/sourcing/brands')}
                 >
                   Add your first brand
@@ -178,9 +178,9 @@ const SourcingDashboard = () => {
         </Card>
 
         {/* Brands by City */}
-        <Card>
+        <Card className="border-[#E8D5C4] bg-white/80">
           <CardHeader>
-            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2 text-[#4A3728]">
               <TrendingUp className="h-5 w-5" /> Brands by City
             </CardTitle>
           </CardHeader>
@@ -193,10 +193,10 @@ const SourcingDashboard = () => {
                   return (
                     <div key={city} className="space-y-1">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="font-medium">{city}</span>
-                        <span className="text-gray-500">{count}</span>
+                        <span className="font-medium text-[#4A3728]">{city}</span>
+                        <span className="text-[#6B5D52]">{count}</span>
                       </div>
-                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-2 bg-[#E8D5C4]/50 rounded-full overflow-hidden">
                         <div 
                           className="h-full bg-gradient-to-r from-orange-500 to-orange-600 rounded-full"
                           style={{ width: `${width}%` }}
@@ -207,8 +207,8 @@ const SourcingDashboard = () => {
                 })}
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
-                <TrendingUp className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+              <div className="text-center py-8 text-[#9C8C74]">
+                <TrendingUp className="h-12 w-12 mx-auto mb-2 text-[#D4BBA6]" />
                 <p>No city data available</p>
               </div>
             )}
@@ -217,12 +217,12 @@ const SourcingDashboard = () => {
       </div>
 
       {/* Samples Summary */}
-      <Card>
+      <Card className="border-[#E8D5C4] bg-white/80">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg font-semibold flex items-center gap-2">
+          <CardTitle className="text-lg font-semibold flex items-center gap-2 text-[#4A3728]">
             <FlaskConical className="h-5 w-5" /> Samples Overview
           </CardTitle>
-          <Button variant="ghost" size="sm" onClick={() => navigate('/sourcing/samples')}>
+          <Button variant="ghost" size="sm" className="text-[#6B5D52] hover:text-[#4A3728] hover:bg-[#E8D5C4]/50" onClick={() => navigate('/sourcing/samples')}>
             View Samples <ArrowRight className="h-4 w-4 ml-1" />
           </Button>
         </CardHeader>
