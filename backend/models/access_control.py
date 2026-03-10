@@ -32,6 +32,7 @@ class SystemModule(str, Enum):
     AUTOMATIONS = "automations"
     MEETINGS = "meetings"
     COMMUNICATION_HUB = "communication_hub"
+    SYSTEMS = "systems"
 
 
 # Module definitions with display info
@@ -111,6 +112,13 @@ MODULE_DEFINITIONS = {
         "description": "Teams, Calendar, and Email integrations",
         "icon": "MessageSquare",
         "routes": ["/teams", "/mail"],
+        "default_access": False
+    },
+    "systems": {
+        "name": "Systems",
+        "description": "System configuration, integrations, and advanced settings",
+        "icon": "Server",
+        "routes": ["/systems", "/systems/integrations", "/systems/config"],
         "default_access": False
     }
 }

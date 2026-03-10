@@ -391,7 +391,7 @@ function AppRoutes() {
             {/* /admin/org-structure merged into /admin/organization */}
             <Route path="/admin/org-structure" element={<Navigate to="/admin/organization" replace />} />
             <Route path="/admin/website-settings" element={<ProtectedRoute requiredModule="admin"><WebsiteSettings /></ProtectedRoute>} />
-            <Route path="/admin/team" element={<ProtectedRoute><TeamDashboard /></ProtectedRoute>} />
+            {/* /admin/team removed - use Team Dashboard under Analytics & Insights instead */}
 
             {/* Settings Routes */}
             <Route path="/settings/automations" element={<ProtectedRoute requiredModule="automations"><AutomationSettings /></ProtectedRoute>} />
