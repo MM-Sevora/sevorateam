@@ -6,7 +6,8 @@ import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addM
 import {
   Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, RefreshCw,
   Loader2, Clock, MapPin, Users, Video, MoreVertical, Trash2, Edit,
-  CalendarDays, List, LayoutGrid, LogIn, LogOut, ChevronDown
+  CalendarDays, List, LayoutGrid, LogIn, LogOut, ChevronDown, X,
+  Bell, Repeat, Eye, Tag, Lock, UserPlus
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
@@ -18,6 +19,7 @@ import { Label } from '../../components/ui/label';
 import { Switch } from '../../components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { ScrollArea } from '../../components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,6 +62,7 @@ export default function TeamsCalendar() {
   const [showEventModal, setShowEventModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
   const [savingEvent, setSavingEvent] = useState(false);
+  const [attendeeInput, setAttendeeInput] = useState('');
   const [eventForm, setEventForm] = useState({
     subject: '',
     start_date: '',
@@ -70,6 +73,13 @@ export default function TeamsCalendar() {
     body: '',
     isOnlineMeeting: false,
     isAllDay: false,
+    // New fields
+    attendees: [], // Array of email addresses
+    reminderMinutes: 15, // 0, 15, 30, 60, 1440 (1 day)
+    showAs: 'busy', // busy, free, tentative, oof, workingElsewhere
+    sensitivity: 'normal', // normal, private, confidential
+    categories: [], // Array of category names
+    recurrence: null, // null or { pattern: 'daily'|'weekly'|'monthly', interval: 1 }
   });
 
   // Delete confirmation
@@ -296,6 +306,7 @@ export default function TeamsCalendar() {
     const dateStr = format(targetDate, 'yyyy-MM-dd');
 
     setEditingEvent(null);
+    setAttendeeInput('');
     setEventForm({
       subject: '',
       start_date: dateStr,
@@ -306,6 +317,12 @@ export default function TeamsCalendar() {
       body: '',
       isOnlineMeeting: false,
       isAllDay: false,
+      attendees: [],
+      reminderMinutes: 15,
+      showAs: 'busy',
+      sensitivity: 'normal',
+      categories: [],
+      recurrence: null,
     });
     setShowEventModal(true);
   };
@@ -315,7 +332,11 @@ export default function TeamsCalendar() {
     const startDate = parseISO(event.start.dateTime || event.start.date);
     const endDate = parseISO(event.end.dateTime || event.end.date);
 
+    // Extract attendees from event
+    const attendeeEmails = (event.attendees || []).map(a => a.emailAddress?.address).filter(Boolean);
+
     setEditingEvent(event);
+    setAttendeeInput('');
     setEventForm({
       subject: event.subject || '',
       start_date: format(startDate, 'yyyy-MM-dd'),
@@ -326,6 +347,12 @@ export default function TeamsCalendar() {
       body: event.bodyPreview || '',
       isOnlineMeeting: event.isOnlineMeeting || false,
       isAllDay: event.isAllDay || false,
+      attendees: attendeeEmails,
+      reminderMinutes: event.reminderMinutesBeforeStart || 15,
+      showAs: event.showAs || 'busy',
+      sensitivity: event.sensitivity || 'normal',
+      categories: event.categories || [],
+      recurrence: event.recurrence ? { pattern: 'weekly', interval: 1 } : null, // Simplified for now
     });
     setShowEventModal(true);
   };
@@ -360,10 +387,50 @@ export default function TeamsCalendar() {
         isAllDay: eventForm.isAllDay,
         isOnlineMeeting: eventForm.isOnlineMeeting,
         onlineMeetingProvider: eventForm.isOnlineMeeting ? 'teamsForBusiness' : undefined,
+        // New fields
+        showAs: eventForm.showAs,
+        sensitivity: eventForm.sensitivity,
+        reminderMinutesBeforeStart: eventForm.reminderMinutes,
+        isReminderOn: eventForm.reminderMinutes > 0,
       };
 
+      // Add location if provided
       if (eventForm.location) {
         eventData.location = { displayName: eventForm.location };
+      }
+
+      // Add categories if any
+      if (eventForm.categories && eventForm.categories.length > 0) {
+        eventData.categories = eventForm.categories;
+      }
+
+      // Add attendees if any
+      if (eventForm.attendees && eventForm.attendees.length > 0) {
+        eventData.attendees = eventForm.attendees.map(email => ({
+          emailAddress: { address: email },
+          type: 'required',
+        }));
+      }
+
+      // Add recurrence if set
+      if (eventForm.recurrence) {
+        const startDate = new Date(eventForm.start_date);
+        eventData.recurrence = {
+          pattern: {
+            type: eventForm.recurrence.pattern,
+            interval: eventForm.recurrence.interval || 1,
+            daysOfWeek: eventForm.recurrence.pattern === 'weekly' 
+              ? [format(startDate, 'EEEE').toLowerCase()] 
+              : undefined,
+            dayOfMonth: eventForm.recurrence.pattern === 'monthly' 
+              ? startDate.getDate() 
+              : undefined,
+          },
+          range: {
+            type: 'noEnd',
+            startDate: eventForm.start_date,
+          },
+        };
       }
 
       if (editingEvent) {
@@ -409,6 +476,63 @@ export default function TeamsCalendar() {
       toast.error('Failed to delete event');
     }
   };
+
+  // Add attendee helper
+  const addAttendee = () => {
+    const email = attendeeInput.trim().toLowerCase();
+    if (!email) return;
+    
+    // Simple email validation
+    if (!email.includes('@') || !email.includes('.')) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+    
+    if (eventForm.attendees.includes(email)) {
+      toast.error('Attendee already added');
+      return;
+    }
+    
+    setEventForm({
+      ...eventForm,
+      attendees: [...eventForm.attendees, email],
+    });
+    setAttendeeInput('');
+  };
+
+  // Remove attendee helper
+  const removeAttendee = (email) => {
+    setEventForm({
+      ...eventForm,
+      attendees: eventForm.attendees.filter(e => e !== email),
+    });
+  };
+
+  // Toggle category helper
+  const toggleCategory = (category) => {
+    const categories = eventForm.categories || [];
+    if (categories.includes(category)) {
+      setEventForm({
+        ...eventForm,
+        categories: categories.filter(c => c !== category),
+      });
+    } else {
+      setEventForm({
+        ...eventForm,
+        categories: [...categories, category],
+      });
+    }
+  };
+
+  // Available categories
+  const CATEGORIES = [
+    { name: 'Blue category', color: 'bg-blue-500' },
+    { name: 'Green category', color: 'bg-green-500' },
+    { name: 'Purple category', color: 'bg-purple-500' },
+    { name: 'Red category', color: 'bg-red-500' },
+    { name: 'Yellow category', color: 'bg-yellow-500' },
+    { name: 'Orange category', color: 'bg-orange-500' },
+  ];
 
   // Get event color
   const getEventColor = (event) => {
@@ -912,7 +1036,7 @@ export default function TeamsCalendar() {
 
       {/* Create/Edit Event Modal */}
       <Dialog open={showEventModal} onOpenChange={setShowEventModal}>
-        <DialogContent className="bg-white border-[#D4BBA6] max-w-lg">
+        <DialogContent className="bg-white border-[#D4BBA6] max-w-2xl max-h-[90vh] overflow-hidden">
           <DialogHeader>
             <DialogTitle className="text-[#4A3728] flex items-center gap-2">
               <CalendarIcon className="w-5 h-5 text-violet-600" />
@@ -920,104 +1044,336 @@ export default function TeamsCalendar() {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label className="text-[#4A3728]">Event Title *</Label>
-              <Input
-                value={eventForm.subject}
-                onChange={(e) => setEventForm({ ...eventForm, subject: e.target.value })}
-                placeholder="Enter event title"
-                className="border-[#D4BBA6]"
-                data-testid="event-title-input"
-              />
-            </div>
+          <Tabs defaultValue="details" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 bg-[#F5EBE0]">
+              <TabsTrigger value="details" className="data-[state=active]:bg-white">
+                <CalendarIcon className="w-4 h-4 mr-1" /> Details
+              </TabsTrigger>
+              <TabsTrigger value="attendees" className="data-[state=active]:bg-white">
+                <Users className="w-4 h-4 mr-1" /> Attendees
+              </TabsTrigger>
+              <TabsTrigger value="options" className="data-[state=active]:bg-white">
+                <Tag className="w-4 h-4 mr-1" /> Options
+              </TabsTrigger>
+            </TabsList>
 
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={eventForm.isAllDay}
-                  onCheckedChange={(checked) => setEventForm({ ...eventForm, isAllDay: checked })}
-                />
-                <Label className="text-[#4A3728]">All day</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={eventForm.isOnlineMeeting}
-                  onCheckedChange={(checked) => setEventForm({ ...eventForm, isOnlineMeeting: checked })}
-                />
-                <Label className="text-[#4A3728]">Teams meeting</Label>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-[#4A3728]">Start Date *</Label>
-                <Input
-                  type="date"
-                  value={eventForm.start_date}
-                  onChange={(e) => setEventForm({ ...eventForm, start_date: e.target.value })}
-                  className="border-[#D4BBA6]"
-                />
-              </div>
-              {!eventForm.isAllDay && (
+            <ScrollArea className="h-[400px] pr-4">
+              {/* Details Tab */}
+              <TabsContent value="details" className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <Label className="text-[#4A3728]">Start Time</Label>
+                  <Label className="text-[#4A3728]">Event Title *</Label>
                   <Input
-                    type="time"
-                    value={eventForm.start_time}
-                    onChange={(e) => setEventForm({ ...eventForm, start_time: e.target.value })}
+                    value={eventForm.subject}
+                    onChange={(e) => setEventForm({ ...eventForm, subject: e.target.value })}
+                    placeholder="Enter event title"
+                    className="border-[#D4BBA6]"
+                    data-testid="event-title-input"
+                  />
+                </div>
+
+                <div className="flex items-center gap-4 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={eventForm.isAllDay}
+                      onCheckedChange={(checked) => setEventForm({ ...eventForm, isAllDay: checked })}
+                    />
+                    <Label className="text-[#4A3728]">All day</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={eventForm.isOnlineMeeting}
+                      onCheckedChange={(checked) => setEventForm({ ...eventForm, isOnlineMeeting: checked })}
+                    />
+                    <Label className="text-[#4A3728] flex items-center gap-1">
+                      <Video className="w-4 h-4" /> Teams meeting
+                    </Label>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-[#4A3728]">Start Date *</Label>
+                    <Input
+                      type="date"
+                      value={eventForm.start_date}
+                      onChange={(e) => setEventForm({ ...eventForm, start_date: e.target.value })}
+                      className="border-[#D4BBA6]"
+                    />
+                  </div>
+                  {!eventForm.isAllDay && (
+                    <div className="space-y-2">
+                      <Label className="text-[#4A3728]">Start Time</Label>
+                      <Input
+                        type="time"
+                        value={eventForm.start_time}
+                        onChange={(e) => setEventForm({ ...eventForm, start_time: e.target.value })}
+                        className="border-[#D4BBA6]"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-[#4A3728]">End Date *</Label>
+                    <Input
+                      type="date"
+                      value={eventForm.end_date}
+                      onChange={(e) => setEventForm({ ...eventForm, end_date: e.target.value })}
+                      className="border-[#D4BBA6]"
+                    />
+                  </div>
+                  {!eventForm.isAllDay && (
+                    <div className="space-y-2">
+                      <Label className="text-[#4A3728]">End Time</Label>
+                      <Input
+                        type="time"
+                        value={eventForm.end_time}
+                        onChange={(e) => setEventForm({ ...eventForm, end_time: e.target.value })}
+                        className="border-[#D4BBA6]"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-[#4A3728] flex items-center gap-1">
+                    <MapPin className="w-4 h-4" /> Location
+                  </Label>
+                  <Input
+                    value={eventForm.location}
+                    onChange={(e) => setEventForm({ ...eventForm, location: e.target.value })}
+                    placeholder="Add location"
                     className="border-[#D4BBA6]"
                   />
                 </div>
-              )}
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-[#4A3728]">End Date *</Label>
-                <Input
-                  type="date"
-                  value={eventForm.end_date}
-                  onChange={(e) => setEventForm({ ...eventForm, end_date: e.target.value })}
-                  className="border-[#D4BBA6]"
-                />
-              </div>
-              {!eventForm.isAllDay && (
                 <div className="space-y-2">
-                  <Label className="text-[#4A3728]">End Time</Label>
-                  <Input
-                    type="time"
-                    value={eventForm.end_time}
-                    onChange={(e) => setEventForm({ ...eventForm, end_time: e.target.value })}
-                    className="border-[#D4BBA6]"
+                  <Label className="text-[#4A3728]">Description</Label>
+                  <Textarea
+                    value={eventForm.body}
+                    onChange={(e) => setEventForm({ ...eventForm, body: e.target.value })}
+                    placeholder="Add description"
+                    rows={3}
+                    className="border-[#D4BBA6] resize-none"
                   />
                 </div>
-              )}
-            </div>
+              </TabsContent>
 
-            <div className="space-y-2">
-              <Label className="text-[#4A3728]">Location</Label>
-              <Input
-                value={eventForm.location}
-                onChange={(e) => setEventForm({ ...eventForm, location: e.target.value })}
-                placeholder="Add location"
-                className="border-[#D4BBA6]"
-              />
-            </div>
+              {/* Attendees Tab */}
+              <TabsContent value="attendees" className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label className="text-[#4A3728] flex items-center gap-1">
+                    <UserPlus className="w-4 h-4" /> Add Attendees
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={attendeeInput}
+                      onChange={(e) => setAttendeeInput(e.target.value)}
+                      placeholder="Enter email address"
+                      className="border-[#D4BBA6] flex-1"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          addAttendee();
+                        }
+                      }}
+                    />
+                    <Button 
+                      onClick={addAttendee} 
+                      variant="outline" 
+                      className="border-violet-300 text-violet-600 hover:bg-violet-50"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
 
-            <div className="space-y-2">
-              <Label className="text-[#4A3728]">Description</Label>
-              <Textarea
-                value={eventForm.body}
-                onChange={(e) => setEventForm({ ...eventForm, body: e.target.value })}
-                placeholder="Add description"
-                rows={3}
-                className="border-[#D4BBA6] resize-none"
-              />
-            </div>
-          </div>
+                {/* Attendee List */}
+                <div className="space-y-2">
+                  {eventForm.attendees.length === 0 ? (
+                    <div className="text-center py-6 text-[#6B5D52] bg-[#F5EBE0]/50 rounded-lg">
+                      <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No attendees added yet</p>
+                      <p className="text-xs mt-1">Add email addresses to invite people</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label className="text-[#4A3728]">
+                        Invited ({eventForm.attendees.length})
+                      </Label>
+                      {eventForm.attendees.map((email, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between p-2 bg-[#F5EBE0]/50 rounded-lg"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center">
+                              <span className="text-sm font-medium text-violet-700">
+                                {email.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                            <span className="text-sm text-[#4A3728]">{email}</span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeAttendee(email)}
+                            className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
 
-          <DialogFooter className="gap-2">
+              {/* Options Tab */}
+              <TabsContent value="options" className="space-y-4 mt-4">
+                {/* Reminder */}
+                <div className="space-y-2">
+                  <Label className="text-[#4A3728] flex items-center gap-1">
+                    <Bell className="w-4 h-4" /> Reminder
+                  </Label>
+                  <Select
+                    value={eventForm.reminderMinutes?.toString() || '15'}
+                    onValueChange={(value) => setEventForm({ ...eventForm, reminderMinutes: parseInt(value) })}
+                  >
+                    <SelectTrigger className="border-[#D4BBA6]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border-[#D4BBA6]">
+                      <SelectItem value="0">None</SelectItem>
+                      <SelectItem value="5">5 minutes before</SelectItem>
+                      <SelectItem value="15">15 minutes before</SelectItem>
+                      <SelectItem value="30">30 minutes before</SelectItem>
+                      <SelectItem value="60">1 hour before</SelectItem>
+                      <SelectItem value="1440">1 day before</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Recurrence */}
+                <div className="space-y-2">
+                  <Label className="text-[#4A3728] flex items-center gap-1">
+                    <Repeat className="w-4 h-4" /> Recurrence
+                  </Label>
+                  <Select
+                    value={eventForm.recurrence?.pattern || 'none'}
+                    onValueChange={(value) => setEventForm({
+                      ...eventForm,
+                      recurrence: value === 'none' ? null : { pattern: value, interval: 1 }
+                    })}
+                  >
+                    <SelectTrigger className="border-[#D4BBA6]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border-[#D4BBA6]">
+                      <SelectItem value="none">Does not repeat</SelectItem>
+                      <SelectItem value="daily">Daily</SelectItem>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Show As */}
+                <div className="space-y-2">
+                  <Label className="text-[#4A3728] flex items-center gap-1">
+                    <Eye className="w-4 h-4" /> Show As
+                  </Label>
+                  <Select
+                    value={eventForm.showAs || 'busy'}
+                    onValueChange={(value) => setEventForm({ ...eventForm, showAs: value })}
+                  >
+                    <SelectTrigger className="border-[#D4BBA6]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border-[#D4BBA6]">
+                      <SelectItem value="busy">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded bg-violet-600"></div>
+                          Busy
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="free">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded bg-green-500"></div>
+                          Free
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="tentative">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded bg-amber-500"></div>
+                          Tentative
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="oof">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded bg-purple-600"></div>
+                          Out of Office
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="workingElsewhere">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded bg-blue-500"></div>
+                          Working Elsewhere
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Sensitivity */}
+                <div className="space-y-2">
+                  <Label className="text-[#4A3728] flex items-center gap-1">
+                    <Lock className="w-4 h-4" /> Sensitivity
+                  </Label>
+                  <Select
+                    value={eventForm.sensitivity || 'normal'}
+                    onValueChange={(value) => setEventForm({ ...eventForm, sensitivity: value })}
+                  >
+                    <SelectTrigger className="border-[#D4BBA6]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border-[#D4BBA6]">
+                      <SelectItem value="normal">Normal</SelectItem>
+                      <SelectItem value="private">Private</SelectItem>
+                      <SelectItem value="confidential">Confidential</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Categories */}
+                <div className="space-y-2">
+                  <Label className="text-[#4A3728] flex items-center gap-1">
+                    <Tag className="w-4 h-4" /> Categories
+                  </Label>
+                  <div className="flex flex-wrap gap-2">
+                    {CATEGORIES.map((cat) => (
+                      <button
+                        key={cat.name}
+                        type="button"
+                        onClick={() => toggleCategory(cat.name)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 transition-all ${
+                          eventForm.categories?.includes(cat.name)
+                            ? `${cat.color} text-white`
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        <div className={`w-2 h-2 rounded-full ${eventForm.categories?.includes(cat.name) ? 'bg-white' : cat.color}`}></div>
+                        {cat.name.replace(' category', '')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </TabsContent>
+            </ScrollArea>
+          </Tabs>
+
+          <DialogFooter className="gap-2 pt-4 border-t border-[#E8D5C4]">
             <Button variant="outline" onClick={() => setShowEventModal(false)} className="border-[#D4BBA6]">
               Cancel
             </Button>

@@ -1509,6 +1509,33 @@ The Manager Dashboard was already functional with:
 - [x] Microsoft connection prompt verified
 - [x] All scopes in authConfig.js verified
 
+### Phase 51: Enhanced Event Creation Form (COMPLETE - March 10, 2026)
+
+**New Event Form Fields Added:**
+- [x] **Attendees** - Add/remove attendees by email address
+- [x] **Reminder** - Select reminder time (5min, 15min, 30min, 1hr, 1day, or none)
+- [x] **Recurrence** - Set event to repeat daily, weekly, or monthly
+- [x] **Show As** - Set availability status (Busy, Free, Tentative, Out of Office, Working Elsewhere)
+- [x] **Sensitivity** - Set privacy level (Normal, Private, Confidential)
+- [x] **Categories** - Color-code events with 6 category options
+
+**UI Improvements:**
+- [x] Reorganized form into 3 tabs: Details, Attendees, Options
+- [x] Wider modal (max-w-2xl) for better usability
+- [x] Scrollable content area for better form navigation
+- [x] Visual attendee list with remove buttons
+- [x] Color-coded category buttons
+- [x] Icons for each option section
+
+**Files Modified:**
+- `/app/frontend/src/pages/teams/TeamsCalendar.jsx`:
+  - Added `attendeeInput` state and attendee management functions
+  - Extended `eventForm` with new fields
+  - Updated `handleSaveEvent` to include new fields in Graph API call
+  - Added Tabs component for form organization
+  - Added helper functions: `addAttendee`, `removeAttendee`, `toggleCategory`
+  - Added `CATEGORIES` constant for color options
+
 ### P1 - Upcoming Tasks
 - [ ] AI Meeting Summaries integration (using Emergent LLM Key)
 - [ ] @mentions in meeting notes
