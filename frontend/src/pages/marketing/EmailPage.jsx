@@ -89,10 +89,14 @@ const EmailPage = () => {
   
   // Track email-specific authentication state
   const [emailConnected, setEmailConnected] = useState(false);
+  const [checkingConnection, setCheckingConnection] = useState(true);
   
   // Check if user has email-connected account on mount and when accounts change
   useEffect(() => {
     const checkEmailConnection = async () => {
+      setCheckingConnection(true);
+      console.log('Checking email connection. Accounts:', accounts.length, 'InProgress:', inProgress);
+      
       if (accounts.length > 0) {
         // Check if we can get a token silently (means we have valid email permissions)
         try {
@@ -100,16 +104,22 @@ const EmailPage = () => {
             scopes: ["Mail.Read"],
             account: accounts[0]
           };
-          await instance.acquireTokenSilent(silentRequest);
-          console.log('Email connection verified - token acquired silently');
+          const tokenResponse = await instance.acquireTokenSilent(silentRequest);
+          console.log('Email connection verified - token acquired silently for:', tokenResponse?.account?.username);
           setEmailConnected(true);
         } catch (error) {
-          console.log('Silent token acquisition failed, user may need to re-authenticate for email');
+          console.log('Silent token acquisition failed:', error.message);
+          // Try interactive if silent fails
+          if (error.name === 'InteractionRequiredAuthError') {
+            console.log('Interaction required - user needs to re-consent');
+          }
           setEmailConnected(false);
         }
       } else {
+        console.log('No MSAL accounts found');
         setEmailConnected(false);
       }
+      setCheckingConnection(false);
     };
     
     if (inProgress === 'none') {
@@ -897,20 +907,20 @@ Sevora Team`
 
   const unreadCount = emails.filter(e => !e.isRead).length;
 
-  // Show loading while MSAL is initializing
-  if (inProgress !== 'none') {
+  // Show loading while MSAL is initializing or checking connection
+  if (inProgress !== 'none' || checkingConnection) {
     return (
       <div className="h-[calc(100vh-64px)] flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-2" />
-          <p className="text-gray-600">Checking authentication...</p>
+          <p className="text-gray-600">Checking email connection...</p>
         </div>
       </div>
     );
   }
 
   // Show login screen if not authenticated with email permissions
-  if (!isAuthenticated || !emailConnected) {
+  if (!emailConnected) {
     return (
       <div className="h-[calc(100vh-64px)] flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100" data-testid="email-page-login">
         <Card className="w-full max-w-md mx-4 shadow-xl">

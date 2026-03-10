@@ -124,6 +124,21 @@ const MsalInitializer = ({ children }) => {
                 
                 if (hasAuthCode) {
                     console.log('Processing redirect response...');
+                    
+                    // Check if this was a popup that redirected to main window (common issue)
+                    const stateMatch = window.location.hash.match(/state=([^&]+)/);
+                    let isPopupResponse = false;
+                    if (stateMatch) {
+                        try {
+                            const stateStr = decodeURIComponent(stateMatch[1]);
+                            const stateObj = JSON.parse(atob(stateStr.split('.')[0] || stateStr));
+                            isPopupResponse = stateObj?.meta?.interactionType === 'popup';
+                            console.log('Is popup response:', isPopupResponse);
+                        } catch (e) {
+                            console.log('Could not parse state:', e);
+                        }
+                    }
+                    
                     try {
                         const response = await msalInstance.handleRedirectPromise();
                         console.log('Redirect response:', response ? 'GOT RESPONSE' : 'NO RESPONSE');
@@ -187,6 +202,22 @@ const MsalInitializer = ({ children }) => {
                         }
                     } catch (handleError) {
                         console.error('handleRedirectPromise error:', handleError);
+                        
+                        // If this was a popup response that ended up in the main window,
+                        // the tokens should already be in cache - just clear the URL and redirect to mail
+                        if (isPopupResponse) {
+                            console.log('Popup response detected in main window - cleaning up URL');
+                            
+                            // Check if there are any accounts now (popup might have stored tokens)
+                            const accounts = msalInstance.getAllAccounts();
+                            console.log('Accounts after popup:', accounts.length);
+                            
+                            // Clear the URL hash
+                            window.history.replaceState({}, document.title, '/mail/inbox');
+                            window.location.href = '/mail/inbox';
+                            return;
+                        }
+                        
                         // Clear the hash to prevent infinite loop
                         window.history.replaceState({}, document.title, window.location.pathname);
                     }
