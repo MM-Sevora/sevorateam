@@ -10,7 +10,8 @@ import {
     UserPlus, ShoppingBag, Calendar, QrCode, Building2, Settings,
     PenTool, Sparkles, Zap, Clock, Youtube, Image, LogOut, Menu, X,
     ChevronDown, ChevronRight, Briefcase, Mail, Check, Send, ListTodo, FolderKanban,
-    HelpCircle, Award, Network, Shield, Flag, CalendarDays, RefreshCw, Plus, Globe
+    HelpCircle, Award, Network, Shield, Flag, CalendarDays, RefreshCw, Plus, Globe,
+    TrendingUp, PieChart, Activity
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -28,6 +29,17 @@ import {
 } from './ui/dropdown-menu';
 
 const DEPARTMENT_CONFIG = {
+    analytics: {
+        name: 'Analytics & Insights',
+        icon: TrendingUp,
+        color: 'from-cyan-600 to-cyan-700',
+        bgColor: 'bg-cyan-50',
+        textColor: 'text-cyan-700',
+        requiredModule: 'dashboard',
+        routes: [
+            { path: '/analytics', name: 'Team Dashboard', icon: BarChart3 },
+        ]
+    },
     goals: {
         name: 'Goals & Objectives',
         icon: Flag,
@@ -163,7 +175,7 @@ export const Layout = ({ children }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(true);
-    const [expandedDepts, setExpandedDepts] = useState(['goals', 'marketing', 'projects', 'mail', 'sales', 'social', 'admin', 'hr']);
+    const [expandedDepts, setExpandedDepts] = useState(['analytics', 'goals', 'marketing', 'projects', 'mail', 'sales', 'social', 'admin', 'hr']);
 
     const toggleDepartment = (dept) => {
         setExpandedDepts(prev => 

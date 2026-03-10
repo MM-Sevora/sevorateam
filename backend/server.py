@@ -3678,12 +3678,21 @@ except Exception as e:
 
 # Register Help & Support routes
 try:
-    from routes.help_support import router as help_router, init_help_router
-    init_help_router(db, get_current_user)
-    api_router.include_router(help_router)
+    from routes.help_support import router as help_support_router, init_router as init_help_support_router
+    init_help_support_router(db, get_current_user)
+    api_router.include_router(help_support_router)
     logger.info("Help & Support routes loaded successfully")
 except Exception as e:
     logger.error(f"Failed to load Help & Support routes: {e}")
+
+# Register Analytics routes (Team Dashboard & Reports)
+try:
+    from routes.analytics import router as analytics_router, init_router as init_analytics_router
+    init_analytics_router(db, get_current_user)
+    api_router.include_router(analytics_router)
+    logger.info("Analytics routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Analytics routes: {e}")
 
 # Register Unified Contacts routes (merged contacts/influencers/publications)
 try:

@@ -102,6 +102,9 @@ import TeamsCallback from "./pages/teams/TeamsCallback";
 import TeamsCalendar from "./pages/teams/TeamsCalendar";
 import TeamsEventDetail from "./pages/teams/TeamsEventDetail";
 
+// Analytics & Insights
+import AnalyticsTeamDashboard from "./pages/analytics/TeamDashboard";
+
 import "./App.css";
 
 // Initialize MSAL instance
@@ -417,6 +420,10 @@ function AppRoutes() {
             <Route path="/teams/calendar" element={<ProtectedRoute requiredModule="communication_hub"><TeamsCalendar /></ProtectedRoute>} />
             <Route path="/teams/calendar/:eventId" element={<ProtectedRoute requiredModule="communication_hub"><TeamsEventDetail /></ProtectedRoute>} />
             <Route path="/teams/callback" element={<TeamsCallback />} />
+
+            {/* Analytics & Insights Routes */}
+            <Route path="/analytics" element={<ProtectedRoute requiredModule="dashboard"><AnalyticsTeamDashboard /></ProtectedRoute>} />
+            <Route path="/analytics/team-dashboard" element={<ProtectedRoute requiredModule="dashboard"><AnalyticsTeamDashboard /></ProtectedRoute>} />
 
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" replace />} />
