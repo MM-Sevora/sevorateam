@@ -542,7 +542,7 @@ async def list_objectives(
         obj_data["sponsor_name"] = await get_user_name(obj.get("sponsor_id"))
         
         # Count linked projects
-        linked_projects = await db.projects.count_documents({"linked_objective_id": obj_data["id"]})
+        linked_projects = await db.pm_projects.count_documents({"linked_objective_id": obj_data["id"]})
         obj_data["linked_projects_count"] = linked_projects
         
         # Count key results
@@ -579,7 +579,7 @@ async def get_objective(objective_id: str):
     obj_data["sponsor_name"] = await get_user_name(obj.get("sponsor_id"))
     
     # Count linked projects
-    linked_projects = await db.projects.count_documents({"linked_objective_id": objective_id})
+    linked_projects = await db.pm_projects.count_documents({"linked_objective_id": objective_id})
     obj_data["linked_projects_count"] = linked_projects
     
     # Count key results

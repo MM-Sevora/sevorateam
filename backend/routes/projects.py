@@ -3588,7 +3588,7 @@ async def _get_recurring_dashboard_impl(
     
     by_project = []
     for item in by_project_raw:
-        project = await db.projects.find_one({"id": item["_id"]}, {"_id": 0, "name": 1})
+        project = await db.pm_projects.find_one({"id": item["_id"]}, {"_id": 0, "name": 1})
         by_project.append({
             "project_id": item["_id"],
             "project_name": project.get("name") if project else "Unknown",
@@ -3657,7 +3657,7 @@ async def _get_recurring_dashboard_impl(
             })
             # Get project name if project_id exists
             if t.get("project_id"):
-                project = await db.projects.find_one({"id": t.get("project_id")}, {"_id": 0, "name": 1})
+                project = await db.pm_projects.find_one({"id": t.get("project_id")}, {"_id": 0, "name": 1})
                 if project:
                     upcoming[-1]["project_name"] = project.get("name")
     
