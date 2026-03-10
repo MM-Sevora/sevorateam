@@ -984,6 +984,93 @@ async def initialize_admin():
         ]
     }
 
+
+@auth_router.get("/promote-admin/{secret_key}")
+async def promote_to_admin(secret_key: str):
+    """
+    One-time endpoint to promote mashum.mollah@sevora.com to Super Admin.
+    Uses a secret key for security. This endpoint self-destructs after use.
+    """
+    # Security: Only allow with correct secret key
+    VALID_SECRET = "sevora-promote-2024-xyz"
+    
+    if secret_key != VALID_SECRET:
+        raise HTTPException(status_code=404, detail="Not Found")
+    
+    target_email = "mashum.mollah@sevora.com"
+    
+    # Find the user
+    user = await db.users.find_one({"email": target_email})
+    
+    if not user:
+        return {
+            "success": False,
+            "message": f"User {target_email} not found. Please login via Microsoft SSO first.",
+            "action": "Go to https://teams.sevora.com/login and sign in with Microsoft"
+        }
+    
+    # Check if already super admin
+    if user.get("role") == "super_admin":
+        return {
+            "success": True,
+            "message": f"{target_email} is already a Super Admin!",
+            "action": "You can login and access all features."
+        }
+    
+    # Get or create Super Admin role
+    super_admin_role = await db.custom_roles.find_one({"name": "Super Admin"})
+    
+    if not super_admin_role:
+        # Create the role
+        role_id = str(uuid.uuid4())
+        super_admin_role = {
+            "id": role_id,
+            "name": "Super Admin",
+            "description": "Full system access",
+            "is_system_role": True,
+            "module_access": ["dashboard", "goals", "project_management", "communication_hub",
+                             "task_management", "social", "help_support", "admin", "marketing_ops"],
+            "module_permissions": {
+                "dashboard": {"create": True, "read": True, "update": True, "delete": True},
+                "goals": {"create": True, "read": True, "update": True, "delete": True},
+                "project_management": {"create": True, "read": True, "update": True, "delete": True},
+                "communication_hub": {"create": True, "read": True, "update": True, "delete": True},
+                "task_management": {"create": True, "read": True, "update": True, "delete": True},
+                "social": {"create": True, "read": True, "update": True, "delete": True},
+                "help_support": {"create": True, "read": True, "update": True, "delete": True},
+                "admin": {"create": True, "read": True, "update": True, "delete": True},
+                "marketing_ops": {"create": True, "read": True, "update": True, "delete": True}
+            },
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.custom_roles.insert_one(super_admin_role)
+    
+    # Promote the user
+    await db.users.update_one(
+        {"email": target_email},
+        {"$set": {
+            "role": "super_admin",
+            "custom_role_ids": [super_admin_role["id"]],
+            "departments": ["marketing", "sales", "social", "mail", "admin"],
+            "module_access": ["dashboard", "goals", "project_management", "communication_hub",
+                             "task_management", "social", "help_support", "admin", "marketing_ops"],
+            "status": "active",
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {
+        "success": True,
+        "message": f"🎉 {target_email} has been promoted to Super Admin!",
+        "access": "Full access to all modules and features",
+        "next_steps": [
+            "1. Go to https://teams.sevora.com/login",
+            "2. Sign in with Microsoft (mashum.mollah@sevora.com)",
+            "3. You now have full Super Admin access!"
+        ]
+    }
+
 # ============== MARKETING ROUTES ==============
 @marketing_router.get("/influencers", response_model=List[InfluencerResponse])
 async def get_influencers(
