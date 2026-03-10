@@ -5,9 +5,8 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { toast } from 'sonner';
-import { Briefcase, Mail, Lock, User, Building2 } from 'lucide-react';
+import { Briefcase, Mail, Lock } from 'lucide-react';
 import axios from 'axios';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -23,14 +22,17 @@ const MicrosoftLogo = () => (
 );
 
 export const LoginPage = () => {
-    const { loginWithAzure, loginWithCredentials, register } = useAuth();
+    const { loginWithAzure, loginWithCredentials } = useAuth();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
-    const [activeTab, setActiveTab] = useState('login');
     const [siteSettings, setSiteSettings] = useState({
         site_name: 'SEVORA TEAM',
         site_tagline: 'Unified Operations Platform'
     });
+
+    // Login form state
+    const [loginEmail, setLoginEmail] = useState('');
+    const [loginPassword, setLoginPassword] = useState('');
 
     // Fetch site branding
     useEffect(() => {
@@ -50,16 +52,6 @@ export const LoginPage = () => {
         fetchBranding();
     }, []);
 
-    // Login form state
-    const [loginEmail, setLoginEmail] = useState('');
-    const [loginPassword, setLoginPassword] = useState('');
-
-    // Register form state
-    const [regName, setRegName] = useState('');
-    const [regEmail, setRegEmail] = useState('');
-    const [regPassword, setRegPassword] = useState('');
-    const [regDepartment, setRegDepartment] = useState('sales');
-
     const handleAzureLogin = async () => {
         try {
             setLoading(true);
@@ -70,13 +62,12 @@ export const LoginPage = () => {
             }
         } catch (error) {
             console.error('Azure login error:', error);
-            // Check for specific error types
             if (error.errorCode === 'user_cancelled') {
                 toast.info('Login cancelled');
-            } else if (error.errorCode === 'popup_window_error') {
-                toast.error('Popup blocked. Please allow popups for this site.');
+            } else if (error.errorCode === 'interaction_in_progress') {
+                toast.info('Login already in progress');
             } else {
-                toast.error(error.message || 'Microsoft login failed');
+                toast.error('Login failed. Please try again.');
             }
         } finally {
             setLoading(false);
@@ -97,20 +88,6 @@ export const LoginPage = () => {
         }
     };
 
-    const handleRegister = async (e) => {
-        e.preventDefault();
-        try {
-            setLoading(true);
-            await register(regName, regEmail, regPassword, regDepartment, 'viewer');
-            toast.success('Account created successfully!');
-            navigate('/');
-        } catch (error) {
-            toast.error(error.response?.data?.detail || 'Registration failed');
-        } finally {
-            setLoading(false);
-        }
-    };
-
     return (
         <div className="min-h-screen bg-gradient-to-br from-[#F5EDE5] to-[#E8D5C4] flex items-center justify-center p-4">
             {/* Background Pattern */}
@@ -123,7 +100,7 @@ export const LoginPage = () => {
                 {/* Logo */}
                 <div className="text-center mb-8">
                     <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#4A3728] mb-4 shadow-lg">
-                        <Briefcase className="w-8 h-8 text-[#4A3728]" />
+                        <Briefcase className="w-8 h-8 text-white" />
                     </div>
                     <h1 className="text-3xl font-bold text-[#4A3728] uppercase tracking-wide">
                         {siteSettings.site_name}
@@ -160,143 +137,55 @@ export const LoginPage = () => {
                             </div>
                         </div>
 
-                        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                            <TabsList className="grid w-full grid-cols-2 bg-[#F5EDE5]">
-                                <TabsTrigger 
-                                    value="login" 
-                                    className="data-[state=active]:bg-[#4A3728] data-[state=active]:text-[#4A3728]"
-                                >
-                                    Login
-                                </TabsTrigger>
-                                <TabsTrigger 
-                                    value="register"
-                                    className="data-[state=active]:bg-[#4A3728] data-[state=active]:text-[#4A3728]"
-                                >
-                                    Register
-                                </TabsTrigger>
-                            </TabsList>
+                        {/* Email/Password Login Form */}
+                        <form onSubmit={handleCredentialsLogin} className="space-y-4">
+                            <div className="space-y-2">
+                                <Label className="text-[#4A3728]">Email</Label>
+                                <div className="relative">
+                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5D4A3A]" />
+                                    <Input
+                                        type="email"
+                                        placeholder="you@company.com"
+                                        value={loginEmail}
+                                        onChange={(e) => setLoginEmail(e.target.value)}
+                                        className="pl-10 bg-white border-[#D4BBA6] text-[#4A3728] placeholder:text-[#5D4A3A]/50 focus:border-[#4A3728] focus:ring-[#4A3728]"
+                                        required
+                                        data-testid="login-email-input"
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-[#4A3728]">Password</Label>
+                                <div className="relative">
+                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5D4A3A]" />
+                                    <Input
+                                        type="password"
+                                        placeholder="••••••••"
+                                        value={loginPassword}
+                                        onChange={(e) => setLoginPassword(e.target.value)}
+                                        className="pl-10 bg-white border-[#D4BBA6] text-[#4A3728] placeholder:text-[#5D4A3A]/50 focus:border-[#4A3728] focus:ring-[#4A3728]"
+                                        required
+                                        data-testid="login-password-input"
+                                    />
+                                </div>
+                            </div>
+                            <Button 
+                                type="submit" 
+                                disabled={loading}
+                                className="w-full bg-[#4A3728] hover:bg-[#3A2A1E] text-white shadow-md"
+                                data-testid="login-submit-btn"
+                            >
+                                {loading ? 'Signing in...' : 'Sign In'}
+                            </Button>
+                        </form>
 
-                            <TabsContent value="login" className="mt-4">
-                                <form onSubmit={handleCredentialsLogin} className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label className="text-[#4A3728]">Email</Label>
-                                        <div className="relative">
-                                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5D4A3A]" />
-                                            <Input
-                                                type="email"
-                                                placeholder="you@company.com"
-                                                value={loginEmail}
-                                                onChange={(e) => setLoginEmail(e.target.value)}
-                                                className="pl-10 bg-white border-[#D4BBA6] text-[#4A3728] placeholder:text-[#5D4A3A]/50 focus:border-[#4A3728] focus:ring-[#4A3728]"
-                                                required
-                                                data-testid="login-email-input"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-[#4A3728]">Password</Label>
-                                        <div className="relative">
-                                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5D4A3A]" />
-                                            <Input
-                                                type="password"
-                                                placeholder="••••••••"
-                                                value={loginPassword}
-                                                onChange={(e) => setLoginPassword(e.target.value)}
-                                                className="pl-10 bg-white border-[#D4BBA6] text-[#4A3728] placeholder:text-[#5D4A3A]/50 focus:border-[#4A3728] focus:ring-[#4A3728]"
-                                                required
-                                                data-testid="login-password-input"
-                                            />
-                                        </div>
-                                    </div>
-                                    <Button 
-                                        type="submit" 
-                                        disabled={loading}
-                                        className="w-full bg-[#4A3728] hover:bg-[#3A2A1E] text-white shadow-md"
-                                        data-testid="login-submit-btn"
-                                    >
-                                        {loading ? 'Signing in...' : 'Sign In'}
-                                    </Button>
-                                </form>
-                            </TabsContent>
-
-                            <TabsContent value="register" className="mt-4">
-                                <form onSubmit={handleRegister} className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label className="text-[#4A3728]">Full Name</Label>
-                                        <div className="relative">
-                                            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5D4A3A]" />
-                                            <Input
-                                                type="text"
-                                                placeholder="John Doe"
-                                                value={regName}
-                                                onChange={(e) => setRegName(e.target.value)}
-                                                className="pl-10 bg-white border-[#D4BBA6] text-[#4A3728] placeholder:text-[#5D4A3A]/50"
-                                                required
-                                                data-testid="register-name-input"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-[#4A3728]">Email</Label>
-                                        <div className="relative">
-                                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5D4A3A]" />
-                                            <Input
-                                                type="email"
-                                                placeholder="you@company.com"
-                                                value={regEmail}
-                                                onChange={(e) => setRegEmail(e.target.value)}
-                                                className="pl-10 bg-white border-[#D4BBA6] text-[#4A3728] placeholder:text-[#5D4A3A]/50"
-                                                required
-                                                data-testid="register-email-input"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-[#4A3728]">Password</Label>
-                                        <div className="relative">
-                                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5D4A3A]" />
-                                            <Input
-                                                type="password"
-                                                placeholder="••••••••"
-                                                value={regPassword}
-                                                onChange={(e) => setRegPassword(e.target.value)}
-                                                className="pl-10 bg-white border-[#D4BBA6] text-[#4A3728] placeholder:text-[#5D4A3A]/50"
-                                                required
-                                                data-testid="register-password-input"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-[#4A3728]">Department</Label>
-                                        <div className="relative">
-                                            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5D4A3A]" />
-                                            <select
-                                                value={regDepartment}
-                                                onChange={(e) => setRegDepartment(e.target.value)}
-                                                className="w-full pl-10 pr-4 py-2 bg-white border border-[#D4BBA6] rounded-md text-[#4A3728]"
-                                                data-testid="register-department-select"
-                                            >
-                                                <option value="marketing">Marketing Ops</option>
-                                                <option value="sales">Sales</option>
-                                                <option value="social">Social Media</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <Button 
-                                        type="submit" 
-                                        disabled={loading}
-                                        className="w-full bg-[#4A3728] hover:bg-[#3A2A1E] text-white shadow-md"
-                                        data-testid="register-submit-btn"
-                                    >
-                                        {loading ? 'Creating account...' : 'Create Account'}
-                                    </Button>
-                                </form>
-                            </TabsContent>
-                        </Tabs>
+                        <p className="text-center text-xs text-[#5D4A3A]">
+                            Need access? Contact your administrator
+                        </p>
                     </CardContent>
                 </Card>
 
-                <p className="text-center text-[#5D4A3A] text-xs mt-6">
+                <p className="text-center text-xs text-[#5D4A3A] mt-6">
                     By signing in, you agree to our Terms of Service and Privacy Policy
                 </p>
             </div>
