@@ -607,52 +607,52 @@ export default function TeamsChat() {
   // Connected view with chat interface
   return (
     <div className="h-[calc(100vh-180px)] flex bg-white rounded-xl border border-[#E8D5C4] overflow-hidden shadow-sm">
-      {/* Chat List Sidebar */}
-      <div className="w-80 border-r border-[#E8D5C4] flex flex-col bg-[#FAFAFA]">
+      {/* Chat List Sidebar - Narrower */}
+      <div className="w-64 border-r border-[#E8D5C4] flex flex-col bg-[#FAFAFA]">
         {/* Header */}
-        <div className="p-4 border-b border-[#E8D5C4] bg-white">
-          <div className="flex items-center justify-between mb-3">
+        <div className="p-3 border-b border-[#E8D5C4] bg-white">
+          <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <div className="w-9 h-9 bg-gradient-to-br from-[#464EB8] to-[#7B83EB] rounded-lg flex items-center justify-center shadow">
+              <div className="w-8 h-8 bg-gradient-to-br from-[#464EB8] to-[#7B83EB] rounded-lg flex items-center justify-center shadow">
                 <MessageSquare className="w-4 h-4 text-white" />
               </div>
               <div>
-                <h2 className="font-semibold text-[#4A3728] text-sm">Teams Chat</h2>
-                <p className="text-xs text-emerald-600 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                <h2 className="font-semibold text-[#4A3728] text-xs">Teams Chat</h2>
+                <p className="text-[10px] text-emerald-600 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
                   Connected
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center">
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={fetchChats}
-                className="h-8 w-8 p-0 hover:bg-[#E8D5C4]"
+                className="h-7 w-7 p-0 hover:bg-[#E8D5C4]"
                 title="Refresh chats"
               >
-                <RefreshCw className="w-4 h-4 text-[#6B5D52]" />
+                <RefreshCw className="w-3.5 h-3.5 text-[#6B5D52]" />
               </Button>
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={() => setShowNewChat(true)}
-                className="h-8 w-8 p-0 hover:bg-[#E8D5C4]"
+                className="h-7 w-7 p-0 hover:bg-[#E8D5C4]"
                 title="New chat"
               >
-                <Plus className="w-4 h-4 text-[#6B5D52]" />
+                <Plus className="w-3.5 h-3.5 text-[#6B5D52]" />
               </Button>
             </div>
           </div>
           
           <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#9C8C74]" />
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#9C8C74]" />
             <Input
-              placeholder="Search chats..."
+              placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 border-[#E8D5C4] h-9 bg-[#F5EBE0] focus:bg-white transition-colors"
+              className="pl-8 border-[#E8D5C4] h-8 text-xs bg-[#F5EBE0] focus:bg-white transition-colors"
             />
           </div>
         </div>
@@ -660,53 +660,49 @@ export default function TeamsChat() {
         {/* Chat List */}
         <ScrollArea className="flex-1">
           {filteredChats.length === 0 ? (
-            <div className="p-6 text-center text-[#9C8C74]">
-              <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-30" />
-              <p className="text-sm font-medium">No chats found</p>
-              <p className="text-xs mt-1">Start a new conversation</p>
+            <div className="p-4 text-center text-[#9C8C74]">
+              <MessageSquare className="w-10 h-10 mx-auto mb-2 opacity-30" />
+              <p className="text-xs font-medium">No chats found</p>
             </div>
           ) : (
             filteredChats.map(chat => (
               <div
                 key={chat.id}
                 onClick={() => setSelectedChat(chat)}
-                className={`p-3 border-b border-[#E8D5C4]/50 cursor-pointer transition-all ${
+                className={`px-3 py-2.5 border-b border-[#E8D5C4]/30 cursor-pointer transition-all ${
                   selectedChat?.id === chat.id 
                     ? 'bg-[#464EB8]/10 border-l-2 border-l-[#464EB8]' 
                     : 'hover:bg-white'
                 }`}
               >
-                <div className="flex items-start gap-3">
-                  <div className={`w-11 h-11 rounded-full flex items-center justify-center text-white font-medium flex-shrink-0 shadow-sm ${
+                <div className="flex items-center gap-2.5">
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0 ${
                     chat.chatType === 'group' 
                       ? 'bg-gradient-to-br from-[#7B83EB] to-[#464EB8]' 
                       : 'bg-gradient-to-br from-[#464EB8] to-[#5B64D4]'
                   }`}>
                     {chat.chatType === 'group' ? (
-                      <Users className="w-5 h-5" />
+                      <Users className="w-4 h-4" />
                     ) : (
                       getChatInitials(chat)
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className="font-medium text-[#4A3728] truncate text-sm">
+                    <div className="flex items-center justify-between gap-1">
+                      <p className="font-medium text-[#4A3728] truncate text-xs">
                         {getChatDisplayName(chat)}
                       </p>
-                      <span className="text-xs text-[#9C8C74] flex-shrink-0 ml-2">
+                      <span className="text-[10px] text-[#9C8C74] flex-shrink-0">
                         {formatTime(chat.lastMessagePreview?.createdDateTime)}
                       </span>
                     </div>
-                    {chat.lastMessagePreview && (
-                      <p className="text-xs text-[#6B5D52] truncate mt-1">
-                        {stripHtml(chat.lastMessagePreview.body?.content)}
-                      </p>
-                    )}
-                    {chat.chatType === 'group' && chat.members && (
-                      <p className="text-xs text-[#9C8C74] mt-1">
-                        {chat.members.length} members
-                      </p>
-                    )}
+                    <p className="text-[11px] text-[#6B5D52] truncate mt-0.5">
+                      {chat.lastMessagePreview 
+                        ? stripHtml(chat.lastMessagePreview.body?.content)
+                        : chat.chatType === 'group' 
+                          ? `${chat.members?.length || 0} members`
+                          : 'No messages yet'}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -715,15 +711,15 @@ export default function TeamsChat() {
         </ScrollArea>
         
         {/* Footer */}
-        <div className="p-3 border-t border-[#E8D5C4] bg-white">
+        <div className="p-2 border-t border-[#E8D5C4] bg-white">
           <Button 
             variant="ghost" 
             size="sm" 
             onClick={disconnectTeams}
-            className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 text-xs"
+            className="w-full text-red-500 hover:text-red-600 hover:bg-red-50 text-[10px] h-7"
           >
-            <XCircle className="w-4 h-4 mr-2" />
-            Disconnect Teams
+            <XCircle className="w-3 h-3 mr-1" />
+            Disconnect
           </Button>
         </div>
       </div>
@@ -732,58 +728,54 @@ export default function TeamsChat() {
       <div className="flex-1 flex flex-col bg-white">
         {selectedChat ? (
           <>
-            {/* Chat Header */}
-            <div className="px-5 py-4 border-b border-[#E8D5C4] flex items-center justify-between bg-gradient-to-r from-white to-[#FAFAFA]">
+            {/* Chat Header - Compact */}
+            <div className="px-4 py-3 border-b border-[#E8D5C4] flex items-center justify-between bg-white">
               <div className="flex items-center gap-3">
-                <div className={`w-11 h-11 rounded-full flex items-center justify-center text-white font-medium shadow ${
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium ${
                   selectedChat.chatType === 'group' 
                     ? 'bg-gradient-to-br from-[#7B83EB] to-[#464EB8]' 
                     : 'bg-gradient-to-br from-[#464EB8] to-[#5B64D4]'
                 }`}>
                   {selectedChat.chatType === 'group' ? (
-                    <Users className="w-5 h-5" />
+                    <Users className="w-4 h-4" />
                   ) : (
                     getChatInitials(selectedChat)
                   )}
                 </div>
                 <div>
-                  <h3 className="font-semibold text-[#4A3728]">
+                  <h3 className="font-semibold text-[#4A3728] text-sm">
                     {getChatDisplayName(selectedChat)}
                   </h3>
-                  <p className="text-xs text-[#9C8C74]">
+                  <p className="text-[11px] text-[#9C8C74]">
                     {selectedChat.chatType === 'group' 
                       ? `${selectedChat.members?.length || 0} members` 
                       : 'Direct Message'}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" className="h-9 w-9 p-0 hover:bg-[#E8D5C4]" title="Voice call">
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-[#E8D5C4] rounded-full" title="Voice call">
                   <Phone className="w-4 h-4 text-[#6B5D52]" />
                 </Button>
-                <Button variant="ghost" size="sm" className="h-9 w-9 p-0 hover:bg-[#E8D5C4]" title="Video call">
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-[#E8D5C4] rounded-full" title="Video call">
                   <Video className="w-4 h-4 text-[#6B5D52]" />
-                </Button>
-                <Button variant="ghost" size="sm" className="h-9 w-9 p-0 hover:bg-[#E8D5C4]" title="Chat info">
-                  <Info className="w-4 h-4 text-[#6B5D52]" />
                 </Button>
               </div>
             </div>
             
             {/* Messages */}
-            <ScrollArea className="flex-1 p-4 bg-gradient-to-b from-[#FAFAFA] to-white">
+            <ScrollArea className="flex-1 px-4 py-3 bg-[#FAFAFA]">
               {loadingMessages ? (
                 <div className="flex items-center justify-center h-full">
-                  <Loader2 className="w-6 h-6 animate-spin text-[#464EB8]" />
+                  <Loader2 className="w-5 h-5 animate-spin text-[#464EB8]" />
                 </div>
               ) : messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-[#9C8C74]">
-                  <MessageSquare className="w-12 h-12 mb-3 opacity-30" />
-                  <p className="text-sm">No messages yet</p>
-                  <p className="text-xs">Start the conversation!</p>
+                  <MessageSquare className="w-10 h-10 mb-2 opacity-30" />
+                  <p className="text-xs">No messages yet</p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {messages.map((message, idx) => {
                     const isMe = isOwnMessage(message);
                     const senderName = message.from?.user?.displayName || 'Unknown';
@@ -794,9 +786,9 @@ export default function TeamsChat() {
                         key={message.id || idx}
                         className={`flex ${isMe ? 'justify-end' : 'justify-start'} group`}
                       >
-                        <div className={`max-w-[70%] ${isMe ? 'order-2' : 'order-1'} relative`}>
+                        <div className={`max-w-[75%] ${isMe ? 'order-2' : 'order-1'} relative`}>
                           {showSender && (
-                            <p className="text-xs font-medium text-[#464EB8] mb-1 ml-1">
+                            <p className="text-[11px] font-medium text-[#464EB8] mb-1 ml-1">
                               {senderName}
                             </p>
                           )}
@@ -808,31 +800,31 @@ export default function TeamsChat() {
                                   <Button 
                                     variant="ghost" 
                                     size="sm" 
-                                    className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 hover:bg-[#E8D5C4]"
+                                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 hover:bg-[#E8D5C4]"
                                   >
-                                    <MoreVertical className="w-4 h-4 text-[#6B5D52]" />
+                                    <MoreVertical className="w-3.5 h-3.5 text-[#6B5D52]" />
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="start" className="bg-white border-[#D4BBA6]">
                                   <DropdownMenuItem 
                                     onClick={() => openTaskModal(message)}
-                                    className="cursor-pointer text-[#4A3728]"
+                                    className="cursor-pointer text-[#4A3728] text-xs"
                                   >
-                                    <ListTodo className="w-4 h-4 mr-2 text-[#464EB8]" />
+                                    <ListTodo className="w-3.5 h-3.5 mr-2 text-[#464EB8]" />
                                     Convert to Task
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             )}
                             <div
-                              className={`rounded-2xl px-4 py-2.5 shadow-sm ${
+                              className={`rounded-2xl px-3 py-2 ${
                                 isMe 
-                                  ? 'bg-gradient-to-r from-[#464EB8] to-[#5B64D4] text-white rounded-br-md' 
-                                  : 'bg-white border border-[#E8D5C4] text-[#4A3728] rounded-bl-md'
+                                  ? 'bg-gradient-to-r from-[#464EB8] to-[#5B64D4] text-white rounded-br-sm' 
+                                  : 'bg-white border border-[#E8D5C4] text-[#4A3728] rounded-bl-sm shadow-sm'
                               }`}
                             >
                               <div 
-                                className="text-sm leading-relaxed"
+                                className="text-[13px] leading-relaxed"
                                 dangerouslySetInnerHTML={{ 
                                   __html: message.body?.content || '' 
                                 }}
@@ -845,24 +837,24 @@ export default function TeamsChat() {
                                   <Button 
                                     variant="ghost" 
                                     size="sm" 
-                                    className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 hover:bg-[#E8D5C4]"
+                                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 hover:bg-[#E8D5C4]"
                                   >
-                                    <MoreVertical className="w-4 h-4 text-[#6B5D52]" />
+                                    <MoreVertical className="w-3.5 h-3.5 text-[#6B5D52]" />
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="bg-white border-[#D4BBA6]">
                                   <DropdownMenuItem 
                                     onClick={() => openTaskModal(message)}
-                                    className="cursor-pointer text-[#4A3728]"
+                                    className="cursor-pointer text-[#4A3728] text-xs"
                                   >
-                                    <ListTodo className="w-4 h-4 mr-2 text-[#464EB8]" />
+                                    <ListTodo className="w-3.5 h-3.5 mr-2 text-[#464EB8]" />
                                     Convert to Task
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             )}
                           </div>
-                          <p className={`text-[10px] text-[#9C8C74] mt-1 ${isMe ? 'text-right mr-1' : 'ml-8'}`}>
+                          <p className={`text-[10px] text-[#9C8C74] mt-0.5 ${isMe ? 'text-right mr-1' : 'ml-7'}`}>
                             {formatMessageTime(message.createdDateTime)}
                           </p>
                         </div>
@@ -874,20 +866,20 @@ export default function TeamsChat() {
               )}
             </ScrollArea>
             
-            {/* Message Input */}
-            <div className="p-4 border-t border-[#E8D5C4] bg-white">
-              <div className="flex items-center gap-3">
+            {/* Message Input - Compact */}
+            <div className="p-3 border-t border-[#E8D5C4] bg-white">
+              <div className="flex items-center gap-2">
                 <Input
                   placeholder="Type a message..."
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-                  className="flex-1 border-[#E8D5C4] bg-[#F5EBE0] focus:bg-white transition-colors py-5"
+                  className="flex-1 border-[#E8D5C4] bg-[#F5EBE0] focus:bg-white transition-colors h-9 text-sm"
                 />
                 <Button 
                   onClick={sendMessage}
                   disabled={sending || !newMessage.trim()}
-                  className="bg-gradient-to-r from-[#464EB8] to-[#5B64D4] hover:from-[#3d44a5] hover:to-[#4e56c7] text-white h-10 w-10 p-0 rounded-full shadow"
+                  className="bg-gradient-to-r from-[#464EB8] to-[#5B64D4] hover:from-[#3d44a5] hover:to-[#4e56c7] text-white h-9 w-9 p-0 rounded-full"
                 >
                   {sending ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -899,22 +891,23 @@ export default function TeamsChat() {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center bg-gradient-to-b from-[#FAFAFA] to-white">
+          <div className="flex-1 flex items-center justify-center bg-[#FAFAFA]">
             <div className="text-center">
-              <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-[#E8D5C4] to-[#D4BBA6] rounded-2xl flex items-center justify-center">
-                <MessageSquare className="w-10 h-10 text-[#6B5D52]" />
+              <div className="w-16 h-16 mx-auto mb-3 bg-gradient-to-br from-[#E8D5C4] to-[#D4BBA6] rounded-xl flex items-center justify-center">
+                <MessageSquare className="w-8 h-8 text-[#6B5D52]" />
               </div>
-              <h3 className="text-lg font-semibold text-[#4A3728]">Select a chat</h3>
-              <p className="text-sm text-[#9C8C74] mt-1">
+              <h3 className="text-sm font-semibold text-[#4A3728]">Select a chat</h3>
+              <p className="text-xs text-[#9C8C74] mt-1">
                 Choose a conversation from the sidebar
               </p>
               <Button 
                 onClick={() => setShowNewChat(true)}
                 variant="outline"
-                className="mt-4 border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0]"
+                size="sm"
+                className="mt-3 border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0] text-xs"
               >
-                <Plus className="w-4 h-4 mr-2" />
-                Start New Chat
+                <Plus className="w-3.5 h-3.5 mr-1" />
+                New Chat
               </Button>
             </div>
           </div>
