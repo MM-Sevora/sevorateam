@@ -98,6 +98,8 @@ import ExpenseManagement from "./pages/hr/ExpenseManagement";
 // Teams Pages
 import TeamsChat from "./pages/teams/TeamsChat";
 import TeamsCallback from "./pages/teams/TeamsCallback";
+import TeamsCalendar from "./pages/teams/TeamsCalendar";
+import TeamsEventDetail from "./pages/teams/TeamsEventDetail";
 
 import "./App.css";
 
@@ -147,6 +149,12 @@ const MsalInitializer = ({ children }) => {
                                 console.log('Email connection successful! Redirecting to mail...');
                                 window.history.replaceState({}, document.title, redirectPath || '/mail/inbox');
                                 window.location.href = redirectPath || '/mail/inbox';
+                                return;
+                            } else if (loginType === 'calendar') {
+                                // This was for calendar connection - redirect back to calendar page
+                                console.log('Calendar connection successful! Redirecting to calendar...');
+                                window.history.replaceState({}, document.title, redirectPath || '/teams/calendar');
+                                window.location.href = redirectPath || '/teams/calendar';
                                 return;
                             } else if (loginType === 'app') {
                                 console.log('Processing app login...');
@@ -396,6 +404,8 @@ function AppRoutes() {
 
             {/* Teams Routes */}
             <Route path="/teams/chat" element={<ProtectedRoute><TeamsChat /></ProtectedRoute>} />
+            <Route path="/teams/calendar" element={<ProtectedRoute><TeamsCalendar /></ProtectedRoute>} />
+            <Route path="/teams/calendar/:eventId" element={<ProtectedRoute><TeamsEventDetail /></ProtectedRoute>} />
             <Route path="/teams/callback" element={<TeamsCallback />} />
 
             {/* Catch all */}

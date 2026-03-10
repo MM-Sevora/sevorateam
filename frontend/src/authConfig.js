@@ -34,6 +34,17 @@ export const mailRequest = {
     ],
 };
 
+// Calendar-specific scopes for Microsoft Graph Calendar API
+export const calendarRequest = {
+    scopes: [
+        "User.Read",
+        "Calendars.ReadWrite",
+        "Calendars.Read",
+        "OnlineMeetings.ReadWrite",
+        "offline_access"
+    ],
+};
+
 export const graphConfig = {
     graphMeEndpoint: "https://graph.microsoft.com/v1.0/me",
 };
