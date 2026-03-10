@@ -2,14 +2,24 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   MessageSquare, Users, Search, Send, Plus, RefreshCw, 
   CheckCircle, XCircle, Loader2, ChevronLeft, Settings,
-  User, AtSign, MoreVertical, Phone, Video, Info
+  User, AtSign, MoreVertical, Phone, Video, Info, ListTodo,
+  Calendar, Flag, FolderKanban
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { Textarea } from '../../components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { ScrollArea } from '../../components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Label } from '../../components/ui/label';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '../../components/ui/dropdown-menu';
 import { toast } from 'sonner';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -45,6 +55,20 @@ export default function TeamsChat() {
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [currentUserEmail, setCurrentUserEmail] = useState('');
   const messagesEndRef = useRef(null);
+  
+  // Task creation state
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [taskMessage, setTaskMessage] = useState(null);
+  const [projects, setProjects] = useState([]);
+  const [loadingProjects, setLoadingProjects] = useState(false);
+  const [creatingTask, setCreatingTask] = useState(false);
+  const [taskForm, setTaskForm] = useState({
+    name: '',
+    description: '',
+    project_id: '',
+    priority: 'medium',
+    due_date: ''
+  });
   
   const token = localStorage.getItem('sevora_token');
 
@@ -289,6 +313,84 @@ export default function TeamsChat() {
       }
     } catch (e) {
       toast.error('Failed to create chat');
+    }
+  };
+
+  // Fetch projects for task creation
+  const fetchProjects = async () => {
+    setLoadingProjects(true);
+    try {
+      const res = await fetch(`${API}/api/projects/list`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProjects(data || []);
+      }
+    } catch (e) {
+      console.error('Error fetching projects:', e);
+    } finally {
+      setLoadingProjects(false);
+    }
+  };
+
+  // Open task creation modal with message content
+  const openTaskModal = (message) => {
+    const messageContent = stripHtml(message.body?.content || '');
+    const senderName = message.from?.user?.displayName || 'Unknown';
+    const chatName = getChatDisplayName(selectedChat);
+    
+    setTaskMessage(message);
+    setTaskForm({
+      name: messageContent.substring(0, 100) + (messageContent.length > 100 ? '...' : ''),
+      description: `From Teams chat with ${chatName}:\n\n"${messageContent}"\n\n— ${senderName}`,
+      project_id: '',
+      priority: 'medium',
+      due_date: ''
+    });
+    fetchProjects();
+    setShowTaskModal(true);
+  };
+
+  // Create task from message
+  const createTaskFromMessage = async () => {
+    if (!taskForm.name.trim() || !taskForm.project_id) {
+      toast.error('Please fill in task name and select a project');
+      return;
+    }
+    
+    setCreatingTask(true);
+    try {
+      const res = await fetch(`${API}/api/projects/tasks`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: taskForm.name,
+          description: taskForm.description,
+          project_id: taskForm.project_id,
+          priority: taskForm.priority,
+          due_date: taskForm.due_date || null,
+          status: 'todo',
+          source: 'teams_chat'
+        })
+      });
+      
+      if (res.ok) {
+        toast.success('Task created successfully!');
+        setShowTaskModal(false);
+        setTaskMessage(null);
+        setTaskForm({ name: '', description: '', project_id: '', priority: 'medium', due_date: '' });
+      } else {
+        const error = await res.json();
+        toast.error(error.detail || 'Failed to create task');
+      }
+    } catch (e) {
+      toast.error('Failed to create task');
+    } finally {
+      setCreatingTask(false);
     }
   };
 
@@ -636,29 +738,77 @@ export default function TeamsChat() {
                     return (
                       <div
                         key={message.id || idx}
-                        className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
+                        className={`flex ${isMe ? 'justify-end' : 'justify-start'} group`}
                       >
-                        <div className={`max-w-[70%] ${isMe ? 'order-2' : 'order-1'}`}>
+                        <div className={`max-w-[70%] ${isMe ? 'order-2' : 'order-1'} relative`}>
                           {showSender && (
                             <p className="text-xs font-medium text-[#464EB8] mb-1 ml-1">
                               {senderName}
                             </p>
                           )}
-                          <div
-                            className={`rounded-2xl px-4 py-2.5 shadow-sm ${
-                              isMe 
-                                ? 'bg-gradient-to-r from-[#464EB8] to-[#5B64D4] text-white rounded-br-md' 
-                                : 'bg-white border border-[#E8D5C4] text-[#4A3728] rounded-bl-md'
-                            }`}
-                          >
-                            <div 
-                              className="text-sm leading-relaxed"
-                              dangerouslySetInnerHTML={{ 
-                                __html: message.body?.content || '' 
-                              }}
-                            />
+                          <div className="flex items-start gap-1">
+                            {/* Convert to Task button - shows on hover */}
+                            {!isMe && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 hover:bg-[#E8D5C4]"
+                                  >
+                                    <MoreVertical className="w-4 h-4 text-[#6B5D52]" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start" className="bg-white border-[#D4BBA6]">
+                                  <DropdownMenuItem 
+                                    onClick={() => openTaskModal(message)}
+                                    className="cursor-pointer text-[#4A3728]"
+                                  >
+                                    <ListTodo className="w-4 h-4 mr-2 text-[#464EB8]" />
+                                    Convert to Task
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
+                            <div
+                              className={`rounded-2xl px-4 py-2.5 shadow-sm ${
+                                isMe 
+                                  ? 'bg-gradient-to-r from-[#464EB8] to-[#5B64D4] text-white rounded-br-md' 
+                                  : 'bg-white border border-[#E8D5C4] text-[#4A3728] rounded-bl-md'
+                              }`}
+                            >
+                              <div 
+                                className="text-sm leading-relaxed"
+                                dangerouslySetInnerHTML={{ 
+                                  __html: message.body?.content || '' 
+                                }}
+                              />
+                            </div>
+                            {/* Convert to Task button for own messages - shows on hover */}
+                            {isMe && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 hover:bg-[#E8D5C4]"
+                                  >
+                                    <MoreVertical className="w-4 h-4 text-[#6B5D52]" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="bg-white border-[#D4BBA6]">
+                                  <DropdownMenuItem 
+                                    onClick={() => openTaskModal(message)}
+                                    className="cursor-pointer text-[#4A3728]"
+                                  >
+                                    <ListTodo className="w-4 h-4 mr-2 text-[#464EB8]" />
+                                    Convert to Task
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
                           </div>
-                          <p className={`text-[10px] text-[#9C8C74] mt-1 ${isMe ? 'text-right mr-1' : 'ml-1'}`}>
+                          <p className={`text-[10px] text-[#9C8C74] mt-1 ${isMe ? 'text-right mr-1' : 'ml-8'}`}>
                             {formatMessageTime(message.createdDateTime)}
                           </p>
                         </div>
@@ -781,6 +931,143 @@ export default function TeamsChat() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowNewChat(false)} className="border-[#D4BBA6]">
               Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Task from Message Modal */}
+      <Dialog open={showTaskModal} onOpenChange={setShowTaskModal}>
+        <DialogContent className="bg-white border-[#D4BBA6] max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-[#4A3728] flex items-center gap-2">
+              <ListTodo className="w-5 h-5 text-[#464EB8]" />
+              Create Task from Message
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Task Name */}
+            <div className="space-y-2">
+              <Label className="text-[#4A3728]">Task Name *</Label>
+              <Input
+                value={taskForm.name}
+                onChange={(e) => setTaskForm({ ...taskForm, name: e.target.value })}
+                placeholder="Enter task name"
+                className="border-[#D4BBA6]"
+              />
+            </div>
+            
+            {/* Project Selection */}
+            <div className="space-y-2">
+              <Label className="text-[#4A3728]">Project *</Label>
+              <Select 
+                value={taskForm.project_id} 
+                onValueChange={(value) => setTaskForm({ ...taskForm, project_id: value })}
+              >
+                <SelectTrigger className="border-[#D4BBA6]">
+                  <SelectValue placeholder={loadingProjects ? "Loading projects..." : "Select a project"} />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-[#D4BBA6]">
+                  {projects.map(project => (
+                    <SelectItem key={project.id} value={project.id}>
+                      <div className="flex items-center gap-2">
+                        <FolderKanban className="w-4 h-4 text-[#464EB8]" />
+                        {project.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Priority */}
+            <div className="space-y-2">
+              <Label className="text-[#4A3728]">Priority</Label>
+              <Select 
+                value={taskForm.priority} 
+                onValueChange={(value) => setTaskForm({ ...taskForm, priority: value })}
+              >
+                <SelectTrigger className="border-[#D4BBA6]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-[#D4BBA6]">
+                  <SelectItem value="low">
+                    <div className="flex items-center gap-2">
+                      <Flag className="w-4 h-4 text-gray-400" />
+                      Low
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="medium">
+                    <div className="flex items-center gap-2">
+                      <Flag className="w-4 h-4 text-amber-500" />
+                      Medium
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="high">
+                    <div className="flex items-center gap-2">
+                      <Flag className="w-4 h-4 text-orange-500" />
+                      High
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="urgent">
+                    <div className="flex items-center gap-2">
+                      <Flag className="w-4 h-4 text-red-500" />
+                      Urgent
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Due Date */}
+            <div className="space-y-2">
+              <Label className="text-[#4A3728]">Due Date</Label>
+              <Input
+                type="date"
+                value={taskForm.due_date}
+                onChange={(e) => setTaskForm({ ...taskForm, due_date: e.target.value })}
+                className="border-[#D4BBA6]"
+              />
+            </div>
+            
+            {/* Description */}
+            <div className="space-y-2">
+              <Label className="text-[#4A3728]">Description</Label>
+              <Textarea
+                value={taskForm.description}
+                onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
+                placeholder="Task description"
+                rows={4}
+                className="border-[#D4BBA6] resize-none"
+              />
+            </div>
+          </div>
+          
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowTaskModal(false)} 
+              className="border-[#D4BBA6]"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={createTaskFromMessage}
+              disabled={creatingTask || !taskForm.name.trim() || !taskForm.project_id}
+              className="bg-gradient-to-r from-[#464EB8] to-[#5B64D4] hover:from-[#3d44a5] hover:to-[#4e56c7] text-white"
+            >
+              {creatingTask ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <ListTodo className="w-4 h-4 mr-2" />
+                  Create Task
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
