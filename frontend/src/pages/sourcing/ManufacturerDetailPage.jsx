@@ -13,8 +13,9 @@ import { toast } from 'sonner';
 import { 
   ArrowLeft, Edit2, Trash2, Phone, Mail, Globe, MapPin,
   Calendar, Clock, Users, Plus, ExternalLink, Factory,
-  FileText, User, Settings, Award, Package, FlaskConical
+  FileText, User, Settings, Award, Package, FlaskConical, Send
 } from 'lucide-react';
+import EmailComposer from '../../components/sourcing/EmailComposer';
 
 const PIPELINE_STAGES = ['Discovery', 'Contacted', 'Factory Visit', 'Sampling', 'Production Trial', 'Active', 'Inactive'];
 
@@ -29,6 +30,8 @@ const ManufacturerDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [showAddContact, setShowAddContact] = useState(false);
   const [showAddNote, setShowAddNote] = useState(false);
+  const [showEmailComposer, setShowEmailComposer] = useState(false);
+  const [emailRecipient, setEmailRecipient] = useState({ email: '', name: '' });
   const [newContact, setNewContact] = useState({ name: '', role: '', email: '', phone: '' });
   const [newNote, setNewNote] = useState('');
   const [updatingStage, setUpdatingStage] = useState(false);
@@ -91,6 +94,11 @@ const ManufacturerDetailPage = () => {
     setNewNote('');
   };
 
+  const openEmailComposer = (email, name) => {
+    setEmailRecipient({ email: email || manufacturer.email, name: name || manufacturer.name });
+    setShowEmailComposer(true);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -120,6 +128,12 @@ const ManufacturerDetailPage = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button 
+            onClick={() => openEmailComposer(manufacturer.email, manufacturer.name)}
+            className="bg-purple-600 hover:bg-purple-700"
+          >
+            <Send className="h-4 w-4 mr-2" /> Send Email
+          </Button>
           <Select value={manufacturer.pipeline_stage} onValueChange={handleUpdateStage} disabled={updatingStage}>
             <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -403,6 +417,18 @@ const ManufacturerDetailPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Email Composer */}
+      <EmailComposer
+        isOpen={showEmailComposer}
+        onClose={() => setShowEmailComposer(false)}
+        entityType="manufacturer"
+        entityId={id}
+        entityName={manufacturer?.name}
+        defaultEmail={emailRecipient.email}
+        defaultRecipientName={emailRecipient.name}
+        onSuccess={fetchManufacturerDetails}
+      />
     </div>
   );
 };

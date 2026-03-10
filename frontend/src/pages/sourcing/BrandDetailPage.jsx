@@ -13,8 +13,9 @@ import { toast } from 'sonner';
 import { 
   ArrowLeft, Edit2, Trash2, Sparkles, Phone, Mail, Globe, MapPin,
   Calendar, Clock, Users, Plus, ExternalLink, MessageSquare, History,
-  Building2, User
+  Building2, User, Send
 } from 'lucide-react';
+import EmailComposer from '../../components/sourcing/EmailComposer';
 
 const PIPELINE_STAGES = ['Discovery', 'Contacted', 'Qualified', 'Interested', 'Negotiation', 'Onboarded', 'Lost'];
 
@@ -28,6 +29,8 @@ const BrandDetailPage = () => {
   const [activityLogs, setActivityLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddContact, setShowAddContact] = useState(false);
+  const [showEmailComposer, setShowEmailComposer] = useState(false);
+  const [emailRecipient, setEmailRecipient] = useState({ email: '', name: '' });
   const [newContact, setNewContact] = useState({ name: '', role: '', business_email: '', phone: '' });
   const [updatingStage, setUpdatingStage] = useState(false);
 
@@ -101,6 +104,11 @@ const BrandDetailPage = () => {
     window.open(`https://wa.me/${cleanPhone}`, '_blank');
   };
 
+  const openEmailComposer = (email, name) => {
+    setEmailRecipient({ email: email || brand.email, name: name || brand.founder_name || brand.name });
+    setShowEmailComposer(true);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -123,6 +131,12 @@ const BrandDetailPage = () => {
           <Badge variant="outline" className="mt-1">{brand.match_status || 'Pending'}</Badge>
         </div>
         <div className="flex items-center gap-2">
+          <Button 
+            onClick={() => openEmailComposer(brand.email, brand.founder_name || brand.name)}
+            className="bg-orange-600 hover:bg-orange-700"
+          >
+            <Send className="h-4 w-4 mr-2" /> Send Email
+          </Button>
           <Button variant="outline" onClick={() => navigate(`/sourcing/brands/${id}/edit`)}>
             <Edit2 className="h-4 w-4 mr-2" /> Edit
           </Button>
@@ -249,8 +263,8 @@ const BrandDetailPage = () => {
                             <User className="h-5 w-5 text-gray-400" />
                           </div>
                           <div>
-                            <p className="font-medium">{contact.name}</p>
-                            <p className="text-sm text-gray-500">{contact.role || 'Contact'}</p>
+                            <p className="font-medium">{contact.name || contact.founder_name}</p>
+                            <p className="text-sm text-gray-500">{contact.role || contact.designation || 'Contact'}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-1">
@@ -262,7 +276,12 @@ const BrandDetailPage = () => {
                         <Mail className="h-3 w-3" />
                         {contact.business_email}
                       </div>
-                      <Button variant="outline" size="sm" className="mt-3 w-full">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-3 w-full"
+                        onClick={() => openEmailComposer(contact.business_email, contact.name || contact.founder_name)}
+                      >
                         <Mail className="h-4 w-4 mr-2" /> Email
                       </Button>
                     </div>
@@ -420,6 +439,18 @@ const BrandDetailPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Email Composer */}
+      <EmailComposer
+        isOpen={showEmailComposer}
+        onClose={() => setShowEmailComposer(false)}
+        entityType="brand"
+        entityId={id}
+        entityName={brand?.name}
+        defaultEmail={emailRecipient.email}
+        defaultRecipientName={emailRecipient.name}
+        onSuccess={fetchBrandDetails}
+      />
     </div>
   );
 };
