@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { marketingAPI } from '../../lib/api';
+import api from '../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -19,6 +20,7 @@ import {
     Pause,
     CheckCircle2
 } from 'lucide-react';
+import EntityIntegrationCheck from '../../components/shared/EntityIntegrationCheck';
 
 const STATUS_ICONS = {
     planning: Clock,
@@ -39,6 +41,8 @@ const CampaignsPage = () => {
     const [campaigns, setCampaigns] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showIntegrationCheck, setShowIntegrationCheck] = useState(false);
+    const [createdEntity, setCreatedEntity] = useState(null);
     const [newCampaign, setNewCampaign] = useState({
         name: '',
         objective: 'branding',
@@ -68,12 +72,21 @@ const CampaignsPage = () => {
     const handleCreateCampaign = async (e) => {
         e.preventDefault();
         try {
-            await marketingAPI.createCampaign({
+            const response = await marketingAPI.createCampaign({
                 ...newCampaign,
                 budget: parseFloat(newCampaign.budget)
             });
+            const createdCampaign = response.data;
             toast.success('Campaign created successfully');
             setShowCreateModal(false);
+            
+            // Show integration check dialog
+            setCreatedEntity({
+                id: createdCampaign.id,
+                name: newCampaign.name
+            });
+            setShowIntegrationCheck(true);
+            
             setNewCampaign({
                 name: '',
                 objective: 'branding',
@@ -279,6 +292,20 @@ const CampaignsPage = () => {
                         );
                     })}
                 </div>
+            )}
+
+            {/* Integration Check Dialog */}
+            {createdEntity && (
+                <EntityIntegrationCheck
+                    open={showIntegrationCheck}
+                    onOpenChange={setShowIntegrationCheck}
+                    api={api}
+                    module="marketing"
+                    entityType="campaign"
+                    entityId={createdEntity.id}
+                    entityName={createdEntity.name}
+                    onComplete={() => setCreatedEntity(null)}
+                />
             )}
         </div>
     );

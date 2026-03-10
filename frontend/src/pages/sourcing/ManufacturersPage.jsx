@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { toast } from 'sonner';
 import { Factory, Plus, Search, MoreVertical, Edit2, Trash2, Eye, Mail, Phone, Globe, MapPin, MessageCircle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
+import EntityIntegrationCheck from '../../components/shared/EntityIntegrationCheck';
 
 const MANUFACTURER_TYPES = ['CMT (Cut, Make, Trim)', 'Full Package / FOB', 'Embroidery Unit', 'Print House', 'Accessory Manufacturer', 'Other'];
 const PIPELINE_STAGES = ['Discovery', 'Contacted', 'Factory Visit', 'Sampling', 'Production Trial', 'Active', 'Inactive'];
@@ -39,6 +40,8 @@ const ManufacturersPage = () => {
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({ manufacturer_type: '', pipeline_stage: '' });
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showIntegrationCheck, setShowIntegrationCheck] = useState(false);
+  const [createdEntity, setCreatedEntity] = useState(null);
   const [newItem, setNewItem] = useState({
     name: '',
     manufacturer_type: 'CMT (Cut, Make, Trim)',
@@ -94,7 +97,7 @@ const ManufacturersPage = () => {
       return;
     }
     try {
-      await api.post('/sourcing/manufacturers', {
+      const response = await api.post('/sourcing/manufacturers', {
         ...newItem,
         moq: parseInt(newItem.moq) || 0,
         moq_unit: 'pieces',
@@ -102,8 +105,17 @@ const ManufacturersPage = () => {
         price_min: parseFloat(newItem.price_min) || 0,
         price_max: parseFloat(newItem.price_max) || 0
       });
+      const createdManufacturer = response.data;
       toast.success('Manufacturer added');
       setShowAddModal(false);
+      
+      // Show integration check dialog
+      setCreatedEntity({
+        id: createdManufacturer.id,
+        name: newItem.name
+      });
+      setShowIntegrationCheck(true);
+      
       setNewItem({
         name: '', manufacturer_type: 'CMT (Cut, Make, Trim)', country: 'India', city: '', address: '',
         website: '', email: '', phone: '', whatsapp: '', certifications: [],
@@ -382,6 +394,20 @@ const ManufacturersPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Integration Check Dialog */}
+      {createdEntity && (
+        <EntityIntegrationCheck
+          open={showIntegrationCheck}
+          onOpenChange={setShowIntegrationCheck}
+          api={api}
+          module="sourcing"
+          entityType="manufacturer"
+          entityId={createdEntity.id}
+          entityName={createdEntity.name}
+          onComplete={() => setCreatedEntity(null)}
+        />
+      )}
     </div>
   );
 };

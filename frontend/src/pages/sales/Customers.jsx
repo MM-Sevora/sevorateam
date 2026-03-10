@@ -24,6 +24,7 @@ import {
   MoreVertical
 } from 'lucide-react';
 import CreateTaskDialog from '../../components/shared/CreateTaskDialog';
+import EntityIntegrationCheck from '../../components/shared/EntityIntegrationCheck';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,6 +45,8 @@ const CustomersPage = () => {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [showCreateTask, setShowCreateTask] = useState(false);
+  const [showIntegrationCheck, setShowIntegrationCheck] = useState(false);
+  const [createdEntity, setCreatedEntity] = useState(null);
   const [taskCustomer, setTaskCustomer] = useState(null);
   const [newCustomer, setNewCustomer] = useState({
     name: '',
@@ -86,9 +89,18 @@ const CustomersPage = () => {
         budget_min: newCustomer.budget_min ? parseInt(newCustomer.budget_min) : null,
         budget_max: newCustomer.budget_max ? parseInt(newCustomer.budget_max) : null,
       };
-      await api.post('/sales/customers', payload);
+      const response = await api.post('/sales/customers', payload);
+      const createdCustomer = response.data;
       toast.success('Customer profile created');
       setIsAddOpen(false);
+      
+      // Show integration check dialog
+      setCreatedEntity({
+        id: createdCustomer.id,
+        name: newCustomer.name
+      });
+      setShowIntegrationCheck(true);
+      
       setNewCustomer({
         name: '', phone: '', email: '', city: '',
         budget_min: '', budget_max: '', preferred_styles: [],
@@ -482,6 +494,20 @@ const CustomersPage = () => {
           sourceEntityId={taskCustomer.id}
           sourceEntityName={taskCustomer.name}
           onTaskCreated={() => setTaskCustomer(null)}
+        />
+      )}
+
+      {/* Integration Check Dialog */}
+      {createdEntity && (
+        <EntityIntegrationCheck
+          open={showIntegrationCheck}
+          onOpenChange={setShowIntegrationCheck}
+          api={api}
+          module="sales"
+          entityType="customer"
+          entityId={createdEntity.id}
+          entityName={createdEntity.name}
+          onComplete={() => setCreatedEntity(null)}
         />
       )}
     </div>

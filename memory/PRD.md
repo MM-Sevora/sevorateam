@@ -1,5 +1,34 @@
 # CHANGELOG - Sevora Team Platform
 
+## March 10, 2026 - Post-Creation Integration System Rollout
+### Implementation Complete:
+- ✅ Rolled out EntityIntegrationCheck dialog to all major entity creation flows
+- **Sourcing Module**:
+  - `SuppliersPage.jsx` - Shows integrations after supplier creation
+  - `ManufacturersPage.jsx` - Shows integrations after manufacturer creation
+  - (BrandsPage already had it)
+- **Marketing Module**:
+  - `Campaigns.jsx` - Shows integrations after campaign creation
+- **Sales Module**:
+  - `Leads.jsx` - Shows integrations after lead creation
+  - `Customers.jsx` - Shows integrations after customer creation
+
+### How It Works:
+1. User creates a new entity (Brand, Supplier, Lead, etc.)
+2. After successful creation, `EntityIntegrationCheck` dialog appears
+3. Dialog shows:
+   - **Auto-triggered integrations**: Tasks, activity logs that were automatically created
+   - **Available actions**: Manual triggers the user can execute
+   - **Recommendations**: Next steps for the new entity
+4. User acknowledges and continues
+
+### Backend Verified:
+- All entity types (`supplier`, `manufacturer`, `campaign`, `lead`, `customer`) return proper integration data
+- Smart task triggers fire correctly for new entities
+- Activity logging works across all modules
+
+---
+
 ## March 10, 2026 - Technical Debt Cleanup
 ### P2: Fixed Bare `except:` Clauses
 - ✅ Replaced all ~46 bare `except:` clauses with `except Exception:` for proper error handling

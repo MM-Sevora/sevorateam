@@ -10,6 +10,7 @@ import { Label } from '../../components/ui/label';
 import { toast } from 'sonner';
 import { Search, Plus, Phone, Mail, MapPin, Calendar, UserPlus, ClipboardList, MoreVertical } from 'lucide-react';
 import CreateTaskDialog from '../../components/shared/CreateTaskDialog';
+import EntityIntegrationCheck from '../../components/shared/EntityIntegrationCheck';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,6 +44,8 @@ export const LeadsPage = () => {
     const [search, setSearch] = useState('');
     const [showAddModal, setShowAddModal] = useState(false);
     const [showCreateTask, setShowCreateTask] = useState(false);
+    const [showIntegrationCheck, setShowIntegrationCheck] = useState(false);
+    const [createdEntity, setCreatedEntity] = useState(null);
     const [selectedLead, setSelectedLead] = useState(null);
     const [newLead, setNewLead] = useState({
         name: '',
@@ -77,9 +80,18 @@ export const LeadsPage = () => {
 
     const handleAddLead = async () => {
         try {
-            await salesAPI.createLead(newLead);
+            const response = await salesAPI.createLead(newLead);
+            const createdLead = response.data;
             toast.success('Lead added successfully');
             setShowAddModal(false);
+            
+            // Show integration check dialog
+            setCreatedEntity({
+                id: createdLead.id,
+                name: newLead.name
+            });
+            setShowIntegrationCheck(true);
+            
             setNewLead({
                 name: '',
                 phone: '',
@@ -323,6 +335,20 @@ export const LeadsPage = () => {
                     sourceEntityId={selectedLead.id}
                     sourceEntityName={selectedLead.name}
                     onTaskCreated={() => setSelectedLead(null)}
+                />
+            )}
+
+            {/* Integration Check Dialog */}
+            {createdEntity && (
+                <EntityIntegrationCheck
+                    open={showIntegrationCheck}
+                    onOpenChange={setShowIntegrationCheck}
+                    api={api}
+                    module="sales"
+                    entityType="lead"
+                    entityId={createdEntity.id}
+                    entityName={createdEntity.name}
+                    onComplete={() => setCreatedEntity(null)}
                 />
             )}
         </div>

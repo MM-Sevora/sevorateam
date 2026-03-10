@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { toast } from 'sonner';
 import { Package, Plus, Search, MoreVertical, Edit2, Trash2, Eye, Mail, Phone, Globe, MapPin, MessageCircle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
+import EntityIntegrationCheck from '../../components/shared/EntityIntegrationCheck';
 
 const SUPPLIER_TYPES = ['Fabric Distributor', 'Mill / Manufacturer', 'Print & Dye House', 'Trim Supplier', 'Packaging', 'Other'];
 const PIPELINE_STAGES = ['Discovery', 'Contacted', 'Sampling', 'Evaluation', 'Negotiation', 'Active', 'Inactive'];
@@ -41,6 +42,8 @@ const SuppliersPage = () => {
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({ supplier_type: '', pipeline_stage: '' });
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showIntegrationCheck, setShowIntegrationCheck] = useState(false);
+  const [createdEntity, setCreatedEntity] = useState(null);
   const [newSupplier, setNewSupplier] = useState({
     name: '',
     supplier_type: 'Fabric Distributor',
@@ -95,15 +98,24 @@ const SuppliersPage = () => {
       return;
     }
     try {
-      await api.post('/sourcing/suppliers', {
+      const response = await api.post('/sourcing/suppliers', {
         ...newSupplier,
         moq_meters: parseInt(newSupplier.moq_meters) || 0,
         lead_time_days: parseInt(newSupplier.lead_time_days) || 0,
         price_min: parseFloat(newSupplier.price_min) || 0,
         price_max: parseFloat(newSupplier.price_max) || 0
       });
+      const createdSupplier = response.data;
       toast.success('Supplier added successfully');
       setShowAddModal(false);
+      
+      // Show integration check dialog
+      setCreatedEntity({
+        id: createdSupplier.id,
+        name: newSupplier.name
+      });
+      setShowIntegrationCheck(true);
+      
       setNewSupplier({
         name: '', supplier_type: 'Fabric Distributor', country: 'India', city: '', address: '',
         website: '', email: '', phone: '', whatsapp: '', fabric_categories: [],
@@ -375,6 +387,20 @@ const SuppliersPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Integration Check Dialog */}
+      {createdEntity && (
+        <EntityIntegrationCheck
+          open={showIntegrationCheck}
+          onOpenChange={setShowIntegrationCheck}
+          api={api}
+          module="sourcing"
+          entityType="supplier"
+          entityId={createdEntity.id}
+          entityName={createdEntity.name}
+          onComplete={() => setCreatedEntity(null)}
+        />
+      )}
     </div>
   );
 };
