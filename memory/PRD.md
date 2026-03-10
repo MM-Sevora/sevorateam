@@ -1,5 +1,58 @@
 # CHANGELOG - Sevora Team Platform
 
+## March 11, 2026 - Social Media Phase 1 COMPLETE ✅
+
+### All Phase 1 Features Implemented:
+
+#### 1. Recurring Post Scheduling (Completed Earlier)
+- ✅ Backend: Full recurrence logic with patterns: daily, weekly, biweekly, monthly, custom days
+- ✅ Frontend: Recurrence UI with checkbox, pattern selection, end conditions
+- ✅ Calendar indicator: Pink "Recurring" badge with repeat icon
+
+#### 2. Multi-stage Approval Configuration (NEW)
+- ✅ **Backend**: Full CRUD endpoints at `/api/social/workflows/approval-chains`
+  - Create configurable approval chains with multiple stages
+  - Each stage: name, order, approver type (role/user), can_skip, auto_approve_after_hours
+  - Default workflow support
+- ✅ **Frontend**: New page at `/social/workflows` (`ApprovalWorkflows.jsx`)
+  - Visual stage builder with drag-and-drop reordering
+  - Role-based approver selection
+  - Platform-specific workflow assignment
+- ✅ **Seed Defaults**: `/api/social/workflows/seed-defaults` creates "Standard Approval" (Team Lead → Manager)
+
+#### 3. Queue Posting with Time Slots (NEW)
+- ✅ **Backend**: Full CRUD endpoints at `/api/social/workflows/queues`
+  - Platform-specific queues (LinkedIn, Twitter/X, Instagram, Facebook)
+  - Time slot configuration per day of week
+  - Timezone support
+- ✅ **Frontend**: New page at `/social/queues` (`PostingQueues.jsx`)
+  - Visual 7-day slot editor
+  - Quick add presets (9am, 12pm, 5pm etc.)
+  - Queue stats (slots, posts in queue)
+  - Play/pause toggle per queue
+- ✅ **Seed Defaults**: Creates 4 platform queues with optimal posting times
+
+#### 4. Post Version Control (NEW)
+- ✅ **Backend**: Auto-save versions on post update in `/api/social/posts/{id}` PUT
+  - Manual version creation via `/api/social/workflows/posts/{id}/versions`
+  - Version restore with auto-backup of current state
+  - Version compare endpoint
+- ✅ **Frontend**: Version History modal (`PostVersionHistory.jsx`)
+  - Version list with timestamps and change notes
+  - Compare mode (side-by-side A/B view)
+  - Restore button with confirmation
+  - History button in post detail panel
+
+### Test Results (Iteration 63):
+- **Backend**: 100% (18/18 tests passed)
+- **Frontend**: 100% (all UI flows working)
+- Test files: `/app/backend/tests/test_social_workflows_phase1.py`
+
+### Bug Fixes:
+- Fixed duplicate `/api` prefix in `PostsAndSchedule.jsx` API calls (changed `/api/social/posts` to `/social/posts`)
+
+---
+
 ## March 11, 2026 - Social Media Phase 1: Recurring Post Scheduling Complete
 
 ### Critical Bug Fix:
