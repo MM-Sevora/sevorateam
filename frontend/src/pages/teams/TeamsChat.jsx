@@ -385,119 +385,6 @@ export default function TeamsChat() {
     }
   };
 
-  useEffect(() => {
-    if (connected) {
-      fetchChats();
-    }
-  }, [connected]);
-
-  useEffect(() => {
-    if (selectedChat) {
-      fetchMessages(selectedChat.id);
-    }
-  }, [selectedChat]);
-      if (res.ok) {
-        const data = await res.json();
-        setChats(data.chats || []);
-      }
-    } catch (e) {
-      console.error('Error fetching chats:', e);
-    }
-  };
-
-  const fetchMessages = async (chatId) => {
-    setLoadingMessages(true);
-    try {
-      const res = await fetch(`${API}/api/teams/chats/${chatId}/messages?top=50`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setMessages((data.messages || []).reverse());
-      }
-    } catch (e) {
-      console.error('Error fetching messages:', e);
-    } finally {
-      setLoadingMessages(false);
-    }
-  };
-
-  const sendMessage = async () => {
-    if (!newMessage.trim() || !selectedChat) return;
-    
-    setSending(true);
-    try {
-      const res = await fetch(`${API}/api/teams/chats/${selectedChat.id}/messages`, {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ content: newMessage, content_type: 'text' })
-      });
-      
-      if (res.ok) {
-        setNewMessage('');
-        fetchMessages(selectedChat.id);
-      } else {
-        toast.error('Failed to send message');
-      }
-    } catch (e) {
-      toast.error('Failed to send message');
-    } finally {
-      setSending(false);
-    }
-  };
-
-  const searchForUsers = async (query) => {
-    if (!query.trim()) {
-      setSearchUsers([]);
-      return;
-    }
-    
-    setSearchingUsers(true);
-    try {
-      const res = await fetch(`${API}/api/teams/users/search?query=${encodeURIComponent(query)}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setSearchUsers(data.users || []);
-      }
-    } catch (e) {
-      console.error('Error searching users:', e);
-    } finally {
-      setSearchingUsers(false);
-    }
-  };
-
-  const startNewChat = async (userId) => {
-    try {
-      const res = await fetch(`${API}/api/teams/chats`, {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ member_ids: [userId] })
-      });
-      
-      if (res.ok) {
-        const data = await res.json();
-        setShowNewChat(false);
-        setUserSearchQuery('');
-        setSearchUsers([]);
-        fetchChats();
-        setSelectedChat(data.chat);
-        toast.success('Chat created');
-      } else {
-        toast.error('Failed to create chat');
-      }
-    } catch (e) {
-      toast.error('Failed to create chat');
-    }
-  };
-
   // Fetch projects for task creation
   const fetchProjects = async () => {
     setLoadingProjects(true);
@@ -845,11 +732,12 @@ export default function TeamsChat() {
             </div>
             
             <Button 
-              onClick={connectTeams}
-              disabled={connecting}
+              onClick={handleMicrosoftLogin}
+              disabled={msLoginLoading || inProgress !== 'none'}
               className="bg-gradient-to-r from-[#464EB8] to-[#5B64D4] hover:from-[#3d44a5] hover:to-[#4e56c7] text-white px-10 py-6 text-lg shadow-lg"
+              data-testid="connect-teams-btn"
             >
-              {connecting ? (
+              {msLoginLoading || inProgress !== 'none' ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                   Connecting...
@@ -982,8 +870,9 @@ export default function TeamsChat() {
           <Button 
             variant="ghost" 
             size="sm" 
-            onClick={disconnectTeams}
+            onClick={handleMicrosoftLogout}
             className="w-full text-red-500 hover:text-red-600 hover:bg-red-50 text-[10px] h-7"
+            data-testid="disconnect-teams-btn"
           >
             <XCircle className="w-3 h-3 mr-1" />
             Disconnect
