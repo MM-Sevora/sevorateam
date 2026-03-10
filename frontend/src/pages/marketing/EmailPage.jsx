@@ -196,6 +196,21 @@ const EmailPage = () => {
     due_date: ''
   });
 
+  // Meeting creation state
+  const [showMeetingModal, setShowMeetingModal] = useState(false);
+  const [meetingEmail, setMeetingEmail] = useState(null);
+  const [creatingMeeting, setCreatingMeeting] = useState(false);
+  const [meetingForm, setMeetingForm] = useState({
+    title: '',
+    meeting_type: 'general',
+    start_date: '',
+    start_time: '',
+    end_time: '',
+    location: '',
+    description: '',
+    linked_project_id: ''
+  });
+
   // Get current user ID from localStorage
   const currentUserId = React.useMemo(() => {
     try {
@@ -510,6 +525,96 @@ Sevora Team`
       toast.error('Failed to create task');
     } finally {
       setCreatingTask(false);
+    }
+  };
+
+  // Open meeting creation modal with email content
+  const openMeetingModal = (email) => {
+    const subject = email.subject || '(no subject)';
+    const senderName = email.from?.emailAddress?.name || email.from?.emailAddress?.address || 'Unknown';
+    const senderEmail = email.from?.emailAddress?.address || '';
+    
+    // Set default date to tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const defaultDate = tomorrow.toISOString().split('T')[0];
+    
+    setMeetingEmail(email);
+    setMeetingForm({
+      title: `Follow-up: ${subject.substring(0, 50)}${subject.length > 50 ? '...' : ''}`,
+      meeting_type: 'general',
+      start_date: defaultDate,
+      start_time: '10:00',
+      end_time: '10:30',
+      location: '',
+      description: `Meeting scheduled from email:\n\nSubject: ${subject}\nFrom: ${senderName} <${senderEmail}>`,
+      linked_project_id: ''
+    });
+    fetchProjects();
+    setShowMeetingModal(true);
+  };
+
+  // Create meeting from email
+  const createMeetingFromEmail = async () => {
+    if (!meetingForm.title.trim()) {
+      toast.error('Please fill in meeting title');
+      return;
+    }
+    
+    if (!meetingForm.start_date) {
+      toast.error('Please select a date');
+      return;
+    }
+    
+    setCreatingMeeting(true);
+    try {
+      const startDateTime = `${meetingForm.start_date}T${meetingForm.start_time}:00Z`;
+      const endDateTime = `${meetingForm.start_date}T${meetingForm.end_time}:00Z`;
+      
+      const body = {
+        title: meetingForm.title,
+        meeting_type: meetingForm.meeting_type,
+        description: meetingForm.description,
+        start_time: startDateTime,
+        end_time: endDateTime,
+        timezone: 'UTC',
+        location: meetingForm.location || null,
+        linked_project_id: meetingForm.linked_project_id || null,
+        visibility: 'public',
+        source: 'email'
+      };
+      
+      const res = await fetch(`${API}/api/meetings`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+      
+      if (res.ok) {
+        toast.success('Meeting scheduled successfully!');
+        setShowMeetingModal(false);
+        setMeetingEmail(null);
+        setMeetingForm({
+          title: '',
+          meeting_type: 'general',
+          start_date: '',
+          start_time: '',
+          end_time: '',
+          location: '',
+          description: '',
+          linked_project_id: ''
+        });
+      } else {
+        const error = await res.json();
+        toast.error(error.detail || 'Failed to schedule meeting');
+      }
+    } catch (e) {
+      toast.error('Failed to schedule meeting');
+    } finally {
+      setCreatingMeeting(false);
     }
   };
 
@@ -1507,6 +1612,9 @@ Sevora Team`
                           <DropdownMenuItem onClick={() => openTaskModal(fullEmail)}>
                             <ListTodo className="h-4 w-4 mr-2" /> Create Task
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openMeetingModal(fullEmail)}>
+                            <Calendar className="h-4 w-4 mr-2" /> Schedule Meeting
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -1574,6 +1682,14 @@ Sevora Team`
                       data-testid="create-task-from-email-btn"
                     >
                       <ListTodo className="h-4 w-4 mr-2" /> Create Task
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => openMeetingModal(fullEmail)}
+                      className="rounded-full border-emerald-600 text-emerald-600 hover:bg-emerald-50"
+                      data-testid="schedule-meeting-from-email-btn"
+                    >
+                      <Calendar className="h-4 w-4 mr-2" /> Schedule Meeting
                     </Button>
                   </div>
                 </div>
@@ -2175,6 +2291,159 @@ Sevora Team`
                 <>
                   <ListTodo className="w-4 h-4 mr-2" />
                   Create Task
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Schedule Meeting from Email Modal */}
+      <Dialog open={showMeetingModal} onOpenChange={setShowMeetingModal}>
+        <DialogContent className="bg-white border-[#D4BBA6] max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-[#4A3728] flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-emerald-600" />
+              Schedule Meeting from Email
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Meeting Title */}
+            <div className="space-y-2">
+              <Label className="text-[#4A3728]">Meeting Title *</Label>
+              <Input
+                value={meetingForm.title}
+                onChange={(e) => setMeetingForm({ ...meetingForm, title: e.target.value })}
+                placeholder="Enter meeting title"
+                className="border-[#D4BBA6]"
+                data-testid="email-meeting-title-input"
+              />
+            </div>
+
+            {/* Meeting Type */}
+            <div className="space-y-2">
+              <Label className="text-[#4A3728]">Meeting Type</Label>
+              <Select 
+                value={meetingForm.meeting_type} 
+                onValueChange={(value) => setMeetingForm({ ...meetingForm, meeting_type: value })}
+              >
+                <SelectTrigger className="border-[#D4BBA6]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-[#D4BBA6]">
+                  <SelectItem value="general">General Meeting</SelectItem>
+                  <SelectItem value="one_on_one">One-on-One</SelectItem>
+                  <SelectItem value="project_review">Project Review</SelectItem>
+                  <SelectItem value="weekly_team_review">Weekly Team Review</SelectItem>
+                  <SelectItem value="daily_standup">Daily Standup</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Date and Time */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label className="text-[#4A3728]">Date *</Label>
+                <Input
+                  type="date"
+                  value={meetingForm.start_date}
+                  onChange={(e) => setMeetingForm({ ...meetingForm, start_date: e.target.value })}
+                  className="border-[#D4BBA6]"
+                  data-testid="email-meeting-date-input"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[#4A3728]">Start Time</Label>
+                <Input
+                  type="time"
+                  value={meetingForm.start_time}
+                  onChange={(e) => setMeetingForm({ ...meetingForm, start_time: e.target.value })}
+                  className="border-[#D4BBA6]"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[#4A3728]">End Time</Label>
+                <Input
+                  type="time"
+                  value={meetingForm.end_time}
+                  onChange={(e) => setMeetingForm({ ...meetingForm, end_time: e.target.value })}
+                  className="border-[#D4BBA6]"
+                />
+              </div>
+            </div>
+
+            {/* Location */}
+            <div className="space-y-2">
+              <Label className="text-[#4A3728]">Location (Optional)</Label>
+              <Input
+                value={meetingForm.location}
+                onChange={(e) => setMeetingForm({ ...meetingForm, location: e.target.value })}
+                placeholder="e.g., Conference Room A or Teams link"
+                className="border-[#D4BBA6]"
+              />
+            </div>
+
+            {/* Link to Project */}
+            <div className="space-y-2">
+              <Label className="text-[#4A3728]">Link to Project (Optional)</Label>
+              <Select 
+                value={meetingForm.linked_project_id || 'none'} 
+                onValueChange={(value) => setMeetingForm({ ...meetingForm, linked_project_id: value === 'none' ? '' : value })}
+              >
+                <SelectTrigger className="border-[#D4BBA6]">
+                  <SelectValue placeholder={loadingProjects ? "Loading..." : "Select a project"} />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-[#D4BBA6]">
+                  <SelectItem value="none">None</SelectItem>
+                  {projects.map(project => (
+                    <SelectItem key={project.id} value={project.id}>
+                      <div className="flex items-center gap-2">
+                        <FolderKanban className="w-4 h-4 text-[#464EB8]" />
+                        {project.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Description */}
+            <div className="space-y-2">
+              <Label className="text-[#4A3728]">Description</Label>
+              <Textarea
+                value={meetingForm.description}
+                onChange={(e) => setMeetingForm({ ...meetingForm, description: e.target.value })}
+                placeholder="Meeting agenda and notes"
+                rows={3}
+                className="border-[#D4BBA6] resize-none"
+              />
+            </div>
+          </div>
+          
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowMeetingModal(false)} 
+              className="border-[#D4BBA6]"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={createMeetingFromEmail}
+              disabled={creatingMeeting || !meetingForm.title.trim() || !meetingForm.start_date}
+              className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white"
+              data-testid="email-create-meeting-btn"
+            >
+              {creatingMeeting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Scheduling...
+                </>
+              ) : (
+                <>
+                  <Calendar className="w-4 h-4 mr-2" />
+                  Schedule Meeting
                 </>
               )}
             </Button>
