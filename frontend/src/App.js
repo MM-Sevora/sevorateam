@@ -95,6 +95,10 @@ import HelpAdminDashboard from "./pages/help/HelpAdminDashboard";
 // HR Pages
 import ExpenseManagement from "./pages/hr/ExpenseManagement";
 
+// Teams Pages
+import TeamsChat from "./pages/teams/TeamsChat";
+import TeamsCallback from "./pages/teams/TeamsCallback";
+
 import "./App.css";
 
 // Initialize MSAL instance
@@ -364,6 +368,10 @@ function AppRoutes() {
 
             {/* HR Routes */}
             <Route path="/hr/expenses" element={<ProtectedRoute><ExpenseManagement /></ProtectedRoute>} />
+
+            {/* Teams Routes */}
+            <Route path="/teams/chat" element={<ProtectedRoute><TeamsChat /></ProtectedRoute>} />
+            <Route path="/teams/callback" element={<TeamsCallback />} />
 
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" replace />} />

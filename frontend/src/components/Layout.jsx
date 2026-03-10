@@ -50,6 +50,7 @@ const DEPARTMENT_CONFIG = {
         routes: [
             { path: '/meetings', name: 'All Meetings', icon: CalendarDays },
             { path: '/meetings/new', name: 'Schedule Meeting', icon: Plus },
+            { path: '/teams/chat', name: 'Teams Chat', icon: MessageSquare },
         ]
     },
     projects: {

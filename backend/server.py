@@ -3406,6 +3406,15 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Meetings & Reviews routes: {e}")
 
+# Register Microsoft Teams Chat routes
+try:
+    from routes.teams import router as teams_router, init_teams_router
+    init_teams_router(db, get_current_user)
+    api_router.include_router(teams_router)
+    logger.info("Microsoft Teams routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Microsoft Teams routes: {e}")
+
 app.include_router(api_router)
 
 # ============== WEBSOCKET FOR REAL-TIME NOTIFICATIONS ==============
