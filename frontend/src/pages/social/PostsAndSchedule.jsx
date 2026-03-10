@@ -156,9 +156,23 @@ export default function PostsAndSchedule() {
     });
   };
 
-  const getContent = (platform) => cContents[platform] || cContents._shared || '';
+  const getContent = (platform) => {
+    // Check if platform has its own content (including empty string)
+    if (cContents.hasOwnProperty(platform)) {
+      return cContents[platform];
+    }
+    // Fall back to shared content
+    return cContents._shared || '';
+  };
   const setContent = (platform, text) => {
-    setCContents(prev => ({ ...prev, [platform]: text, _shared: prev._shared === undefined ? text : prev._shared }));
+    setCContents(prev => {
+      const next = { ...prev, [platform]: text };
+      // Also update _shared if this is the first content being set
+      if (prev._shared === undefined) {
+        next._shared = text;
+      }
+      return next;
+    });
   };
   const setSharedContent = (text) => {
     setCContents(prev => {
