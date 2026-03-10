@@ -6,7 +6,7 @@ import {
   Play, CheckCircle2, AlertCircle, Edit, MoreVertical, MessageSquare,
   ListTodo, RefreshCw, ChevronRight, ExternalLink, Copy, Check,
   PauseCircle, XCircle, ArrowRight, Zap, Scale, ShieldAlert, TrendingUp,
-  CloudUpload, Unlink, SkipForward, Sparkles, Loader2
+  CloudUpload, Unlink, SkipForward, Sparkles, Loader2, CalendarPlus, CalendarClock
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -138,6 +138,14 @@ const MeetingDetail = () => {
   
   // Series modal
   const [showSeriesModal, setShowSeriesModal] = useState(false);
+  
+  // Duplicate & Reschedule states
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
+  const [rescheduling, setRescheduling] = useState(false);
+  const [duplicateForm, setDuplicateForm] = useState({ title: '', start_date: '', start_time: '' });
+  const [rescheduleForm, setRescheduleForm] = useState({ start_date: '', start_time: '', end_time: '', reason: '' });
   const [seriesData, setSeriesData] = useState(null);
   const [loadingSeries, setLoadingSeries] = useState(false);
   
@@ -343,6 +351,83 @@ const MeetingDetail = () => {
       }
     } catch (error) {
       toast.error('Error skipping meeting');
+    }
+  };
+
+  // Duplicate meeting handler
+  const handleDuplicateMeeting = async () => {
+    setDuplicating(true);
+    try {
+      const token = localStorage.getItem('sevora_token');
+      
+      // Build query params
+      const params = new URLSearchParams();
+      if (duplicateForm.title) params.append('new_title', duplicateForm.title);
+      if (duplicateForm.start_date && duplicateForm.start_time) {
+        const startDateTime = new Date(`${duplicateForm.start_date}T${duplicateForm.start_time}`).toISOString();
+        params.append('new_start_time', startDateTime);
+      }
+      
+      const res = await fetch(`${API}/api/meetings/${meetingId}/duplicate?${params.toString()}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (res.ok) {
+        const newMeeting = await res.json();
+        toast.success('Meeting duplicated successfully!');
+        setShowDuplicateModal(false);
+        setDuplicateForm({ title: '', start_date: '', start_time: '' });
+        // Navigate to the new meeting
+        navigate(`/meetings/${newMeeting.id}`);
+      } else {
+        const error = await res.json();
+        toast.error(error.detail || 'Failed to duplicate meeting');
+      }
+    } catch (error) {
+      toast.error('Error duplicating meeting');
+    } finally {
+      setDuplicating(false);
+    }
+  };
+
+  // Reschedule meeting handler
+  const handleRescheduleMeeting = async () => {
+    if (!rescheduleForm.start_date || !rescheduleForm.start_time || !rescheduleForm.end_time) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    
+    setRescheduling(true);
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const startDateTime = new Date(`${rescheduleForm.start_date}T${rescheduleForm.start_time}`).toISOString();
+      const endDateTime = new Date(`${rescheduleForm.start_date}T${rescheduleForm.end_time}`).toISOString();
+      
+      const params = new URLSearchParams({
+        new_start_time: startDateTime,
+        new_end_time: endDateTime
+      });
+      if (rescheduleForm.reason) params.append('reason', rescheduleForm.reason);
+      
+      const res = await fetch(`${API}/api/meetings/${meetingId}/reschedule?${params.toString()}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (res.ok) {
+        toast.success('Meeting rescheduled successfully!');
+        setShowRescheduleModal(false);
+        setRescheduleForm({ start_date: '', start_time: '', end_time: '', reason: '' });
+        fetchMeeting();
+      } else {
+        const error = await res.json();
+        toast.error(error.detail || 'Failed to reschedule meeting');
+      }
+    } catch (error) {
+      toast.error('Error rescheduling meeting');
+    } finally {
+      setRescheduling(false);
     }
   };
 
@@ -989,6 +1074,50 @@ const MeetingDetail = () => {
                 <Edit className="w-4 h-4 mr-1.5" />
                 Edit
               </Button>
+              
+              {/* Duplicate */}
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                onClick={() => {
+                  setDuplicateForm({
+                    title: `${meeting.title} (Copy)`,
+                    start_date: '',
+                    start_time: ''
+                  });
+                  setShowDuplicateModal(true);
+                }}
+                data-testid="duplicate-meeting-btn"
+              >
+                <Copy className="w-4 h-4 mr-1.5" />
+                Duplicate
+              </Button>
+              
+              {/* Reschedule - only for scheduled meetings */}
+              {meeting.status === 'scheduled' && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                  onClick={() => {
+                    // Pre-fill with current meeting times
+                    const startDt = new Date(meeting.start_time);
+                    const endDt = new Date(meeting.end_time);
+                    setRescheduleForm({
+                      start_date: startDt.toISOString().split('T')[0],
+                      start_time: startDt.toTimeString().slice(0, 5),
+                      end_time: endDt.toTimeString().slice(0, 5),
+                      reason: ''
+                    });
+                    setShowRescheduleModal(true);
+                  }}
+                  data-testid="reschedule-meeting-btn"
+                >
+                  <CalendarClock className="w-4 h-4 mr-1.5" />
+                  Reschedule
+                </Button>
+              )}
             </div>
             
             {/* Status Actions */}
@@ -2670,6 +2799,159 @@ const MeetingDetail = () => {
             </Button>
             <Button onClick={() => setShowSummaryModal(false)} className="bg-violet-600 hover:bg-violet-700 text-white">
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Duplicate Meeting Modal */}
+      <Dialog open={showDuplicateModal} onOpenChange={setShowDuplicateModal}>
+        <DialogContent className="bg-white border-[#D4BBA6] max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[#4A3728] flex items-center gap-2">
+              <Copy className="w-5 h-5 text-blue-600" />
+              Duplicate Meeting
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-[#4A3728]">New Meeting Title</Label>
+              <Input
+                value={duplicateForm.title}
+                onChange={(e) => setDuplicateForm({ ...duplicateForm, title: e.target.value })}
+                placeholder="Meeting title"
+                className="border-[#D4BBA6]"
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-[#4A3728]">Date (Optional)</Label>
+                <Input
+                  type="date"
+                  value={duplicateForm.start_date}
+                  onChange={(e) => setDuplicateForm({ ...duplicateForm, start_date: e.target.value })}
+                  className="border-[#D4BBA6]"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[#4A3728]">Time (Optional)</Label>
+                <Input
+                  type="time"
+                  value={duplicateForm.start_time}
+                  onChange={(e) => setDuplicateForm({ ...duplicateForm, start_time: e.target.value })}
+                  className="border-[#D4BBA6]"
+                />
+              </div>
+            </div>
+            
+            <div className="bg-blue-50 rounded-lg p-3 text-sm text-blue-700">
+              <p className="font-medium mb-1">What will be copied:</p>
+              <ul className="text-xs space-y-0.5 text-blue-600">
+                <li>• Participants & Agenda</li>
+                <li>• Project/Goal linkages</li>
+                <li>• Location & Meeting type</li>
+              </ul>
+              <p className="text-xs mt-2 text-blue-500">
+                {duplicateForm.start_date ? 'Scheduled for selected date' : 'Defaults to same time next week'}
+              </p>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDuplicateModal(false)} className="border-[#D4BBA6]">
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleDuplicateMeeting}
+              disabled={duplicating}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {duplicating ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Duplicating...</>
+              ) : (
+                <><Copy className="w-4 h-4 mr-2" />Duplicate</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reschedule Meeting Modal */}
+      <Dialog open={showRescheduleModal} onOpenChange={setShowRescheduleModal}>
+        <DialogContent className="bg-white border-[#D4BBA6] max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[#4A3728] flex items-center gap-2">
+              <CalendarClock className="w-5 h-5 text-amber-600" />
+              Reschedule Meeting
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-[#4A3728]">New Date *</Label>
+              <Input
+                type="date"
+                value={rescheduleForm.start_date}
+                onChange={(e) => setRescheduleForm({ ...rescheduleForm, start_date: e.target.value })}
+                className="border-[#D4BBA6]"
+                required
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-[#4A3728]">Start Time *</Label>
+                <Input
+                  type="time"
+                  value={rescheduleForm.start_time}
+                  onChange={(e) => setRescheduleForm({ ...rescheduleForm, start_time: e.target.value })}
+                  className="border-[#D4BBA6]"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[#4A3728]">End Time *</Label>
+                <Input
+                  type="time"
+                  value={rescheduleForm.end_time}
+                  onChange={(e) => setRescheduleForm({ ...rescheduleForm, end_time: e.target.value })}
+                  className="border-[#D4BBA6]"
+                  required
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-[#4A3728]">Reason (Optional)</Label>
+              <Textarea
+                value={rescheduleForm.reason}
+                onChange={(e) => setRescheduleForm({ ...rescheduleForm, reason: e.target.value })}
+                placeholder="Why is this meeting being rescheduled?"
+                className="border-[#D4BBA6] min-h-[80px]"
+              />
+            </div>
+            
+            <div className="bg-amber-50 rounded-lg p-3 text-sm text-amber-700">
+              <p className="text-xs">Participants will be notified of the new time.</p>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRescheduleModal(false)} className="border-[#D4BBA6]">
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleRescheduleMeeting}
+              disabled={rescheduling || !rescheduleForm.start_date || !rescheduleForm.start_time || !rescheduleForm.end_time}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              {rescheduling ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Rescheduling...</>
+              ) : (
+                <><CalendarClock className="w-4 h-4 mr-2" />Reschedule</>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

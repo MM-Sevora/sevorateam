@@ -1442,6 +1442,128 @@ async def skip_meeting(
     }
 
 
+@router.post("/{meeting_id}/duplicate", response_model=MeetingResponse)
+async def duplicate_meeting(
+    meeting_id: str,
+    new_title: Optional[str] = None,
+    new_start_time: Optional[str] = None,
+    new_end_time: Optional[str] = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Duplicate a meeting with optional new title and time"""
+    meeting = await db.meetings.find_one({"id": meeting_id}, {"_id": 0})
+    
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    
+    # Create new meeting ID
+    new_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Calculate new times if not provided
+    if new_start_time:
+        start_time = new_start_time
+        if new_end_time:
+            end_time = new_end_time
+        else:
+            # Keep same duration
+            original_start = datetime.fromisoformat(meeting["start_time"].replace("Z", "+00:00"))
+            original_end = datetime.fromisoformat(meeting["end_time"].replace("Z", "+00:00"))
+            duration = original_end - original_start
+            new_start_dt = datetime.fromisoformat(new_start_time.replace("Z", "+00:00"))
+            end_time = (new_start_dt + duration).isoformat()
+    else:
+        # Default: same time next week
+        original_start = datetime.fromisoformat(meeting["start_time"].replace("Z", "+00:00"))
+        original_end = datetime.fromisoformat(meeting["end_time"].replace("Z", "+00:00"))
+        start_time = (original_start + timedelta(weeks=1)).isoformat()
+        end_time = (original_end + timedelta(weeks=1)).isoformat()
+    
+    # Create duplicate meeting
+    new_meeting = {
+        "id": new_id,
+        "title": new_title or f"{meeting['title']} (Copy)",
+        "description": meeting.get("description"),
+        "meeting_type": meeting.get("meeting_type", "general"),
+        "start_time": start_time,
+        "end_time": end_time,
+        "location": meeting.get("location"),
+        "participants": meeting.get("participants", []),
+        "status": MeetingStatus.SCHEDULED.value,
+        "agenda_items": meeting.get("agenda_items", []),
+        "created_by": user.get("id"),
+        "created_at": now,
+        "updated_at": now,
+        # Copy linkages
+        "company_goal_id": meeting.get("company_goal_id"),
+        "objective_id": meeting.get("objective_id"),
+        "project_id": meeting.get("project_id"),
+        "department_id": meeting.get("department_id"),
+        "milestone_id": meeting.get("milestone_id"),
+        # Not copying recurrence - duplicate is a one-off meeting
+        "recurrence_type": "none",
+        "duplicated_from": meeting_id
+    }
+    
+    await db.meetings.insert_one(new_meeting)
+    
+    # Return enriched meeting
+    enriched = await enrich_meeting(new_meeting)
+    return enriched
+
+
+@router.post("/{meeting_id}/reschedule")
+async def reschedule_meeting(
+    meeting_id: str,
+    new_start_time: str,
+    new_end_time: str,
+    reason: Optional[str] = None,
+    notify_participants: bool = True,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Reschedule a meeting to a new date/time (keeps status as scheduled)"""
+    meeting = await db.meetings.find_one({"id": meeting_id}, {"_id": 0})
+    
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    
+    if meeting.get("status") in [MeetingStatus.COMPLETED.value, MeetingStatus.CANCELLED.value]:
+        raise HTTPException(status_code=400, detail="Cannot reschedule a completed or cancelled meeting")
+    
+    # Store original times for history
+    reschedule_history = meeting.get("reschedule_history", [])
+    reschedule_history.append({
+        "original_start_time": meeting.get("start_time"),
+        "original_end_time": meeting.get("end_time"),
+        "rescheduled_at": datetime.now(timezone.utc).isoformat(),
+        "rescheduled_by": user.get("id"),
+        "rescheduled_by_name": user.get("name"),
+        "reason": reason
+    })
+    
+    await db.meetings.update_one(
+        {"id": meeting_id},
+        {"$set": {
+            "start_time": new_start_time,
+            "end_time": new_end_time,
+            "reschedule_reason": reason,
+            "reschedule_history": reschedule_history,
+            "last_rescheduled_at": datetime.now(timezone.utc).isoformat(),
+            "last_rescheduled_by": user.get("id"),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # TODO: If notify_participants, send notifications
+    
+    return {
+        "message": "Meeting rescheduled successfully",
+        "new_start_time": new_start_time,
+        "new_end_time": new_end_time,
+        "reason": reason
+    }
+
+
 async def create_next_recurring_meeting(meeting: dict) -> Optional[str]:
     """Create the next occurrence of a recurring meeting"""
     recurrence_type = meeting.get("recurrence_type")

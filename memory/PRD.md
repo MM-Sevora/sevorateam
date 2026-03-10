@@ -1862,13 +1862,23 @@ The Manager Dashboard was already functional with:
 - [x] Delete reports
 - [x] Filter by report type
 
+### Quick Meeting Actions (COMPLETE - March 10, 2026)
+- [x] **Duplicate Meeting**: Copy meeting with participants, agenda, linkages
+  - Backend: `POST /api/meetings/{id}/duplicate`
+  - Modal with title override and optional date/time
+  - Defaults to same time next week if no date specified
+- [x] **Reschedule Meeting**: Change meeting date/time
+  - Backend: `POST /api/meetings/{id}/reschedule`
+  - Stores reschedule history with reason
+  - Pre-fills current meeting times
+
 ### P1 - Upcoming Tasks
-- [ ] Quick Meeting Actions (Duplicate, Reschedule)
-- [ ] Bulk Actions for Meetings
+- [ ] Bulk Actions for Meetings (multi-select, batch delete/reschedule)
 - [ ] Scheduled Reports (auto-generate daily/weekly)
 
 ### P2 - Future Tasks
-- [ ] Export/Reports (CSV/PDF)
+- [ ] AI Summary Engine for reports
+- [ ] PDF export for reports
 - [ ] Ticket Trend Chart for Help & Support
 
 ### P3 - Backlog
