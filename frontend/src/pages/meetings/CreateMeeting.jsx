@@ -116,28 +116,40 @@ const CreateMeeting = () => {
       const headers = { 'Authorization': `Bearer ${token}` };
 
       try {
-        // Fetch departments
-        const deptRes = await fetch(`${API}/api/departments`, { headers });
-        if (deptRes.ok) setDepartments(await deptRes.json());
+        // Fetch departments from goals module
+        const deptRes = await fetch(`${API}/api/goals/departments`, { headers });
+        if (deptRes.ok) {
+          const deptData = await deptRes.json();
+          setDepartments(Array.isArray(deptData) ? deptData : []);
+        }
 
         // Fetch projects
         const projRes = await fetch(`${API}/api/projects/list`, { headers });
         if (projRes.ok) {
           const data = await projRes.json();
-          setProjects(data.projects || data || []);
+          setProjects(Array.isArray(data) ? data : data.projects || []);
         }
 
         // Fetch goals from goals module
         const goalsRes = await fetch(`${API}/api/goals/strategic-goals`, { headers });
-        if (goalsRes.ok) setGoals(await goalsRes.json());
+        if (goalsRes.ok) {
+          const goalsData = await goalsRes.json();
+          setGoals(Array.isArray(goalsData) ? goalsData : []);
+        }
 
         // Fetch objectives from goals module
         const objRes = await fetch(`${API}/api/goals/objectives`, { headers });
-        if (objRes.ok) setObjectives(await objRes.json());
+        if (objRes.ok) {
+          const objData = await objRes.json();
+          setObjectives(Array.isArray(objData) ? objData : []);
+        }
 
         // Fetch users
-        const usersRes = await fetch(`${API}/api/users`, { headers });
-        if (usersRes.ok) setUsers(await usersRes.json());
+        const usersRes = await fetch(`${API}/api/admin/users`, { headers });
+        if (usersRes.ok) {
+          const usersData = await usersRes.json();
+          setUsers(Array.isArray(usersData) ? usersData : []);
+        }
       } catch (error) {
         console.error('Error fetching options:', error);
       }
