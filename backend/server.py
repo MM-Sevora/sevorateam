@@ -4199,6 +4199,32 @@ DEFAULT_AUTOMATION_SETTINGS = {
             "description": "Remind users about upcoming task deadlines",
             "days_before": [3, 1],
             "channels": {"in_app": True, "email": False, "teams": False}
+        },
+        # Phase 2
+        "goal_at_risk_alert": {
+            "enabled": True,
+            "description": "Alert when goals are behind schedule and at risk of missing deadlines",
+            "progress_threshold": 50,
+            "days_before_deadline": 30,
+            "auto_schedule_review": True,
+            "channels": {"in_app": True, "email": True, "teams": False}
+        },
+        "blocked_task_escalation": {
+            "enabled": True,
+            "description": "Escalate tasks that have been blocked for too long",
+            "blocked_days_threshold": 2,
+            "auto_schedule_meeting": False,
+            "channels": {"in_app": True, "email": True, "teams": False}
+        },
+        "weekly_progress_report": {
+            "enabled": True,
+            "description": "Send weekly progress summary every Monday",
+            "send_day": "monday",
+            "send_time": "09:00",
+            "include_goals": True,
+            "include_projects": True,
+            "include_tasks": True,
+            "channels": {"in_app": True, "email": True, "teams": False}
         }
     },
     "communication": {
@@ -4681,8 +4707,40 @@ async def start_scheduler():
     
     scheduler.add_job(check_meeting_reminders_job, IntervalTrigger(minutes=5), id="check_meeting_reminders", replace_existing=True)
     
+    # === PHASE 2 AUTOMATIONS ===
+    
+    # Goal at-risk check - daily at 9 AM UTC
+    async def check_at_risk_goals_job():
+        try:
+            from services.automation_service import check_at_risk_goals
+            await check_at_risk_goals()
+        except Exception as e:
+            logger.error(f"Goal at-risk check error: {e}")
+    
+    scheduler.add_job(check_at_risk_goals_job, CronTrigger(hour=9, minute=0), id="check_at_risk_goals", replace_existing=True)
+    
+    # Blocked task escalation - daily at 9:30 AM UTC
+    async def check_blocked_tasks_job():
+        try:
+            from services.automation_service import check_blocked_tasks
+            await check_blocked_tasks()
+        except Exception as e:
+            logger.error(f"Blocked task check error: {e}")
+    
+    scheduler.add_job(check_blocked_tasks_job, CronTrigger(hour=9, minute=30), id="check_blocked_tasks", replace_existing=True)
+    
+    # Weekly progress report - every Monday at 9 AM UTC
+    async def weekly_report_job():
+        try:
+            from services.automation_service import generate_weekly_progress_report
+            await generate_weekly_progress_report()
+        except Exception as e:
+            logger.error(f"Weekly report error: {e}")
+    
+    scheduler.add_job(weekly_report_job, CronTrigger(day_of_week='mon', hour=9, minute=0), id="weekly_progress_report", replace_existing=True)
+    
     scheduler.start()
-    logger.info("Automation scheduler started with Phase 1 automations")
+    logger.info("Automation scheduler started with Phase 1 & Phase 2 automations")
 
 @app.on_event("shutdown")
 async def stop_scheduler():

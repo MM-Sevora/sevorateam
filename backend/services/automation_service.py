@@ -1,9 +1,16 @@
 """
-Automation Service - Phase 1 Automations for Goals, Projects & Communication Hub
+Automation Service - Automations for Goals, Projects & Communication Hub
+
+Phase 1:
 - Progress Cascade: Task -> Project -> Objective -> Goal
 - Overdue Task Alerts: Daily notifications for overdue tasks
 - Meeting Reminders: 24h/1h/15min notifications before meetings
 - Action Item to Task: Auto-convert meeting action items to tasks
+
+Phase 2:
+- Goal At-Risk Alerts: Alert when goals are behind schedule
+- Blocked Task Escalation: Escalate tasks blocked for too long
+- Weekly Progress Report: Automated weekly summary
 """
 import logging
 import uuid
@@ -45,6 +52,44 @@ DEFAULT_GOALS_PROJECTS_SETTINGS = {
         "channels": {
             "in_app": True,
             "email": False,
+            "teams": False
+        }
+    },
+    # Phase 2
+    "goal_at_risk_alert": {
+        "enabled": True,
+        "description": "Alert when goals are behind schedule and at risk of missing deadlines",
+        "progress_threshold": 50,
+        "days_before_deadline": 30,
+        "auto_schedule_review": True,
+        "channels": {
+            "in_app": True,
+            "email": True,
+            "teams": False
+        }
+    },
+    "blocked_task_escalation": {
+        "enabled": True,
+        "description": "Escalate tasks that have been blocked for too long",
+        "blocked_days_threshold": 2,
+        "auto_schedule_meeting": False,
+        "channels": {
+            "in_app": True,
+            "email": True,
+            "teams": False
+        }
+    },
+    "weekly_progress_report": {
+        "enabled": True,
+        "description": "Send weekly progress summary every Monday",
+        "send_day": "monday",
+        "send_time": "09:00",
+        "include_goals": True,
+        "include_projects": True,
+        "include_tasks": True,
+        "channels": {
+            "in_app": True,
+            "email": True,
             "teams": False
         }
     }
@@ -631,7 +676,623 @@ async def get_pending_automation_actions(user_id: str = None) -> List[dict]:
                 "message": f"{ai_count} meeting action item(s) are overdue"
             })
     
+    # Check at-risk goals
+    if settings.get("goals_projects", {}).get("goal_at_risk_alert", {}).get("enabled", True):
+        at_risk = await get_at_risk_goals()
+        if at_risk:
+            pending.append({
+                "type": "at_risk_goals",
+                "priority": "high",
+                "count": len(at_risk),
+                "message": f"{len(at_risk)} goal(s) are at risk of missing deadlines"
+            })
+    
+    # Check blocked tasks
+    if settings.get("goals_projects", {}).get("blocked_task_escalation", {}).get("enabled", True):
+        blocked = await get_blocked_tasks()
+        if blocked:
+            pending.append({
+                "type": "blocked_tasks",
+                "priority": "medium",
+                "count": len(blocked),
+                "message": f"{len(blocked)} task(s) are blocked and need attention"
+            })
+    
     return pending
+
+
+# ============== PHASE 2: GOAL AT-RISK ALERTS ==============
+
+async def get_at_risk_goals() -> List[dict]:
+    """Get goals that are at risk of missing deadlines"""
+    settings = await get_automation_settings()
+    alert_settings = settings.get("goals_projects", {}).get("goal_at_risk_alert", {})
+    
+    if not alert_settings.get("enabled", True):
+        return []
+    
+    progress_threshold = alert_settings.get("progress_threshold", 50)
+    days_before = alert_settings.get("days_before_deadline", 30)
+    
+    now = datetime.now(timezone.utc)
+    deadline_cutoff = (now + timedelta(days=days_before)).isoformat()
+    
+    try:
+        # Find goals with low progress and approaching deadline
+        at_risk_goals = []
+        
+        async for goal in db.strategic_goals.find({
+            "status": {"$nin": ["completed", "cancelled", "archived"]},
+            "progress": {"$lt": progress_threshold}
+        }):
+            # Check if goal has a target date within the threshold
+            target_date = goal.get("target_date") or goal.get("end_date")
+            if target_date and target_date <= deadline_cutoff:
+                goal_data = {
+                    "id": str(goal.get("_id")),
+                    "title": goal.get("title", "Untitled Goal"),
+                    "progress": goal.get("progress", 0),
+                    "target_date": target_date,
+                    "owner_id": goal.get("owner_id"),
+                    "department_id": goal.get("department_id")
+                }
+                at_risk_goals.append(goal_data)
+        
+        return at_risk_goals
+        
+    except Exception as e:
+        logger.error(f"Failed to get at-risk goals: {e}")
+        return []
+
+
+async def check_at_risk_goals():
+    """
+    Daily job to check for at-risk goals and send alerts.
+    Called by scheduler daily.
+    """
+    settings = await get_automation_settings()
+    alert_settings = settings.get("goals_projects", {}).get("goal_at_risk_alert", {})
+    
+    if not alert_settings.get("enabled", True):
+        logger.info("Goal at-risk alerts disabled, skipping")
+        return
+    
+    try:
+        at_risk_goals = await get_at_risk_goals()
+        logger.info(f"Found {len(at_risk_goals)} at-risk goals")
+        
+        channels = alert_settings.get("channels", {"in_app": True, "email": True, "teams": False})
+        auto_schedule = alert_settings.get("auto_schedule_review", True)
+        
+        for goal in at_risk_goals:
+            # Check if we already sent an alert for this goal today
+            today = datetime.now(timezone.utc).date().isoformat()
+            existing_alert = await db.automation_logs.find_one({
+                "action": "goal_at_risk_alert",
+                "details.goal_id": goal["id"],
+                "created_at": {"$regex": f"^{today}"}
+            })
+            
+            if existing_alert:
+                continue  # Already alerted today
+            
+            # Get goal owner and stakeholders
+            owner_id = goal.get("owner_id")
+            if owner_id:
+                await send_at_risk_notification(goal, owner_id, channels, is_owner=True)
+            
+            # Auto-schedule review meeting if enabled
+            if auto_schedule and owner_id:
+                await schedule_goal_review_meeting(goal, owner_id)
+            
+            # Log the alert
+            await log_automation_action("goal_at_risk_alert", {
+                "goal_id": goal["id"],
+                "goal_title": goal["title"],
+                "progress": goal["progress"],
+                "target_date": goal["target_date"]
+            })
+        
+    except Exception as e:
+        logger.error(f"Goal at-risk check failed: {e}")
+
+
+async def send_at_risk_notification(goal: dict, user_id: str, channels: dict, is_owner: bool = False):
+    """Send at-risk goal notification"""
+    try:
+        user = await db.users.find_one({"id": user_id}, {"_id": 0, "name": 1, "email": 1})
+        if not user:
+            return
+        
+        progress = goal.get("progress", 0)
+        target_date = goal.get("target_date", "N/A")
+        
+        title = "Goal At Risk" if is_owner else "Team Goal At Risk"
+        message = f"Goal '{goal['title']}' is at {progress:.0f}% progress with deadline approaching ({target_date[:10]})"
+        
+        # In-app notification
+        if channels.get("in_app", True):
+            notification = {
+                "id": str(uuid.uuid4()),
+                "user_id": user_id,
+                "title": title,
+                "message": message,
+                "type": "goal_at_risk",
+                "category": "goal",
+                "priority": "high",
+                "reference_type": "goal",
+                "reference_id": goal["id"],
+                "action_url": f"/goals/strategic-goals/{goal['id']}",
+                "is_read": False,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.notifications.insert_one(notification)
+        
+        # Email notification
+        if channels.get("email", True) and email_service and user.get("email"):
+            try:
+                await email_service.send_email(
+                    to=user["email"],
+                    subject=f"[Sevora] {title}: {goal['title']}",
+                    body=f"""
+                    <h2>{title}</h2>
+                    <p>{message}</p>
+                    <p><strong>Current Progress:</strong> {progress:.0f}%</p>
+                    <p><strong>Target Date:</strong> {target_date[:10]}</p>
+                    <p>Please review and take action to get this goal back on track.</p>
+                    <p><a href="{os.environ.get('FRONTEND_URL', '')}/goals/strategic-goals/{goal['id']}">View Goal</a></p>
+                    """,
+                    is_html=True
+                )
+            except Exception as e:
+                logger.error(f"Failed to send at-risk email: {e}")
+                
+    except Exception as e:
+        logger.error(f"Failed to send at-risk notification: {e}")
+
+
+async def schedule_goal_review_meeting(goal: dict, organizer_id: str):
+    """Auto-schedule a review meeting for at-risk goal"""
+    try:
+        # Schedule meeting for tomorrow at 10 AM
+        tomorrow = datetime.now(timezone.utc) + timedelta(days=1)
+        start_time = tomorrow.replace(hour=10, minute=0, second=0, microsecond=0)
+        end_time = start_time + timedelta(hours=1)
+        
+        meeting = {
+            "id": str(uuid.uuid4()),
+            "title": f"Goal Review: {goal['title'][:50]}",
+            "meeting_type": "okr_review",
+            "description": f"Auto-scheduled review meeting for at-risk goal.\n\nGoal: {goal['title']}\nCurrent Progress: {goal.get('progress', 0):.0f}%\nTarget Date: {goal.get('target_date', 'N/A')[:10]}",
+            "start_time": start_time.isoformat(),
+            "end_time": end_time.isoformat(),
+            "location": "Virtual",
+            "organizer_id": organizer_id,
+            "linked_goal_id": goal["id"],
+            "status": "scheduled",
+            "is_auto_scheduled": True,
+            "participants": [{"user_id": organizer_id, "status": "accepted"}],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        await db.meetings.insert_one(meeting)
+        logger.info(f"Auto-scheduled review meeting for goal: {goal['title']}")
+        
+    except Exception as e:
+        logger.error(f"Failed to schedule goal review meeting: {e}")
+
+
+# ============== PHASE 2: BLOCKED TASK ESCALATION ==============
+
+async def get_blocked_tasks() -> List[dict]:
+    """Get tasks that have been blocked for too long"""
+    settings = await get_automation_settings()
+    escalation_settings = settings.get("goals_projects", {}).get("blocked_task_escalation", {})
+    
+    if not escalation_settings.get("enabled", True):
+        return []
+    
+    days_threshold = escalation_settings.get("blocked_days_threshold", 2)
+    cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days_threshold)).isoformat()
+    
+    try:
+        blocked_tasks = []
+        
+        async for task in db.pm_tasks.find({
+            "status": "blocked",
+            "$or": [
+                {"blocked_at": {"$lte": cutoff_date}},
+                {"updated_at": {"$lte": cutoff_date}, "blocked_at": {"$exists": False}}
+            ]
+        }):
+            task_data = {
+                "id": task.get("id"),
+                "name": task.get("name", task.get("title", "Untitled Task")),
+                "project_id": task.get("project_id"),
+                "assigned_to": task.get("assigned_to"),
+                "blocked_at": task.get("blocked_at", task.get("updated_at")),
+                "blocked_reason": task.get("blocked_reason", "Not specified")
+            }
+            blocked_tasks.append(task_data)
+        
+        return blocked_tasks
+        
+    except Exception as e:
+        logger.error(f"Failed to get blocked tasks: {e}")
+        return []
+
+
+async def check_blocked_tasks():
+    """
+    Daily job to check for blocked tasks and escalate.
+    Called by scheduler daily.
+    """
+    settings = await get_automation_settings()
+    escalation_settings = settings.get("goals_projects", {}).get("blocked_task_escalation", {})
+    
+    if not escalation_settings.get("enabled", True):
+        logger.info("Blocked task escalation disabled, skipping")
+        return
+    
+    try:
+        blocked_tasks = await get_blocked_tasks()
+        logger.info(f"Found {len(blocked_tasks)} blocked tasks needing escalation")
+        
+        channels = escalation_settings.get("channels", {"in_app": True, "email": True, "teams": False})
+        auto_schedule = escalation_settings.get("auto_schedule_meeting", False)
+        
+        for task in blocked_tasks:
+            # Check if we already escalated this task today
+            today = datetime.now(timezone.utc).date().isoformat()
+            existing_escalation = await db.automation_logs.find_one({
+                "action": "blocked_task_escalation",
+                "details.task_id": task["id"],
+                "created_at": {"$regex": f"^{today}"}
+            })
+            
+            if existing_escalation:
+                continue  # Already escalated today
+            
+            # Get project manager to escalate to
+            manager_id = None
+            if task.get("project_id"):
+                project = await db.pm_projects.find_one({"id": task["project_id"]})
+                if project:
+                    manager_id = project.get("manager_id") or project.get("owner_id")
+            
+            # Notify assignee
+            if task.get("assigned_to"):
+                await send_blocked_escalation_notification(task, task["assigned_to"], channels, is_assignee=True)
+            
+            # Notify manager
+            if manager_id and manager_id != task.get("assigned_to"):
+                await send_blocked_escalation_notification(task, manager_id, channels, is_assignee=False)
+            
+            # Auto-schedule resolution meeting if enabled
+            if auto_schedule and manager_id:
+                await schedule_blocked_resolution_meeting(task, manager_id)
+            
+            # Log the escalation
+            await log_automation_action("blocked_task_escalation", {
+                "task_id": task["id"],
+                "task_name": task["name"],
+                "project_id": task.get("project_id"),
+                "blocked_reason": task.get("blocked_reason")
+            })
+        
+    except Exception as e:
+        logger.error(f"Blocked task escalation check failed: {e}")
+
+
+async def send_blocked_escalation_notification(task: dict, user_id: str, channels: dict, is_assignee: bool = False):
+    """Send blocked task escalation notification"""
+    try:
+        user = await db.users.find_one({"id": user_id}, {"_id": 0, "name": 1, "email": 1})
+        if not user:
+            return
+        
+        if is_assignee:
+            title = "Task Still Blocked"
+            message = f"Your task '{task['name']}' has been blocked for an extended period. Please resolve or seek help."
+        else:
+            title = "Blocked Task Escalation"
+            message = f"Task '{task['name']}' has been blocked and needs your attention."
+        
+        # In-app notification
+        if channels.get("in_app", True):
+            notification = {
+                "id": str(uuid.uuid4()),
+                "user_id": user_id,
+                "title": title,
+                "message": message,
+                "type": "task_blocked_escalation",
+                "category": "task",
+                "priority": "high",
+                "reference_type": "task",
+                "reference_id": task["id"],
+                "action_url": f"/projects/tasks/{task['id']}",
+                "is_read": False,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.notifications.insert_one(notification)
+        
+        # Email notification
+        if channels.get("email", True) and email_service and user.get("email"):
+            try:
+                await email_service.send_email(
+                    to=user["email"],
+                    subject=f"[Sevora] {title}: {task['name']}",
+                    body=f"""
+                    <h2>{title}</h2>
+                    <p>{message}</p>
+                    <p><strong>Blocked Reason:</strong> {task.get('blocked_reason', 'Not specified')}</p>
+                    <p>Please take action to unblock this task.</p>
+                    <p><a href="{os.environ.get('FRONTEND_URL', '')}/projects/tasks/{task['id']}">View Task</a></p>
+                    """,
+                    is_html=True
+                )
+            except Exception as e:
+                logger.error(f"Failed to send blocked task email: {e}")
+                
+    except Exception as e:
+        logger.error(f"Failed to send blocked escalation notification: {e}")
+
+
+async def schedule_blocked_resolution_meeting(task: dict, organizer_id: str):
+    """Auto-schedule a resolution meeting for blocked task"""
+    try:
+        # Schedule meeting for tomorrow at 2 PM
+        tomorrow = datetime.now(timezone.utc) + timedelta(days=1)
+        start_time = tomorrow.replace(hour=14, minute=0, second=0, microsecond=0)
+        end_time = start_time + timedelta(minutes=30)
+        
+        participants = [{"user_id": organizer_id, "status": "accepted"}]
+        if task.get("assigned_to") and task["assigned_to"] != organizer_id:
+            participants.append({"user_id": task["assigned_to"], "status": "pending"})
+        
+        meeting = {
+            "id": str(uuid.uuid4()),
+            "title": f"Blocked Task Resolution: {task['name'][:40]}",
+            "meeting_type": "project_review",
+            "description": f"Auto-scheduled meeting to resolve blocked task.\n\nTask: {task['name']}\nBlocked Reason: {task.get('blocked_reason', 'Not specified')}",
+            "start_time": start_time.isoformat(),
+            "end_time": end_time.isoformat(),
+            "location": "Virtual",
+            "organizer_id": organizer_id,
+            "linked_project_id": task.get("project_id"),
+            "status": "scheduled",
+            "is_auto_scheduled": True,
+            "participants": participants,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        await db.meetings.insert_one(meeting)
+        logger.info(f"Auto-scheduled resolution meeting for blocked task: {task['name']}")
+        
+    except Exception as e:
+        logger.error(f"Failed to schedule blocked resolution meeting: {e}")
+
+
+# ============== PHASE 2: WEEKLY PROGRESS REPORT ==============
+
+async def generate_weekly_progress_report():
+    """
+    Weekly job to generate and send progress reports.
+    Called by scheduler every Monday.
+    """
+    settings = await get_automation_settings()
+    report_settings = settings.get("goals_projects", {}).get("weekly_progress_report", {})
+    
+    if not report_settings.get("enabled", True):
+        logger.info("Weekly progress report disabled, skipping")
+        return
+    
+    try:
+        channels = report_settings.get("channels", {"in_app": True, "email": True, "teams": False})
+        include_goals = report_settings.get("include_goals", True)
+        include_projects = report_settings.get("include_projects", True)
+        include_tasks = report_settings.get("include_tasks", True)
+        
+        # Get all active users (managers and above)
+        users = await db.users.find({
+            "status": "active",
+            "role": {"$in": ["admin", "super_admin", "manager", "department_head"]}
+        }).to_list(100)
+        
+        logger.info(f"Generating weekly report for {len(users)} users")
+        
+        for user in users:
+            user_id = user.get("id")
+            if not user_id:
+                continue
+            
+            report_data = await compile_user_weekly_report(user_id, include_goals, include_projects, include_tasks)
+            
+            if report_data:
+                await send_weekly_report_notification(user, report_data, channels)
+        
+        # Log the automation
+        await log_automation_action("weekly_progress_report", {
+            "users_notified": len(users),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Weekly progress report generation failed: {e}")
+
+
+async def compile_user_weekly_report(user_id: str, include_goals: bool, include_projects: bool, include_tasks: bool) -> dict:
+    """Compile weekly report data for a specific user"""
+    try:
+        report = {
+            "period_start": (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d"),
+            "period_end": datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        }
+        
+        if include_goals:
+            # Get goals owned by user or in their department
+            goals = await db.strategic_goals.find({
+                "$or": [
+                    {"owner_id": user_id},
+                    {"stakeholders": user_id}
+                ],
+                "status": {"$nin": ["completed", "cancelled", "archived"]}
+            }).to_list(20)
+            
+            report["goals"] = {
+                "total": len(goals),
+                "on_track": len([g for g in goals if g.get("progress", 0) >= 50]),
+                "at_risk": len([g for g in goals if g.get("progress", 0) < 50]),
+                "items": [{
+                    "title": g.get("title", "Untitled"),
+                    "progress": g.get("progress", 0)
+                } for g in goals[:5]]
+            }
+        
+        if include_projects:
+            # Get projects managed by user
+            projects = await db.pm_projects.find({
+                "$or": [
+                    {"manager_id": user_id},
+                    {"owner_id": user_id},
+                    {"created_by": user_id}
+                ],
+                "status": {"$nin": ["completed", "cancelled", "archived"]}
+            }).to_list(20)
+            
+            report["projects"] = {
+                "total": len(projects),
+                "items": [{
+                    "name": p.get("name", "Untitled"),
+                    "progress": p.get("progress", 0),
+                    "task_count": p.get("task_count", 0)
+                } for p in projects[:5]]
+            }
+        
+        if include_tasks:
+            # Get tasks assigned to user
+            now = datetime.now(timezone.utc)
+            week_ago = (now - timedelta(days=7)).isoformat()
+            
+            completed_count = await db.pm_tasks.count_documents({
+                "assigned_to": user_id,
+                "status": {"$in": ["done", "completed"]},
+                "updated_at": {"$gte": week_ago}
+            })
+            
+            pending_count = await db.pm_tasks.count_documents({
+                "assigned_to": user_id,
+                "status": {"$nin": ["done", "completed", "cancelled"]}
+            })
+            
+            overdue_count = await db.pm_tasks.count_documents({
+                "assigned_to": user_id,
+                "due_date": {"$lt": now.date().isoformat()},
+                "status": {"$nin": ["done", "completed", "cancelled"]}
+            })
+            
+            report["tasks"] = {
+                "completed_this_week": completed_count,
+                "pending": pending_count,
+                "overdue": overdue_count
+            }
+        
+        return report
+        
+    except Exception as e:
+        logger.error(f"Failed to compile weekly report for user {user_id}: {e}")
+        return None
+
+
+async def send_weekly_report_notification(user: dict, report: dict, channels: dict):
+    """Send weekly progress report notification"""
+    try:
+        user_id = user.get("id")
+        user_name = user.get("name", "User")
+        user_email = user.get("email")
+        
+        # Build summary message
+        summary_parts = []
+        if "goals" in report:
+            summary_parts.append(f"{report['goals']['total']} goals ({report['goals']['at_risk']} at risk)")
+        if "projects" in report:
+            summary_parts.append(f"{report['projects']['total']} active projects")
+        if "tasks" in report:
+            summary_parts.append(f"{report['tasks']['completed_this_week']} tasks completed, {report['tasks']['overdue']} overdue")
+        
+        message = "Weekly Summary: " + ", ".join(summary_parts)
+        
+        # In-app notification
+        if channels.get("in_app", True):
+            notification = {
+                "id": str(uuid.uuid4()),
+                "user_id": user_id,
+                "title": "Weekly Progress Report",
+                "message": message,
+                "type": "weekly_report",
+                "category": "report",
+                "priority": "low",
+                "action_url": "/goals/dashboard",
+                "is_read": False,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.notifications.insert_one(notification)
+        
+        # Email notification with detailed report
+        if channels.get("email", True) and email_service and user_email:
+            try:
+                # Build detailed HTML report
+                html_content = f"""
+                <h2>Weekly Progress Report</h2>
+                <p>Hi {user_name},</p>
+                <p>Here's your weekly summary for {report['period_start']} to {report['period_end']}:</p>
+                """
+                
+                if "goals" in report:
+                    html_content += f"""
+                    <h3>Goals</h3>
+                    <ul>
+                        <li>Total Active: {report['goals']['total']}</li>
+                        <li>On Track: {report['goals']['on_track']}</li>
+                        <li>At Risk: {report['goals']['at_risk']}</li>
+                    </ul>
+                    """
+                
+                if "projects" in report:
+                    html_content += f"""
+                    <h3>Projects</h3>
+                    <ul>
+                        <li>Active Projects: {report['projects']['total']}</li>
+                    </ul>
+                    """
+                
+                if "tasks" in report:
+                    html_content += f"""
+                    <h3>Tasks</h3>
+                    <ul>
+                        <li>Completed This Week: {report['tasks']['completed_this_week']}</li>
+                        <li>Pending: {report['tasks']['pending']}</li>
+                        <li>Overdue: {report['tasks']['overdue']}</li>
+                    </ul>
+                    """
+                
+                html_content += f"""
+                <p><a href="{os.environ.get('FRONTEND_URL', '')}/goals/dashboard">View Full Dashboard</a></p>
+                """
+                
+                await email_service.send_email(
+                    to=user_email,
+                    subject="[Sevora] Your Weekly Progress Report",
+                    body=html_content,
+                    is_html=True
+                )
+            except Exception as e:
+                logger.error(f"Failed to send weekly report email: {e}")
+                
+    except Exception as e:
+        logger.error(f"Failed to send weekly report notification: {e}")
 
 
 # Import os for environment variables

@@ -522,6 +522,155 @@ const AutomationSettings = () => {
                   data-testid="toggle-deadline-reminder"
                 />
               </div>
+              
+              {/* Phase 2: Goal At-Risk Alert */}
+              <div className="px-6 py-4 flex items-center justify-between border-t-2 border-dashed border-[#E8D5C4]">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <Target className="w-4 h-4 text-rose-500" />
+                    <span className="font-medium text-[#3D2E22]">Goal At-Risk Alerts</span>
+                    <span className="px-1.5 py-0.5 bg-rose-100 text-rose-600 text-xs rounded">Phase 2</span>
+                  </div>
+                  <p className="text-sm text-[#8B7355] mt-1">{settings.goals_projects.goal_at_risk_alert?.description || 'Alert when goals are behind schedule'}</p>
+                  {settings.goals_projects.goal_at_risk_alert?.enabled && (
+                    <div className="mt-3 space-y-2">
+                      <div className="flex items-center gap-4 text-sm flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[#5D4A3A]">Alert when progress &lt;</span>
+                          <input
+                            type="number"
+                            value={settings.goals_projects.goal_at_risk_alert?.progress_threshold ?? 50}
+                            onChange={(e) => updateSetting('goals_projects', 'goal_at_risk_alert', 'progress_threshold', parseInt(e.target.value))}
+                            className="w-16 px-2 py-1 text-sm border border-[#E8D5C4] rounded-md text-center"
+                            min="10"
+                            max="90"
+                          />
+                          <span className="text-[#5D4A3A]">%</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[#5D4A3A]">within</span>
+                          <input
+                            type="number"
+                            value={settings.goals_projects.goal_at_risk_alert?.days_before_deadline ?? 30}
+                            onChange={(e) => updateSetting('goals_projects', 'goal_at_risk_alert', 'days_before_deadline', parseInt(e.target.value))}
+                            className="w-16 px-2 py-1 text-sm border border-[#E8D5C4] rounded-md text-center"
+                            min="7"
+                            max="90"
+                          />
+                          <span className="text-[#5D4A3A]">days of deadline</span>
+                        </div>
+                      </div>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={settings.goals_projects.goal_at_risk_alert?.auto_schedule_review ?? true}
+                          onChange={(e) => updateSetting('goals_projects', 'goal_at_risk_alert', 'auto_schedule_review', e.target.checked)}
+                          className="rounded border-[#E8D5C4]"
+                        />
+                        <span className="text-[#5D4A3A]">Auto-schedule review meeting</span>
+                      </label>
+                    </div>
+                  )}
+                </div>
+                <Switch
+                  checked={settings.goals_projects.goal_at_risk_alert?.enabled ?? true}
+                  onCheckedChange={(checked) => updateSetting('goals_projects', 'goal_at_risk_alert', 'enabled', checked)}
+                  data-testid="toggle-goal-at-risk"
+                />
+              </div>
+              
+              {/* Phase 2: Blocked Task Escalation */}
+              <div className="px-6 py-4 flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-orange-500" />
+                    <span className="font-medium text-[#3D2E22]">Blocked Task Escalation</span>
+                    <span className="px-1.5 py-0.5 bg-orange-100 text-orange-600 text-xs rounded">Phase 2</span>
+                  </div>
+                  <p className="text-sm text-[#8B7355] mt-1">{settings.goals_projects.blocked_task_escalation?.description || 'Escalate tasks blocked for too long'}</p>
+                  {settings.goals_projects.blocked_task_escalation?.enabled && (
+                    <div className="mt-3 space-y-2">
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-[#5D4A3A]">Escalate after</span>
+                        <input
+                          type="number"
+                          value={settings.goals_projects.blocked_task_escalation?.blocked_days_threshold ?? 2}
+                          onChange={(e) => updateSetting('goals_projects', 'blocked_task_escalation', 'blocked_days_threshold', parseInt(e.target.value))}
+                          className="w-16 px-2 py-1 text-sm border border-[#E8D5C4] rounded-md text-center"
+                          min="1"
+                          max="14"
+                        />
+                        <span className="text-[#5D4A3A]">days blocked</span>
+                      </div>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={settings.goals_projects.blocked_task_escalation?.auto_schedule_meeting ?? false}
+                          onChange={(e) => updateSetting('goals_projects', 'blocked_task_escalation', 'auto_schedule_meeting', e.target.checked)}
+                          className="rounded border-[#E8D5C4]"
+                        />
+                        <span className="text-[#5D4A3A]">Auto-schedule resolution meeting</span>
+                      </label>
+                    </div>
+                  )}
+                </div>
+                <Switch
+                  checked={settings.goals_projects.blocked_task_escalation?.enabled ?? true}
+                  onCheckedChange={(checked) => updateSetting('goals_projects', 'blocked_task_escalation', 'enabled', checked)}
+                  data-testid="toggle-blocked-escalation"
+                />
+              </div>
+              
+              {/* Phase 2: Weekly Progress Report */}
+              <div className="px-6 py-4 flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <History className="w-4 h-4 text-blue-500" />
+                    <span className="font-medium text-[#3D2E22]">Weekly Progress Report</span>
+                    <span className="px-1.5 py-0.5 bg-blue-100 text-blue-600 text-xs rounded">Phase 2</span>
+                  </div>
+                  <p className="text-sm text-[#8B7355] mt-1">{settings.goals_projects.weekly_progress_report?.description || 'Send weekly progress summary every Monday'}</p>
+                  {settings.goals_projects.weekly_progress_report?.enabled && (
+                    <div className="mt-3 space-y-2">
+                      <div className="flex items-center gap-4 text-sm flex-wrap">
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={settings.goals_projects.weekly_progress_report?.include_goals ?? true}
+                            onChange={(e) => updateSetting('goals_projects', 'weekly_progress_report', 'include_goals', e.target.checked)}
+                            className="rounded border-[#E8D5C4]"
+                          />
+                          <span className="text-[#5D4A3A]">Include Goals</span>
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={settings.goals_projects.weekly_progress_report?.include_projects ?? true}
+                            onChange={(e) => updateSetting('goals_projects', 'weekly_progress_report', 'include_projects', e.target.checked)}
+                            className="rounded border-[#E8D5C4]"
+                          />
+                          <span className="text-[#5D4A3A]">Include Projects</span>
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={settings.goals_projects.weekly_progress_report?.include_tasks ?? true}
+                            onChange={(e) => updateSetting('goals_projects', 'weekly_progress_report', 'include_tasks', e.target.checked)}
+                            className="rounded border-[#E8D5C4]"
+                          />
+                          <span className="text-[#5D4A3A]">Include Tasks</span>
+                        </label>
+                      </div>
+                      <p className="text-xs text-[#8B7355]">Reports are sent every Monday at 9:00 AM to managers and above</p>
+                    </div>
+                  )}
+                </div>
+                <Switch
+                  checked={settings.goals_projects.weekly_progress_report?.enabled ?? true}
+                  onCheckedChange={(checked) => updateSetting('goals_projects', 'weekly_progress_report', 'enabled', checked)}
+                  data-testid="toggle-weekly-report"
+                />
+              </div>
             </div>
           </div>
           )}
