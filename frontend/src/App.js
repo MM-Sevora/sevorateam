@@ -70,6 +70,11 @@ import ProjectDetail from "./pages/projects/ProjectDetail";
 import ManagerDashboard from "./pages/projects/ManagerDashboard";
 import RecurringTasks from "./pages/projects/RecurringTasks";
 
+// Unified Task Management Pages
+import UnifiedTasksPage from "./pages/tasks/UnifiedTasksPage";
+import ActivityFeedPage from "./pages/tasks/ActivityFeedPage";
+import TaskTriggersPage from "./pages/tasks/TaskTriggersPage";
+
 // Goals & Objectives Pages
 import GoalsDashboard from "./pages/goals/GoalsDashboard";
 import StrategicGoals from "./pages/goals/StrategicGoals";
@@ -420,6 +425,11 @@ function AppRoutes() {
             <Route path="/projects/recurring" element={<ProtectedRoute requiredModule="project_management"><RecurringTasks /></ProtectedRoute>} />
             <Route path="/projects/manager" element={<ProtectedRoute requiredModule="project_management"><ManagerDashboard /></ProtectedRoute>} />
             <Route path="/projects/:projectId" element={<ProtectedRoute requiredModule="project_management"><ProjectDetail /></ProtectedRoute>} />
+
+            {/* Unified Task Management Routes */}
+            <Route path="/tasks" element={<ProtectedRoute requiredModule="project_management"><UnifiedTasksPage /></ProtectedRoute>} />
+            <Route path="/tasks/activities" element={<ProtectedRoute requiredModule="project_management"><ActivityFeedPage /></ProtectedRoute>} />
+            <Route path="/tasks/triggers" element={<ProtectedRoute requiredModule="project_management"><TaskTriggersPage /></ProtectedRoute>} />
 
             {/* Notifications */}
             <Route path="/notifications" element={<ProtectedRoute><NotificationCenter /></ProtectedRoute>} />

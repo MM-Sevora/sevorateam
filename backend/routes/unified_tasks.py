@@ -6,23 +6,32 @@ Unified Task Management System
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone, timedelta
-from bson import ObjectId
 import uuid
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
+security = HTTPBearer()
 
 # Will be set by main app
 db = None
-get_current_user = None
+_get_current_user_func = None
+
 
 def init_router(database, auth_dependency):
-    global db, get_current_user
+    global db, _get_current_user_func
     db = database
-    get_current_user = auth_dependency
+    _get_current_user_func = auth_dependency
     return router
+
+
+async def get_current_user_dep(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get current user from JWT token"""
+    if _get_current_user_func is None:
+        raise HTTPException(status_code=500, detail="Auth not configured")
+    return await _get_current_user_func(credentials)
 
 
 # ============== MODELS ==============
@@ -40,6 +49,7 @@ class TaskCreate(BaseModel):
     tags: List[str] = []
     related_url: Optional[str] = None  # Link to the source entity
 
+
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
@@ -51,6 +61,7 @@ class TaskUpdate(BaseModel):
     tags: Optional[List[str]] = None
     completion_notes: Optional[str] = None
 
+
 class ActivityLog(BaseModel):
     module: str  # sourcing, marketing, sales, hr, projects, etc.
     entity_type: str  # brand, supplier, campaign, task, etc.
@@ -60,6 +71,7 @@ class ActivityLog(BaseModel):
     action_details: Optional[Dict[str, Any]] = None
     user_id: Optional[str] = None
     user_name: Optional[str] = None
+
 
 class TaskTriggerConfig(BaseModel):
     module: str
@@ -84,7 +96,7 @@ async def get_tasks(
     search: Optional[str] = None,
     skip: int = 0,
     limit: int = 50,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_dep)
 ):
     """Get all tasks with filters"""
     query = {}
@@ -123,7 +135,7 @@ async def get_tasks(
 @router.get("/my-tasks")
 async def get_my_tasks(
     status: Optional[str] = None,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_dep)
 ):
     """Get tasks assigned to current user or their team"""
     user_id = current_user.get("id")
@@ -153,7 +165,7 @@ async def get_my_tasks(
 async def get_task_dashboard_stats(
     period: str = "month",
     team: Optional[str] = None,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_dep)
 ):
     """Get task statistics for dashboard"""
     # Calculate date range based on period
@@ -231,7 +243,7 @@ async def get_task_dashboard_stats(
 @router.get("/by-assignee")
 async def get_tasks_by_assignee(
     period: str = "month",
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_dep)
 ):
     """Get task distribution by assignee for team dashboard"""
     now = datetime.now(timezone.utc)
@@ -305,7 +317,7 @@ async def get_tasks_by_assignee(
 async def create_task(
     task: TaskCreate,
     background_tasks: BackgroundTasks,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_dep)
 ):
     """Create a new task"""
     now = datetime.now(timezone.utc).isoformat()
@@ -370,7 +382,7 @@ async def create_task(
 
 
 @router.get("/{task_id}")
-async def get_task(task_id: str, current_user: dict = Depends(get_current_user)):
+async def get_task(task_id: str, current_user: dict = Depends(get_current_user_dep)):
     """Get a specific task"""
     task = await db.unified_tasks.find_one({"id": task_id}, {"_id": 0})
     if not task:
@@ -383,7 +395,7 @@ async def update_task(
     task_id: str,
     update: TaskUpdate,
     background_tasks: BackgroundTasks,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_dep)
 ):
     """Update a task"""
     task = await db.unified_tasks.find_one({"id": task_id})
@@ -434,7 +446,7 @@ async def update_task(
 async def delete_task(
     task_id: str,
     background_tasks: BackgroundTasks,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_dep)
 ):
     """Delete a task"""
     task = await db.unified_tasks.find_one({"id": task_id})
@@ -465,7 +477,7 @@ async def get_activity_feed(
     entity_type: Optional[str] = None,
     user_id: Optional[str] = None,
     limit: int = 50,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_dep)
 ):
     """Get activity feed with filters"""
     query = {}
@@ -483,7 +495,7 @@ async def get_activity_feed(
 @router.post("/activities/log")
 async def create_activity_log(
     activity: ActivityLog,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_dep)
 ):
     """Manually log an activity"""
     await log_activity(
@@ -502,7 +514,7 @@ async def create_activity_log(
 # ============== TASK TRIGGER CONFIGURATION ==============
 
 @router.get("/triggers/config")
-async def get_trigger_configs(current_user: dict = Depends(get_current_user)):
+async def get_trigger_configs(current_user: dict = Depends(get_current_user_dep)):
     """Get all task trigger configurations"""
     configs = await db.task_trigger_configs.find({}, {"_id": 0}).to_list(length=100)
     return configs
@@ -511,7 +523,7 @@ async def get_trigger_configs(current_user: dict = Depends(get_current_user)):
 @router.post("/triggers/config")
 async def create_trigger_config(
     config: TaskTriggerConfig,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_dep)
 ):
     """Create a new task trigger configuration"""
     config_doc = {
@@ -529,7 +541,7 @@ async def create_trigger_config(
 async def update_trigger_config(
     config_id: str,
     config: TaskTriggerConfig,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_dep)
 ):
     """Update a task trigger configuration"""
     update_data = config.dict()
@@ -549,13 +561,21 @@ async def update_trigger_config(
 @router.delete("/triggers/config/{config_id}")
 async def delete_trigger_config(
     config_id: str,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_dep)
 ):
     """Delete a task trigger configuration"""
     result = await db.task_trigger_configs.delete_one({"id": config_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Config not found")
     return {"message": "Config deleted"}
+
+
+@router.post("/triggers/seed")
+async def seed_triggers(current_user: dict = Depends(get_current_user_dep)):
+    """Seed default task triggers"""
+    await seed_default_triggers()
+    configs = await db.task_trigger_configs.find({}, {"_id": 0}).to_list(length=100)
+    return {"message": "Default triggers seeded", "count": len(configs)}
 
 
 # ============== HELPER FUNCTIONS ==============

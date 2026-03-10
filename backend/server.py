@@ -3745,6 +3745,15 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Buying & Sourcing routes: {e}")
 
+# Register Unified Task Management routes
+try:
+    from routes.unified_tasks import router as unified_tasks_router, init_router as init_unified_tasks_router
+    init_unified_tasks_router(db, get_current_user)
+    api_router.include_router(unified_tasks_router)
+    logger.info("Unified Task Management routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Unified Task Management routes: {e}")
+
 app.include_router(api_router)
 
 # ============== WEBSOCKET FOR REAL-TIME NOTIFICATIONS ==============

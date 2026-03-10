@@ -12,7 +12,7 @@ import {
     ChevronDown, ChevronRight, Briefcase, Mail, Check, Send, ListTodo, FolderKanban,
     HelpCircle, Award, Network, Shield, Flag, CalendarDays, RefreshCw, Plus, Globe,
     TrendingUp, PieChart, Activity, FileText, Package, Factory, FlaskConical, Search, Database,
-    Server, Plug, Bell
+    Server, Plug, Bell, ClipboardList, Bot, Cog
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -83,6 +83,19 @@ const DEPARTMENT_CONFIG = {
             { path: '/projects/my-tasks', name: 'My Tasks', icon: ListTodo },
             { path: '/projects', name: 'All Projects', icon: FolderKanban },
             { path: '/projects/recurring', name: 'Recurring Tasks', icon: RefreshCw },
+        ]
+    },
+    tasks: {
+        name: 'Task Management',
+        icon: ClipboardList,
+        color: 'from-teal-600 to-teal-700',
+        bgColor: 'bg-teal-50',
+        textColor: 'text-teal-700',
+        requiredModule: 'project_management',  // Uses same module access as projects
+        routes: [
+            { path: '/tasks', name: 'All Tasks', icon: ClipboardList },
+            { path: '/tasks/activities', name: 'Activity Feed', icon: Activity },
+            { path: '/tasks/triggers', name: 'Smart Task Triggers', icon: Bot },
         ]
     },
     marketing: {
@@ -235,7 +248,7 @@ export const Layout = ({ children }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(true);
-    const [expandedDepts, setExpandedDepts] = useState(['analytics', 'goals', 'meetings', 'projects', 'marketing', 'sales', 'social', 'hr', 'sourcing', 'admin', 'systems']);
+    const [expandedDepts, setExpandedDepts] = useState(['analytics', 'goals', 'meetings', 'projects', 'tasks', 'marketing', 'sales', 'social', 'hr', 'sourcing', 'admin', 'systems']);
     const [expandedSubgroups, setExpandedSubgroups] = useState([]);
 
     const toggleDepartment = (dept) => {
@@ -258,6 +271,7 @@ export const Layout = ({ children }) => {
         const path = location.pathname;
         if (path.startsWith('/goals')) return 'goals';
         if (path.startsWith('/marketing')) return 'marketing';
+        if (path.startsWith('/tasks')) return 'tasks';
         if (path.startsWith('/projects')) return 'projects';
         if (path.startsWith('/mail')) return 'mail';
         if (path.startsWith('/sales')) return 'sales';
