@@ -6,20 +6,33 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
 import { Label } from '../../components/ui/label';
+import { Textarea } from '../../components/ui/textarea';
+import { Checkbox } from '../../components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { toast } from 'sonner';
 import { 
   Building2, Plus, Search, Filter, ExternalLink, Mail, Phone,
-  MoreVertical, Edit2, Trash2, Eye, ChevronLeft, ChevronRight
+  MoreVertical, Edit2, Trash2, Eye, ChevronLeft, ChevronRight,
+  Instagram, Linkedin, MapPin, Sparkles, Globe
 } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
 } from '../../components/ui/dropdown-menu';
 
-const SEGMENTS = ['Mass Premium', 'Bridge to Luxury', 'Affordable Luxury', 'Premium', 'Luxury'];
+const DIVISIONS = ['Apparel', 'Accessories', 'Footwear', 'Home & Living', 'Beauty'];
+const SEGMENTS = ['Mass', 'Mass Premium', 'Bridge to Luxury', 'Affordable Luxury', 'Premium', 'Luxury'];
 const PIPELINE_STAGES = ['Discovery', 'Contacted', 'Qualified', 'Interested', 'Negotiation', 'Onboarded', 'Lost'];
+const CATEGORIES = [
+  'Indian / Ethnic Wear', 'Western', 'Indo-Western', 'Festive Wear', 'Party Wear', 'Casual Wear',
+  'Formal Wear', 'Bridal Wear', 'Sarees', 'Kurta Sets', 'Dresses', 'Suits'
+];
+const GENDERS = ['Women', 'Men', 'Unisex'];
+const CITIES = [
+  'Delhi', 'Mumbai', 'Bengaluru', 'Jaipur', 'Kolkata', 'Chennai', 'Hyderabad',
+  'Ahmedabad', 'Pune', 'Lucknow', 'Chandigarh', 'Surat', 'Indore', 'Kochi'
+];
 
 const BrandsPage = () => {
   const { api } = useAuth();
@@ -30,8 +43,23 @@ const BrandsPage = () => {
   const [filters, setFilters] = useState({ segment: '', pipeline_stage: '', city: '' });
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
   const [showAddModal, setShowAddModal] = useState(false);
+  const [autoFilling, setAutoFilling] = useState(false);
   const [newBrand, setNewBrand] = useState({
-    name: '', website: '', segment: 'Affordable Luxury', city: '', email: '', phone_number: '', description: ''
+    name: '',
+    website: '',
+    instagram: '',
+    division: 'Apparel',
+    segment: '',
+    categories: [],
+    genders: [],
+    min_price: '',
+    max_price: '',
+    city: '',
+    email: '',
+    phone_number: '',
+    address: '',
+    linkedin: '',
+    description: ''
   });
 
   useEffect(() => {
@@ -69,16 +97,48 @@ const BrandsPage = () => {
     fetchBrands();
   };
 
+  const handleAutoFill = async () => {
+    if (!newBrand.name && !newBrand.website && !newBrand.instagram) {
+      toast.error('Enter brand name, website, or Instagram to auto-fill');
+      return;
+    }
+    setAutoFilling(true);
+    toast.info('AI Auto-fill feature coming soon!');
+    setTimeout(() => setAutoFilling(false), 1000);
+  };
+
+  const toggleCategory = (cat) => {
+    setNewBrand(prev => ({
+      ...prev,
+      categories: prev.categories.includes(cat)
+        ? prev.categories.filter(c => c !== cat)
+        : [...prev.categories, cat]
+    }));
+  };
+
+  const toggleGender = (gender) => {
+    setNewBrand(prev => ({
+      ...prev,
+      genders: prev.genders.includes(gender)
+        ? prev.genders.filter(g => g !== gender)
+        : [...prev.genders, gender]
+    }));
+  };
+
   const handleAddBrand = async () => {
-    if (!newBrand.name || !newBrand.city) {
-      toast.error('Name and city are required');
+    if (!newBrand.name || !newBrand.city || !newBrand.segment) {
+      toast.error('Brand name, city, and segment are required');
       return;
     }
     try {
       await api.post('/sourcing/brands', newBrand);
       toast.success('Brand added successfully');
       setShowAddModal(false);
-      setNewBrand({ name: '', website: '', segment: 'Affordable Luxury', city: '', email: '', phone_number: '', description: '' });
+      setNewBrand({
+        name: '', website: '', instagram: '', division: 'Apparel', segment: '',
+        categories: [], genders: [], min_price: '', max_price: '', city: '',
+        email: '', phone_number: '', address: '', linkedin: '', description: ''
+      });
       fetchBrands();
     } catch (error) {
       toast.error('Failed to add brand');
@@ -98,15 +158,15 @@ const BrandsPage = () => {
 
   const getStageColor = (stage) => {
     const colors = {
-      'Discovery': 'bg-gray-100 text-gray-700',
-      'Contacted': 'bg-amber-100 text-amber-700',
-      'Qualified': 'bg-cyan-100 text-cyan-700',
-      'Interested': 'bg-blue-100 text-blue-700',
-      'Negotiation': 'bg-purple-100 text-purple-700',
-      'Onboarded': 'bg-green-100 text-green-700',
-      'Lost': 'bg-red-100 text-red-700'
+      'Discovery': 'bg-gray-100 text-gray-800',
+      'Contacted': 'bg-blue-100 text-blue-800',
+      'Qualified': 'bg-purple-100 text-purple-800',
+      'Interested': 'bg-amber-100 text-amber-800',
+      'Negotiation': 'bg-orange-100 text-orange-800',
+      'Onboarded': 'bg-green-100 text-green-800',
+      'Lost': 'bg-red-100 text-red-800'
     };
-    return colors[stage] || 'bg-gray-100 text-gray-700';
+    return colors[stage] || 'bg-gray-100 text-gray-800';
   };
 
   return (
@@ -115,11 +175,9 @@ const BrandsPage = () => {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm text-gray-500 uppercase tracking-wider">Buying & Sourcing</p>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-            <Building2 className="h-8 w-8" /> Brands Database
-          </h1>
+          <h1 className="text-3xl font-bold text-gray-900">Brand Database</h1>
         </div>
-        <Button onClick={() => setShowAddModal(true)} className="bg-orange-600 hover:bg-orange-700">
+        <Button onClick={() => setShowAddModal(true)} className="bg-gray-900 hover:bg-gray-800">
           <Plus className="h-4 w-4 mr-2" /> Add Brand
         </Button>
       </div>
@@ -127,19 +185,19 @@ const BrandsPage = () => {
       {/* Search & Filters */}
       <Card>
         <CardContent className="p-4">
-          <form onSubmit={handleSearch} className="flex flex-wrap gap-4">
-            <div className="flex-1 min-w-[200px]">
+          <div className="flex flex-wrap gap-4">
+            <form onSubmit={handleSearch} className="flex-1 min-w-[200px]">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Search brands..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search brands..."
                   className="pl-10"
                 />
               </div>
-            </div>
-            <Select value={filters.segment || "all"} onValueChange={(v) => setFilters(prev => ({ ...prev, segment: v === "all" ? "" : v }))}>
+            </form>
+            <Select value={filters.segment || 'all'} onValueChange={(v) => setFilters(prev => ({ ...prev, segment: v === 'all' ? '' : v }))}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="All Segments" />
               </SelectTrigger>
@@ -148,7 +206,7 @@ const BrandsPage = () => {
                 {SEGMENTS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={filters.pipeline_stage || "all"} onValueChange={(v) => setFilters(prev => ({ ...prev, pipeline_stage: v === "all" ? "" : v }))}>
+            <Select value={filters.pipeline_stage || 'all'} onValueChange={(v) => setFilters(prev => ({ ...prev, pipeline_stage: v === 'all' ? '' : v }))}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="All Stages" />
               </SelectTrigger>
@@ -157,10 +215,7 @@ const BrandsPage = () => {
                 {PIPELINE_STAGES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Button type="submit" variant="secondary">
-              <Filter className="h-4 w-4 mr-2" /> Apply
-            </Button>
-          </form>
+          </div>
         </CardContent>
       </Card>
 
@@ -280,81 +335,242 @@ const BrandsPage = () => {
         </div>
       )}
 
-      {/* Add Brand Modal */}
+      {/* Add Brand Modal - Enhanced to match screenshot */}
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add New Brand</DialogTitle>
+            <DialogTitle className="text-xl font-semibold">Add New Brand</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Brand Name *</Label>
-              <Input
-                value={newBrand.name}
-                onChange={(e) => setNewBrand(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Enter brand name"
-              />
-            </div>
+          
+          <div className="space-y-6 py-4">
+            {/* Basic Information */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>City *</Label>
+                <Label className="text-xs text-gray-500 uppercase tracking-wider">Brand Name *</Label>
                 <Input
-                  value={newBrand.city}
-                  onChange={(e) => setNewBrand(prev => ({ ...prev, city: e.target.value }))}
-                  placeholder="e.g., Mumbai"
+                  value={newBrand.name}
+                  onChange={(e) => setNewBrand(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Enter brand name"
+                  className="mt-1"
                 />
               </div>
               <div>
-                <Label>Segment</Label>
+                <Label className="text-xs text-gray-500 uppercase tracking-wider">Website</Label>
+                <Input
+                  value={newBrand.website}
+                  onChange={(e) => setNewBrand(prev => ({ ...prev, website: e.target.value }))}
+                  placeholder="https://example.com"
+                  className="mt-1"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs text-gray-500 uppercase tracking-wider">Instagram Handle</Label>
+              <div className="relative mt-1">
+                <Instagram className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  value={newBrand.instagram}
+                  onChange={(e) => setNewBrand(prev => ({ ...prev, instagram: e.target.value }))}
+                  placeholder="@brandhandle or brandhandle"
+                  className="pl-10"
+                />
+              </div>
+              <p className="text-xs text-gray-400 mt-1">If website is unavailable, enter Instagram handle for AI lookup</p>
+            </div>
+
+            {/* AI Auto-fill */}
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                  <Sparkles className="h-5 w-5 text-gray-600" />
+                </div>
+                <div>
+                  <p className="font-medium text-sm">AI Auto-fill</p>
+                  <p className="text-xs text-gray-500">Enter brand name, website, or Instagram above, then click to auto-fill details & find contacts</p>
+                </div>
+              </div>
+              <Button variant="outline" size="sm" onClick={handleAutoFill} disabled={autoFilling}>
+                <Sparkles className="h-4 w-4 mr-2" /> {autoFilling ? 'Processing...' : 'AUTO-FILL'}
+              </Button>
+            </div>
+
+            {/* Division & Segment */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs text-gray-500 uppercase tracking-wider">Division *</Label>
+                <Select value={newBrand.division} onValueChange={(v) => setNewBrand(prev => ({ ...prev, division: v }))}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {DIVISIONS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500 uppercase tracking-wider">Segment *</Label>
                 <Select value={newBrand.segment} onValueChange={(v) => setNewBrand(prev => ({ ...prev, segment: v }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select segment" /></SelectTrigger>
                   <SelectContent>
                     {SEGMENTS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
             </div>
+
+            {/* Categories */}
             <div>
-              <Label>Website</Label>
-              <Input
-                value={newBrand.website}
-                onChange={(e) => setNewBrand(prev => ({ ...prev, website: e.target.value }))}
-                placeholder="https://..."
-              />
+              <Label className="text-xs text-gray-500 uppercase tracking-wider mb-2 block">Categories (Select Multiple)</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {CATEGORIES.map(cat => (
+                  <div key={cat} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`cat-${cat}`}
+                      checked={newBrand.categories.includes(cat)}
+                      onCheckedChange={() => toggleCategory(cat)}
+                    />
+                    <label htmlFor={`cat-${cat}`} className="text-sm cursor-pointer">{cat}</label>
+                  </div>
+                ))}
+              </div>
             </div>
+
+            {/* Gender */}
+            <div>
+              <Label className="text-xs text-gray-500 uppercase tracking-wider mb-2 block">Gender (Select Multiple)</Label>
+              <div className="flex gap-4">
+                {GENDERS.map(g => (
+                  <div key={g} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`gender-${g}`}
+                      checked={newBrand.genders.includes(g)}
+                      onCheckedChange={() => toggleGender(g)}
+                    />
+                    <label htmlFor={`gender-${g}`} className="text-sm cursor-pointer">{g}</label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Price Range */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Email</Label>
+                <Label className="text-xs text-gray-500 uppercase tracking-wider">Min Price (₹)</Label>
+                <Input
+                  type="number"
+                  value={newBrand.min_price}
+                  onChange={(e) => setNewBrand(prev => ({ ...prev, min_price: e.target.value }))}
+                  placeholder="5000"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500 uppercase tracking-wider">Max Price (₹)</Label>
+                <Input
+                  type="number"
+                  value={newBrand.max_price}
+                  onChange={(e) => setNewBrand(prev => ({ ...prev, max_price: e.target.value }))}
+                  placeholder="60000"
+                  className="mt-1"
+                />
+              </div>
+            </div>
+
+            {/* City */}
+            <div>
+              <Label className="text-xs text-gray-500 uppercase tracking-wider">City *</Label>
+              <Select value={newBrand.city} onValueChange={(v) => setNewBrand(prev => ({ ...prev, city: v }))}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select city" /></SelectTrigger>
+                <SelectContent>
+                  {CITIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Contact Information */}
+            <div>
+              <Label className="text-xs text-gray-500 uppercase tracking-wider">Brand Email</Label>
+              <div className="relative mt-1">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   type="email"
                   value={newBrand.email}
                   onChange={(e) => setNewBrand(prev => ({ ...prev, email: e.target.value }))}
-                  placeholder="contact@brand.com"
+                  placeholder="info@brand.com"
+                  className="pl-10"
                 />
               </div>
-              <div>
-                <Label>Phone</Label>
+              <p className="text-xs text-gray-400 mt-1">Brand's general contact email (used for outreach in addition to contacts)</p>
+            </div>
+
+            <div>
+              <Label className="text-xs text-gray-500 uppercase tracking-wider">Phone Number</Label>
+              <div className="relative mt-1">
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   value={newBrand.phone_number}
                   onChange={(e) => setNewBrand(prev => ({ ...prev, phone_number: e.target.value }))}
-                  placeholder="+91..."
+                  placeholder="+91 98765 43210"
+                  className="pl-10"
                 />
               </div>
             </div>
+
             <div>
-              <Label>Description</Label>
-              <Input
+              <Label className="text-xs text-gray-500 uppercase tracking-wider">Full Address</Label>
+              <div className="relative mt-1">
+                <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Textarea
+                  value={newBrand.address}
+                  onChange={(e) => setNewBrand(prev => ({ ...prev, address: e.target.value }))}
+                  placeholder="Enter complete address including building, street, area, pincode..."
+                  className="pl-10 min-h-[80px]"
+                />
+              </div>
+            </div>
+
+            {/* Social Links */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs text-gray-500 uppercase tracking-wider">Instagram</Label>
+                <div className="relative mt-1">
+                  <Instagram className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    value={newBrand.instagram}
+                    onChange={(e) => setNewBrand(prev => ({ ...prev, instagram: e.target.value }))}
+                    placeholder="@brandname"
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500 uppercase tracking-wider">LinkedIn</Label>
+                <div className="relative mt-1">
+                  <Linkedin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    value={newBrand.linkedin}
+                    onChange={(e) => setNewBrand(prev => ({ ...prev, linkedin: e.target.value }))}
+                    placeholder="linkedin.com/company/brand"
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Description */}
+            <div>
+              <Label className="text-xs text-gray-500 uppercase tracking-wider">Brand Description</Label>
+              <Textarea
                 value={newBrand.description}
                 onChange={(e) => setNewBrand(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Brief description of the brand"
+                placeholder="Brief description of the brand's aesthetic, products, and unique selling points..."
+                className="mt-1 min-h-[100px]"
               />
             </div>
           </div>
-          <DialogFooter>
+
+          <DialogFooter className="border-t pt-4">
             <Button variant="outline" onClick={() => setShowAddModal(false)}>Cancel</Button>
-            <Button onClick={handleAddBrand} className="bg-orange-600 hover:bg-orange-700">Add Brand</Button>
+            <Button onClick={handleAddBrand} className="bg-gray-900 hover:bg-gray-800">Add Brand</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
