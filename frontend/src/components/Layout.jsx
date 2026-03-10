@@ -86,7 +86,7 @@ const DEPARTMENT_CONFIG = {
         ]
     },
     tasks: {
-        name: 'Task Management',
+        name: 'Operational Tasks',
         icon: ClipboardList,
         color: 'from-teal-600 to-teal-700',
         bgColor: 'bg-teal-50',
@@ -95,7 +95,7 @@ const DEPARTMENT_CONFIG = {
         routes: [
             { path: '/tasks', name: 'All Tasks', icon: ClipboardList },
             { path: '/tasks/activities', name: 'Activity Feed', icon: Activity },
-            { path: '/tasks/triggers', name: 'Smart Task Triggers', icon: Bot },
+            { path: '/tasks/triggers', name: 'Smart Triggers', icon: Bot },
         ]
     },
     marketing: {

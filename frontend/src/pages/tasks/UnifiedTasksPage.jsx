@@ -193,8 +193,8 @@ export default function UnifiedTasksPage() {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-[#5C4033]">Task Management</h1>
-                    <p className="text-[#8B7355]">Unified task tracking across all modules</p>
+                    <h1 className="text-2xl font-bold text-[#5C4033]">Operational Tasks</h1>
+                    <p className="text-[#8B7355]">Cross-module task tracking and follow-ups</p>
                 </div>
                 <Button 
                     onClick={() => setShowCreateDialog(true)}
@@ -489,7 +489,7 @@ export default function UnifiedTasksPage() {
                     <DialogHeader>
                         <DialogTitle className="text-[#5C4033]">Create New Task</DialogTitle>
                         <DialogDescription className="text-[#8B7355]">
-                            Create a manual task to track work across modules
+                            Create an operational task for cross-module follow-ups
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
