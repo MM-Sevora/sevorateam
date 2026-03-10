@@ -324,7 +324,21 @@ async def get_users_enhanced(
             u["manager_name"] = manager.get("name") if manager else None
         
         # Clean Architecture: Add is_onboarded flag
-        u["is_onboarded"] = bool(u.get("employee_id"))
+        u["is_onboarded"] = bool(u.get("custom_role_ids") and u.get("department_id"))
+        
+        # Get custom role names
+        custom_role_ids = u.get("custom_role_ids", [])
+        if not custom_role_ids and u.get("custom_role_id"):
+            custom_role_ids = [u.get("custom_role_id")]
+        
+        if custom_role_ids:
+            custom_roles = await db.custom_roles.find(
+                {"id": {"$in": custom_role_ids}}, 
+                {"name": 1}
+            ).to_list(10)
+            u["custom_role_names"] = [r.get("name") for r in custom_roles if r.get("name")]
+        else:
+            u["custom_role_names"] = []
         
         # Get direct reports
         direct_reports = await db.users.find({"reports_to": u["id"]}, {"id": 1}).to_list(100)

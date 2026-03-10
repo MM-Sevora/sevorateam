@@ -100,10 +100,15 @@ const UserManagementPage = () => {
   
   const [saving, setSaving] = useState(false);
 
-  // Check if user is onboarded (has employee record)
+  // Check if user is onboarded (has custom_role_ids and department_id OR employee record)
   const isUserOnboarded = useCallback((userId) => {
+    const user = users.find(u => u.id === userId);
+    // Check user's is_onboarded flag from API or custom_role_ids
+    if (user?.is_onboarded) return true;
+    if (user?.custom_role_ids?.length > 0 && user?.department_id) return true;
+    // Fallback: check employees collection
     return employees.some(emp => emp.user_id === userId);
-  }, [employees]);
+  }, [users, employees]);
 
   // Stats
   const stats = {
@@ -567,8 +572,15 @@ const UserManagementPage = () => {
                     </TableCell>
                     <TableCell>
                       {(() => {
-                        const emp = employees.find(e => e.user_id === user.id);
-                        const roleNames = emp?.custom_role_names || [];
+                        // First try user's custom_role_names (from enhanced user data)
+                        let roleNames = user.custom_role_names || [];
+                        
+                        // Fallback: check employees collection
+                        if (roleNames.length === 0) {
+                          const emp = employees.find(e => e.user_id === user.id);
+                          roleNames = emp?.custom_role_names || [];
+                        }
+                        
                         if (roleNames.length === 0) {
                           return <span className="text-gray-400 text-sm">No roles</span>;
                         }

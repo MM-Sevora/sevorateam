@@ -29,6 +29,9 @@ class SystemModule(str, Enum):
     ADMIN = "admin"
     HR = "hr"
     HELP_SUPPORT = "help_support"
+    AUTOMATIONS = "automations"
+    MEETINGS = "meetings"
+    COMMUNICATION_HUB = "communication_hub"
 
 
 # Module definitions with display info
@@ -88,6 +91,27 @@ MODULE_DEFINITIONS = {
         "icon": "HelpCircle",
         "routes": ["/help"],
         "default_access": True  # Everyone gets this
+    },
+    "automations": {
+        "name": "Automations",
+        "description": "Workflow automations and scheduled tasks",
+        "icon": "Zap",
+        "routes": ["/settings/automations"],
+        "default_access": False  # NOT given to viewers
+    },
+    "meetings": {
+        "name": "Meetings",
+        "description": "Meeting management and scheduling",
+        "icon": "Calendar",
+        "routes": ["/meetings"],
+        "default_access": False
+    },
+    "communication_hub": {
+        "name": "Communication Hub",
+        "description": "Teams, Calendar, and Email integrations",
+        "icon": "MessageSquare",
+        "routes": ["/teams", "/mail"],
+        "default_access": False
     }
 }
 
@@ -154,7 +178,7 @@ DEFAULT_CUSTOM_ROLES = [
         "name": "Super Admin",
         "code": "super_admin",
         "description": "Full system access with all administrative privileges",
-        "module_access": ["dashboard", "marketing_ops", "project_management", "mail", "social", "admin", "hr", "help_support"],
+        "module_access": ["dashboard", "marketing_ops", "project_management", "mail", "social", "admin", "hr", "help_support", "automations", "meetings", "communication_hub"],
         "is_system_role": True,
         "can_manage_users": True,
         "can_manage_employees": True,
@@ -164,7 +188,7 @@ DEFAULT_CUSTOM_ROLES = [
         "name": "HR Admin",
         "code": "hr_admin",
         "description": "Manage employees, onboarding, and organizational structure",
-        "module_access": ["dashboard", "hr", "help_support"],
+        "module_access": ["dashboard", "hr", "help_support", "automations"],
         "is_system_role": True,
         "can_manage_users": True,
         "can_manage_employees": True,
@@ -174,7 +198,7 @@ DEFAULT_CUSTOM_ROLES = [
         "name": "Marketing Manager",
         "code": "marketing_manager",
         "description": "Marketing operations, campaigns, and social media",
-        "module_access": ["dashboard", "marketing_ops", "social", "project_management", "help_support"],
+        "module_access": ["dashboard", "marketing_ops", "social", "project_management", "help_support", "meetings", "communication_hub"],
         "is_system_role": True,
         "can_manage_users": False,
         "can_manage_employees": False,
@@ -184,7 +208,7 @@ DEFAULT_CUSTOM_ROLES = [
         "name": "Project Manager",
         "code": "project_manager",
         "description": "Project and task management",
-        "module_access": ["dashboard", "project_management", "help_support"],
+        "module_access": ["dashboard", "project_management", "help_support", "meetings", "automations"],
         "is_system_role": True,
         "can_manage_users": False,
         "can_manage_employees": False,
@@ -194,7 +218,7 @@ DEFAULT_CUSTOM_ROLES = [
         "name": "Sales Manager",
         "code": "sales_manager",
         "description": "Sales operations and customer management",
-        "module_access": ["dashboard", "project_management", "mail", "help_support"],
+        "module_access": ["dashboard", "project_management", "mail", "help_support", "meetings", "communication_hub"],
         "is_system_role": True,
         "can_manage_users": False,
         "can_manage_employees": False,
@@ -214,7 +238,17 @@ DEFAULT_CUSTOM_ROLES = [
         "name": "Employee",
         "code": "employee",
         "description": "Basic employee access - view own profile and assigned tasks",
-        "module_access": ["dashboard", "project_management", "help_support"],
+        "module_access": ["dashboard", "project_management", "help_support", "meetings"],
+        "is_system_role": True,
+        "can_manage_users": False,
+        "can_manage_employees": False,
+        "can_manage_roles": False
+    },
+    {
+        "name": "Viewer",
+        "code": "viewer",
+        "description": "Read-only access to basic modules - NO automation access",
+        "module_access": ["dashboard", "help_support"],
         "is_system_role": True,
         "can_manage_users": False,
         "can_manage_employees": False,

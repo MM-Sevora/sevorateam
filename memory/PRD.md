@@ -1584,6 +1584,26 @@ The Manager Dashboard was already functional with:
   - Added UI controls for Stale Task Reminder
   - Phase 3 items marked with cyan "Phase 3" badge
 
+### Phase 56: Access Control & Roles Fixes (COMPLETE - March 10, 2026)
+
+**Issues Fixed:**
+- [x] Fixed User Management roles display - users now show custom_role_names from user data (not just employees)
+- [x] Fixed "Edit Permissions" modal - now properly displays all 11 system modules
+- [x] Added new modules to MODULE_DEFINITIONS: `automations`, `meetings`, `communication_hub`
+- [x] Created **Viewer** role with restricted access (dashboard + help_support ONLY - NO automations)
+- [x] Updated all default roles with appropriate module access:
+  - Super Admin: All 11 modules including automations
+  - HR Admin: Added automations access
+  - Project Manager: Added automations and meetings access
+  - Marketing/Sales Manager: Added meetings and communication_hub
+  - Employee: Added meetings access
+  - Viewer: dashboard + help_support only (NO automations)
+
+**Files Modified:**
+- `/app/backend/routes/workos.py`: Added custom_role_names enrichment to user data
+- `/app/backend/models/access_control.py`: Added SystemModule enum entries, MODULE_DEFINITIONS, and DEFAULT_CUSTOM_ROLES
+- `/app/frontend/src/pages/admin/UserManagement.jsx`: Fixed isUserOnboarded and roles display logic
+
 ### Phase 55: Teams Chat MSAL Refactoring (COMPLETE - March 10, 2026)
 
 **Issue Resolved:**
