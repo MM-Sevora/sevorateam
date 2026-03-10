@@ -494,7 +494,7 @@ def setup_objective_deadline_job():
     # Remove existing job if present
     try:
         scheduler.remove_job(job_id)
-    except:
+    except Exception:
         pass
     
     # Add new job - runs daily at 9 AM UTC
@@ -588,7 +588,7 @@ def setup_reminder_job():
     # Remove existing job if present
     try:
         scheduler.remove_job(job_id)
-    except:
+    except Exception:
         pass
     
     # Add new job
@@ -658,7 +658,7 @@ async def process_recurring_tasks():
                     start_date = datetime.fromisoformat(start_date_str.replace('Z', '+00:00'))
                     if start_date.tzinfo is None:
                         start_date = start_date.replace(tzinfo=timezone.utc)
-                except:
+                except Exception:
                     continue
                 
                 # Check end conditions
@@ -672,7 +672,7 @@ async def process_recurring_tasks():
                                 end_date = end_date.replace(tzinfo=timezone.utc)
                             if now > end_date:
                                 continue
-                        except:
+                        except Exception:
                             pass
                 elif end_type == "after_occurrences":
                     max_occ = template.get("max_occurrences", 0)
@@ -818,7 +818,7 @@ def setup_recurring_task_job():
     # Remove existing job if present
     try:
         scheduler.remove_job(job_id)
-    except:
+    except Exception:
         pass
     
     # Add new job - runs every hour at minute 0

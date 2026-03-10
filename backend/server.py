@@ -3763,6 +3763,16 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Entity Integration routes: {e}")
 
+# Load Admin V2 routes
+try:
+    from routes.admin import router as admin_v2_router, set_database as set_admin_db, set_jwt_settings as set_admin_jwt
+    set_admin_db(db)
+    set_admin_jwt(JWT_SECRET, JWT_ALGORITHM)
+    api_router.include_router(admin_v2_router)
+    logger.info("Admin V2 routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Admin V2 routes: {e}")
+
 app.include_router(api_router)
 
 # ============== WEBSOCKET FOR REAL-TIME NOTIFICATIONS ==============
@@ -3910,7 +3920,7 @@ Respond with JSON: {{"content": "the post text", "hashtags": ["tag1", "tag2"], "
                     "hashtags": content_data.get("hashtags", []),
                     "hook": content_data.get("hook", "")
                 }
-            except:
+            except Exception:
                 return {"success": True, "content": response_text, "hashtags": [], "hook": ""}
         return {"success": False, "error": result.get("error", "Generation failed")}
     except Exception as e:
@@ -3941,7 +3951,7 @@ Respond with JSON array: [{{"title": "idea title", "description": "brief descrip
                 import json
                 ideas = json.loads(response_text)
                 return {"success": True, "ideas": ideas}
-            except:
+            except Exception:
                 return {"success": True, "ideas": [{"title": "Generated Idea", "description": response_text, "hook": "", "type": "post"}]}
         return {"success": False, "error": result.get("error", "Generation failed")}
     except Exception as e:
@@ -4008,7 +4018,7 @@ Respond with JSON:
                 import json
                 analysis = json.loads(response_text)
                 return {"success": True, **analysis}
-            except:
+            except Exception:
                 return {"success": True, "score": 75, "issues": [], "suggestions": ["Content looks good!"], "engagement_potential": "medium"}
         return {"success": False, "error": result.get("error", "Check failed")}
     except Exception as e:
@@ -4102,7 +4112,7 @@ Respond with JSON array: [{{"title": "idea title", "description": "brief descrip
                 import json
                 ideas = json.loads(response_text)
                 return {"success": True, "ideas": ideas, "pillar": pillar}
-            except:
+            except Exception:
                 return {"success": True, "ideas": [{"title": "Pillar-aligned idea", "description": response_text, "pillar_alignment": pillar, "type": "post"}], "pillar": pillar}
         return {"success": False, "error": result.get("error", "Generation failed")}
     except Exception as e:
@@ -4228,7 +4238,7 @@ Respond with JSON array:
                 import json
                 posts = json.loads(response_text)
                 return {"success": True, "posts": posts, "total": len(posts)}
-            except:
+            except Exception:
                 # Generate placeholder posts
                 posts = []
                 for day in range(1, days + 1):
@@ -4279,7 +4289,7 @@ Respond with JSON:
                 import json
                 prediction = json.loads(response_text)
                 return {"success": True, **prediction}
-            except:
+            except Exception:
                 return {
                     "success": True,
                     "predicted_engagement": "medium",

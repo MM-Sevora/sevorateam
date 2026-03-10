@@ -63,7 +63,7 @@ async def get_user_name(user_id: str) -> Optional[str]:
     try:
         user = await db.users.find_one({"_id": ObjectId(user_id)}, {"name": 1})
         return user.get("name") if user else None
-    except:
+    except Exception:
         return None
 
 
@@ -74,7 +74,7 @@ async def get_fiscal_year_name(fy_id: str) -> Optional[str]:
     try:
         fy = await db.fiscal_years.find_one({"_id": ObjectId(fy_id)}, {"name": 1})
         return fy.get("name") if fy else None
-    except:
+    except Exception:
         return None
 
 
@@ -85,7 +85,7 @@ async def get_quarter_name(quarter_id: str) -> Optional[str]:
     try:
         quarter = await db.quarters.find_one({"_id": ObjectId(quarter_id)}, {"name": 1})
         return quarter.get("name") if quarter else None
-    except:
+    except Exception:
         return None
 
 
@@ -108,7 +108,7 @@ async def get_goal_title(goal_id: str) -> Optional[str]:
     try:
         goal = await db.strategic_goals.find_one({"_id": ObjectId(goal_id)}, {"title": 1})
         return goal.get("title") if goal else None
-    except:
+    except Exception:
         return None
 
 
@@ -190,7 +190,7 @@ async def get_fiscal_year(fy_id: str):
     """Get a fiscal year by ID"""
     try:
         fy = await db.fiscal_years.find_one({"_id": ObjectId(fy_id)})
-    except:
+    except Exception:
         raise HTTPException(status_code=400, detail="Invalid fiscal year ID")
     
     if not fy:
@@ -208,7 +208,7 @@ async def update_fiscal_year(fy_id: str, data: FiscalYearUpdate):
     """Update a fiscal year"""
     try:
         fy = await db.fiscal_years.find_one({"_id": ObjectId(fy_id)})
-    except:
+    except Exception:
         raise HTTPException(status_code=400, detail="Invalid fiscal year ID")
     
     if not fy:
@@ -242,7 +242,7 @@ async def delete_fiscal_year(fy_id: str):
             {"_id": ObjectId(fy_id)},
             {"$set": {"status": "archived", "updated_at": datetime.now(timezone.utc)}}
         )
-    except:
+    except Exception:
         raise HTTPException(status_code=400, detail="Invalid fiscal year ID")
     
     if result.matched_count == 0:
@@ -276,7 +276,7 @@ async def update_quarter(quarter_id: str, data: QuarterUpdate):
     """Update a quarter"""
     try:
         quarter = await db.quarters.find_one({"_id": ObjectId(quarter_id)})
-    except:
+    except Exception:
         raise HTTPException(status_code=400, detail="Invalid quarter ID")
     
     if not quarter:
@@ -377,7 +377,7 @@ async def get_strategic_goal(goal_id: str):
     """Get a strategic goal by ID"""
     try:
         goal = await db.strategic_goals.find_one({"_id": ObjectId(goal_id)})
-    except:
+    except Exception:
         raise HTTPException(status_code=400, detail="Invalid goal ID")
     
     if not goal:
@@ -407,7 +407,7 @@ async def update_strategic_goal(goal_id: str, data: StrategicGoalUpdate):
     """Update a strategic goal"""
     try:
         goal = await db.strategic_goals.find_one({"_id": ObjectId(goal_id)})
-    except:
+    except Exception:
         raise HTTPException(status_code=400, detail="Invalid goal ID")
     
     if not goal:
@@ -434,7 +434,7 @@ async def delete_strategic_goal(goal_id: str):
             {"_id": ObjectId(goal_id)},
             {"$set": {"status": "archived", "updated_at": datetime.now(timezone.utc)}}
         )
-    except:
+    except Exception:
         raise HTTPException(status_code=400, detail="Invalid goal ID")
     
     if result.matched_count == 0:
@@ -559,7 +559,7 @@ async def get_objective(objective_id: str):
     """Get an objective by ID"""
     try:
         obj = await db.objectives.find_one({"_id": ObjectId(objective_id)})
-    except:
+    except Exception:
         raise HTTPException(status_code=400, detail="Invalid objective ID")
     
     if not obj:
@@ -594,7 +594,7 @@ async def update_objective(objective_id: str, data: ObjectiveUpdate):
     """Update an objective"""
     try:
         obj = await db.objectives.find_one({"_id": ObjectId(objective_id)})
-    except:
+    except Exception:
         raise HTTPException(status_code=400, detail="Invalid objective ID")
     
     if not obj:
@@ -626,7 +626,7 @@ async def delete_objective(objective_id: str):
     """Delete an objective"""
     try:
         result = await db.objectives.delete_one({"_id": ObjectId(objective_id)})
-    except:
+    except Exception:
         raise HTTPException(status_code=400, detail="Invalid objective ID")
     
     if result.deleted_count == 0:
@@ -673,7 +673,7 @@ async def update_key_result(kr_id: str, data: KeyResultUpdate):
     """Update a key result"""
     try:
         kr = await db.key_results.find_one({"_id": ObjectId(kr_id)})
-    except:
+    except Exception:
         raise HTTPException(status_code=400, detail="Invalid key result ID")
     
     if not kr:
@@ -704,7 +704,7 @@ async def delete_key_result(kr_id: str):
     """Delete a key result"""
     try:
         result = await db.key_results.delete_one({"_id": ObjectId(kr_id)})
-    except:
+    except Exception:
         raise HTTPException(status_code=400, detail="Invalid key result ID")
     
     if result.deleted_count == 0:
@@ -720,7 +720,7 @@ async def create_objective_update(objective_id: str, data: ObjectiveProgressUpda
     """Create a progress update for an objective"""
     try:
         obj = await db.objectives.find_one({"_id": ObjectId(objective_id)})
-    except:
+    except Exception:
         raise HTTPException(status_code=400, detail="Invalid objective ID")
     
     if not obj:
@@ -781,7 +781,7 @@ async def get_goals_dashboard(fiscal_year_id: Optional[str] = None):
             fy = await db.fiscal_years.find_one({"_id": ObjectId(fiscal_year_id)})
             if fy:
                 fiscal_year = serialize_doc(fy)
-        except:
+        except Exception:
             pass
     
     # Goals statistics

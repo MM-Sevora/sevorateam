@@ -94,7 +94,7 @@ async def generate_project_id() -> str:
         try:
             last_num = int(last_project["project_id"].split("-")[1])
             next_num = last_num + 1
-        except:
+        except Exception:
             next_num = 1001
     else:
         next_num = 1001
@@ -592,7 +592,7 @@ async def list_projects(
                 objective = await db.objectives.find_one({"_id": ObjectId(project["linked_objective_id"])})
                 if objective:
                     project["linked_objective_title"] = objective.get("title")
-            except:
+            except Exception:
                 pass
     
     return filtered_projects
@@ -2743,7 +2743,7 @@ async def create_time_log(
             start = datetime.fromisoformat(data.start_time.replace('Z', '+00:00'))
             end = datetime.fromisoformat(data.end_time.replace('Z', '+00:00'))
             hours = (end - start).total_seconds() / 3600
-        except:
+        except Exception:
             pass
     
     log_doc = {
@@ -3099,7 +3099,7 @@ def calculate_next_occurrence(template: dict, from_date: datetime = None) -> Opt
         start_date = datetime.fromisoformat(start_date_str.replace('Z', '+00:00'))
         if start_date.tzinfo is None:
             start_date = start_date.replace(tzinfo=timezone.utc)
-    except:
+    except Exception:
         return None
     
     # If start date is in the future, that's the next occurrence
@@ -3117,7 +3117,7 @@ def calculate_next_occurrence(template: dict, from_date: datetime = None) -> Opt
                     end_date = end_date.replace(tzinfo=timezone.utc)
                 if from_date > end_date:
                     return None
-            except:
+            except Exception:
                 pass
     elif end_type == "after_occurrences":
         max_occ = template.get("max_occurrences", 0)
@@ -3153,7 +3153,7 @@ def calculate_next_occurrence(template: dict, from_date: datetime = None) -> Opt
                 next_date = next_date + relativedelta(months=freq)
                 try:
                     next_date = next_date.replace(day=min(day, 28))
-                except:
+                except Exception:
                     pass
         else:
             # weekday_of_month - e.g., "First Monday"
@@ -3177,7 +3177,7 @@ def calculate_next_occurrence(template: dict, from_date: datetime = None) -> Opt
                     target_day = 1 + days_until_weekday + (week - 1) * 7
                     try:
                         next_date = next_date.replace(day=target_day)
-                    except:
+                    except Exception:
                         pass
     
     elif rec_type == "quarterly":

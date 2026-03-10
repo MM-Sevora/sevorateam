@@ -135,7 +135,7 @@ async def schedule_discovery_job(data: ScheduledSearch):
     # Parse schedule time
     try:
         hour, minute = map(int, data.schedule_time.split(':'))
-    except:
+    except Exception:
         hour, minute = 9, 0
     
     # Create job record in database

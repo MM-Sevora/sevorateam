@@ -644,7 +644,7 @@ async def create_employee(data: EmployeeCreate, user: dict = Depends(require_adm
             try:
                 last_num = int(last_emp["employee_id"].split("-")[1])
                 employee_code = f"EMP-{str(last_num + 1).zfill(4)}"
-            except:
+            except Exception:
                 count = await db.users.count_documents({})
                 employee_code = f"EMP-{str(count + 1).zfill(4)}"
         else:
@@ -1170,7 +1170,7 @@ async def _enrich_employee(db, emp: dict, full_details: bool = False) -> dict:
             join_date = datetime.fromisoformat(emp["joining_date"].replace("Z", "+00:00"))
             now = datetime.now(timezone.utc)
             emp["years_of_service"] = round((now - join_date).days / 365.25, 1)
-        except:
+        except Exception:
             emp["years_of_service"] = None
     
     return emp

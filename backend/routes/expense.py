@@ -50,7 +50,7 @@ async def generate_claim_id(db) -> str:
         try:
             last_num = int(last_claim["claim_id"].replace("SEVRC", ""))
             return f"SEVRC{str(last_num + 1).zfill(3)}"
-        except:
+        except Exception:
             pass
     
     return "SEVRC001"

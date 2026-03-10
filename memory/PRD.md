@@ -1,5 +1,31 @@
 # CHANGELOG - Sevora Team Platform
 
+## March 10, 2026 - Technical Debt Cleanup
+### P2: Fixed Bare `except:` Clauses
+- ✅ Replaced all ~46 bare `except:` clauses with `except Exception:` for proper error handling
+- Files fixed:
+  - `/app/backend/routes/goals.py` - 19 occurrences
+  - `/app/backend/routes/projects.py` - 7 occurrences
+  - `/app/backend/routes/hr.py` - 2 occurrences
+  - `/app/backend/routes/marketing_extended.py` - 3 occurrences
+  - `/app/backend/routes/expense.py` - 1 occurrence
+  - `/app/backend/routes/meetings.py` - 2 occurrences
+  - `/app/backend/routes/scheduler.py` - 1 occurrence
+  - `/app/backend/server.py` - 6 occurrences
+  - `/app/backend/services/scheduler_service.py` - 5 occurrences
+- Benefit: Improved error logging and debugging capability
+
+### P3: Server.py Refactoring - Initial Phase
+- ✅ Created `/app/backend/routes/admin.py` as foundation for admin route extraction
+- ✅ Added new v2 admin endpoints:
+  - `GET /api/admin-v2/system-health` - System health check
+  - `GET /api/admin-v2/stats/overview` - System statistics (users by status/role/dept, recent logins)
+  - `GET /api/admin-v2/audit-logs` - Admin audit logs
+- Strategy: Gradual migration approach to minimize risk
+- Note: `server.py` (5172 lines) still contains main routes; future work will progressively move them
+
+---
+
 ## March 10, 2026 - Unified Task Management System Implementation
 ### Features Implemented:
 - ✅ Created Unified Task Management System backend (`/app/backend/routes/unified_tasks.py`)

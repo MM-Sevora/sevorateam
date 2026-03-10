@@ -75,7 +75,7 @@ async def get_goal_name(goal_id: str) -> Optional[str]:
         from bson import ObjectId
         goal = await db.strategic_goals.find_one({"_id": ObjectId(goal_id)}, {"_id": 0, "title": 1})
         return goal.get("title") if goal else None
-    except:
+    except Exception:
         return None
 
 
@@ -88,7 +88,7 @@ async def get_objective_name(obj_id: str) -> Optional[str]:
         from bson import ObjectId
         obj = await db.objectives.find_one({"_id": ObjectId(obj_id)}, {"_id": 0, "title": 1})
         return obj.get("title") if obj else None
-    except:
+    except Exception:
         return None
 
 

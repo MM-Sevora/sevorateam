@@ -520,14 +520,14 @@ async def scan_brand_safety(data: BrandSafetyCheckCreate):
         import json
         try:
             ai_result = json.loads(result)
-        except:
+        except Exception:
             ai_result = {
                 "overall_score": 75,
                 "risk_level": "low",
                 "issues_found": [],
                 "recommendations": ["Regular monitoring recommended"]
             }
-    except Exception as e:
+    except Exception:
         # Fallback if AI service unavailable
         ai_result = {
             "overall_score": 70,
@@ -615,7 +615,7 @@ async def analyze_sentiment(data: SentimentAnalysisCreate):
         import json
         try:
             ai_result = json.loads(result)
-        except:
+        except Exception:
             ai_result = {
                 "overall_sentiment": "positive",
                 "sentiment_score": 0.6,
@@ -625,7 +625,7 @@ async def analyze_sentiment(data: SentimentAnalysisCreate):
                 "top_positive_themes": ["fashion", "style", "inspiration"],
                 "top_negative_themes": [],
             }
-    except:
+    except Exception:
         ai_result = {
             "overall_sentiment": "neutral",
             "sentiment_score": 0.5,
