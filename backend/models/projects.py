@@ -41,6 +41,7 @@ class ProjectRole(str, Enum):
 
 class TaskStatus(str, Enum):
     DRAFT = "draft"
+    TODO = "todo"  # Added for backward compatibility
     ASSIGNED = "assigned"
     IN_PROGRESS = "in_progress"
     PENDING_REVIEW = "pending_review"

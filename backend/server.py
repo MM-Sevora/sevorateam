@@ -3678,7 +3678,7 @@ except Exception as e:
 
 # Register Help & Support routes
 try:
-    from routes.help_support import router as help_support_router, init_router as init_help_support_router
+    from routes.help_support import router as help_support_router, init_help_router as init_help_support_router
     init_help_support_router(db, get_current_user)
     api_router.include_router(help_support_router)
     logger.info("Help & Support routes loaded successfully")
