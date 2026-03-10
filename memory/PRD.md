@@ -1,5 +1,37 @@
 # CHANGELOG - Sevora Team Platform
 
+## March 11, 2026 - Social Media Phase 1: Recurring Post Scheduling Complete
+
+### Critical Bug Fix:
+- ✅ **API Endpoint Fix**: Changed all API calls in `PostsAndSchedule.jsx` from `/api/posts` (404) to `/api/social/posts` (correct endpoint)
+- ✅ **Added Missing Endpoints**: Created PUT `/api/social/posts/{post_id}` and DELETE `/api/social/posts/{post_id}` endpoints in `server.py`
+- ✅ **Added POST `/api/social/posts/{post_id}/publish`**: Manual publish endpoint
+
+### Recurring Post Scheduling Feature (SOW Phase 1):
+- ✅ **Backend**: Full recurrence logic in `/api/social/posts` POST endpoint
+  - Supports patterns: daily, weekly, biweekly, monthly, custom days
+  - Auto-generates future post instances using `dateutil.relativedelta`
+  - Configurable end conditions: by count or by date
+  - Parent-child relationship for recurring series (`parent_recurring_id`)
+- ✅ **Frontend**: Recurrence UI in Post Composer modal
+  - "Make this a recurring post" checkbox
+  - Pattern selection buttons: Daily, Weekly, Every 2 weeks, Monthly, Custom days
+  - Custom days selector (Sun-Sat buttons)
+  - Number of posts input / End by date picker
+  - Dynamic summary text showing recurrence preview
+- ✅ **API Endpoints for Recurring Posts**:
+  - GET `/api/social/posts/recurring` - List recurring templates
+  - GET `/api/social/posts/recurring/{post_id}/instances` - Get all instances
+  - PUT `/api/social/posts/recurring/{post_id}` - Update recurring series
+  - DELETE `/api/social/posts/recurring/{post_id}` - Delete recurring series
+
+### Test Results (Iteration 62):
+- **Backend**: 100% (14/14 tests passed)
+- **Frontend**: 100% (all UI elements working)
+- Test file: `/app/backend/tests/test_social_posts_recurring.py`
+
+---
+
 ## March 10, 2026 - Pre-Deployment Bug Fixes & E2E Review
 ### Bugs Fixed:
 1. **Help & Support routes import error** - Fixed `init_router` → `init_help_router` import in server.py
