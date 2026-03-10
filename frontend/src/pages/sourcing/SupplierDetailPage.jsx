@@ -13,9 +13,10 @@ import { toast } from 'sonner';
 import { 
   ArrowLeft, Edit2, Trash2, Phone, Mail, Globe, MapPin,
   Calendar, Clock, Users, Plus, ExternalLink, Package,
-  FileText, User, Settings, Send
+  FileText, User, Settings, Send, ClipboardList
 } from 'lucide-react';
 import EmailComposer from '../../components/sourcing/EmailComposer';
+import CreateTaskDialog from '../../components/shared/CreateTaskDialog';
 
 const PIPELINE_STAGES = ['Discovery', 'Contacted', 'Sampling', 'Evaluation', 'Negotiation', 'Active', 'Inactive'];
 
@@ -30,6 +31,7 @@ const SupplierDetailPage = () => {
   const [showAddContact, setShowAddContact] = useState(false);
   const [showAddNote, setShowAddNote] = useState(false);
   const [showEmailComposer, setShowEmailComposer] = useState(false);
+  const [showCreateTask, setShowCreateTask] = useState(false);
   const [emailRecipient, setEmailRecipient] = useState({ email: '', name: '' });
   const [newContact, setNewContact] = useState({ name: '', role: '', email: '', phone: '' });
   const [newNote, setNewNote] = useState('');
@@ -139,6 +141,9 @@ const SupplierDetailPage = () => {
               <SelectItem value="Inactive">Inactive</SelectItem>
             </SelectContent>
           </Select>
+          <Button variant="outline" onClick={() => setShowCreateTask(true)} className="border-teal-200 text-teal-700 hover:bg-teal-50">
+            <ClipboardList className="h-4 w-4 mr-2" /> Create Task
+          </Button>
           <Button variant="outline" onClick={() => navigate(`/sourcing/suppliers/${id}/edit`)}>
             <Edit2 className="h-4 w-4 mr-2" /> Edit
           </Button>
@@ -452,6 +457,17 @@ const SupplierDetailPage = () => {
         defaultEmail={emailRecipient.email}
         defaultRecipientName={emailRecipient.name}
         onSuccess={fetchSupplierDetails}
+      />
+
+      {/* Create Task Dialog */}
+      <CreateTaskDialog
+        open={showCreateTask}
+        onOpenChange={setShowCreateTask}
+        api={api}
+        sourceModule="sourcing"
+        sourceEntityType="supplier"
+        sourceEntityId={id}
+        sourceEntityName={supplier?.name || 'Supplier'}
       />
     </div>
   );

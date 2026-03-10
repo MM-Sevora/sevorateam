@@ -13,9 +13,10 @@ import { toast } from 'sonner';
 import { 
   ArrowLeft, Edit2, Trash2, Phone, Mail, Globe, MapPin,
   Calendar, Clock, Users, Plus, ExternalLink, Factory,
-  FileText, User, Settings, Award, Package, FlaskConical, Send
+  FileText, User, Settings, Award, Package, FlaskConical, Send, ClipboardList
 } from 'lucide-react';
 import EmailComposer from '../../components/sourcing/EmailComposer';
+import CreateTaskDialog from '../../components/shared/CreateTaskDialog';
 
 const PIPELINE_STAGES = ['Discovery', 'Contacted', 'Factory Visit', 'Sampling', 'Production Trial', 'Active', 'Inactive'];
 
@@ -31,6 +32,7 @@ const ManufacturerDetailPage = () => {
   const [showAddContact, setShowAddContact] = useState(false);
   const [showAddNote, setShowAddNote] = useState(false);
   const [showEmailComposer, setShowEmailComposer] = useState(false);
+  const [showCreateTask, setShowCreateTask] = useState(false);
   const [emailRecipient, setEmailRecipient] = useState({ email: '', name: '' });
   const [newContact, setNewContact] = useState({ name: '', role: '', email: '', phone: '' });
   const [newNote, setNewNote] = useState('');
@@ -133,6 +135,9 @@ const ManufacturerDetailPage = () => {
             className="bg-purple-600 hover:bg-purple-700"
           >
             <Send className="h-4 w-4 mr-2" /> Send Email
+          </Button>
+          <Button variant="outline" onClick={() => setShowCreateTask(true)} className="border-teal-200 text-teal-700 hover:bg-teal-50">
+            <ClipboardList className="h-4 w-4 mr-2" /> Create Task
           </Button>
           <Select value={manufacturer.pipeline_stage} onValueChange={handleUpdateStage} disabled={updatingStage}>
             <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
@@ -428,6 +433,17 @@ const ManufacturerDetailPage = () => {
         defaultEmail={emailRecipient.email}
         defaultRecipientName={emailRecipient.name}
         onSuccess={fetchManufacturerDetails}
+      />
+
+      {/* Create Task Dialog */}
+      <CreateTaskDialog
+        open={showCreateTask}
+        onOpenChange={setShowCreateTask}
+        api={api}
+        sourceModule="sourcing"
+        sourceEntityType="manufacturer"
+        sourceEntityId={id}
+        sourceEntityName={manufacturer?.name || 'Manufacturer'}
       />
     </div>
   );
