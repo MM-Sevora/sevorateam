@@ -1584,6 +1584,37 @@ The Manager Dashboard was already functional with:
   - Added UI controls for Stale Task Reminder
   - Phase 3 items marked with cyan "Phase 3" badge
 
+### Phase 60: Access Control Role Management Fixes (COMPLETE - March 10, 2026)
+
+**Issues Fixed:**
+
+1. **Edit Role Functionality** ✅
+   - Fixed backend to allow editing `module_access` for system roles
+   - System roles can now have their module access and admin permissions modified
+   - Only `name` and `code` are protected for system roles
+   - Custom roles can be fully edited
+
+2. **Create Custom Role** ✅
+   - Verified working via API and UI
+   - Custom roles can have any modules assigned
+   - Test Custom Role created successfully
+
+3. **System Modules** 
+   - Modules are defined in code (`MODULE_DEFINITIONS`) for system stability
+   - Currently 11 modules available: dashboard, marketing_ops, project_management, mail, social, admin, hr, help_support, automations, meetings, communication_hub
+   - Note: Modules are READ-ONLY by design to prevent system instability
+
+**Backend Changes:**
+- `/app/backend/routes/access_control.py`: 
+  - Updated `update_custom_role()` to allow `module_access`, `module_permissions`, `can_manage_users`, `can_manage_employees`, `can_manage_roles` for system roles
+  - Protected only `name` and `code` from being changed for system roles
+
+**API Verification:**
+- ✅ List roles: 9 roles (8 system + 1 custom "Test Custom Role")
+- ✅ Edit system role description: Works
+- ✅ Edit system role module_access: Works
+- ✅ Create custom role: Works
+
 ### Phase 59: Access Control UI Fixes (COMPLETE - March 10, 2026)
 
 **Issues Fixed:**

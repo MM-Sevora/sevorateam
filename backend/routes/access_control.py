@@ -132,22 +132,36 @@ async def update_custom_role(
     if not existing:
         raise HTTPException(status_code=404, detail="Role not found")
     
-    # Prevent modifying system roles
+    # Get all non-None values from the update data
+    update_dict = {k: v for k, v in data.model_dump().items() if v is not None}
+    
+    # For system roles, restrict certain fields
     if existing.get("is_system_role"):
-        # Only allow updating description and is_active for system roles
-        allowed = ["description", "is_active"]
-        update_data = {k: v for k, v in data.model_dump().items() if v is not None and k in allowed}
-        if not update_data:
-            raise HTTPException(status_code=400, detail="Cannot modify core properties of system roles")
+        # Cannot change name or code for system roles
+        if "name" in update_dict and update_dict["name"] != existing.get("name"):
+            raise HTTPException(status_code=400, detail="Cannot change name of system roles")
+        if "code" in update_dict and update_dict["code"] != existing.get("code"):
+            raise HTTPException(status_code=400, detail="Cannot change code of system roles")
+        
+        # Filter to only allowed fields for system roles
+        allowed = ["description", "is_active", "module_access", "module_permissions", 
+                   "can_manage_users", "can_manage_employees", "can_manage_roles"]
+        update_data = {k: v for k, v in update_dict.items() if k in allowed}
     else:
-        update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+        update_data = update_dict
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
     
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     
     await db.custom_roles.update_one({"id": role_id}, {"$set": update_data})
     
     updated = await db.custom_roles.find_one({"id": role_id}, {"_id": 0})
-    updated["employee_count"] = await db.employees.count_documents({"custom_role_id": role_id})
+    # Count from both employees and users collections
+    emp_count = await db.employees.count_documents({"custom_role_id": role_id})
+    user_count = await db.users.count_documents({"custom_role_ids": role_id})
+    updated["employee_count"] = max(emp_count, user_count)
     updated["module_names"] = [
         MODULE_DEFINITIONS.get(m, {}).get("name", m) 
         for m in updated.get("module_access", [])
