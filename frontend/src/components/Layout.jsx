@@ -135,20 +135,6 @@ const DEPARTMENT_CONFIG = {
             { path: '/social/library', name: 'Content Library', icon: Image },
         ]
     },
-    admin: {
-        name: 'Administration',
-        icon: Settings,
-        color: 'from-slate-600 to-slate-700',
-        bgColor: 'bg-slate-50',
-        textColor: 'text-slate-700',
-        requiredModule: 'admin',  // Module-based access
-        routes: [
-            { path: '/admin/users', name: 'User Management', icon: Users },
-            { path: '/admin/employees', name: 'Employee Database', icon: Award },
-            { path: '/admin/organization', name: 'Organization', icon: Building2 },
-            { path: '/admin/access-control', name: 'Permissions', icon: Shield },
-        ]
-    },
     hr: {
         name: 'HR & Finance',
         icon: Briefcase,
@@ -203,6 +189,20 @@ const DEPARTMENT_CONFIG = {
             { path: '/sourcing/settings', name: 'Settings', icon: Settings },
         ]
     },
+    admin: {
+        name: 'Administration',
+        icon: Settings,
+        color: 'from-slate-600 to-slate-700',
+        bgColor: 'bg-slate-50',
+        textColor: 'text-slate-700',
+        requiredModule: 'admin',  // Module-based access
+        routes: [
+            { path: '/admin/users', name: 'User Management', icon: Users },
+            { path: '/admin/employees', name: 'Employee Database', icon: Award },
+            { path: '/admin/organization', name: 'Organization', icon: Building2 },
+            { path: '/admin/access-control', name: 'Permissions', icon: Shield },
+        ]
+    },
     systems: {
         name: 'Systems',
         icon: Server,
@@ -235,7 +235,7 @@ export const Layout = ({ children }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(true);
-    const [expandedDepts, setExpandedDepts] = useState(['analytics', 'goals', 'marketing', 'projects', 'mail', 'sales', 'social', 'admin', 'hr', 'sourcing', 'systems']);
+    const [expandedDepts, setExpandedDepts] = useState(['analytics', 'goals', 'meetings', 'projects', 'marketing', 'sales', 'social', 'hr', 'sourcing', 'admin', 'systems']);
     const [expandedSubgroups, setExpandedSubgroups] = useState([]);
 
     const toggleDepartment = (dept) => {
