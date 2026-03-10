@@ -20,6 +20,14 @@ import {
 } from '../../components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Switch } from '../../components/ui/switch';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog';
 import { toast } from 'sonner';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -59,6 +67,11 @@ const CreateMeeting = () => {
   
   // Edit mode detection
   const isEditMode = !!meetingId;
+  
+  // Series edit modal
+  const [showSeriesEditModal, setShowSeriesEditModal] = useState(false);
+  const [isRecurringMeeting, setIsRecurringMeeting] = useState(false);
+  const [seriesId, setSeriesId] = useState(null);
   
   // Options data
   const [departments, setDepartments] = useState([]);
@@ -203,6 +216,12 @@ const CreateMeeting = () => {
           setAgenda(meeting.agenda || []);
           setParticipants(meeting.participants || []);
           setPreReadDocuments(meeting.pre_read_documents || []);
+          
+          // Check if this is a recurring meeting
+          if (meeting.recurrence_type && meeting.recurrence_type !== 'none') {
+            setIsRecurringMeeting(true);
+            setSeriesId(meeting.parent_recurring_id || meeting.id);
+          }
         } else {
           toast.error('Meeting not found');
           navigate('/meetings');
@@ -279,6 +298,17 @@ const CreateMeeting = () => {
       return;
     }
 
+    // If editing a recurring meeting, show the choice modal
+    if (isEditMode && isRecurringMeeting) {
+      setShowSeriesEditModal(true);
+      return;
+    }
+
+    // Otherwise, proceed with normal save
+    await saveChanges('single');
+  };
+
+  const saveChanges = async (scope = 'single') => {
     setSaving(true);
     try {
       const token = localStorage.getItem('sevora_token');
@@ -309,31 +339,74 @@ const CreateMeeting = () => {
         recurrence_end_date: formData.recurrence_end_date ? `${formData.recurrence_end_date}T23:59:59Z` : null
       };
 
-      const url = isEditMode ? `${API}/api/meetings/${meetingId}` : `${API}/api/meetings`;
-      const method = isEditMode ? 'PUT' : 'POST';
+      let url, method;
+      
+      if (scope === 'series' && seriesId) {
+        // Update all future meetings in series
+        url = `${API}/api/meetings/series/${seriesId}?update_scope=future`;
+        method = 'PUT';
+        // Only send fields that can be bulk updated
+        const seriesPayload = {
+          title: formData.title,
+          description: formData.description,
+          meeting_type: formData.meeting_type,
+          location: formData.location || null,
+          meeting_link: formData.meeting_link || null,
+          department_id: formData.department_id || null,
+          linked_goal_id: formData.linked_goal_id || null,
+          linked_objective_id: formData.linked_objective_id || null,
+          linked_project_id: formData.linked_project_id || null,
+          visibility: formData.visibility,
+          agenda: agenda.filter(a => a.title),
+          recurrence_end_date: formData.recurrence_end_date ? `${formData.recurrence_end_date}T23:59:59Z` : null
+        };
+        
+        const res = await fetch(url, {
+          method,
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(seriesPayload)
+        });
 
-      const res = await fetch(url, {
-        method,
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (res.ok) {
-        const meeting = await res.json();
-        toast.success(isEditMode ? 'Meeting updated successfully' : 'Meeting created successfully');
-        navigate(`/meetings/${meeting.id}`);
+        if (res.ok) {
+          const result = await res.json();
+          toast.success(`Updated ${result.updated_count} meetings in series`);
+          navigate(`/meetings/${meetingId}`);
+        } else {
+          const error = await res.json();
+          toast.error(error.detail || 'Failed to update series');
+        }
       } else {
-        const error = await res.json();
-        toast.error(error.detail || `Failed to ${isEditMode ? 'update' : 'create'} meeting`);
+        // Single meeting update/create
+        url = isEditMode ? `${API}/api/meetings/${meetingId}` : `${API}/api/meetings`;
+        method = isEditMode ? 'PUT' : 'POST';
+
+        const res = await fetch(url, {
+          method,
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+          const meeting = await res.json();
+          toast.success(isEditMode ? 'Meeting updated successfully' : 'Meeting created successfully');
+          navigate(`/meetings/${meeting.id}`);
+        } else {
+          const error = await res.json();
+          toast.error(error.detail || `Failed to ${isEditMode ? 'update' : 'create'} meeting`);
+        }
       }
     } catch (error) {
-      console.error(`Error ${isEditMode ? 'updating' : 'creating'} meeting:`, error);
-      toast.error(`Error ${isEditMode ? 'updating' : 'creating'} meeting`);
+      console.error(`Error saving meeting:`, error);
+      toast.error('Error saving meeting');
     } finally {
       setSaving(false);
+      setShowSeriesEditModal(false);
     }
   };
 
@@ -885,6 +958,73 @@ const CreateMeeting = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Series Modal */}
+      <Dialog open={showSeriesEditModal} onOpenChange={setShowSeriesEditModal}>
+        <DialogContent className="bg-white border-[#D4BBA6] max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[#4A3728] flex items-center gap-2">
+              <RefreshCw className="w-5 h-5 text-blue-600" />
+              Edit Recurring Meeting
+            </DialogTitle>
+            <DialogDescription className="text-[#6B5D52]">
+              This is part of a recurring series. How would you like to apply your changes?
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-3 py-4">
+            <button
+              onClick={() => saveChanges('single')}
+              disabled={saving}
+              className="w-full p-4 text-left border border-[#D4BBA6] rounded-lg hover:bg-[#F5EBE0] transition-colors group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#F5EBE0] flex items-center justify-center group-hover:bg-white">
+                  <Calendar className="w-5 h-5 text-[#4A3728]" />
+                </div>
+                <div>
+                  <p className="font-medium text-[#4A3728]">This meeting only</p>
+                  <p className="text-sm text-[#6B5D52]">Changes will only apply to this occurrence</p>
+                </div>
+              </div>
+            </button>
+            
+            <button
+              onClick={() => saveChanges('series')}
+              disabled={saving}
+              className="w-full p-4 text-left border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center group-hover:bg-white">
+                  <RefreshCw className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="font-medium text-blue-700">All future meetings</p>
+                  <p className="text-sm text-blue-600">Update all upcoming meetings in this series</p>
+                </div>
+              </div>
+            </button>
+          </div>
+          
+          {saving && (
+            <div className="flex items-center justify-center py-2">
+              <Loader2 className="w-5 h-5 animate-spin text-[#4A3728] mr-2" />
+              <span className="text-sm text-[#6B5D52]">Saving changes...</span>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowSeriesEditModal(false)}
+              disabled={saving}
+              className="border-[#D4BBA6]"
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

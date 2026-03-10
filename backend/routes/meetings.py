@@ -453,6 +453,118 @@ async def get_meeting_series(
     }
 
 
+@router.put("/series/{series_id}")
+async def update_meeting_series(
+    series_id: str,
+    update_data: dict,
+    update_scope: str = Query(default="future", description="'future' for upcoming meetings, 'all' for entire series"),
+    user: dict = Depends(get_current_user_dep)
+):
+    """Update all meetings in a recurring series
+    
+    update_scope options:
+    - 'future': Only update scheduled (upcoming) meetings
+    - 'all': Update all meetings in the series (including completed)
+    """
+    # Find all meetings in this series
+    query = {"$or": [
+        {"id": series_id},
+        {"parent_recurring_id": series_id}
+    ]}
+    
+    # If only updating future meetings, filter by status
+    if update_scope == "future":
+        query = {"$and": [
+            query,
+            {"status": {"$in": ["scheduled", "postponed"]}}
+        ]}
+    
+    meetings = await db.meetings.find(query, {"_id": 0, "id": 1}).to_list(200)
+    
+    if not meetings:
+        raise HTTPException(status_code=404, detail="No meetings found in series")
+    
+    meeting_ids = [m["id"] for m in meetings]
+    
+    # Fields that can be updated in bulk
+    allowed_fields = [
+        "title", "description", "meeting_type", "location", "meeting_link",
+        "department_id", "linked_goal_id", "linked_objective_id", "linked_project_id",
+        "visibility", "agenda", "recurrence_end_date"
+    ]
+    
+    # Filter update_data to only allowed fields
+    filtered_update = {k: v for k, v in update_data.items() if k in allowed_fields}
+    
+    if not filtered_update:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+    
+    filtered_update["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    # Perform bulk update
+    result = await db.meetings.update_many(
+        {"id": {"$in": meeting_ids}},
+        {"$set": filtered_update}
+    )
+    
+    return {
+        "message": f"Updated {result.modified_count} meetings in series",
+        "updated_count": result.modified_count,
+        "total_in_scope": len(meeting_ids)
+    }
+
+
+@router.post("/series/{series_id}/cancel")
+async def cancel_meeting_series(
+    series_id: str,
+    cancel_scope: str = Query(default="future", description="'future' for upcoming only, 'all' for entire series"),
+    reason: Optional[str] = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Cancel all meetings in a recurring series"""
+    # Build query for meetings to cancel
+    query = {"$or": [
+        {"id": series_id},
+        {"parent_recurring_id": series_id}
+    ]}
+    
+    # If only cancelling future meetings, filter by status
+    if cancel_scope == "future":
+        query = {"$and": [
+            query,
+            {"status": {"$in": ["scheduled", "postponed"]}}
+        ]}
+    
+    meetings = await db.meetings.find(query, {"_id": 0, "id": 1, "status": 1}).to_list(200)
+    
+    if not meetings:
+        raise HTTPException(status_code=404, detail="No meetings found to cancel")
+    
+    # Filter out already completed or cancelled meetings
+    cancelable_ids = [m["id"] for m in meetings if m.get("status") not in ["completed", "cancelled"]]
+    
+    if not cancelable_ids:
+        raise HTTPException(status_code=400, detail="No cancelable meetings found")
+    
+    # Perform bulk cancel
+    result = await db.meetings.update_many(
+        {"id": {"$in": cancelable_ids}},
+        {"$set": {
+            "status": MeetingStatus.CANCELLED.value,
+            "cancellation_reason": reason or "Series cancelled",
+            "cancelled_by": user.get("id"),
+            "cancelled_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {
+        "message": f"Cancelled {result.modified_count} meetings in series",
+        "cancelled_count": result.modified_count,
+        "total_found": len(meetings)
+    }
+
+
 # ============== GLOBAL ISSUES & RISKS (must be before /{meeting_id}) ==============
 
 @router.get("/all-issues-risks")

@@ -285,6 +285,35 @@ const MeetingDetail = () => {
     }
   };
 
+  // Cancel all future meetings in series
+  const handleCancelSeries = async () => {
+    if (!window.confirm('Cancel all future meetings in this series? This cannot be undone.')) return;
+    
+    const seriesId = meeting.parent_recurring_id || meeting.id;
+    
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/meetings/series/${seriesId}/cancel?cancel_scope=future`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (res.ok) {
+        const result = await res.json();
+        toast.success(`Cancelled ${result.cancelled_count} meetings`);
+        setShowSeriesModal(false);
+        fetchMeeting();
+        // Refresh series data
+        fetchSeriesData();
+      } else {
+        const error = await res.json();
+        toast.error(error.detail || 'Failed to cancel series');
+      }
+    } catch (error) {
+      toast.error('Error cancelling series');
+    }
+  };
+
   // Discussion Notes
   const handleAddNote = async () => {
     if (!noteForm.topic || !noteForm.notes) {
@@ -2339,7 +2368,15 @@ const MeetingDetail = () => {
             </div>
           )}
           
-          <DialogFooter>
+          <DialogFooter className="flex justify-between">
+            <Button 
+              variant="outline" 
+              onClick={handleCancelSeries}
+              className="border-red-300 text-red-600 hover:bg-red-50"
+            >
+              <XCircle className="w-4 h-4 mr-2" />
+              Cancel All Future
+            </Button>
             <Button variant="outline" onClick={() => setShowSeriesModal(false)} className="border-[#D4BBA6]">
               Close
             </Button>
