@@ -835,162 +835,206 @@ const MeetingDetail = () => {
   if (!meeting) return null;
 
   return (
-    <div className="p-8 space-y-6" data-testid="meeting-detail-page">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate('/meetings')}
-            className="text-[#4A3728] mt-1"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Badge variant="outline" className={statusColors[meeting.status]}>
-                {meeting.status.replace('_', ' ')}
-              </Badge>
-              <Badge variant="outline" className="bg-[#F5EBE0] text-[#5D4A3A]">
-                {meetingTypeLabels[meeting.meeting_type] || meeting.meeting_type}
-              </Badge>
-              {meeting.recurrence_type && meeting.recurrence_type !== 'none' && (
+    <div className="p-6 lg:p-8 space-y-6 max-w-[1400px] mx-auto" data-testid="meeting-detail-page">
+      {/* Enhanced Header */}
+      <div className="bg-gradient-to-r from-[#F5EBE0] to-white rounded-xl p-6 shadow-sm border border-[#E8D5C4]">
+        <div className="flex items-start justify-between">
+          <div className="flex items-start gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/meetings')}
+              className="text-[#4A3728] hover:bg-[#E8D5C4] rounded-full h-10 w-10"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div className="space-y-3">
+              {/* Badge Row - Cleaner Layout */}
+              <div className="flex flex-wrap items-center gap-2">
                 <Badge 
                   variant="outline" 
-                  className="bg-blue-50 text-blue-700 border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors"
-                  onClick={fetchSeriesData}
-                  data-testid="recurring-badge"
+                  className={`${statusColors[meeting.status]} px-3 py-1 font-medium capitalize`}
                 >
-                  <RefreshCw className={`w-3 h-3 mr-1 ${loadingSeries ? 'animate-spin' : ''}`} />
-                  {meeting.recurrence_type.charAt(0).toUpperCase() + meeting.recurrence_type.slice(1)}
-                  {meeting.recurrence_type === 'weekly' && meeting.recurrence_day_of_week !== null && meeting.recurrence_day_of_week !== undefined && (
-                    <span className="ml-1">
-                      ({['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][meeting.recurrence_day_of_week]})
-                    </span>
-                  )}
-                  {meeting.recurrence_type === 'monthly' && meeting.recurrence_day_of_month && (
-                    <span className="ml-1">
-                      ({meeting.recurrence_day_of_month}{meeting.recurrence_day_of_month === 1 ? 'st' : meeting.recurrence_day_of_month === 2 ? 'nd' : meeting.recurrence_day_of_month === 3 ? 'rd' : 'th'})
-                    </span>
-                  )}
-                  <span className="ml-1 text-xs opacity-70">• View Series</span>
+                  {meeting.status.replace('_', ' ')}
                 </Badge>
-              )}
+                <Badge variant="outline" className="bg-[#F5EBE0] text-[#5D4A3A] px-3 py-1">
+                  {meetingTypeLabels[meeting.meeting_type] || meeting.meeting_type}
+                </Badge>
+                {meeting.recurrence_type && meeting.recurrence_type !== 'none' && (
+                  <Badge 
+                    variant="outline" 
+                    className="bg-blue-50 text-blue-700 border-blue-200 cursor-pointer hover:bg-blue-100 transition-all px-3 py-1 hover:shadow-sm"
+                    onClick={fetchSeriesData}
+                    data-testid="recurring-badge"
+                  >
+                    <RefreshCw className={`w-3 h-3 mr-1.5 ${loadingSeries ? 'animate-spin' : ''}`} />
+                    {meeting.recurrence_type.charAt(0).toUpperCase() + meeting.recurrence_type.slice(1)}
+                    {meeting.recurrence_type === 'weekly' && meeting.recurrence_day_of_week !== null && meeting.recurrence_day_of_week !== undefined && (
+                      <span className="ml-1">
+                        ({['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][meeting.recurrence_day_of_week]})
+                      </span>
+                    )}
+                    {meeting.recurrence_type === 'monthly' && meeting.recurrence_day_of_month && (
+                      <span className="ml-1">
+                        ({meeting.recurrence_day_of_month}{meeting.recurrence_day_of_month === 1 ? 'st' : meeting.recurrence_day_of_month === 2 ? 'nd' : meeting.recurrence_day_of_month === 3 ? 'rd' : 'th'})
+                      </span>
+                    )}
+                  </Badge>
+                )}
+                
+                {/* Series Occurrence - More Prominent */}
+                {meeting.series_info && (
+                  <Badge 
+                    variant="outline" 
+                    className="bg-violet-50 text-violet-700 border-violet-200 px-3 py-1 font-semibold"
+                    data-testid="series-occurrence-badge"
+                  >
+                    #{meeting.series_info.current_occurrence} of {meeting.series_info.total_occurrences}
+                  </Badge>
+                )}
+                
+                {meeting.recurrence_type && meeting.recurrence_type !== 'none' && (
+                  <span 
+                    className="text-xs text-blue-600 hover:text-blue-800 cursor-pointer flex items-center gap-1"
+                    onClick={fetchSeriesData}
+                  >
+                    View Series <ExternalLink className="w-3 h-3" />
+                  </span>
+                )}
+              </div>
               
-              {/* Series Occurrence Summary */}
-              {meeting.series_info && (
-                <Badge 
-                  variant="outline" 
-                  className="bg-violet-50 text-violet-700 border-violet-200"
-                  data-testid="series-occurrence-badge"
-                >
-                  #{meeting.series_info.current_occurrence} of {meeting.series_info.total_occurrences}
-                </Badge>
-              )}
-            </div>
-            <h1 className="text-2xl font-bold text-[#4A3728]">{meeting.title}</h1>
-            <div className="flex items-center gap-4 mt-2 text-sm text-[#5D4A3A]">
-              <span className="flex items-center gap-1">
-                <Calendar className="w-4 h-4" />
-                {formatDateTime(meeting.start_time)}
-              </span>
-              {meeting.location && (
-                <span className="flex items-center gap-1">
-                  <MapPin className="w-4 h-4" />
-                  {meeting.location}
+              {/* Title */}
+              <h1 className="text-2xl lg:text-3xl font-bold text-[#4A3728] tracking-tight">{meeting.title}</h1>
+              
+              {/* Meta Info Row */}
+              <div className="flex flex-wrap items-center gap-4 text-sm text-[#5D4A3A]">
+                <span className="flex items-center gap-1.5 bg-white/80 px-3 py-1.5 rounded-full border border-[#E8D5C4]">
+                  <Calendar className="w-4 h-4 text-[#8B7355]" />
+                  {formatDateTime(meeting.start_time)}
                 </span>
-              )}
-              <span className="flex items-center gap-1">
-                <Users className="w-4 h-4" />
-                {meeting.participants?.length || 0} participants
-              </span>
+                {meeting.location && (
+                  <span className="flex items-center gap-1.5 bg-white/80 px-3 py-1.5 rounded-full border border-[#E8D5C4]">
+                    <MapPin className="w-4 h-4 text-[#8B7355]" />
+                    {meeting.location}
+                  </span>
+                )}
+                <span className="flex items-center gap-1.5 bg-white/80 px-3 py-1.5 rounded-full border border-[#E8D5C4]">
+                  <Users className="w-4 h-4 text-[#8B7355]" />
+                  {meeting.participants?.length || 0} participants
+                </span>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Action Buttons */}
-        <div className="flex gap-2">
-          {/* Sync to Outlook Button */}
-          <Button
-            variant="outline"
-            onClick={handleSyncToOutlook}
-            disabled={syncingToOutlook}
-            className={`border-[#D4BBA6] ${meeting.sync_to_outlook ? 'text-emerald-600 border-emerald-300 bg-emerald-50' : ''}`}
-            data-testid="sync-outlook-btn"
-          >
-            {syncingToOutlook ? (
-              <>
-                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                Syncing...
-              </>
-            ) : meeting.sync_to_outlook ? (
-              <>
-                <CheckCircle2 className="w-4 h-4 mr-2" />
-                Synced to Outlook
-              </>
-            ) : (
-              <>
-                <CloudUpload className="w-4 h-4 mr-2" />
-                Sync to Outlook
-              </>
-            )}
-          </Button>
-          
-          {meeting.status === 'scheduled' && (
-            <>
-              <Button onClick={handleStartMeeting} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                <Play className="w-4 h-4 mr-2" />
-                Start Meeting
+          {/* Action Buttons - Redesigned */}
+          <div className="flex flex-wrap gap-2 items-start">
+            {/* Primary Actions Group */}
+            <div className="flex gap-2 flex-wrap">
+              {/* Sync to Outlook */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSyncToOutlook}
+                disabled={syncingToOutlook}
+                className={`transition-all ${meeting.sync_to_outlook 
+                  ? 'text-emerald-600 border-emerald-300 bg-emerald-50 hover:bg-emerald-100' 
+                  : 'border-[#D4BBA6] hover:bg-[#F5EBE0]'}`}
+                data-testid="sync-outlook-btn"
+              >
+                {syncingToOutlook ? (
+                  <><RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />Syncing</>
+                ) : meeting.sync_to_outlook ? (
+                  <><CheckCircle2 className="w-4 h-4 mr-1.5" />Synced</>
+                ) : (
+                  <><CloudUpload className="w-4 h-4 mr-1.5" />Sync to Outlook</>
+                )}
               </Button>
-              {/* Skip button - only for recurring meetings */}
-              {meeting.recurrence_type && meeting.recurrence_type !== 'none' && (
-                <Button onClick={handleSkipMeeting} variant="outline" className="border-amber-300 text-amber-600 hover:bg-amber-50">
-                  <SkipForward className="w-4 h-4 mr-2" />
-                  Skip
+              
+              {/* Meeting Minutes for completed */}
+              {meeting.status === 'completed' && (
+                <Button 
+                  size="sm"
+                  onClick={() => setShowMinutesModal(true)} 
+                  variant="outline" 
+                  className="border-[#D4BBA6] hover:bg-[#F5EBE0]"
+                >
+                  <FileText className="w-4 h-4 mr-1.5" />
+                  Meeting Minutes
                 </Button>
               )}
-              <Button onClick={handleCancelMeeting} variant="outline" className="border-red-300 text-red-600 hover:bg-red-50">
-                <XCircle className="w-4 h-4 mr-2" />
-                Cancel
+              
+              {/* AI Summary */}
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="border-violet-300 text-violet-700 hover:bg-violet-50"
+                onClick={generateAiSummary}
+                disabled={generatingSummary}
+                data-testid="generate-ai-summary-btn"
+              >
+                {generatingSummary ? (
+                  <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Generating</>
+                ) : (
+                  <><Sparkles className="w-4 h-4 mr-1.5" />{aiSummary ? 'AI Summary' : 'AI Summary'}</>
+                )}
               </Button>
-            </>
-          )}
-          {meeting.status === 'in_progress' && (
-            <Button onClick={handleCompleteMeeting} className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white">
-              <CheckCircle2 className="w-4 h-4 mr-2" />
-              Complete Meeting
-            </Button>
-          )}
-          {meeting.status === 'completed' && (
-            <Button onClick={() => setShowMinutesModal(true)} variant="outline" className="border-[#D4BBA6]">
-              <FileText className="w-4 h-4 mr-2" />
-              Meeting Minutes
-            </Button>
-          )}
-          <Button 
-            variant="outline" 
-            className="border-violet-300 text-violet-700 hover:bg-violet-50"
-            onClick={generateAiSummary}
-            disabled={generatingSummary}
-            data-testid="generate-ai-summary-btn"
-          >
-            {generatingSummary ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4 mr-2" />
-                {aiSummary ? 'Regenerate Summary' : 'AI Summary'}
-              </>
+              
+              {/* Edit */}
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="border-[#D4BBA6] hover:bg-[#F5EBE0]" 
+                onClick={() => navigate(`/meetings/${meetingId}/edit`)}
+              >
+                <Edit className="w-4 h-4 mr-1.5" />
+                Edit
+              </Button>
+            </div>
+            
+            {/* Status Actions */}
+            {meeting.status === 'scheduled' && (
+              <div className="flex gap-2">
+                <Button 
+                  onClick={handleStartMeeting} 
+                  size="sm"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                >
+                  <Play className="w-4 h-4 mr-1.5" />
+                  Start Meeting
+                </Button>
+                {meeting.recurrence_type && meeting.recurrence_type !== 'none' && (
+                  <Button 
+                    onClick={handleSkipMeeting} 
+                    variant="outline" 
+                    size="sm"
+                    className="border-amber-300 text-amber-600 hover:bg-amber-50"
+                  >
+                    <SkipForward className="w-4 h-4 mr-1.5" />
+                    Skip
+                  </Button>
+                )}
+                <Button 
+                  onClick={handleCancelMeeting} 
+                  variant="outline" 
+                  size="sm"
+                  className="border-red-300 text-red-600 hover:bg-red-50"
+                >
+                  <XCircle className="w-4 h-4 mr-1.5" />
+                  Cancel
+                </Button>
+              </div>
             )}
-          </Button>
-          <Button variant="outline" className="border-[#D4BBA6]" onClick={() => navigate(`/meetings/${meetingId}/edit`)}>
-            <Edit className="w-4 h-4 mr-2" />
-            Edit
-          </Button>
+            {meeting.status === 'in_progress' && (
+              <Button 
+                onClick={handleCompleteMeeting} 
+                size="sm"
+                className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white shadow-sm"
+              >
+                <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                Complete Meeting
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1036,37 +1080,55 @@ const MeetingDetail = () => {
         </div>
       )}
 
-      {/* Main Content Tabs */}
+      {/* Main Content Tabs - Enhanced */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="bg-[#F5EBE0] p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-white px-6">
+        <TabsList className="bg-[#F5EBE0]/80 p-1.5 rounded-xl shadow-sm border border-[#E8D5C4] flex-wrap h-auto">
+          <TabsTrigger 
+            value="overview" 
+            className="data-[state=active]:bg-white data-[state=active]:shadow-sm px-5 py-2.5 rounded-lg transition-all"
+          >
             Overview
           </TabsTrigger>
-          <TabsTrigger value="notes" className="data-[state=active]:bg-white px-6">
+          <TabsTrigger 
+            value="notes" 
+            className="data-[state=active]:bg-white data-[state=active]:shadow-sm px-5 py-2.5 rounded-lg transition-all"
+          >
             Discussion Notes
             {meeting.discussion_notes?.length > 0 && (
-              <Badge className="ml-2 bg-[#4A3728] text-white text-xs">{meeting.discussion_notes.length}</Badge>
+              <Badge className="ml-2 bg-[#4A3728] text-white text-xs h-5 w-5 rounded-full p-0 flex items-center justify-center">{meeting.discussion_notes.length}</Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="actions" className="data-[state=active]:bg-white px-6">
+          <TabsTrigger 
+            value="actions" 
+            className="data-[state=active]:bg-white data-[state=active]:shadow-sm px-5 py-2.5 rounded-lg transition-all"
+          >
             Action Items
             {meeting.action_items?.length > 0 && (
-              <Badge className="ml-2 bg-amber-500 text-white text-xs">{meeting.action_items.length}</Badge>
+              <Badge className="ml-2 bg-amber-500 text-white text-xs h-5 w-5 rounded-full p-0 flex items-center justify-center">{meeting.action_items.length}</Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="decisions" className="data-[state=active]:bg-white px-6">
+          <TabsTrigger 
+            value="decisions" 
+            className="data-[state=active]:bg-white data-[state=active]:shadow-sm px-5 py-2.5 rounded-lg transition-all"
+          >
             Decisions
             {meeting.decisions?.length > 0 && (
-              <Badge className="ml-2 bg-purple-500 text-white text-xs">{meeting.decisions.length}</Badge>
+              <Badge className="ml-2 bg-purple-500 text-white text-xs h-5 w-5 rounded-full p-0 flex items-center justify-center">{meeting.decisions.length}</Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="issues" className="data-[state=active]:bg-white px-6">
+          <TabsTrigger 
+            value="issues" 
+            className="data-[state=active]:bg-white data-[state=active]:shadow-sm px-5 py-2.5 rounded-lg transition-all"
+          >
             Issues & Risks
             {meeting.issues_risks?.length > 0 && (
-              <Badge className="ml-2 bg-red-500 text-white text-xs">{meeting.issues_risks.length}</Badge>
+              <Badge className="ml-2 bg-red-500 text-white text-xs h-5 w-5 rounded-full p-0 flex items-center justify-center">{meeting.issues_risks.length}</Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="previous" className="data-[state=active]:bg-white px-6">
+          <TabsTrigger 
+            value="previous" 
+            className="data-[state=active]:bg-white data-[state=active]:shadow-sm px-5 py-2.5 rounded-lg transition-all"
+          >
             Previous Context
           </TabsTrigger>
         </TabsList>
@@ -1101,7 +1163,10 @@ const MeetingDetail = () => {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-[#6B5D52] text-center py-4">No agenda items</p>
+                  <div className="text-center py-8">
+                    <FileText className="w-10 h-10 mx-auto text-[#D4BBA6] mb-2" />
+                    <p className="text-[#6B5D52]">No agenda items added</p>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -1818,11 +1883,15 @@ const MeetingDetail = () => {
               )}
             </div>
           ) : (
-            <Card className="bg-white border-[#E8D5C4]">
-              <CardContent className="py-12 text-center">
-                <RefreshCw className="w-12 h-12 mx-auto text-[#D4BBA6] mb-3" />
-                <h3 className="font-semibold text-[#4A3728] mb-1">No Previous Meeting</h3>
-                <p className="text-[#6B5D52] text-sm">This appears to be the first meeting of this type</p>
+            <Card className="bg-gradient-to-br from-[#F5EBE0] to-white border-[#E8D5C4] shadow-sm">
+              <CardContent className="py-16 text-center">
+                <div className="w-20 h-20 mx-auto bg-[#E8D5C4]/50 rounded-full flex items-center justify-center mb-4">
+                  <RefreshCw className="w-10 h-10 text-[#C4A484]" />
+                </div>
+                <h3 className="font-semibold text-lg text-[#4A3728] mb-2">No Previous Meeting</h3>
+                <p className="text-[#6B5D52] text-sm max-w-sm mx-auto">
+                  This appears to be the first meeting of this type. Context from future meetings will appear here.
+                </p>
               </CardContent>
             </Card>
           )}
