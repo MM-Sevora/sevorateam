@@ -293,8 +293,9 @@ Sevora Team`
           error.errorCode === 'empty_window_error' ||
           error.errorCode === 'browser_auth_error') {
         try {
-          // Store current path to return after redirect
+          // Store current path and login type to return after redirect
           sessionStorage.setItem('msalRedirectPath', window.location.pathname);
+          sessionStorage.setItem('msalLoginType', 'email');
           await instance.loginRedirect(mailRequest);
         } catch (redirectError) {
           console.error('Redirect login error:', redirectError);

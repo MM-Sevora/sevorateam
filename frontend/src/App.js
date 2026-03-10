@@ -131,12 +131,22 @@ const MsalInitializer = ({ children }) => {
                         if (response && response.accessToken) {
                             console.log('Account:', response.account?.username);
                             
-                            // Check if this was for app login
+                            // Check if this was for app login or email connection
                             const loginType = sessionStorage.getItem('msalLoginType');
+                            const redirectPath = sessionStorage.getItem('msalRedirectPath');
                             console.log('Login type from session:', loginType);
+                            console.log('Redirect path from session:', redirectPath);
                             sessionStorage.removeItem('msalLoginType');
+                            sessionStorage.removeItem('msalRedirectPath');
                             
-                            if (loginType === 'app') {
+                            if (loginType === 'email') {
+                                // This was for email/mail connection - redirect back to mail page
+                                console.log('Processing email connection redirect...');
+                                window.history.replaceState({}, document.title, redirectPath || '/mail/inbox');
+                                // Don't reload - the MSAL tokens are already stored, just navigate
+                                window.location.href = redirectPath || '/mail/inbox';
+                                return;
+                            } else if (loginType === 'app') {
                                 console.log('Processing app login...');
                                 try {
                                     const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
