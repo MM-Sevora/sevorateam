@@ -143,6 +143,7 @@ const DEPARTMENT_CONFIG = {
         requiredModule: 'social',  // Module-based access
         routes: [
             { path: '/social', name: 'Dashboard & Analytics', icon: BarChart3 },
+            { path: '/social/campaigns', name: 'Campaigns', icon: Target },
             { path: '/social/studio', name: 'Content Studio', icon: PenTool },
             { path: '/social/posts', name: 'Posts & Schedule', icon: Clock },
             { path: '/social/library', name: 'Content Library', icon: Image },

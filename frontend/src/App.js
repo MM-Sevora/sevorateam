@@ -48,6 +48,8 @@ import { SocialDashboard } from "./pages/social/Dashboard";
 import ContentStudio from "./pages/social/ContentStudio";
 import PostsAndSchedulePage from "./pages/social/PostsAndSchedule";
 import ContentLibraryPage from "./pages/social/ContentLibrary";
+import SocialCampaigns from "./pages/social/SocialCampaigns";
+import CampaignDetail from "./pages/social/CampaignDetail";
 
 // Email Page
 import EmailPage from "./pages/marketing/EmailPage";
@@ -387,6 +389,8 @@ function AppRoutes() {
             <Route path="/social/studio" element={<ProtectedRoute requiredModule="social"><ContentStudio /></ProtectedRoute>} />
             <Route path="/social/posts" element={<ProtectedRoute requiredModule="social"><PostsAndSchedulePage /></ProtectedRoute>} />
             <Route path="/social/library" element={<ProtectedRoute requiredModule="social"><ContentLibraryPage /></ProtectedRoute>} />
+            <Route path="/social/campaigns" element={<ProtectedRoute requiredModule="social"><SocialCampaigns /></ProtectedRoute>} />
+            <Route path="/social/campaigns/:campaignId" element={<ProtectedRoute requiredModule="social"><CampaignDetail /></ProtectedRoute>} />
             {/* Redirect old routes to dashboard */}
             <Route path="/social/analytics" element={<Navigate to="/social" replace />} />
             <Route path="/social/ai-tools" element={<Navigate to="/social" replace />} />
