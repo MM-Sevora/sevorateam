@@ -5,7 +5,7 @@ import {
   MoreVertical, Edit, Trash2, Eye, RefreshCw, ChevronDown,
   CheckCircle2, Clock, AlertTriangle, Folder, ArrowRight, ListTodo,
   Lock, Globe, UserPlus, UserMinus, Paperclip, Upload, X, File, Target,
-  LayoutGrid, List, FileText, ChevronRight, CalendarPlus
+  LayoutGrid, List, FileText, ChevronRight, CalendarPlus, GanttChartSquare
 } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from "../../components/ui/select";
 import { toast } from 'sonner';
+import GanttChart from '../../components/projects/GanttChart';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -1111,12 +1112,13 @@ const ProjectsList = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState([]);
+  const [allTasks, setAllTasks] = useState([]);
   const [modules, setModules] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [users, setUsers] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [viewMode, setViewMode] = useState('grid'); // 'grid', 'list', or 'gantt'
   const [filters, setFilters] = useState({
     search: '',
     status: '',
@@ -1151,6 +1153,13 @@ const ProjectsList = () => {
       setModules(modulesData);
       setDepartments(deptsData);
       setUsers(usersData.users || usersData || []);
+      
+      // Fetch all tasks for Gantt view
+      const tasksRes = await fetch(`${API}/api/projects/tasks/all`, { headers });
+      if (tasksRes.ok) {
+        const tasksData = await tasksRes.json();
+        setAllTasks(tasksData);
+      }
     } catch (error) {
       console.error('Error:', error);
       toast.error('Failed to load projects');
@@ -1380,13 +1389,33 @@ const ProjectsList = () => {
               >
                 <List className="w-4 h-4" />
               </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setViewMode('gantt')}
+                className={`rounded-none px-3 ${viewMode === 'gantt' ? 'bg-rose-100 text-rose-700' : 'text-[#5D4A3A] hover:bg-[#F5EBE0]'}`}
+                data-testid="view-gantt-btn"
+              >
+                <GanttChartSquare className="w-4 h-4" />
+              </Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Projects Grid/List */}
-      {filteredProjects.length > 0 ? (
+      {/* Projects Grid/List/Gantt */}
+      {viewMode === 'gantt' ? (
+        <GanttChart
+          projects={filteredProjects}
+          tasks={allTasks.filter(t => filteredProjects.some(p => p.id === t.project_id))}
+          onProjectClick={(id) => navigate(`/projects/${id}`)}
+          onTaskClick={(id) => {
+            const task = allTasks.find(t => t.id === id);
+            if (task) navigate(`/projects/${task.project_id}/tasks/${id}`);
+          }}
+          loading={loading}
+        />
+      ) : filteredProjects.length > 0 ? (
         viewMode === 'grid' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredProjects.map(project => (

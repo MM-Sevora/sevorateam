@@ -1809,6 +1809,8 @@ The Manager Dashboard was already functional with:
 - [x] Frontend page with tabbed interface (General, SEO, Security, Email, Appearance, Performance)
 - [x] Settings save and persist correctly
 - [x] Toast notifications on save
+- [x] Dynamic site title from settings (browser tab)
+- [x] Dynamic login page branding
 
 ### Meeting Detail UI/UX Enhancement (COMPLETE - March 10, 2026)
 - [x] Enhanced header with gradient background (`bg-gradient-to-r from-[#F5EBE0] to-white`)
@@ -1819,11 +1821,20 @@ The Manager Dashboard was already functional with:
 - [x] Enhanced "No agenda items" empty state with icon
 - [x] Meta info (date/time, participants) styled as pill-shaped badges
 
+### Gantt Chart View (COMPLETE - March 10, 2026)
+- [x] Interactive timeline visualization for projects and tasks
+- [x] View modes: Day, Week, Month, Year
+- [x] Zoom in/out controls
+- [x] Task list panel with status and progress
+- [x] Color-coded by status and priority
+- [x] Click navigation to project/task details
+- [x] Status legend at bottom
+- [x] Integrated with `gantt-task-react` library
+
 ### P1 - Upcoming Tasks
-- [ ] Gantt Chart View for projects
-- [ ] Complete `server.py` route extraction
-- [ ] Quick Meeting Card Actions (Duplicate, Reschedule)
+- [ ] Quick Meeting Actions (Duplicate, Reschedule)
 - [ ] Bulk Actions for Meetings
+- [ ] Complete `server.py` route extraction
 
 ### P2 - Future Tasks
 - [ ] Export/Reports (CSV/PDF)
