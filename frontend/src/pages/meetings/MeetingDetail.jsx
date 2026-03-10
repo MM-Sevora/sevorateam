@@ -802,6 +802,16 @@ const MeetingDetail = () => {
                 >
                   <RefreshCw className={`w-3 h-3 mr-1 ${loadingSeries ? 'animate-spin' : ''}`} />
                   {meeting.recurrence_type.charAt(0).toUpperCase() + meeting.recurrence_type.slice(1)}
+                  {meeting.recurrence_type === 'weekly' && meeting.recurrence_day_of_week !== null && meeting.recurrence_day_of_week !== undefined && (
+                    <span className="ml-1">
+                      ({['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][meeting.recurrence_day_of_week]})
+                    </span>
+                  )}
+                  {meeting.recurrence_type === 'monthly' && meeting.recurrence_day_of_month && (
+                    <span className="ml-1">
+                      ({meeting.recurrence_day_of_month}{meeting.recurrence_day_of_month === 1 ? 'st' : meeting.recurrence_day_of_month === 2 ? 'nd' : meeting.recurrence_day_of_month === 3 ? 'rd' : 'th'})
+                    </span>
+                  )}
                   <span className="ml-1 text-xs opacity-70">• View Series</span>
                 </Badge>
               )}

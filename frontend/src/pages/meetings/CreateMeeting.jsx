@@ -98,8 +98,21 @@ const CreateMeeting = () => {
     visibility: 'public',
     sync_to_outlook: false,
     recurrence_type: 'none',
-    recurrence_end_date: ''
+    recurrence_end_date: '',
+    recurrence_day_of_week: null,
+    recurrence_day_of_month: null
   });
+  
+  // Day names for weekly recurrence
+  const weekDays = [
+    { value: 0, label: 'Monday' },
+    { value: 1, label: 'Tuesday' },
+    { value: 2, label: 'Wednesday' },
+    { value: 3, label: 'Thursday' },
+    { value: 4, label: 'Friday' },
+    { value: 5, label: 'Saturday' },
+    { value: 6, label: 'Sunday' }
+  ];
   
   const [agenda, setAgenda] = useState([]);
   const [participants, setParticipants] = useState([]);
@@ -209,7 +222,9 @@ const CreateMeeting = () => {
             visibility: meeting.visibility || 'public',
             sync_to_outlook: meeting.sync_to_outlook || false,
             recurrence_type: meeting.recurrence_type || 'none',
-            recurrence_end_date: recurrenceEndDate
+            recurrence_end_date: recurrenceEndDate,
+            recurrence_day_of_week: meeting.recurrence_day_of_week,
+            recurrence_day_of_month: meeting.recurrence_day_of_month
           });
           
           // Set agenda, participants, and pre-read documents
@@ -336,7 +351,9 @@ const CreateMeeting = () => {
         pre_read_documents: preReadDocuments.filter(d => d.title),
         sync_to_outlook: formData.sync_to_outlook,
         recurrence_type: formData.recurrence_type || 'none',
-        recurrence_end_date: formData.recurrence_end_date ? `${formData.recurrence_end_date}T23:59:59Z` : null
+        recurrence_end_date: formData.recurrence_end_date ? `${formData.recurrence_end_date}T23:59:59Z` : null,
+        recurrence_day_of_week: formData.recurrence_type === 'weekly' ? formData.recurrence_day_of_week : null,
+        recurrence_day_of_month: formData.recurrence_type === 'monthly' ? formData.recurrence_day_of_month : null
       };
 
       let url, method;
@@ -646,6 +663,70 @@ const CreateMeeting = () => {
                         When you complete a meeting, the next occurrence will be created automatically.
                       </p>
                     </div>
+
+                    {/* Weekly: Day of Week Selection */}
+                    {formData.recurrence_type === 'weekly' && (
+                      <div>
+                        <Label className="text-[#4A3728]">Repeat On</Label>
+                        <Select 
+                          value={formData.recurrence_day_of_week?.toString() || "auto"} 
+                          onValueChange={(v) => setFormData({ 
+                            ...formData, 
+                            recurrence_day_of_week: v === "auto" ? null : parseInt(v) 
+                          })}
+                        >
+                          <SelectTrigger className="border-[#D4BBA6]">
+                            <Calendar className="w-4 h-4 mr-2 text-[#6B5D52]" />
+                            <SelectValue placeholder="Select day" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white border-[#D4BBA6]">
+                            <SelectItem value="auto">Same day as start date</SelectItem>
+                            {weekDays.map(day => (
+                              <SelectItem key={day.value} value={day.value.toString()}>
+                                Every {day.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-[#6B5D52] mt-1">
+                          {formData.recurrence_day_of_week !== null 
+                            ? `Meeting will occur every ${weekDays.find(d => d.value === formData.recurrence_day_of_week)?.label}`
+                            : 'Meeting will occur on the same day of the week as the start date'}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Monthly: Day of Month Selection */}
+                    {formData.recurrence_type === 'monthly' && (
+                      <div>
+                        <Label className="text-[#4A3728]">Repeat On Day</Label>
+                        <Select 
+                          value={formData.recurrence_day_of_month?.toString() || "auto"} 
+                          onValueChange={(v) => setFormData({ 
+                            ...formData, 
+                            recurrence_day_of_month: v === "auto" ? null : parseInt(v) 
+                          })}
+                        >
+                          <SelectTrigger className="border-[#D4BBA6]">
+                            <Calendar className="w-4 h-4 mr-2 text-[#6B5D52]" />
+                            <SelectValue placeholder="Select day" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white border-[#D4BBA6] max-h-60">
+                            <SelectItem value="auto">Same day as start date</SelectItem>
+                            {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                              <SelectItem key={day} value={day.toString()}>
+                                {day}{day === 1 ? 'st' : day === 2 ? 'nd' : day === 3 ? 'rd' : 'th'} of each month
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-[#6B5D52] mt-1">
+                          {formData.recurrence_day_of_month !== null 
+                            ? `Meeting will occur on the ${formData.recurrence_day_of_month}${formData.recurrence_day_of_month === 1 ? 'st' : formData.recurrence_day_of_month === 2 ? 'nd' : formData.recurrence_day_of_month === 3 ? 'rd' : 'th'} of each month`
+                            : 'Meeting will occur on the same day of the month as the start date'}
+                        </p>
+                      </div>
+                    )}
 
                     <div>
                       <Label className="text-[#4A3728]">Recurrence End Date (Optional)</Label>

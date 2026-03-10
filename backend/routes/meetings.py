@@ -1408,6 +1408,8 @@ async def create_next_recurring_meeting(meeting: dict) -> Optional[str]:
     """Create the next occurrence of a recurring meeting"""
     recurrence_type = meeting.get("recurrence_type")
     recurrence_end_date = meeting.get("recurrence_end_date")
+    recurrence_day_of_week = meeting.get("recurrence_day_of_week")
+    recurrence_day_of_month = meeting.get("recurrence_day_of_month")
     
     # Calculate next occurrence date
     current_start = datetime.fromisoformat(meeting["start_time"].replace("Z", "+00:00"))
@@ -1417,13 +1419,31 @@ async def create_next_recurring_meeting(meeting: dict) -> Optional[str]:
     if recurrence_type == RecurrenceType.DAILY.value:
         next_start = current_start + timedelta(days=1)
     elif recurrence_type == RecurrenceType.WEEKLY.value:
-        next_start = current_start + timedelta(weeks=1)
+        if recurrence_day_of_week is not None:
+            # Find the next occurrence of the specified day
+            days_ahead = recurrence_day_of_week - current_start.weekday()
+            if days_ahead <= 0:  # Target day already happened this week
+                days_ahead += 7
+            next_start = current_start + timedelta(days=days_ahead)
+        else:
+            # Default: same day next week
+            next_start = current_start + timedelta(weeks=1)
     elif recurrence_type == RecurrenceType.MONTHLY.value:
         # Add one month
         if current_start.month == 12:
             next_start = current_start.replace(year=current_start.year + 1, month=1)
         else:
             next_start = current_start.replace(month=current_start.month + 1)
+        
+        # If specific day of month is set, use it
+        if recurrence_day_of_month is not None:
+            try:
+                next_start = next_start.replace(day=recurrence_day_of_month)
+            except ValueError:
+                # Handle months with fewer days (e.g., Feb 30 -> Feb 28)
+                import calendar
+                last_day = calendar.monthrange(next_start.year, next_start.month)[1]
+                next_start = next_start.replace(day=min(recurrence_day_of_month, last_day))
     elif recurrence_type == RecurrenceType.QUARTERLY.value:
         # Add 3 months
         new_month = current_start.month + 3
