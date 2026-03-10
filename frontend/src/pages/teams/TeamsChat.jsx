@@ -54,18 +54,22 @@ export default function TeamsChat() {
   const [searchingUsers, setSearchingUsers] = useState(false);
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [currentUserEmail, setCurrentUserEmail] = useState('');
+  const [currentUserId, setCurrentUserId] = useState('');
   const messagesEndRef = useRef(null);
   
   // Task creation state
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [taskMessage, setTaskMessage] = useState(null);
   const [projects, setProjects] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [creatingTask, setCreatingTask] = useState(false);
+  const [taskType, setTaskType] = useState('project'); // 'project' or 'personal'
   const [taskForm, setTaskForm] = useState({
     name: '',
     description: '',
     project_id: '',
+    assignee_id: '',
     priority: 'medium',
     due_date: ''
   });
@@ -73,12 +77,13 @@ export default function TeamsChat() {
   const token = localStorage.getItem('sevora_token');
 
   useEffect(() => {
-    // Get current user email for identifying own messages
+    // Get current user email and ID for identifying own messages
     const userData = localStorage.getItem('sevora_user');
     if (userData) {
       try {
         const user = JSON.parse(userData);
         setCurrentUserEmail(user.email);
+        setCurrentUserId(user.id);
       } catch (e) {}
     }
     checkConnection();
@@ -334,6 +339,22 @@ export default function TeamsChat() {
     }
   };
 
+  // Fetch employees for task assignment
+  const fetchEmployees = async () => {
+    try {
+      const res = await fetch(`${API}/api/admin/users`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Filter to only active users
+        setEmployees((data || []).filter(u => u.status === 'active'));
+      }
+    } catch (e) {
+      console.error('Error fetching employees:', e);
+    }
+  };
+
   // Open task creation modal with message content
   const openTaskModal = (message) => {
     const messageContent = stripHtml(message.body?.content || '');
@@ -341,48 +362,76 @@ export default function TeamsChat() {
     const chatName = getChatDisplayName(selectedChat);
     
     setTaskMessage(message);
+    setTaskType('project');
     setTaskForm({
       name: messageContent.substring(0, 100) + (messageContent.length > 100 ? '...' : ''),
       description: `From Teams chat with ${chatName}:\n\n"${messageContent}"\n\n— ${senderName}`,
       project_id: '',
+      assignee_id: '',
       priority: 'medium',
       due_date: ''
     });
     fetchProjects();
+    fetchEmployees();
     setShowTaskModal(true);
   };
 
   // Create task from message
   const createTaskFromMessage = async () => {
-    if (!taskForm.name.trim() || !taskForm.project_id) {
-      toast.error('Please fill in task name and select a project');
+    if (!taskForm.name.trim()) {
+      toast.error('Please fill in task name');
+      return;
+    }
+    
+    if (taskType === 'project' && !taskForm.project_id) {
+      toast.error('Please select a project');
       return;
     }
     
     setCreatingTask(true);
     try {
-      const res = await fetch(`${API}/api/projects/tasks`, {
+      let endpoint = `${API}/api/projects/tasks`;
+      let body = {
+        name: taskForm.name,
+        description: taskForm.description,
+        priority: taskForm.priority,
+        due_date: taskForm.due_date || null,
+        status: 'todo',
+        source: 'teams_chat'
+      };
+      
+      if (taskType === 'personal') {
+        // Create personal task (My Tasks)
+        endpoint = `${API}/api/projects/my-tasks`;
+        if (taskForm.assignee_id && taskForm.assignee_id !== currentUserId) {
+          // If assigning to someone else, use assigned tasks endpoint
+          body.assigned_to = taskForm.assignee_id;
+        }
+      } else {
+        // Project task
+        body.project_id = taskForm.project_id;
+        if (taskForm.assignee_id) {
+          body.assigned_to = taskForm.assignee_id;
+        }
+      }
+      
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          name: taskForm.name,
-          description: taskForm.description,
-          project_id: taskForm.project_id,
-          priority: taskForm.priority,
-          due_date: taskForm.due_date || null,
-          status: 'todo',
-          source: 'teams_chat'
-        })
+        body: JSON.stringify(body)
       });
       
       if (res.ok) {
-        toast.success('Task created successfully!');
+        const assigneeName = taskForm.assignee_id 
+          ? employees.find(e => e.id === taskForm.assignee_id)?.name || 'team member'
+          : 'yourself';
+        toast.success(`Task created and assigned to ${assigneeName}!`);
         setShowTaskModal(false);
         setTaskMessage(null);
-        setTaskForm({ name: '', description: '', project_id: '', priority: 'medium', due_date: '' });
+        setTaskForm({ name: '', description: '', project_id: '', assignee_id: '', priority: 'medium', due_date: '' });
       } else {
         const error = await res.json();
         toast.error(error.detail || 'Failed to create task');
@@ -957,78 +1006,144 @@ export default function TeamsChat() {
                 className="border-[#D4BBA6]"
               />
             </div>
-            
-            {/* Project Selection */}
+
+            {/* Task Type Selection */}
             <div className="space-y-2">
-              <Label className="text-[#4A3728]">Project *</Label>
+              <Label className="text-[#4A3728]">Task Type</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={taskType === 'personal' ? 'default' : 'outline'}
+                  onClick={() => setTaskType('personal')}
+                  className={taskType === 'personal' 
+                    ? 'flex-1 bg-gradient-to-r from-[#464EB8] to-[#5B64D4] text-white' 
+                    : 'flex-1 border-[#D4BBA6] text-[#4A3728]'}
+                >
+                  <User className="w-4 h-4 mr-2" />
+                  My Task
+                </Button>
+                <Button
+                  type="button"
+                  variant={taskType === 'project' ? 'default' : 'outline'}
+                  onClick={() => setTaskType('project')}
+                  className={taskType === 'project' 
+                    ? 'flex-1 bg-gradient-to-r from-[#464EB8] to-[#5B64D4] text-white' 
+                    : 'flex-1 border-[#D4BBA6] text-[#4A3728]'}
+                >
+                  <FolderKanban className="w-4 h-4 mr-2" />
+                  Project Task
+                </Button>
+              </div>
+            </div>
+            
+            {/* Project Selection - Only show for project tasks */}
+            {taskType === 'project' && (
+              <div className="space-y-2">
+                <Label className="text-[#4A3728]">Project *</Label>
+                <Select 
+                  value={taskForm.project_id} 
+                  onValueChange={(value) => setTaskForm({ ...taskForm, project_id: value })}
+                >
+                  <SelectTrigger className="border-[#D4BBA6]">
+                    <SelectValue placeholder={loadingProjects ? "Loading projects..." : "Select a project"} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-[#D4BBA6]">
+                    {projects.map(project => (
+                      <SelectItem key={project.id} value={project.id}>
+                        <div className="flex items-center gap-2">
+                          <FolderKanban className="w-4 h-4 text-[#464EB8]" />
+                          {project.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Assignee Selection */}
+            <div className="space-y-2">
+              <Label className="text-[#4A3728]">Assign To</Label>
               <Select 
-                value={taskForm.project_id} 
-                onValueChange={(value) => setTaskForm({ ...taskForm, project_id: value })}
+                value={taskForm.assignee_id || currentUserId} 
+                onValueChange={(value) => setTaskForm({ ...taskForm, assignee_id: value })}
               >
                 <SelectTrigger className="border-[#D4BBA6]">
-                  <SelectValue placeholder={loadingProjects ? "Loading projects..." : "Select a project"} />
+                  <SelectValue placeholder="Select assignee" />
                 </SelectTrigger>
-                <SelectContent className="bg-white border-[#D4BBA6]">
-                  {projects.map(project => (
-                    <SelectItem key={project.id} value={project.id}>
+                <SelectContent className="bg-white border-[#D4BBA6] max-h-60">
+                  <SelectItem value={currentUserId}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#464EB8] to-[#5B64D4] flex items-center justify-center text-white text-xs">
+                        Me
+                      </div>
+                      <span className="font-medium">Myself</span>
+                    </div>
+                  </SelectItem>
+                  {employees.filter(e => e.id !== currentUserId).map(employee => (
+                    <SelectItem key={employee.id} value={employee.id}>
                       <div className="flex items-center gap-2">
-                        <FolderKanban className="w-4 h-4 text-[#464EB8]" />
-                        {project.name}
+                        <div className="w-6 h-6 rounded-full bg-[#E8D5C4] flex items-center justify-center text-[#4A3728] text-xs font-medium">
+                          {employee.name?.charAt(0)?.toUpperCase() || '?'}
+                        </div>
+                        <span>{employee.name}</span>
                       </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            
-            {/* Priority */}
-            <div className="space-y-2">
-              <Label className="text-[#4A3728]">Priority</Label>
-              <Select 
-                value={taskForm.priority} 
-                onValueChange={(value) => setTaskForm({ ...taskForm, priority: value })}
-              >
-                <SelectTrigger className="border-[#D4BBA6]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-[#D4BBA6]">
-                  <SelectItem value="low">
-                    <div className="flex items-center gap-2">
-                      <Flag className="w-4 h-4 text-gray-400" />
-                      Low
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="medium">
-                    <div className="flex items-center gap-2">
-                      <Flag className="w-4 h-4 text-amber-500" />
-                      Medium
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="high">
-                    <div className="flex items-center gap-2">
-                      <Flag className="w-4 h-4 text-orange-500" />
-                      High
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="urgent">
-                    <div className="flex items-center gap-2">
-                      <Flag className="w-4 h-4 text-red-500" />
-                      Urgent
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {/* Due Date */}
-            <div className="space-y-2">
-              <Label className="text-[#4A3728]">Due Date</Label>
-              <Input
-                type="date"
-                value={taskForm.due_date}
-                onChange={(e) => setTaskForm({ ...taskForm, due_date: e.target.value })}
-                className="border-[#D4BBA6]"
-              />
+
+            <div className="grid grid-cols-2 gap-4">
+              {/* Priority */}
+              <div className="space-y-2">
+                <Label className="text-[#4A3728]">Priority</Label>
+                <Select 
+                  value={taskForm.priority} 
+                  onValueChange={(value) => setTaskForm({ ...taskForm, priority: value })}
+                >
+                  <SelectTrigger className="border-[#D4BBA6]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-[#D4BBA6]">
+                    <SelectItem value="low">
+                      <div className="flex items-center gap-2">
+                        <Flag className="w-4 h-4 text-gray-400" />
+                        Low
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="medium">
+                      <div className="flex items-center gap-2">
+                        <Flag className="w-4 h-4 text-amber-500" />
+                        Medium
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="high">
+                      <div className="flex items-center gap-2">
+                        <Flag className="w-4 h-4 text-orange-500" />
+                        High
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="urgent">
+                      <div className="flex items-center gap-2">
+                        <Flag className="w-4 h-4 text-red-500" />
+                        Urgent
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Due Date */}
+              <div className="space-y-2">
+                <Label className="text-[#4A3728]">Due Date</Label>
+                <Input
+                  type="date"
+                  value={taskForm.due_date}
+                  onChange={(e) => setTaskForm({ ...taskForm, due_date: e.target.value })}
+                  className="border-[#D4BBA6]"
+                />
+              </div>
             </div>
             
             {/* Description */}
@@ -1038,7 +1153,7 @@ export default function TeamsChat() {
                 value={taskForm.description}
                 onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
                 placeholder="Task description"
-                rows={4}
+                rows={3}
                 className="border-[#D4BBA6] resize-none"
               />
             </div>
@@ -1054,7 +1169,7 @@ export default function TeamsChat() {
             </Button>
             <Button 
               onClick={createTaskFromMessage}
-              disabled={creatingTask || !taskForm.name.trim() || !taskForm.project_id}
+              disabled={creatingTask || !taskForm.name.trim() || (taskType === 'project' && !taskForm.project_id)}
               className="bg-gradient-to-r from-[#464EB8] to-[#5B64D4] hover:from-[#3d44a5] hover:to-[#4e56c7] text-white"
             >
               {creatingTask ? (
