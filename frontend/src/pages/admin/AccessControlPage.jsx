@@ -415,9 +415,22 @@ const AccessControlPage = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="secondary" className="text-xs">
-                            {user.role || user.custom_role_name || 'No Role'}
-                          </Badge>
+                          {user.custom_role_names && user.custom_role_names.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {user.custom_role_names.slice(0, 2).map((name, idx) => (
+                                <Badge key={idx} variant="secondary" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+                                  {name}
+                                </Badge>
+                              ))}
+                              {user.custom_role_names.length > 2 && (
+                                <Badge variant="outline" className="text-xs">+{user.custom_role_names.length - 2}</Badge>
+                              )}
+                            </div>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">
+                              {user.role || 'No Role'}
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1 max-w-[400px]">

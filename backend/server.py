@@ -286,6 +286,8 @@ class UserResponse(BaseModel):
     employee_id: Optional[str] = None
     permissions: Optional[dict] = None
     has_custom_permissions: bool = False
+    custom_role_ids: List[str] = []
+    custom_role_names: List[str] = []
 
 class UserUpdateRequest(BaseModel):
     name: Optional[str] = None
@@ -1655,6 +1657,20 @@ async def get_all_users(
         # Ensure status field exists
         if 'status' not in u:
             u['status'] = 'active'
+        
+        # Enrich with custom_role_names from custom_role_ids
+        custom_role_ids = u.get("custom_role_ids", [])
+        if not custom_role_ids and u.get("custom_role_id"):
+            custom_role_ids = [u.get("custom_role_id")]
+        
+        if custom_role_ids:
+            custom_roles = await db.custom_roles.find(
+                {"id": {"$in": custom_role_ids}}, 
+                {"name": 1}
+            ).to_list(10)
+            u["custom_role_names"] = [r.get("name") for r in custom_roles if r.get("name")]
+        else:
+            u["custom_role_names"] = []
     
     return [UserResponse(**u) for u in users]
 

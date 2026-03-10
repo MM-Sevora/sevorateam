@@ -1587,22 +1587,31 @@ The Manager Dashboard was already functional with:
 ### Phase 56: Access Control & Roles Fixes (COMPLETE - March 10, 2026)
 
 **Issues Fixed:**
-- [x] Fixed User Management roles display - users now show custom_role_names from user data (not just employees)
-- [x] Fixed "Edit Permissions" modal - now properly displays all 11 system modules
+- [x] Fixed User Management and Access Control roles display - users now show custom_role_names properly
+- [x] Added `custom_role_ids` and `custom_role_names` to UserResponse model
+- [x] Updated `/admin/users` API to enrich users with custom_role_names
+- [x] Updated AccessControlPage.jsx to display custom_role_names with purple badges
+- [x] Migrated 55 users from old `role` field to new `custom_role_ids` system
 - [x] Added new modules to MODULE_DEFINITIONS: `automations`, `meetings`, `communication_hub`
 - [x] Created **Viewer** role with restricted access (dashboard + help_support ONLY - NO automations)
-- [x] Updated all default roles with appropriate module access:
-  - Super Admin: All 11 modules including automations
-  - HR Admin: Added automations access
-  - Project Manager: Added automations and meetings access
-  - Marketing/Sales Manager: Added meetings and communication_hub
-  - Employee: Added meetings access
-  - Viewer: dashboard + help_support only (NO automations)
+- [x] Updated all default roles with appropriate module access
+- [x] Edit Permissions modal now shows all 11 system modules
+
+**Migration Performed:**
+- All users migrated from old `role` field to `custom_role_ids`:
+  - viewer → Viewer role
+  - admin → Super Admin role
+  - marketing_manager → Marketing Manager role
+  - etc.
 
 **Files Modified:**
-- `/app/backend/routes/workos.py`: Added custom_role_names enrichment to user data
-- `/app/backend/models/access_control.py`: Added SystemModule enum entries, MODULE_DEFINITIONS, and DEFAULT_CUSTOM_ROLES
-- `/app/frontend/src/pages/admin/UserManagement.jsx`: Fixed isUserOnboarded and roles display logic
+- `/app/backend/server.py`: 
+  - Added `custom_role_ids` and `custom_role_names` to UserResponse model
+  - Updated `/admin/users` endpoint to enrich with custom_role_names
+- `/app/backend/routes/workos.py`: Added custom_role_names enrichment
+- `/app/backend/models/access_control.py`: Added new modules and Viewer role
+- `/app/frontend/src/pages/admin/UserManagement.jsx`: Fixed roles display
+- `/app/frontend/src/pages/admin/AccessControlPage.jsx`: Fixed role display with badges
 
 ### Phase 55: Teams Chat MSAL Refactoring (COMPLETE - March 10, 2026)
 
