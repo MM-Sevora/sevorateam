@@ -1,3 +1,28 @@
+# CHANGELOG - Sevora Team Platform
+
+## March 10, 2026 - Buying & Sourcing Module Review
+### Fixes Applied:
+- ✅ Added missing `/sourcing/calendar` route to App.js
+- ✅ Added "Follow-up Calendar" link in sidebar navigation (Layout.jsx line 202)
+- ✅ Added `follow_up_date` field to SupplierUpdate model
+- ✅ Added `follow_up_date` field to ManufacturerUpdate model
+- ✅ Added `follow_up_date` initialization in create supplier/manufacturer endpoints
+- ✅ Fixed Python lint warning (ambiguous variable name `l` → `log`) in campaigns.py
+
+### Testing Results:
+- Backend: 26/26 tests passed (100%)
+- Frontend: All UI elements verified working
+- Test report: `/app/test_reports/iteration_59.json`
+
+### Module Status - FULLY WORKING:
+- Dashboard, Brands (CRUD + detail), Suppliers (CRUD + detail), Manufacturers (CRUD + detail)
+- AI Discovery (GPT-4o), Email Campaigns (SendGrid)
+- Follow-up Calendar (month/list views, add follow-up modal)
+- All sidebar navigation links working
+
+---
+
+
 # Sevora Team - Project Management Module PRD
 
 ## Original Problem Statement
