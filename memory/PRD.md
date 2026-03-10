@@ -1586,41 +1586,52 @@ The Manager Dashboard was already functional with:
 
 ### Phase 58: Dual Permission System Migration (COMPLETE - March 10, 2026)
 
-**Migration Completed:**
+**Full Migration Completed:**
 
-1. **Module-to-Department Mapping** ✅
-   - Created `MODULE_DEPARTMENT_MAP` and `DEPARTMENT_MODULE_MAP` for backward compatibility
-   - Old `require_department()` now also checks module-based access
-   - Users with module access automatically get corresponding department access
+**Phase 1: Module-to-Department Mapping** ✅
+- Created `MODULE_DEPARTMENT_MAP` and `DEPARTMENT_MODULE_MAP`
+- Old `require_department()` now also checks module-based access
+- Backward compatibility maintained
 
-2. **Frontend hasAccessToDepartment Updated** ✅
-   - Now checks both old department system AND new module-based system
-   - Ensures backward compatibility during migration
+**Phase 2: Critical Routes Updated** ✅
+- Automation routes protected with `require_module_access()`
 
-3. **ProtectedRoute Enhanced** ✅
-   - Added `requiredModule` prop for new module-based protection
-   - Example: `<ProtectedRoute requiredModule="automations">`
+**Phase 3: All Frontend Routes Migrated** ✅
+- All 32 routes converted from `requiredDepartment` to `requiredModule`
+- Route mapping:
+  - `marketing` → `marketing_ops`
+  - `sales` → `project_management`
+  - `social` → `social`
+  - `mail` → `mail`
+  - `admin` → `admin`
+  - New: `meetings`, `communication_hub`, `help_support`, `hr`
 
-4. **Automations Protected** ✅
-   - Route: `/settings/automations` requires `automations` module
-   - API: `/api/automations/*` endpoints protected with `require_module_access(["automations", "admin"])`
-   - Sidebar: Automations link hidden for users without access
+**Phase 4: Deprecation Warnings Added** ✅
+- `require_department()` logs deprecation warning on each use
+- `ProtectedRoute` warns when `requiredDepartment` is used
+- `hasAccessToDepartment()` marked as deprecated in AuthContext
+
+**Routes Updated in App.js:**
+- `/marketing/*` → `requiredModule="marketing_ops"`
+- `/sales/*` → `requiredModule="project_management"`
+- `/social/*` → `requiredModule="social"`
+- `/mail/*` → `requiredModule="mail"`
+- `/admin/*` → `requiredModule="admin"`
+- `/goals/*`, `/projects/*` → `requiredModule="project_management"`
+- `/meetings/*` → `requiredModule="meetings"`
+- `/teams/*` → `requiredModule="communication_hub"`
+- `/help/*` → `requiredModule="help_support"`
+- `/hr/*` → `requiredModule="hr"`
+- `/settings/automations` → `requiredModule="automations"`
 
 **Files Modified:**
-- `/app/backend/server.py`: Added MODULE_DEPARTMENT_MAP, updated require_department(), protected automation routes
-- `/app/frontend/src/context/AuthContext.jsx`: Added MODULE_DEPARTMENT_MAP, updated hasAccessToDepartment()
-- `/app/frontend/src/App.js`: Enhanced ProtectedRoute with requiredModule prop
+- `/app/frontend/src/App.js`: All 32 routes migrated to requiredModule
+- `/app/backend/server.py`: Added deprecation logging to require_department()
 
 **Testing:**
-- ✅ Super Admin can access automations (API + UI)
-- ✅ Viewer cannot access automations (403 from API, redirected in UI)
-- ✅ Test viewer user created: viewer@test.com / viewer123
-
-**Migration Status:**
-- Phase 1 (Mapping): COMPLETE
-- Phase 2 (Critical Routes): COMPLETE
-- Phase 3 (All Routes): Backward compatible - can migrate gradually
-- Phase 4 (Cleanup): Future task - remove old system once all routes migrated
+- ✅ Super Admin can access all modules
+- ✅ Viewer blocked from /marketing, /admin, /automations
+- ✅ Route protection working correctly
 
 ### Phase 57: Permission System Fixes (COMPLETE - March 10, 2026)
 

@@ -588,8 +588,12 @@ def require_department(allowed_departments: List[str]):
     """
     DEPRECATED: Use require_module_access() instead.
     This function now also checks module-based access for backward compatibility.
+    Will be removed in a future version.
     """
     async def department_checker(user: dict = Depends(get_current_user)):
+        # Log deprecation warning
+        logger.warning(f"DEPRECATED: require_department({allowed_departments}) called. Migrate to require_module_access().")
+        
         user_depts = user.get('departments', [])
         
         # Admin access or matching department (old system)

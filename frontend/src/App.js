@@ -255,13 +255,15 @@ const ProtectedRoute = ({ children, requiredDepartment, requiredModule }) => {
         return <Navigate to="/login" replace />;
     }
 
-    // Check module-based access (new system)
+    // Check module-based access (NEW system - preferred)
     if (requiredModule && !hasModuleAccess(requiredModule)) {
         return <Navigate to="/" replace />;
     }
 
-    // Check department-based access (old system - backward compatible)
+    // DEPRECATED: Check department-based access (OLD system - for backward compatibility only)
+    // This will be removed in a future version
     if (requiredDepartment && !hasAccessToDepartment(requiredDepartment)) {
+        console.warn(`DEPRECATED: requiredDepartment="${requiredDepartment}" used. Migrate to requiredModule.`);
         return <Navigate to="/" replace />;
     }
 
@@ -303,58 +305,58 @@ function AppRoutes() {
 
             {/* Marketing Routes */}
             {/* Unified Insights & Analytics (Dashboard + Analytics merged) */}
-            <Route path="/marketing" element={<ProtectedRoute requiredDepartment="marketing"><MarketingInsightsPage /></ProtectedRoute>} />
+            <Route path="/marketing" element={<ProtectedRoute requiredModule="marketing_ops"><MarketingInsightsPage /></ProtectedRoute>} />
             <Route path="/marketing/dashboard" element={<Navigate to="/marketing" replace />} />
             <Route path="/marketing/analytics" element={<Navigate to="/marketing" replace />} />
-            <Route path="/marketing/influencers" element={<ProtectedRoute requiredDepartment="marketing"><InfluencersListPage /></ProtectedRoute>} />
-            <Route path="/marketing/influencer/:influencerId" element={<ProtectedRoute requiredDepartment="marketing"><InfluencerDetailPage /></ProtectedRoute>} />
+            <Route path="/marketing/influencers" element={<ProtectedRoute requiredModule="marketing_ops"><InfluencersListPage /></ProtectedRoute>} />
+            <Route path="/marketing/influencer/:influencerId" element={<ProtectedRoute requiredModule="marketing_ops"><InfluencerDetailPage /></ProtectedRoute>} />
             {/* Redirect old PR route to Publications */}
             <Route path="/marketing/pr" element={<Navigate to="/marketing/publications" replace />} />
             {/* Publications (PR equivalent of Influencers) */}
-            <Route path="/marketing/publications" element={<ProtectedRoute requiredDepartment="marketing"><PublicationsListPage /></ProtectedRoute>} />
-            <Route path="/marketing/publication/:publicationId" element={<ProtectedRoute requiredDepartment="marketing"><PublicationDetailPage /></ProtectedRoute>} />
+            <Route path="/marketing/publications" element={<ProtectedRoute requiredModule="marketing_ops"><PublicationsListPage /></ProtectedRoute>} />
+            <Route path="/marketing/publication/:publicationId" element={<ProtectedRoute requiredModule="marketing_ops"><PublicationDetailPage /></ProtectedRoute>} />
             {/* Unified Campaign Hub (List + Calendar + Timeline) */}
-            <Route path="/marketing/campaigns" element={<ProtectedRoute requiredDepartment="marketing"><CampaignHubPage /></ProtectedRoute>} />
-            <Route path="/marketing/campaign/:campaignId" element={<ProtectedRoute requiredDepartment="marketing"><CampaignDetailPage /></ProtectedRoute>} />
+            <Route path="/marketing/campaigns" element={<ProtectedRoute requiredModule="marketing_ops"><CampaignHubPage /></ProtectedRoute>} />
+            <Route path="/marketing/campaign/:campaignId" element={<ProtectedRoute requiredModule="marketing_ops"><CampaignDetailPage /></ProtectedRoute>} />
             {/* Legacy calendar route redirects to Campaign Hub */}
             <Route path="/marketing/calendar" element={<Navigate to="/marketing/campaigns" replace />} />
             {/* Redirect old contacts routes to influencers */}
             <Route path="/marketing/contacts" element={<Navigate to="/marketing/influencers" replace />} />
             <Route path="/marketing/contacts/:contactId" element={<Navigate to="/marketing/influencers" replace />} />
-            <Route path="/marketing/assets" element={<ProtectedRoute requiredDepartment="marketing"><ContentAssetsPage /></ProtectedRoute>} />
+            <Route path="/marketing/assets" element={<ProtectedRoute requiredModule="marketing_ops"><ContentAssetsPage /></ProtectedRoute>} />
             {/* Budget now linked from Influencer Finance tab, keeping standalone for overview */}
-            <Route path="/marketing/budget" element={<ProtectedRoute requiredDepartment="marketing"><BudgetPage /></ProtectedRoute>} />
+            <Route path="/marketing/budget" element={<ProtectedRoute requiredModule="marketing_ops"><BudgetPage /></ProtectedRoute>} />
             {/* AI Tools with Influencer Discovery */}
-            <Route path="/marketing/ai-tools" element={<ProtectedRoute requiredDepartment="marketing"><AIToolsPage /></ProtectedRoute>} />
-            <Route path="/marketing/ai-discovery" element={<ProtectedRoute requiredDepartment="marketing"><AIDiscoveryPage /></ProtectedRoute>} />
+            <Route path="/marketing/ai-tools" element={<ProtectedRoute requiredModule="marketing_ops"><AIToolsPage /></ProtectedRoute>} />
+            <Route path="/marketing/ai-discovery" element={<ProtectedRoute requiredModule="marketing_ops"><AIDiscoveryPage /></ProtectedRoute>} />
             {/* Legacy Marketing Routes - kept for backward compatibility */}
-            <Route path="/marketing/outreach" element={<ProtectedRoute requiredDepartment="marketing"><OutreachPage /></ProtectedRoute>} />
-            <Route path="/marketing/negotiations" element={<ProtectedRoute requiredDepartment="marketing"><NegotiationsPage /></ProtectedRoute>} />
+            <Route path="/marketing/outreach" element={<ProtectedRoute requiredModule="marketing_ops"><OutreachPage /></ProtectedRoute>} />
+            <Route path="/marketing/negotiations" element={<ProtectedRoute requiredModule="marketing_ops"><NegotiationsPage /></ProtectedRoute>} />
             {/* Unified Pipeline - replaces Outreach Dashboard & Deal Pipeline */}
-            <Route path="/marketing/pipeline" element={<ProtectedRoute requiredDepartment="marketing"><UnifiedPipeline /></ProtectedRoute>} />
+            <Route path="/marketing/pipeline" element={<ProtectedRoute requiredModule="marketing_ops"><UnifiedPipeline /></ProtectedRoute>} />
             {/* Redirect old routes to unified pipeline */}
             <Route path="/marketing/outreach-dashboard" element={<Navigate to="/marketing/pipeline" replace />} />
             <Route path="/marketing/deals" element={<Navigate to="/marketing/pipeline" replace />} />
 
             {/* Mail Routes */}
-            <Route path="/mail/inbox" element={<ProtectedRoute requiredDepartment="mail"><EmailPage /></ProtectedRoute>} />
-            <Route path="/marketing/email" element={<ProtectedRoute requiredDepartment="marketing"><EmailPage /></ProtectedRoute>} />
+            <Route path="/mail/inbox" element={<ProtectedRoute requiredModule="mail"><EmailPage /></ProtectedRoute>} />
+            <Route path="/marketing/email" element={<ProtectedRoute requiredModule="marketing_ops"><EmailPage /></ProtectedRoute>} />
 
             {/* Sales Routes */}
-            <Route path="/sales" element={<ProtectedRoute requiredDepartment="sales"><SalesDashboard /></ProtectedRoute>} />
-            <Route path="/sales/leads" element={<ProtectedRoute requiredDepartment="sales"><LeadsPage /></ProtectedRoute>} />
-            <Route path="/sales/customers" element={<ProtectedRoute requiredDepartment="sales"><CustomersPage /></ProtectedRoute>} />
-            <Route path="/sales/pipeline" element={<ProtectedRoute requiredDepartment="sales"><PipelinePage /></ProtectedRoute>} />
-            <Route path="/sales/wedding-planner" element={<ProtectedRoute requiredDepartment="sales"><WeddingPlannerPage /></ProtectedRoute>} />
-            <Route path="/sales/qrcodes" element={<ProtectedRoute requiredDepartment="sales"><QRCodesPage /></ProtectedRoute>} />
-            <Route path="/sales/partners" element={<ProtectedRoute requiredDepartment="sales"><PartnersPage /></ProtectedRoute>} />
-            <Route path="/sales/analytics" element={<ProtectedRoute requiredDepartment="sales"><SalesAnalyticsPage /></ProtectedRoute>} />
+            <Route path="/sales" element={<ProtectedRoute requiredModule="project_management"><SalesDashboard /></ProtectedRoute>} />
+            <Route path="/sales/leads" element={<ProtectedRoute requiredModule="project_management"><LeadsPage /></ProtectedRoute>} />
+            <Route path="/sales/customers" element={<ProtectedRoute requiredModule="project_management"><CustomersPage /></ProtectedRoute>} />
+            <Route path="/sales/pipeline" element={<ProtectedRoute requiredModule="project_management"><PipelinePage /></ProtectedRoute>} />
+            <Route path="/sales/wedding-planner" element={<ProtectedRoute requiredModule="project_management"><WeddingPlannerPage /></ProtectedRoute>} />
+            <Route path="/sales/qrcodes" element={<ProtectedRoute requiredModule="project_management"><QRCodesPage /></ProtectedRoute>} />
+            <Route path="/sales/partners" element={<ProtectedRoute requiredModule="project_management"><PartnersPage /></ProtectedRoute>} />
+            <Route path="/sales/analytics" element={<ProtectedRoute requiredModule="project_management"><SalesAnalyticsPage /></ProtectedRoute>} />
 
             {/* Social Routes */}
-            <Route path="/social" element={<ProtectedRoute requiredDepartment="social"><SocialDashboard /></ProtectedRoute>} />
-            <Route path="/social/studio" element={<ProtectedRoute requiredDepartment="social"><ContentStudio /></ProtectedRoute>} />
-            <Route path="/social/posts" element={<ProtectedRoute requiredDepartment="social"><PostsAndSchedulePage /></ProtectedRoute>} />
-            <Route path="/social/library" element={<ProtectedRoute requiredDepartment="social"><ContentLibraryPage /></ProtectedRoute>} />
+            <Route path="/social" element={<ProtectedRoute requiredModule="social"><SocialDashboard /></ProtectedRoute>} />
+            <Route path="/social/studio" element={<ProtectedRoute requiredModule="social"><ContentStudio /></ProtectedRoute>} />
+            <Route path="/social/posts" element={<ProtectedRoute requiredModule="social"><PostsAndSchedulePage /></ProtectedRoute>} />
+            <Route path="/social/library" element={<ProtectedRoute requiredModule="social"><ContentLibraryPage /></ProtectedRoute>} />
             {/* Redirect old routes to dashboard */}
             <Route path="/social/analytics" element={<Navigate to="/social" replace />} />
             <Route path="/social/ai-tools" element={<Navigate to="/social" replace />} />
@@ -363,10 +365,10 @@ function AppRoutes() {
             <Route path="/social/avatar" element={<Navigate to="/social" replace />} />
 
             {/* Admin Routes */}
-            <Route path="/admin/users" element={<ProtectedRoute requiredDepartment="admin"><UserManagementPage /></ProtectedRoute>} />
-            <Route path="/admin/employees" element={<ProtectedRoute requiredDepartment="admin"><EmployeeDatabase /></ProtectedRoute>} />
-            <Route path="/admin/access-control" element={<ProtectedRoute requiredDepartment="admin"><AccessControlPage /></ProtectedRoute>} />
-            <Route path="/admin/organization" element={<ProtectedRoute requiredDepartment="admin"><OrganizationManagement /></ProtectedRoute>} />
+            <Route path="/admin/users" element={<ProtectedRoute requiredModule="admin"><UserManagementPage /></ProtectedRoute>} />
+            <Route path="/admin/employees" element={<ProtectedRoute requiredModule="admin"><EmployeeDatabase /></ProtectedRoute>} />
+            <Route path="/admin/access-control" element={<ProtectedRoute requiredModule="admin"><AccessControlPage /></ProtectedRoute>} />
+            <Route path="/admin/organization" element={<ProtectedRoute requiredModule="admin"><OrganizationManagement /></ProtectedRoute>} />
             {/* /admin/org-structure merged into /admin/organization */}
             <Route path="/admin/org-structure" element={<Navigate to="/admin/organization" replace />} />
             <Route path="/admin/team" element={<ProtectedRoute><TeamDashboard /></ProtectedRoute>} />
@@ -375,43 +377,43 @@ function AppRoutes() {
             <Route path="/settings/automations" element={<ProtectedRoute requiredModule="automations"><AutomationSettings /></ProtectedRoute>} />
 
             {/* Goals & Objectives Routes */}
-            <Route path="/goals" element={<ProtectedRoute><GoalsDashboard /></ProtectedRoute>} />
-            <Route path="/goals/strategic" element={<ProtectedRoute><StrategicGoals /></ProtectedRoute>} />
-            <Route path="/goals/objectives" element={<ProtectedRoute><Objectives /></ProtectedRoute>} />
-            <Route path="/goals/objectives/:objectiveId" element={<ProtectedRoute><ObjectiveDetail /></ProtectedRoute>} />
-            <Route path="/goals/fiscal-years" element={<ProtectedRoute><FiscalYears /></ProtectedRoute>} />
+            <Route path="/goals" element={<ProtectedRoute requiredModule="project_management"><GoalsDashboard /></ProtectedRoute>} />
+            <Route path="/goals/strategic" element={<ProtectedRoute requiredModule="project_management"><StrategicGoals /></ProtectedRoute>} />
+            <Route path="/goals/objectives" element={<ProtectedRoute requiredModule="project_management"><Objectives /></ProtectedRoute>} />
+            <Route path="/goals/objectives/:objectiveId" element={<ProtectedRoute requiredModule="project_management"><ObjectiveDetail /></ProtectedRoute>} />
+            <Route path="/goals/fiscal-years" element={<ProtectedRoute requiredModule="project_management"><FiscalYears /></ProtectedRoute>} />
 
             {/* Project Management Routes */}
-            <Route path="/projects" element={<ProtectedRoute><ProjectsList /></ProtectedRoute>} />
-            <Route path="/projects/my-tasks" element={<ProtectedRoute><MyTasks /></ProtectedRoute>} />
-            <Route path="/projects/recurring" element={<ProtectedRoute><RecurringTasks /></ProtectedRoute>} />
-            <Route path="/projects/manager" element={<ProtectedRoute><ManagerDashboard /></ProtectedRoute>} />
-            <Route path="/projects/:projectId" element={<ProtectedRoute><ProjectDetail /></ProtectedRoute>} />
+            <Route path="/projects" element={<ProtectedRoute requiredModule="project_management"><ProjectsList /></ProtectedRoute>} />
+            <Route path="/projects/my-tasks" element={<ProtectedRoute requiredModule="project_management"><MyTasks /></ProtectedRoute>} />
+            <Route path="/projects/recurring" element={<ProtectedRoute requiredModule="project_management"><RecurringTasks /></ProtectedRoute>} />
+            <Route path="/projects/manager" element={<ProtectedRoute requiredModule="project_management"><ManagerDashboard /></ProtectedRoute>} />
+            <Route path="/projects/:projectId" element={<ProtectedRoute requiredModule="project_management"><ProjectDetail /></ProtectedRoute>} />
 
             {/* Notifications */}
             <Route path="/notifications" element={<ProtectedRoute><NotificationCenter /></ProtectedRoute>} />
 
             {/* Help & Support */}
-            <Route path="/help" element={<ProtectedRoute><HelpCenter /></ProtectedRoute>} />
-            <Route path="/help/admin" element={<ProtectedRoute><HelpAdminDashboard /></ProtectedRoute>} />
-            <Route path="/help/modules/:moduleKey" element={<ProtectedRoute><HelpModuleDetail /></ProtectedRoute>} />
-            <Route path="/help/tickets/:ticketId" element={<ProtectedRoute><TicketDetail /></ProtectedRoute>} />
-            <Route path="/help/articles/:articleId" element={<ProtectedRoute><ArticleViewer /></ProtectedRoute>} />
+            <Route path="/help" element={<ProtectedRoute requiredModule="help_support"><HelpCenter /></ProtectedRoute>} />
+            <Route path="/help/admin" element={<ProtectedRoute requiredModule="admin"><HelpAdminDashboard /></ProtectedRoute>} />
+            <Route path="/help/modules/:moduleKey" element={<ProtectedRoute requiredModule="help_support"><HelpModuleDetail /></ProtectedRoute>} />
+            <Route path="/help/tickets/:ticketId" element={<ProtectedRoute requiredModule="help_support"><TicketDetail /></ProtectedRoute>} />
+            <Route path="/help/articles/:articleId" element={<ProtectedRoute requiredModule="help_support"><ArticleViewer /></ProtectedRoute>} />
 
             {/* Meetings & Reviews */}
-            <Route path="/meetings" element={<ProtectedRoute><MeetingList /></ProtectedRoute>} />
-            <Route path="/meetings/new" element={<ProtectedRoute><CreateMeeting /></ProtectedRoute>} />
-            <Route path="/meetings/templates" element={<ProtectedRoute><MeetingTemplates /></ProtectedRoute>} />
-            <Route path="/meetings/:meetingId" element={<ProtectedRoute><MeetingDetail /></ProtectedRoute>} />
-            <Route path="/meetings/:meetingId/edit" element={<ProtectedRoute><CreateMeeting /></ProtectedRoute>} />
+            <Route path="/meetings" element={<ProtectedRoute requiredModule="meetings"><MeetingList /></ProtectedRoute>} />
+            <Route path="/meetings/new" element={<ProtectedRoute requiredModule="meetings"><CreateMeeting /></ProtectedRoute>} />
+            <Route path="/meetings/templates" element={<ProtectedRoute requiredModule="meetings"><MeetingTemplates /></ProtectedRoute>} />
+            <Route path="/meetings/:meetingId" element={<ProtectedRoute requiredModule="meetings"><MeetingDetail /></ProtectedRoute>} />
+            <Route path="/meetings/:meetingId/edit" element={<ProtectedRoute requiredModule="meetings"><CreateMeeting /></ProtectedRoute>} />
 
             {/* HR Routes */}
-            <Route path="/hr/expenses" element={<ProtectedRoute><ExpenseManagement /></ProtectedRoute>} />
+            <Route path="/hr/expenses" element={<ProtectedRoute requiredModule="hr"><ExpenseManagement /></ProtectedRoute>} />
 
             {/* Teams Routes */}
-            <Route path="/teams/chat" element={<ProtectedRoute><TeamsChat /></ProtectedRoute>} />
-            <Route path="/teams/calendar" element={<ProtectedRoute><TeamsCalendar /></ProtectedRoute>} />
-            <Route path="/teams/calendar/:eventId" element={<ProtectedRoute><TeamsEventDetail /></ProtectedRoute>} />
+            <Route path="/teams/chat" element={<ProtectedRoute requiredModule="communication_hub"><TeamsChat /></ProtectedRoute>} />
+            <Route path="/teams/calendar" element={<ProtectedRoute requiredModule="communication_hub"><TeamsCalendar /></ProtectedRoute>} />
+            <Route path="/teams/calendar/:eventId" element={<ProtectedRoute requiredModule="communication_hub"><TeamsEventDetail /></ProtectedRoute>} />
             <Route path="/teams/callback" element={<TeamsCallback />} />
 
             {/* Catch all */}
