@@ -1440,7 +1440,43 @@ The Manager Dashboard was already functional with:
 - [x] @mentions UI tested - typing @ shows user suggestions
 - [x] Comment with mentions successfully created via API
 
+### Phase 49: Schedule Meeting from Chat & Email (COMPLETE - March 10, 2026)
+
+**Feature Parity - Convert to Task & Schedule Meeting:**
+- [x] Teams Chat: Added "Schedule Meeting" option in message dropdown menu
+- [x] Teams Chat: Meeting modal pre-fills title, date (tomorrow), time (10:00-10:30), and description from chat message
+- [x] Teams Chat: Meeting type dropdown with valid backend types (general, one_on_one, project_review, weekly_team_review, daily_standup)
+- [x] Teams Chat: Optional location and project link fields
+- [x] Teams Chat: Form validation (title and date required)
+- [x] Teams Chat: Success toast on meeting creation
+- [x] Email: Added "Schedule Meeting" button in email detail dropdown menu
+- [x] Email: Added "Schedule Meeting" button in email reply actions row
+- [x] Email: Meeting modal pre-fills title, date, and description from email subject and sender
+- [x] Email: Same form structure and validation as Teams Chat
+
+**Files Modified:**
+- `/app/frontend/src/pages/teams/TeamsChat.jsx`:
+  - Added meeting state variables and form
+  - Added `openMeetingModal()` and `createMeetingFromMessage()` functions
+  - Added "Schedule Meeting" dropdown option with CalendarPlus icon
+  - Added full meeting creation modal with all form fields
+- `/app/frontend/src/pages/marketing/EmailPage.jsx`:
+  - Added meeting state variables and form
+  - Added `openMeetingModal()` and `createMeetingFromEmail()` functions
+  - Added "Schedule Meeting" in dropdown and action buttons
+  - Added full meeting creation modal with all form fields
+
+**Testing:**
+- [x] 12/12 backend API tests passed (test_schedule_meeting_feature.py)
+- [x] Teams Chat UI verified - dropdown menu shows Schedule Meeting option
+- [x] Meeting modal opens with pre-filled data
+- [x] POST /api/meetings endpoint creates meetings successfully
+- [x] Email UI components verified in code (requires MS auth for live testing)
+
 ### P1 - Upcoming Tasks
+- [ ] AI Meeting Summaries integration (using Emergent LLM Key)
+- [ ] @mentions in meeting notes
+- [ ] Phase 3 Automations (daily task digests, auto-archiving)
 - [ ] Complete `server.py` route extraction
 - [ ] Quick Meeting Card Actions (Duplicate, Reschedule)
 - [ ] Bulk Actions for Meetings
