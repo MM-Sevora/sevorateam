@@ -120,6 +120,11 @@ import SourcingAIDiscoveryPage from "./pages/sourcing/AIDiscoveryPage";
 import EmailCampaignsPage from "./pages/sourcing/EmailCampaignsPage";
 import SourcingCalendarPage from "./pages/sourcing/SourcingCalendarPage";
 
+// Systems Module
+import SystemsPage from "./pages/systems/SystemsPage";
+import IntegrationsPage from "./pages/systems/IntegrationsPage";
+import SystemConfigPage from "./pages/systems/SystemConfigPage";
+
 import "./App.css";
 
 // Initialize MSAL instance
@@ -392,6 +397,11 @@ function AppRoutes() {
             <Route path="/admin/org-structure" element={<Navigate to="/admin/organization" replace />} />
             <Route path="/admin/website-settings" element={<ProtectedRoute requiredModule="admin"><WebsiteSettings /></ProtectedRoute>} />
             {/* /admin/team removed - use Team Dashboard under Analytics & Insights instead */}
+
+            {/* Systems Module Routes */}
+            <Route path="/systems" element={<ProtectedRoute requiredModule="systems"><SystemsPage /></ProtectedRoute>} />
+            <Route path="/systems/integrations" element={<ProtectedRoute requiredModule="systems"><IntegrationsPage /></ProtectedRoute>} />
+            <Route path="/systems/config" element={<ProtectedRoute requiredModule="systems"><SystemConfigPage /></ProtectedRoute>} />
 
             {/* Settings Routes */}
             <Route path="/settings/automations" element={<ProtectedRoute requiredModule="automations"><AutomationSettings /></ProtectedRoute>} />

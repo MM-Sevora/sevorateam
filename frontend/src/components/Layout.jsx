@@ -11,7 +11,8 @@ import {
     PenTool, Sparkles, Zap, Clock, Youtube, Image, LogOut, Menu, X,
     ChevronDown, ChevronRight, Briefcase, Mail, Check, Send, ListTodo, FolderKanban,
     HelpCircle, Award, Network, Shield, Flag, CalendarDays, RefreshCw, Plus, Globe,
-    TrendingUp, PieChart, Activity, FileText, Package, Factory, FlaskConical, Search, Database
+    TrendingUp, PieChart, Activity, FileText, Package, Factory, FlaskConical, Search, Database,
+    Server, Plug
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -201,6 +202,20 @@ const DEPARTMENT_CONFIG = {
             { path: '/sourcing/campaigns', name: 'Email Campaigns', icon: Mail },
             { path: '/sourcing/calendar', name: 'Follow-up Calendar', icon: CalendarDays },
         ]
+    },
+    systems: {
+        name: 'Systems',
+        icon: Server,
+        color: 'from-indigo-600 to-indigo-700',
+        bgColor: 'bg-indigo-50',
+        textColor: 'text-indigo-700',
+        requiredModule: 'systems',
+        routes: [
+            { path: '/systems', name: 'Overview', icon: LayoutDashboard },
+            { path: '/systems/integrations', name: 'Integrations', icon: Plug },
+            { path: '/systems/config', name: 'Configuration', icon: Settings },
+            { path: '/admin/access-control', name: 'Permissions', icon: Shield },
+        ]
     }
 };
 
@@ -218,7 +233,7 @@ export const Layout = ({ children }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(true);
-    const [expandedDepts, setExpandedDepts] = useState(['analytics', 'goals', 'marketing', 'projects', 'mail', 'sales', 'social', 'admin', 'hr', 'sourcing']);
+    const [expandedDepts, setExpandedDepts] = useState(['analytics', 'goals', 'marketing', 'projects', 'mail', 'sales', 'social', 'admin', 'hr', 'sourcing', 'systems']);
     const [expandedSubgroups, setExpandedSubgroups] = useState([]);
 
     const toggleDepartment = (dept) => {
@@ -248,6 +263,7 @@ export const Layout = ({ children }) => {
         if (path.startsWith('/admin')) return 'admin';
         if (path.startsWith('/hr')) return 'hr';
         if (path.startsWith('/sourcing')) return 'sourcing';
+        if (path.startsWith('/systems')) return 'systems';
         return null;
     };
 
