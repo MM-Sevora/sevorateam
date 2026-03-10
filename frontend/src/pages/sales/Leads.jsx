@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { salesAPI } from '../../lib/api';
+import api from '../../lib/api';
 import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -7,7 +8,14 @@ import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
 import { Label } from '../../components/ui/label';
 import { toast } from 'sonner';
-import { Search, Plus, Phone, Mail, MapPin, Calendar, UserPlus } from 'lucide-react';
+import { Search, Plus, Phone, Mail, MapPin, Calendar, UserPlus, ClipboardList, MoreVertical } from 'lucide-react';
+import CreateTaskDialog from '../../components/shared/CreateTaskDialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../components/ui/dropdown-menu';
 
 const STAGE_COLORS = {
     'New Lead': 'bg-blue-500',
@@ -34,6 +42,8 @@ export const LeadsPage = () => {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [showAddModal, setShowAddModal] = useState(false);
+    const [showCreateTask, setShowCreateTask] = useState(false);
+    const [selectedLead, setSelectedLead] = useState(null);
     const [newLead, setNewLead] = useState({
         name: '',
         phone: '',
@@ -43,6 +53,11 @@ export const LeadsPage = () => {
         occasion: '',
         notes: ''
     });
+
+    const handleCreateTask = (lead) => {
+        setSelectedLead(lead);
+        setShowCreateTask(true);
+    };
 
     const fetchLeads = async () => {
         try {
@@ -269,6 +284,19 @@ export const LeadsPage = () => {
                                             <Calendar className="w-3 h-3" />
                                             {formatDate(lead.created_at)}
                                         </span>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                                    <MoreVertical className="h-4 w-4 text-[#5D4A3A]" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onClick={() => handleCreateTask(lead)}>
+                                                    <ClipboardList className="w-4 h-4 mr-2" />
+                                                    Create Task
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </div>
                                 </div>
                                 {(lead.occasion || lead.notes) && (
@@ -282,6 +310,20 @@ export const LeadsPage = () => {
                         </Card>
                     ))}
                 </div>
+            )}
+
+            {/* Create Task Dialog */}
+            {selectedLead && (
+                <CreateTaskDialog
+                    open={showCreateTask}
+                    onOpenChange={setShowCreateTask}
+                    api={api}
+                    sourceModule="sales"
+                    sourceEntityType="lead"
+                    sourceEntityId={selectedLead.id}
+                    sourceEntityName={selectedLead.name}
+                    onTaskCreated={() => setSelectedLead(null)}
+                />
             )}
         </div>
     );

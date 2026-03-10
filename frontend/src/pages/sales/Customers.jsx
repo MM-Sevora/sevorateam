@@ -19,8 +19,17 @@ import {
   Wallet,
   History,
   Calendar,
-  Heart
+  Heart,
+  ClipboardList,
+  MoreVertical
 } from 'lucide-react';
+import CreateTaskDialog from '../../components/shared/CreateTaskDialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../components/ui/dropdown-menu';
 
 const STYLE_OPTIONS = [
   'Traditional', 'Contemporary', 'Fusion', 'Minimalist', 'Maximalist',
@@ -34,6 +43,8 @@ const CustomersPage = () => {
   const [search, setSearch] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [showCreateTask, setShowCreateTask] = useState(false);
+  const [taskCustomer, setTaskCustomer] = useState(null);
   const [newCustomer, setNewCustomer] = useState({
     name: '',
     phone: '',
@@ -45,6 +56,11 @@ const CustomersPage = () => {
     occasion_type: '',
     notes: '',
   });
+
+  const handleCreateTask = (customer) => {
+    setTaskCustomer(customer);
+    setShowCreateTask(true);
+  };
 
   useEffect(() => {
     fetchCustomers();
@@ -315,13 +331,26 @@ const CustomersPage = () => {
                 </div>
               )}
             </div>
-            <div className="mt-4 pt-4 border-t border-border flex justify-between text-sm">
+            <div className="mt-4 pt-4 border-t border-border flex justify-between items-center text-sm">
               <div className="text-muted-foreground">
                 <span className="font-semibold text-foreground">{customer.total_orders}</span> orders
               </div>
               <div className="text-muted-foreground">
                 <span className="font-semibold text-foreground">{formatCurrency(customer.total_spent)}</span> spent
               </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleCreateTask(customer); }}>
+                    <ClipboardList className="w-4 h-4 mr-2" />
+                    Create Task
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </Card>
         ))}
@@ -440,6 +469,20 @@ const CustomersPage = () => {
             </div>
           </DialogContent>
         </Dialog>
+      )}
+
+      {/* Create Task Dialog */}
+      {taskCustomer && (
+        <CreateTaskDialog
+          open={showCreateTask}
+          onOpenChange={setShowCreateTask}
+          api={api}
+          sourceModule="sales"
+          sourceEntityType="customer"
+          sourceEntityId={taskCustomer.id}
+          sourceEntityName={taskCustomer.name}
+          onTaskCreated={() => setTaskCustomer(null)}
+        />
       )}
     </div>
   );

@@ -4,7 +4,7 @@ import {
   Users, Award, Building2, ChevronRight, Plus, Edit2, Trash2,
   Loader2, RefreshCw, Search, UserPlus, Mail, Phone, Calendar, Briefcase, 
   MapPin, Filter, TrendingUp, UserCheck, Shield, ChevronDown, Check, X, 
-  AlertTriangle, XCircle
+  AlertTriangle, XCircle, ClipboardList, MoreVertical
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
@@ -42,6 +42,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '../../components/ui/popover';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../../components/ui/dropdown-menu';
+import CreateTaskDialog from '../../components/shared/CreateTaskDialog';
 
 const EmployeeDatabase = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -66,10 +73,17 @@ const EmployeeDatabase = () => {
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
   const [showOnboardModal, setShowOnboardModal] = useState(false);
   const [showTerminateDialog, setShowTerminateDialog] = useState(false);
+  const [showCreateTask, setShowCreateTask] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [terminatingEmployee, setTerminatingEmployee] = useState(null);
+  const [taskEmployee, setTaskEmployee] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [saving, setSaving] = useState(false);
+
+  const handleCreateTask = (employee) => {
+    setTaskEmployee(employee);
+    setShowCreateTask(true);
+  };
   
   // Edit employee form
   const [editForm, setEditForm] = useState({
@@ -362,6 +376,7 @@ const EmployeeDatabase = () => {
               setShowEmployeeModal(true);
             }}
             onTerminateEmployee={openTerminateDialog}
+            onCreateTask={handleCreateTask}
           />
         </TabsContent>
 
@@ -888,6 +903,20 @@ const EmployeeDatabase = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Create Task Dialog */}
+      {taskEmployee && (
+        <CreateTaskDialog
+          open={showCreateTask}
+          onOpenChange={setShowCreateTask}
+          api={api}
+          sourceModule="hr"
+          sourceEntityType="employee"
+          sourceEntityId={taskEmployee.id || taskEmployee.user_id}
+          sourceEntityName={taskEmployee.name}
+          onTaskCreated={() => setTaskEmployee(null)}
+        />
+      )}
     </div>
   );
 };
@@ -968,7 +997,7 @@ const OverviewTab = ({ stats, loading, departments }) => {
 };
 
 // Employees Tab Component
-const EmployeesTab = ({ employees, loading, searchQuery, setSearchQuery, filters, setFilters, departments, grades, onRefresh, onEditEmployee, onTerminateEmployee }) => {
+const EmployeesTab = ({ employees, loading, searchQuery, setSearchQuery, filters, setFilters, departments, grades, onRefresh, onEditEmployee, onTerminateEmployee, onCreateTask }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -1143,6 +1172,14 @@ const EmployeesTab = ({ employees, loading, searchQuery, setSearchQuery, filters
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => onCreateTask(emp)}
+                          className="border-teal-200 text-teal-700 hover:bg-teal-50"
+                        >
+                          <ClipboardList className="h-4 w-4 mr-1" /> Task
+                        </Button>
                         <Button 
                           variant="outline" 
                           size="sm" 
