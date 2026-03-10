@@ -104,6 +104,7 @@ import TeamsEventDetail from "./pages/teams/TeamsEventDetail";
 
 // Analytics & Insights
 import AnalyticsTeamDashboard from "./pages/analytics/TeamDashboard";
+import ReportsPage from "./pages/analytics/ReportsPage";
 
 import "./App.css";
 
@@ -424,6 +425,7 @@ function AppRoutes() {
             {/* Analytics & Insights Routes */}
             <Route path="/analytics" element={<ProtectedRoute requiredModule="dashboard"><AnalyticsTeamDashboard /></ProtectedRoute>} />
             <Route path="/analytics/team-dashboard" element={<ProtectedRoute requiredModule="dashboard"><AnalyticsTeamDashboard /></ProtectedRoute>} />
+            <Route path="/analytics/reports" element={<ProtectedRoute requiredModule="dashboard"><ReportsPage /></ProtectedRoute>} />
 
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" replace />} />

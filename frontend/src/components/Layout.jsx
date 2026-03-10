@@ -11,7 +11,7 @@ import {
     PenTool, Sparkles, Zap, Clock, Youtube, Image, LogOut, Menu, X,
     ChevronDown, ChevronRight, Briefcase, Mail, Check, Send, ListTodo, FolderKanban,
     HelpCircle, Award, Network, Shield, Flag, CalendarDays, RefreshCw, Plus, Globe,
-    TrendingUp, PieChart, Activity
+    TrendingUp, PieChart, Activity, FileText
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -38,6 +38,7 @@ const DEPARTMENT_CONFIG = {
         requiredModule: 'dashboard',
         routes: [
             { path: '/analytics', name: 'Team Dashboard', icon: BarChart3 },
+            { path: '/analytics/reports', name: 'Reports', icon: FileText },
         ]
     },
     goals: {

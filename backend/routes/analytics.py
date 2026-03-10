@@ -657,3 +657,426 @@ async def get_dashboard_summary(
         todays_meetings=todays_meetings,
         goal_progress=goal_progress
     )
+
+
+
+# ============== REPORTS MODULE ==============
+
+class ReportSection(BaseModel):
+    title: str
+    data: Dict[str, Any]
+
+
+class ReportResponse(BaseModel):
+    id: str
+    report_type: str  # daily, weekly, monthly, quarterly
+    title: str
+    period_start: str
+    period_end: str
+    generated_at: str
+    generated_by: str
+    sections: List[ReportSection]
+    summary: Optional[str] = None
+
+
+class ReportListItem(BaseModel):
+    id: str
+    report_type: str
+    title: str
+    period_start: str
+    period_end: str
+    generated_at: str
+    generated_by_name: str
+
+
+async def generate_report_data(report_type: str, start_date: datetime, end_date: datetime, department: Optional[str] = None) -> Dict[str, Any]:
+    """Generate report data for a specific period"""
+    start_str = start_date.isoformat()
+    end_str = end_date.isoformat()
+    
+    sections = []
+    
+    # 1. Executive Summary / Overview
+    total_users = await db.users.count_documents({"status": "active"})
+    
+    # 2. Task Metrics
+    task_query = {"created_at": {"$gte": start_str, "$lte": end_str}}
+    tasks_created = await db.pm_tasks.count_documents(task_query)
+    
+    completed_query = {
+        "status": "completed",
+        "updated_at": {"$gte": start_str, "$lte": end_str}
+    }
+    tasks_completed = await db.pm_tasks.count_documents(completed_query)
+    
+    overdue_query = {
+        "due_date": {"$lt": end_str},
+        "status": {"$nin": ["completed", "cancelled"]}
+    }
+    tasks_overdue = await db.pm_tasks.count_documents(overdue_query)
+    
+    in_progress = await db.pm_tasks.count_documents({"status": "in_progress"})
+    
+    sections.append(ReportSection(
+        title="Task Metrics",
+        data={
+            "tasks_created": tasks_created,
+            "tasks_completed": tasks_completed,
+            "tasks_overdue": tasks_overdue,
+            "tasks_in_progress": in_progress,
+            "completion_rate": round((tasks_completed / tasks_created * 100) if tasks_created > 0 else 0, 1)
+        }
+    ))
+    
+    # 3. Project Status
+    projects_active = await db.pm_projects.count_documents({"status": "active"})
+    projects_completed_period = await db.pm_projects.count_documents({
+        "status": "completed",
+        "updated_at": {"$gte": start_str, "$lte": end_str}
+    })
+    projects_on_hold = await db.pm_projects.count_documents({"status": "on_hold"})
+    
+    # Get top projects
+    top_projects = []
+    projects_cursor = db.pm_projects.find(
+        {"status": {"$in": ["active", "completed"]}},
+        {"_id": 0, "id": 1, "name": 1, "status": 1, "progress": 1}
+    ).sort("updated_at", -1).limit(5)
+    async for p in projects_cursor:
+        top_projects.append({
+            "name": p.get("name"),
+            "status": p.get("status"),
+            "progress": p.get("progress", 0)
+        })
+    
+    sections.append(ReportSection(
+        title="Project Status",
+        data={
+            "active_projects": projects_active,
+            "completed_in_period": projects_completed_period,
+            "on_hold": projects_on_hold,
+            "top_projects": top_projects
+        }
+    ))
+    
+    # 4. Meeting Summary
+    meetings_query = {
+        "start_time": {"$gte": start_str, "$lte": end_str}
+    }
+    meetings_total = await db.meetings.count_documents(meetings_query)
+    meetings_completed = await db.meetings.count_documents({**meetings_query, "status": "completed"})
+    
+    # Count action items from meetings
+    action_items_pipeline = [
+        {"$match": meetings_query},
+        {"$project": {"action_count": {"$size": {"$ifNull": ["$action_items", []]}}}},
+        {"$group": {"_id": None, "total": {"$sum": "$action_count"}}}
+    ]
+    action_cursor = db.meetings.aggregate(action_items_pipeline)
+    action_items_total = 0
+    async for doc in action_cursor:
+        action_items_total = doc.get("total", 0)
+    
+    sections.append(ReportSection(
+        title="Meeting Summary",
+        data={
+            "total_meetings": meetings_total,
+            "completed_meetings": meetings_completed,
+            "action_items_created": action_items_total,
+            "avg_meetings_per_day": round(meetings_total / max((end_date - start_date).days, 1), 1)
+        }
+    ))
+    
+    # 5. Goals & OKR Progress
+    objectives_total = await db.objectives.count_documents({})
+    objectives_completed = await db.objectives.count_documents({"status": "completed"})
+    
+    # Average progress
+    progress_pipeline = [
+        {"$group": {"_id": None, "avg_progress": {"$avg": "$progress"}}}
+    ]
+    progress_cursor = db.objectives.aggregate(progress_pipeline)
+    avg_progress = 0
+    async for doc in progress_cursor:
+        avg_progress = doc.get("avg_progress", 0) or 0
+    
+    sections.append(ReportSection(
+        title="Goals & OKR Progress",
+        data={
+            "total_objectives": objectives_total,
+            "completed_objectives": objectives_completed,
+            "in_progress_objectives": objectives_total - objectives_completed,
+            "average_progress": round(avg_progress, 1)
+        }
+    ))
+    
+    # 6. Team Contributions (Top performers)
+    contributors_pipeline = [
+        {"$match": {"status": "completed", "updated_at": {"$gte": start_str, "$lte": end_str}}},
+        {"$group": {"_id": "$assigned_to", "tasks_completed": {"$sum": 1}}},
+        {"$sort": {"tasks_completed": -1}},
+        {"$limit": 5}
+    ]
+    contributors = []
+    contrib_cursor = db.pm_tasks.aggregate(contributors_pipeline)
+    async for doc in contrib_cursor:
+        if doc["_id"]:
+            user = await db.users.find_one({"id": doc["_id"]}, {"name": 1, "department": 1})
+            if user:
+                contributors.append({
+                    "name": user.get("name", "Unknown"),
+                    "department": user.get("department", ""),
+                    "tasks_completed": doc["tasks_completed"]
+                })
+    
+    sections.append(ReportSection(
+        title="Team Contributions",
+        data={
+            "top_contributors": contributors
+        }
+    ))
+    
+    # 7. Risks & Blockers
+    blocked_tasks = await db.pm_tasks.count_documents({"status": "blocked"})
+    high_priority_overdue = await db.pm_tasks.count_documents({
+        "priority": {"$in": ["high", "urgent"]},
+        "due_date": {"$lt": end_str},
+        "status": {"$nin": ["completed", "cancelled"]}
+    })
+    
+    # At risk projects
+    at_risk_projects = await db.pm_projects.count_documents({
+        "status": "active",
+        "$or": [
+            {"end_date": {"$lt": end_str}},
+            {"progress": {"$lt": 25}}
+        ]
+    })
+    
+    sections.append(ReportSection(
+        title="Risks & Blockers",
+        data={
+            "blocked_tasks": blocked_tasks,
+            "high_priority_overdue": high_priority_overdue,
+            "at_risk_projects": at_risk_projects
+        }
+    ))
+    
+    # 8. Upcoming Priorities
+    upcoming_tasks = []
+    next_week = (end_date + timedelta(days=7)).isoformat()
+    upcoming_cursor = db.pm_tasks.find(
+        {
+            "due_date": {"$gte": end_str, "$lte": next_week},
+            "status": {"$nin": ["completed", "cancelled"]}
+        },
+        {"_id": 0, "name": 1, "due_date": 1, "priority": 1}
+    ).sort("due_date", 1).limit(10)
+    async for task in upcoming_cursor:
+        upcoming_tasks.append({
+            "name": task.get("name"),
+            "due_date": task.get("due_date"),
+            "priority": task.get("priority")
+        })
+    
+    sections.append(ReportSection(
+        title="Upcoming Priorities",
+        data={
+            "upcoming_tasks": upcoming_tasks,
+            "count": len(upcoming_tasks)
+        }
+    ))
+    
+    return {
+        "sections": sections,
+        "summary_stats": {
+            "total_users": total_users,
+            "tasks_completed": tasks_completed,
+            "projects_active": projects_active,
+            "avg_goal_progress": round(avg_progress, 1)
+        }
+    }
+
+
+@router.post("/reports/generate")
+async def generate_report(
+    report_type: str = Query(..., regex="^(daily|weekly|monthly|quarterly)$"),
+    custom_start: Optional[str] = None,
+    custom_end: Optional[str] = None,
+    department: Optional[str] = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Generate a new report"""
+    import uuid
+    
+    now = datetime.now(timezone.utc)
+    
+    # Calculate period based on report type
+    if custom_start and custom_end:
+        start_date = datetime.fromisoformat(custom_start.replace('Z', '+00:00'))
+        end_date = datetime.fromisoformat(custom_end.replace('Z', '+00:00'))
+    else:
+        if report_type == "daily":
+            start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_date = now
+        elif report_type == "weekly":
+            start_date = now - timedelta(days=now.weekday())
+            start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_date = now
+        elif report_type == "monthly":
+            start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            end_date = now
+        elif report_type == "quarterly":
+            quarter_month = ((now.month - 1) // 3) * 3 + 1
+            start_date = now.replace(month=quarter_month, day=1, hour=0, minute=0, second=0, microsecond=0)
+            end_date = now
+    
+    # Generate report data
+    report_data = await generate_report_data(report_type, start_date, end_date, department)
+    
+    # Create report title
+    period_labels = {
+        "daily": f"Daily Report - {start_date.strftime('%B %d, %Y')}",
+        "weekly": f"Weekly Report - Week of {start_date.strftime('%B %d, %Y')}",
+        "monthly": f"Monthly Report - {start_date.strftime('%B %Y')}",
+        "quarterly": f"Q{((start_date.month - 1) // 3) + 1} {start_date.year} Report"
+    }
+    
+    report_id = str(uuid.uuid4())
+    
+    # Save report to database
+    report_doc = {
+        "id": report_id,
+        "report_type": report_type,
+        "title": period_labels.get(report_type, f"{report_type.capitalize()} Report"),
+        "period_start": start_date.isoformat(),
+        "period_end": end_date.isoformat(),
+        "generated_at": now.isoformat(),
+        "generated_by": user.get("id"),
+        "generated_by_name": user.get("name", "Unknown"),
+        "department": department,
+        "sections": [s.dict() for s in report_data["sections"]],
+        "summary_stats": report_data["summary_stats"]
+    }
+    
+    await db.reports.insert_one(report_doc)
+    
+    # Return without _id
+    if "_id" in report_doc:
+        del report_doc["_id"]
+    
+    return report_doc
+
+
+@router.get("/reports")
+async def list_reports(
+    report_type: Optional[str] = None,
+    limit: int = 20,
+    skip: int = 0,
+    user: dict = Depends(get_current_user_dep)
+):
+    """List all generated reports"""
+    query = {}
+    if report_type:
+        query["report_type"] = report_type
+    
+    reports = []
+    cursor = db.reports.find(query, {"_id": 0}).sort("generated_at", -1).skip(skip).limit(limit)
+    
+    async for doc in cursor:
+        reports.append(ReportListItem(
+            id=doc["id"],
+            report_type=doc["report_type"],
+            title=doc["title"],
+            period_start=doc["period_start"],
+            period_end=doc["period_end"],
+            generated_at=doc["generated_at"],
+            generated_by_name=doc.get("generated_by_name", "Unknown")
+        ))
+    
+    total = await db.reports.count_documents(query)
+    
+    return {
+        "reports": reports,
+        "total": total,
+        "limit": limit,
+        "skip": skip
+    }
+
+
+@router.get("/reports/{report_id}")
+async def get_report(
+    report_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get a specific report by ID"""
+    report = await db.reports.find_one({"id": report_id}, {"_id": 0})
+    
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    
+    return report
+
+
+@router.delete("/reports/{report_id}")
+async def delete_report(
+    report_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Delete a report"""
+    result = await db.reports.delete_one({"id": report_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Report not found")
+    
+    return {"success": True, "message": "Report deleted"}
+
+
+@router.get("/reports/{report_id}/export")
+async def export_report(
+    report_id: str,
+    format: str = Query("json", regex="^(json|csv)$"),
+    user: dict = Depends(get_current_user_dep)
+):
+    """Export report data"""
+    from fastapi.responses import JSONResponse
+    import csv
+    import io
+    
+    report = await db.reports.find_one({"id": report_id}, {"_id": 0})
+    
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    
+    if format == "json":
+        return JSONResponse(content=report)
+    
+    elif format == "csv":
+        from fastapi.responses import StreamingResponse
+        
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Write header
+        writer.writerow(["Report", report["title"]])
+        writer.writerow(["Period", f"{report['period_start']} to {report['period_end']}"])
+        writer.writerow(["Generated", report["generated_at"]])
+        writer.writerow([])
+        
+        # Write sections
+        for section in report.get("sections", []):
+            writer.writerow([section["title"]])
+            for key, value in section.get("data", {}).items():
+                if isinstance(value, list):
+                    writer.writerow([key, f"{len(value)} items"])
+                else:
+                    writer.writerow([key, value])
+            writer.writerow([])
+        
+        output.seek(0)
+        
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=report_{report_id}.csv"}
+        )
