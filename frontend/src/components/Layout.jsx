@@ -150,7 +150,7 @@ const ROLE_LABELS = {
 };
 
 export const Layout = ({ children }) => {
-    const { user, logout, hasAccessToDepartment, api } = useAuth();
+    const { user, logout, hasAccessToDepartment, hasModuleAccess, api } = useAuth();
     const location = useLocation();
     const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -347,17 +347,21 @@ export const Layout = ({ children }) => {
                             <Users className="w-5 h-5" />
                             {sidebarOpen && <span className="font-semibold">Team Dashboard</span>}
                         </Link>
-                        <Link
-                            to="/settings/automations"
-                            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
-                                location.pathname.startsWith('/settings')
-                                    ? 'bg-[#E8D5C4] text-[#4A3728] font-medium'
-                                    : 'text-[#5D4A3A] hover:bg-[#E8D5C4]/50'
-                            }`}
-                        >
-                            <Zap className="w-5 h-5" />
-                            {sidebarOpen && <span className="font-semibold">Automations</span>}
-                        </Link>
+                        
+                        {/* Only show Automations link if user has access */}
+                        {(hasModuleAccess('automations') || hasModuleAccess('admin') || user?.role === 'super_admin') && (
+                            <Link
+                                to="/settings/automations"
+                                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
+                                    location.pathname.startsWith('/settings')
+                                        ? 'bg-[#E8D5C4] text-[#4A3728] font-medium'
+                                        : 'text-[#5D4A3A] hover:bg-[#E8D5C4]/50'
+                                }`}
+                            >
+                                <Zap className="w-5 h-5" />
+                                {sidebarOpen && <span className="font-semibold">Automations</span>}
+                            </Link>
+                        )}
                     </div>
                 </nav>
 

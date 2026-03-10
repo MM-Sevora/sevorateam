@@ -191,6 +191,22 @@ export const AuthProvider = ({ children }) => {
         return userDepts.includes('admin') || userDepts.includes(department);
     };
 
+    // Check if user has access to a specific module (new module-based system)
+    const hasModuleAccess = (moduleKey) => {
+        if (!user) return false;
+        
+        // Super admin always has access
+        if (user.role === 'super_admin') return true;
+        
+        // Check merged_module_access from user object
+        const userModules = user.merged_module_access || [];
+        if (userModules.includes(moduleKey)) return true;
+        
+        // Fallback: check if module is in custom_role_ids-based access
+        // This requires the user object to have the merged access
+        return false;
+    };
+
     // Check if user has specific permission for a module action
     // Usage: hasPermission('marketing', 'influencers', 'create')
     const hasPermission = (department, module, action) => {
@@ -291,6 +307,7 @@ export const AuthProvider = ({ children }) => {
         register,
         logout,
         hasAccessToDepartment,
+        hasModuleAccess,
         hasPermission,
         getUserDepartments,
         ROLE_DEPARTMENTS,

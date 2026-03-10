@@ -288,6 +288,7 @@ class UserResponse(BaseModel):
     has_custom_permissions: bool = False
     custom_role_ids: List[str] = []
     custom_role_names: List[str] = []
+    merged_module_access: List[str] = []
 
 class UserUpdateRequest(BaseModel):
     name: Optional[str] = None
@@ -570,6 +571,51 @@ def require_department(allowed_departments: List[str]):
         raise HTTPException(status_code=403, detail="Access denied to this department")
     return department_checker
 
+
+def require_module_access(required_modules: List[str]):
+    """
+    Dependency that checks if user has access to specified modules.
+    Uses the new module-based access control system.
+    
+    Usage:
+        @app.get("/api/automations")
+        async def get_automations(user: dict = Depends(require_module_access(["automations"]))):
+            ...
+    """
+    async def module_checker(user: dict = Depends(get_current_user)):
+        # Super admin always has access
+        if user.get('role') == 'super_admin':
+            return user
+        
+        # Get user's merged module access
+        user_modules = user.get('merged_module_access', [])
+        
+        # If user doesn't have merged_module_access, fetch from custom_role_ids
+        if not user_modules:
+            custom_role_ids = user.get('custom_role_ids', [])
+            if custom_role_ids:
+                # Fetch roles and merge module access
+                roles = await db.custom_roles.find({"id": {"$in": custom_role_ids}}).to_list(10)
+                for role in roles:
+                    user_modules.extend(role.get('module_access', []))
+                user_modules = list(set(user_modules))
+        
+        # Check if user has access to any of the required modules
+        if any(mod in user_modules for mod in required_modules):
+            return user
+        
+        # Log the access denial for debugging
+        logger.warning(
+            f"Module access denied: user={user.get('email')} "
+            f"required={required_modules} has={user_modules}"
+        )
+        
+        raise HTTPException(
+            status_code=403, 
+            detail=f"Access denied. Required module access: {', '.join(required_modules)}"
+        )
+    return module_checker
+
 def calculate_influencer_score(influencer: dict) -> float:
     score = 0.0
     engagement = influencer.get('engagement_rate', 0)
@@ -667,6 +713,20 @@ async def login(credentials: UserLogin):
         {"$set": {"last_login": datetime.now(timezone.utc).isoformat()}}
     )
     
+    # Get merged module access from custom roles
+    merged_module_access = user.get('merged_module_access', [])
+    custom_role_ids = user.get('custom_role_ids', [])
+    custom_role_names = []
+    
+    if not merged_module_access and custom_role_ids:
+        # Fetch and merge module access from roles
+        roles = await db.custom_roles.find({"id": {"$in": custom_role_ids}}).to_list(10)
+        module_set = set()
+        for role in roles:
+            module_set.update(role.get('module_access', []))
+            custom_role_names.append(role.get('name', ''))
+        merged_module_access = list(module_set)
+    
     token = create_access_token({"sub": user['id'], "email": user['email'], "role": user.get('role', 'viewer')})
     departments = get_user_departments(user.get('role', 'viewer'))
     permissions = get_user_permissions(user)
@@ -685,7 +745,10 @@ async def login(credentials: UserLogin):
             created_at=user.get('created_at'),
             last_login=datetime.now(timezone.utc).isoformat(),
             permissions=permissions,
-            has_custom_permissions=bool(user.get('custom_permissions'))
+            has_custom_permissions=bool(user.get('custom_permissions')),
+            custom_role_ids=custom_role_ids,
+            custom_role_names=custom_role_names,
+            merged_module_access=merged_module_access
         )
     )
 
@@ -4412,7 +4475,7 @@ async def log_communication_for_contact(contact_identifier: str, channel: str, m
 automation_router = APIRouter(prefix="/automations", tags=["Automations"])
 
 @automation_router.get("/settings")
-async def get_automation_settings(user: dict = Depends(get_current_user)):
+async def get_automation_settings(user: dict = Depends(require_module_access(["automations", "admin"]))):
     """Get automation settings for the organization"""
     settings = await db.automation_settings.find_one({"type": "global"}, {"_id": 0})
     if not settings:
@@ -4421,10 +4484,10 @@ async def get_automation_settings(user: dict = Depends(get_current_user)):
     return {"settings": settings.get("settings", DEFAULT_AUTOMATION_SETTINGS), "is_default": False}
 
 @automation_router.put("/settings")
-async def update_automation_settings(data: dict, user: dict = Depends(get_current_user)):
+async def update_automation_settings(data: dict, user: dict = Depends(require_module_access(["automations", "admin"]))):
     """Update automation settings"""
     # Only admins can update settings
-    if user.get('role') not in ['super_admin', 'admin']:
+    if user.get('role') not in ['super_admin', 'admin'] and not user.get('can_manage_roles'):
         raise HTTPException(status_code=403, detail="Only admins can update automation settings")
     
     settings = data.get("settings", {})
@@ -4447,13 +4510,13 @@ async def update_automation_settings(data: dict, user: dict = Depends(get_curren
     return {"message": "Automation settings updated", "settings": settings}
 
 @automation_router.get("/logs")
-async def get_automation_logs(limit: int = 50, user: dict = Depends(get_current_user)):
+async def get_automation_logs(limit: int = 50, user: dict = Depends(require_module_access(["automations", "admin"]))):
     """Get automation execution logs"""
     logs = await db.automation_logs.find({}, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
     return logs
 
 @automation_router.get("/pending-actions")
-async def get_pending_actions(user: dict = Depends(get_current_user)):
+async def get_pending_actions(user: dict = Depends(require_module_access(["automations", "admin"]))):
     """Get pending automation actions (reminders, follow-ups, etc.)"""
     settings_doc = await db.automation_settings.find_one({"type": "global"}, {"_id": 0})
     settings = settings_doc.get("settings", DEFAULT_AUTOMATION_SETTINGS) if settings_doc else DEFAULT_AUTOMATION_SETTINGS

@@ -1584,6 +1584,46 @@ The Manager Dashboard was already functional with:
   - Added UI controls for Stale Task Reminder
   - Phase 3 items marked with cyan "Phase 3" badge
 
+### Phase 57: Permission System Fixes (COMPLETE - March 10, 2026)
+
+**Critical Issues Fixed (P0):**
+
+1. **Role Assignment Now Updates Users Collection** ✅
+   - Created new API endpoint: `PUT /api/access/users/{user_id}/roles`
+   - Frontend now calls correct endpoint instead of updating employees collection
+   - Both users and employees collections are updated for backwards compatibility
+   - Files: `access_control.py`, `UserManagement.jsx`
+
+2. **Permission Enforcement Implemented** ✅
+   - Added `require_module_access()` dependency for route protection
+   - Applied to automation endpoints (`/api/automations/settings`, `/api/automations/logs`, etc.)
+   - Users without `automations` module access will get 403 error
+   - File: `server.py`
+
+3. **Login Response Enhanced** ✅
+   - Login API now returns `merged_module_access`, `custom_role_ids`, `custom_role_names`
+   - Frontend can now check module access before showing UI elements
+   - File: `server.py`
+
+4. **Frontend Module Access Checking** ✅
+   - Added `hasModuleAccess()` function to AuthContext
+   - Automations link in sidebar only shows for users with access
+   - File: `AuthContext.jsx`, `Layout.jsx`
+
+**Medium Issues Fixed (P1):**
+
+5. **Employee Count Query Fixed** ✅
+   - Now counts from both `employees` and `users` collections
+   - Shows accurate user counts per role
+   - File: `access_control.py`
+
+**Files Modified:**
+- `/app/backend/routes/access_control.py`: Added UpdateUserRolesRequest model and endpoint, fixed employee count
+- `/app/backend/server.py`: Added require_module_access(), enhanced login response, protected automation routes
+- `/app/frontend/src/context/AuthContext.jsx`: Added hasModuleAccess() function
+- `/app/frontend/src/components/Layout.jsx`: Conditional Automations link rendering
+- `/app/frontend/src/pages/admin/UserManagement.jsx`: Fixed handleSaveRoles() to use new endpoint
+
 ### Phase 56: Access Control & Roles Fixes (COMPLETE - March 10, 2026)
 
 **Issues Fixed:**

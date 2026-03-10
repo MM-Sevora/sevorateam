@@ -326,30 +326,31 @@ const UserManagementPage = () => {
 
   // Open role assignment modal
   const openRoleModal = (user) => {
-    const emp = employees.find(e => e.user_id === user.id);
     setSelectedUserForRole(user);
-    setSelectedRoleIds(emp?.custom_role_ids || []);
+    // Get roles from user record (not employees)
+    setSelectedRoleIds(user.custom_role_ids || []);
     setShowRoleModal(true);
   };
 
-  // Save role assignment
+  // Save role assignment - Updates user record directly
   const handleSaveRoles = async () => {
     if (!selectedUserForRole) return;
     
-    const emp = employees.find(e => e.user_id === selectedUserForRole.id);
-    if (!emp) {
-      toast.error('Employee record not found');
+    if (selectedRoleIds.length === 0) {
+      toast.error('At least one role is required');
       return;
     }
     
     setSaving(true);
     try {
-      await api.put(`/hr/v2/employees/${emp.id}`, {
+      // Use the new endpoint that updates user record directly
+      await api.put(`/access/users/${selectedUserForRole.id}/roles`, {
         custom_role_ids: selectedRoleIds
       });
       toast.success('Roles updated successfully');
       setShowRoleModal(false);
       setSelectedUserForRole(null);
+      fetchUsers();
       fetchEmployees();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to update roles');

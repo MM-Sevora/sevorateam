@@ -4,6 +4,7 @@ Clean architecture separating User (Auth) from Employee (HR + Access)
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
@@ -52,7 +53,12 @@ async def get_custom_roles(
     
     # Enrich with employee counts and module names
     for role in roles:
-        role["employee_count"] = await db.employees.count_documents({"custom_role_id": role["id"]})
+        # Count from both employees collection (legacy) and users collection (new)
+        emp_count = await db.employees.count_documents({"custom_role_id": role["id"]})
+        # Also count users who have this role in their custom_role_ids array
+        user_count = await db.users.count_documents({"custom_role_ids": role["id"]})
+        role["employee_count"] = max(emp_count, user_count)  # Use the higher count
+        
         # Add human-readable module names
         role["module_names"] = [
             MODULE_DEFINITIONS.get(m, {}).get("name", m) 
@@ -347,6 +353,95 @@ async def onboard_user(
         status="success",
         message=f"User successfully onboarded as {employee_code} with roles: {role_names}"
     )
+
+
+class UpdateUserRolesRequest(BaseModel):
+    """Request model for updating user roles"""
+    custom_role_ids: List[str]
+
+
+@access_control_router.put("/users/{user_id}/roles")
+async def update_user_roles(
+    user_id: str,
+    data: UpdateUserRolesRequest,
+    current_user: dict = Depends(require_admin())
+):
+    """
+    Update the custom roles assigned to a user.
+    This updates the user's access control without re-onboarding.
+    """
+    db = get_db()
+    
+    # 1. Fetch the user
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # 2. Validate all role IDs exist
+    if not data.custom_role_ids or len(data.custom_role_ids) == 0:
+        raise HTTPException(status_code=400, detail="At least one role is required")
+    
+    validated_roles = []
+    for role_id in data.custom_role_ids:
+        custom_role = await db.custom_roles.find_one({"id": role_id})
+        if not custom_role:
+            raise HTTPException(status_code=400, detail=f"Invalid role ID: {role_id}")
+        validated_roles.append(custom_role)
+    
+    # 3. Merge module access from all assigned roles
+    merged_module_access = set()
+    can_manage_users = False
+    can_manage_employees = False
+    can_manage_roles = False
+    
+    for role in validated_roles:
+        merged_module_access.update(role.get("module_access", []))
+        if role.get("can_manage_users"):
+            can_manage_users = True
+        if role.get("can_manage_employees"):
+            can_manage_employees = True
+        if role.get("can_manage_roles"):
+            can_manage_roles = True
+    
+    # 4. Update user record
+    now = datetime.now(timezone.utc).isoformat()
+    
+    update_data = {
+        "custom_role_ids": data.custom_role_ids,
+        "custom_role_id": data.custom_role_ids[0] if data.custom_role_ids else None,
+        "merged_module_access": list(merged_module_access),
+        "can_manage_users": can_manage_users,
+        "can_manage_employees": can_manage_employees,
+        "can_manage_roles": can_manage_roles,
+        "updated_at": now,
+        "roles_updated_by": current_user.get("id"),
+        "roles_updated_at": now
+    }
+    
+    await db.users.update_one({"id": user_id}, {"$set": update_data})
+    
+    # 5. Also update employees collection if exists (for backwards compatibility)
+    employee = await db.employees.find_one({"user_id": user_id})
+    if employee:
+        await db.employees.update_one(
+            {"user_id": user_id},
+            {"$set": {
+                "custom_role_ids": data.custom_role_ids,
+                "custom_role_id": data.custom_role_ids[0] if data.custom_role_ids else None,
+                "updated_at": now
+            }}
+        )
+    
+    role_names = [r.get("name", "") for r in validated_roles]
+    
+    return {
+        "success": True,
+        "user_id": user_id,
+        "custom_role_ids": data.custom_role_ids,
+        "role_names": role_names,
+        "merged_module_access": list(merged_module_access),
+        "message": f"Roles updated: {', '.join(role_names)}"
+    }
 
 
 @access_control_router.post("/activate/{employee_id}")
