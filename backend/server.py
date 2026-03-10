@@ -896,6 +896,94 @@ async def get_auth_config():
         "redirectUri": os.environ.get('FRONTEND_URL', 'http://localhost:3000')
     }
 
+
+@auth_router.get("/init-admin")
+async def initialize_admin():
+    """
+    One-time initialization endpoint to create super admin.
+    Only works if NO users exist in the database.
+    After first use, this endpoint becomes inactive.
+    """
+    # Check if any users exist
+    user_count = await db.users.count_documents({})
+    
+    if user_count > 0:
+        return {
+            "success": False,
+            "message": f"Database already has {user_count} user(s). Initialization not allowed.",
+            "hint": "Use Microsoft SSO or contact your administrator for access."
+        }
+    
+    # Create super admin user
+    admin_id = str(uuid.uuid4())
+    admin_password = "SuperAdmin@2024!"  # Strong default password
+    hashed_password = bcrypt.hashpw(admin_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    
+    # Get or create super_admin role
+    super_admin_role = await db.custom_roles.find_one({"name": "Super Admin"})
+    role_ids = [super_admin_role["id"]] if super_admin_role else []
+    
+    admin_user = {
+        "id": admin_id,
+        "email": "superadmin@sevora.com",
+        "name": "Super Administrator",
+        "password": hashed_password,
+        "department": "admin",
+        "role": "super_admin",
+        "status": "active",
+        "custom_role_ids": role_ids,
+        "departments": ["marketing", "sales", "social", "mail", "admin"],
+        "module_access": ["dashboard", "goals", "project_management", "communication_hub", 
+                         "task_management", "social", "help_support", "admin", "marketing_ops"],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.users.insert_one(admin_user)
+    
+    # Also create the Super Admin role if it doesn't exist
+    if not super_admin_role:
+        role_id = str(uuid.uuid4())
+        await db.custom_roles.insert_one({
+            "id": role_id,
+            "name": "Super Admin",
+            "description": "Full system access",
+            "is_system_role": True,
+            "module_access": ["dashboard", "goals", "project_management", "communication_hub",
+                             "task_management", "social", "help_support", "admin", "marketing_ops"],
+            "module_permissions": {
+                "dashboard": {"create": True, "read": True, "update": True, "delete": True},
+                "goals": {"create": True, "read": True, "update": True, "delete": True},
+                "project_management": {"create": True, "read": True, "update": True, "delete": True},
+                "communication_hub": {"create": True, "read": True, "update": True, "delete": True},
+                "task_management": {"create": True, "read": True, "update": True, "delete": True},
+                "social": {"create": True, "read": True, "update": True, "delete": True},
+                "help_support": {"create": True, "read": True, "update": True, "delete": True},
+                "admin": {"create": True, "read": True, "update": True, "delete": True},
+                "marketing_ops": {"create": True, "read": True, "update": True, "delete": True}
+            },
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        })
+        # Update the user with the new role ID
+        await db.users.update_one({"id": admin_id}, {"$set": {"custom_role_ids": [role_id]}})
+    
+    return {
+        "success": True,
+        "message": "Super Admin account created successfully!",
+        "credentials": {
+            "email": "superadmin@sevora.com",
+            "password": admin_password
+        },
+        "warning": "⚠️ IMPORTANT: Change this password immediately after first login!",
+        "next_steps": [
+            "1. Go to the login page",
+            "2. Use the credentials above to sign in",
+            "3. Go to Admin > Users to change your password",
+            "4. Set up additional users as needed"
+        ]
+    }
+
 # ============== MARKETING ROUTES ==============
 @marketing_router.get("/influencers", response_model=List[InfluencerResponse])
 async def get_influencers(
