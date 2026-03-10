@@ -4180,6 +4180,46 @@ DEFAULT_AUTOMATION_SETTINGS = {
     "social": {
         "auto_publish": {"enabled": True, "description": "Auto-publish posts at scheduled time"},
         "daily_limit": {"enabled": False, "limit": 10, "description": "Limit posts per day per platform"}
+    },
+    "goals_projects": {
+        "progress_cascade": {
+            "enabled": True,
+            "description": "Auto-update project, objective, and goal progress when tasks are completed"
+        },
+        "overdue_task_alert": {
+            "enabled": True,
+            "description": "Send notifications for overdue tasks",
+            "check_time": "08:00",
+            "notify_assignee": True,
+            "notify_manager": True,
+            "channels": {"in_app": True, "email": True, "teams": False}
+        },
+        "task_deadline_reminder": {
+            "enabled": True,
+            "description": "Remind users about upcoming task deadlines",
+            "days_before": [3, 1],
+            "channels": {"in_app": True, "email": False, "teams": False}
+        }
+    },
+    "communication": {
+        "meeting_reminder": {
+            "enabled": True,
+            "description": "Send reminders before meetings",
+            "remind_at": [1440, 60, 15],
+            "channels": {"in_app": True, "email": True, "teams": False}
+        },
+        "action_item_to_task": {
+            "enabled": True,
+            "description": "Automatically create tasks from meeting action items",
+            "auto_assign": True,
+            "default_priority": "medium"
+        },
+        "overdue_action_item": {
+            "enabled": True,
+            "description": "Alert when action items are overdue",
+            "escalate_after_days": 3,
+            "channels": {"in_app": True, "email": True, "teams": False}
+        }
     }
 }
 
@@ -4587,6 +4627,14 @@ async def start_scheduler():
     except Exception as e:
         logger.warning(f"Email notification service init failed (non-fatal): {e}")
     
+    # Initialize automation service for Goals, Projects & Communication Hub
+    try:
+        from services.automation_service import init_automation_service
+        init_automation_service(db, notif_service=None, email_svc=microsoft_email_service, teams_svc=None)
+        logger.info("Automation service initialized")
+    except Exception as e:
+        logger.warning(f"Automation service init failed (non-fatal): {e}")
+    
     # Run scheduled posts check every 5 minutes
     scheduler.add_job(process_scheduled_posts, IntervalTrigger(minutes=5), id="process_scheduled_posts", replace_existing=True)
     
@@ -4611,8 +4659,30 @@ async def start_scheduler():
     from apscheduler.triggers.cron import CronTrigger
     scheduler.add_job(send_daily_digests, CronTrigger(hour=8, minute=0), id="daily_notification_digest", replace_existing=True)
     
+    # === PHASE 1 AUTOMATIONS ===
+    
+    # Overdue task check - daily at 8 AM UTC
+    async def check_overdue_tasks_job():
+        try:
+            from services.automation_service import check_overdue_tasks
+            await check_overdue_tasks()
+        except Exception as e:
+            logger.error(f"Overdue task check error: {e}")
+    
+    scheduler.add_job(check_overdue_tasks_job, CronTrigger(hour=8, minute=0), id="check_overdue_tasks", replace_existing=True)
+    
+    # Meeting reminders - check every 5 minutes
+    async def check_meeting_reminders_job():
+        try:
+            from services.automation_service import check_upcoming_meetings
+            await check_upcoming_meetings()
+        except Exception as e:
+            logger.error(f"Meeting reminder check error: {e}")
+    
+    scheduler.add_job(check_meeting_reminders_job, IntervalTrigger(minutes=5), id="check_meeting_reminders", replace_existing=True)
+    
     scheduler.start()
-    logger.info("Automation scheduler started")
+    logger.info("Automation scheduler started with Phase 1 automations")
 
 @app.on_event("shutdown")
 async def stop_scheduler():

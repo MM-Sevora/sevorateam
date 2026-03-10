@@ -2241,6 +2241,14 @@ async def update_task(
             project = await db.pm_projects.find_one({"id": task.get("project_id")}, {"linked_objective_id": 1})
             if project and project.get("linked_objective_id"):
                 await recalculate_objective_progress(project["linked_objective_id"])
+            
+            # Trigger progress cascade automation for complete status tracking
+            if new_status in ["completed", "approved"]:
+                try:
+                    from services.automation_service import cascade_progress_on_task_complete
+                    await cascade_progress_on_task_complete(task_id, task.get("project_id"))
+                except Exception as e:
+                    logger.warning(f"Progress cascade automation failed (non-fatal): {e}")
         
         # Notify task assignee about status change (if not the one making the change)
         assignee = task.get("assigned_to")

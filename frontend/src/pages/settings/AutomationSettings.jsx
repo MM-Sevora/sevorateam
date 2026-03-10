@@ -3,7 +3,8 @@ import api from '../../lib/api';
 import { 
   Settings, Bell, Mail, Share2, GitBranch, Clock, AlertTriangle, 
   CheckCircle, XCircle, Loader2, Save, RefreshCw, History,
-  Zap, Target, MessageSquare, Calendar, ChevronRight, Info
+  Zap, Target, MessageSquare, Calendar, ChevronRight, Info,
+  FolderKanban, ListTodo, CalendarClock, Users, CheckSquare, ArrowRight
 } from 'lucide-react';
 import { Switch } from '../../components/ui/switch';
 import { toast } from 'sonner';
@@ -384,6 +385,289 @@ const AutomationSettings = () => {
               </div>
             </div>
           </div>
+
+          {/* Goals & Projects Automations */}
+          {settings.goals_projects && (
+          <div className="bg-white rounded-xl border border-[#E8D5C4] overflow-hidden" data-testid="goals-projects-automations">
+            <div className="px-6 py-4 border-b border-[#E8D5C4] bg-gradient-to-r from-[#F5EDE4] to-white">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-emerald-500/10 rounded-lg">
+                  <FolderKanban className="w-5 h-5 text-emerald-500" />
+                </div>
+                <div>
+                  <h2 className="font-semibold text-[#3D2E22]">Goals & Projects Automations</h2>
+                  <p className="text-sm text-[#8B7355]">Automate progress tracking and task alerts</p>
+                </div>
+              </div>
+            </div>
+            <div className="divide-y divide-[#E8D5C4]">
+              {/* Progress Cascade */}
+              <div className="px-6 py-4 flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <ArrowRight className="w-4 h-4 text-emerald-500" />
+                    <span className="font-medium text-[#3D2E22]">Progress Cascade</span>
+                  </div>
+                  <p className="text-sm text-[#8B7355] mt-1">{settings.goals_projects.progress_cascade?.description || 'Auto-update project, objective, and goal progress when tasks are completed'}</p>
+                  <div className="mt-2 flex items-center gap-1 text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full w-fit">
+                    <CheckSquare className="w-3 h-3" />
+                    <span>Task</span>
+                    <ArrowRight className="w-3 h-3" />
+                    <FolderKanban className="w-3 h-3" />
+                    <span>Project</span>
+                    <ArrowRight className="w-3 h-3" />
+                    <Target className="w-3 h-3" />
+                    <span>Goal</span>
+                  </div>
+                </div>
+                <Switch
+                  checked={settings.goals_projects.progress_cascade?.enabled ?? true}
+                  onCheckedChange={(checked) => updateSetting('goals_projects', 'progress_cascade', 'enabled', checked)}
+                  data-testid="toggle-progress-cascade"
+                />
+              </div>
+              
+              {/* Overdue Task Alerts */}
+              <div className="px-6 py-4 flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-red-500" />
+                    <span className="font-medium text-[#3D2E22]">Overdue Task Alerts</span>
+                  </div>
+                  <p className="text-sm text-[#8B7355] mt-1">{settings.goals_projects.overdue_task_alert?.description || 'Send notifications for overdue tasks'}</p>
+                  {settings.goals_projects.overdue_task_alert?.enabled && (
+                    <div className="mt-3 space-y-2">
+                      <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={settings.goals_projects.overdue_task_alert?.notify_assignee ?? true}
+                            onChange={(e) => updateSetting('goals_projects', 'overdue_task_alert', 'notify_assignee', e.target.checked)}
+                            className="rounded border-[#E8D5C4]"
+                          />
+                          <span className="text-[#5D4A3A]">Notify Assignee</span>
+                        </label>
+                        <label className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={settings.goals_projects.overdue_task_alert?.notify_manager ?? true}
+                            onChange={(e) => updateSetting('goals_projects', 'overdue_task_alert', 'notify_manager', e.target.checked)}
+                            className="rounded border-[#E8D5C4]"
+                          />
+                          <span className="text-[#5D4A3A]">Notify Manager</span>
+                        </label>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm">
+                        <span className="text-[#5D4A3A]">Channels:</span>
+                        <label className="flex items-center gap-1">
+                          <input
+                            type="checkbox"
+                            checked={settings.goals_projects.overdue_task_alert?.channels?.in_app ?? true}
+                            onChange={(e) => {
+                              const newChannels = {...(settings.goals_projects.overdue_task_alert?.channels || {}), in_app: e.target.checked};
+                              updateSetting('goals_projects', 'overdue_task_alert', 'channels', newChannels);
+                            }}
+                            className="rounded border-[#E8D5C4]"
+                          />
+                          <Bell className="w-3 h-3 text-[#8B7355]" />
+                        </label>
+                        <label className="flex items-center gap-1">
+                          <input
+                            type="checkbox"
+                            checked={settings.goals_projects.overdue_task_alert?.channels?.email ?? true}
+                            onChange={(e) => {
+                              const newChannels = {...(settings.goals_projects.overdue_task_alert?.channels || {}), email: e.target.checked};
+                              updateSetting('goals_projects', 'overdue_task_alert', 'channels', newChannels);
+                            }}
+                            className="rounded border-[#E8D5C4]"
+                          />
+                          <Mail className="w-3 h-3 text-[#8B7355]" />
+                        </label>
+                        <label className="flex items-center gap-1">
+                          <input
+                            type="checkbox"
+                            checked={settings.goals_projects.overdue_task_alert?.channels?.teams ?? false}
+                            onChange={(e) => {
+                              const newChannels = {...(settings.goals_projects.overdue_task_alert?.channels || {}), teams: e.target.checked};
+                              updateSetting('goals_projects', 'overdue_task_alert', 'channels', newChannels);
+                            }}
+                            className="rounded border-[#E8D5C4]"
+                          />
+                          <Users className="w-3 h-3 text-[#8B7355]" />
+                          <span className="text-xs text-[#8B7355]">Teams</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <Switch
+                  checked={settings.goals_projects.overdue_task_alert?.enabled ?? true}
+                  onCheckedChange={(checked) => updateSetting('goals_projects', 'overdue_task_alert', 'enabled', checked)}
+                  data-testid="toggle-overdue-alert"
+                />
+              </div>
+              
+              {/* Task Deadline Reminder */}
+              <div className="px-6 py-4 flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-amber-500" />
+                    <span className="font-medium text-[#3D2E22]">Task Deadline Reminders</span>
+                  </div>
+                  <p className="text-sm text-[#8B7355] mt-1">{settings.goals_projects.task_deadline_reminder?.description || 'Remind users about upcoming task deadlines'}</p>
+                </div>
+                <Switch
+                  checked={settings.goals_projects.task_deadline_reminder?.enabled ?? true}
+                  onCheckedChange={(checked) => updateSetting('goals_projects', 'task_deadline_reminder', 'enabled', checked)}
+                  data-testid="toggle-deadline-reminder"
+                />
+              </div>
+            </div>
+          </div>
+          )}
+
+          {/* Communication Hub Automations */}
+          {settings.communication && (
+          <div className="bg-white rounded-xl border border-[#E8D5C4] overflow-hidden" data-testid="communication-automations">
+            <div className="px-6 py-4 border-b border-[#E8D5C4] bg-gradient-to-r from-[#F5EDE4] to-white">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-500/10 rounded-lg">
+                  <CalendarClock className="w-5 h-5 text-indigo-500" />
+                </div>
+                <div>
+                  <h2 className="font-semibold text-[#3D2E22]">Communication Hub Automations</h2>
+                  <p className="text-sm text-[#8B7355]">Automate meeting reminders and action items</p>
+                </div>
+              </div>
+            </div>
+            <div className="divide-y divide-[#E8D5C4]">
+              {/* Meeting Reminders */}
+              <div className="px-6 py-4 flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-indigo-500" />
+                    <span className="font-medium text-[#3D2E22]">Meeting Reminders</span>
+                  </div>
+                  <p className="text-sm text-[#8B7355] mt-1">{settings.communication.meeting_reminder?.description || 'Send reminders before meetings'}</p>
+                  {settings.communication.meeting_reminder?.enabled && (
+                    <div className="mt-3 space-y-2">
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-[#5D4A3A]">Remind at:</span>
+                        <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-xs">24h before</span>
+                        <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-xs">1h before</span>
+                        <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-xs">15min before</span>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm">
+                        <span className="text-[#5D4A3A]">Channels:</span>
+                        <label className="flex items-center gap-1">
+                          <input
+                            type="checkbox"
+                            checked={settings.communication.meeting_reminder?.channels?.in_app ?? true}
+                            onChange={(e) => {
+                              const newChannels = {...(settings.communication.meeting_reminder?.channels || {}), in_app: e.target.checked};
+                              updateSetting('communication', 'meeting_reminder', 'channels', newChannels);
+                            }}
+                            className="rounded border-[#E8D5C4]"
+                          />
+                          <Bell className="w-3 h-3 text-[#8B7355]" />
+                        </label>
+                        <label className="flex items-center gap-1">
+                          <input
+                            type="checkbox"
+                            checked={settings.communication.meeting_reminder?.channels?.email ?? true}
+                            onChange={(e) => {
+                              const newChannels = {...(settings.communication.meeting_reminder?.channels || {}), email: e.target.checked};
+                              updateSetting('communication', 'meeting_reminder', 'channels', newChannels);
+                            }}
+                            className="rounded border-[#E8D5C4]"
+                          />
+                          <Mail className="w-3 h-3 text-[#8B7355]" />
+                        </label>
+                        <label className="flex items-center gap-1">
+                          <input
+                            type="checkbox"
+                            checked={settings.communication.meeting_reminder?.channels?.teams ?? false}
+                            onChange={(e) => {
+                              const newChannels = {...(settings.communication.meeting_reminder?.channels || {}), teams: e.target.checked};
+                              updateSetting('communication', 'meeting_reminder', 'channels', newChannels);
+                            }}
+                            className="rounded border-[#E8D5C4]"
+                          />
+                          <Users className="w-3 h-3 text-[#8B7355]" />
+                          <span className="text-xs text-[#8B7355]">Teams</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <Switch
+                  checked={settings.communication.meeting_reminder?.enabled ?? true}
+                  onCheckedChange={(checked) => updateSetting('communication', 'meeting_reminder', 'enabled', checked)}
+                  data-testid="toggle-meeting-reminder"
+                />
+              </div>
+              
+              {/* Action Item to Task */}
+              <div className="px-6 py-4 flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <ListTodo className="w-4 h-4 text-green-500" />
+                    <span className="font-medium text-[#3D2E22]">Action Item → Task</span>
+                  </div>
+                  <p className="text-sm text-[#8B7355] mt-1">{settings.communication.action_item_to_task?.description || 'Automatically create tasks from meeting action items'}</p>
+                  {settings.communication.action_item_to_task?.enabled && (
+                    <div className="mt-2 flex items-center gap-4 text-sm">
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={settings.communication.action_item_to_task?.auto_assign ?? true}
+                          onChange={(e) => updateSetting('communication', 'action_item_to_task', 'auto_assign', e.target.checked)}
+                          className="rounded border-[#E8D5C4]"
+                        />
+                        <span className="text-[#5D4A3A]">Auto-assign to action owner</span>
+                      </label>
+                    </div>
+                  )}
+                </div>
+                <Switch
+                  checked={settings.communication.action_item_to_task?.enabled ?? true}
+                  onCheckedChange={(checked) => updateSetting('communication', 'action_item_to_task', 'enabled', checked)}
+                  data-testid="toggle-action-to-task"
+                />
+              </div>
+              
+              {/* Overdue Action Items */}
+              <div className="px-6 py-4 flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-orange-500" />
+                    <span className="font-medium text-[#3D2E22]">Overdue Action Item Alerts</span>
+                  </div>
+                  <p className="text-sm text-[#8B7355] mt-1">{settings.communication.overdue_action_item?.description || 'Alert when action items are overdue'}</p>
+                  {settings.communication.overdue_action_item?.enabled && (
+                    <div className="mt-2 flex items-center gap-2 text-sm">
+                      <span className="text-[#5D4A3A]">Escalate after</span>
+                      <input
+                        type="number"
+                        value={settings.communication.overdue_action_item?.escalate_after_days ?? 3}
+                        onChange={(e) => updateSetting('communication', 'overdue_action_item', 'escalate_after_days', parseInt(e.target.value))}
+                        className="w-16 px-2 py-1 text-sm border border-[#E8D5C4] rounded-md text-center"
+                        min="1"
+                        max="14"
+                      />
+                      <span className="text-[#5D4A3A]">days</span>
+                    </div>
+                  )}
+                </div>
+                <Switch
+                  checked={settings.communication.overdue_action_item?.enabled ?? true}
+                  onCheckedChange={(checked) => updateSetting('communication', 'overdue_action_item', 'enabled', checked)}
+                  data-testid="toggle-overdue-action"
+                />
+              </div>
+            </div>
+          </div>
+          )}
 
           {/* Info Box */}
           <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
