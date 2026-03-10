@@ -114,6 +114,7 @@ import BrandPipeline from "./pages/sourcing/BrandPipeline";
 import SuppliersPage from "./pages/sourcing/SuppliersPage";
 import SupplierDetailPage from "./pages/sourcing/SupplierDetailPage";
 import ManufacturersPage from "./pages/sourcing/ManufacturersPage";
+import ManufacturerDetailPage from "./pages/sourcing/ManufacturerDetailPage";
 import SamplesPage from "./pages/sourcing/SamplesPage";
 import SourcingAIDiscoveryPage from "./pages/sourcing/AIDiscoveryPage";
 import EmailCampaignsPage from "./pages/sourcing/EmailCampaignsPage";
@@ -448,6 +449,7 @@ function AppRoutes() {
             <Route path="/sourcing/suppliers/:id" element={<ProtectedRoute requiredModule="project_management"><SupplierDetailPage /></ProtectedRoute>} />
             <Route path="/sourcing/suppliers/pipeline" element={<ProtectedRoute requiredModule="project_management"><SuppliersPage /></ProtectedRoute>} />
             <Route path="/sourcing/manufacturers" element={<ProtectedRoute requiredModule="project_management"><ManufacturersPage /></ProtectedRoute>} />
+            <Route path="/sourcing/manufacturers/:id" element={<ProtectedRoute requiredModule="project_management"><ManufacturerDetailPage /></ProtectedRoute>} />
             <Route path="/sourcing/manufacturers/pipeline" element={<ProtectedRoute requiredModule="project_management"><ManufacturersPage /></ProtectedRoute>} />
             <Route path="/sourcing/samples" element={<ProtectedRoute requiredModule="project_management"><SamplesPage /></ProtectedRoute>} />
             <Route path="/sourcing/discovery" element={<ProtectedRoute requiredModule="project_management"><SourcingAIDiscoveryPage /></ProtectedRoute>} />

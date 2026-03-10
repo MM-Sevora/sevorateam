@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -32,6 +33,7 @@ const CURRENCIES = ['USD', 'INR', 'CNY', 'BDT', 'EUR'];
 
 const ManufacturersPage = () => {
   const { api } = useAuth();
+  const navigate = useNavigate();
   const [manufacturers, setManufacturers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -215,7 +217,7 @@ const ManufacturersPage = () => {
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild><Button variant="ghost" size="sm"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem><Eye className="h-4 w-4 mr-2" /> View</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => navigate(`/sourcing/manufacturers/${m.id}`)}><Eye className="h-4 w-4 mr-2" /> View</DropdownMenuItem>
                         <DropdownMenuItem><Edit2 className="h-4 w-4 mr-2" /> Edit</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleDelete(m.id)} className="text-red-600"><Trash2 className="h-4 w-4 mr-2" /> Delete</DropdownMenuItem>
                       </DropdownMenuContent>
