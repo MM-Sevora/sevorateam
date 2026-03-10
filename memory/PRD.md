@@ -1872,6 +1872,26 @@ The Manager Dashboard was already functional with:
   - Stores reschedule history with reason
   - Pre-fills current meeting times
 
+### Admin Bug Fixes (COMPLETE - March 10, 2026)
+- [x] **User Delete**: Fixed "Method Not Allowed" error
+  - Added `DELETE /api/workos/users/{user_id}` endpoint
+  - Soft delete (marks status as deleted)
+  - Validates user cannot delete themselves
+  - Checks for direct reports before deletion
+- [x] **Bulk User Operations**: Added batch operations
+  - `POST /api/workos/users/bulk/delete` - Bulk soft delete
+  - `POST /api/workos/users/bulk/status` - Bulk status update (active/inactive)
+- [x] **Employee Terminate/Remove**: Added missing functionality
+  - Added "Remove" button to Employee Database table
+  - Terminate dialog with confirmation
+  - Validates employee has no direct reports
+- [x] **Bulk Employee Operations**: Added batch operations
+  - `POST /api/hr/v2/employees/bulk/delete` - Bulk terminate
+  - `POST /api/hr/v2/employees/bulk/status` - Bulk status update
+- [x] **AI Meeting Summary**: Verified working in preview environment
+  - Uses EMERGENT_LLM_KEY with OpenAI GPT-4o
+  - Returns structured summary with executive summary, key points, decisions, action items, next steps
+
 ### P1 - Upcoming Tasks
 - [ ] Bulk Actions for Meetings (multi-select, batch delete/reschedule)
 - [ ] Scheduled Reports (auto-generate daily/weekly)
