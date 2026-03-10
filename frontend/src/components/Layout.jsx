@@ -42,15 +42,16 @@ const DEPARTMENT_CONFIG = {
         ]
     },
     meetings: {
-        name: 'Meetings & Reviews',
+        name: 'Communication Hub',
         icon: CalendarDays,
         color: 'from-violet-600 to-violet-700',
         bgColor: 'bg-violet-50',
         textColor: 'text-violet-700',
         routes: [
-            { path: '/meetings', name: 'All Meetings', icon: CalendarDays },
+            { path: '/meetings', name: 'Meetings', icon: CalendarDays },
             { path: '/meetings/new', name: 'Schedule Meeting', icon: Plus },
             { path: '/teams/chat', name: 'Teams Chat', icon: MessageSquare },
+            { path: '/mail/inbox', name: 'Inbox', icon: Mail },
         ]
     },
     projects: {
@@ -83,18 +84,8 @@ const DEPARTMENT_CONFIG = {
             { path: '/marketing/ai-tools', name: 'AI Tools & Discovery', icon: Sparkles },
         ]
     },
-    mail: {
-        name: 'Mail',
-        icon: Mail,
-        color: 'from-blue-600 to-blue-700',
-        bgColor: 'bg-blue-50',
-        textColor: 'text-blue-700',
-        routes: [
-            { path: '/mail/inbox', name: 'Inbox', icon: Mail },
-        ]
-    },
     sales: {
-        name: 'Sales',
+        name: 'Sales & CRM',
         icon: ShoppingBag,
         color: 'from-stone-600 to-stone-700',
         bgColor: 'bg-stone-50',
@@ -111,7 +102,7 @@ const DEPARTMENT_CONFIG = {
         ]
     },
     social: {
-        name: 'Social',
+        name: 'Social Media',
         icon: PenTool,
         color: 'from-rose-600 to-rose-700',
         bgColor: 'bg-rose-50',
@@ -132,18 +123,18 @@ const DEPARTMENT_CONFIG = {
         routes: [
             { path: '/admin/users', name: 'User Management', icon: Users },
             { path: '/admin/employees', name: 'Employee Database', icon: Award },
-            { path: '/admin/access-control', name: 'Access Control & Permissions', icon: Shield },
-            { path: '/admin/organization', name: 'Organization Management', icon: Building2 },
+            { path: '/admin/access-control', name: 'Permissions', icon: Shield },
+            { path: '/admin/organization', name: 'Organization', icon: Building2 },
         ]
     },
     hr: {
-        name: 'Admin/HR/Finance',
+        name: 'HR & Finance',
         icon: Briefcase,
         color: 'from-emerald-600 to-emerald-700',
         bgColor: 'bg-emerald-50',
         textColor: 'text-emerald-700',
         routes: [
-            { path: '/hr/expenses', name: 'Expense & Reimbursement', icon: DollarSign },
+            { path: '/hr/expenses', name: 'Expenses & Reimbursement', icon: DollarSign },
         ]
     }
 };
