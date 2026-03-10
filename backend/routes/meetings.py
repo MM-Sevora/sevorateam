@@ -70,16 +70,26 @@ async def get_goal_name(goal_id: str) -> Optional[str]:
     """Get goal name by ID"""
     if not goal_id:
         return None
-    goal = await db.strategic_goals.find_one({"id": goal_id}, {"_id": 0, "name": 1})
-    return goal.get("name") if goal else None
+    try:
+        # Goals are stored with ObjectId as _id, but API uses string id
+        from bson import ObjectId
+        goal = await db.strategic_goals.find_one({"_id": ObjectId(goal_id)}, {"_id": 0, "title": 1})
+        return goal.get("title") if goal else None
+    except:
+        return None
 
 
 async def get_objective_name(obj_id: str) -> Optional[str]:
     """Get objective name by ID"""
     if not obj_id:
         return None
-    obj = await db.objectives.find_one({"id": obj_id}, {"_id": 0, "name": 1})
-    return obj.get("name") if obj else None
+    try:
+        # Objectives are stored with ObjectId as _id, but API uses string id
+        from bson import ObjectId
+        obj = await db.objectives.find_one({"_id": ObjectId(obj_id)}, {"_id": 0, "title": 1})
+        return obj.get("title") if obj else None
+    except:
+        return None
 
 
 async def get_project_name(project_id: str) -> Optional[str]:
