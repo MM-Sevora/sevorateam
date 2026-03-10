@@ -1584,6 +1584,44 @@ The Manager Dashboard was already functional with:
   - Added UI controls for Stale Task Reminder
   - Phase 3 items marked with cyan "Phase 3" badge
 
+### Phase 59: Access Control UI Fixes (COMPLETE - March 10, 2026)
+
+**Issues Fixed:**
+
+1. **Role Assignment Now Works and Persists** ✅
+   - Fixed `/admin/users` Roles button to use `PUT /api/access/users/{id}/roles`
+   - Roles are now correctly saved to `custom_role_ids` in users collection
+   - Changes are reflected immediately in the UI
+
+2. **Access Control Page Redesigned** ✅
+   - "Module Permissions (CRUD)" column renamed to "Module Access"
+   - Now shows actual module access badges (e.g., "Dashboard", "Help & Support")
+   - "Edit Permissions" button renamed to "Assign Roles"
+   - New role assignment modal shows:
+     - All available roles with their module access
+     - Preview of resulting module access when roles selected
+     - Proper validation (at least one role required)
+
+3. **Backend API Enhanced** ✅
+   - `/api/admin/users` now returns `merged_module_access` for each user
+   - Module access is computed from user's `custom_role_ids`
+
+**Files Modified:**
+- `/app/frontend/src/pages/admin/AccessControlPage.jsx`:
+  - Renamed column header to "Module Access"
+  - Updated `openUserPermissions()` to use `custom_role_ids`
+  - Replaced `toggleUserModuleAccess()` with `toggleUserRole()`
+  - Updated `saveUserPermissions()` to call role assignment API
+  - Redesigned modal to show role selection with module preview
+  - Renamed button to "Assign Roles"
+- `/app/backend/server.py`:
+  - `/api/admin/users` now returns `merged_module_access`
+
+**Verified:**
+- ✅ Test Viewer changed to HR Admin - persisted and displayed correctly
+- ✅ Test Viewer changed back to Viewer - persisted and displayed correctly
+- ✅ Module access badges show correctly for each user
+
 ### Phase 58: Dual Permission System Migration (COMPLETE - March 10, 2026)
 
 **Full Migration Completed:**

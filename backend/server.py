@@ -1773,7 +1773,7 @@ async def get_all_users(
         if 'status' not in u:
             u['status'] = 'active'
         
-        # Enrich with custom_role_names from custom_role_ids
+        # Enrich with custom_role_names and merged_module_access from custom_role_ids
         custom_role_ids = u.get("custom_role_ids", [])
         if not custom_role_ids and u.get("custom_role_id"):
             custom_role_ids = [u.get("custom_role_id")]
@@ -1781,11 +1781,18 @@ async def get_all_users(
         if custom_role_ids:
             custom_roles = await db.custom_roles.find(
                 {"id": {"$in": custom_role_ids}}, 
-                {"name": 1}
+                {"name": 1, "module_access": 1}
             ).to_list(10)
             u["custom_role_names"] = [r.get("name") for r in custom_roles if r.get("name")]
+            
+            # Merge module access from all roles
+            merged_access = set()
+            for role in custom_roles:
+                merged_access.update(role.get("module_access", []))
+            u["merged_module_access"] = list(merged_access)
         else:
             u["custom_role_names"] = []
+            u["merged_module_access"] = []
     
     return [UserResponse(**u) for u in users]
 

@@ -161,57 +161,44 @@ const AccessControlPage = () => {
     }
   };
 
-  // Open user permissions dialog
+  // Open user permissions dialog - now for module access
   const openUserPermissions = (user) => {
     setSelectedUser(user);
-    // Initialize with existing custom_permissions or empty
-    setUserPermissions(user.custom_permissions || {});
+    // Initialize with user's current custom_role_ids
+    setUserPermissions(user.custom_role_ids || []);
     setShowUserPermDialog(true);
   };
 
-  // Toggle user module permission
-  const toggleUserModuleAccess = (moduleKey) => {
+  // Toggle user role assignment
+  const toggleUserRole = (roleId) => {
     setUserPermissions(prev => {
-      if (prev[moduleKey]) {
-        const newPerms = { ...prev };
-        delete newPerms[moduleKey];
-        return newPerms;
+      if (prev.includes(roleId)) {
+        return prev.filter(id => id !== roleId);
       } else {
-        return {
-          ...prev,
-          [moduleKey]: { create: true, read: true, update: true, delete: true }
-        };
+        return [...prev, roleId];
       }
     });
   };
 
-  // Toggle specific CRUD for user
-  const toggleUserPermission = (moduleKey, permType) => {
-    setUserPermissions(prev => ({
-      ...prev,
-      [moduleKey]: {
-        ...(prev[moduleKey] || { create: true, read: true, update: true, delete: true }),
-        [permType]: !(prev[moduleKey]?.[permType] ?? true)
-      }
-    }));
-  };
-
-  // Save user permissions
+  // Save user role assignments (module access)
   const saveUserPermissions = async () => {
     if (!selectedUser) return;
     
+    if (!Array.isArray(userPermissions) || userPermissions.length === 0) {
+      toast.error('At least one role is required');
+      return;
+    }
+    
     setSaving(true);
     try {
-      const hasPermissions = Object.keys(userPermissions).length > 0;
-      await api.put(`/admin/users/${selectedUser.id}/permissions`, {
-        use_custom: hasPermissions,
-        permissions: userPermissions
+      await api.put(`/access/users/${selectedUser.id}/roles`, {
+        custom_role_ids: userPermissions
       });
-      toast.success('User permissions updated');
+      toast.success('User roles updated');
       setShowUserPermDialog(false);
       fetchUsers();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to save permissions');
+      toast.error(error.response?.data?.detail || 'Failed to save roles');
     } finally {
       setSaving(false);
     }
@@ -388,7 +375,7 @@ const AccessControlPage = () => {
                   <TableRow className="bg-[#F5EDE5]">
                     <TableHead className="text-[#4A3728]">User</TableHead>
                     <TableHead className="text-[#4A3728]">Role</TableHead>
-                    <TableHead className="text-[#4A3728]">Module Permissions (CRUD)</TableHead>
+                    <TableHead className="text-[#4A3728]">Module Access</TableHead>
                     <TableHead className="text-[#4A3728] text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -434,27 +421,24 @@ const AccessControlPage = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1 max-w-[400px]">
-                            {user.custom_permissions && Object.keys(user.custom_permissions).length > 0 ? (
-                              Object.entries(user.custom_permissions).slice(0, 4).map(([modKey, perms]) => {
+                            {/* Show module access from the new system (merged_module_access) */}
+                            {user.merged_module_access && user.merged_module_access.length > 0 ? (
+                              user.merged_module_access.slice(0, 5).map((modKey) => {
                                 const modName = modules[modKey]?.name || modKey;
-                                const permStr = [
-                                  perms.create ? 'C' : '',
-                                  perms.read ? 'R' : '',
-                                  perms.update ? 'U' : '',
-                                  perms.delete ? 'D' : ''
-                                ].filter(Boolean).join('');
                                 return (
-                                  <Badge key={modKey} variant="outline" className="text-xs">
-                                    {modName} <span className="text-[10px] opacity-70">({permStr})</span>
+                                  <Badge key={modKey} variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                                    {modName}
                                   </Badge>
                                 );
                               })
+                            ) : user.custom_role_names && user.custom_role_names.length > 0 ? (
+                              <span className="text-xs text-gray-500">Via role: {user.custom_role_names.join(', ')}</span>
                             ) : (
-                              <span className="text-xs text-gray-400">Using role defaults</span>
+                              <span className="text-xs text-gray-400">No module access</span>
                             )}
-                            {user.custom_permissions && Object.keys(user.custom_permissions).length > 4 && (
+                            {user.merged_module_access && user.merged_module_access.length > 5 && (
                               <Badge variant="outline" className="text-xs">
-                                +{Object.keys(user.custom_permissions).length - 4} more
+                                +{user.merged_module_access.length - 5} more
                               </Badge>
                             )}
                           </div>
@@ -465,8 +449,9 @@ const AccessControlPage = () => {
                             size="sm"
                             onClick={() => openUserPermissions(user)}
                             className="border-[#E8D5C4]"
+                            data-testid="edit-roles-btn"
                           >
-                            <Edit className="h-4 w-4 mr-1" /> Edit Permissions
+                            <Edit className="h-4 w-4 mr-1" /> Assign Roles
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -854,89 +839,84 @@ const AccessControlPage = () => {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-[#4A3728]">
-              Edit Permissions - {selectedUser?.name || selectedUser?.email}
+              Assign Roles - {selectedUser?.name || selectedUser?.email}
             </DialogTitle>
             <DialogDescription>
-              Set module-level CRUD permissions for this user. These override role defaults.
+              Select roles to assign to this user. Roles determine which modules they can access.
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-              <p className="text-sm text-amber-800">
-                <strong>Note:</strong> User-level permissions override role-based permissions. 
-                If no permissions are set here, the user's role permissions will apply.
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm text-blue-800">
+                <strong>Note:</strong> Users inherit module access from their assigned roles. 
+                Select one or more roles below.
               </p>
             </div>
 
             <div>
-              <Label className="text-[#4A3728] mb-3 block">Module Access & CRUD Permissions</Label>
-              <div className="space-y-3">
-                {moduleKeys.map((key) => {
-                  const module = modules[key] || {};
-                  const isSelected = !!userPermissions[key];
-                  const perms = userPermissions[key] || { create: true, read: true, update: true, delete: true };
+              <Label className="text-[#4A3728] mb-3 block">Available Roles</Label>
+              <div className="space-y-2">
+                {roles.map((role) => {
+                  const isSelected = Array.isArray(userPermissions) && userPermissions.includes(role.id);
                   
                   return (
                     <div
-                      key={key}
-                      className={`p-3 rounded-lg border transition-colors ${
+                      key={role.id}
+                      className={`p-3 rounded-lg border transition-colors cursor-pointer ${
                         isSelected
                           ? 'border-[#8B7355] bg-[#F5EDE5]'
-                          : 'border-[#E8D5C4]'
+                          : 'border-[#E8D5C4] hover:border-[#D4BBA6]'
                       }`}
+                      onClick={() => toggleUserRole(role.id)}
                     >
-                      <div className="flex items-center gap-2 mb-2">
+                      <div className="flex items-center gap-3">
                         <Checkbox
                           checked={isSelected}
-                          onCheckedChange={() => toggleUserModuleAccess(key)}
+                          onCheckedChange={() => toggleUserRole(role.id)}
                         />
                         <div className="flex-1">
-                          <p className="font-medium text-[#4A3728] text-sm">{module.name || key}</p>
+                          <p className="font-medium text-[#4A3728] text-sm">{role.name}</p>
+                          <p className="text-xs text-gray-500">{role.description}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-1 max-w-[200px]">
+                          {(role.module_access || []).slice(0, 3).map((mod) => (
+                            <Badge key={mod} variant="outline" className="text-[10px]">
+                              {modules[mod]?.name || mod}
+                            </Badge>
+                          ))}
+                          {(role.module_access || []).length > 3 && (
+                            <Badge variant="outline" className="text-[10px]">
+                              +{role.module_access.length - 3}
+                            </Badge>
+                          )}
                         </div>
                       </div>
-                      
-                      {isSelected && (
-                        <div className="ml-6 mt-2 flex gap-4 flex-wrap">
-                          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                            <Checkbox
-                              checked={perms.create}
-                              onCheckedChange={() => toggleUserPermission(key, 'create')}
-                              className="h-3.5 w-3.5"
-                            />
-                            <span className="text-green-700 font-medium">Create</span>
-                          </label>
-                          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                            <Checkbox
-                              checked={perms.read}
-                              onCheckedChange={() => toggleUserPermission(key, 'read')}
-                              className="h-3.5 w-3.5"
-                            />
-                            <span className="text-blue-700 font-medium">Read</span>
-                          </label>
-                          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                            <Checkbox
-                              checked={perms.update}
-                              onCheckedChange={() => toggleUserPermission(key, 'update')}
-                              className="h-3.5 w-3.5"
-                            />
-                            <span className="text-amber-700 font-medium">Update</span>
-                          </label>
-                          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                            <Checkbox
-                              checked={perms.delete}
-                              onCheckedChange={() => toggleUserPermission(key, 'delete')}
-                              className="h-3.5 w-3.5"
-                            />
-                            <span className="text-red-700 font-medium">Delete</span>
-                          </label>
-                        </div>
-                      )}
                     </div>
                   );
                 })}
               </div>
             </div>
+
+            {/* Show what modules will be accessible */}
+            {Array.isArray(userPermissions) && userPermissions.length > 0 && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <p className="text-sm text-green-800 font-medium mb-2">Resulting Module Access:</p>
+                <div className="flex flex-wrap gap-1">
+                  {[...new Set(
+                    userPermissions
+                      .flatMap(roleId => {
+                        const role = roles.find(r => r.id === roleId);
+                        return role?.module_access || [];
+                      })
+                  )].map((mod) => (
+                    <Badge key={mod} variant="secondary" className="text-xs bg-green-100 text-green-700">
+                      {modules[mod]?.name || mod}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="mt-6">
@@ -945,11 +925,11 @@ const AccessControlPage = () => {
             </Button>
             <Button
               onClick={saveUserPermissions}
-              disabled={saving}
+              disabled={saving || !Array.isArray(userPermissions) || userPermissions.length === 0}
               className="bg-[#4A3728] hover:bg-[#5D4A3A] text-white"
             >
               {saving ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-              Save Permissions
+              Save Roles
             </Button>
           </DialogFooter>
         </DialogContent>
