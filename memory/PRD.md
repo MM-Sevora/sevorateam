@@ -1473,6 +1473,42 @@ The Manager Dashboard was already functional with:
 - [x] POST /api/meetings endpoint creates meetings successfully
 - [x] Email UI components verified in code (requires MS auth for live testing)
 
+### Phase 50: Teams Calendar Integration (COMPLETE - March 10, 2026)
+
+**Microsoft Calendar Integration under Communication Hub:**
+- [x] Created `/app/frontend/src/pages/teams/TeamsCalendar.jsx` with full calendar functionality
+- [x] Created `/app/frontend/src/pages/teams/TeamsEventDetail.jsx` for event detail page
+- [x] Added `calendarRequest` scopes to authConfig.js (Calendars.ReadWrite, OnlineMeetings.ReadWrite)
+- [x] Added routes: `/teams/calendar` and `/teams/calendar/:eventId`
+- [x] Added "Teams Calendar" to Communication Hub navigation menu
+
+**Calendar Views Implemented:**
+- [x] Monthly view with event dots and event preview
+- [x] Weekly view with hourly grid
+- [x] Daily agenda view with full event details
+- [x] View toggle buttons (Month, Week, Day)
+- [x] Today button and prev/next navigation
+
+**CRUD Operations:**
+- [x] Create new calendar events with title, date/time, location, description
+- [x] Toggle "All day" and "Teams meeting" options
+- [x] Edit existing events via modal
+- [x] Delete events with confirmation dialog
+- [x] Online meeting link generation for Teams meetings
+
+**Event Detail Page:**
+- [x] Full event information display (date, time, location, Teams link)
+- [x] Organizer and attendees list with response status
+- [x] Edit and Delete buttons
+- [x] Back to Calendar navigation
+
+**Testing:**
+- [x] Frontend testing: 100% pass rate
+- [x] Route accessibility verified
+- [x] Navigation menu verified
+- [x] Microsoft connection prompt verified
+- [x] All scopes in authConfig.js verified
+
 ### P1 - Upcoming Tasks
 - [ ] AI Meeting Summaries integration (using Emergent LLM Key)
 - [ ] @mentions in meeting notes
