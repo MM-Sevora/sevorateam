@@ -379,40 +379,40 @@ export default function ContentStudio() {
                 </div>
 
                 {/* Quality + Team Review + Send to Queue */}
-                <div className="bg-white backdrop-blur-md border border-amber-600/10 rounded-xl p-4 space-y-3">
+                <div className="bg-white backdrop-blur-md border border-[#E8D5C4] rounded-xl p-4 space-y-3">
                   {/* Step 1: Quality Check */}
                   <div className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-amber-800/15 text-amber-600 text-[10px] font-bold flex items-center justify-center">1</span>
-                    <button onClick={checkQuality} disabled={checkingQuality} className="text-[10px] bg-[#E8D5C4] hover:bg-gray-200 text-white border border-[#D4BBA6] rounded-lg px-3 py-1.5 flex items-center gap-1 disabled:opacity-50">
+                    <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-600 text-[10px] font-bold flex items-center justify-center">1</span>
+                    <button onClick={checkQuality} disabled={checkingQuality} className="text-[10px] bg-[#4A3728] hover:bg-[#3A2A1E] text-white rounded-lg px-3 py-1.5 flex items-center gap-1 disabled:opacity-50 transition-all">
                       {checkingQuality ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />} Quality Check
                     </button>
                     {qualityScore && (
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${qualityScore.score >= 70 ? 'bg-stone-600/10 text-stone-400' : qualityScore.score >= 40 ? 'bg-amber-500/10 text-amber-400' : 'bg-red-500/10 text-red-400'}`}>{qualityScore.score}/100</span>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${qualityScore.score >= 70 ? 'bg-green-100 text-green-600' : qualityScore.score >= 40 ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600'}`}>{qualityScore.score}/100</span>
                     )}
                   </div>
                   {qualityScore?.suggestions && (
                     <div className="space-y-1 pl-7">{qualityScore.suggestions.slice(0, 2).map((s, i) => (
-                      <p key={i} className="text-[10px] text-[#5D4A3A] flex items-start gap-1.5"><AlertTriangle className="w-3 h-3 text-amber-400 mt-0.5 flex-shrink-0" />{s}</p>
+                      <p key={i} className="text-[10px] text-[#5D4A3A] flex items-start gap-1.5"><AlertTriangle className="w-3 h-3 text-amber-500 mt-0.5 flex-shrink-0" />{s}</p>
                     ))}</div>
                   )}
 
                   {/* Step 2: Team Review (optional) */}
                   <div className="border-t border-[#E8D5C4] pt-3">
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="w-5 h-5 rounded-full bg-amber-500/15 text-amber-400 text-[10px] font-bold flex items-center justify-center">2</span>
-                      <span className="text-[10px] text-[#5D4A3A]">Team Review (optional)</span>
+                      <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 text-[10px] font-bold flex items-center justify-center">2</span>
+                      <span className="text-[10px] text-[#5D4A3A] font-medium">Team Review (optional)</span>
                     </div>
                     <div className="pl-7 flex gap-2">
                       <input type="text" value={reviewNote} onChange={(e) => setReviewNote(e.target.value)}
-                        className="flex-1 bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-1.5 px-3 text-[10px] text-white placeholder-[#5D4A3A]/600"
+                        className="flex-1 bg-[#F5EDE5] border border-[#D4BBA6] rounded-lg py-1.5 px-3 text-[10px] text-[#4A3728] placeholder-[#9ca3af]"
                         placeholder="Note for reviewer..." />
                       <button onClick={submitForReview} disabled={submittingReview || !generatedContent}
-                        className="text-[10px] bg-amber-600/80 hover:bg-amber-600 text-white rounded-lg px-3 py-1.5 flex items-center gap-1 disabled:opacity-50 whitespace-nowrap">
+                        className="text-[10px] bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-3 py-1.5 flex items-center gap-1 disabled:opacity-50 whitespace-nowrap transition-all">
                         {submittingReview ? <Loader2 className="w-3 h-3 animate-spin" /> : <Users className="w-3 h-3" />} Submit for Review
                       </button>
                     </div>
                     {submitResult && (
-                      <p className={`text-[10px] pl-7 mt-1 ${submitResult.success ? 'text-stone-400' : 'text-red-400'}`}>
+                      <p className={`text-[10px] pl-7 mt-1 ${submitResult.success ? 'text-green-600' : 'text-red-500'}`}>
                         {submitResult.success ? 'Submitted! Reviewer will see it in Team & Voice → Approvals' : submitResult.error}
                       </p>
                     )}
@@ -421,14 +421,14 @@ export default function ContentStudio() {
                   {/* Step 3: Send to Queue */}
                   <div className="border-t border-[#E8D5C4] pt-3">
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="w-5 h-5 rounded-full bg-stone-600/15 text-stone-400 text-[10px] font-bold flex items-center justify-center">3</span>
-                      <span className="text-[10px] text-[#5D4A3A]">Send to Queue</span>
+                      <span className="w-5 h-5 rounded-full bg-green-100 text-green-600 text-[10px] font-bold flex items-center justify-center">3</span>
+                      <span className="text-[10px] text-[#5D4A3A] font-medium">Send to Queue</span>
                     </div>
                     <div className="pl-7 flex gap-2">
-                      <button onClick={() => saveAsPost('draft')} disabled={savingPost} className="flex-1 bg-[#E8D5C4] hover:bg-gray-200 text-white border border-[#D4BBA6] rounded-lg px-3 py-2 text-[10px] flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all">
+                      <button onClick={() => saveAsPost('draft')} disabled={savingPost} className="flex-1 bg-white hover:bg-[#F5EDE5] text-[#4A3728] border border-[#D4BBA6] rounded-lg px-3 py-2 text-[10px] flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all">
                         <Download className="w-3 h-3" /> Save Draft
                       </button>
-                      <button onClick={() => saveAsPost('scheduled')} disabled={savingPost} className="flex-1 bg-[#4A3728] hover:bg-[#3A2A1E] text-white rounded-lg px-3 py-2 text-[10px] flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-[0_0_10px_rgba(124,58,237,0.2)] transition-all">
+                      <button onClick={() => saveAsPost('scheduled')} disabled={savingPost} className="flex-1 bg-[#4A3728] hover:bg-[#3A2A1E] text-white rounded-lg px-3 py-2 text-[10px] flex items-center justify-center gap-1.5 disabled:opacity-50 shadow-lg transition-all">
                         <Send className="w-3 h-3" /> Add to Queue
                       </button>
                     </div>

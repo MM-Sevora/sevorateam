@@ -485,8 +485,8 @@ export default function PostsAndSchedule() {
 
       {/* COMPOSER - FULL SCREEN MODAL (Buffer-style) */}
       {showComposer && (
-              <div className="fixed inset-0 z-50 bg-black/70 flex items-start justify-center pt-8" onClick={(e) => { if (e.target === e.currentTarget) setShowComposer(false); }}>
-                <div className="bg-white rounded-2xl border border-[#D4BBA6] w-[900px] max-h-[85vh] overflow-hidden flex flex-col shadow-2xl" data-testid="composer-modal">
+              <div className="fixed inset-0 z-[100] bg-black/70 flex items-start justify-center pt-8" onClick={(e) => { if (e.target === e.currentTarget) setShowComposer(false); }}>
+                <div className="bg-white rounded-2xl border border-[#D4BBA6] w-[900px] max-h-[85vh] overflow-hidden flex flex-col shadow-2xl relative z-[101]" data-testid="composer-modal">
                   {/* Header */}
                   <div className="flex items-center justify-between px-6 py-4 border-b border-[#E8D5C4] bg-gradient-to-r from-rose-50 to-pink-50">
                     <div className="flex items-center gap-4">
@@ -597,19 +597,19 @@ export default function PostsAndSchedule() {
                     </div>
 
                     {/* Right: Live Preview */}
-                    <div className="w-[360px] flex-shrink-0 bg-gradient-to-b from-[#F5EDE5] to-white overflow-y-auto">
+                    <div className="w-[360px] flex-shrink-0 bg-gradient-to-b from-[#F5EDE5] to-white overflow-y-auto relative z-10">
                       <div className="p-5">
                         <h3 className="text-sm font-semibold text-[#4A3728] mb-4">Live Preview</h3>
-                        {/* Preview tabs */}
-                        <div className="flex gap-1 mb-4 bg-white rounded-lg p-1 border border-[#E8D5C4]">
+                        {/* Preview tabs - horizontal scroll for many platforms */}
+                        <div className="flex gap-1 mb-4 bg-white rounded-lg p-1 border border-[#E8D5C4] overflow-x-auto">
                           {cPlatforms.map(p => { const m = platforms.find(x => x.key === p); return (
-                            <button key={p} onClick={() => setPreviewPlatform(p)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all flex-1 justify-center ${previewPlatform === p ? 'bg-rose-100 text-rose-700' : 'text-[#5D4A3A] hover:text-[#4A3728]'}`}>
-                              <m.icon className="w-3.5 h-3.5" style={{ color: previewPlatform === p ? m.color : '#9ca3af' }} /> {m.label}
+                            <button key={p} onClick={() => setPreviewPlatform(p)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap ${previewPlatform === p ? 'bg-rose-100 text-rose-700' : 'text-[#5D4A3A] hover:text-[#4A3728]'}`}>
+                              <m.icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: previewPlatform === p ? m.color : '#9ca3af' }} /> {m.label}
                             </button>
                           ); })}
                         </div>
-                        {/* Preview */}
-                        <div className="rounded-xl overflow-hidden border border-[#D4BBA6] shadow-lg bg-white">
+                        {/* Preview - isolated container */}
+                        <div className="rounded-xl overflow-hidden border border-[#D4BBA6] shadow-lg bg-white isolate">
                           {previewPlatform === 'linkedin' && <LinkedInPreview content={getContent('linkedin')} image={primaryImage} />}
                           {previewPlatform === 'instagram' && <InstagramPreview content={getContent('instagram')} image={primaryImage} />}
                           {previewPlatform === 'facebook' && <FacebookPreview content={getContent('facebook')} image={primaryImage} />}
