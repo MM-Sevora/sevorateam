@@ -1589,31 +1589,40 @@ The Manager Dashboard was already functional with:
 **Issues Fixed:**
 
 1. **Edit Role Functionality** ✅
-   - Fixed backend to allow editing `module_access` for system roles
+   - Fixed backend to allow editing `module_access` and `module_permissions` for system roles
    - System roles can now have their module access and admin permissions modified
    - Only `name` and `code` are protected for system roles
    - Custom roles can be fully edited
 
 2. **Create Custom Role** ✅
-   - Verified working via API and UI
-   - Custom roles can have any modules assigned
-   - Test Custom Role created successfully
+   - Works via "Create Role" button on Custom Roles tab
+   - Custom roles can have any modules assigned with CRUD permissions
 
-3. **System Modules** 
-   - Modules are defined in code (`MODULE_DEFINITIONS`) for system stability
-   - Currently 11 modules available: dashboard, marketing_ops, project_management, mail, social, admin, hr, help_support, automations, meetings, communication_hub
-   - Note: Modules are READ-ONLY by design to prevent system instability
+3. **CRUD Permissions for Modules** ✅
+   - Each module now has granular CRUD checkboxes (Create, Read, Update, Delete)
+   - CRUD permissions are stored in `module_permissions` field
+   - UI shows CRUD checkboxes when a module is selected
+   - System roles can now have CRUD permissions edited (removed disabled state)
 
-**Backend Changes:**
-- `/app/backend/routes/access_control.py`: 
-  - Updated `update_custom_role()` to allow `module_access`, `module_permissions`, `can_manage_users`, `can_manage_employees`, `can_manage_roles` for system roles
-  - Protected only `name` and `code` from being changed for system roles
+4. **System Modules** 
+   - 11 modules available: dashboard, marketing_ops, project_management, mail, social, admin, hr, help_support, automations, meetings, communication_hub
+   - Modules are READ-ONLY by design to prevent system instability
+
+**UI Features:**
+- Create/Edit Role modal shows:
+  - Role Name and Code fields
+  - Description textarea
+  - Module Access list with checkboxes
+  - CRUD permissions (Create ✓, Read ✓, Update ✓, Delete ✓) for each selected module
+  - Administrative Permissions (Can manage users, employees, roles)
+- Module list is scrollable (max-height: 400px)
+- Hover effects on CRUD checkboxes
 
 **API Verification:**
-- ✅ List roles: 9 roles (8 system + 1 custom "Test Custom Role")
-- ✅ Edit system role description: Works
 - ✅ Edit system role module_access: Works
+- ✅ Edit system role module_permissions with CRUD: Works
 - ✅ Create custom role: Works
+- ✅ Viewer role updated with custom CRUD: dashboard (R only), help_support (CRUD)
 
 ### Phase 59: Access Control UI Fixes (COMPLETE - March 10, 2026)
 

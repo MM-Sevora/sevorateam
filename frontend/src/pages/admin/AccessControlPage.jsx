@@ -677,11 +677,11 @@ const AccessControlPage = () => {
               />
             </div>
 
-            {/* Module Access with CRUD Permissions */}
+            {/* Module Access & CRUD Permissions */}
             <div>
               <Label className="text-[#4A3728] mb-3 block">Module Access & CRUD Permissions</Label>
               <p className="text-xs text-[#5D4A3A] mb-3">Select modules and configure Create, Read, Update, Delete permissions for each.</p>
-              <div className="space-y-3">
+              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
                 {moduleKeys.map((key) => {
                   const module = modules[key] || {};
                   const isDefault = module.default_access;
@@ -694,13 +694,13 @@ const AccessControlPage = () => {
                       className={`p-3 rounded-lg border transition-colors ${
                         isSelected || isDefault
                           ? 'border-[#8B7355] bg-[#F5EDE5]'
-                          : 'border-[#E8D5C4]'
-                      } ${selectedRole?.is_system_role ? 'opacity-60' : ''}`}
+                          : 'border-[#E8D5C4] hover:border-[#D4BBA6]'
+                      }`}
                     >
                       <div className="flex items-center gap-2 mb-2">
                         <Checkbox
                           checked={isSelected || isDefault}
-                          disabled={isDefault || selectedRole?.is_system_role}
+                          disabled={isDefault}
                           onCheckedChange={() => !isDefault && toggleModule(key)}
                         />
                         <div className="flex-1">
@@ -711,40 +711,36 @@ const AccessControlPage = () => {
                         )}
                       </div>
                       
-                      {/* CRUD Permissions - Only show when module is selected */}
+                      {/* CRUD Permissions - Show when module is selected */}
                       {(isSelected || isDefault) && (
                         <div className="ml-6 mt-2 flex gap-4 flex-wrap">
-                          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                          <label className="flex items-center gap-1.5 text-xs cursor-pointer hover:opacity-80">
                             <Checkbox
                               checked={perms.create}
-                              disabled={selectedRole?.is_system_role}
                               onCheckedChange={() => togglePermission(key, 'create')}
                               className="h-3.5 w-3.5"
                             />
                             <span className="text-green-700 font-medium">Create</span>
                           </label>
-                          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                          <label className="flex items-center gap-1.5 text-xs cursor-pointer hover:opacity-80">
                             <Checkbox
                               checked={perms.read}
-                              disabled={selectedRole?.is_system_role}
                               onCheckedChange={() => togglePermission(key, 'read')}
                               className="h-3.5 w-3.5"
                             />
                             <span className="text-blue-700 font-medium">Read</span>
                           </label>
-                          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                          <label className="flex items-center gap-1.5 text-xs cursor-pointer hover:opacity-80">
                             <Checkbox
                               checked={perms.update}
-                              disabled={selectedRole?.is_system_role}
                               onCheckedChange={() => togglePermission(key, 'update')}
                               className="h-3.5 w-3.5"
                             />
                             <span className="text-amber-700 font-medium">Update</span>
                           </label>
-                          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                          <label className="flex items-center gap-1.5 text-xs cursor-pointer hover:opacity-80">
                             <Checkbox
                               checked={perms.delete}
-                              disabled={selectedRole?.is_system_role}
                               onCheckedChange={() => togglePermission(key, 'delete')}
                               className="h-3.5 w-3.5"
                             />
