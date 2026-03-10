@@ -11,7 +11,7 @@ import {
     PenTool, Sparkles, Zap, Clock, Youtube, Image, LogOut, Menu, X,
     ChevronDown, ChevronRight, Briefcase, Mail, Check, Send, ListTodo, FolderKanban,
     HelpCircle, Award, Network, Shield, Flag, CalendarDays, RefreshCw, Plus, Globe,
-    TrendingUp, PieChart, Activity, FileText, Package, Factory, FlaskConical, Search
+    TrendingUp, PieChart, Activity, FileText, Package, Factory, FlaskConical, Search, Database
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -166,15 +166,36 @@ const DEPARTMENT_CONFIG = {
         color: 'from-orange-600 to-orange-700',
         bgColor: 'bg-orange-50',
         textColor: 'text-orange-700',
-        requiredModule: 'project_management',  // Uses project_management access
+        requiredModule: 'project_management',
         routes: [
             { path: '/sourcing', name: 'Dashboard', icon: LayoutDashboard },
-            { path: '/sourcing/brands', name: 'Brands', icon: Building2 },
-            { path: '/sourcing/brands/pipeline', name: 'Brand Pipeline', icon: Target },
-            { path: '/sourcing/suppliers', name: 'Suppliers', icon: Package },
-            { path: '/sourcing/suppliers/pipeline', name: 'Supplier Pipeline', icon: Target },
-            { path: '/sourcing/manufacturers', name: 'Manufacturers', icon: Factory },
-            { path: '/sourcing/manufacturers/pipeline', name: 'Manufacturer Pipeline', icon: Target },
+            { 
+                name: 'Brands', 
+                icon: Building2,
+                isGroup: true,
+                children: [
+                    { path: '/sourcing/brands', name: 'Database', icon: Database },
+                    { path: '/sourcing/brands/pipeline', name: 'Pipeline', icon: Target },
+                ]
+            },
+            { 
+                name: 'Suppliers', 
+                icon: Package,
+                isGroup: true,
+                children: [
+                    { path: '/sourcing/suppliers', name: 'Database', icon: Database },
+                    { path: '/sourcing/suppliers/pipeline', name: 'Pipeline', icon: Target },
+                ]
+            },
+            { 
+                name: 'Manufacturers', 
+                icon: Factory,
+                isGroup: true,
+                children: [
+                    { path: '/sourcing/manufacturers', name: 'Database', icon: Database },
+                    { path: '/sourcing/manufacturers/pipeline', name: 'Pipeline', icon: Target },
+                ]
+            },
             { path: '/sourcing/samples', name: 'Samples', icon: FlaskConical },
             { path: '/sourcing/discovery', name: 'AI Discovery', icon: Sparkles },
             { path: '/sourcing/campaigns', name: 'Email Campaigns', icon: Mail },
@@ -197,12 +218,21 @@ export const Layout = ({ children }) => {
     const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [expandedDepts, setExpandedDepts] = useState(['analytics', 'goals', 'marketing', 'projects', 'mail', 'sales', 'social', 'admin', 'hr', 'sourcing']);
+    const [expandedSubgroups, setExpandedSubgroups] = useState([]);
 
     const toggleDepartment = (dept) => {
         setExpandedDepts(prev => 
             prev.includes(dept) 
                 ? prev.filter(d => d !== dept)
                 : [...prev, dept]
+        );
+    };
+
+    const toggleSubgroup = (groupKey) => {
+        setExpandedSubgroups(prev => 
+            prev.includes(groupKey) 
+                ? prev.filter(g => g !== groupKey)
+                : [...prev, groupKey]
         );
     };
 
@@ -362,13 +392,65 @@ export const Layout = ({ children }) => {
                                     <div className="ml-4 pl-4 border-l border-[#D4BBA6] space-y-1">
                                         {dept.routes
                                             .filter(route => {
-                                                // Filter routes based on their specific module requirement
                                                 if (route.requiredModule) {
                                                     return hasModuleAccess(route.requiredModule);
                                                 }
-                                                return true; // Show route if no specific module required
+                                                return true;
                                             })
-                                            .map(route => {
+                                            .map((route, idx) => {
+                                            // Handle grouped routes (with children)
+                                            if (route.isGroup && route.children) {
+                                                const GroupIcon = route.icon;
+                                                const groupKey = `${deptKey}-${route.name}`;
+                                                const isGroupExpanded = expandedSubgroups.includes(groupKey);
+                                                const isGroupActive = route.children.some(child => location.pathname === child.path);
+                                                
+                                                return (
+                                                    <div key={groupKey} className="space-y-1">
+                                                        <button
+                                                            onClick={() => toggleSubgroup(groupKey)}
+                                                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all ${
+                                                                isGroupActive 
+                                                                    ? `bg-[#E8D5C4] ${dept.textColor} font-medium` 
+                                                                    : 'text-[#5D4A3A] hover:bg-[#E8D5C4]/50'
+                                                            }`}
+                                                        >
+                                                            <div className="flex items-center gap-3">
+                                                                <GroupIcon className="w-4 h-4" />
+                                                                <span>{route.name}</span>
+                                                            </div>
+                                                            {isGroupExpanded 
+                                                                ? <ChevronDown className="w-3 h-3" />
+                                                                : <ChevronRight className="w-3 h-3" />
+                                                            }
+                                                        </button>
+                                                        {isGroupExpanded && (
+                                                            <div className="ml-4 pl-3 border-l border-[#D4BBA6]/50 space-y-1">
+                                                                {route.children.map(child => {
+                                                                    const ChildIcon = child.icon;
+                                                                    const isChildActive = location.pathname === child.path;
+                                                                    return (
+                                                                        <Link
+                                                                            key={child.path}
+                                                                            to={child.path}
+                                                                            className={`flex items-center gap-3 px-3 py-1.5 rounded-lg text-xs transition-all ${
+                                                                                isChildActive 
+                                                                                    ? `bg-[#D4BBA6] ${dept.textColor} font-medium` 
+                                                                                    : 'text-[#5D4A3A] hover:bg-[#E8D5C4]/50'
+                                                                            }`}
+                                                                        >
+                                                                            <ChildIcon className="w-3 h-3" />
+                                                                            <span>{child.name}</span>
+                                                                        </Link>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            }
+                                            
+                                            // Handle regular routes
                                             const RouteIcon = route.icon;
                                             const isActive = location.pathname === route.path;
                                             return (
