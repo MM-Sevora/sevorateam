@@ -2,12 +2,13 @@
 Microsoft Teams Chat Routes
 Provides API endpoints for Teams chat integration
 """
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Header
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 import os
 import logging
+import jwt
 
 logger = logging.getLogger(__name__)
 
@@ -15,23 +16,45 @@ router = APIRouter(prefix="/teams", tags=["Microsoft Teams"])
 
 # Database and dependencies - will be set from server.py
 db = None
-get_current_user = None
 teams_service = None
 
 # Azure AD Configuration
 AZURE_CLIENT_ID = os.environ.get('AZURE_CLIENT_ID')
 AZURE_TENANT_ID = os.environ.get('AZURE_TENANT_ID')
-AZURE_REDIRECT_URI = os.environ.get('AZURE_REDIRECT_URI', 'http://localhost:3000')
+JWT_SECRET = os.environ.get('JWT_SECRET', 'sevora-secret-key-2024')
 
 
 def init_teams_router(database, current_user_dep):
     """Initialize the Teams router with dependencies."""
-    global db, get_current_user, teams_service
+    global db, teams_service
     db = database
-    get_current_user = current_user_dep
     
     from services.teams_service import init_teams_service
     teams_service = init_teams_service(database)
+
+
+async def get_current_user_from_token(authorization: str = Header(...)):
+    """Extract and validate user from JWT token."""
+    try:
+        if not authorization.startswith('Bearer '):
+            raise HTTPException(status_code=401, detail="Invalid authorization header")
+        
+        token = authorization.replace('Bearer ', '')
+        payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        user_id = payload.get('sub')
+        
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        
+        user = await db.users.find_one({"id": user_id}, {"_id": 0})
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        
+        return user
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
 
 # ============== Request/Response Models ==============
@@ -102,7 +125,7 @@ async def get_teams_auth_config():
 @router.post("/auth/callback")
 async def teams_auth_callback(
     code: str,
-    user: dict = Depends(lambda: get_current_user)
+    user: dict = Depends(get_current_user_from_token)
 ):
     """Handle OAuth callback and store tokens."""
     import httpx
@@ -128,7 +151,7 @@ async def teams_auth_callback(
         
         if response.status_code != 200:
             logger.error(f"Token exchange failed: {response.text}")
-            raise HTTPException(status_code=400, detail="Failed to exchange code for tokens")
+            raise HTTPException(status_code=400, detail=f"Failed to exchange code for tokens: {response.text}")
             
         data = response.json()
         
@@ -147,14 +170,14 @@ async def teams_auth_callback(
 
 
 @router.get("/auth/status")
-async def get_teams_connection_status(user: dict = Depends(lambda: get_current_user)):
+async def get_teams_connection_status(user: dict = Depends(get_current_user_from_token)):
     """Check if user has Teams connected."""
     status = await teams_service.check_connection(user['id'])
     return status
 
 
 @router.post("/auth/disconnect")
-async def disconnect_teams(user: dict = Depends(lambda: get_current_user)):
+async def disconnect_teams(user: dict = Depends(get_current_user_from_token)):
     """Disconnect Teams integration."""
     await db.users.update_one(
         {"id": user['id']},
@@ -176,7 +199,7 @@ async def disconnect_teams(user: dict = Depends(lambda: get_current_user)):
 async def list_chats(
     include_members: bool = False,
     with_preview: bool = False,
-    user: dict = Depends(lambda: get_current_user)
+    user: dict = Depends(get_current_user_from_token)
 ):
     """List all Teams chats for the user."""
     # Check connection
@@ -199,7 +222,7 @@ async def list_chats(
 @router.get("/chats/{chat_id}")
 async def get_chat(
     chat_id: str,
-    user: dict = Depends(lambda: get_current_user)
+    user: dict = Depends(get_current_user_from_token)
 ):
     """Get details of a specific chat."""
     status = await teams_service.check_connection(user['id'])
@@ -220,7 +243,7 @@ async def get_chat(
 async def get_chat_messages(
     chat_id: str,
     top: int = Query(default=50, le=100),
-    user: dict = Depends(lambda: get_current_user)
+    user: dict = Depends(get_current_user_from_token)
 ):
     """Get messages from a chat."""
     status = await teams_service.check_connection(user['id'])
@@ -240,7 +263,7 @@ async def get_chat_messages(
 async def send_message(
     chat_id: str,
     request: SendMessageRequest,
-    user: dict = Depends(lambda: get_current_user)
+    user: dict = Depends(get_current_user_from_token)
 ):
     """Send a message to a chat."""
     status = await teams_service.check_connection(user['id'])
@@ -267,7 +290,7 @@ async def send_message(
 async def send_message_with_mentions(
     chat_id: str,
     request: SendMessageWithMentionsRequest,
-    user: dict = Depends(lambda: get_current_user)
+    user: dict = Depends(get_current_user_from_token)
 ):
     """Send a message with @mentions."""
     status = await teams_service.check_connection(user['id'])
@@ -293,7 +316,7 @@ async def send_message_with_mentions(
 @router.post("/chats")
 async def create_chat(
     request: CreateChatRequest,
-    user: dict = Depends(lambda: get_current_user)
+    user: dict = Depends(get_current_user_from_token)
 ):
     """Create a new chat (1:1 or group)."""
     status = await teams_service.check_connection(user['id'])
@@ -318,7 +341,7 @@ async def create_chat(
 @router.get("/users/search")
 async def search_users(
     query: str = Query(..., min_length=1),
-    user: dict = Depends(lambda: get_current_user)
+    user: dict = Depends(get_current_user_from_token)
 ):
     """Search for users to start a chat with."""
     status = await teams_service.check_connection(user['id'])
