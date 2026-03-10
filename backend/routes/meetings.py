@@ -1564,6 +1564,209 @@ async def reschedule_meeting(
     }
 
 
+# ============== BULK ACTIONS ==============
+
+from pydantic import BaseModel
+
+class BulkActionRequest(BaseModel):
+    meeting_ids: List[str]
+    
+class BulkRescheduleRequest(BaseModel):
+    meeting_ids: List[str]
+    days_offset: Optional[int] = None  # Move all meetings by X days
+    new_time: Optional[str] = None  # Change time but keep same day offset
+    reason: Optional[str] = None
+
+
+@router.post("/bulk/delete")
+async def bulk_delete_meetings(
+    request: BulkActionRequest,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Delete multiple meetings at once"""
+    if not request.meeting_ids:
+        raise HTTPException(status_code=400, detail="No meeting IDs provided")
+    
+    if len(request.meeting_ids) > 50:
+        raise HTTPException(status_code=400, detail="Cannot delete more than 50 meetings at once")
+    
+    # Verify all meetings exist
+    meetings = await db.meetings.find(
+        {"id": {"$in": request.meeting_ids}},
+        {"_id": 0, "id": 1, "title": 1, "status": 1}
+    ).to_list(length=50)
+    
+    found_ids = {m["id"] for m in meetings}
+    not_found = set(request.meeting_ids) - found_ids
+    
+    if not_found:
+        raise HTTPException(status_code=404, detail=f"Meetings not found: {list(not_found)[:5]}")
+    
+    # Delete meetings
+    result = await db.meetings.delete_many({"id": {"$in": request.meeting_ids}})
+    
+    return {
+        "success": True,
+        "deleted_count": result.deleted_count,
+        "meeting_ids": request.meeting_ids
+    }
+
+
+@router.post("/bulk/cancel")
+async def bulk_cancel_meetings(
+    request: BulkActionRequest,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Cancel multiple meetings at once"""
+    if not request.meeting_ids:
+        raise HTTPException(status_code=400, detail="No meeting IDs provided")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.meetings.update_many(
+        {
+            "id": {"$in": request.meeting_ids},
+            "status": {"$nin": [MeetingStatus.COMPLETED.value, MeetingStatus.CANCELLED.value]}
+        },
+        {"$set": {
+            "status": MeetingStatus.CANCELLED.value,
+            "cancelled_at": now,
+            "cancelled_by": user.get("id"),
+            "updated_at": now
+        }}
+    )
+    
+    return {
+        "success": True,
+        "cancelled_count": result.modified_count,
+        "meeting_ids": request.meeting_ids
+    }
+
+
+@router.post("/bulk/reschedule")
+async def bulk_reschedule_meetings(
+    request: BulkRescheduleRequest,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Reschedule multiple meetings by a day offset"""
+    if not request.meeting_ids:
+        raise HTTPException(status_code=400, detail="No meeting IDs provided")
+    
+    if not request.days_offset and not request.new_time:
+        raise HTTPException(status_code=400, detail="Provide days_offset or new_time")
+    
+    # Get all meetings
+    meetings = await db.meetings.find(
+        {
+            "id": {"$in": request.meeting_ids},
+            "status": {"$nin": [MeetingStatus.COMPLETED.value, MeetingStatus.CANCELLED.value]}
+        },
+        {"_id": 0}
+    ).to_list(length=50)
+    
+    rescheduled_count = 0
+    now = datetime.now(timezone.utc).isoformat()
+    
+    for meeting in meetings:
+        try:
+            original_start = datetime.fromisoformat(meeting["start_time"].replace("Z", "+00:00"))
+            original_end = datetime.fromisoformat(meeting["end_time"].replace("Z", "+00:00"))
+            
+            if request.days_offset:
+                new_start = original_start + timedelta(days=request.days_offset)
+                new_end = original_end + timedelta(days=request.days_offset)
+            else:
+                # Keep same date, change time
+                new_start = original_start
+                new_end = original_end
+            
+            # Update reschedule history
+            history = meeting.get("reschedule_history", [])
+            history.append({
+                "original_start_time": meeting["start_time"],
+                "original_end_time": meeting["end_time"],
+                "rescheduled_at": now,
+                "rescheduled_by": user.get("id"),
+                "reason": request.reason or "Bulk reschedule"
+            })
+            
+            await db.meetings.update_one(
+                {"id": meeting["id"]},
+                {"$set": {
+                    "start_time": new_start.isoformat(),
+                    "end_time": new_end.isoformat(),
+                    "reschedule_history": history,
+                    "last_rescheduled_at": now,
+                    "updated_at": now
+                }}
+            )
+            rescheduled_count += 1
+        except Exception as e:
+            print(f"Error rescheduling meeting {meeting['id']}: {e}")
+            continue
+    
+    return {
+        "success": True,
+        "rescheduled_count": rescheduled_count,
+        "days_offset": request.days_offset,
+        "meeting_ids": request.meeting_ids
+    }
+
+
+@router.post("/bulk/export")
+async def bulk_export_meetings(
+    request: BulkActionRequest,
+    format: str = Query("json", regex="^(json|csv)$"),
+    user: dict = Depends(get_current_user_dep)
+):
+    """Export multiple meetings data"""
+    from fastapi.responses import JSONResponse, StreamingResponse
+    import csv
+    import io
+    
+    if not request.meeting_ids:
+        raise HTTPException(status_code=400, detail="No meeting IDs provided")
+    
+    meetings = await db.meetings.find(
+        {"id": {"$in": request.meeting_ids}},
+        {"_id": 0}
+    ).to_list(length=100)
+    
+    if format == "json":
+        return JSONResponse(content={"meetings": meetings, "count": len(meetings)})
+    
+    elif format == "csv":
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Header
+        writer.writerow([
+            "ID", "Title", "Type", "Status", "Start Time", "End Time", 
+            "Location", "Participants Count", "Created At"
+        ])
+        
+        for m in meetings:
+            writer.writerow([
+                m.get("id", ""),
+                m.get("title", ""),
+                m.get("meeting_type", ""),
+                m.get("status", ""),
+                m.get("start_time", ""),
+                m.get("end_time", ""),
+                m.get("location", ""),
+                len(m.get("participants", [])),
+                m.get("created_at", "")
+            ])
+        
+        output.seek(0)
+        
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=meetings_export.csv"}
+        )
+
+
 async def create_next_recurring_meeting(meeting: dict) -> Optional[str]:
     """Create the next occurrence of a recurring meeting"""
     recurrence_type = meeting.get("recurrence_type")

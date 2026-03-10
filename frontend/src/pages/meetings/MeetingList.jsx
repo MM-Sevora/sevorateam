@@ -5,7 +5,7 @@ import {
   ChevronLeft, ChevronRight, MoreVertical, Edit, Trash2, Play,
   CheckCircle2, AlertCircle, Target, Folder, Building2, RefreshCw,
   FileText, ListTodo, BarChart3, Link2, Unlink, ExternalLink, XCircle,
-  SkipForward
+  SkipForward, Square, CheckSquare, Download, CalendarClock, Loader2
 } from 'lucide-react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -35,8 +35,11 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from '../../components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Label } from '../../components/ui/label';
+import { Textarea } from '../../components/ui/textarea';
 import { toast } from 'sonner';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -85,7 +88,7 @@ const statusColors = {
 };
 
 // ============== MEETING CARD ==============
-const MeetingCard = ({ meeting, onClick, onEdit, onDelete, onStart, onCancel, onSkip }) => {
+const MeetingCard = ({ meeting, onClick, onEdit, onDelete, onStart, onCancel, onSkip, selectable, selected, onToggleSelect }) => {
   const formatTime = (dateStr) => {
     if (!dateStr) return '';
     return new Date(dateStr).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -98,22 +101,37 @@ const MeetingCard = ({ meeting, onClick, onEdit, onDelete, onStart, onCancel, on
 
   return (
     <Card 
-      className="group hover:shadow-md transition-all duration-200 cursor-pointer border-[#E8D5C4] hover:border-[#D4BBA6] shadow-sm bg-white"
-      onClick={() => onClick(meeting)}
+      className={`group hover:shadow-md transition-all duration-200 cursor-pointer border-[#E8D5C4] hover:border-[#D4BBA6] shadow-sm bg-white ${selected ? 'ring-2 ring-blue-500 border-blue-300' : ''}`}
+      onClick={() => !selectable && onClick(meeting)}
       data-testid={`meeting-card-${meeting.id}`}
     >
       <CardContent className="p-5">
         <div className="flex items-start justify-between mb-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <Badge variant="outline" className={`text-xs ${meetingTypeColors[meeting.meeting_type] || meetingTypeColors.general}`}>
-                {meetingTypeLabels[meeting.meeting_type] || meeting.meeting_type}
-              </Badge>
-              <Badge variant="outline" className={`text-xs ${statusColors[meeting.status]}`}>
-                {meeting.status}
-              </Badge>
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            {/* Checkbox for bulk selection */}
+            {selectable && (
+              <div 
+                className="mt-0.5 cursor-pointer"
+                onClick={(e) => { e.stopPropagation(); onToggleSelect(meeting.id, e); }}
+              >
+                {selected ? (
+                  <CheckSquare className="w-5 h-5 text-blue-600" />
+                ) : (
+                  <Square className="w-5 h-5 text-[#8B7355] hover:text-blue-600" />
+                )}
+              </div>
+            )}
+            <div className="flex-1 min-w-0" onClick={() => selectable && onClick(meeting)}>
+              <div className="flex items-center gap-2 mb-1">
+                <Badge variant="outline" className={`text-xs ${meetingTypeColors[meeting.meeting_type] || meetingTypeColors.general}`}>
+                  {meetingTypeLabels[meeting.meeting_type] || meeting.meeting_type}
+                </Badge>
+                <Badge variant="outline" className={`text-xs ${statusColors[meeting.status]}`}>
+                  {meeting.status}
+                </Badge>
+              </div>
+              <h3 className="font-semibold text-[#4A3728] line-clamp-1">{meeting.title}</h3>
             </div>
-            <h3 className="font-semibold text-[#4A3728] line-clamp-1">{meeting.title}</h3>
           </div>
           
           <DropdownMenu>
@@ -232,6 +250,13 @@ const MeetingList = () => {
   const [msCalendarStatus, setMsCalendarStatus] = useState(null);
   const [showMsCalendarModal, setShowMsCalendarModal] = useState(false);
   const [connectingToMs, setConnectingToMs] = useState(false);
+  
+  // Bulk selection state
+  const [selectedMeetings, setSelectedMeetings] = useState(new Set());
+  const [bulkMode, setBulkMode] = useState(false);
+  const [showBulkRescheduleModal, setShowBulkRescheduleModal] = useState(false);
+  const [bulkRescheduleForm, setBulkRescheduleForm] = useState({ days_offset: 1, reason: '' });
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
   const fetchMeetings = useCallback(async () => {
     try {
@@ -508,6 +533,180 @@ const MeetingList = () => {
     }
   };
 
+  // ============== BULK ACTIONS ==============
+  const toggleMeetingSelection = (meetingId, e) => {
+    e?.stopPropagation();
+    const newSelected = new Set(selectedMeetings);
+    if (newSelected.has(meetingId)) {
+      newSelected.delete(meetingId);
+    } else {
+      newSelected.add(meetingId);
+    }
+    setSelectedMeetings(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    const currentMeetings = activeTab === 'upcoming' ? upcomingMeetings : 
+                           activeTab === 'past' ? pastMeetings : myMeetings;
+    if (selectedMeetings.size === currentMeetings.length) {
+      setSelectedMeetings(new Set());
+    } else {
+      setSelectedMeetings(new Set(currentMeetings.map(m => m.id)));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedMeetings(new Set());
+    setBulkMode(false);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedMeetings.size === 0) return;
+    if (!window.confirm(`Delete ${selectedMeetings.size} meeting(s)?`)) return;
+    
+    setBulkActionLoading(true);
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/meetings/bulk/delete`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ meeting_ids: Array.from(selectedMeetings) })
+      });
+      
+      if (res.ok) {
+        const result = await res.json();
+        toast.success(`${result.deleted_count} meeting(s) deleted`);
+        clearSelection();
+        fetchMeetings();
+        fetchDashboard();
+      } else {
+        const error = await res.json();
+        toast.error(error.detail || 'Failed to delete meetings');
+      }
+    } catch (error) {
+      toast.error('Error deleting meetings');
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  const handleBulkCancel = async () => {
+    if (selectedMeetings.size === 0) return;
+    if (!window.confirm(`Cancel ${selectedMeetings.size} meeting(s)?`)) return;
+    
+    setBulkActionLoading(true);
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/meetings/bulk/cancel`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ meeting_ids: Array.from(selectedMeetings) })
+      });
+      
+      if (res.ok) {
+        const result = await res.json();
+        toast.success(`${result.cancelled_count} meeting(s) cancelled`);
+        clearSelection();
+        fetchMeetings();
+      } else {
+        const error = await res.json();
+        toast.error(error.detail || 'Failed to cancel meetings');
+      }
+    } catch (error) {
+      toast.error('Error cancelling meetings');
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  const handleBulkReschedule = async () => {
+    if (selectedMeetings.size === 0) return;
+    
+    setBulkActionLoading(true);
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/meetings/bulk/reschedule`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          meeting_ids: Array.from(selectedMeetings),
+          days_offset: parseInt(bulkRescheduleForm.days_offset),
+          reason: bulkRescheduleForm.reason
+        })
+      });
+      
+      if (res.ok) {
+        const result = await res.json();
+        toast.success(`${result.rescheduled_count} meeting(s) rescheduled by ${result.days_offset} day(s)`);
+        clearSelection();
+        setShowBulkRescheduleModal(false);
+        setBulkRescheduleForm({ days_offset: 1, reason: '' });
+        fetchMeetings();
+      } else {
+        const error = await res.json();
+        toast.error(error.detail || 'Failed to reschedule meetings');
+      }
+    } catch (error) {
+      toast.error('Error rescheduling meetings');
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  const handleBulkExport = async (format = 'csv') => {
+    if (selectedMeetings.size === 0) return;
+    
+    setBulkActionLoading(true);
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/meetings/bulk/export?format=${format}`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ meeting_ids: Array.from(selectedMeetings) })
+      });
+      
+      if (res.ok) {
+        if (format === 'csv') {
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `meetings_export_${new Date().toISOString().split('T')[0]}.csv`;
+          a.click();
+          URL.revokeObjectURL(url);
+        } else {
+          const data = await res.json();
+          const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `meetings_export_${new Date().toISOString().split('T')[0]}.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+        }
+        toast.success(`${selectedMeetings.size} meeting(s) exported as ${format.toUpperCase()}`);
+      } else {
+        toast.error('Failed to export meetings');
+      }
+    } catch (error) {
+      toast.error('Error exporting meetings');
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
   const handleCalendarEventClick = (info) => {
     navigate(`/meetings/${info.event.id}`);
   };
@@ -587,8 +786,97 @@ const MeetingList = () => {
             <Plus className="w-4 h-4 mr-2" />
             New Meeting
           </Button>
+          {/* Bulk Mode Toggle */}
+          <Button 
+            variant="outline"
+            size="sm"
+            onClick={() => { setBulkMode(!bulkMode); if (bulkMode) clearSelection(); }}
+            className={`border-[#D4BBA6] ${bulkMode ? 'bg-blue-50 text-blue-700 border-blue-300' : 'text-[#4A3728] hover:bg-[#F5EBE0]'}`}
+            data-testid="bulk-mode-btn"
+          >
+            {bulkMode ? <CheckSquare className="w-4 h-4 mr-2" /> : <Square className="w-4 h-4 mr-2" />}
+            {bulkMode ? 'Exit Bulk Mode' : 'Bulk Actions'}
+          </Button>
         </div>
       </div>
+
+      {/* Bulk Actions Toolbar */}
+      {bulkMode && selectedMeetings.size > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <span className="text-blue-700 font-medium">
+              {selectedMeetings.size} meeting(s) selected
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleSelectAll}
+              className="text-blue-600 hover:bg-blue-100"
+            >
+              {selectedMeetings.size === (activeTab === 'upcoming' ? upcomingMeetings : activeTab === 'past' ? pastMeetings : myMeetings).length 
+                ? 'Deselect All' : 'Select All'}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearSelection}
+              className="text-blue-600 hover:bg-blue-100"
+            >
+              Clear
+            </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Reschedule */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowBulkRescheduleModal(true)}
+              className="border-amber-300 text-amber-700 hover:bg-amber-50"
+              disabled={bulkActionLoading}
+            >
+              <CalendarClock className="w-4 h-4 mr-2" />
+              Reschedule
+            </Button>
+            {/* Export */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleBulkExport('csv')}
+              className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+              disabled={bulkActionLoading}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export CSV
+            </Button>
+            {/* Cancel */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBulkCancel}
+              className="border-orange-300 text-orange-700 hover:bg-orange-50"
+              disabled={bulkActionLoading}
+            >
+              <XCircle className="w-4 h-4 mr-2" />
+              Cancel All
+            </Button>
+            {/* Delete */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBulkDelete}
+              className="border-red-300 text-red-700 hover:bg-red-50"
+              disabled={bulkActionLoading}
+            >
+              {bulkActionLoading ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4 mr-2" />
+              )}
+              Delete All
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Dashboard Stats */}
       {dashboard && (
@@ -707,6 +995,9 @@ const MeetingList = () => {
                   onStart={handleStart}
                   onCancel={handleCancel}
                   onSkip={handleSkip}
+                  selectable={bulkMode}
+                  selected={selectedMeetings.has(meeting.id)}
+                  onToggleSelect={toggleMeetingSelection}
                 />
               ))}
             </div>
@@ -742,6 +1033,9 @@ const MeetingList = () => {
                   onStart={handleStart}
                   onCancel={handleCancel}
                   onSkip={handleSkip}
+                  selectable={bulkMode}
+                  selected={selectedMeetings.has(meeting.id)}
+                  onToggleSelect={toggleMeetingSelection}
                 />
               ))}
             </div>
@@ -1078,6 +1372,73 @@ const MeetingList = () => {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Reschedule Modal */}
+      <Dialog open={showBulkRescheduleModal} onOpenChange={setShowBulkRescheduleModal}>
+        <DialogContent className="bg-white border-[#D4BBA6] max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[#4A3728] flex items-center gap-2">
+              <CalendarClock className="w-5 h-5 text-amber-600" />
+              Bulk Reschedule
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="bg-amber-50 rounded-lg p-3 text-sm text-amber-700">
+              Rescheduling <strong>{selectedMeetings.size}</strong> meeting(s)
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-[#4A3728]">Move meetings by (days)</Label>
+              <Select 
+                value={bulkRescheduleForm.days_offset.toString()} 
+                onValueChange={(v) => setBulkRescheduleForm({ ...bulkRescheduleForm, days_offset: parseInt(v) })}
+              >
+                <SelectTrigger className="border-[#D4BBA6]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="-7">1 week earlier</SelectItem>
+                  <SelectItem value="-1">1 day earlier</SelectItem>
+                  <SelectItem value="1">1 day later</SelectItem>
+                  <SelectItem value="2">2 days later</SelectItem>
+                  <SelectItem value="3">3 days later</SelectItem>
+                  <SelectItem value="7">1 week later</SelectItem>
+                  <SelectItem value="14">2 weeks later</SelectItem>
+                  <SelectItem value="30">1 month later</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-[#4A3728]">Reason (optional)</Label>
+              <Textarea
+                value={bulkRescheduleForm.reason}
+                onChange={(e) => setBulkRescheduleForm({ ...bulkRescheduleForm, reason: e.target.value })}
+                placeholder="Why are these meetings being rescheduled?"
+                className="border-[#D4BBA6] min-h-[80px]"
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBulkRescheduleModal(false)} className="border-[#D4BBA6]">
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleBulkReschedule}
+              disabled={bulkActionLoading}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              {bulkActionLoading ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Rescheduling...</>
+              ) : (
+                <><CalendarClock className="w-4 h-4 mr-2" />Reschedule All</>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
