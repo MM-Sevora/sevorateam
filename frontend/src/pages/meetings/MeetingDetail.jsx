@@ -128,6 +128,11 @@ const MeetingDetail = () => {
   const [projects, setProjects] = useState([]);
   const [goals, setGoals] = useState([]);
   
+  // Series modal
+  const [showSeriesModal, setShowSeriesModal] = useState(false);
+  const [seriesData, setSeriesData] = useState(null);
+  const [loadingSeries, setLoadingSeries] = useState(false);
+  
   // Outlook sync state
   const [syncingToOutlook, setSyncingToOutlook] = useState(false);
   const [outlookSyncStatus, setOutlookSyncStatus] = useState(null);
@@ -251,6 +256,32 @@ const MeetingDetail = () => {
       }
     } catch (error) {
       toast.error('Error cancelling meeting');
+    }
+  };
+
+  // Fetch series data for recurring meetings
+  const fetchSeriesData = async () => {
+    if (!meeting?.recurrence_type || meeting.recurrence_type === 'none') return;
+    
+    setLoadingSeries(true);
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const seriesId = meeting.parent_recurring_id || meeting.id;
+      const res = await fetch(`${API}/api/meetings/series/${seriesId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setSeriesData(data);
+        setShowSeriesModal(true);
+      } else {
+        toast.error('Failed to load series data');
+      }
+    } catch (error) {
+      toast.error('Error loading series');
+    } finally {
+      setLoadingSeries(false);
     }
   };
 
@@ -703,9 +734,15 @@ const MeetingDetail = () => {
                 {meetingTypeLabels[meeting.meeting_type] || meeting.meeting_type}
               </Badge>
               {meeting.recurrence_type && meeting.recurrence_type !== 'none' && (
-                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                  <RefreshCw className="w-3 h-3 mr-1" />
+                <Badge 
+                  variant="outline" 
+                  className="bg-blue-50 text-blue-700 border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors"
+                  onClick={fetchSeriesData}
+                  data-testid="recurring-badge"
+                >
+                  <RefreshCw className={`w-3 h-3 mr-1 ${loadingSeries ? 'animate-spin' : ''}`} />
                   {meeting.recurrence_type.charAt(0).toUpperCase() + meeting.recurrence_type.slice(1)}
+                  <span className="ml-1 text-xs opacity-70">• View Series</span>
                 </Badge>
               )}
             </div>
@@ -2196,6 +2233,117 @@ const MeetingDetail = () => {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Series Modal */}
+      <Dialog open={showSeriesModal} onOpenChange={setShowSeriesModal}>
+        <DialogContent className="bg-white border-[#D4BBA6] max-w-2xl max-h-[80vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="text-[#4A3728] flex items-center gap-2">
+              <RefreshCw className="w-5 h-5 text-blue-600" />
+              Recurring Meeting Series
+            </DialogTitle>
+            <DialogDescription className="text-[#6B5D52]">
+              {seriesData?.title} • {seriesData?.recurrence_type?.charAt(0).toUpperCase() + seriesData?.recurrence_type?.slice(1)}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {seriesData && (
+            <div className="space-y-4">
+              {/* Series Stats */}
+              <div className="grid grid-cols-4 gap-2">
+                <div className="bg-[#F5EBE0] rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold text-[#4A3728]">{seriesData.total_occurrences}</p>
+                  <p className="text-xs text-[#6B5D52]">Total</p>
+                </div>
+                <div className="bg-emerald-50 rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold text-emerald-700">{seriesData.completed}</p>
+                  <p className="text-xs text-emerald-600">Completed</p>
+                </div>
+                <div className="bg-amber-50 rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold text-amber-700">{seriesData.upcoming}</p>
+                  <p className="text-xs text-amber-600">Upcoming</p>
+                </div>
+                <div className="bg-red-50 rounded-lg p-3 text-center">
+                  <p className="text-2xl font-bold text-red-700">{seriesData.cancelled}</p>
+                  <p className="text-xs text-red-600">Cancelled</p>
+                </div>
+              </div>
+
+              {/* End Date */}
+              {seriesData.recurrence_end_date && (
+                <p className="text-sm text-[#6B5D52]">
+                  Series ends: {new Date(seriesData.recurrence_end_date).toLocaleDateString('en-US', { 
+                    year: 'numeric', month: 'long', day: 'numeric' 
+                  })}
+                </p>
+              )}
+
+              {/* Occurrences List */}
+              <div className="border border-[#E8D5C4] rounded-lg overflow-hidden">
+                <div className="max-h-[300px] overflow-y-auto">
+                  {seriesData.meetings.map((m, idx) => (
+                    <div 
+                      key={m.id}
+                      onClick={() => {
+                        setShowSeriesModal(false);
+                        navigate(`/meetings/${m.id}`);
+                      }}
+                      className={`flex items-center justify-between p-3 cursor-pointer hover:bg-[#F5EBE0] transition-colors ${
+                        m.id === meetingId ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                      } ${idx !== seriesData.meetings.length - 1 ? 'border-b border-[#E8D5C4]' : ''}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="text-center min-w-[50px]">
+                          <p className="text-xs text-[#6B5D52]">
+                            {new Date(m.start_time).toLocaleDateString('en-US', { month: 'short' })}
+                          </p>
+                          <p className="text-lg font-bold text-[#4A3728]">
+                            {new Date(m.start_time).getDate()}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="font-medium text-[#4A3728] flex items-center gap-2">
+                            {m.title}
+                            {m.is_original && (
+                              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-600 border-blue-200">
+                                Original
+                              </Badge>
+                            )}
+                            {m.id === meetingId && (
+                              <Badge variant="outline" className="text-xs bg-violet-50 text-violet-600 border-violet-200">
+                                Current
+                              </Badge>
+                            )}
+                          </p>
+                          <p className="text-xs text-[#6B5D52]">
+                            {new Date(m.start_time).toLocaleTimeString('en-US', { 
+                              hour: '2-digit', minute: '2-digit' 
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className={
+                        m.status === 'completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                        m.status === 'cancelled' ? 'bg-red-50 text-red-700 border-red-200' :
+                        m.status === 'in_progress' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                        'bg-amber-50 text-amber-700 border-amber-200'
+                      }>
+                        {m.status.replace('_', ' ')}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSeriesModal(false)} className="border-[#D4BBA6]">
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

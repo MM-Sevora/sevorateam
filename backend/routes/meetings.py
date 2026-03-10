@@ -220,6 +220,7 @@ async def list_meetings(
     project_id: Optional[str] = None,
     goal_id: Optional[str] = None,
     objective_id: Optional[str] = None,
+    series_id: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     organizer_id: Optional[str] = None,
@@ -244,6 +245,12 @@ async def list_meetings(
         query["linked_goal_id"] = goal_id
     if objective_id:
         query["linked_objective_id"] = objective_id
+    if series_id:
+        # Get all meetings in a recurring series (including the original)
+        query["$or"] = [
+            {"id": series_id},
+            {"parent_recurring_id": series_id}
+        ]
     if organizer_id:
         query["organizer_id"] = organizer_id
     if participant_id:
@@ -256,10 +263,17 @@ async def list_meetings(
         else:
             query["start_time"] = {"$lte": end_date}
     if search:
-        query["$or"] = [
-            {"title": {"$regex": search, "$options": "i"}},
-            {"description": {"$regex": search, "$options": "i"}}
-        ]
+        if "$or" in query:
+            # If series_id already set $or, use $and
+            query = {"$and": [query, {"$or": [
+                {"title": {"$regex": search, "$options": "i"}},
+                {"description": {"$regex": search, "$options": "i"}}
+            ]}]}
+        else:
+            query["$or"] = [
+                {"title": {"$regex": search, "$options": "i"}},
+                {"description": {"$regex": search, "$options": "i"}}
+            ]
     
     meetings = await db.meetings.find(
         query, {"_id": 0}
@@ -388,6 +402,55 @@ async def get_all_decisions(
     
     results = await db.meetings.aggregate(pipeline).to_list(limit)
     return results
+
+
+# ============== RECURRING SERIES INFO ==============
+
+@router.get("/series/{series_id}")
+async def get_meeting_series(
+    series_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get all meetings in a recurring series with summary info"""
+    # Find all meetings in this series
+    meetings = await db.meetings.find(
+        {"$or": [
+            {"id": series_id},
+            {"parent_recurring_id": series_id}
+        ]},
+        {"_id": 0}
+    ).sort("start_time", 1).to_list(200)
+    
+    if not meetings:
+        raise HTTPException(status_code=404, detail="Series not found")
+    
+    # Find the original meeting (the one without parent_recurring_id or where id == series_id)
+    original = next((m for m in meetings if m.get("id") == series_id or not m.get("parent_recurring_id")), meetings[0])
+    
+    # Calculate stats
+    total_occurrences = len(meetings)
+    completed = sum(1 for m in meetings if m.get("status") == "completed")
+    cancelled = sum(1 for m in meetings if m.get("status") == "cancelled")
+    upcoming = sum(1 for m in meetings if m.get("status") == "scheduled")
+    
+    return {
+        "series_id": series_id,
+        "title": original.get("title"),
+        "recurrence_type": original.get("recurrence_type"),
+        "recurrence_end_date": original.get("recurrence_end_date"),
+        "total_occurrences": total_occurrences,
+        "completed": completed,
+        "cancelled": cancelled,
+        "upcoming": upcoming,
+        "meetings": [{
+            "id": m.get("id"),
+            "title": m.get("title"),
+            "start_time": m.get("start_time"),
+            "end_time": m.get("end_time"),
+            "status": m.get("status"),
+            "is_original": m.get("id") == series_id or not m.get("parent_recurring_id")
+        } for m in meetings]
+    }
 
 
 # ============== GLOBAL ISSUES & RISKS (must be before /{meeting_id}) ==============
