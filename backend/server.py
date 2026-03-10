@@ -2852,6 +2852,30 @@ async def update_post(post_id: str, data: dict, user: dict = Depends(require_dep
     if not existing:
         raise HTTPException(status_code=404, detail="Post not found")
     
+    # Auto-save version before updating (version control)
+    if existing.get("content") or existing.get("content_html"):
+        try:
+            last_version = await db.post_versions.find_one(
+                {"post_id": post_id},
+                sort=[("version_number", -1)]
+            )
+            next_version = (last_version.get("version_number", 0) if last_version else 0) + 1
+            version_doc = {
+                "version_id": str(uuid.uuid4()),
+                "post_id": post_id,
+                "version_number": next_version,
+                "content": existing.get("content"),
+                "content_html": existing.get("content_html"),
+                "image_url": existing.get("image_url"),
+                "platform": existing.get("platform"),
+                "change_note": f"Auto-saved before edit (v{next_version})",
+                "created_by": user['id'],
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.post_versions.insert_one(version_doc)
+        except Exception as e:
+            logger.error(f"Failed to save post version: {e}")
+    
     # Build update data
     update_data = {k: v for k, v in data.items() if k not in ['id', 'post_id', '_id', 'created_by', 'created_at']}
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
@@ -4019,6 +4043,15 @@ try:
     logger.info("Social Campaigns routes loaded successfully")
 except Exception as e:
     logger.error(f"Failed to load Social Campaigns routes: {e}")
+
+# Load Social Workflows routes (Approval chains, Queues, Version control)
+try:
+    from routes.social_workflows import social_workflows_router, init_social_workflows_router
+    init_social_workflows_router(db)
+    api_router.include_router(social_workflows_router)
+    logger.info("Social Workflows routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Social Workflows routes: {e}")
 
 # Load Admin V2 routes
 try:

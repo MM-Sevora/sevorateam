@@ -50,6 +50,8 @@ import PostsAndSchedulePage from "./pages/social/PostsAndSchedule";
 import ContentLibraryPage from "./pages/social/ContentLibrary";
 import SocialCampaigns from "./pages/social/SocialCampaigns";
 import CampaignDetail from "./pages/social/CampaignDetail";
+import ApprovalWorkflows from "./pages/social/ApprovalWorkflows";
+import PostingQueues from "./pages/social/PostingQueues";
 
 // Email Page
 import EmailPage from "./pages/marketing/EmailPage";
@@ -391,6 +393,8 @@ function AppRoutes() {
             <Route path="/social/library" element={<ProtectedRoute requiredModule="social"><ContentLibraryPage /></ProtectedRoute>} />
             <Route path="/social/campaigns" element={<ProtectedRoute requiredModule="social"><SocialCampaigns /></ProtectedRoute>} />
             <Route path="/social/campaigns/:campaignId" element={<ProtectedRoute requiredModule="social"><CampaignDetail /></ProtectedRoute>} />
+            <Route path="/social/workflows" element={<ProtectedRoute requiredModule="social"><ApprovalWorkflows /></ProtectedRoute>} />
+            <Route path="/social/queues" element={<ProtectedRoute requiredModule="social"><PostingQueues /></ProtectedRoute>} />
             {/* Redirect old routes to dashboard */}
             <Route path="/social/analytics" element={<Navigate to="/social" replace />} />
             <Route path="/social/ai-tools" element={<Navigate to="/social" replace />} />

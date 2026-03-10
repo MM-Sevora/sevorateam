@@ -12,7 +12,7 @@ import {
     ChevronDown, ChevronRight, Briefcase, Mail, Check, Send, ListTodo, FolderKanban,
     HelpCircle, Award, Network, Shield, Flag, CalendarDays, RefreshCw, Plus, Globe,
     TrendingUp, PieChart, Activity, FileText, Package, Factory, FlaskConical, Search, Database,
-    Server, Plug, Bell, ClipboardList, Bot, Cog
+    Server, Plug, Bell, ClipboardList, Bot, Cog, CheckCircle
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -146,6 +146,8 @@ const DEPARTMENT_CONFIG = {
             { path: '/social/campaigns', name: 'Campaigns', icon: Target },
             { path: '/social/studio', name: 'Content Studio', icon: PenTool },
             { path: '/social/posts', name: 'Posts & Schedule', icon: Clock },
+            { path: '/social/queues', name: 'Posting Queues', icon: Calendar },
+            { path: '/social/workflows', name: 'Approval Workflows', icon: CheckCircle },
             { path: '/social/library', name: 'Content Library', icon: Image },
         ]
     },

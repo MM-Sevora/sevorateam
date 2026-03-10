@@ -3,11 +3,12 @@ import api from '../../lib/api';
 import {
   FileText, Trash2, Send, Clock, CheckCircle, Calendar as CalIcon,
   ChevronLeft, ChevronRight, Loader2, Heart, MessageSquare, Share2,
-  Plus, X, Image, Globe, List, Grid3X3, CalendarDays, Eye, Upload, AlertTriangle, Info, ExternalLink, Sparkles, Edit3, Check, Users, Repeat, RotateCcw
+  Plus, X, Image, Globe, List, Grid3X3, CalendarDays, Eye, Upload, AlertTriangle, Info, ExternalLink, Sparkles, Edit3, Check, Users, Repeat, RotateCcw, History
 } from 'lucide-react';
 import { FaFacebook, FaInstagram, FaTwitter, FaLinkedin, FaYoutube } from 'react-icons/fa';
 import { format, startOfWeek, addDays, addWeeks, subWeeks, isToday, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths } from 'date-fns';
 import RichTextEditor, { htmlToPlainText } from '../../components/shared/RichTextEditor';
+import { VersionHistoryButton } from './PostVersionHistory';
 
 const platforms = [
   { key: 'linkedin', icon: FaLinkedin, color: '#0A66C2', label: 'LinkedIn', maxChars: 3000, optimalChars: '100-300' },
@@ -141,7 +142,7 @@ export default function PostsAndSchedule() {
 
   const fetchPosts = async () => {
     setLoading(true);
-    try { const res = await api.get('/api/social/posts'); setPosts(res.data); }
+    try { const res = await api.get('/social/posts'); setPosts(res.data); }
     catch (err) { console.error(err); }
     finally { setLoading(false); }
   };
@@ -273,7 +274,7 @@ export default function PostsAndSchedule() {
     if (editingPost) {
       // UPDATE existing post
       try {
-        await api.put(`/api/social/posts/${editingPost.post_id}`, {
+        await api.put(`/social/posts/${editingPost.post_id}`, {
           content: getPlainContent(editingPost.platform),
           content_html: getContent(editingPost.platform), // Store HTML for future editing
           image_url: primaryImage,
@@ -321,7 +322,7 @@ export default function PostsAndSchedule() {
             recurrence_end_date: isRecurring && recurrenceEndDate ? recurrenceEndDate : null,
             recurrence_count: isRecurring ? recurrenceCount : null,
           };
-          const postRes = await api.post('/api/social/posts', postData);
+          const postRes = await api.post('/social/posts', postData);
           
           // If requires approval, submit for review
           if (requiresApproval && postRes.data?.post_id) {
@@ -340,7 +341,7 @@ export default function PostsAndSchedule() {
 
   const handleDeletePost = async (postId) => {
     if (!window.confirm('Delete?')) return;
-    try { await api.delete(`/api/social/posts/${postId}`); setPosts(prev => prev.filter(p => p.post_id !== postId)); setSelectedPost(null); } catch (err) { console.error(err); }
+    try { await api.delete(`/social/posts/${postId}`); setPosts(prev => prev.filter(p => p.post_id !== postId)); setSelectedPost(null); } catch (err) { console.error(err); }
   };
 
   const handlePublishPost = async (post) => {
@@ -348,8 +349,8 @@ export default function PostsAndSchedule() {
     try {
       if (['linkedin', 'facebook', 'instagram'].includes(post.platform)) {
         const res = await api.post('/api/publish/real', { content: post.content, platform: post.platform, image_url: post.image_url || '' });
-        if (res.data.success) await api.put(`/api/social/posts/${post.post_id}`, { status: 'published' });
-      } else { await api.post(`/api/social/posts/${post.post_id}/publish`); }
+        if (res.data.success) await api.put(`/social/posts/${post.post_id}`, { status: 'published' });
+      } else { await api.post(`/social/posts/${post.post_id}/publish`); }
       await fetchPosts(); setSelectedPost(null);
     } catch (err) { console.error(err); }
     finally { setPublishing(''); }
@@ -430,9 +431,14 @@ export default function PostsAndSchedule() {
                         <div key={day.toISOString()} className={`p-2 border-r border-[#E8D5C4] last:border-r-0 ${isToday(day) ? 'bg-amber-800/5' : ''}`}>
                           {dayPosts.slice(0, 4).map(post => {
                             const meta = platforms.find(p => p.key === post.platform); const st = statusColors[post.status] || statusColors.draft;
+                            const isRecurringPost = post.is_recurring || post.parent_recurring_id;
                             return (
                               <div key={post.post_id} onClick={() => { setSelectedPost(post); setShowComposer(false); }} className="p-2 rounded-lg bg-[#E8D5C4]/80 border border-[#E8D5C4] hover:border-white/15 cursor-pointer mb-1.5">
-                                <div className="flex items-center gap-1.5 mb-1">{meta?.icon && <meta.icon className="w-3 h-3" style={{ color: meta?.color }} />}<span className={`text-[9px] px-1.5 py-0.5 rounded-full ${st.bg} ${st.text}`}>{st.label}</span></div>
+                                <div className="flex items-center gap-1.5 mb-1">
+                                  {meta?.icon && <meta.icon className="w-3 h-3" style={{ color: meta?.color }} />}
+                                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${st.bg} ${st.text}`}>{st.label}</span>
+                                  {isRecurringPost && <Repeat className="w-3 h-3 text-rose-500" title="Recurring post" />}
+                                </div>
                                 <p className="text-[10px] text-[#4A3728] line-clamp-2">{post.content}</p>
                               </div>
                             );
@@ -471,11 +477,18 @@ export default function PostsAndSchedule() {
                 <div className="space-y-2">
                   {filteredPosts.length > 0 ? filteredPosts.map(post => {
                     const meta = platforms.find(p => p.key === post.platform); const st = statusColors[post.status] || statusColors.draft; const m = post.metrics || {};
+                    const isRecurringPost = post.is_recurring || post.parent_recurring_id;
                     return (
                       <div key={post.post_id} onClick={() => { setSelectedPost(post); setShowComposer(false); }} className="bg-white border border-[#E8D5C4] rounded-xl p-4 hover:border-[#D4BBA6] cursor-pointer flex items-start gap-3">
                         <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${meta?.color}15` }}>{meta?.icon && <meta.icon className="w-4 h-4" style={{ color: meta?.color }} />}</div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1"><span className="text-xs font-medium text-white capitalize">{post.platform}</span><span className={`text-[10px] px-2 py-0.5 rounded-full ${st.bg} ${st.text}`}>{st.label}</span>{post.is_real_post && <span className="text-[10px] bg-stone-600/10 text-stone-400 px-1.5 py-0.5 rounded-full">Live</span>}<span className="text-[10px] text-[#5D4A3A]">{new Date(post.scheduled_at || post.created_at).toLocaleString()}</span></div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-medium text-white capitalize">{post.platform}</span>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full ${st.bg} ${st.text}`}>{st.label}</span>
+                            {isRecurringPost && <span className="text-[10px] bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded-full flex items-center gap-1"><Repeat className="w-2.5 h-2.5" />Recurring</span>}
+                            {post.is_real_post && <span className="text-[10px] bg-stone-600/10 text-stone-400 px-1.5 py-0.5 rounded-full">Live</span>}
+                            <span className="text-[10px] text-[#5D4A3A]">{new Date(post.scheduled_at || post.created_at).toLocaleString()}</span>
+                          </div>
                           <p className="text-sm text-[#4A3728] line-clamp-2">{post.content}</p>
                           {post.status === 'published' && (m.likes > 0 || m.comments > 0) && <div className="flex gap-3 mt-1.5 text-[10px] text-[#5D4A3A]"><span className="flex items-center gap-1"><Heart className="w-3 h-3" />{formatNum(m.likes)}</span><span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" />{formatNum(m.comments)}</span></div>}
                         </div>
@@ -516,6 +529,7 @@ export default function PostsAndSchedule() {
                     <span className={`text-[10px] px-2 py-0.5 rounded-full ${(statusColors[selectedPost.status]||{}).bg} ${(statusColors[selectedPost.status]||{}).text}`}>{(statusColors[selectedPost.status]||{}).label}</span>
                   </div>
                   <div className="flex items-center gap-1">
+                    <VersionHistoryButton postId={selectedPost.post_id || selectedPost.id} className="mr-2" />
                     {selectedPost.status !== 'published' && (
                       <>
                         <button onClick={() => openComposer(null, selectedPost)} className="text-xs bg-gray-200 hover:bg-zinc-600 text-white rounded-lg px-3 py-1.5 flex items-center gap-1"><Edit3 className="w-3 h-3" /> Edit</button>
