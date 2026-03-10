@@ -280,10 +280,10 @@ def create_campaigns_router(db, get_current_user: Callable):
         # Get outreach logs stats
         logs = await db.sourcing_outreach_logs.find({"campaign_id": campaign_id}).to_list(length=10000)
         
-        sent_count = sum(1 for l in logs if l.get("status") == "sent")
-        failed_count = sum(1 for l in logs if l.get("status") == "failed")
-        opened_count = sum(1 for l in logs if l.get("opened_at"))
-        replied_count = sum(1 for l in logs if l.get("replied_at"))
+        sent_count = sum(1 for log in logs if log.get("status") == "sent")
+        failed_count = sum(1 for log in logs if log.get("status") == "failed")
+        opened_count = sum(1 for log in logs if log.get("opened_at"))
+        replied_count = sum(1 for log in logs if log.get("replied_at"))
         
         return {
             "campaign_id": campaign_id,

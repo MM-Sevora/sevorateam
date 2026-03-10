@@ -47,6 +47,7 @@ def create_manufacturers_router(db, get_current_user: Callable):
         pipeline_stage: Optional[str] = None
         sub_stage: Optional[str] = None
         notes: Optional[str] = None
+        follow_up_date: Optional[str] = None
 
     @router.post("")
     async def create_manufacturer(manufacturer: ManufacturerCreate, current_user: dict = Depends(get_current_user)):
@@ -59,6 +60,7 @@ def create_manufacturers_router(db, get_current_user: Callable):
             "reliability_rating": None,
             "pipeline_stage": "Discovery",
             "sub_stage": "New",
+            "follow_up_date": None,
             "ai_discovered": False,
             "source": "manual",
             "created_by": current_user.get("id"),
