@@ -89,7 +89,9 @@ export default function TeamsCalendar() {
           await instance.acquireTokenSilent(silentRequest);
           setConnected(true);
         } catch (error) {
-          console.log('Calendar connection check failed:', error.message);
+          console.log('Calendar silent token failed, will need consent:', error.message);
+          // User is signed in but doesn't have calendar permissions yet
+          // They'll need to click Connect to grant calendar access
           setConnected(false);
         }
       } else {
@@ -205,6 +207,24 @@ export default function TeamsCalendar() {
   const handleMicrosoftLogin = async () => {
     setMsLoginLoading(true);
     try {
+      // If user is already signed in (for email/chat), try popup for consent
+      if (accounts.length > 0) {
+        try {
+          // Try to get token with popup for calendar consent
+          const response = await instance.acquireTokenPopup(calendarRequest);
+          if (response && response.accessToken) {
+            setConnected(true);
+            toast.success('Calendar connected successfully!');
+            setMsLoginLoading(false);
+            return;
+          }
+        } catch (popupError) {
+          console.log('Popup consent failed, trying redirect:', popupError.message);
+          // Fall through to redirect
+        }
+      }
+      
+      // Use redirect flow for full sign-in
       sessionStorage.setItem('msalRedirectPath', window.location.pathname);
       sessionStorage.setItem('msalLoginType', 'calendar');
       await instance.loginRedirect(calendarRequest);
