@@ -3737,6 +3737,14 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Microsoft Teams routes: {e}")
 
+# Register Buying & Sourcing routes
+try:
+    from routes.sourcing import sourcing_router
+    api_router.include_router(sourcing_router)
+    logger.info("Buying & Sourcing routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Buying & Sourcing routes: {e}")
+
 app.include_router(api_router)
 
 # ============== WEBSOCKET FOR REAL-TIME NOTIFICATIONS ==============
