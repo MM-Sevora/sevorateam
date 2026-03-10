@@ -318,36 +318,20 @@ Sevora Team`
     return true;
   }, [getAccessToken]);
 
-  // Handle Microsoft login - try popup first, fallback to redirect
+  // Handle Microsoft login - use redirect flow for reliability
   const handleMicrosoftLogin = async () => {
     setMsLoginLoading(true);
     try {
-      // Try popup first
-      const response = await instance.loginPopup(mailRequest);
-      console.log('Popup login successful:', response?.account?.username);
-      setEmailConnected(true);
-      toast.success('Successfully connected to Microsoft 365!');
-    } catch (error) {
-      console.error('Popup login error:', error);
+      // Store current path and login type to return after redirect
+      sessionStorage.setItem('msalRedirectPath', window.location.pathname);
+      sessionStorage.setItem('msalLoginType', 'email');
       
-      // If popup blocked or failed, try redirect
-      if (error.errorCode === 'popup_window_error' || 
-          error.errorCode === 'empty_window_error' ||
-          error.errorCode === 'browser_auth_error') {
-        try {
-          // Store current path and login type to return after redirect
-          sessionStorage.setItem('msalRedirectPath', window.location.pathname);
-          sessionStorage.setItem('msalLoginType', 'email');
-          await instance.loginRedirect(mailRequest);
-        } catch (redirectError) {
-          console.error('Redirect login error:', redirectError);
-          toast.error('Failed to connect to Microsoft. Please allow popups or try again.');
-        }
-      } else if (error.errorCode !== 'user_cancelled') {
-        toast.error('Failed to connect to Microsoft');
-      }
-    } finally {
+      // Use redirect flow - more reliable than popup
+      await instance.loginRedirect(mailRequest);
+    } catch (error) {
+      console.error('Login redirect error:', error);
       setMsLoginLoading(false);
+      toast.error('Failed to connect to Microsoft. Please try again.');
     }
   };
 

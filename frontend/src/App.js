@@ -122,43 +122,30 @@ const MsalInitializer = ({ children }) => {
                 const hasAuthCode = window.location.hash.includes('code=');
                 console.log('Has auth code in URL:', hasAuthCode);
                 
+                // Check login type before processing
+                const loginType = sessionStorage.getItem('msalLoginType');
+                const redirectPath = sessionStorage.getItem('msalRedirectPath');
+                console.log('Login type from session:', loginType);
+                console.log('Redirect path from session:', redirectPath);
+                
                 if (hasAuthCode) {
                     console.log('Processing redirect response...');
                     
-                    // Check if this was a popup that redirected to main window (common issue)
-                    const stateMatch = window.location.hash.match(/state=([^&]+)/);
-                    let isPopupResponse = false;
-                    if (stateMatch) {
-                        try {
-                            const stateStr = decodeURIComponent(stateMatch[1]);
-                            const stateObj = JSON.parse(atob(stateStr.split('.')[0] || stateStr));
-                            isPopupResponse = stateObj?.meta?.interactionType === 'popup';
-                            console.log('Is popup response:', isPopupResponse);
-                        } catch (e) {
-                            console.log('Could not parse state:', e);
-                        }
-                    }
-                    
                     try {
                         const response = await msalInstance.handleRedirectPromise();
-                        console.log('Redirect response:', response ? 'GOT RESPONSE' : 'NO RESPONSE');
+                        console.log('Redirect response:', response ? 'GOT RESPONSE with token' : 'NO RESPONSE');
+                        
+                        // Clear session storage
+                        sessionStorage.removeItem('msalLoginType');
+                        sessionStorage.removeItem('msalRedirectPath');
                         
                         if (response && response.accessToken) {
-                            console.log('Account:', response.account?.username);
-                            
-                            // Check if this was for app login or email connection
-                            const loginType = sessionStorage.getItem('msalLoginType');
-                            const redirectPath = sessionStorage.getItem('msalRedirectPath');
-                            console.log('Login type from session:', loginType);
-                            console.log('Redirect path from session:', redirectPath);
-                            sessionStorage.removeItem('msalLoginType');
-                            sessionStorage.removeItem('msalRedirectPath');
+                            console.log('Token acquired for account:', response.account?.username);
                             
                             if (loginType === 'email') {
                                 // This was for email/mail connection - redirect back to mail page
-                                console.log('Processing email connection redirect...');
+                                console.log('Email connection successful! Redirecting to mail...');
                                 window.history.replaceState({}, document.title, redirectPath || '/mail/inbox');
-                                // Don't reload - the MSAL tokens are already stored, just navigate
                                 window.location.href = redirectPath || '/mail/inbox';
                                 return;
                             } else if (loginType === 'app') {
@@ -198,25 +185,22 @@ const MsalInitializer = ({ children }) => {
                                     console.error('Backend call failed:', backendError);
                                     setInitError('Failed to connect to server');
                                 }
+                            } else {
+                                // Unknown login type but we have tokens - just clean URL
+                                console.log('Unknown login type, cleaning URL');
+                                window.history.replaceState({}, document.title, '/');
                             }
+                        } else {
+                            // No response but had auth code - clean up URL
+                            console.log('No token in response, cleaning URL');
+                            window.history.replaceState({}, document.title, window.location.pathname);
                         }
                     } catch (handleError) {
                         console.error('handleRedirectPromise error:', handleError);
                         
-                        // If this was a popup response that ended up in the main window,
-                        // the tokens should already be in cache - just clear the URL and redirect to mail
-                        if (isPopupResponse) {
-                            console.log('Popup response detected in main window - cleaning up URL');
-                            
-                            // Check if there are any accounts now (popup might have stored tokens)
-                            const accounts = msalInstance.getAllAccounts();
-                            console.log('Accounts after popup:', accounts.length);
-                            
-                            // Clear the URL hash
-                            window.history.replaceState({}, document.title, '/mail/inbox');
-                            window.location.href = '/mail/inbox';
-                            return;
-                        }
+                        // Clear session storage
+                        sessionStorage.removeItem('msalLoginType');
+                        sessionStorage.removeItem('msalRedirectPath');
                         
                         // Clear the hash to prevent infinite loop
                         window.history.replaceState({}, document.title, window.location.pathname);
