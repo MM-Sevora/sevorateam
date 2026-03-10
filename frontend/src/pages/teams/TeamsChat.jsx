@@ -2,16 +2,31 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   MessageSquare, Users, Search, Send, Plus, RefreshCw, 
   CheckCircle, XCircle, Loader2, ChevronLeft, Settings,
-  User, AtSign, MoreVertical
+  User, AtSign, MoreVertical, Phone, Video, Info
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
+import { ScrollArea } from '../../components/ui/scroll-area';
 import { toast } from 'sonner';
 
 const API = process.env.REACT_APP_BACKEND_URL;
+
+// Helper to decode HTML entities
+const decodeHtml = (html) => {
+  if (!html) return '';
+  const txt = document.createElement('textarea');
+  txt.innerHTML = html;
+  return txt.value;
+};
+
+// Helper to strip HTML tags
+const stripHtml = (html) => {
+  if (!html) return '';
+  return decodeHtml(html.replace(/<[^>]*>/g, ''));
+};
 
 export default function TeamsChat() {
   const [connected, setConnected] = useState(false);
@@ -20,6 +35,7 @@ export default function TeamsChat() {
   const [chats, setChats] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -27,11 +43,20 @@ export default function TeamsChat() {
   const [searchUsers, setSearchUsers] = useState([]);
   const [searchingUsers, setSearchingUsers] = useState(false);
   const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [currentUserEmail, setCurrentUserEmail] = useState('');
   const messagesEndRef = useRef(null);
   
   const token = localStorage.getItem('sevora_token');
 
   useEffect(() => {
+    // Get current user email for identifying own messages
+    const userData = localStorage.getItem('sevora_user');
+    if (userData) {
+      try {
+        const user = JSON.parse(userData);
+        setCurrentUserEmail(user.email);
+      } catch (e) {}
+    }
     checkConnection();
   }, []);
 
@@ -74,7 +99,6 @@ export default function TeamsChat() {
   const connectTeams = async () => {
     setConnecting(true);
     try {
-      // Get auth config
       const configRes = await fetch(`${API}/api/teams/auth/config`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -85,7 +109,6 @@ export default function TeamsChat() {
       
       const config = await configRes.json();
       
-      // Build OAuth URL
       const authUrl = new URL(`${config.authority}/oauth2/v2.0/authorize`);
       authUrl.searchParams.set('client_id', config.client_id);
       authUrl.searchParams.set('response_type', 'code');
@@ -94,7 +117,6 @@ export default function TeamsChat() {
       authUrl.searchParams.set('response_mode', 'query');
       authUrl.searchParams.set('state', 'teams_connect');
       
-      // Open OAuth popup
       const width = 600;
       const height = 700;
       const left = window.screenX + (window.outerWidth - width) / 2;
@@ -106,14 +128,12 @@ export default function TeamsChat() {
         `width=${width},height=${height},left=${left},top=${top}`
       );
       
-      // Listen for callback
       const handleMessage = async (event) => {
         if (event.data.type === 'teams_auth_callback') {
           window.removeEventListener('message', handleMessage);
           popup?.close();
           
           if (event.data.code) {
-            // Exchange code for tokens
             const callbackRes = await fetch(`${API}/api/teams/auth/callback?code=${event.data.code}`, {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${token}` }
@@ -135,7 +155,6 @@ export default function TeamsChat() {
       
       window.addEventListener('message', handleMessage);
       
-      // Timeout after 5 minutes
       setTimeout(() => {
         window.removeEventListener('message', handleMessage);
         setConnecting(false);
@@ -168,7 +187,7 @@ export default function TeamsChat() {
 
   const fetchChats = async () => {
     try {
-      const res = await fetch(`${API}/api/teams/chats?with_preview=true`, {
+      const res = await fetch(`${API}/api/teams/chats?with_preview=true&include_members=true`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -181,8 +200,9 @@ export default function TeamsChat() {
   };
 
   const fetchMessages = async (chatId) => {
+    setLoadingMessages(true);
     try {
-      const res = await fetch(`${API}/api/teams/chats/${chatId}/messages`, {
+      const res = await fetch(`${API}/api/teams/chats/${chatId}/messages?top=50`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -191,6 +211,8 @@ export default function TeamsChat() {
       }
     } catch (e) {
       console.error('Error fetching messages:', e);
+    } finally {
+      setLoadingMessages(false);
     }
   };
 
@@ -276,23 +298,74 @@ export default function TeamsChat() {
     const now = new Date();
     const diff = now - date;
     
-    if (diff < 86400000) { // Less than 24 hours
+    if (diff < 86400000) {
       return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    } else if (diff < 604800000) { // Less than 7 days
+    } else if (diff < 604800000) {
       return date.toLocaleDateString('en-US', { weekday: 'short' });
     } else {
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     }
   };
 
+  const formatMessageTime = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  };
+
   const getChatDisplayName = (chat) => {
+    // If it has a topic, use that
     if (chat.topic) return chat.topic;
-    if (chat.chatType === 'oneOnOne' && chat.members) {
-      // Find the other person
-      const other = chat.members.find(m => m.userId !== localStorage.getItem('sevora_user_id'));
-      return other?.displayName || 'Chat';
+    
+    // For 1:1 chats, find the other person
+    if (chat.chatType === 'oneOnOne' && chat.members && chat.members.length > 0) {
+      // Try to find the other participant (not the current user)
+      const otherMember = chat.members.find(m => {
+        const email = m.email || m.mail || '';
+        return email.toLowerCase() !== currentUserEmail.toLowerCase();
+      });
+      
+      if (otherMember) {
+        return otherMember.displayName || otherMember.email || 'Chat';
+      }
+      
+      // If we can't find other member, use first member's name
+      const firstMember = chat.members[0];
+      if (firstMember?.displayName) {
+        return firstMember.displayName;
+      }
     }
+    
+    // For group chats without topic
+    if (chat.chatType === 'group' && chat.members) {
+      const names = chat.members
+        .slice(0, 3)
+        .map(m => m.displayName?.split(' ')[0] || 'User')
+        .join(', ');
+      return names + (chat.members.length > 3 ? '...' : '');
+    }
+    
+    // Fallback: try to get name from last message
+    if (chat.lastMessagePreview?.from?.user?.displayName) {
+      return chat.lastMessagePreview.from.user.displayName;
+    }
+    
     return chat.chatType === 'group' ? 'Group Chat' : 'Chat';
+  };
+
+  const getChatInitials = (chat) => {
+    const name = getChatDisplayName(chat);
+    if (chat.chatType === 'group') return null; // Will show icon
+    const parts = name.split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+
+  const isOwnMessage = (message) => {
+    const senderEmail = message.from?.user?.email || message.from?.user?.mail || '';
+    return senderEmail.toLowerCase() === currentUserEmail.toLowerCase();
   };
 
   const filteredChats = chats.filter(chat => {
@@ -304,7 +377,7 @@ export default function TeamsChat() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[600px]">
-        <Loader2 className="w-8 h-8 animate-spin text-rose-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-[#464EB8]" />
       </div>
     );
   }
@@ -313,31 +386,37 @@ export default function TeamsChat() {
   if (!connected) {
     return (
       <div className="max-w-2xl mx-auto p-6">
-        <Card className="border-[#E8D5C4]">
-          <CardHeader className="text-center">
-            <div className="w-16 h-16 mx-auto mb-4 bg-[#464EB8] rounded-2xl flex items-center justify-center">
-              <MessageSquare className="w-8 h-8 text-white" />
+        <Card className="border-[#E8D5C4] shadow-lg">
+          <CardHeader className="text-center pb-2">
+            <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-[#464EB8] to-[#7B83EB] rounded-2xl flex items-center justify-center shadow-lg">
+              <MessageSquare className="w-10 h-10 text-white" />
             </div>
-            <CardTitle className="text-2xl text-[#4A3728]">Connect Microsoft Teams</CardTitle>
+            <CardTitle className="text-2xl text-[#4A3728]">Microsoft Teams Chat</CardTitle>
             <p className="text-[#6B5D52] mt-2">
-              Chat with your team directly from Sevora using Microsoft Teams
+              Chat with your team directly from Sevora
             </p>
           </CardHeader>
-          <CardContent className="text-center space-y-4">
-            <div className="bg-[#F5EBE0] rounded-lg p-4 text-left">
-              <h4 className="font-medium text-[#4A3728] mb-2">What you can do:</h4>
-              <ul className="text-sm text-[#6B5D52] space-y-2">
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-600" />
+          <CardContent className="text-center space-y-6 pt-4">
+            <div className="bg-gradient-to-r from-[#F5EBE0] to-[#FDF8F3] rounded-xl p-5 text-left border border-[#E8D5C4]">
+              <h4 className="font-semibold text-[#4A3728] mb-3">What you can do:</h4>
+              <ul className="text-sm text-[#6B5D52] space-y-3">
+                <li className="flex items-center gap-3">
+                  <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center">
+                    <CheckCircle className="w-4 h-4 text-emerald-600" />
+                  </div>
                   View and send Teams chat messages
                 </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-600" />
+                <li className="flex items-center gap-3">
+                  <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center">
+                    <CheckCircle className="w-4 h-4 text-emerald-600" />
+                  </div>
                   Start new conversations with team members
                 </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-600" />
-                  Access 1:1 and group chats
+                <li className="flex items-center gap-3">
+                  <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center">
+                    <CheckCircle className="w-4 h-4 text-emerald-600" />
+                  </div>
+                  Access 1:1 and group chats seamlessly
                 </li>
               </ul>
             </div>
@@ -345,17 +424,17 @@ export default function TeamsChat() {
             <Button 
               onClick={connectTeams}
               disabled={connecting}
-              className="bg-[#464EB8] hover:bg-[#3d44a5] text-white px-8"
+              className="bg-gradient-to-r from-[#464EB8] to-[#5B64D4] hover:from-[#3d44a5] hover:to-[#4e56c7] text-white px-10 py-6 text-lg shadow-lg"
             >
               {connecting ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                   Connecting...
                 </>
               ) : (
                 <>
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  Connect Teams
+                  <MessageSquare className="w-5 h-5 mr-2" />
+                  Connect Microsoft Teams
                 </>
               )}
             </Button>
@@ -371,34 +450,42 @@ export default function TeamsChat() {
 
   // Connected view with chat interface
   return (
-    <div className="h-[calc(100vh-180px)] flex bg-white rounded-lg border border-[#E8D5C4] overflow-hidden">
+    <div className="h-[calc(100vh-180px)] flex bg-white rounded-xl border border-[#E8D5C4] overflow-hidden shadow-sm">
       {/* Chat List Sidebar */}
-      <div className="w-80 border-r border-[#E8D5C4] flex flex-col">
+      <div className="w-80 border-r border-[#E8D5C4] flex flex-col bg-[#FAFAFA]">
         {/* Header */}
-        <div className="p-4 border-b border-[#E8D5C4]">
+        <div className="p-4 border-b border-[#E8D5C4] bg-white">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-[#464EB8] rounded-lg flex items-center justify-center">
+              <div className="w-9 h-9 bg-gradient-to-br from-[#464EB8] to-[#7B83EB] rounded-lg flex items-center justify-center shadow">
                 <MessageSquare className="w-4 h-4 text-white" />
               </div>
-              <h2 className="font-semibold text-[#4A3728]">Teams Chat</h2>
+              <div>
+                <h2 className="font-semibold text-[#4A3728] text-sm">Teams Chat</h2>
+                <p className="text-xs text-emerald-600 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                  Connected
+                </p>
+              </div>
             </div>
             <div className="flex items-center gap-1">
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={fetchChats}
-                className="h-8 w-8 p-0"
+                className="h-8 w-8 p-0 hover:bg-[#E8D5C4]"
+                title="Refresh chats"
               >
-                <RefreshCw className="w-4 h-4" />
+                <RefreshCw className="w-4 h-4 text-[#6B5D52]" />
               </Button>
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={() => setShowNewChat(true)}
-                className="h-8 w-8 p-0"
+                className="h-8 w-8 p-0 hover:bg-[#E8D5C4]"
+                title="New chat"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-4 h-4 text-[#6B5D52]" />
               </Button>
             </div>
           </div>
@@ -409,38 +496,45 @@ export default function TeamsChat() {
               placeholder="Search chats..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 border-[#D4BBA6] h-9"
+              className="pl-9 border-[#E8D5C4] h-9 bg-[#F5EBE0] focus:bg-white transition-colors"
             />
           </div>
         </div>
         
         {/* Chat List */}
-        <div className="flex-1 overflow-y-auto">
+        <ScrollArea className="flex-1">
           {filteredChats.length === 0 ? (
-            <div className="p-4 text-center text-[#9C8C74]">
-              <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">No chats found</p>
+            <div className="p-6 text-center text-[#9C8C74]">
+              <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              <p className="text-sm font-medium">No chats found</p>
+              <p className="text-xs mt-1">Start a new conversation</p>
             </div>
           ) : (
             filteredChats.map(chat => (
               <div
                 key={chat.id}
                 onClick={() => setSelectedChat(chat)}
-                className={`p-3 border-b border-[#E8D5C4] cursor-pointer transition-colors ${
-                  selectedChat?.id === chat.id ? 'bg-[#F5EBE0]' : 'hover:bg-[#FDF8F3]'
+                className={`p-3 border-b border-[#E8D5C4]/50 cursor-pointer transition-all ${
+                  selectedChat?.id === chat.id 
+                    ? 'bg-[#464EB8]/10 border-l-2 border-l-[#464EB8]' 
+                    : 'hover:bg-white'
                 }`}
               >
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#464EB8] flex items-center justify-center text-white font-medium flex-shrink-0">
+                  <div className={`w-11 h-11 rounded-full flex items-center justify-center text-white font-medium flex-shrink-0 shadow-sm ${
+                    chat.chatType === 'group' 
+                      ? 'bg-gradient-to-br from-[#7B83EB] to-[#464EB8]' 
+                      : 'bg-gradient-to-br from-[#464EB8] to-[#5B64D4]'
+                  }`}>
                     {chat.chatType === 'group' ? (
                       <Users className="w-5 h-5" />
                     ) : (
-                      getChatDisplayName(chat).charAt(0).toUpperCase()
+                      getChatInitials(chat)
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <p className="font-medium text-[#4A3728] truncate">
+                      <p className="font-medium text-[#4A3728] truncate text-sm">
                         {getChatDisplayName(chat)}
                       </p>
                       <span className="text-xs text-[#9C8C74] flex-shrink-0 ml-2">
@@ -448,8 +542,13 @@ export default function TeamsChat() {
                       </span>
                     </div>
                     {chat.lastMessagePreview && (
-                      <p className="text-sm text-[#6B5D52] truncate mt-0.5">
-                        {chat.lastMessagePreview.body?.content?.replace(/<[^>]*>/g, '') || ''}
+                      <p className="text-xs text-[#6B5D52] truncate mt-1">
+                        {stripHtml(chat.lastMessagePreview.body?.content)}
+                      </p>
+                    )}
+                    {chat.chatType === 'group' && chat.members && (
+                      <p className="text-xs text-[#9C8C74] mt-1">
+                        {chat.members.length} members
                       </p>
                     )}
                   </div>
@@ -457,15 +556,15 @@ export default function TeamsChat() {
               </div>
             ))
           )}
-        </div>
+        </ScrollArea>
         
         {/* Footer */}
-        <div className="p-3 border-t border-[#E8D5C4] bg-[#FDF8F3]">
+        <div className="p-3 border-t border-[#E8D5C4] bg-white">
           <Button 
             variant="ghost" 
             size="sm" 
             onClick={disconnectTeams}
-            className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
+            className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 text-xs"
           >
             <XCircle className="w-4 h-4 mr-2" />
             Disconnect Teams
@@ -474,17 +573,21 @@ export default function TeamsChat() {
       </div>
       
       {/* Chat View */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col bg-white">
         {selectedChat ? (
           <>
             {/* Chat Header */}
-            <div className="p-4 border-b border-[#E8D5C4] flex items-center justify-between">
+            <div className="px-5 py-4 border-b border-[#E8D5C4] flex items-center justify-between bg-gradient-to-r from-white to-[#FAFAFA]">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#464EB8] flex items-center justify-center text-white font-medium">
+                <div className={`w-11 h-11 rounded-full flex items-center justify-center text-white font-medium shadow ${
+                  selectedChat.chatType === 'group' 
+                    ? 'bg-gradient-to-br from-[#7B83EB] to-[#464EB8]' 
+                    : 'bg-gradient-to-br from-[#464EB8] to-[#5B64D4]'
+                }`}>
                   {selectedChat.chatType === 'group' ? (
                     <Users className="w-5 h-5" />
                   ) : (
-                    getChatDisplayName(selectedChat).charAt(0).toUpperCase()
+                    getChatInitials(selectedChat)
                   )}
                 </div>
                 <div>
@@ -492,68 +595,95 @@ export default function TeamsChat() {
                     {getChatDisplayName(selectedChat)}
                   </h3>
                   <p className="text-xs text-[#9C8C74]">
-                    {selectedChat.chatType === 'group' ? 'Group Chat' : '1:1 Chat'}
+                    {selectedChat.chatType === 'group' 
+                      ? `${selectedChat.members?.length || 0} members` 
+                      : 'Direct Message'}
                   </p>
                 </div>
               </div>
-              <Button variant="ghost" size="sm">
-                <MoreVertical className="w-4 h-4" />
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" className="h-9 w-9 p-0 hover:bg-[#E8D5C4]" title="Voice call">
+                  <Phone className="w-4 h-4 text-[#6B5D52]" />
+                </Button>
+                <Button variant="ghost" size="sm" className="h-9 w-9 p-0 hover:bg-[#E8D5C4]" title="Video call">
+                  <Video className="w-4 h-4 text-[#6B5D52]" />
+                </Button>
+                <Button variant="ghost" size="sm" className="h-9 w-9 p-0 hover:bg-[#E8D5C4]" title="Chat info">
+                  <Info className="w-4 h-4 text-[#6B5D52]" />
+                </Button>
+              </div>
             </div>
             
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#FAFAFA]">
-              {messages.map((message, idx) => {
-                const isMe = message.from?.user?.id === localStorage.getItem('sevora_azure_id');
-                return (
-                  <div
-                    key={message.id || idx}
-                    className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div className={`max-w-[70%] ${isMe ? 'order-2' : 'order-1'}`}>
-                      {!isMe && (
-                        <p className="text-xs text-[#9C8C74] mb-1 ml-1">
-                          {message.from?.user?.displayName || 'Unknown'}
-                        </p>
-                      )}
+            <ScrollArea className="flex-1 p-4 bg-gradient-to-b from-[#FAFAFA] to-white">
+              {loadingMessages ? (
+                <div className="flex items-center justify-center h-full">
+                  <Loader2 className="w-6 h-6 animate-spin text-[#464EB8]" />
+                </div>
+              ) : messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-[#9C8C74]">
+                  <MessageSquare className="w-12 h-12 mb-3 opacity-30" />
+                  <p className="text-sm">No messages yet</p>
+                  <p className="text-xs">Start the conversation!</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {messages.map((message, idx) => {
+                    const isMe = isOwnMessage(message);
+                    const senderName = message.from?.user?.displayName || 'Unknown';
+                    const showSender = !isMe && (idx === 0 || messages[idx-1]?.from?.user?.id !== message.from?.user?.id);
+                    
+                    return (
                       <div
-                        className={`rounded-2xl px-4 py-2 ${
-                          isMe 
-                            ? 'bg-[#464EB8] text-white rounded-br-md' 
-                            : 'bg-white border border-[#E8D5C4] text-[#4A3728] rounded-bl-md'
-                        }`}
+                        key={message.id || idx}
+                        className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
                       >
-                        <div 
-                          className="text-sm"
-                          dangerouslySetInnerHTML={{ 
-                            __html: message.body?.content || '' 
-                          }}
-                        />
+                        <div className={`max-w-[70%] ${isMe ? 'order-2' : 'order-1'}`}>
+                          {showSender && (
+                            <p className="text-xs font-medium text-[#464EB8] mb-1 ml-1">
+                              {senderName}
+                            </p>
+                          )}
+                          <div
+                            className={`rounded-2xl px-4 py-2.5 shadow-sm ${
+                              isMe 
+                                ? 'bg-gradient-to-r from-[#464EB8] to-[#5B64D4] text-white rounded-br-md' 
+                                : 'bg-white border border-[#E8D5C4] text-[#4A3728] rounded-bl-md'
+                            }`}
+                          >
+                            <div 
+                              className="text-sm leading-relaxed"
+                              dangerouslySetInnerHTML={{ 
+                                __html: message.body?.content || '' 
+                              }}
+                            />
+                          </div>
+                          <p className={`text-[10px] text-[#9C8C74] mt-1 ${isMe ? 'text-right mr-1' : 'ml-1'}`}>
+                            {formatMessageTime(message.createdDateTime)}
+                          </p>
+                        </div>
                       </div>
-                      <p className={`text-xs text-[#9C8C74] mt-1 ${isMe ? 'text-right mr-1' : 'ml-1'}`}>
-                        {formatTime(message.createdDateTime)}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-              <div ref={messagesEndRef} />
-            </div>
+                    );
+                  })}
+                  <div ref={messagesEndRef} />
+                </div>
+              )}
+            </ScrollArea>
             
             {/* Message Input */}
             <div className="p-4 border-t border-[#E8D5C4] bg-white">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <Input
                   placeholder="Type a message..."
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-                  className="flex-1 border-[#D4BBA6]"
+                  className="flex-1 border-[#E8D5C4] bg-[#F5EBE0] focus:bg-white transition-colors py-5"
                 />
                 <Button 
                   onClick={sendMessage}
                   disabled={sending || !newMessage.trim()}
-                  className="bg-[#464EB8] hover:bg-[#3d44a5] text-white"
+                  className="bg-gradient-to-r from-[#464EB8] to-[#5B64D4] hover:from-[#3d44a5] hover:to-[#4e56c7] text-white h-10 w-10 p-0 rounded-full shadow"
                 >
                   {sending ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -565,13 +695,23 @@ export default function TeamsChat() {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center bg-[#FAFAFA]">
+          <div className="flex-1 flex items-center justify-center bg-gradient-to-b from-[#FAFAFA] to-white">
             <div className="text-center">
-              <MessageSquare className="w-16 h-16 mx-auto mb-4 text-[#D4BBA6]" />
-              <h3 className="text-lg font-medium text-[#4A3728]">Select a chat</h3>
-              <p className="text-sm text-[#9C8C74]">
-                Choose a conversation from the sidebar to start messaging
+              <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-[#E8D5C4] to-[#D4BBA6] rounded-2xl flex items-center justify-center">
+                <MessageSquare className="w-10 h-10 text-[#6B5D52]" />
+              </div>
+              <h3 className="text-lg font-semibold text-[#4A3728]">Select a chat</h3>
+              <p className="text-sm text-[#9C8C74] mt-1">
+                Choose a conversation from the sidebar
               </p>
+              <Button 
+                onClick={() => setShowNewChat(true)}
+                variant="outline"
+                className="mt-4 border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0]"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Start New Chat
+              </Button>
             </div>
           </div>
         )}
@@ -579,9 +719,12 @@ export default function TeamsChat() {
       
       {/* New Chat Dialog */}
       <Dialog open={showNewChat} onOpenChange={setShowNewChat}>
-        <DialogContent className="bg-white border-[#D4BBA6]">
+        <DialogContent className="bg-white border-[#D4BBA6] max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-[#4A3728]">Start New Chat</DialogTitle>
+            <DialogTitle className="text-[#4A3728] flex items-center gap-2">
+              <Plus className="w-5 h-5 text-[#464EB8]" />
+              Start New Chat
+            </DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4">
@@ -594,14 +737,14 @@ export default function TeamsChat() {
                   setUserSearchQuery(e.target.value);
                   searchForUsers(e.target.value);
                 }}
-                className="pl-9 border-[#D4BBA6]"
+                className="pl-9 border-[#D4BBA6] bg-[#F5EBE0] focus:bg-white"
               />
             </div>
             
-            <div className="max-h-60 overflow-y-auto">
+            <ScrollArea className="h-60">
               {searchingUsers ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-[#9C8C74]" />
+                  <Loader2 className="w-6 h-6 animate-spin text-[#464EB8]" />
                 </div>
               ) : searchUsers.length > 0 ? (
                 <div className="space-y-1">
@@ -609,30 +752,34 @@ export default function TeamsChat() {
                     <div
                       key={user.id}
                       onClick={() => startNewChat(user.id)}
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-[#F5EBE0] cursor-pointer transition-colors"
+                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-[#F5EBE0] cursor-pointer transition-colors border border-transparent hover:border-[#E8D5C4]"
                     >
-                      <div className="w-10 h-10 rounded-full bg-[#464EB8] flex items-center justify-center text-white font-medium">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#464EB8] to-[#5B64D4] flex items-center justify-center text-white font-medium shadow">
                         {user.displayName?.charAt(0).toUpperCase() || '?'}
                       </div>
-                      <div>
-                        <p className="font-medium text-[#4A3728]">{user.displayName}</p>
-                        <p className="text-sm text-[#9C8C74]">{user.mail}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-[#4A3728] truncate">{user.displayName}</p>
+                        <p className="text-sm text-[#9C8C74] truncate">{user.mail || user.userPrincipalName}</p>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : userSearchQuery ? (
-                <p className="text-center text-[#9C8C74] py-8">No users found</p>
+                <div className="text-center py-8">
+                  <User className="w-10 h-10 mx-auto mb-2 text-[#D4BBA6]" />
+                  <p className="text-[#9C8C74]">No users found</p>
+                </div>
               ) : (
-                <p className="text-center text-[#9C8C74] py-8">
-                  Start typing to search for people
-                </p>
+                <div className="text-center py-8">
+                  <Search className="w-10 h-10 mx-auto mb-2 text-[#D4BBA6]" />
+                  <p className="text-[#9C8C74]">Start typing to search for people</p>
+                </div>
               )}
-            </div>
+            </ScrollArea>
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNewChat(false)}>
+            <Button variant="outline" onClick={() => setShowNewChat(false)} className="border-[#D4BBA6]">
               Cancel
             </Button>
           </DialogFooter>

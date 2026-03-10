@@ -232,9 +232,12 @@ class TeamsService:
             return result["value"]
         return []
         
-    async def list_chats_with_preview(self, user_id: str) -> List[Dict]:
-        """List chats with last message preview."""
-        endpoint = "/me/chats?$expand=lastMessagePreview"
+    async def list_chats_with_preview(self, user_id: str, include_members: bool = True) -> List[Dict]:
+        """List chats with last message preview and optionally members."""
+        if include_members:
+            endpoint = "/me/chats?$expand=lastMessagePreview,members"
+        else:
+            endpoint = "/me/chats?$expand=lastMessagePreview"
         result = await self._make_request("GET", endpoint, user_id)
         if result and "value" in result:
             return result["value"]
