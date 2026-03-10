@@ -108,8 +108,8 @@ async def get_teams_auth_config():
         "offline_access"
     ]
     
-    # Use frontend URL for Teams OAuth callback
-    frontend_url = os.environ.get('FRONTEND_URL', 'https://sevora-hub.preview.emergentagent.com')
+    # Use PRODUCTION_URL if set, otherwise fall back to FRONTEND_URL
+    frontend_url = os.environ.get('PRODUCTION_URL') or os.environ.get('FRONTEND_URL', 'https://sevora-hub.preview.emergentagent.com')
     teams_redirect_uri = f"{frontend_url}/teams/callback"
     
     return {
@@ -130,8 +130,8 @@ async def teams_auth_callback(
     """Handle OAuth callback and store tokens."""
     import httpx
     
-    # Use frontend URL for Teams OAuth callback
-    frontend_url = os.environ.get('FRONTEND_URL', 'https://sevora-hub.preview.emergentagent.com')
+    # Use PRODUCTION_URL if set, otherwise fall back to FRONTEND_URL
+    frontend_url = os.environ.get('PRODUCTION_URL') or os.environ.get('FRONTEND_URL', 'https://sevora-hub.preview.emergentagent.com')
     teams_redirect_uri = f"{frontend_url}/teams/callback"
     
     token_url = f"https://login.microsoftonline.com/{AZURE_TENANT_ID}/oauth2/v2.0/token"
