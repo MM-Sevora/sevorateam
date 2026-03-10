@@ -1,0 +1,806 @@
+"""
+Unified Task Management System
+- Hybrid assignment (Team + Primary Owner)
+- Activity logging across modules
+- Smart auto-generated tasks with deduplication
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from pydantic import BaseModel, Field
+from typing import Optional, List, Dict, Any
+from datetime import datetime, timezone, timedelta
+from bson import ObjectId
+import uuid
+
+router = APIRouter(prefix="/tasks", tags=["Tasks"])
+
+# Will be set by main app
+db = None
+get_current_user = None
+
+def init_router(database, auth_dependency):
+    global db, get_current_user
+    db = database
+    get_current_user = auth_dependency
+    return router
+
+
+# ============== MODELS ==============
+
+class TaskCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    assigned_team: Optional[str] = None  # Department/Team
+    assigned_to: Optional[str] = None    # Primary owner (user_id)
+    priority: str = "medium"  # low, medium, high, urgent
+    due_date: Optional[str] = None
+    source_module: Optional[str] = None  # sourcing, marketing, sales, hr, etc.
+    source_entity_type: Optional[str] = None  # brand, supplier, campaign, etc.
+    source_entity_id: Optional[str] = None
+    tags: List[str] = []
+    related_url: Optional[str] = None  # Link to the source entity
+
+class TaskUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    assigned_team: Optional[str] = None
+    assigned_to: Optional[str] = None
+    priority: Optional[str] = None
+    due_date: Optional[str] = None
+    status: Optional[str] = None  # pending, in_progress, completed, cancelled
+    tags: Optional[List[str]] = None
+    completion_notes: Optional[str] = None
+
+class ActivityLog(BaseModel):
+    module: str  # sourcing, marketing, sales, hr, projects, etc.
+    entity_type: str  # brand, supplier, campaign, task, etc.
+    entity_id: str
+    entity_name: str
+    action: str  # created, updated, deleted, status_changed, email_sent, etc.
+    action_details: Optional[Dict[str, Any]] = None
+    user_id: Optional[str] = None
+    user_name: Optional[str] = None
+
+class TaskTriggerConfig(BaseModel):
+    module: str
+    entity_type: str
+    trigger_event: str  # created, status_changed, field_updated, etc.
+    trigger_condition: Optional[Dict[str, Any]] = None  # e.g., {"new_status": "qualified"}
+    task_template: Dict[str, Any]  # Task template to create
+    enabled: bool = True
+    due_date_offset_days: int = 3
+
+
+# ============== TASK ENDPOINTS ==============
+
+@router.get("")
+async def get_tasks(
+    status: Optional[str] = None,
+    assigned_to: Optional[str] = None,
+    assigned_team: Optional[str] = None,
+    source_module: Optional[str] = None,
+    priority: Optional[str] = None,
+    is_overdue: Optional[bool] = None,
+    search: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get all tasks with filters"""
+    query = {}
+    
+    if status:
+        query["status"] = status
+    if assigned_to:
+        query["assigned_to"] = assigned_to
+    if assigned_team:
+        query["assigned_team"] = assigned_team
+    if source_module:
+        query["source_module"] = source_module
+    if priority:
+        query["priority"] = priority
+    if search:
+        query["$or"] = [
+            {"title": {"$regex": search, "$options": "i"}},
+            {"description": {"$regex": search, "$options": "i"}}
+        ]
+    if is_overdue:
+        now = datetime.now(timezone.utc).isoformat()
+        query["due_date"] = {"$lt": now}
+        query["status"] = {"$nin": ["completed", "cancelled"]}
+    
+    tasks = await db.unified_tasks.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(length=limit)
+    total = await db.unified_tasks.count_documents(query)
+    
+    return {
+        "tasks": tasks,
+        "total": total,
+        "skip": skip,
+        "limit": limit
+    }
+
+
+@router.get("/my-tasks")
+async def get_my_tasks(
+    status: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get tasks assigned to current user or their team"""
+    user_id = current_user.get("id")
+    user_dept = current_user.get("department")
+    
+    query = {
+        "$or": [
+            {"assigned_to": user_id},
+            {"assigned_team": user_dept}
+        ]
+    }
+    
+    if status:
+        query["status"] = status
+    else:
+        query["status"] = {"$nin": ["completed", "cancelled"]}
+    
+    tasks = await db.unified_tasks.find(query, {"_id": 0}).sort([
+        ("priority_order", -1),
+        ("due_date", 1)
+    ]).to_list(length=100)
+    
+    return tasks
+
+
+@router.get("/dashboard-stats")
+async def get_task_dashboard_stats(
+    period: str = "month",
+    team: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get task statistics for dashboard"""
+    # Calculate date range based on period
+    now = datetime.now(timezone.utc)
+    if period == "today":
+        start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif period == "week":
+        start_date = now - timedelta(days=now.weekday())
+    elif period == "month":
+        start_date = now.replace(day=1)
+    elif period == "quarter":
+        quarter_month = ((now.month - 1) // 3) * 3 + 1
+        start_date = now.replace(month=quarter_month, day=1)
+    else:  # year
+        start_date = now.replace(month=1, day=1)
+    
+    base_query = {"created_at": {"$gte": start_date.isoformat()}}
+    if team:
+        base_query["assigned_team"] = team
+    
+    # Get counts by status
+    pipeline = [
+        {"$match": base_query},
+        {"$group": {
+            "_id": "$status",
+            "count": {"$sum": 1}
+        }}
+    ]
+    status_counts = await db.unified_tasks.aggregate(pipeline).to_list(length=100)
+    
+    # Get counts by module
+    module_pipeline = [
+        {"$match": base_query},
+        {"$group": {
+            "_id": "$source_module",
+            "count": {"$sum": 1}
+        }}
+    ]
+    module_counts = await db.unified_tasks.aggregate(module_pipeline).to_list(length=100)
+    
+    # Get counts by priority
+    priority_pipeline = [
+        {"$match": {**base_query, "status": {"$nin": ["completed", "cancelled"]}}},
+        {"$group": {
+            "_id": "$priority",
+            "count": {"$sum": 1}
+        }}
+    ]
+    priority_counts = await db.unified_tasks.aggregate(priority_pipeline).to_list(length=100)
+    
+    # Get overdue count
+    overdue_count = await db.unified_tasks.count_documents({
+        **base_query,
+        "due_date": {"$lt": now.isoformat()},
+        "status": {"$nin": ["completed", "cancelled"]}
+    })
+    
+    # Get completion rate
+    total_tasks = await db.unified_tasks.count_documents(base_query)
+    completed_tasks = await db.unified_tasks.count_documents({**base_query, "status": "completed"})
+    completion_rate = round((completed_tasks / total_tasks * 100) if total_tasks > 0 else 0, 1)
+    
+    return {
+        "by_status": {item["_id"]: item["count"] for item in status_counts if item["_id"]},
+        "by_module": {item["_id"]: item["count"] for item in module_counts if item["_id"]},
+        "by_priority": {item["_id"]: item["count"] for item in priority_counts if item["_id"]},
+        "overdue": overdue_count,
+        "total": total_tasks,
+        "completed": completed_tasks,
+        "completion_rate": completion_rate,
+        "period": period
+    }
+
+
+@router.get("/by-assignee")
+async def get_tasks_by_assignee(
+    period: str = "month",
+    current_user: dict = Depends(get_current_user)
+):
+    """Get task distribution by assignee for team dashboard"""
+    now = datetime.now(timezone.utc)
+    if period == "today":
+        start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif period == "week":
+        start_date = now - timedelta(days=now.weekday())
+    elif period == "month":
+        start_date = now.replace(day=1)
+    elif period == "quarter":
+        quarter_month = ((now.month - 1) // 3) * 3 + 1
+        start_date = now.replace(month=quarter_month, day=1)
+    else:
+        start_date = now.replace(month=1, day=1)
+    
+    pipeline = [
+        {"$match": {"created_at": {"$gte": start_date.isoformat()}}},
+        {"$group": {
+            "_id": {
+                "assigned_to": "$assigned_to",
+                "assigned_to_name": "$assigned_to_name",
+                "status": "$status"
+            },
+            "count": {"$sum": 1}
+        }},
+        {"$group": {
+            "_id": {
+                "assigned_to": "$_id.assigned_to",
+                "assigned_to_name": "$_id.assigned_to_name"
+            },
+            "tasks": {
+                "$push": {
+                    "status": "$_id.status",
+                    "count": "$count"
+                }
+            },
+            "total": {"$sum": "$count"}
+        }},
+        {"$sort": {"total": -1}},
+        {"$limit": 20}
+    ]
+    
+    results = await db.unified_tasks.aggregate(pipeline).to_list(length=20)
+    
+    # Format results
+    assignee_stats = []
+    for r in results:
+        if r["_id"]["assigned_to"]:
+            stats = {
+                "user_id": r["_id"]["assigned_to"],
+                "user_name": r["_id"]["assigned_to_name"] or "Unknown",
+                "total": r["total"],
+                "completed": 0,
+                "in_progress": 0,
+                "pending": 0,
+                "overdue": 0
+            }
+            for task in r["tasks"]:
+                if task["status"] == "completed":
+                    stats["completed"] = task["count"]
+                elif task["status"] == "in_progress":
+                    stats["in_progress"] = task["count"]
+                elif task["status"] == "pending":
+                    stats["pending"] = task["count"]
+            assignee_stats.append(stats)
+    
+    return assignee_stats
+
+
+@router.post("")
+async def create_task(
+    task: TaskCreate,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user)
+):
+    """Create a new task"""
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Get assignee name if assigned_to is provided
+    assigned_to_name = None
+    if task.assigned_to:
+        user = await db.users.find_one({"id": task.assigned_to}, {"name": 1})
+        assigned_to_name = user.get("name") if user else None
+    
+    # Calculate priority order for sorting
+    priority_order = {"urgent": 4, "high": 3, "medium": 2, "low": 1}.get(task.priority, 2)
+    
+    # Generate task fingerprint for deduplication
+    fingerprint = None
+    if task.source_module and task.source_entity_id:
+        fingerprint = f"{task.source_module}_{task.source_entity_type}_{task.source_entity_id}_manual"
+    
+    task_doc = {
+        "id": str(uuid.uuid4()),
+        "title": task.title,
+        "description": task.description,
+        "assigned_team": task.assigned_team,
+        "assigned_to": task.assigned_to,
+        "assigned_to_name": assigned_to_name,
+        "priority": task.priority,
+        "priority_order": priority_order,
+        "due_date": task.due_date,
+        "status": "pending",
+        "source_module": task.source_module,
+        "source_entity_type": task.source_entity_type,
+        "source_entity_id": task.source_entity_id,
+        "task_fingerprint": fingerprint,
+        "related_url": task.related_url,
+        "tags": task.tags,
+        "is_auto_generated": False,
+        "auto_trigger": None,
+        "created_by": current_user.get("id"),
+        "created_by_name": current_user.get("name"),
+        "created_at": now,
+        "updated_at": now,
+        "completed_at": None,
+        "completion_notes": None
+    }
+    
+    await db.unified_tasks.insert_one(task_doc)
+    
+    # Log activity
+    background_tasks.add_task(
+        log_activity,
+        module="tasks",
+        entity_type="task",
+        entity_id=task_doc["id"],
+        entity_name=task.title,
+        action="created",
+        user_id=current_user.get("id"),
+        user_name=current_user.get("name")
+    )
+    
+    del task_doc["_id"]
+    return task_doc
+
+
+@router.get("/{task_id}")
+async def get_task(task_id: str, current_user: dict = Depends(get_current_user)):
+    """Get a specific task"""
+    task = await db.unified_tasks.find_one({"id": task_id}, {"_id": 0})
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task
+
+
+@router.put("/{task_id}")
+async def update_task(
+    task_id: str,
+    update: TaskUpdate,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update a task"""
+    task = await db.unified_tasks.find_one({"id": task_id})
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    update_data = {k: v for k, v in update.dict().items() if v is not None}
+    update_data["updated_at"] = now
+    
+    # Update assignee name if assigned_to changed
+    if "assigned_to" in update_data:
+        user = await db.users.find_one({"id": update_data["assigned_to"]}, {"name": 1})
+        update_data["assigned_to_name"] = user.get("name") if user else None
+    
+    # Update priority order
+    if "priority" in update_data:
+        update_data["priority_order"] = {"urgent": 4, "high": 3, "medium": 2, "low": 1}.get(update_data["priority"], 2)
+    
+    # Set completed_at if status changed to completed
+    if update_data.get("status") == "completed" and task.get("status") != "completed":
+        update_data["completed_at"] = now
+    
+    await db.unified_tasks.update_one({"id": task_id}, {"$set": update_data})
+    
+    # Log activity
+    action = "updated"
+    if "status" in update_data:
+        action = f"status_changed_to_{update_data['status']}"
+    
+    background_tasks.add_task(
+        log_activity,
+        module="tasks",
+        entity_type="task",
+        entity_id=task_id,
+        entity_name=task.get("title"),
+        action=action,
+        action_details=update_data,
+        user_id=current_user.get("id"),
+        user_name=current_user.get("name")
+    )
+    
+    updated_task = await db.unified_tasks.find_one({"id": task_id}, {"_id": 0})
+    return updated_task
+
+
+@router.delete("/{task_id}")
+async def delete_task(
+    task_id: str,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user)
+):
+    """Delete a task"""
+    task = await db.unified_tasks.find_one({"id": task_id})
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    await db.unified_tasks.delete_one({"id": task_id})
+    
+    background_tasks.add_task(
+        log_activity,
+        module="tasks",
+        entity_type="task",
+        entity_id=task_id,
+        entity_name=task.get("title"),
+        action="deleted",
+        user_id=current_user.get("id"),
+        user_name=current_user.get("name")
+    )
+    
+    return {"message": "Task deleted successfully"}
+
+
+# ============== ACTIVITY LOG ENDPOINTS ==============
+
+@router.get("/activities/feed")
+async def get_activity_feed(
+    module: Optional[str] = None,
+    entity_type: Optional[str] = None,
+    user_id: Optional[str] = None,
+    limit: int = 50,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get activity feed with filters"""
+    query = {}
+    if module:
+        query["module"] = module
+    if entity_type:
+        query["entity_type"] = entity_type
+    if user_id:
+        query["user_id"] = user_id
+    
+    activities = await db.activity_logs.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(length=limit)
+    return activities
+
+
+@router.post("/activities/log")
+async def create_activity_log(
+    activity: ActivityLog,
+    current_user: dict = Depends(get_current_user)
+):
+    """Manually log an activity"""
+    await log_activity(
+        module=activity.module,
+        entity_type=activity.entity_type,
+        entity_id=activity.entity_id,
+        entity_name=activity.entity_name,
+        action=activity.action,
+        action_details=activity.action_details,
+        user_id=activity.user_id or current_user.get("id"),
+        user_name=activity.user_name or current_user.get("name")
+    )
+    return {"message": "Activity logged"}
+
+
+# ============== TASK TRIGGER CONFIGURATION ==============
+
+@router.get("/triggers/config")
+async def get_trigger_configs(current_user: dict = Depends(get_current_user)):
+    """Get all task trigger configurations"""
+    configs = await db.task_trigger_configs.find({}, {"_id": 0}).to_list(length=100)
+    return configs
+
+
+@router.post("/triggers/config")
+async def create_trigger_config(
+    config: TaskTriggerConfig,
+    current_user: dict = Depends(get_current_user)
+):
+    """Create a new task trigger configuration"""
+    config_doc = {
+        "id": str(uuid.uuid4()),
+        **config.dict(),
+        "created_by": current_user.get("id"),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.task_trigger_configs.insert_one(config_doc)
+    del config_doc["_id"]
+    return config_doc
+
+
+@router.put("/triggers/config/{config_id}")
+async def update_trigger_config(
+    config_id: str,
+    config: TaskTriggerConfig,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update a task trigger configuration"""
+    update_data = config.dict()
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.task_trigger_configs.update_one(
+        {"id": config_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Config not found")
+    
+    return {"message": "Config updated"}
+
+
+@router.delete("/triggers/config/{config_id}")
+async def delete_trigger_config(
+    config_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Delete a task trigger configuration"""
+    result = await db.task_trigger_configs.delete_one({"id": config_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Config not found")
+    return {"message": "Config deleted"}
+
+
+# ============== HELPER FUNCTIONS ==============
+
+async def log_activity(
+    module: str,
+    entity_type: str,
+    entity_id: str,
+    entity_name: str,
+    action: str,
+    action_details: dict = None,
+    user_id: str = None,
+    user_name: str = None
+):
+    """Log an activity to the activity_logs collection"""
+    activity_doc = {
+        "id": str(uuid.uuid4()),
+        "module": module,
+        "entity_type": entity_type,
+        "entity_id": entity_id,
+        "entity_name": entity_name,
+        "action": action,
+        "action_details": action_details or {},
+        "user_id": user_id,
+        "user_name": user_name,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.activity_logs.insert_one(activity_doc)
+    
+    # Check for auto-task triggers
+    await check_and_create_auto_task(module, entity_type, entity_id, entity_name, action, action_details)
+
+
+async def check_and_create_auto_task(
+    module: str,
+    entity_type: str,
+    entity_id: str,
+    entity_name: str,
+    action: str,
+    action_details: dict = None
+):
+    """Check trigger configs and create auto-task if conditions match"""
+    # Find matching trigger configs
+    configs = await db.task_trigger_configs.find({
+        "module": module,
+        "entity_type": entity_type,
+        "trigger_event": action,
+        "enabled": True
+    }).to_list(length=10)
+    
+    for config in configs:
+        # Check trigger condition if specified
+        if config.get("trigger_condition"):
+            condition = config["trigger_condition"]
+            # Simple condition check - can be extended
+            if action_details:
+                match = all(action_details.get(k) == v for k, v in condition.items())
+                if not match:
+                    continue
+        
+        # Generate unique fingerprint
+        trigger_type = config.get("task_template", {}).get("trigger_type", action)
+        fingerprint = f"{module}_{entity_type}_{entity_id}_{trigger_type}"
+        
+        # Check if task with this fingerprint already exists and is not completed
+        existing = await db.unified_tasks.find_one({
+            "task_fingerprint": fingerprint,
+            "status": {"$nin": ["completed", "cancelled"]}
+        })
+        
+        if existing:
+            # Skip - task already exists
+            continue
+        
+        # Create auto-task
+        template = config.get("task_template", {})
+        now = datetime.now(timezone.utc)
+        due_date = (now + timedelta(days=config.get("due_date_offset_days", 3))).isoformat()
+        
+        # Replace placeholders in title/description
+        title = template.get("title", f"Follow up on {entity_name}")
+        title = title.replace("{entity_name}", entity_name).replace("{entity_type}", entity_type)
+        
+        description = template.get("description", "")
+        description = description.replace("{entity_name}", entity_name).replace("{entity_type}", entity_type)
+        
+        task_doc = {
+            "id": str(uuid.uuid4()),
+            "title": title,
+            "description": description,
+            "assigned_team": template.get("assigned_team"),
+            "assigned_to": template.get("assigned_to"),
+            "assigned_to_name": None,
+            "priority": template.get("priority", "medium"),
+            "priority_order": {"urgent": 4, "high": 3, "medium": 2, "low": 1}.get(template.get("priority", "medium"), 2),
+            "due_date": due_date,
+            "status": "pending",
+            "source_module": module,
+            "source_entity_type": entity_type,
+            "source_entity_id": entity_id,
+            "task_fingerprint": fingerprint,
+            "related_url": f"/{module}/{entity_type}s/{entity_id}",
+            "tags": template.get("tags", []),
+            "is_auto_generated": True,
+            "auto_trigger": action,
+            "created_by": "system",
+            "created_by_name": "System",
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+            "completed_at": None,
+            "completion_notes": None
+        }
+        
+        await db.unified_tasks.insert_one(task_doc)
+
+
+# ============== SEED DEFAULT TRIGGERS ==============
+
+async def seed_default_triggers():
+    """Seed default task triggers if none exist"""
+    count = await db.task_trigger_configs.count_documents({})
+    if count > 0:
+        return
+    
+    default_triggers = [
+        # Sourcing - Brands
+        {
+            "id": str(uuid.uuid4()),
+            "module": "sourcing",
+            "entity_type": "brand",
+            "trigger_event": "created",
+            "trigger_condition": None,
+            "task_template": {
+                "title": "Initial outreach to {entity_name}",
+                "description": "Send introduction email to the newly added brand",
+                "priority": "high",
+                "assigned_team": "sourcing",
+                "trigger_type": "initial_outreach",
+                "tags": ["outreach", "new-brand"]
+            },
+            "enabled": True,
+            "due_date_offset_days": 2,
+            "created_by": "system",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "module": "sourcing",
+            "entity_type": "brand",
+            "trigger_event": "status_changed",
+            "trigger_condition": {"new_status": "Qualified"},
+            "task_template": {
+                "title": "Schedule meeting with {entity_name}",
+                "description": "Brand has been qualified. Schedule an intro meeting.",
+                "priority": "high",
+                "assigned_team": "sourcing",
+                "trigger_type": "schedule_meeting",
+                "tags": ["meeting", "qualified"]
+            },
+            "enabled": True,
+            "due_date_offset_days": 3,
+            "created_by": "system",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        },
+        # Sourcing - Suppliers
+        {
+            "id": str(uuid.uuid4()),
+            "module": "sourcing",
+            "entity_type": "supplier",
+            "trigger_event": "created",
+            "trigger_condition": None,
+            "task_template": {
+                "title": "Request samples from {entity_name}",
+                "description": "Contact the new supplier and request product samples",
+                "priority": "medium",
+                "assigned_team": "sourcing",
+                "trigger_type": "request_samples",
+                "tags": ["samples", "new-supplier"]
+            },
+            "enabled": True,
+            "due_date_offset_days": 5,
+            "created_by": "system",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        },
+        # Sourcing - Manufacturers
+        {
+            "id": str(uuid.uuid4()),
+            "module": "sourcing",
+            "entity_type": "manufacturer",
+            "trigger_event": "created",
+            "trigger_condition": None,
+            "task_template": {
+                "title": "Schedule factory visit for {entity_name}",
+                "description": "Arrange a factory visit to assess manufacturing capabilities",
+                "priority": "medium",
+                "assigned_team": "sourcing",
+                "trigger_type": "factory_visit",
+                "tags": ["factory-visit", "new-manufacturer"]
+            },
+            "enabled": True,
+            "due_date_offset_days": 7,
+            "created_by": "system",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        },
+        # Marketing
+        {
+            "id": str(uuid.uuid4()),
+            "module": "marketing",
+            "entity_type": "campaign",
+            "trigger_event": "created",
+            "trigger_condition": None,
+            "task_template": {
+                "title": "Review assets for {entity_name}",
+                "description": "Review and approve campaign creative assets",
+                "priority": "high",
+                "assigned_team": "marketing",
+                "trigger_type": "review_assets",
+                "tags": ["review", "campaign"]
+            },
+            "enabled": True,
+            "due_date_offset_days": 2,
+            "created_by": "system",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        },
+        # HR
+        {
+            "id": str(uuid.uuid4()),
+            "module": "hr",
+            "entity_type": "employee",
+            "trigger_event": "onboarded",
+            "trigger_condition": None,
+            "task_template": {
+                "title": "Complete onboarding for {entity_name}",
+                "description": "Ensure all onboarding steps are completed for the new employee",
+                "priority": "high",
+                "assigned_team": "hr",
+                "trigger_type": "onboarding_checklist",
+                "tags": ["onboarding", "new-employee"]
+            },
+            "enabled": True,
+            "due_date_offset_days": 7,
+            "created_by": "system",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+    ]
+    
+    await db.task_trigger_configs.insert_many(default_triggers)
+    print("Default task triggers seeded")
