@@ -11,7 +11,7 @@ import {
     PenTool, Sparkles, Zap, Clock, Youtube, Image, LogOut, Menu, X,
     ChevronDown, ChevronRight, Briefcase, Mail, Check, Send, ListTodo, FolderKanban,
     HelpCircle, Award, Network, Shield, Flag, CalendarDays, RefreshCw, Plus, Globe,
-    TrendingUp, PieChart, Activity, FileText
+    TrendingUp, PieChart, Activity, FileText, Package, Factory, FlaskConical, Search
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -159,6 +159,25 @@ const DEPARTMENT_CONFIG = {
         routes: [
             { path: '/hr/expenses', name: 'Expenses & Reimbursement', icon: DollarSign },
         ]
+    },
+    sourcing: {
+        name: 'Buying & Sourcing',
+        icon: Package,
+        color: 'from-orange-600 to-orange-700',
+        bgColor: 'bg-orange-50',
+        textColor: 'text-orange-700',
+        requiredModule: 'project_management',  // Uses project_management access
+        routes: [
+            { path: '/sourcing', name: 'Dashboard', icon: LayoutDashboard },
+            { path: '/sourcing/brands', name: 'Brands', icon: Building2 },
+            { path: '/sourcing/brands/pipeline', name: 'Brand Pipeline', icon: Target },
+            { path: '/sourcing/suppliers', name: 'Suppliers', icon: Package },
+            { path: '/sourcing/suppliers/pipeline', name: 'Supplier Pipeline', icon: Target },
+            { path: '/sourcing/manufacturers', name: 'Manufacturers', icon: Factory },
+            { path: '/sourcing/manufacturers/pipeline', name: 'Manufacturer Pipeline', icon: Target },
+            { path: '/sourcing/samples', name: 'Samples', icon: FlaskConical },
+            { path: '/sourcing/discovery', name: 'AI Discovery', icon: Sparkles },
+        ]
     }
 };
 
@@ -176,7 +195,7 @@ export const Layout = ({ children }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(true);
-    const [expandedDepts, setExpandedDepts] = useState(['analytics', 'goals', 'marketing', 'projects', 'mail', 'sales', 'social', 'admin', 'hr']);
+    const [expandedDepts, setExpandedDepts] = useState(['analytics', 'goals', 'marketing', 'projects', 'mail', 'sales', 'social', 'admin', 'hr', 'sourcing']);
 
     const toggleDepartment = (dept) => {
         setExpandedDepts(prev => 
@@ -196,6 +215,7 @@ export const Layout = ({ children }) => {
         if (path.startsWith('/social')) return 'social';
         if (path.startsWith('/admin')) return 'admin';
         if (path.startsWith('/hr')) return 'hr';
+        if (path.startsWith('/sourcing')) return 'sourcing';
         return null;
     };
 

@@ -1872,6 +1872,25 @@ The Manager Dashboard was already functional with:
   - Stores reschedule history with reason
   - Pre-fills current meeting times
 
+### Buying & Sourcing Module (COMPLETE - March 10, 2026)
+- [x] **Backend Routes** (`/api/sourcing/*`):
+  - Brands CRUD, pipeline stages, contacts, notes, analytics
+  - Suppliers CRUD, pipeline tracking
+  - Manufacturers CRUD, factory pipeline
+  - Samples tracking, status management
+  - AI Discovery options, brand scoring
+  - Email Templates for outreach
+- [x] **Frontend Pages** (`/sourcing/*`):
+  - Dashboard with stats cards and charts
+  - Brands Database with search/filter/pagination
+  - Brand Pipeline (Kanban view)
+  - Suppliers Database
+  - Manufacturers Database
+  - Samples Tracking
+  - AI Discovery configuration
+- [x] **Sidebar Integration**: "Buying & Sourcing" section added
+- [x] **Database Collections**: `sourcing_brands`, `sourcing_suppliers`, `sourcing_manufacturers`, `sourcing_samples`, `sourcing_contacts`, `sourcing_brand_notes`, `sourcing_templates`, `sourcing_activity_logs`
+
 ### Admin Bug Fixes (COMPLETE - March 10, 2026)
 - [x] **User Delete**: Fixed "Method Not Allowed" error
   - Added `DELETE /api/workos/users/{user_id}` endpoint

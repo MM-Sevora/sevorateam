@@ -106,6 +106,15 @@ import TeamsEventDetail from "./pages/teams/TeamsEventDetail";
 import AnalyticsTeamDashboard from "./pages/analytics/TeamDashboard";
 import ReportsPage from "./pages/analytics/ReportsPage";
 
+// Buying & Sourcing
+import SourcingDashboard from "./pages/sourcing/SourcingDashboard";
+import BrandsPage from "./pages/sourcing/BrandsPage";
+import BrandPipeline from "./pages/sourcing/BrandPipeline";
+import SuppliersPage from "./pages/sourcing/SuppliersPage";
+import ManufacturersPage from "./pages/sourcing/ManufacturersPage";
+import SamplesPage from "./pages/sourcing/SamplesPage";
+import SourcingAIDiscoveryPage from "./pages/sourcing/AIDiscoveryPage";
+
 import "./App.css";
 
 // Initialize MSAL instance
@@ -426,6 +435,17 @@ function AppRoutes() {
             <Route path="/analytics" element={<ProtectedRoute requiredModule="dashboard"><AnalyticsTeamDashboard /></ProtectedRoute>} />
             <Route path="/analytics/team-dashboard" element={<ProtectedRoute requiredModule="dashboard"><AnalyticsTeamDashboard /></ProtectedRoute>} />
             <Route path="/analytics/reports" element={<ProtectedRoute requiredModule="dashboard"><ReportsPage /></ProtectedRoute>} />
+
+            {/* Buying & Sourcing Routes */}
+            <Route path="/sourcing" element={<ProtectedRoute requiredModule="project_management"><SourcingDashboard /></ProtectedRoute>} />
+            <Route path="/sourcing/brands" element={<ProtectedRoute requiredModule="project_management"><BrandsPage /></ProtectedRoute>} />
+            <Route path="/sourcing/brands/pipeline" element={<ProtectedRoute requiredModule="project_management"><BrandPipeline /></ProtectedRoute>} />
+            <Route path="/sourcing/suppliers" element={<ProtectedRoute requiredModule="project_management"><SuppliersPage /></ProtectedRoute>} />
+            <Route path="/sourcing/suppliers/pipeline" element={<ProtectedRoute requiredModule="project_management"><SuppliersPage /></ProtectedRoute>} />
+            <Route path="/sourcing/manufacturers" element={<ProtectedRoute requiredModule="project_management"><ManufacturersPage /></ProtectedRoute>} />
+            <Route path="/sourcing/manufacturers/pipeline" element={<ProtectedRoute requiredModule="project_management"><ManufacturersPage /></ProtectedRoute>} />
+            <Route path="/sourcing/samples" element={<ProtectedRoute requiredModule="project_management"><SamplesPage /></ProtectedRoute>} />
+            <Route path="/sourcing/discovery" element={<ProtectedRoute requiredModule="project_management"><SourcingAIDiscoveryPage /></ProtectedRoute>} />
 
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" replace />} />
