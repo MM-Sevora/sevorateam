@@ -77,29 +77,36 @@ const SourcingSettingsPage = () => {
   });
 
   useEffect(() => {
-    // Load settings from backend (simulated)
+    // Load settings from backend
     const loadSettings = async () => {
       try {
-        // In a real implementation, fetch from API
-        // const response = await api.get('/sourcing/settings');
-        // setSettings(response.data);
-        setTimeout(() => setLoading(false), 500);
+        const response = await api.get('/sourcing/settings');
+        if (response.data) {
+          // Merge with defaults to ensure all fields exist
+          setSettings(prev => ({
+            ...prev,
+            pipeline: { ...prev.pipeline, ...(response.data.pipeline || {}) },
+            email: { ...prev.email, ...(response.data.email || {}) },
+            notifications: { ...prev.notifications, ...(response.data.notifications || {}) },
+            aiDiscovery: { ...prev.aiDiscovery, ...(response.data.aiDiscovery || {}) }
+          }));
+        }
+        setLoading(false);
       } catch (error) {
         console.error('Error loading settings:', error);
         setLoading(false);
       }
     };
     loadSettings();
-  }, []);
+  }, [api]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      // In a real implementation, save to API
-      // await api.put('/sourcing/settings', settings);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await api.put('/sourcing/settings', settings);
       toast.success('Settings saved successfully');
     } catch (error) {
+      console.error('Error saving settings:', error);
       toast.error('Failed to save settings');
     } finally {
       setSaving(false);

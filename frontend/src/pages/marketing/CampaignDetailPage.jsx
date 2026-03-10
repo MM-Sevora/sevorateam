@@ -13,8 +13,9 @@ import { toast } from 'sonner';
 import { 
   ArrowLeft, RefreshCw, Save, Users, DollarSign, Target, Calendar,
   TrendingUp, Instagram, Youtube, UserPlus, UserMinus, Search,
-  Play, Pause, CheckCircle2, Clock, Edit2, X
+  Play, Pause, CheckCircle2, Clock, Edit2, X, ClipboardList
 } from 'lucide-react';
+import CreateTaskDialog from '../../components/shared/CreateTaskDialog';
 
 const STATUS_OPTIONS = [
   { value: 'planning', label: 'Planning', icon: Clock, color: 'bg-blue-100 text-blue-700' },
@@ -37,6 +38,7 @@ const CampaignDetailPage = () => {
   
   // Add Influencer Modal
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showCreateTask, setShowCreateTask] = useState(false);
   const [availableInfluencers, setAvailableInfluencers] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [addingInfluencer, setAddingInfluencer] = useState(false);
@@ -255,6 +257,9 @@ const CampaignDetailPage = () => {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <Button variant="outline" onClick={() => setShowCreateTask(true)} className="border-teal-200 text-teal-700 hover:bg-teal-50">
+            <ClipboardList className="w-4 h-4 mr-2" /> Create Task
+          </Button>
           {isEditing ? (
             <>
               <Button variant="outline" onClick={() => { setIsEditing(false); setHasChanges(false); fetchCampaign(); }}>
@@ -716,6 +721,17 @@ const CampaignDetailPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Create Task Dialog */}
+      <CreateTaskDialog
+        open={showCreateTask}
+        onOpenChange={setShowCreateTask}
+        api={api}
+        sourceModule="marketing"
+        sourceEntityType="campaign"
+        sourceEntityId={campaignId}
+        sourceEntityName={campaign?.name || 'Campaign'}
+      />
     </div>
   );
 };

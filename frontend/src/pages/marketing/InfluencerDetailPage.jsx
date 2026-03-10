@@ -18,8 +18,9 @@ import {
   Instagram, Youtube, Download, Users, TrendingUp, Heart, Star,
   Globe, Image, Film, Clock, DollarSign, Sparkles, Plus, Trash2,
   Send, Mail, MessageSquare, Target, Calendar, Phone, User,
-  BarChart3, Package, History, Edit3, ExternalLink, Building2, Briefcase
+  BarChart3, Package, History, Edit3, ExternalLink, Building2, Briefcase, ClipboardList
 } from 'lucide-react';
+import CreateTaskDialog from '../../components/shared/CreateTaskDialog';
 
 const InfluencerDetailPage = () => {
   const { influencerId } = useParams();
@@ -56,6 +57,7 @@ const InfluencerDetailPage = () => {
   
   // Outreach Modal
   const [showOutreachModal, setShowOutreachModal] = useState(false);
+  const [showCreateTask, setShowCreateTask] = useState(false);
   const [outreachChannel, setOutreachChannel] = useState('email');
   const [outreachForm, setOutreachForm] = useState({
     subject: '',
@@ -643,14 +645,23 @@ const InfluencerDetailPage = () => {
               </Button>
             </>
           ) : (
-            <Button 
-              variant="outline"
-              onClick={() => setIsEditMode(true)}
-              data-testid="edit-mode-btn"
-              className="border-[#c4a35a] text-[#c4a35a] hover:bg-[#c4a35a]/10"
-            >
-              <Edit3 className="w-4 h-4 mr-2" /> Edit Profile
-            </Button>
+            <>
+              <Button 
+                variant="outline"
+                onClick={() => setShowCreateTask(true)}
+                className="border-teal-200 text-teal-700 hover:bg-teal-50"
+              >
+                <ClipboardList className="w-4 h-4 mr-2" /> Create Task
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => setIsEditMode(true)}
+                data-testid="edit-mode-btn"
+                className="border-[#c4a35a] text-[#c4a35a] hover:bg-[#c4a35a]/10"
+              >
+                <Edit3 className="w-4 h-4 mr-2" /> Edit Profile
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -2212,6 +2223,17 @@ const InfluencerDetailPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Create Task Dialog */}
+      <CreateTaskDialog
+        open={showCreateTask}
+        onOpenChange={setShowCreateTask}
+        api={api}
+        sourceModule="marketing"
+        sourceEntityType="influencer"
+        sourceEntityId={influencerId}
+        sourceEntityName={form?.name || 'Influencer'}
+      />
     </div>
   );
 };

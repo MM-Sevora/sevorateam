@@ -91,7 +91,7 @@ const TeamDashboard = () => {
         api.get(`/analytics/productivity-trends?period=${selectedPeriod}`),
         api.get('/analytics/workload-distribution?limit=20'),
         api.get('/analytics/activity-feed?limit=15'),
-        api.get('/employees?limit=100')
+        api.get('/admin/users')  // Use admin users endpoint
       ]);
 
       setDashboardData(summaryRes.data);

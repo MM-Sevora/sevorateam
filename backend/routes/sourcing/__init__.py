@@ -147,3 +147,74 @@ async def get_sourcing_dashboard(current_user: dict = Depends(get_current_user))
         },
         "recent_activity": recent_activity
     }
+
+
+# ============== SOURCING SETTINGS ENDPOINTS ==============
+
+@sourcing_router.get("/settings")
+async def get_sourcing_settings(user: dict = Depends(get_current_user)):
+    """Get sourcing module settings"""
+    settings = await db.sourcing_settings.find_one({"type": "module_settings"}, {"_id": 0})
+    
+    if not settings:
+        # Return default settings
+        settings = {
+            "type": "module_settings",
+            "pipeline": {
+                "brandStages": ["Discovery", "Contacted", "Qualified", "Interested", "Negotiation", "Onboarded", "Lost"],
+                "supplierStages": ["Discovery", "Contacted", "Sampling", "Evaluation", "Negotiation", "Active", "Inactive"],
+                "manufacturerStages": ["Discovery", "Contacted", "Sampling", "Evaluation", "Negotiation", "Active", "Inactive"],
+                "defaultBrandStage": "Discovery",
+                "defaultSupplierStage": "Discovery",
+                "defaultManufacturerStage": "Discovery"
+            },
+            "email": {
+                "fromName": "Sevora Sourcing Team",
+                "fromEmail": "sourcing@sevora.com",
+                "replyTo": "sourcing@sevora.com",
+                "signature": "Best regards,\nSevora Sourcing Team",
+                "defaultSubjectPrefix": "[Sevora] "
+            },
+            "notifications": {
+                "followUpReminders": True,
+                "reminderDaysBefore": 1,
+                "dailyDigest": True,
+                "digestTime": "09:00",
+                "newBrandAlerts": True,
+                "stageChangeAlerts": True,
+                "emailOnNewDiscovery": False
+            },
+            "aiDiscovery": {
+                "enabled": True,
+                "autoDiscoveryEnabled": False,
+                "discoveryFrequency": "daily",
+                "targetCategories": [],
+                "minFollowers": 10000,
+                "preferredPlatforms": ["instagram", "youtube"],
+                "autoAddQualified": False,
+                "aiScoreThreshold": 70
+            }
+        }
+    
+    return settings
+
+
+@sourcing_router.put("/settings")
+async def update_sourcing_settings(settings_data: dict, user: dict = Depends(get_current_user)):
+    """Update sourcing module settings"""
+    from datetime import datetime, timezone
+    
+    # Add metadata
+    settings_data["type"] = "module_settings"
+    settings_data["updated_by"] = user.get("id")
+    settings_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    # Upsert settings
+    await db.sourcing_settings.update_one(
+        {"type": "module_settings"},
+        {"$set": settings_data},
+        upsert=True
+    )
+    
+    return {"message": "Settings updated successfully"}
+

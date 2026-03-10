@@ -41,6 +41,47 @@
 5. Marketing/Campaign Created → "Review assets for {entity_name}" (2 days)
 6. HR/Employee Onboarded → "Complete onboarding for {entity_name}" (7 days)
 
+
+## March 10, 2026 - Additional Implementations
+
+### 1. Module Renaming & Clarification
+- Renamed "Task Management" → "Operational Tasks" to avoid confusion with Project Management
+- Clear distinction: Project Management (project tasks + personal) vs Operational Tasks (cross-module follow-ups)
+
+### 2. Create Task from Module Detail Pages
+- Created reusable `CreateTaskDialog` component (`/app/frontend/src/components/shared/CreateTaskDialog.jsx`)
+- Added "Create Task" button to:
+  - **Sourcing**: Brand Detail, Supplier Detail, Manufacturer Detail pages
+  - **Marketing**: Campaign Detail, Influencer Detail pages
+- Dialog auto-fills: module, entity name, related URL, default team, and due date (3 days)
+- Tasks created from modules appear in Operational Tasks with proper source linking
+
+### 3. Team Performance Dashboard - Backend Connection
+- Fixed `/analytics` page to use correct API endpoint (`/admin/users` instead of `/employees`)
+- Dashboard now shows real data:
+  - Team Members count
+  - Tasks Completed with comparison
+  - Avg Productivity percentage
+  - Overdue Tasks count
+  - Goal Progress percentage
+  - Productivity Trends chart
+  - Team Workload Distribution chart
+  - Top Performers list
+  - Upcoming Deadlines
+  - Recent Activity feed
+
+### 4. Sourcing Settings - Backend Persistence
+- Created backend endpoints:
+  - `GET /api/sourcing/settings` - Retrieve settings
+  - `PUT /api/sourcing/settings` - Save settings
+- Settings now persist:
+  - Pipeline stages for Brands, Suppliers, Manufacturers
+  - Email configuration
+  - Notification preferences
+  - AI Discovery settings
+
+---
+
 ---
 
 
