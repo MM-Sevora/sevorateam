@@ -406,7 +406,7 @@ Sevora Team`
   const fetchProjects = async () => {
     setLoadingProjects(true);
     try {
-      const res = await fetch(`${API}/api/projects`, {
+      const res = await fetch(`${API}/api/projects/list`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -423,12 +423,13 @@ Sevora Team`
   // Fetch employees for task assignment
   const fetchEmployees = async () => {
     try {
-      const res = await fetch(`${API}/api/employees`, {
+      const res = await fetch(`${API}/api/admin/users`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
         const data = await res.json();
-        setEmployees(data || []);
+        // Filter to only active users
+        setEmployees((data || []).filter(u => u.status === 'active'));
       }
     } catch (e) {
       console.error('Failed to fetch employees:', e);
