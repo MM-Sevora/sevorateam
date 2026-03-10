@@ -287,6 +287,174 @@ async def get_tasks_by_assignee(
     ]
     
     results = await db.unified_tasks.aggregate(pipeline).to_list(length=20)
+
+
+@router.get("/team-performance")
+async def get_team_performance(
+    period: str = "month",
+    task_type: Optional[str] = None,  # operational, project, personal, all
+    department: Optional[str] = None,
+    current_user: dict = Depends(get_current_user_dep)
+):
+    """Get detailed team performance data with task breakdown by type"""
+    now = datetime.now(timezone.utc)
+    
+    # Calculate date range
+    if period == "today":
+        start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif period == "week":
+        start_date = now - timedelta(days=now.weekday())
+    elif period == "month":
+        start_date = now.replace(day=1)
+    elif period == "quarter":
+        quarter_month = ((now.month - 1) // 3) * 3 + 1
+        start_date = now.replace(month=quarter_month, day=1)
+    else:  # year
+        start_date = now.replace(month=1, day=1)
+    
+    start_date_str = start_date.isoformat()
+    
+    # Get all users
+    users = await db.users.find({}, {"_id": 0, "id": 1, "name": 1, "email": 1, "department": 1, "role": 1}).to_list(length=200)
+    
+    if department and department != 'all':
+        users = [u for u in users if u.get('department') == department]
+    
+    team_performance = []
+    
+    for user in users:
+        user_id = user.get('id')
+        user_name = user.get('name', 'Unknown')
+        
+        # Get operational tasks (from unified_tasks)
+        operational_query = {
+            "created_at": {"$gte": start_date_str},
+            "$or": [
+                {"assigned_to": user_id},
+                {"created_by": user_id}
+            ]
+        }
+        
+        operational_total = await db.unified_tasks.count_documents(operational_query)
+        operational_completed = await db.unified_tasks.count_documents({**operational_query, "status": "completed"})
+        operational_in_progress = await db.unified_tasks.count_documents({**operational_query, "status": "in_progress"})
+        operational_overdue = await db.unified_tasks.count_documents({
+            **operational_query,
+            "due_date": {"$lt": now.isoformat()},
+            "status": {"$nin": ["completed", "cancelled"]}
+        })
+        
+        # Get project tasks (from tasks collection - project management)
+        project_query = {
+            "created_at": {"$gte": start_date_str},
+            "$or": [
+                {"assignee_id": user_id},
+                {"assigned_to": user_id}
+            ]
+        }
+        
+        project_total = await db.tasks.count_documents(project_query)
+        project_completed = await db.tasks.count_documents({**project_query, "status": {"$in": ["completed", "done"]}})
+        project_in_progress = await db.tasks.count_documents({**project_query, "status": {"$in": ["in_progress", "in-progress"]}})
+        project_overdue = await db.tasks.count_documents({
+            **project_query,
+            "due_date": {"$lt": now.isoformat()},
+            "status": {"$nin": ["completed", "done", "cancelled"]}
+        })
+        
+        # Personal tasks are project tasks created by and assigned to the same user
+        personal_query = {
+            "created_at": {"$gte": start_date_str},
+            "created_by": user_id,
+            "$or": [
+                {"assignee_id": user_id},
+                {"assigned_to": user_id},
+                {"assignee_id": {"$exists": False}},
+                {"assigned_to": {"$exists": False}}
+            ]
+        }
+        
+        personal_total = await db.tasks.count_documents(personal_query)
+        personal_completed = await db.tasks.count_documents({**personal_query, "status": {"$in": ["completed", "done"]}})
+        
+        # Calculate totals
+        total_tasks = operational_total + project_total
+        total_completed = operational_completed + project_completed
+        total_overdue = operational_overdue + project_overdue
+        completion_rate = round((total_completed / total_tasks * 100) if total_tasks > 0 else 0, 1)
+        
+        # Filter by task type if specified
+        if task_type == 'operational':
+            displayed_total = operational_total
+            displayed_completed = operational_completed
+            displayed_in_progress = operational_in_progress
+            displayed_overdue = operational_overdue
+        elif task_type == 'project':
+            displayed_total = project_total
+            displayed_completed = project_completed
+            displayed_in_progress = project_in_progress
+            displayed_overdue = project_overdue
+        elif task_type == 'personal':
+            displayed_total = personal_total
+            displayed_completed = personal_completed
+            displayed_in_progress = 0
+            displayed_overdue = 0
+        else:
+            displayed_total = total_tasks
+            displayed_completed = total_completed
+            displayed_in_progress = operational_in_progress + project_in_progress
+            displayed_overdue = total_overdue
+        
+        if displayed_total > 0 or task_type is None:  # Include users with 0 tasks only if no filter
+            team_performance.append({
+                "user_id": user_id,
+                "name": user_name,
+                "email": user.get('email'),
+                "department": user.get('department'),
+                "role": user.get('role'),
+                "performance": {
+                    "total": displayed_total,
+                    "completed": displayed_completed,
+                    "in_progress": displayed_in_progress,
+                    "overdue": displayed_overdue,
+                    "completion_rate": round((displayed_completed / displayed_total * 100) if displayed_total > 0 else 0, 1),
+                    "breakdown": {
+                        "operational": {
+                            "total": operational_total,
+                            "completed": operational_completed,
+                            "in_progress": operational_in_progress,
+                            "overdue": operational_overdue
+                        },
+                        "project": {
+                            "total": project_total,
+                            "completed": project_completed,
+                            "in_progress": project_in_progress,
+                            "overdue": project_overdue
+                        },
+                        "personal": {
+                            "total": personal_total,
+                            "completed": personal_completed
+                        }
+                    }
+                }
+            })
+    
+    # Sort by completion rate descending
+    team_performance.sort(key=lambda x: (x["performance"]["completed"], x["performance"]["completion_rate"]), reverse=True)
+    
+    return {
+        "period": period,
+        "task_type": task_type or "all",
+        "department": department or "all",
+        "team_members": team_performance[:50],  # Top 50
+        "summary": {
+            "total_members": len(team_performance),
+            "avg_completion_rate": round(sum(m["performance"]["completion_rate"] for m in team_performance) / len(team_performance), 1) if team_performance else 0,
+            "total_tasks": sum(m["performance"]["total"] for m in team_performance),
+            "total_completed": sum(m["performance"]["completed"] for m in team_performance),
+            "total_overdue": sum(m["performance"]["overdue"] for m in team_performance)
+        }
+    }
     
     # Format results
     assignee_stats = []

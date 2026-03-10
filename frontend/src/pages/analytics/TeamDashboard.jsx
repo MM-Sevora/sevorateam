@@ -80,50 +80,54 @@ const TeamDashboard = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
+  const [selectedTaskType, setSelectedTaskType] = useState('all');
   const [teamMembers, setTeamMembers] = useState([]);
+  const [teamPerformance, setTeamPerformance] = useState(null);
   const [selectedMember, setSelectedMember] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [sortBy, setSortBy] = useState('completed');
+  const [sortOrder, setSortOrder] = useState('desc');
 
   const fetchDashboardData = async () => {
     try {
-      const [summaryRes, productivityRes, workloadRes, activityRes, employeesRes] = await Promise.all([
+      const [summaryRes, productivityRes, workloadRes, activityRes, employeesRes, teamPerfRes] = await Promise.all([
         api.get('/analytics/dashboard-summary'),
         api.get(`/analytics/productivity-trends?period=${selectedPeriod}`),
         api.get('/analytics/workload-distribution?limit=20'),
         api.get('/analytics/activity-feed?limit=15'),
-        api.get('/admin/users')  // Use admin users endpoint
+        api.get('/admin/users'),
+        api.get(`/tasks/team-performance?period=${selectedPeriod}&task_type=${selectedTaskType}&department=${selectedDepartment}`)
       ]);
 
       setDashboardData(summaryRes.data);
       setProductivityData(productivityRes.data.data || []);
       setWorkloadData(workloadRes.data || []);
       setActivityFeed(activityRes.data || []);
+      setTeamPerformance(teamPerfRes.data);
       
-      // Process team members with mock performance data
+      // Process team members with real performance data
       const employees = employeesRes.data?.employees || employeesRes.data || [];
-      const membersWithPerformance = employees.map((emp, idx) => ({
+      const performanceMap = {};
+      
+      // Build a map of user performance from the team-performance endpoint
+      if (teamPerfRes.data?.team_members) {
+        teamPerfRes.data.team_members.forEach(member => {
+          performanceMap[member.user_id] = member.performance;
+        });
+      }
+      
+      const membersWithPerformance = employees.map((emp) => ({
         ...emp,
-        performance: {
-          tasksCompleted: Math.floor(Math.random() * 50) + 10,
-          tasksInProgress: Math.floor(Math.random() * 15) + 2,
-          tasksOverdue: Math.floor(Math.random() * 5),
-          completionRate: Math.floor(Math.random() * 40) + 60,
-          avgResponseTime: `${Math.floor(Math.random() * 4) + 1}h`,
-          productivity: Math.floor(Math.random() * 30) + 70,
-          meetingsAttended: Math.floor(Math.random() * 20) + 5,
-          goalsAchieved: Math.floor(Math.random() * 5) + 1,
-          totalGoals: Math.floor(Math.random() * 3) + 5,
-          trend: ['up', 'down', 'stable'][Math.floor(Math.random() * 3)],
-          weeklyData: generateWeeklyData(),
-          monthlyData: generateMonthlyData(),
-          skills: ['Project Management', 'Communication', 'Technical', 'Leadership', 'Teamwork']
-            .sort(() => Math.random() - 0.5).slice(0, 3),
-          skillScores: {
-            'Project Management': Math.floor(Math.random() * 40) + 60,
-            'Communication': Math.floor(Math.random() * 40) + 60,
-            'Technical': Math.floor(Math.random() * 40) + 60,
-            'Leadership': Math.floor(Math.random() * 40) + 60,
-            'Teamwork': Math.floor(Math.random() * 40) + 60,
+        performance: performanceMap[emp.id] || {
+          total: 0,
+          completed: 0,
+          in_progress: 0,
+          overdue: 0,
+          completion_rate: 0,
+          breakdown: {
+            operational: { total: 0, completed: 0, in_progress: 0, overdue: 0 },
+            project: { total: 0, completed: 0, in_progress: 0, overdue: 0 },
+            personal: { total: 0, completed: 0 }
           }
         }
       }));
@@ -139,7 +143,7 @@ const TeamDashboard = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, [selectedPeriod]);
+  }, [selectedPeriod, selectedTaskType, selectedDepartment]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -160,16 +164,54 @@ const TeamDashboard = () => {
     });
   };
 
-  // Filter team members based on search and department
-  const filteredMembers = teamMembers.filter(member => {
-    const matchesSearch = member.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          member.email?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesDept = selectedDepartment === 'all' || member.department === selectedDepartment;
-    return matchesSearch && matchesDept;
-  });
+  // Filter and sort team members based on search, department, and sort options
+  const filteredMembers = teamMembers
+    .filter(member => {
+      const matchesSearch = member.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            member.email?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesDept = selectedDepartment === 'all' || member.department === selectedDepartment;
+      return matchesSearch && matchesDept;
+    })
+    .sort((a, b) => {
+      let aVal, bVal;
+      switch (sortBy) {
+        case 'completed':
+          aVal = a.performance?.completed || 0;
+          bVal = b.performance?.completed || 0;
+          break;
+        case 'total':
+          aVal = a.performance?.total || 0;
+          bVal = b.performance?.total || 0;
+          break;
+        case 'completion_rate':
+          aVal = a.performance?.completion_rate || 0;
+          bVal = b.performance?.completion_rate || 0;
+          break;
+        case 'overdue':
+          aVal = a.performance?.overdue || 0;
+          bVal = b.performance?.overdue || 0;
+          break;
+        case 'name':
+          aVal = a.name || '';
+          bVal = b.name || '';
+          return sortOrder === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        default:
+          aVal = a.performance?.completed || 0;
+          bVal = b.performance?.completed || 0;
+      }
+      return sortOrder === 'asc' ? aVal - bVal : bVal - aVal;
+    });
 
   // Get unique departments
   const departments = ['all', ...new Set(teamMembers.map(m => m.department).filter(Boolean))];
+  
+  // Task type options
+  const taskTypeOptions = [
+    { value: 'all', label: 'All Tasks' },
+    { value: 'operational', label: 'Operational Tasks' },
+    { value: 'project', label: 'Project Tasks' },
+    { value: 'personal', label: 'Personal Tasks' }
+  ];
 
   if (loading) {
     return (
@@ -548,6 +590,18 @@ const TeamDashboard = () => {
                     />
                   </div>
                 </div>
+                <Select value={selectedTaskType} onValueChange={setSelectedTaskType}>
+                  <SelectTrigger className="w-[180px] border-[#E8D5C4]">
+                    <SelectValue placeholder="Task Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {taskTypeOptions.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
                   <SelectTrigger className="w-[180px] border-[#E8D5C4]">
                     <SelectValue placeholder="Department" />
@@ -560,7 +614,48 @@ const TeamDashboard = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="w-[160px] border-[#E8D5C4]">
+                    <SelectValue placeholder="Sort By" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="completed">Tasks Completed</SelectItem>
+                    <SelectItem value="total">Total Tasks</SelectItem>
+                    <SelectItem value="completion_rate">Completion Rate</SelectItem>
+                    <SelectItem value="overdue">Overdue Tasks</SelectItem>
+                    <SelectItem value="name">Name</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                  className="border-[#E8D5C4]"
+                >
+                  {sortOrder === 'asc' ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+                </Button>
               </div>
+              {/* Summary Stats */}
+              {teamPerformance?.summary && (
+                <div className="mt-4 pt-4 border-t border-[#E8D5C4] flex flex-wrap gap-6">
+                  <div className="text-sm">
+                    <span className="text-[#6B5D52]">Total Tasks: </span>
+                    <span className="font-semibold text-[#4A3728]">{teamPerformance.summary.total_tasks}</span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="text-[#6B5D52]">Completed: </span>
+                    <span className="font-semibold text-emerald-600">{teamPerformance.summary.total_completed}</span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="text-[#6B5D52]">Overdue: </span>
+                    <span className="font-semibold text-red-600">{teamPerformance.summary.total_overdue}</span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="text-[#6B5D52]">Avg Completion: </span>
+                    <span className="font-semibold text-[#4A3728]">{teamPerformance.summary.avg_completion_rate}%</span>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -603,33 +698,43 @@ const TeamDashboard = () => {
 
                     <div className="mt-4 space-y-3">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-[#6B5D52]">Productivity</span>
-                        <span className="font-semibold text-[#4A3728]">{member.performance?.productivity}%</span>
+                        <span className="text-[#6B5D52]">Completion Rate</span>
+                        <span className="font-semibold text-[#4A3728]">{member.performance?.completion_rate || 0}%</span>
                       </div>
-                      <Progress value={member.performance?.productivity} className="h-2" />
+                      <Progress value={member.performance?.completion_rate || 0} className="h-2" />
 
                       <div className="grid grid-cols-3 gap-2 pt-2">
                         <div className="text-center p-2 bg-emerald-50 rounded-lg">
-                          <p className="text-lg font-bold text-emerald-700">{member.performance?.tasksCompleted}</p>
+                          <p className="text-lg font-bold text-emerald-700">{member.performance?.completed || 0}</p>
                           <p className="text-xs text-emerald-600">Completed</p>
                         </div>
                         <div className="text-center p-2 bg-blue-50 rounded-lg">
-                          <p className="text-lg font-bold text-blue-700">{member.performance?.tasksInProgress}</p>
+                          <p className="text-lg font-bold text-blue-700">{member.performance?.in_progress || 0}</p>
                           <p className="text-xs text-blue-600">In Progress</p>
                         </div>
                         <div className="text-center p-2 bg-red-50 rounded-lg">
-                          <p className="text-lg font-bold text-red-700">{member.performance?.tasksOverdue}</p>
+                          <p className="text-lg font-bold text-red-700">{member.performance?.overdue || 0}</p>
                           <p className="text-xs text-red-600">Overdue</p>
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap gap-1 pt-2">
-                        {member.performance?.skills?.map((skill, idx) => (
-                          <Badge key={idx} variant="outline" className="text-xs bg-[#F5EDE5] border-[#E8D5C4]">
-                            {skill}
-                          </Badge>
-                        ))}
-                      </div>
+                      {/* Task Type Breakdown */}
+                      {member.performance?.breakdown && (
+                        <div className="pt-2 border-t border-[#E8D5C4]">
+                          <p className="text-xs text-[#8B7355] mb-2">Task Breakdown:</p>
+                          <div className="flex gap-2 text-xs">
+                            <span className="px-2 py-1 bg-teal-50 text-teal-700 rounded">
+                              Op: {member.performance.breakdown.operational?.completed || 0}/{member.performance.breakdown.operational?.total || 0}
+                            </span>
+                            <span className="px-2 py-1 bg-rose-50 text-rose-700 rounded">
+                              Proj: {member.performance.breakdown.project?.completed || 0}/{member.performance.breakdown.project?.total || 0}
+                            </span>
+                            <span className="px-2 py-1 bg-purple-50 text-purple-700 rounded">
+                              Per: {member.performance.breakdown.personal?.completed || 0}/{member.performance.breakdown.personal?.total || 0}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
