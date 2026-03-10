@@ -1,5 +1,17 @@
 # CHANGELOG - Sevora Team Platform
 
+## March 10, 2026 - Pre-Deployment Bug Fixes & E2E Review
+### Bugs Fixed:
+1. **Help & Support routes import error** - Fixed `init_router` → `init_help_router` import in server.py
+2. **TaskStatus enum missing 'todo'** - Added `TODO = "todo"` to `/app/backend/models/projects.py` to fix 500 error on `/api/projects/my-tasks`
+
+### Test Results (Iteration 61):
+- **Backend**: 100% (16/16 tests passed)
+- **Frontend**: 100% (all pages loading, no 500 errors)
+- All modules verified: Auth, Sourcing, Marketing, Sales, Projects, Analytics, Tasks
+
+---
+
 ## March 10, 2026 - Post-Creation Integration System Rollout
 ### Implementation Complete:
 - ✅ Rolled out EntityIntegrationCheck dialog to all major entity creation flows
