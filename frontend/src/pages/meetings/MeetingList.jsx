@@ -4,7 +4,7 @@ import {
   Calendar, Plus, Search, Filter, Clock, Users, MapPin, Video,
   ChevronLeft, ChevronRight, MoreVertical, Edit, Trash2, Play,
   CheckCircle2, AlertCircle, Target, Folder, Building2, RefreshCw,
-  FileText, ListTodo, BarChart3, Link2, Unlink, ExternalLink
+  FileText, ListTodo, BarChart3, Link2, Unlink, ExternalLink, XCircle
 } from 'lucide-react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -83,7 +83,7 @@ const statusColors = {
 };
 
 // ============== MEETING CARD ==============
-const MeetingCard = ({ meeting, onClick, onEdit, onDelete, onStart }) => {
+const MeetingCard = ({ meeting, onClick, onEdit, onDelete, onStart, onCancel }) => {
   const formatTime = (dateStr) => {
     if (!dateStr) return '';
     return new Date(dateStr).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -125,9 +125,14 @@ const MeetingCard = ({ meeting, onClick, onEdit, onDelete, onStart }) => {
                 <Edit className="w-4 h-4 mr-2" /> Edit
               </DropdownMenuItem>
               {meeting.status === 'scheduled' && (
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onStart(meeting); }} className="cursor-pointer text-emerald-600">
-                  <Play className="w-4 h-4 mr-2" /> Start Meeting
-                </DropdownMenuItem>
+                <>
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onStart(meeting); }} className="cursor-pointer text-emerald-600">
+                    <Play className="w-4 h-4 mr-2" /> Start Meeting
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onCancel(meeting); }} className="cursor-pointer text-amber-600">
+                    <XCircle className="w-4 h-4 mr-2" /> Cancel Meeting
+                  </DropdownMenuItem>
+                </>
               )}
               <DropdownMenuSeparator className="bg-[#E8D5C4]" />
               <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDelete(meeting); }} className="cursor-pointer text-red-600">
@@ -447,6 +452,28 @@ const MeetingList = () => {
     }
   };
 
+  const handleCancel = async (meeting) => {
+    if (!window.confirm(`Cancel "${meeting.title}"?`)) return;
+    
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/meetings/${meeting.id}/cancel`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (res.ok) {
+        toast.success('Meeting cancelled');
+        fetchMeetings();
+      } else {
+        const error = await res.json();
+        toast.error(error.detail || 'Failed to cancel meeting');
+      }
+    } catch (error) {
+      toast.error('Error cancelling meeting');
+    }
+  };
+
   const handleCalendarEventClick = (info) => {
     navigate(`/meetings/${info.event.id}`);
   };
@@ -644,6 +671,7 @@ const MeetingList = () => {
                   onEdit={handleEdit}
                   onDelete={handleDelete}
                   onStart={handleStart}
+                  onCancel={handleCancel}
                 />
               ))}
             </div>
@@ -677,6 +705,7 @@ const MeetingList = () => {
                   onEdit={handleEdit}
                   onDelete={handleDelete}
                   onStart={handleStart}
+                  onCancel={handleCancel}
                 />
               ))}
             </div>

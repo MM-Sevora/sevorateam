@@ -58,6 +58,8 @@ const MeetingTemplates = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingTemplateId, setEditingTemplateId] = useState(null);
   const [form, setForm] = useState({
     name: '',
     description: '',
@@ -100,44 +102,6 @@ const MeetingTemplates = () => {
     }
   };
 
-  const handleCreateTemplate = async () => {
-    if (!form.name) {
-      toast.error('Template name is required');
-      return;
-    }
-
-    try {
-      const token = localStorage.getItem('sevora_token');
-      const res = await fetch(`${API}/api/meetings/templates`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(form)
-      });
-
-      if (res.ok) {
-        toast.success('Template created');
-        setShowCreateModal(false);
-        setForm({
-          name: '',
-          description: '',
-          category: 'other',
-          meeting_type: 'general',
-          duration_minutes: 60,
-          is_global: false,
-          default_agenda: []
-        });
-        fetchTemplates();
-      } else {
-        toast.error('Failed to create template');
-      }
-    } catch (error) {
-      toast.error('Error creating template');
-    }
-  };
-
   const handleDeleteTemplate = async (templateId) => {
     if (!window.confirm('Delete this template?')) return;
 
@@ -155,6 +119,69 @@ const MeetingTemplates = () => {
     } catch (error) {
       toast.error('Error deleting template');
     }
+  };
+
+  const handleEditTemplate = (template) => {
+    setIsEditMode(true);
+    setEditingTemplateId(template.id);
+    setForm({
+      name: template.name || '',
+      description: template.description || '',
+      category: template.category || 'other',
+      meeting_type: template.meeting_type || 'general',
+      duration_minutes: template.duration_minutes || 60,
+      is_global: template.is_global || false,
+      default_agenda: template.default_agenda || []
+    });
+    setShowCreateModal(true);
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!form.name) {
+      toast.error('Template name is required');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const url = isEditMode 
+        ? `${API}/api/meetings/templates/${editingTemplateId}`
+        : `${API}/api/meetings/templates`;
+      
+      const res = await fetch(url, {
+        method: isEditMode ? 'PUT' : 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(form)
+      });
+
+      if (res.ok) {
+        toast.success(isEditMode ? 'Template updated' : 'Template created');
+        handleCloseModal();
+        fetchTemplates();
+      } else {
+        toast.error(`Failed to ${isEditMode ? 'update' : 'create'} template`);
+      }
+    } catch (error) {
+      toast.error(`Error ${isEditMode ? 'updating' : 'creating'} template`);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setShowCreateModal(false);
+    setIsEditMode(false);
+    setEditingTemplateId(null);
+    setForm({
+      name: '',
+      description: '',
+      category: 'other',
+      meeting_type: 'general',
+      duration_minutes: 60,
+      is_global: false,
+      default_agenda: []
+    });
   };
 
   const handleScheduleFromTemplate = async () => {
@@ -326,6 +353,13 @@ const MeetingTemplates = () => {
                         Schedule Meeting
                       </DropdownMenuItem>
                       <DropdownMenuItem
+                        onClick={() => handleEditTemplate(template)}
+                        className="cursor-pointer"
+                      >
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit Template
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
                         onClick={() => handleDeleteTemplate(template.id)}
                         className="cursor-pointer text-red-600"
                       >
@@ -384,9 +418,11 @@ const MeetingTemplates = () => {
       <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
         <DialogContent className="bg-white border-[#D4BBA6] max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-[#4A3728]">Create Meeting Template</DialogTitle>
+            <DialogTitle className="text-[#4A3728]">
+              {isEditMode ? 'Edit Meeting Template' : 'Create Meeting Template'}
+            </DialogTitle>
             <DialogDescription className="text-[#6B5D52]">
-              Create a reusable template for recurring meeting types.
+              {isEditMode ? 'Update this template\'s settings.' : 'Create a reusable template for recurring meeting types.'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -514,15 +550,15 @@ const MeetingTemplates = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateModal(false)} className="border-[#D4BBA6]">
+            <Button variant="outline" onClick={handleCloseModal} className="border-[#D4BBA6]">
               Cancel
             </Button>
             <Button
-              onClick={handleCreateTemplate}
+              onClick={handleSaveTemplate}
               className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white"
               data-testid="submit-template-btn"
             >
-              Create Template
+              {isEditMode ? 'Save Changes' : 'Create Template'}
             </Button>
           </DialogFooter>
         </DialogContent>

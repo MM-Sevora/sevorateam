@@ -1085,6 +1085,73 @@ async def start_meeting(
     return {"message": "Meeting started"}
 
 
+@router.post("/{meeting_id}/cancel")
+async def cancel_meeting(
+    meeting_id: str,
+    reason: Optional[str] = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Cancel a scheduled meeting"""
+    meeting = await db.meetings.find_one({"id": meeting_id}, {"_id": 0})
+    
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    
+    if meeting.get("status") == MeetingStatus.COMPLETED.value:
+        raise HTTPException(status_code=400, detail="Cannot cancel a completed meeting")
+    
+    if meeting.get("status") == MeetingStatus.CANCELLED.value:
+        raise HTTPException(status_code=400, detail="Meeting is already cancelled")
+    
+    await db.meetings.update_one(
+        {"id": meeting_id},
+        {"$set": {
+            "status": MeetingStatus.CANCELLED.value,
+            "cancellation_reason": reason,
+            "cancelled_by": user.get("id"),
+            "cancelled_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {"message": "Meeting cancelled"}
+
+
+@router.post("/{meeting_id}/postpone")
+async def postpone_meeting(
+    meeting_id: str,
+    new_start_time: str,
+    new_end_time: str,
+    reason: Optional[str] = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Postpone a meeting to a new date/time"""
+    meeting = await db.meetings.find_one({"id": meeting_id}, {"_id": 0})
+    
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    
+    if meeting.get("status") == MeetingStatus.COMPLETED.value:
+        raise HTTPException(status_code=400, detail="Cannot postpone a completed meeting")
+    
+    await db.meetings.update_one(
+        {"id": meeting_id},
+        {"$set": {
+            "status": MeetingStatus.POSTPONED.value,
+            "original_start_time": meeting.get("start_time"),
+            "original_end_time": meeting.get("end_time"),
+            "start_time": new_start_time,
+            "end_time": new_end_time,
+            "postpone_reason": reason,
+            "postponed_by": user.get("id"),
+            "postponed_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {"message": "Meeting postponed", "new_start_time": new_start_time, "new_end_time": new_end_time}
+
+
 @router.post("/{meeting_id}/complete")
 async def complete_meeting(
     meeting_id: str,

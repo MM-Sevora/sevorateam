@@ -232,6 +232,28 @@ const MeetingDetail = () => {
     }
   };
 
+  const handleCancelMeeting = async () => {
+    if (!window.confirm('Are you sure you want to cancel this meeting?')) return;
+    
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/meetings/${meetingId}/cancel`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (res.ok) {
+        toast.success('Meeting cancelled');
+        fetchMeeting();
+      } else {
+        const error = await res.json();
+        toast.error(error.detail || 'Failed to cancel meeting');
+      }
+    } catch (error) {
+      toast.error('Error cancelling meeting');
+    }
+  };
+
   // Discussion Notes
   const handleAddNote = async () => {
     if (!noteForm.topic || !noteForm.notes) {
@@ -736,10 +758,16 @@ const MeetingDetail = () => {
           </Button>
           
           {meeting.status === 'scheduled' && (
-            <Button onClick={handleStartMeeting} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-              <Play className="w-4 h-4 mr-2" />
-              Start Meeting
-            </Button>
+            <>
+              <Button onClick={handleStartMeeting} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                <Play className="w-4 h-4 mr-2" />
+                Start Meeting
+              </Button>
+              <Button onClick={handleCancelMeeting} variant="outline" className="border-red-300 text-red-600 hover:bg-red-50">
+                <XCircle className="w-4 h-4 mr-2" />
+                Cancel
+              </Button>
+            </>
           )}
           {meeting.status === 'in_progress' && (
             <Button onClick={handleCompleteMeeting} className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white">

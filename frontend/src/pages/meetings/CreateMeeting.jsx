@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import {
   Calendar, Clock, MapPin, Users, Target, Folder, Building2,
   Plus, Trash2, ArrowLeft, Save, Video, FileText, Link as LinkIcon,
-  RefreshCw
+  RefreshCw, Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -51,9 +51,14 @@ const recurrenceTypes = [
 
 const CreateMeeting = () => {
   const navigate = useNavigate();
+  const { meetingId } = useParams();
   const [searchParams] = useSearchParams();
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
+  
+  // Edit mode detection
+  const isEditMode = !!meetingId;
   
   // Options data
   const [departments, setDepartments] = useState([]);
@@ -140,6 +145,66 @@ const CreateMeeting = () => {
 
     fetchOptions();
   }, []);
+
+  // Fetch existing meeting data for edit mode
+  useEffect(() => {
+    if (!isEditMode) return;
+    
+    const fetchMeetingData = async () => {
+      setLoading(true);
+      try {
+        const token = localStorage.getItem('sevora_token');
+        const res = await fetch(`${API}/api/meetings/${meetingId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (res.ok) {
+          const meeting = await res.json();
+          
+          // Parse date and time from ISO string
+          const startDate = meeting.start_time ? meeting.start_time.split('T')[0] : '';
+          const startTime = meeting.start_time ? meeting.start_time.split('T')[1]?.substring(0, 5) : '09:00';
+          const endTime = meeting.end_time ? meeting.end_time.split('T')[1]?.substring(0, 5) : '10:00';
+          const recurrenceEndDate = meeting.recurrence_end_date ? meeting.recurrence_end_date.split('T')[0] : '';
+          
+          setFormData({
+            title: meeting.title || '',
+            meeting_type: meeting.meeting_type || 'general',
+            description: meeting.description || '',
+            start_date: startDate,
+            start_time: startTime,
+            end_time: endTime,
+            timezone: meeting.timezone || 'UTC',
+            location: meeting.location || '',
+            meeting_link: meeting.meeting_link || '',
+            department_id: meeting.department_id || '',
+            linked_goal_id: meeting.linked_goal_id || '',
+            linked_objective_id: meeting.linked_objective_id || '',
+            linked_project_id: meeting.linked_project_id || '',
+            visibility: meeting.visibility || 'public',
+            sync_to_outlook: meeting.sync_to_outlook || false,
+            recurrence_type: meeting.recurrence_type || 'none',
+            recurrence_end_date: recurrenceEndDate
+          });
+          
+          // Set agenda, participants, and pre-read documents
+          setAgenda(meeting.agenda || []);
+          setParticipants(meeting.participants || []);
+          setPreReadDocuments(meeting.pre_read_documents || []);
+        } else {
+          toast.error('Meeting not found');
+          navigate('/meetings');
+        }
+      } catch (error) {
+        console.error('Error fetching meeting:', error);
+        toast.error('Failed to load meeting');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchMeetingData();
+  }, [meetingId, isEditMode, navigate]);
 
   const addAgendaItem = () => {
     setAgenda([...agenda, {
@@ -232,8 +297,11 @@ const CreateMeeting = () => {
         recurrence_end_date: formData.recurrence_end_date ? `${formData.recurrence_end_date}T23:59:59Z` : null
       };
 
-      const res = await fetch(`${API}/api/meetings`, {
-        method: 'POST',
+      const url = isEditMode ? `${API}/api/meetings/${meetingId}` : `${API}/api/meetings`;
+      const method = isEditMode ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -243,19 +311,31 @@ const CreateMeeting = () => {
 
       if (res.ok) {
         const meeting = await res.json();
-        toast.success('Meeting created successfully');
+        toast.success(isEditMode ? 'Meeting updated successfully' : 'Meeting created successfully');
         navigate(`/meetings/${meeting.id}`);
       } else {
         const error = await res.json();
-        toast.error(error.detail || 'Failed to create meeting');
+        toast.error(error.detail || `Failed to ${isEditMode ? 'update' : 'create'} meeting`);
       }
     } catch (error) {
-      console.error('Error creating meeting:', error);
-      toast.error('Error creating meeting');
+      console.error(`Error ${isEditMode ? 'updating' : 'creating'} meeting:`, error);
+      toast.error(`Error ${isEditMode ? 'updating' : 'creating'} meeting`);
     } finally {
       setSaving(false);
     }
   };
+
+  // Show loading state for edit mode
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-[#4A3728] mx-auto mb-4" />
+          <p className="text-[#6B5D52]">Loading meeting...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 space-y-6" data-testid="create-meeting-page">
@@ -272,8 +352,12 @@ const CreateMeeting = () => {
             Back
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-[#4A3728]">Schedule Meeting</h1>
-            <p className="text-[#5D4A3A] mt-1">Create a new meeting linked to goals and projects</p>
+            <h1 className="text-2xl font-bold text-[#4A3728]">
+              {isEditMode ? 'Edit Meeting' : 'Schedule Meeting'}
+            </h1>
+            <p className="text-[#5D4A3A] mt-1">
+              {isEditMode ? 'Update meeting details' : 'Create a new meeting linked to goals and projects'}
+            </p>
           </div>
         </div>
         <Button 
@@ -283,7 +367,7 @@ const CreateMeeting = () => {
           data-testid="save-meeting-btn"
         >
           <Save className="w-4 h-4 mr-2" />
-          {saving ? 'Creating...' : 'Create Meeting'}
+          {saving ? (isEditMode ? 'Saving...' : 'Creating...') : (isEditMode ? 'Save Changes' : 'Create Meeting')}
         </Button>
       </div>
 
