@@ -80,21 +80,31 @@ export default function TeamsCalendar() {
   useEffect(() => {
     const checkConnection = async () => {
       setCheckingConnection(true);
-      if (accounts.length > 0) {
+      console.log('Calendar: Checking connection, accounts:', accounts.length, 'isAuthenticated:', isAuthenticated);
+      
+      if (accounts.length > 0 && account) {
+        console.log('Calendar: Found account:', account.username);
         try {
+          // Use a single primary scope for connection check (simpler and more reliable)
           const silentRequest = {
-            scopes: ['Calendars.ReadWrite'],
-            account: accounts[0],
+            scopes: ["Calendars.Read"],
+            account: account,
           };
-          await instance.acquireTokenSilent(silentRequest);
-          setConnected(true);
+          const response = await instance.acquireTokenSilent(silentRequest);
+          if (response && response.accessToken) {
+            console.log('Calendar: Token acquired silently, connected!');
+            setConnected(true);
+          } else {
+            console.log('Calendar: No token in response');
+            setConnected(false);
+          }
         } catch (error) {
-          console.log('Calendar silent token failed, will need consent:', error.message);
-          // User is signed in but doesn't have calendar permissions yet
-          // They'll need to click Connect to grant calendar access
+          console.log('Calendar: Silent token failed:', error.name, error.message);
+          // Token might have expired or user hasn't granted calendar permissions
           setConnected(false);
         }
       } else {
+        console.log('Calendar: No accounts found');
         setConnected(false);
       }
       setCheckingConnection(false);
@@ -103,7 +113,7 @@ export default function TeamsCalendar() {
     if (inProgress === 'none') {
       checkConnection();
     }
-  }, [accounts, instance, inProgress]);
+  }, [accounts, account, instance, inProgress, isAuthenticated]);
 
   // Get access token
   const getAccessToken = useCallback(async () => {
