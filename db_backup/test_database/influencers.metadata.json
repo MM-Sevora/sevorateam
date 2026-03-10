@@ -1,0 +1,1 @@
+{"indexes":[{"v":{"$numberInt":"2"},"key":{"_id":{"$numberInt":"1"}},"name":"_id_"},{"v":{"$numberInt":"2"},"key":{"score":{"$numberInt":"1"}},"name":"score_1"},{"v":{"$numberInt":"2"},"key":{"status":{"$numberInt":"1"}},"name":"status_1"}],"uuid":"90feadbd05014fadbb6ca54dc9684da9","collectionName":"influencers","type":"collection"}

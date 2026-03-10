@@ -1,0 +1,1 @@
+{"indexes":[{"v":{"$numberInt":"2"},"key":{"_id":{"$numberInt":"1"}},"name":"_id_"}],"uuid":"172d441c52e945aca310d9b02a49b42e","collectionName":"fiscal_years","type":"collection"}
