@@ -5,7 +5,7 @@ import {
   MoreVertical, Edit, Trash2, Eye, RefreshCw, ChevronDown,
   CheckCircle2, Clock, AlertTriangle, Folder, ArrowRight, ListTodo,
   Lock, Globe, UserPlus, UserMinus, Paperclip, Upload, X, File, Target,
-  LayoutGrid, List, FileText, ChevronRight
+  LayoutGrid, List, FileText, ChevronRight, CalendarPlus
 } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -53,7 +53,7 @@ const statusConfig = {
   cancelled: { label: 'Cancelled', color: 'bg-red-100 text-red-700', icon: Trash2 }
 };
 
-const ProjectCard = ({ project, onEdit, onDelete, onView }) => {
+const ProjectCard = ({ project, onEdit, onDelete, onView, onScheduleMeeting }) => {
   const navigate = useNavigate();
   const StatusIcon = statusConfig[project.status]?.icon || Clock;
   
@@ -99,15 +99,18 @@ const ProjectCard = ({ project, onEdit, onDelete, onView }) => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="bg-white border-[#D4BBA6]">
-              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onView(project); }} className="text-[#4A3728]">
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onView(project); }} className="text-[#4A3728] cursor-pointer">
                 <Eye className="w-4 h-4 mr-2" /> View Details
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(project); }} className="text-[#4A3728]">
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onScheduleMeeting(project); }} className="text-[#4A3728] cursor-pointer">
+                <CalendarPlus className="w-4 h-4 mr-2" /> Schedule Meeting
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(project); }} className="text-[#4A3728] cursor-pointer">
                 <Edit className="w-4 h-4 mr-2" /> Edit
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={(e) => { e.stopPropagation(); onDelete(project); }}
-                className="text-red-600"
+                className="text-red-600 cursor-pointer"
               >
                 <Trash2 className="w-4 h-4 mr-2" /> Delete
               </DropdownMenuItem>
@@ -179,7 +182,7 @@ const ProjectCard = ({ project, onEdit, onDelete, onView }) => {
 };
 
 // Project List View (Table format)
-const ProjectListView = ({ projects, onEdit, onDelete, onView }) => {
+const ProjectListView = ({ projects, onEdit, onDelete, onView, onScheduleMeeting }) => {
   const navigate = useNavigate();
   
   const formatDate = (dateStr) => {
@@ -272,13 +275,16 @@ const ProjectListView = ({ projects, onEdit, onDelete, onView }) => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="bg-white border-[#D4BBA6]">
-                      <DropdownMenuItem onClick={() => onView(project)} className="text-[#4A3728]">
+                      <DropdownMenuItem onClick={() => onView(project)} className="text-[#4A3728] cursor-pointer">
                         <Eye className="w-4 h-4 mr-2" /> View
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onEdit(project)} className="text-[#4A3728]">
+                      <DropdownMenuItem onClick={() => onScheduleMeeting && onScheduleMeeting(project)} className="text-[#4A3728] cursor-pointer">
+                        <CalendarPlus className="w-4 h-4 mr-2" /> Schedule Meeting
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onEdit(project)} className="text-[#4A3728] cursor-pointer">
                         <Edit className="w-4 h-4 mr-2" /> Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onDelete(project)} className="text-red-600">
+                      <DropdownMenuItem onClick={() => onDelete(project)} className="text-red-600 cursor-pointer">
                         <Trash2 className="w-4 h-4 mr-2" /> Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -1390,6 +1396,7 @@ const ProjectsList = () => {
                 onEdit={(p) => setEditingProject(p)}
                 onDelete={handleDelete}
                 onView={(p) => navigate(`/projects/${p.id}`)}
+                onScheduleMeeting={(p) => navigate(`/meetings/new?project_id=${p.id}&type=project_review`)}
               />
             ))}
           </div>
@@ -1399,6 +1406,7 @@ const ProjectsList = () => {
             onEdit={(p) => setEditingProject(p)}
             onDelete={handleDelete}
             onView={(p) => navigate(`/projects/${p.id}`)}
+            onScheduleMeeting={(p) => navigate(`/meetings/new?project_id=${p.id}&type=project_review`)}
           />
         )
       ) : (

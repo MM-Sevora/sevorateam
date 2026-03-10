@@ -473,6 +473,7 @@ const CommentsSection = ({ taskId, token, users = [] }) => {
   const [loading, setLoading] = useState(true);
   const [newComment, setNewComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [mentionedUsers, setMentionedUsers] = useState([]);
 
   const fetchComments = async () => {
     try {
@@ -493,10 +494,15 @@ const CommentsSection = ({ taskId, token, users = [] }) => {
       const res = await fetch(`${API}/api/projects/comments`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ task_id: taskId, content: newComment })
+        body: JSON.stringify({ 
+          task_id: taskId, 
+          content: newComment,
+          mentions: mentionedUsers 
+        })
       });
       if (res.ok) {
         setNewComment('');
+        setMentionedUsers([]);
         fetchComments();
       }
     } catch (e) { toast.error('Failed to add comment'); }
@@ -526,6 +532,7 @@ const CommentsSection = ({ taskId, token, users = [] }) => {
         <RichTextEditor
           content={newComment}
           onChange={setNewComment}
+          onMentionsChange={setMentionedUsers}
           placeholder="Write a comment... Use @ to mention someone"
           users={users}
           minHeight="80px"

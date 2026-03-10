@@ -1,15 +1,18 @@
-import React, { useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
+import React, { useEffect, forwardRef, useImperativeHandle, useCallback, useState, useRef } from 'react';
+import { useEditor, EditorContent, ReactRenderer } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table';
 import Placeholder from '@tiptap/extension-placeholder';
+import Mention from '@tiptap/extension-mention';
+import tippy from 'tippy.js';
+import 'tippy.js/dist/tippy.css';
 import { 
   Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, 
   Link as LinkIcon, Image as ImageIcon, Table as TableIcon,
-  Heading1, Heading2, Code, Quote, Undo, Redo
+  Heading1, Heading2, Code, Quote, Undo, Redo, AtSign
 } from 'lucide-react';
 
 const MenuButton = ({ onClick, isActive, children, title }) => (
@@ -25,16 +28,155 @@ const MenuButton = ({ onClick, isActive, children, title }) => (
   </button>
 );
 
+// Mention List Component
+const MentionList = forwardRef(({ items, command }, ref) => {
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const selectItem = (index) => {
+    const item = items[index];
+    if (item) {
+      command({ id: item.id, label: item.name });
+    }
+  };
+
+  const upHandler = () => {
+    setSelectedIndex((selectedIndex + items.length - 1) % items.length);
+  };
+
+  const downHandler = () => {
+    setSelectedIndex((selectedIndex + 1) % items.length);
+  };
+
+  const enterHandler = () => {
+    selectItem(selectedIndex);
+  };
+
+  useEffect(() => setSelectedIndex(0), [items]);
+
+  useImperativeHandle(ref, () => ({
+    onKeyDown: ({ event }) => {
+      if (event.key === 'ArrowUp') {
+        upHandler();
+        return true;
+      }
+      if (event.key === 'ArrowDown') {
+        downHandler();
+        return true;
+      }
+      if (event.key === 'Enter') {
+        enterHandler();
+        return true;
+      }
+      return false;
+    },
+  }));
+
+  if (!items.length) {
+    return (
+      <div className="bg-white border border-[#D4BBA6] rounded-lg shadow-lg p-2 text-sm text-[#9C8C74]">
+        No users found
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white border border-[#D4BBA6] rounded-lg shadow-lg overflow-hidden max-h-48 overflow-y-auto">
+      {items.map((item, index) => (
+        <button
+          type="button"
+          key={item.id}
+          onClick={() => selectItem(index)}
+          className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-[#F5EBE0] transition-colors ${
+            index === selectedIndex ? 'bg-[#F5EBE0] text-rose-600' : 'text-[#4A3728]'
+          }`}
+        >
+          <div className="w-6 h-6 rounded-full bg-rose-100 flex items-center justify-center text-rose-600 text-xs font-medium">
+            {item.name?.charAt(0)?.toUpperCase() || '?'}
+          </div>
+          <div className="flex flex-col">
+            <span className="font-medium">{item.name}</span>
+            {item.email && <span className="text-xs text-[#9C8C74]">{item.email}</span>}
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+});
+
+MentionList.displayName = 'MentionList';
+
 const RichTextEditor = forwardRef(({ 
   content = '', 
   onChange, 
+  onMentionsChange,
   placeholder = 'Write something...',
   users = [],
   editable = true,
   minHeight = '120px',
   className = ''
 }, ref) => {
+  const [mentions, setMentions] = useState([]);
+  const usersRef = useRef(users);
   
+  useEffect(() => {
+    usersRef.current = users;
+  }, [users]);
+
+  // Create suggestion configuration
+  const suggestion = {
+    items: ({ query }) => {
+      return usersRef.current
+        .filter(user => 
+          user.name?.toLowerCase().includes(query.toLowerCase()) ||
+          user.email?.toLowerCase().includes(query.toLowerCase())
+        )
+        .slice(0, 8);
+    },
+    render: () => {
+      let component;
+      let popup;
+
+      return {
+        onStart: props => {
+          component = new ReactRenderer(MentionList, {
+            props,
+            editor: props.editor,
+          });
+
+          if (!props.clientRect) return;
+
+          popup = tippy('body', {
+            getReferenceClientRect: props.clientRect,
+            appendTo: () => document.body,
+            content: component.element,
+            showOnCreate: true,
+            interactive: true,
+            trigger: 'manual',
+            placement: 'bottom-start',
+          });
+        },
+        onUpdate: props => {
+          component?.updateProps(props);
+          if (!props.clientRect) return;
+          popup?.[0]?.setProps({
+            getReferenceClientRect: props.clientRect,
+          });
+        },
+        onKeyDown: props => {
+          if (props.event.key === 'Escape') {
+            popup?.[0]?.hide();
+            return true;
+          }
+          return component?.ref?.onKeyDown(props);
+        },
+        onExit: () => {
+          popup?.[0]?.destroy();
+          component?.destroy();
+        },
+      };
+    },
+  };
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -74,11 +216,40 @@ const RichTextEditor = forwardRef(({
       Placeholder.configure({
         placeholder,
       }),
+      Mention.configure({
+        HTMLAttributes: {
+          class: 'mention bg-rose-100 text-rose-700 px-1 py-0.5 rounded font-medium',
+        },
+        suggestion,
+        renderLabel({ options, node }) {
+          return `@${node.attrs.label ?? node.attrs.id}`;
+        },
+      }),
     ],
     content,
     editable,
     onUpdate: ({ editor }) => {
-      onChange?.(editor.getHTML());
+      const html = editor.getHTML();
+      onChange?.(html);
+      
+      // Extract mentions from the content
+      const mentionNodes = [];
+      editor.state.doc.descendants((node) => {
+        if (node.type.name === 'mention') {
+          mentionNodes.push({
+            id: node.attrs.id,
+            label: node.attrs.label
+          });
+        }
+      });
+      
+      // Only update if mentions changed
+      const mentionIds = mentionNodes.map(m => m.id);
+      const currentIds = mentions.map(m => m.id);
+      if (JSON.stringify(mentionIds) !== JSON.stringify(currentIds)) {
+        setMentions(mentionNodes);
+        onMentionsChange?.(mentionIds);
+      }
     },
   });
 
@@ -97,7 +268,11 @@ const RichTextEditor = forwardRef(({
   useImperativeHandle(ref, () => ({
     getHTML: () => editor?.getHTML() || '',
     getText: () => editor?.getText() || '',
-    clear: () => editor?.commands.clearContent(),
+    getMentions: () => mentions.map(m => m.id),
+    clear: () => {
+      editor?.commands.clearContent();
+      setMentions([]);
+    },
     focus: () => editor?.commands.focus(),
   }));
 
@@ -222,6 +397,15 @@ const RichTextEditor = forwardRef(({
             <TableIcon className="w-4 h-4" />
           </MenuButton>
           
+          {users.length > 0 && (
+            <>
+              <div className="w-px h-5 bg-[#D4BBA6] mx-1" />
+              <span className="text-xs text-[#9C8C74] px-1 flex items-center gap-1">
+                <AtSign className="w-3 h-3" /> to mention
+              </span>
+            </>
+          )}
+          
           <div className="flex-1" />
           
           <MenuButton onClick={() => editor.chain().focus().undo().run()} title="Undo">
@@ -301,6 +485,13 @@ const RichTextEditor = forwardRef(({
           max-width: 100%;
           height: auto;
           border-radius: 0.5rem;
+        }
+        .ProseMirror .mention {
+          background-color: rgb(254 226 226);
+          color: rgb(185 28 28);
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-weight: 500;
         }
       `}</style>
     </div>

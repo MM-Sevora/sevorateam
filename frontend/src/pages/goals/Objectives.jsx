@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Target, Plus, Search, Filter, MoreVertical, Edit, Trash2, Eye,
   Loader2, Flag, Calendar, User, ChevronRight, ArrowLeft, Building2,
-  AlertTriangle, Clock, X
+  AlertTriangle, Clock, X, CalendarPlus
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -57,10 +57,11 @@ const formatDate = (dateStr) => {
   return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
 };
 
-const ObjectiveCard = ({ objective, onEdit, onDelete, onClick }) => (
+const ObjectiveCard = ({ objective, onEdit, onDelete, onClick, onScheduleMeeting }) => (
   <Card 
     className="border-[#E8D5C4] hover:shadow-md hover:border-indigo-300 transition-all cursor-pointer"
     onClick={() => onClick(objective)}
+    data-testid={`objective-card-${objective.id}`}
   >
     <CardContent className="p-5">
       <div className="flex items-start justify-between mb-3">
@@ -89,11 +90,17 @@ const ObjectiveCard = ({ objective, onEdit, onDelete, onClick }) => (
               <MoreVertical className="w-4 h-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(objective); }}>
+          <DropdownMenuContent align="end" className="bg-white border-[#D4BBA6]">
+            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onClick(objective); }} className="cursor-pointer">
+              <Eye className="w-4 h-4 mr-2" /> View Details
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onScheduleMeeting(objective); }} className="cursor-pointer">
+              <CalendarPlus className="w-4 h-4 mr-2" /> Schedule Meeting
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(objective); }} className="cursor-pointer">
               <Edit className="w-4 h-4 mr-2" /> Edit
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDelete(objective); }} className="text-red-600">
+            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDelete(objective); }} className="text-red-600 cursor-pointer">
               <Trash2 className="w-4 h-4 mr-2" /> Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -372,6 +379,11 @@ export default function Objectives() {
     navigate(`/goals/objectives/${obj.id}`);
   };
 
+  const handleScheduleMeeting = (obj) => {
+    // Navigate to create meeting with objective pre-linked
+    navigate(`/meetings/new?objective_id=${obj.id}&type=okr_review`);
+  };
+
   // Get quarters for selected fiscal year in form
   const formQuarters = formData.fiscal_year_id 
     ? fiscalYears.find(fy => fy.id === formData.fiscal_year_id)?.quarters || []
@@ -490,6 +502,7 @@ export default function Objectives() {
               onEdit={handleOpenModal}
               onDelete={handleDelete}
               onClick={handleClick}
+              onScheduleMeeting={handleScheduleMeeting}
             />
           ))}
         </div>
