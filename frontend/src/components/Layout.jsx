@@ -201,6 +201,7 @@ const DEPARTMENT_CONFIG = {
             { path: '/sourcing/discovery', name: 'AI Discovery', icon: Sparkles },
             { path: '/sourcing/campaigns', name: 'Email Campaigns', icon: Mail },
             { path: '/sourcing/calendar', name: 'Follow-up Calendar', icon: CalendarDays },
+            { path: '/sourcing/settings', name: 'Settings', icon: Settings },
         ]
     },
     systems: {
