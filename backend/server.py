@@ -3754,6 +3754,15 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Unified Task Management routes: {e}")
 
+# Register Entity Integration routes
+try:
+    from routes.entity_integrations import router as entity_integrations_router, init_router as init_entity_integrations_router
+    init_entity_integrations_router(db, get_current_user)
+    api_router.include_router(entity_integrations_router)
+    logger.info("Entity Integration routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Entity Integration routes: {e}")
+
 app.include_router(api_router)
 
 # ============== WEBSOCKET FOR REAL-TIME NOTIFICATIONS ==============

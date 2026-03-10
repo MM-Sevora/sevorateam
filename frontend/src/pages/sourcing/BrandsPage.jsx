@@ -20,6 +20,7 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
 } from '../../components/ui/dropdown-menu';
+import EntityIntegrationCheck from '../../components/shared/EntityIntegrationCheck';
 
 const DIVISIONS = ['Apparel', 'Accessories', 'Footwear', 'Home & Living', 'Beauty'];
 const SEGMENTS = ['Mass', 'Mass Premium', 'Bridge to Luxury', 'Affordable Luxury', 'Premium', 'Luxury'];
@@ -43,6 +44,8 @@ const BrandsPage = () => {
   const [filters, setFilters] = useState({ segment: '', pipeline_stage: '', city: '' });
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showIntegrationCheck, setShowIntegrationCheck] = useState(false);
+  const [createdEntity, setCreatedEntity] = useState(null);
   const [autoFilling, setAutoFilling] = useState(false);
   const [newBrand, setNewBrand] = useState({
     name: '',
@@ -131,9 +134,18 @@ const BrandsPage = () => {
       return;
     }
     try {
-      await api.post('/sourcing/brands', newBrand);
+      const response = await api.post('/sourcing/brands', newBrand);
+      const createdBrand = response.data;
       toast.success('Brand added successfully');
       setShowAddModal(false);
+      
+      // Show integration check dialog
+      setCreatedEntity({
+        id: createdBrand.id,
+        name: newBrand.name
+      });
+      setShowIntegrationCheck(true);
+      
       setNewBrand({
         name: '', website: '', instagram: '', division: 'Apparel', segment: '',
         categories: [], genders: [], min_price: '', max_price: '', city: '',
@@ -574,6 +586,20 @@ const BrandsPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Integration Check Dialog */}
+      {createdEntity && (
+        <EntityIntegrationCheck
+          open={showIntegrationCheck}
+          onOpenChange={setShowIntegrationCheck}
+          api={api}
+          module="sourcing"
+          entityType="brand"
+          entityId={createdEntity.id}
+          entityName={createdEntity.name}
+          onComplete={() => setCreatedEntity(null)}
+        />
+      )}
     </div>
   );
 };
