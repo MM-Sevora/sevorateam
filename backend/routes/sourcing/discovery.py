@@ -1,11 +1,14 @@
 """
 AI Discovery - Buying & Sourcing Module
+Uses Google Search API + OpenAI GPT-4o for intelligent brand discovery
 """
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from pydantic import BaseModel
 from typing import List, Optional, Callable
 from datetime import datetime, timezone
 import uuid
+
+from services.brand_discovery_service import brand_discovery_service
 
 
 def create_discovery_router(db, get_current_user: Callable):
@@ -43,6 +46,14 @@ def create_discovery_router(db, get_current_user: Callable):
         city: Optional[str] = None
         count: int = 10
 
+    @router.get("/status")
+    async def get_discovery_service_status(current_user: dict = Depends(get_current_user)):
+        """Check if AI discovery service is configured"""
+        return {
+            "configured": brand_discovery_service.is_configured(),
+            "message": "AI discovery service ready" if brand_discovery_service.is_configured() else "Missing configuration: GOOGLE_SEARCH_API_KEY, GOOGLE_SEARCH_ENGINE_ID, or EMERGENT_LLM_KEY"
+        }
+
     @router.get("/options")
     async def get_discovery_options(current_user: dict = Depends(get_current_user)):
         """Get available options for AI discovery"""
@@ -51,7 +62,8 @@ def create_discovery_router(db, get_current_user: Callable):
             "subcategories": DISCOVERY_CATEGORIES,
             "cities": DISCOVERY_CITIES,
             "segments": DISCOVERY_SEGMENTS,
-            "target_segments": TARGET_SEGMENTS
+            "target_segments": TARGET_SEGMENTS,
+            "service_configured": brand_discovery_service.is_configured()
         }
 
     @router.get("/history")
@@ -62,30 +74,99 @@ def create_discovery_router(db, get_current_user: Callable):
 
     @router.post("/run-now")
     async def run_discovery_now(request: AIDiscoverRequest, current_user: dict = Depends(get_current_user)):
-        """Trigger AI discovery manually (placeholder)"""
+        """Run AI-powered brand discovery"""
         now = datetime.now(timezone.utc).isoformat()
         
+        # Create job record
+        job_id = str(uuid.uuid4())
         job_doc = {
-            "id": str(uuid.uuid4()),
+            "id": job_id,
             "user_id": current_user.get("id"),
+            "user_name": current_user.get("name"),
             "category": request.category,
             "subcategories": request.subcategories,
             "segment": request.segment,
             "city": request.city,
             "requested_count": request.count,
             "found_count": 0,
-            "status": "pending",
+            "status": "running",
             "created_at": now
         }
-        
         await db.sourcing_discovery_jobs.insert_one(job_doc)
         
-        return {
-            "success": True,
-            "job_id": job_doc["id"],
-            "message": f"Discovery job created for {request.category} in {request.city or 'all cities'}",
-            "note": "AI discovery requires LLM integration. Configure EMERGENT_LLM_KEY for full functionality."
-        }
+        # Run discovery
+        try:
+            result = await brand_discovery_service.discover_brands(
+                category=request.category,
+                subcategories=request.subcategories,
+                segment=request.segment,
+                city=request.city,
+                count=request.count
+            )
+            
+            discovered_brands = result.get("brands", [])
+            
+            # Save discovered brands to database
+            saved_count = 0
+            for brand in discovered_brands:
+                # Check if brand already exists by website
+                existing = await db.sourcing_brands.find_one({"website": brand.get("website")})
+                if not existing:
+                    brand_doc = {
+                        "id": str(uuid.uuid4()),
+                        "name": brand.get("name"),
+                        "website": brand.get("website"),
+                        "city": brand.get("city"),
+                        "categories": brand.get("categories", []),
+                        "segment": brand.get("segment"),
+                        "fit_score": brand.get("fit_score", 50),
+                        "match_status": "High Priority" if brand.get("fit_score", 0) >= 80 else "Review",
+                        "description": brand.get("description"),
+                        "pipeline_stage": "Discovery",
+                        "discovery_job_id": job_id,
+                        "discovery_method": "ai_search",
+                        "discovered_at": brand.get("discovered_at"),
+                        "created_at": now,
+                        "updated_at": now
+                    }
+                    await db.sourcing_brands.insert_one(brand_doc)
+                    saved_count += 1
+            
+            # Update job status
+            await db.sourcing_discovery_jobs.update_one(
+                {"id": job_id},
+                {"$set": {
+                    "status": "completed",
+                    "found_count": len(discovered_brands),
+                    "saved_count": saved_count,
+                    "search_results_count": result.get("search_results_count", 0),
+                    "completed_at": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+            
+            return {
+                "success": True,
+                "job_id": job_id,
+                "message": f"Discovery completed! Found {len(discovered_brands)} brands, saved {saved_count} new brands.",
+                "brands": discovered_brands,
+                "stats": {
+                    "search_results": result.get("search_results_count", 0),
+                    "analyzed_brands": len(discovered_brands),
+                    "new_brands_saved": saved_count
+                }
+            }
+            
+        except Exception as e:
+            # Update job status on failure
+            await db.sourcing_discovery_jobs.update_one(
+                {"id": job_id},
+                {"$set": {
+                    "status": "failed",
+                    "error": str(e),
+                    "completed_at": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+            raise HTTPException(status_code=500, detail=f"Discovery failed: {str(e)}")
 
     @router.post("/score-brand/{brand_id}")
     async def score_brand(brand_id: str, current_user: dict = Depends(get_current_user)):

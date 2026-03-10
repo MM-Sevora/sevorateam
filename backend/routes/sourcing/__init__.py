@@ -51,6 +51,7 @@ from .manufacturers import create_manufacturers_router
 from .samples import create_samples_router
 from .discovery import create_discovery_router
 from .templates import create_templates_router
+from .campaigns import create_campaigns_router
 
 # Create and include all sub-routers
 brands_router = create_brands_router(db, get_current_user)
@@ -59,6 +60,7 @@ manufacturers_router = create_manufacturers_router(db, get_current_user)
 samples_router = create_samples_router(db, get_current_user)
 discovery_router = create_discovery_router(db, get_current_user)
 templates_router = create_templates_router(db, get_current_user)
+campaigns_router = create_campaigns_router(db, get_current_user)
 
 sourcing_router.include_router(brands_router)
 sourcing_router.include_router(suppliers_router)
@@ -66,6 +68,7 @@ sourcing_router.include_router(manufacturers_router)
 sourcing_router.include_router(samples_router)
 sourcing_router.include_router(discovery_router)
 sourcing_router.include_router(templates_router)
+sourcing_router.include_router(campaigns_router)
 
 
 # =====================

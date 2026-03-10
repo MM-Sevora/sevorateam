@@ -114,6 +114,7 @@ import SuppliersPage from "./pages/sourcing/SuppliersPage";
 import ManufacturersPage from "./pages/sourcing/ManufacturersPage";
 import SamplesPage from "./pages/sourcing/SamplesPage";
 import SourcingAIDiscoveryPage from "./pages/sourcing/AIDiscoveryPage";
+import EmailCampaignsPage from "./pages/sourcing/EmailCampaignsPage";
 
 import "./App.css";
 
@@ -446,6 +447,7 @@ function AppRoutes() {
             <Route path="/sourcing/manufacturers/pipeline" element={<ProtectedRoute requiredModule="project_management"><ManufacturersPage /></ProtectedRoute>} />
             <Route path="/sourcing/samples" element={<ProtectedRoute requiredModule="project_management"><SamplesPage /></ProtectedRoute>} />
             <Route path="/sourcing/discovery" element={<ProtectedRoute requiredModule="project_management"><SourcingAIDiscoveryPage /></ProtectedRoute>} />
+            <Route path="/sourcing/campaigns" element={<ProtectedRoute requiredModule="project_management"><EmailCampaignsPage /></ProtectedRoute>} />
 
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" replace />} />

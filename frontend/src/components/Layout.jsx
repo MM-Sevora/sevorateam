@@ -177,6 +177,7 @@ const DEPARTMENT_CONFIG = {
             { path: '/sourcing/manufacturers/pipeline', name: 'Manufacturer Pipeline', icon: Target },
             { path: '/sourcing/samples', name: 'Samples', icon: FlaskConical },
             { path: '/sourcing/discovery', name: 'AI Discovery', icon: Sparkles },
+            { path: '/sourcing/campaigns', name: 'Email Campaigns', icon: Mail },
         ]
     }
 };

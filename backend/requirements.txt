@@ -150,3 +150,5 @@ websockets==16.0
 Werkzeug==3.1.6
 yarl==1.23.0
 zipp==3.23.0
+httpx==0.28.1
+sendgrid==6.12.5
