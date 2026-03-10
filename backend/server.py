@@ -11,6 +11,8 @@ from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone, timedelta
+from dateutil.relativedelta import relativedelta
+from dateutil.parser import parse as parse_date
 import jwt
 import bcrypt
 import httpx
@@ -2710,16 +2712,99 @@ async def get_posts(
 @social_router.post("/posts")
 async def create_post(data: dict, user: dict = Depends(require_department(["social"]))):
     post_id = str(uuid.uuid4())
+    
+    # Handle recurring post settings
+    is_recurring = data.get("is_recurring", False)
+    recurrence_pattern = data.get("recurrence_pattern")  # daily, weekly, monthly, custom
+    recurrence_days = data.get("recurrence_days", [])  # For weekly: [0,1,2,3,4,5,6] (Sun-Sat)
+    recurrence_end_date = data.get("recurrence_end_date")  # When to stop recurring
+    recurrence_count = data.get("recurrence_count")  # Number of occurrences
+    
     post_doc = {
         "id": post_id,
-        **data,
+        "post_id": post_id,  # Alias for consistency
+        **{k: v for k, v in data.items() if not k.startswith("recurrence_") and k != "is_recurring"},
         "status": data.get("status", "draft"),
+        "is_recurring": is_recurring,
+        "recurrence_pattern": recurrence_pattern if is_recurring else None,
+        "recurrence_days": recurrence_days if is_recurring else [],
+        "recurrence_end_date": recurrence_end_date if is_recurring else None,
+        "recurrence_count": recurrence_count if is_recurring else None,
+        "parent_recurring_id": None,  # Will be set for generated instances
         "created_by": user['id'],
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.social_posts.insert_one(post_doc)
+    
+    # If recurring, generate future instances
+    if is_recurring and recurrence_pattern and data.get("scheduled_at"):
+        await generate_recurring_instances(post_doc, db)
+    
     if '_id' in post_doc: del post_doc['_id']
     return post_doc
+
+
+async def generate_recurring_instances(parent_post: dict, database):
+    """Generate future post instances based on recurrence pattern"""
+    try:
+        base_date = parse_date(parent_post.get("scheduled_at"))
+        pattern = parent_post.get("recurrence_pattern")
+        end_date = parse_date(parent_post.get("recurrence_end_date")) if parent_post.get("recurrence_end_date") else None
+        max_count = parent_post.get("recurrence_count") or 12  # Default max 12 instances
+        recurrence_days = parent_post.get("recurrence_days", [])
+        
+        instances = []
+        current_date = base_date
+        count = 0
+        
+        while count < max_count:
+            # Calculate next date based on pattern
+            if pattern == "daily":
+                current_date = current_date + relativedelta(days=1)
+            elif pattern == "weekly":
+                current_date = current_date + relativedelta(weeks=1)
+            elif pattern == "biweekly":
+                current_date = current_date + relativedelta(weeks=2)
+            elif pattern == "monthly":
+                current_date = current_date + relativedelta(months=1)
+            elif pattern == "custom" and recurrence_days:
+                # For custom, find next occurrence on specified days
+                current_date = current_date + relativedelta(days=1)
+                while current_date.weekday() not in recurrence_days:
+                    current_date = current_date + relativedelta(days=1)
+            else:
+                break
+            
+            # Check end conditions
+            if end_date and current_date > end_date:
+                break
+            
+            # Create instance
+            instance_id = str(uuid.uuid4())
+            instance = {
+                "id": instance_id,
+                "post_id": instance_id,
+                "platform": parent_post.get("platform"),
+                "content": parent_post.get("content"),
+                "content_html": parent_post.get("content_html"),
+                "image_url": parent_post.get("image_url"),
+                "campaign_id": parent_post.get("campaign_id"),
+                "scheduled_at": current_date.isoformat(),
+                "status": "scheduled",
+                "is_recurring": False,
+                "parent_recurring_id": parent_post.get("id"),
+                "created_by": parent_post.get("created_by"),
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            instances.append(instance)
+            count += 1
+        
+        if instances:
+            await database.social_posts.insert_many(instances)
+            logger.info(f"Generated {len(instances)} recurring post instances for parent {parent_post.get('id')}")
+    
+    except Exception as e:
+        logger.error(f"Error generating recurring instances: {e}")
 
 @social_router.post("/posts/schedule")
 async def schedule_post(data: dict, user: dict = Depends(require_department(["social"]))):
@@ -2755,6 +2840,110 @@ async def schedule_post(data: dict, user: dict = Depends(require_department(["so
     
     if '_id' in post_doc: del post_doc['_id']
     return post_doc
+
+# ============== RECURRING POST MANAGEMENT ==============
+@social_router.get("/posts/recurring")
+async def get_recurring_posts(user: dict = Depends(require_department(["social"]))):
+    """Get all recurring post templates"""
+    posts = await db.social_posts.find(
+        {"is_recurring": True}, 
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    
+    # For each recurring post, count instances
+    for post in posts:
+        instance_count = await db.social_posts.count_documents({
+            "parent_recurring_id": post.get("id")
+        })
+        post["instance_count"] = instance_count
+    
+    return posts
+
+
+@social_router.get("/posts/recurring/{post_id}/instances")
+async def get_recurring_instances(post_id: str, user: dict = Depends(require_department(["social"]))):
+    """Get all instances of a recurring post"""
+    parent = await db.social_posts.find_one({"id": post_id, "is_recurring": True}, {"_id": 0})
+    if not parent:
+        raise HTTPException(status_code=404, detail="Recurring post not found")
+    
+    instances = await db.social_posts.find(
+        {"parent_recurring_id": post_id},
+        {"_id": 0}
+    ).sort("scheduled_at", 1).to_list(500)
+    
+    return {
+        "parent": parent,
+        "instances": instances,
+        "total": len(instances)
+    }
+
+
+@social_router.put("/posts/recurring/{post_id}")
+async def update_recurring_post(post_id: str, data: dict, user: dict = Depends(require_department(["social"]))):
+    """Update a recurring post and optionally regenerate instances"""
+    parent = await db.social_posts.find_one({"id": post_id, "is_recurring": True})
+    if not parent:
+        raise HTTPException(status_code=404, detail="Recurring post not found")
+    
+    update_future = data.pop("update_future_instances", False)
+    regenerate = data.pop("regenerate_instances", False)
+    
+    # Update parent post
+    data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.social_posts.update_one({"id": post_id}, {"$set": data})
+    
+    if update_future:
+        # Update all future instances with content changes
+        content_updates = {k: v for k, v in data.items() if k in ["content", "content_html", "image_url"]}
+        if content_updates:
+            await db.social_posts.update_many(
+                {
+                    "parent_recurring_id": post_id,
+                    "status": {"$in": ["scheduled", "draft"]}
+                },
+                {"$set": content_updates}
+            )
+    
+    if regenerate:
+        # Delete all future scheduled instances and regenerate
+        await db.social_posts.delete_many({
+            "parent_recurring_id": post_id,
+            "status": {"$in": ["scheduled", "draft"]}
+        })
+        updated_parent = await db.social_posts.find_one({"id": post_id}, {"_id": 0})
+        await generate_recurring_instances(updated_parent, db)
+    
+    updated = await db.social_posts.find_one({"id": post_id}, {"_id": 0})
+    return updated
+
+
+@social_router.delete("/posts/recurring/{post_id}")
+async def delete_recurring_post(post_id: str, delete_instances: bool = False, user: dict = Depends(require_department(["social"]))):
+    """Delete a recurring post and optionally its instances"""
+    parent = await db.social_posts.find_one({"id": post_id, "is_recurring": True})
+    if not parent:
+        raise HTTPException(status_code=404, detail="Recurring post not found")
+    
+    # Delete parent
+    await db.social_posts.delete_one({"id": post_id})
+    
+    deleted_instances = 0
+    if delete_instances:
+        # Delete all instances
+        result = await db.social_posts.delete_many({"parent_recurring_id": post_id})
+        deleted_instances = result.deleted_count
+    else:
+        # Just unlink instances
+        await db.social_posts.update_many(
+            {"parent_recurring_id": post_id},
+            {"$unset": {"parent_recurring_id": ""}}
+        )
+    
+    return {
+        "message": "Recurring post deleted",
+        "instances_deleted": deleted_instances
+    }
 
 # ============== SOCIAL AI TOOLS ==============
 @social_router.post("/ai/caption")

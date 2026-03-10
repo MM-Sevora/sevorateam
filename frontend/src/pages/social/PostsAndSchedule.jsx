@@ -3,7 +3,7 @@ import api from '../../lib/api';
 import {
   FileText, Trash2, Send, Clock, CheckCircle, Calendar as CalIcon,
   ChevronLeft, ChevronRight, Loader2, Heart, MessageSquare, Share2,
-  Plus, X, Image, Globe, List, Grid3X3, CalendarDays, Eye, Upload, AlertTriangle, Info, ExternalLink, Sparkles, Edit3, Check, Users
+  Plus, X, Image, Globe, List, Grid3X3, CalendarDays, Eye, Upload, AlertTriangle, Info, ExternalLink, Sparkles, Edit3, Check, Users, Repeat, RotateCcw
 } from 'lucide-react';
 import { FaFacebook, FaInstagram, FaTwitter, FaLinkedin, FaYoutube } from 'react-icons/fa';
 import { format, startOfWeek, addDays, addWeeks, subWeeks, isToday, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths } from 'date-fns';
@@ -129,6 +129,14 @@ export default function PostsAndSchedule() {
   const [previewTab, setPreviewTab] = useState('compose');
   const [editingPost, setEditingPost] = useState(null); // post being edited
   const [skipApproval, setSkipApproval] = useState(false); // Flexible approval toggle
+  
+  // Recurring post settings
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrencePattern, setRecurrencePattern] = useState('weekly'); // daily, weekly, biweekly, monthly, custom
+  const [recurrenceDays, setRecurrenceDays] = useState([]); // For custom: [0,1,2,3,4,5,6]
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState('');
+  const [recurrenceCount, setRecurrenceCount] = useState(4);
+  
   const fileRef = useRef(null);
 
   const fetchPosts = async () => {
@@ -720,6 +728,114 @@ export default function PostsAndSchedule() {
                         </div>
                       </div>
                     )}
+
+                    {/* Recurring Post Options */}
+                    <div className="bg-[#F5EDE5] rounded-lg p-4 border border-[#E8D5C4] mb-3">
+                      <label className="flex items-center gap-2 text-sm text-[#4A3728] font-medium cursor-pointer mb-3">
+                        <input 
+                          type="checkbox" 
+                          checked={isRecurring} 
+                          onChange={(e) => setIsRecurring(e.target.checked)} 
+                          className="rounded bg-white border-[#D4BBA6] text-rose-500 focus:ring-rose-500/20" 
+                        />
+                        <Repeat className="w-4 h-4 text-rose-500" />
+                        <span>Make this a recurring post</span>
+                      </label>
+                      
+                      {isRecurring && (
+                        <div className="space-y-3 pl-6 border-l-2 border-rose-200">
+                          {/* Recurrence Pattern */}
+                          <div>
+                            <label className="text-xs text-[#5D4A3A] font-medium mb-1.5 block">Repeat</label>
+                            <div className="flex flex-wrap gap-2">
+                              {[
+                                { value: 'daily', label: 'Daily' },
+                                { value: 'weekly', label: 'Weekly' },
+                                { value: 'biweekly', label: 'Every 2 weeks' },
+                                { value: 'monthly', label: 'Monthly' },
+                                { value: 'custom', label: 'Custom days' },
+                              ].map(opt => (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  onClick={() => setRecurrencePattern(opt.value)}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                    recurrencePattern === opt.value
+                                      ? 'bg-rose-500 text-white'
+                                      : 'bg-white text-[#5D4A3A] border border-[#D4BBA6] hover:border-rose-300'
+                                  }`}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          
+                          {/* Custom Days Selection */}
+                          {recurrencePattern === 'custom' && (
+                            <div>
+                              <label className="text-xs text-[#5D4A3A] font-medium mb-1.5 block">Post on these days</label>
+                              <div className="flex gap-1">
+                                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => (
+                                  <button
+                                    key={day}
+                                    type="button"
+                                    onClick={() => {
+                                      setRecurrenceDays(prev => 
+                                        prev.includes(i) ? prev.filter(d => d !== i) : [...prev, i]
+                                      );
+                                    }}
+                                    className={`w-9 h-9 rounded-full text-xs font-medium transition-all ${
+                                      recurrenceDays.includes(i)
+                                        ? 'bg-rose-500 text-white'
+                                        : 'bg-white text-[#5D4A3A] border border-[#D4BBA6] hover:border-rose-300'
+                                    }`}
+                                  >
+                                    {day}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* End Options */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-xs text-[#5D4A3A] font-medium mb-1.5 block">Number of posts</label>
+                              <input
+                                type="number"
+                                min="1"
+                                max="52"
+                                value={recurrenceCount}
+                                onChange={(e) => setRecurrenceCount(parseInt(e.target.value) || 4)}
+                                className="w-full bg-white border border-[#D4BBA6] rounded-lg px-3 py-1.5 text-xs text-[#4A3728]"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-[#5D4A3A] font-medium mb-1.5 block">Or end by date</label>
+                              <input
+                                type="date"
+                                value={recurrenceEndDate}
+                                onChange={(e) => setRecurrenceEndDate(e.target.value)}
+                                className="w-full bg-white border border-[#D4BBA6] rounded-lg px-3 py-1.5 text-xs text-[#4A3728]"
+                              />
+                            </div>
+                          </div>
+                          
+                          {/* Summary */}
+                          <div className="bg-white rounded-lg p-2 text-xs text-[#5D4A3A] flex items-center gap-2">
+                            <RotateCcw className="w-3.5 h-3.5 text-rose-500" />
+                            {recurrencePattern === 'daily' && `Will create ${recurrenceCount} daily posts`}
+                            {recurrencePattern === 'weekly' && `Will post every week (${recurrenceCount} times)`}
+                            {recurrencePattern === 'biweekly' && `Will post every 2 weeks (${recurrenceCount} times)`}
+                            {recurrencePattern === 'monthly' && `Will post every month (${recurrenceCount} times)`}
+                            {recurrencePattern === 'custom' && recurrenceDays.length > 0 && 
+                              `Will post on ${recurrenceDays.map(d => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]).join(', ')} (${recurrenceCount} times)`}
+                            {recurrencePattern === 'custom' && recurrenceDays.length === 0 && 'Select days to post'}
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
                     {/* Approval Options */}
                     <div className="flex items-center gap-4 mb-4 pb-3 border-b border-[#E8D5C4]">
