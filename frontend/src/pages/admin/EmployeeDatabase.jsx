@@ -65,7 +65,9 @@ const EmployeeDatabase = () => {
   // Modal states
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
   const [showOnboardModal, setShowOnboardModal] = useState(false);
+  const [showTerminateDialog, setShowTerminateDialog] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
+  const [terminatingEmployee, setTerminatingEmployee] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [saving, setSaving] = useState(false);
   
@@ -263,6 +265,28 @@ const EmployeeDatabase = () => {
     setSaving(false);
   };
 
+  // Terminate employee
+  const handleTerminateEmployee = async () => {
+    if (!terminatingEmployee) return;
+    
+    setSaving(true);
+    try {
+      await api.delete(`/hr/v2/employees/${terminatingEmployee.id}`);
+      toast.success('Employee terminated successfully');
+      setShowTerminateDialog(false);
+      setTerminatingEmployee(null);
+      fetchEmployees();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to terminate employee');
+    }
+    setSaving(false);
+  };
+
+  const openTerminateDialog = (emp) => {
+    setTerminatingEmployee(emp);
+    setShowTerminateDialog(true);
+  };
+
   const openOnboardModal = (user) => {
     setSelectedUser(user);
     resetOnboardForm();
@@ -337,6 +361,7 @@ const EmployeeDatabase = () => {
               setEditingEmployee(emp);
               setShowEmployeeModal(true);
             }}
+            onTerminateEmployee={openTerminateDialog}
           />
         </TabsContent>
 
@@ -818,6 +843,51 @@ const EmployeeDatabase = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Terminate Employee Confirmation Dialog */}
+      <Dialog open={showTerminateDialog} onOpenChange={setShowTerminateDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-red-600 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              Terminate Employee
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to terminate {terminatingEmployee?.name}? 
+              This will deactivate their employee record and platform access.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+            <p className="text-sm text-red-800">
+              <strong>Warning:</strong> This action will:
+            </p>
+            <ul className="mt-2 text-sm text-red-700 list-disc list-inside space-y-1">
+              <li>Mark employee status as "Terminated"</li>
+              <li>Deactivate their platform access</li>
+              <li>Record today as exit date</li>
+            </ul>
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => { setShowTerminateDialog(false); setTerminatingEmployee(null); }} 
+              className="border-[#E8D5C4]"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleTerminateEmployee}
+              disabled={saving}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Terminate Employee
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
@@ -898,7 +968,7 @@ const OverviewTab = ({ stats, loading, departments }) => {
 };
 
 // Employees Tab Component
-const EmployeesTab = ({ employees, loading, searchQuery, setSearchQuery, filters, setFilters, departments, grades, onRefresh, onEditEmployee }) => {
+const EmployeesTab = ({ employees, loading, searchQuery, setSearchQuery, filters, setFilters, departments, grades, onRefresh, onEditEmployee, onTerminateEmployee }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -979,7 +1049,7 @@ const EmployeesTab = ({ employees, loading, searchQuery, setSearchQuery, filters
             <TableBody>
               {employees.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center py-8 text-[#5D4A3A]">
+                  <TableCell colSpan={12} className="text-center py-8 text-[#5D4A3A]">
                     No employees found
                   </TableCell>
                 </TableRow>
@@ -1072,14 +1142,26 @@ const EmployeesTab = ({ employees, loading, searchQuery, setSearchQuery, filters
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => onEditEmployee(emp)}
-                        className="border-[#E8D5C4] hover:bg-[#F5EDE5]"
-                      >
-                        <Edit2 className="h-4 w-4 mr-1" /> Edit
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => onEditEmployee(emp)}
+                          className="border-[#E8D5C4] hover:bg-[#F5EDE5]"
+                        >
+                          <Edit2 className="h-4 w-4 mr-1" /> Edit
+                        </Button>
+                        {emp.status !== 'terminated' && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => onTerminateEmployee(emp)}
+                            className="border-red-200 text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" /> Remove
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

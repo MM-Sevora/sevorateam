@@ -415,6 +415,136 @@ async def update_user_enhanced(
     return updated
 
 
+@workos_router.delete("/users/{user_id}")
+async def delete_user(user_id: str, current_user: dict = Depends(require_admin())):
+    """Delete a user (soft delete - sets status to deleted)"""
+    db = get_db()
+    
+    existing = await db.users.find_one({"id": user_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Cannot delete yourself
+    if user_id == current_user.get("id"):
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+    
+    # Check if user has direct reports
+    reports_count = await db.users.count_documents({"reports_to": user_id})
+    if reports_count > 0:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot delete user with {reports_count} direct reports. Reassign them first."
+        )
+    
+    # Soft delete - mark as deleted
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {
+            "status": "deleted",
+            "is_active": False,
+            "deleted_at": datetime.now(timezone.utc).isoformat(),
+            "deleted_by": current_user.get("id"),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Also deactivate related employee record if exists
+    await db.employees.update_one(
+        {"user_id": user_id},
+        {"$set": {
+            "status": "terminated",
+            "is_active": False,
+            "exit_reason": "User account deleted",
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {"success": True, "message": "User deleted successfully"}
+
+
+@workos_router.post("/users/bulk/delete")
+async def bulk_delete_users(data: dict, current_user: dict = Depends(require_admin())):
+    """Bulk delete users (soft delete)"""
+    db = get_db()
+    
+    user_ids = data.get("user_ids", [])
+    if not user_ids:
+        raise HTTPException(status_code=400, detail="No user IDs provided")
+    
+    # Cannot delete yourself
+    if current_user.get("id") in user_ids:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+    
+    # Check for direct reports
+    for uid in user_ids:
+        reports_count = await db.users.count_documents({"reports_to": uid})
+        if reports_count > 0:
+            user = await db.users.find_one({"id": uid}, {"name": 1})
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Cannot delete {user.get('name', 'user')} - has {reports_count} direct reports"
+            )
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Soft delete all
+    result = await db.users.update_many(
+        {"id": {"$in": user_ids}},
+        {"$set": {
+            "status": "deleted",
+            "is_active": False,
+            "deleted_at": now,
+            "deleted_by": current_user.get("id"),
+            "updated_at": now
+        }}
+    )
+    
+    # Also deactivate related employee records
+    await db.employees.update_many(
+        {"user_id": {"$in": user_ids}},
+        {"$set": {
+            "status": "terminated",
+            "is_active": False,
+            "exit_reason": "User account deleted",
+            "updated_at": now
+        }}
+    )
+    
+    return {"success": True, "message": f"{result.modified_count} users deleted"}
+
+
+@workos_router.post("/users/bulk/status")
+async def bulk_update_user_status(data: dict, current_user: dict = Depends(require_admin())):
+    """Bulk update user status"""
+    db = get_db()
+    
+    user_ids = data.get("user_ids", [])
+    new_status = data.get("status")
+    
+    if not user_ids:
+        raise HTTPException(status_code=400, detail="No user IDs provided")
+    if not new_status:
+        raise HTTPException(status_code=400, detail="Status is required")
+    if new_status not in ["active", "inactive"]:
+        raise HTTPException(status_code=400, detail="Invalid status. Must be 'active' or 'inactive'")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.users.update_many(
+        {"id": {"$in": user_ids}},
+        {"$set": {"status": new_status, "updated_at": now}}
+    )
+    
+    # Also update employee records
+    emp_status = "active" if new_status == "active" else "inactive"
+    await db.employees.update_many(
+        {"user_id": {"$in": user_ids}},
+        {"$set": {"status": emp_status, "is_active": new_status == "active", "updated_at": now}}
+    )
+    
+    return {"success": True, "message": f"{result.modified_count} users updated to {new_status}"}
+
+
 @workos_router.get("/users/{user_id}/team")
 async def get_user_team(user_id: str, current_user: dict = Depends(get_current_user_dep())):
     """Get a user's team (direct reports and their reports)"""

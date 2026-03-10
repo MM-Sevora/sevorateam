@@ -95,7 +95,7 @@ async def _enrich_employee(db, employee: dict, user: dict = None) -> dict:
             now = datetime.now(timezone.utc)
             years = (now - join_date).days / 365.25
             employee["years_of_service"] = round(years, 1)
-        except:
+        except Exception:
             pass
     
     return employee
@@ -260,7 +260,7 @@ async def create_employee_v2(data: EmployeeCreate, user: dict = Depends(require_
             try:
                 last_num = int(last_emp["employee_code"].split("-")[1])
                 employee_code = f"EMP-{str(last_num + 1).zfill(4)}"
-            except:
+            except Exception:
                 count = await db.employees.count_documents({})
                 employee_code = f"EMP-{str(count + 1).zfill(4)}"
         else:
@@ -364,6 +364,72 @@ async def terminate_employee_v2(
     await db.employees.update_one({"id": employee_id}, {"$set": update_data})
     
     return {"success": True, "message": "Employee terminated"}
+
+
+@hr_v2_router.post("/employees/bulk/delete")
+async def bulk_terminate_employees(data: dict, user: dict = Depends(require_admin())):
+    """Bulk terminate employees"""
+    db = get_db()
+    
+    employee_ids = data.get("employee_ids", [])
+    exit_reason = data.get("exit_reason", "Bulk termination")
+    
+    if not employee_ids:
+        raise HTTPException(status_code=400, detail="No employee IDs provided")
+    
+    # Check for direct reports
+    for emp_id in employee_ids:
+        reports_count = await db.employees.count_documents({"reports_to": emp_id})
+        if reports_count > 0:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Cannot terminate employee - has {reports_count} direct reports. Reassign them first."
+            )
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.employees.update_many(
+        {"id": {"$in": employee_ids}},
+        {"$set": {
+            "status": "terminated",
+            "is_active": False,
+            "exit_date": now.split("T")[0],
+            "exit_reason": exit_reason,
+            "updated_at": now
+        }}
+    )
+    
+    return {"success": True, "message": f"{result.modified_count} employees terminated"}
+
+
+@hr_v2_router.post("/employees/bulk/status")
+async def bulk_update_employee_status(data: dict, user: dict = Depends(require_admin())):
+    """Bulk update employee status"""
+    db = get_db()
+    
+    employee_ids = data.get("employee_ids", [])
+    new_status = data.get("status")
+    
+    if not employee_ids:
+        raise HTTPException(status_code=400, detail="No employee IDs provided")
+    if not new_status:
+        raise HTTPException(status_code=400, detail="Status is required")
+    if new_status not in ["active", "inactive", "on_leave", "probation"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    is_active = new_status in ["active", "on_leave", "probation"]
+    
+    result = await db.employees.update_many(
+        {"id": {"$in": employee_ids}},
+        {"$set": {
+            "status": new_status,
+            "is_active": is_active,
+            "updated_at": now
+        }}
+    )
+    
+    return {"success": True, "message": f"{result.modified_count} employees updated to {new_status}"}
 
 
 # ============== REPORTING STRUCTURE ==============
