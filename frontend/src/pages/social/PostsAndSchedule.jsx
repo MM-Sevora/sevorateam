@@ -3,10 +3,11 @@ import api from '../../lib/api';
 import {
   FileText, Trash2, Send, Clock, CheckCircle, Calendar as CalIcon,
   ChevronLeft, ChevronRight, Loader2, Heart, MessageSquare, Share2,
-  Plus, X, Image, Globe, List, Grid3X3, CalendarDays, Eye, Upload, AlertTriangle, Info, ExternalLink, Sparkles, Edit3, Check
+  Plus, X, Image, Globe, List, Grid3X3, CalendarDays, Eye, Upload, AlertTriangle, Info, ExternalLink, Sparkles, Edit3, Check, Users
 } from 'lucide-react';
 import { FaFacebook, FaInstagram, FaTwitter, FaLinkedin, FaYoutube } from 'react-icons/fa';
 import { format, startOfWeek, addDays, addWeeks, subWeeks, isToday, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths } from 'date-fns';
+import RichTextEditor, { htmlToPlainText } from '../../components/shared/RichTextEditor';
 
 const platforms = [
   { key: 'linkedin', icon: FaLinkedin, color: '#0A66C2', label: 'LinkedIn', maxChars: 3000, optimalChars: '100-300' },
@@ -21,7 +22,22 @@ const statusColors = {
 };
 function formatNum(n) { if (!n) return '0'; if (n >= 1000) return (n/1000).toFixed(1)+'K'; return n.toString(); }
 
-// Platform preview mockups
+// Platform preview mockups - Convert HTML to plain text for preview
+function renderContent(content, maxLength) {
+  if (!content) return '';
+  // If content looks like HTML, extract text
+  if (content.includes('<')) {
+    const doc = new DOMParser().parseFromString(content, 'text/html');
+    // Convert lists to text with bullets
+    doc.querySelectorAll('ul li').forEach(li => { li.textContent = '• ' + li.textContent; });
+    doc.querySelectorAll('ol li').forEach((li, i) => { li.textContent = (i + 1) + '. ' + li.textContent; });
+    doc.querySelectorAll('p, li').forEach(el => { el.textContent = el.textContent + '\n'; });
+    content = doc.body.textContent?.trim() || '';
+  }
+  const trimmed = content.slice(0, maxLength);
+  return trimmed + (content.length > maxLength ? '...' : '');
+}
+
 function LinkedInPreview({ content, image, userName }) {
   return (
     <div className="bg-white rounded-lg overflow-hidden text-black text-xs" data-testid="preview-linkedin">
@@ -29,7 +45,7 @@ function LinkedInPreview({ content, image, userName }) {
         <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm">{userName?.charAt(0) || 'S'}</div>
         <div><p className="font-semibold text-[11px]">{userName || 'Sevora'}</p><p className="text-[9px] text-[#5D4A3A]">Just now</p></div>
       </div>
-      <div className="px-3 pb-2"><p className="text-[11px] leading-relaxed whitespace-pre-wrap">{content?.slice(0, 300) || 'Your LinkedIn post preview...'}{content?.length > 300 ? '...more' : ''}</p></div>
+      <div className="px-3 pb-2"><p className="text-[11px] leading-relaxed whitespace-pre-wrap">{renderContent(content, 300) || 'Your LinkedIn post preview...'}</p></div>
       {image && <img src={image} alt="" className="w-full max-h-48 object-cover" />}
       <div className="px-3 py-2 border-t border-[#E8D5C4] flex gap-4 text-[10px] text-[#5D4A3A]">
         <span>Like</span><span>Comment</span><span>Repost</span><span>Send</span>
@@ -48,7 +64,7 @@ function InstagramPreview({ content, image, userName }) {
       {image ? <img src={image} alt="" className="w-full aspect-square object-cover" /> : <div className="w-full aspect-square bg-[#E8D5C4] flex items-center justify-center text-[#5D4A3A] text-xs"><Image className="w-8 h-8" /><span className="ml-2">Image required</span></div>}
       <div className="p-2.5">
         <div className="flex gap-3 mb-2 text-black"><Heart className="w-4 h-4" /><MessageSquare className="w-4 h-4" /><Send className="w-4 h-4" /></div>
-        <p className="text-[11px] leading-relaxed"><span className="font-semibold">{userName || 'shopsevora'}</span> {content?.slice(0, 125) || 'Your Instagram caption...'}{content?.length > 125 ? '...more' : ''}</p>
+        <p className="text-[11px] leading-relaxed"><span className="font-semibold">{userName || 'shopsevora'}</span> {renderContent(content, 125) || 'Your Instagram caption...'}</p>
       </div>
     </div>
   );
@@ -61,7 +77,7 @@ function FacebookPreview({ content, image, userName }) {
         <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">{userName?.charAt(0) || 'S'}</div>
         <div><p className="font-semibold text-[11px]">{userName || 'Sevora'}</p><p className="text-[9px] text-[#5D4A3A]">Just now · Public</p></div>
       </div>
-      <div className="px-3 pb-2"><p className="text-[11px] leading-relaxed whitespace-pre-wrap">{content?.slice(0, 200) || 'Your Facebook post preview...'}</p></div>
+      <div className="px-3 pb-2"><p className="text-[11px] leading-relaxed whitespace-pre-wrap">{renderContent(content, 200) || 'Your Facebook post preview...'}</p></div>
       {image && <img src={image} alt="" className="w-full max-h-48 object-cover" />}
       <div className="px-3 py-2 border-t border-[#E8D5C4] flex justify-around text-[10px] text-[#5D4A3A]">
         <span>Like</span><span>Comment</span><span>Share</span>
@@ -77,7 +93,7 @@ function TwitterPreview({ content, image, userName }) {
         <div className="w-10 h-10 rounded-full bg-sky-100 flex items-center justify-center text-sky-700 font-bold text-sm flex-shrink-0">{userName?.charAt(0) || 'S'}</div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1"><p className="font-semibold text-[11px]">{userName || 'Sevora'}</p><p className="text-[9px] text-[#5D4A3A]">@sevora · now</p></div>
-          <p className="text-[11px] leading-relaxed mt-0.5 whitespace-pre-wrap">{content?.slice(0, 280) || 'Your tweet...'}</p>
+          <p className="text-[11px] leading-relaxed mt-0.5 whitespace-pre-wrap">{renderContent(content, 280) || 'Your tweet...'}</p>
           {image && <img src={image} alt="" className="w-full max-h-36 object-cover rounded-xl mt-2" />}
           <div className="flex gap-8 mt-2 text-[10px] text-[#5D4A3A]"><MessageSquare className="w-3.5 h-3.5" /><span>Repost</span><Heart className="w-3.5 h-3.5" /><Eye className="w-3.5 h-3.5" /></div>
         </div>
@@ -97,7 +113,8 @@ export default function PostsAndSchedule() {
 
   // Composer
   const [cPlatforms, setCPlatforms] = useState(['linkedin']);
-  const [cContents, setCContents] = useState({}); // per-platform content
+  const [cContents, setCContents] = useState({}); // per-platform content (HTML)
+  const [cPlainTexts, setCPlainTexts] = useState({}); // per-platform plain text for char counting
   const [cImages, setCImages] = useState([]); // multiple images [{url, filename}]
   const [cSchedules, setCSchedules] = useState({}); // per-platform schedule {linkedin: {date, time}, ...}
   const [cDate, setCDate] = useState('');
@@ -111,6 +128,7 @@ export default function PostsAndSchedule() {
   const [publishing, setPublishing] = useState('');
   const [previewTab, setPreviewTab] = useState('compose');
   const [editingPost, setEditingPost] = useState(null); // post being edited
+  const [skipApproval, setSkipApproval] = useState(false); // Flexible approval toggle
   const fileRef = useRef(null);
 
   const fetchPosts = async () => {
@@ -164,20 +182,37 @@ export default function PostsAndSchedule() {
     // Fall back to shared content
     return cContents._shared || '';
   };
-  const setContent = (platform, text) => {
+  const getPlainText = (platform) => {
+    if (cPlainTexts.hasOwnProperty(platform)) {
+      return cPlainTexts[platform];
+    }
+    return cPlainTexts._shared || '';
+  };
+  const setContent = (platform, html, plainText) => {
     setCContents(prev => {
-      const next = { ...prev, [platform]: text };
-      // Also update _shared if this is the first content being set
+      const next = { ...prev, [platform]: html };
       if (prev._shared === undefined) {
-        next._shared = text;
+        next._shared = html;
+      }
+      return next;
+    });
+    setCPlainTexts(prev => {
+      const next = { ...prev, [platform]: plainText };
+      if (prev._shared === undefined) {
+        next._shared = plainText;
       }
       return next;
     });
   };
-  const setSharedContent = (text) => {
+  const setSharedContent = (html, plainText) => {
     setCContents(prev => {
-      const next = { _shared: text };
-      cPlatforms.forEach(p => { if (!prev[p] || prev[p] === prev._shared) next[p] = text; else next[p] = prev[p]; });
+      const next = { _shared: html };
+      cPlatforms.forEach(p => { if (!prev[p] || prev[p] === prev._shared) next[p] = html; else next[p] = prev[p]; });
+      return next;
+    });
+    setCPlainTexts(prev => {
+      const next = { _shared: plainText };
+      cPlatforms.forEach(p => { if (!prev[p] || prev[p] === prev._shared) next[p] = plainText; else next[p] = prev[p]; });
       return next;
     });
   };
@@ -217,30 +252,37 @@ export default function PostsAndSchedule() {
 
   const handleSubmit = async (action) => {
     if (cPlatforms.length === 0) { setCError('Select at least one platform'); return; }
-    const hasContent = cPlatforms.some(p => getContent(p).trim());
+    const hasContent = cPlatforms.some(p => getPlainText(p).trim());
     if (!hasContent) { setCError('Content is required'); return; }
     setCSaving(true); setCError(''); setCResult(null);
+
+    // Convert HTML to plain text for storage (most social platforms don't support HTML)
+    const getPlainContent = (platform) => {
+      const html = getContent(platform);
+      return htmlToPlainText(html);
+    };
 
     if (editingPost) {
       // UPDATE existing post
       try {
         await api.put(`/api/posts/${editingPost.post_id}`, {
-          content: getContent(editingPost.platform),
+          content: getPlainContent(editingPost.platform),
+          content_html: getContent(editingPost.platform), // Store HTML for future editing
           image_url: primaryImage,
           scheduled_at: `${cDate}T${cTime}`,
           status: action === 'post_now' ? 'published' : (action === 'draft' ? 'draft' : 'scheduled'),
         });
         if (action === 'post_now') {
-          const res = await api.post('/api/publish/real', { content: getContent(editingPost.platform), platform: editingPost.platform, image_url: primaryImage });
+          const res = await api.post('/api/publish/real', { content: getPlainContent(editingPost.platform), platform: editingPost.platform, image_url: primaryImage });
           setCResult({ [editingPost.platform]: res.data });
         } else {
           setCResult({ _scheduled: true });
         }
       } catch (err) { setCError(err.response?.data?.detail || 'Update failed'); }
-    } else if (action === 'post_now') {
+    } else if (action === 'post_now' && skipApproval) {
       const results = {};
       for (const p of cPlatforms) {
-        const text = getContent(p);
+        const text = getPlainContent(p);
         if (!text.trim()) continue;
         try {
           const res = await api.post('/api/publish/real', { content: text, platform: p, image_url: primaryImage });
@@ -249,20 +291,34 @@ export default function PostsAndSchedule() {
       }
       setCResult(results);
     } else {
-      // Schedule/Draft - per-platform times
+      // Schedule/Draft - per-platform times (with approval workflow if enabled)
+      const requiresApproval = !skipApproval && action === 'schedule';
+      
       for (const p of cPlatforms) {
-        const text = getContent(p);
+        const text = getPlainContent(p);
         if (!text.trim()) continue;
         const sched = getSchedule(p);
         try {
-          await api.post('/api/posts', {
-            platform: p, content: text, image_url: primaryImage,
+          const postData = {
+            platform: p, 
+            content: text, 
+            content_html: getContent(p),
+            image_url: primaryImage,
             scheduled_at: `${sched.date}T${sched.time}`,
-            status: action === 'draft' ? 'draft' : 'scheduled',
-          });
+            status: action === 'draft' ? 'draft' : (requiresApproval ? 'pending_review' : 'scheduled'),
+          };
+          const postRes = await api.post('/api/posts', postData);
+          
+          // If requires approval, submit for review
+          if (requiresApproval && postRes.data?.post_id) {
+            await api.post('/api/approvals/submit', {
+              post_id: postRes.data.post_id,
+              note: 'Submitted via Posts & Schedule'
+            });
+          }
         } catch (err) { setCError(`Failed for ${p}`); }
       }
-      setCResult({ _scheduled: true });
+      setCResult({ _scheduled: true, _requiresApproval: requiresApproval });
     }
     await fetchPosts();
     setCSaving(false);
@@ -294,7 +350,8 @@ export default function PostsAndSchedule() {
   const filteredPosts = posts.filter(p => !filterPlatform || p.platform === filterPlatform);
   const currentPlatformConfig = platforms.find(p => p.key === previewPlatform) || platforms[0];
   const currentContent = getContent(previewPlatform);
-  const charPercent = Math.min((currentContent.length / currentPlatformConfig.maxChars) * 100, 100);
+  const currentPlainText = getPlainText(previewPlatform);
+  const charPercent = Math.min((currentPlainText.length / currentPlatformConfig.maxChars) * 100, 100);
   const charColor = charPercent > 90 ? '#ef4444' : charPercent > 70 ? '#f59e0b' : '#10b981';
 
   return (
@@ -535,16 +592,18 @@ export default function PostsAndSchedule() {
                             ); })}
                           </div>
                         )}
-                        <textarea value={getContent(previewPlatform)} onChange={(e) => setContent(previewPlatform, e.target.value)}
-                          className="w-full h-48 bg-[#F5EDE5] rounded-xl border border-[#E8D5C4] text-[#4A3728] text-[15px] leading-relaxed placeholder-[#9ca3af] resize-none focus:outline-none focus:border-rose-300 p-4"
+                        <RichTextEditor 
+                          value={getContent(previewPlatform)} 
+                          onChange={(html, plainText) => setContent(previewPlatform, html, plainText)}
                           placeholder="What would you like to share?"
-                          data-testid="composer-textarea"
+                          maxLength={currentPlatformConfig.maxChars}
+                          minHeight="180px"
                         />
                         {/* Char count */}
                         <div className="flex items-center justify-between text-xs mt-2">
                           <div className="flex items-center gap-2">
                             <div className="w-20 h-1.5 rounded-full bg-[#E8D5C4] overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${charPercent}%`, backgroundColor: charColor }} /></div>
-                            <span style={{ color: charColor }} className="font-medium">{currentContent.length}/{currentPlatformConfig.maxChars}</span>
+                            <span style={{ color: charColor }} className="font-medium">{currentPlainText.length}/{currentPlatformConfig.maxChars}</span>
                           </div>
                           <span className="text-[#5D4A3A]">Optimal: {currentPlatformConfig.optimalChars} chars</span>
                         </div>
@@ -662,10 +721,33 @@ export default function PostsAndSchedule() {
                       </div>
                     )}
 
+                    {/* Approval Options */}
+                    <div className="flex items-center gap-4 mb-4 pb-3 border-b border-[#E8D5C4]">
+                      <label className="flex items-center gap-2 text-xs text-[#5D4A3A] cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={skipApproval} 
+                          onChange={(e) => setSkipApproval(e.target.checked)} 
+                          className="rounded bg-white border-[#D4BBA6] text-rose-500 focus:ring-rose-500/20" 
+                        />
+                        <span>Skip team approval</span>
+                      </label>
+                      {!skipApproval && (
+                        <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-lg flex items-center gap-1">
+                          <Users className="w-3 h-3" /> Post will be sent for review before publishing
+                        </span>
+                      )}
+                    </div>
+
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         {cError && <span className="text-xs text-red-500 bg-red-50 px-2 py-1 rounded-lg">{cError}</span>}
-                        {cResult && cResult._scheduled && <span className="text-xs text-green-600 flex items-center gap-1 bg-green-50 px-2 py-1 rounded-lg"><CheckCircle className="w-3.5 h-3.5" /> {editingPost ? 'Updated!' : 'Scheduled!'}</span>}
+                        {cResult && cResult._scheduled && (
+                          <span className={`text-xs flex items-center gap-1 px-2 py-1 rounded-lg ${cResult._requiresApproval ? 'text-amber-600 bg-amber-50' : 'text-green-600 bg-green-50'}`}>
+                            <CheckCircle className="w-3.5 h-3.5" /> 
+                            {editingPost ? 'Updated!' : cResult._requiresApproval ? 'Sent for approval!' : 'Scheduled!'}
+                          </span>
+                        )}
                         {cResult && !cResult._scheduled && Object.entries(cResult).map(([p, r]) => (
                           <span key={p} className={`text-xs flex items-center gap-1 px-2 py-1 rounded-lg ${r.success ? 'text-green-600 bg-green-50' : 'text-red-500 bg-red-50'}`}>
                             {r.success ? <CheckCircle className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />} {p}: {r.success ? 'Done!' : 'Failed'}
@@ -679,11 +761,13 @@ export default function PostsAndSchedule() {
                         <button onClick={() => handleSubmit('schedule')} disabled={cSaving}
                           className="bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium px-4 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 transition-all"
                           data-testid="composer-schedule"
-                        >{cSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clock className="w-4 h-4" />} Schedule</button>
-                        <button onClick={() => handleSubmit('post_now')} disabled={cSaving}
-                          className="bg-rose-500 hover:bg-rose-600 text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 shadow-lg transition-all"
-                          data-testid="composer-publish"
-                        >{cSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Publish Now</button>
+                        >{cSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clock className="w-4 h-4" />} {skipApproval ? 'Schedule' : 'Submit for Review'}</button>
+                        {skipApproval && (
+                          <button onClick={() => handleSubmit('post_now')} disabled={cSaving}
+                            className="bg-rose-500 hover:bg-rose-600 text-white rounded-lg font-medium px-5 py-2.5 text-sm flex items-center gap-2 disabled:opacity-50 shadow-lg transition-all"
+                            data-testid="composer-publish"
+                          >{cSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Publish Now</button>
+                        )}
                       </div>
                     </div>
                   </div>
