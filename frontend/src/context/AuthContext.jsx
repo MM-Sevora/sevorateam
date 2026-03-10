@@ -19,7 +19,11 @@ export const AuthProvider = ({ children }) => {
     const azureLoginProcessed = useRef(false);
     const initAttempted = useRef(false);
 
-    // Department and role management
+    /**
+     * DEPRECATED: Use module-based access instead.
+     * These department mappings are kept for backward compatibility only.
+     * New code should use user.merged_module_access instead.
+     */
     const ROLE_DEPARTMENTS = {
         super_admin: ['marketing', 'sales', 'social', 'mail', 'admin'],
         admin: ['marketing', 'sales', 'social', 'mail', 'admin'],
@@ -29,7 +33,14 @@ export const AuthProvider = ({ children }) => {
         viewer: []
     };
 
-    const getUserDepartments = (role) => ROLE_DEPARTMENTS[role] || [];
+    /**
+     * DEPRECATED: Use hasModuleAccess() instead.
+     * This function is kept for backward compatibility.
+     */
+    const getUserDepartments = (role) => {
+        console.warn('DEPRECATED: getUserDepartments() called. Use merged_module_access instead.');
+        return ROLE_DEPARTMENTS[role] || [];
+    };
 
     // Fetch user profile from backend
     const fetchUserProfile = useCallback(async (authToken) => {
@@ -38,7 +49,8 @@ export const AuthProvider = ({ children }) => {
                 headers: { Authorization: `Bearer ${authToken}` }
             });
             const userData = response.data;
-            userData.departments = getUserDepartments(userData.role);
+            // For backward compatibility, still populate departments
+            userData.departments = userData.departments || getUserDepartments(userData.role);
             // Permissions are now included from backend
             setUser(userData);
             return userData;

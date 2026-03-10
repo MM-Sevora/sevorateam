@@ -1606,32 +1606,35 @@ The Manager Dashboard was already functional with:
   - `admin` → `admin`
   - New: `meetings`, `communication_hub`, `help_support`, `hr`
 
-**Phase 4: Deprecation Warnings Added** ✅
+**Phase 4: Deprecation & Cleanup** ✅
 - `require_department()` logs deprecation warning on each use
 - `ProtectedRoute` warns when `requiredDepartment` is used
 - `hasAccessToDepartment()` marked as deprecated in AuthContext
+- `getUserDepartments()` and `ROLE_DEPARTMENTS` marked as deprecated
+- Sidebar navigation now uses module-based filtering via `hasModuleAccess()`
 
-**Routes Updated in App.js:**
-- `/marketing/*` → `requiredModule="marketing_ops"`
-- `/sales/*` → `requiredModule="project_management"`
-- `/social/*` → `requiredModule="social"`
-- `/mail/*` → `requiredModule="mail"`
-- `/admin/*` → `requiredModule="admin"`
-- `/goals/*`, `/projects/*` → `requiredModule="project_management"`
-- `/meetings/*` → `requiredModule="meetings"`
-- `/teams/*` → `requiredModule="communication_hub"`
-- `/help/*` → `requiredModule="help_support"`
-- `/hr/*` → `requiredModule="hr"`
-- `/settings/automations` → `requiredModule="automations"`
+**Phase 5: Sidebar Navigation Module-Based Filtering** ✅
+- Added `requiredModule` property to each department in `DEPARTMENT_CONFIG`
+- `accessibleDepartments` now filters based on `hasModuleAccess()`
+- Individual routes within departments can have their own `requiredModule`
+- Viewer sees only: Overview, Team Dashboard (no Marketing, Sales, Admin, etc.)
+- Super Admin sees all navigation items
 
 **Files Modified:**
 - `/app/frontend/src/App.js`: All 32 routes migrated to requiredModule
+- `/app/frontend/src/components/Layout.jsx`: 
+  - Added `requiredModule` to DEPARTMENT_CONFIG
+  - Updated `accessibleDepartments` to use `hasModuleAccess()`
+  - Route filtering within departments now respects module access
+- `/app/frontend/src/context/AuthContext.jsx`: Deprecated old functions with warnings
 - `/app/backend/server.py`: Added deprecation logging to require_department()
 
 **Testing:**
-- ✅ Super Admin can access all modules
-- ✅ Viewer blocked from /marketing, /admin, /automations
+- ✅ Super Admin can access all modules and sees full navigation
+- ✅ Viewer blocked from Marketing, Admin, Automations
+- ✅ Viewer sidebar only shows Overview and Team Dashboard
 - ✅ Route protection working correctly
+- ✅ Deprecation warnings logged for old function usage
 
 ### Phase 57: Permission System Fixes (COMPLETE - March 10, 2026)
 

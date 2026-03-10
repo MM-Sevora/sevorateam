@@ -34,6 +34,7 @@ const DEPARTMENT_CONFIG = {
         color: 'from-indigo-600 to-indigo-700',
         bgColor: 'bg-indigo-50',
         textColor: 'text-indigo-700',
+        requiredModule: 'project_management',  // Module-based access
         routes: [
             { path: '/goals', name: 'Dashboard', icon: BarChart3 },
             { path: '/goals/strategic', name: 'Strategic Goals', icon: Flag },
@@ -47,12 +48,13 @@ const DEPARTMENT_CONFIG = {
         color: 'from-violet-600 to-violet-700',
         bgColor: 'bg-violet-50',
         textColor: 'text-violet-700',
+        requiredModule: 'communication_hub',  // Module-based access
         routes: [
-            { path: '/meetings', name: 'Meetings', icon: CalendarDays },
-            { path: '/meetings/new', name: 'Schedule Meeting', icon: Plus },
+            { path: '/meetings', name: 'Meetings', icon: CalendarDays, requiredModule: 'meetings' },
+            { path: '/meetings/new', name: 'Schedule Meeting', icon: Plus, requiredModule: 'meetings' },
             { path: '/teams/calendar', name: 'Teams Calendar', icon: Calendar },
             { path: '/teams/chat', name: 'Teams Chat', icon: MessageSquare },
-            { path: '/mail/inbox', name: 'Inbox', icon: Mail },
+            { path: '/mail/inbox', name: 'Inbox', icon: Mail, requiredModule: 'mail' },
         ]
     },
     projects: {
@@ -61,6 +63,7 @@ const DEPARTMENT_CONFIG = {
         color: 'from-rose-600 to-rose-700',
         bgColor: 'bg-rose-50',
         textColor: 'text-rose-700',
+        requiredModule: 'project_management',  // Module-based access
         routes: [
             { path: '/projects/manager', name: 'Manager Dashboard', icon: BarChart3 },
             { path: '/projects/my-tasks', name: 'My Tasks', icon: ListTodo },
@@ -74,6 +77,7 @@ const DEPARTMENT_CONFIG = {
         color: 'from-amber-700 to-amber-800',
         bgColor: 'bg-amber-50',
         textColor: 'text-amber-800',
+        requiredModule: 'marketing_ops',  // Module-based access
         routes: [
             { path: '/marketing', name: 'Insights & Analytics', icon: BarChart3 },
             { path: '/marketing/influencers', name: 'Influencers', icon: Users },
@@ -91,6 +95,7 @@ const DEPARTMENT_CONFIG = {
         color: 'from-stone-600 to-stone-700',
         bgColor: 'bg-stone-50',
         textColor: 'text-stone-700',
+        requiredModule: 'project_management',  // Sales uses project_management module
         routes: [
             { path: '/sales', name: 'Dashboard', icon: LayoutDashboard },
             { path: '/sales/leads', name: 'Leads', icon: UserPlus },
@@ -108,6 +113,7 @@ const DEPARTMENT_CONFIG = {
         color: 'from-rose-600 to-rose-700',
         bgColor: 'bg-rose-50',
         textColor: 'text-rose-700',
+        requiredModule: 'social',  // Module-based access
         routes: [
             { path: '/social', name: 'Dashboard & Analytics', icon: BarChart3 },
             { path: '/social/studio', name: 'Content Studio', icon: PenTool },
@@ -121,6 +127,7 @@ const DEPARTMENT_CONFIG = {
         color: 'from-slate-600 to-slate-700',
         bgColor: 'bg-slate-50',
         textColor: 'text-slate-700',
+        requiredModule: 'admin',  // Module-based access
         routes: [
             { path: '/admin/users', name: 'User Management', icon: Users },
             { path: '/admin/employees', name: 'Employee Database', icon: Award },
@@ -134,6 +141,7 @@ const DEPARTMENT_CONFIG = {
         color: 'from-emerald-600 to-emerald-700',
         bgColor: 'bg-emerald-50',
         textColor: 'text-emerald-700',
+        requiredModule: 'hr',  // Module-based access
         routes: [
             { path: '/hr/expenses', name: 'Expenses & Reimbursement', icon: DollarSign },
         ]
@@ -177,9 +185,16 @@ export const Layout = ({ children }) => {
         return null;
     };
 
-    const accessibleDepartments = Object.keys(DEPARTMENT_CONFIG).filter(dept => 
-        hasAccessToDepartment(dept)
-    );
+    // Filter accessible departments based on module access (NEW system)
+    const accessibleDepartments = Object.keys(DEPARTMENT_CONFIG).filter(deptKey => {
+        const dept = DEPARTMENT_CONFIG[deptKey];
+        // Use module-based access if requiredModule is defined
+        if (dept.requiredModule) {
+            return hasModuleAccess(dept.requiredModule);
+        }
+        // Fallback to old department-based access (deprecated)
+        return hasAccessToDepartment(deptKey);
+    });
 
     const handleLogout = () => {
         logout();
@@ -310,7 +325,15 @@ export const Layout = ({ children }) => {
                                 {/* Department Routes */}
                                 {sidebarOpen && isExpanded && (
                                     <div className="ml-4 pl-4 border-l border-[#D4BBA6] space-y-1">
-                                        {dept.routes.map(route => {
+                                        {dept.routes
+                                            .filter(route => {
+                                                // Filter routes based on their specific module requirement
+                                                if (route.requiredModule) {
+                                                    return hasModuleAccess(route.requiredModule);
+                                                }
+                                                return true; // Show route if no specific module required
+                                            })
+                                            .map(route => {
                                             const RouteIcon = route.icon;
                                             const isActive = location.pathname === route.path;
                                             return (
