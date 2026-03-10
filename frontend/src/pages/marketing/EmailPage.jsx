@@ -10,7 +10,7 @@ import {
   MailOpen, CheckSquare, Square, StarOff, Bookmark, Eye, EyeOff,
   CornerUpLeft, ArrowLeft, Printer, ExternalLink, MoreHorizontal,
   Loader2, Plus, Check, LogIn, LogOut, User, Bold, Italic, Underline,
-  Link, List, ListOrdered, AlignLeft, CalendarClock
+  Link, List, ListOrdered, AlignLeft, CalendarClock, ListTodo, FolderKanban, Flag, Calendar
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -30,9 +30,12 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from '../../components/ui/dialog';
 import { Textarea } from '../../components/ui/textarea';
 import { Card, CardContent } from '../../components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Label } from '../../components/ui/label';
 import { toast } from 'sonner';
 import { mailRequest } from '../../authConfig';
 import api from '../../lib/api';
@@ -77,6 +80,15 @@ const LABELS = [
 ];
 
 const GRAPH_ENDPOINT = 'https://graph.microsoft.com/v1.0';
+const API = process.env.REACT_APP_BACKEND_URL;
+
+// Helper to strip HTML tags
+const stripHtml = (html) => {
+  if (!html) return '';
+  const txt = document.createElement('textarea');
+  txt.innerHTML = html.replace(/<[^>]*>/g, '');
+  return txt.value;
+};
 
 const EmailPage = () => {
   // URL params for compose from other pages
@@ -167,6 +179,34 @@ const EmailPage = () => {
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
 
+  // Task creation state
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [taskEmail, setTaskEmail] = useState(null);
+  const [projects, setProjects] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [loadingProjects, setLoadingProjects] = useState(false);
+  const [creatingTask, setCreatingTask] = useState(false);
+  const [taskType, setTaskType] = useState('project'); // 'project' or 'personal'
+  const [taskForm, setTaskForm] = useState({
+    name: '',
+    description: '',
+    project_id: '',
+    assignee_id: '',
+    priority: 'medium',
+    due_date: ''
+  });
+
+  // Get current user ID from localStorage
+  const currentUserId = React.useMemo(() => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      return user.id || '';
+    } catch {
+      return '';
+    }
+  }, []);
+
+  const token = localStorage.getItem('sevora_token');
   // Email Templates
   const EMAIL_TEMPLATES = [
     {
@@ -344,6 +384,132 @@ Sevora Team`
       toast.success('Signed out from Microsoft');
     } catch (error) {
       console.error('Logout error:', error);
+    }
+  };
+
+  // Fetch projects for task creation
+  const fetchProjects = async () => {
+    setLoadingProjects(true);
+    try {
+      const res = await fetch(`${API}/api/projects`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProjects(data || []);
+      }
+    } catch (e) {
+      console.error('Failed to fetch projects:', e);
+    } finally {
+      setLoadingProjects(false);
+    }
+  };
+
+  // Fetch employees for task assignment
+  const fetchEmployees = async () => {
+    try {
+      const res = await fetch(`${API}/api/employees`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setEmployees(data || []);
+      }
+    } catch (e) {
+      console.error('Failed to fetch employees:', e);
+    }
+  };
+
+  // Open task creation modal with email content
+  const openTaskModal = (email) => {
+    const subject = email.subject || '(no subject)';
+    const preview = email.bodyPreview || '';
+    const senderName = email.from?.emailAddress?.name || email.from?.emailAddress?.address || 'Unknown';
+    const senderEmail = email.from?.emailAddress?.address || '';
+    
+    setTaskEmail(email);
+    setTaskType('project');
+    setTaskForm({
+      name: subject.substring(0, 100),
+      description: `From email: "${subject}"\nFrom: ${senderName} <${senderEmail}>\n\n${preview}`,
+      project_id: '',
+      assignee_id: '',
+      priority: 'medium',
+      due_date: ''
+    });
+    fetchProjects();
+    fetchEmployees();
+    setShowTaskModal(true);
+  };
+
+  // Create task from email
+  const createTaskFromEmail = async () => {
+    if (!taskForm.name.trim()) {
+      toast.error('Please fill in task name');
+      return;
+    }
+    
+    if (taskType === 'project' && !taskForm.project_id) {
+      toast.error('Please select a project');
+      return;
+    }
+    
+    setCreatingTask(true);
+    try {
+      let endpoint = `${API}/api/projects/tasks`;
+      let body = {
+        name: taskForm.name,
+        description: taskForm.description,
+        priority: taskForm.priority,
+        due_date: taskForm.due_date || null,
+        status: 'todo',
+        source: 'email'
+      };
+
+      // Get actual assignee ID (handle 'self' value)
+      const actualAssigneeId = taskForm.assignee_id === 'self' || !taskForm.assignee_id 
+        ? currentUserId 
+        : taskForm.assignee_id;
+      
+      if (taskType === 'personal') {
+        // Create personal task (My Tasks)
+        endpoint = `${API}/api/projects/my-tasks`;
+        if (actualAssigneeId && actualAssigneeId !== currentUserId) {
+          body.assigned_to = actualAssigneeId;
+        }
+      } else {
+        // Project task
+        body.project_id = taskForm.project_id;
+        if (actualAssigneeId) {
+          body.assigned_to = actualAssigneeId;
+        }
+      }
+      
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+      
+      if (res.ok) {
+        const assigneeName = actualAssigneeId && actualAssigneeId !== currentUserId
+          ? employees.find(e => e.id === actualAssigneeId)?.name || 'team member'
+          : 'yourself';
+        toast.success(`Task created and assigned to ${assigneeName}!`);
+        setShowTaskModal(false);
+        setTaskEmail(null);
+        setTaskForm({ name: '', description: '', project_id: '', assignee_id: '', priority: 'medium', due_date: '' });
+      } else {
+        const error = await res.json();
+        toast.error(error.detail || 'Failed to create task');
+      }
+    } catch (e) {
+      toast.error('Failed to create task');
+    } finally {
+      setCreatingTask(false);
     }
   };
 
@@ -1337,6 +1503,10 @@ Sevora Team`
                           <DropdownMenuItem onClick={() => openCompose('forward', fullEmail)}>
                             <Forward className="h-4 w-4 mr-2" /> Forward
                           </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => openTaskModal(fullEmail)}>
+                            <ListTodo className="h-4 w-4 mr-2" /> Create Task
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -1382,7 +1552,7 @@ Sevora Team`
                   )}
 
                   {/* Reply Actions */}
-                  <div className="mt-8 flex gap-2">
+                  <div className="mt-8 flex gap-2 flex-wrap">
                     <Button
                       variant="outline"
                       onClick={() => openCompose('reply', fullEmail)}
@@ -1396,6 +1566,14 @@ Sevora Team`
                       className="rounded-full"
                     >
                       <Forward className="h-4 w-4 mr-2" /> Forward
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => openTaskModal(fullEmail)}
+                      className="rounded-full border-[#464EB8] text-[#464EB8] hover:bg-[#464EB8]/10"
+                      data-testid="create-task-from-email-btn"
+                    >
+                      <ListTodo className="h-4 w-4 mr-2" /> Create Task
                     </Button>
                   </div>
                 </div>
@@ -1794,6 +1972,215 @@ Sevora Team`
           )}
         </div>
       )}
+
+      {/* Create Task from Email Modal */}
+      <Dialog open={showTaskModal} onOpenChange={setShowTaskModal}>
+        <DialogContent className="bg-white border-[#D4BBA6] max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-[#4A3728] flex items-center gap-2">
+              <ListTodo className="w-5 h-5 text-[#464EB8]" />
+              Create Task from Email
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Task Name */}
+            <div className="space-y-2">
+              <Label className="text-[#4A3728]">Task Name *</Label>
+              <Input
+                value={taskForm.name}
+                onChange={(e) => setTaskForm({ ...taskForm, name: e.target.value })}
+                placeholder="Enter task name"
+                className="border-[#D4BBA6]"
+                data-testid="task-name-input"
+              />
+            </div>
+
+            {/* Task Type Selection */}
+            <div className="space-y-2">
+              <Label className="text-[#4A3728]">Task Type</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={taskType === 'personal' ? 'default' : 'outline'}
+                  onClick={() => setTaskType('personal')}
+                  className={taskType === 'personal' 
+                    ? 'flex-1 bg-gradient-to-r from-[#464EB8] to-[#5B64D4] text-white' 
+                    : 'flex-1 border-[#D4BBA6] text-[#4A3728]'}
+                  data-testid="task-type-personal"
+                >
+                  <User className="w-4 h-4 mr-2" />
+                  My Task
+                </Button>
+                <Button
+                  type="button"
+                  variant={taskType === 'project' ? 'default' : 'outline'}
+                  onClick={() => setTaskType('project')}
+                  className={taskType === 'project' 
+                    ? 'flex-1 bg-gradient-to-r from-[#464EB8] to-[#5B64D4] text-white' 
+                    : 'flex-1 border-[#D4BBA6] text-[#4A3728]'}
+                  data-testid="task-type-project"
+                >
+                  <FolderKanban className="w-4 h-4 mr-2" />
+                  Project Task
+                </Button>
+              </div>
+            </div>
+            
+            {/* Project Selection - Only show for project tasks */}
+            {taskType === 'project' && (
+              <div className="space-y-2">
+                <Label className="text-[#4A3728]">Project *</Label>
+                <Select 
+                  value={taskForm.project_id} 
+                  onValueChange={(value) => setTaskForm({ ...taskForm, project_id: value })}
+                >
+                  <SelectTrigger className="border-[#D4BBA6]" data-testid="task-project-select">
+                    <SelectValue placeholder={loadingProjects ? "Loading projects..." : "Select a project"} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-[#D4BBA6]">
+                    {projects.map(project => (
+                      <SelectItem key={project.id} value={project.id}>
+                        <div className="flex items-center gap-2">
+                          <FolderKanban className="w-4 h-4 text-[#464EB8]" />
+                          {project.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Assignee Selection */}
+            <div className="space-y-2">
+              <Label className="text-[#4A3728]">Assign To</Label>
+              <Select 
+                value={taskForm.assignee_id || 'self'} 
+                onValueChange={(value) => setTaskForm({ ...taskForm, assignee_id: value === 'self' ? currentUserId : value })}
+              >
+                <SelectTrigger className="border-[#D4BBA6]" data-testid="task-assignee-select">
+                  <SelectValue placeholder="Select assignee" />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-[#D4BBA6] max-h-60">
+                  <SelectItem value="self">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#464EB8] to-[#5B64D4] flex items-center justify-center text-white text-xs">
+                        Me
+                      </div>
+                      <span className="font-medium">Myself</span>
+                    </div>
+                  </SelectItem>
+                  {employees.filter(e => e.id !== currentUserId).map(employee => (
+                    <SelectItem key={employee.id} value={employee.id}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-[#E8D5C4] flex items-center justify-center text-[#4A3728] text-xs font-medium">
+                          {employee.name?.charAt(0)?.toUpperCase() || '?'}
+                        </div>
+                        <span>{employee.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {/* Priority */}
+              <div className="space-y-2">
+                <Label className="text-[#4A3728]">Priority</Label>
+                <Select 
+                  value={taskForm.priority} 
+                  onValueChange={(value) => setTaskForm({ ...taskForm, priority: value })}
+                >
+                  <SelectTrigger className="border-[#D4BBA6]" data-testid="task-priority-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-[#D4BBA6]">
+                    <SelectItem value="low">
+                      <div className="flex items-center gap-2">
+                        <Flag className="w-4 h-4 text-gray-400" />
+                        Low
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="medium">
+                      <div className="flex items-center gap-2">
+                        <Flag className="w-4 h-4 text-amber-500" />
+                        Medium
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="high">
+                      <div className="flex items-center gap-2">
+                        <Flag className="w-4 h-4 text-orange-500" />
+                        High
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="urgent">
+                      <div className="flex items-center gap-2">
+                        <Flag className="w-4 h-4 text-red-500" />
+                        Urgent
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Due Date */}
+              <div className="space-y-2">
+                <Label className="text-[#4A3728]">Due Date</Label>
+                <Input
+                  type="date"
+                  value={taskForm.due_date}
+                  onChange={(e) => setTaskForm({ ...taskForm, due_date: e.target.value })}
+                  className="border-[#D4BBA6]"
+                  data-testid="task-due-date-input"
+                />
+              </div>
+            </div>
+            
+            {/* Description */}
+            <div className="space-y-2">
+              <Label className="text-[#4A3728]">Description</Label>
+              <Textarea
+                value={taskForm.description}
+                onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
+                placeholder="Task description"
+                rows={3}
+                className="border-[#D4BBA6] resize-none"
+                data-testid="task-description-input"
+              />
+            </div>
+          </div>
+          
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowTaskModal(false)} 
+              className="border-[#D4BBA6]"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={createTaskFromEmail}
+              disabled={creatingTask || !taskForm.name.trim() || (taskType === 'project' && !taskForm.project_id)}
+              className="bg-gradient-to-r from-[#464EB8] to-[#5B64D4] hover:from-[#3d44a5] hover:to-[#4e56c7] text-white"
+              data-testid="create-task-submit-btn"
+            >
+              {creatingTask ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <ListTodo className="w-4 h-4 mr-2" />
+                  Create Task
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
