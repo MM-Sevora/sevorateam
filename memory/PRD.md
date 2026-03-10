@@ -1410,12 +1410,43 @@ The Manager Dashboard was already functional with:
 - [x] Frontend features verified via Playwright screenshots
 - [x] Day selection correctly schedules next occurrence
 
+### Phase 48k: Consistent UX & @Mentions (COMPLETE - March 10, 2026)
+
+**Consistent Edit/Save/Cancel UX:**
+- [x] Updated Objectives page dropdown with "View Details", "Schedule Meeting", "Edit", "Delete" options
+- [x] Added `onScheduleMeeting` handler to ObjectiveCard component
+- [x] Updated Projects page dropdown with "View Details", "Schedule Meeting", "Edit", "Delete" options
+- [x] Added `onScheduleMeeting` to ProjectCard and ProjectListView components
+- [x] Both modules now navigate to `/meetings/new` with pre-linked entity
+
+**@mentions in Comments:**
+- [x] Installed `tippy.js` for mention dropdown popover
+- [x] Updated `/app/frontend/src/components/ui/rich-text-editor.jsx`:
+  - Added Tiptap Mention extension with suggestion configuration
+  - Created MentionList component for user suggestion dropdown
+  - Added `onMentionsChange` callback prop to track mentioned users
+  - Added `.mention` CSS class for styled mention badges
+  - Shows user avatar, name, and email in suggestion list
+- [x] Updated `/app/frontend/src/pages/projects/TaskDetailModal.jsx`:
+  - Added `mentionedUsers` state tracking
+  - Updated `addComment()` to send `mentions` array to backend
+  - Connected `onMentionsChange` to RichTextEditor
+- [x] Backend already supports mentions with notifications (routes/projects.py lines 2596-2614)
+
+**Testing:**
+- [x] 12/12 backend API tests passed
+- [x] Objectives dropdown verified with all 4 options
+- [x] Projects dropdown verified with all 4 options
+- [x] @mentions UI tested - typing @ shows user suggestions
+- [x] Comment with mentions successfully created via API
+
 ### P1 - Upcoming Tasks
-- [ ] Apply consistent Edit/Save/Cancel UX to other pages
 - [ ] Complete `server.py` route extraction
+- [ ] Quick Meeting Card Actions (Duplicate, Reschedule)
+- [ ] Bulk Actions for Meetings
 
 ### P2 - Future Tasks
-- [ ] `@mentions` in comments
+- [ ] Gantt Chart View for projects
 
 ### P3 - Backlog
 - [ ] Gantt Chart View for projects
