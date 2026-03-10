@@ -194,9 +194,9 @@ const DEPARTMENT_CONFIG = {
                 children: [
                     { path: '/sourcing/manufacturers', name: 'Database', icon: Database },
                     { path: '/sourcing/manufacturers/pipeline', name: 'Pipeline', icon: Target },
+                    { path: '/sourcing/samples', name: 'Samples', icon: FlaskConical },
                 ]
             },
-            { path: '/sourcing/samples', name: 'Samples', icon: FlaskConical },
             { path: '/sourcing/discovery', name: 'AI Discovery', icon: Sparkles },
             { path: '/sourcing/campaigns', name: 'Email Campaigns', icon: Mail },
         ]

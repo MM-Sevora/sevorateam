@@ -217,7 +217,7 @@ const SuppliersPage = () => {
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild><Button variant="ghost" size="sm"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem><Eye className="h-4 w-4 mr-2" /> View</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => navigate(`/sourcing/suppliers/${s.id}`)}><Eye className="h-4 w-4 mr-2" /> View</DropdownMenuItem>
                         <DropdownMenuItem><Edit2 className="h-4 w-4 mr-2" /> Edit</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleDeleteSupplier(s.id)} className="text-red-600"><Trash2 className="h-4 w-4 mr-2" /> Delete</DropdownMenuItem>
                       </DropdownMenuContent>
