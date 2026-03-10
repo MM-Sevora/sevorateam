@@ -2841,6 +2841,65 @@ async def schedule_post(data: dict, user: dict = Depends(require_department(["so
     if '_id' in post_doc: del post_doc['_id']
     return post_doc
 
+
+@social_router.put("/posts/{post_id}")
+async def update_post(post_id: str, data: dict, user: dict = Depends(require_department(["social"]))):
+    """Update an existing social post"""
+    existing = await db.social_posts.find_one({"post_id": post_id})
+    if not existing:
+        # Try with 'id' field as well
+        existing = await db.social_posts.find_one({"id": post_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    # Build update data
+    update_data = {k: v for k, v in data.items() if k not in ['id', 'post_id', '_id', 'created_by', 'created_at']}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    update_data["updated_by"] = user['id']
+    
+    await db.social_posts.update_one(
+        {"$or": [{"post_id": post_id}, {"id": post_id}]},
+        {"$set": update_data}
+    )
+    
+    updated = await db.social_posts.find_one({"$or": [{"post_id": post_id}, {"id": post_id}]}, {"_id": 0})
+    return updated
+
+
+@social_router.delete("/posts/{post_id}")
+async def delete_post(post_id: str, user: dict = Depends(require_department(["social"]))):
+    """Delete a social post"""
+    existing = await db.social_posts.find_one({"$or": [{"post_id": post_id}, {"id": post_id}]})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    result = await db.social_posts.delete_one({"$or": [{"post_id": post_id}, {"id": post_id}]})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    return {"message": "Post deleted successfully", "post_id": post_id}
+
+
+@social_router.post("/posts/{post_id}/publish")
+async def publish_post(post_id: str, user: dict = Depends(require_department(["social"]))):
+    """Manually publish a scheduled post"""
+    existing = await db.social_posts.find_one({"$or": [{"post_id": post_id}, {"id": post_id}]})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    await db.social_posts.update_one(
+        {"$or": [{"post_id": post_id}, {"id": post_id}]},
+        {"$set": {
+            "status": "published",
+            "published_at": datetime.now(timezone.utc).isoformat(),
+            "published_by": user['id']
+        }}
+    )
+    
+    updated = await db.social_posts.find_one({"$or": [{"post_id": post_id}, {"id": post_id}]}, {"_id": 0})
+    return updated
+
 # ============== RECURRING POST MANAGEMENT ==============
 @social_router.get("/posts/recurring")
 async def get_recurring_posts(user: dict = Depends(require_department(["social"]))):

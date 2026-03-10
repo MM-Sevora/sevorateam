@@ -141,7 +141,7 @@ export default function PostsAndSchedule() {
 
   const fetchPosts = async () => {
     setLoading(true);
-    try { const res = await api.get('/api/posts'); setPosts(res.data); }
+    try { const res = await api.get('/api/social/posts'); setPosts(res.data); }
     catch (err) { console.error(err); }
     finally { setLoading(false); }
   };
@@ -273,7 +273,7 @@ export default function PostsAndSchedule() {
     if (editingPost) {
       // UPDATE existing post
       try {
-        await api.put(`/api/posts/${editingPost.post_id}`, {
+        await api.put(`/api/social/posts/${editingPost.post_id}`, {
           content: getPlainContent(editingPost.platform),
           content_html: getContent(editingPost.platform), // Store HTML for future editing
           image_url: primaryImage,
@@ -314,8 +314,14 @@ export default function PostsAndSchedule() {
             image_url: primaryImage,
             scheduled_at: `${sched.date}T${sched.time}`,
             status: action === 'draft' ? 'draft' : (requiresApproval ? 'pending_review' : 'scheduled'),
+            // Recurring post settings
+            is_recurring: isRecurring,
+            recurrence_pattern: isRecurring ? recurrencePattern : null,
+            recurrence_days: isRecurring && recurrencePattern === 'custom' ? recurrenceDays : [],
+            recurrence_end_date: isRecurring && recurrenceEndDate ? recurrenceEndDate : null,
+            recurrence_count: isRecurring ? recurrenceCount : null,
           };
-          const postRes = await api.post('/api/posts', postData);
+          const postRes = await api.post('/api/social/posts', postData);
           
           // If requires approval, submit for review
           if (requiresApproval && postRes.data?.post_id) {
@@ -334,7 +340,7 @@ export default function PostsAndSchedule() {
 
   const handleDeletePost = async (postId) => {
     if (!window.confirm('Delete?')) return;
-    try { await api.delete(`/api/posts/${postId}`); setPosts(prev => prev.filter(p => p.post_id !== postId)); setSelectedPost(null); } catch (err) { console.error(err); }
+    try { await api.delete(`/api/social/posts/${postId}`); setPosts(prev => prev.filter(p => p.post_id !== postId)); setSelectedPost(null); } catch (err) { console.error(err); }
   };
 
   const handlePublishPost = async (post) => {
@@ -342,8 +348,8 @@ export default function PostsAndSchedule() {
     try {
       if (['linkedin', 'facebook', 'instagram'].includes(post.platform)) {
         const res = await api.post('/api/publish/real', { content: post.content, platform: post.platform, image_url: post.image_url || '' });
-        if (res.data.success) await api.put(`/api/posts/${post.post_id}`, { status: 'published' });
-      } else { await api.post(`/api/posts/${post.post_id}/publish`); }
+        if (res.data.success) await api.put(`/api/social/posts/${post.post_id}`, { status: 'published' });
+      } else { await api.post(`/api/social/posts/${post.post_id}/publish`); }
       await fetchPosts(); setSelectedPost(null);
     } catch (err) { console.error(err); }
     finally { setPublishing(''); }
