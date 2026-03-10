@@ -4893,6 +4893,44 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ============= Website Settings Router =============
+settings_router = APIRouter(prefix="/settings")
+
+@settings_router.get("/website")
+async def get_website_settings(user: dict = Depends(require_module_access(["admin"]))):
+    """Get website settings"""
+    settings = await db.website_settings.find_one({"type": "global"}, {"_id": 0})
+    if not settings:
+        return {"settings": None, "is_default": True}
+    return {"settings": settings.get("settings", {}), "is_default": False}
+
+@settings_router.put("/website")
+async def update_website_settings(data: dict, user: dict = Depends(require_module_access(["admin"]))):
+    """Update website settings"""
+    # Only admins can update settings
+    if user.get('role') not in ['super_admin', 'admin'] and not user.get('can_manage_roles'):
+        raise HTTPException(status_code=403, detail="Only admins can update website settings")
+    
+    settings = data.get("settings", {})
+    
+    await db.website_settings.update_one(
+        {"type": "global"},
+        {
+            "$set": {
+                "settings": settings,
+                "updated_by": user['id'],
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        },
+        upsert=True
+    )
+    
+    return {"success": True, "message": "Website settings updated"}
+
+# Register settings router
+app.include_router(settings_router, prefix="/api")
+logger.info("Website settings routes loaded successfully")
+
 # Register automation router (after it's defined)
 app.include_router(automation_router, prefix="/api")
 logger.info("Automation routes loaded successfully")

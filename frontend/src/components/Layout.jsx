@@ -10,7 +10,7 @@ import {
     UserPlus, ShoppingBag, Calendar, QrCode, Building2, Settings,
     PenTool, Sparkles, Zap, Clock, Youtube, Image, LogOut, Menu, X,
     ChevronDown, ChevronRight, Briefcase, Mail, Check, Send, ListTodo, FolderKanban,
-    HelpCircle, Award, Network, Shield, Flag, CalendarDays, RefreshCw, Plus
+    HelpCircle, Award, Network, Shield, Flag, CalendarDays, RefreshCw, Plus, Globe
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -133,6 +133,7 @@ const DEPARTMENT_CONFIG = {
             { path: '/admin/employees', name: 'Employee Database', icon: Award },
             { path: '/admin/access-control', name: 'Permissions', icon: Shield },
             { path: '/admin/organization', name: 'Organization', icon: Building2 },
+            { path: '/admin/website-settings', name: 'Website Settings', icon: Globe },
         ]
     },
     hr: {

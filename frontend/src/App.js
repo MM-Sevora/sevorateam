@@ -58,6 +58,7 @@ import OrganizationManagement from "./pages/admin/OrganizationManagement";
 import TeamDashboard from "./pages/admin/TeamDashboard";
 import EmployeeDatabase from "./pages/admin/EmployeeDatabase";
 import AccessControlPage from "./pages/admin/AccessControlPage";
+import WebsiteSettings from "./pages/admin/WebsiteSettings";
 
 // Settings Pages
 import AutomationSettings from "./pages/settings/AutomationSettings";
@@ -371,6 +372,7 @@ function AppRoutes() {
             <Route path="/admin/organization" element={<ProtectedRoute requiredModule="admin"><OrganizationManagement /></ProtectedRoute>} />
             {/* /admin/org-structure merged into /admin/organization */}
             <Route path="/admin/org-structure" element={<Navigate to="/admin/organization" replace />} />
+            <Route path="/admin/website-settings" element={<ProtectedRoute requiredModule="admin"><WebsiteSettings /></ProtectedRoute>} />
             <Route path="/admin/team" element={<ProtectedRoute><TeamDashboard /></ProtectedRoute>} />
 
             {/* Settings Routes */}
