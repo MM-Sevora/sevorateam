@@ -1891,6 +1891,39 @@ The Manager Dashboard was already functional with:
 - [x] **Sidebar Integration**: "Buying & Sourcing" section added
 - [x] **Database Collections**: `sourcing_brands`, `sourcing_suppliers`, `sourcing_manufacturers`, `sourcing_samples`, `sourcing_contacts`, `sourcing_brand_notes`, `sourcing_templates`, `sourcing_activity_logs`
 
+### AI Brand Discovery & Email Campaigns (COMPLETE - March 10, 2026)
+- [x] **AI Brand Discovery** (`/sourcing/discovery`):
+  - Backend service using OpenAI GPT-4o via emergentintegrations
+  - Google Custom Search API integration (with AI-only fallback)
+  - Discovery criteria: Category, Subcategories, Segment, City, Count
+  - AI analyzes and scores brands based on fit criteria
+  - Discovered brands auto-saved to database
+  - Discovery job history with status tracking
+  - Service status indicator (AI Service Ready)
+- [x] **Email Campaigns** (`/sourcing/campaigns`):
+  - SendGrid integration for email delivery
+  - Single email sending with template support
+  - Bulk campaign creation with brand selection
+  - Campaign stats tracking (sent, opened, replied)
+  - Outreach logs per brand
+  - Email templates management
+  - Follow-up scheduling (planned)
+- [x] **Backend Services**:
+  - `/app/backend/services/brand_discovery_service.py` - AI discovery logic
+  - `/app/backend/services/email_service.py` - SendGrid integration
+  - `/app/backend/routes/sourcing/discovery.py` - Discovery endpoints
+  - `/app/backend/routes/sourcing/campaigns.py` - Campaign endpoints
+- [x] **API Endpoints**:
+  - `GET /api/sourcing/discovery/status` - Service status
+  - `GET /api/sourcing/discovery/options` - Categories, cities, segments
+  - `GET /api/sourcing/discovery/history` - Discovery job history
+  - `POST /api/sourcing/discovery/run-now` - Run AI discovery
+  - `GET /api/sourcing/campaigns/status` - Email service status
+  - `GET /api/sourcing/campaigns` - List campaigns
+  - `POST /api/sourcing/campaigns/send-single` - Send single email
+  - `POST /api/sourcing/campaigns/send-bulk` - Send bulk campaign
+- [x] **Testing**: 19/19 backend tests passed, all frontend features verified
+
 ### Admin Bug Fixes (COMPLETE - March 10, 2026)
 - [x] **User Delete**: Fixed "Method Not Allowed" error
   - Added `DELETE /api/workos/users/{user_id}` endpoint
