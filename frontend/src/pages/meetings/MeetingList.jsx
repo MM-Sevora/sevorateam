@@ -4,7 +4,8 @@ import {
   Calendar, Plus, Search, Filter, Clock, Users, MapPin, Video,
   ChevronLeft, ChevronRight, MoreVertical, Edit, Trash2, Play,
   CheckCircle2, AlertCircle, Target, Folder, Building2, RefreshCw,
-  FileText, ListTodo, BarChart3, Link2, Unlink, ExternalLink, XCircle
+  FileText, ListTodo, BarChart3, Link2, Unlink, ExternalLink, XCircle,
+  SkipForward
 } from 'lucide-react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -79,11 +80,12 @@ const statusColors = {
   in_progress: 'bg-amber-100 text-amber-700',
   completed: 'bg-emerald-100 text-emerald-700',
   cancelled: 'bg-red-100 text-red-700',
-  postponed: 'bg-slate-100 text-slate-700'
+  postponed: 'bg-slate-100 text-slate-700',
+  skipped: 'bg-purple-100 text-purple-700'
 };
 
 // ============== MEETING CARD ==============
-const MeetingCard = ({ meeting, onClick, onEdit, onDelete, onStart, onCancel }) => {
+const MeetingCard = ({ meeting, onClick, onEdit, onDelete, onStart, onCancel, onSkip }) => {
   const formatTime = (dateStr) => {
     if (!dateStr) return '';
     return new Date(dateStr).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -129,6 +131,12 @@ const MeetingCard = ({ meeting, onClick, onEdit, onDelete, onStart, onCancel }) 
                   <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onStart(meeting); }} className="cursor-pointer text-emerald-600">
                     <Play className="w-4 h-4 mr-2" /> Start Meeting
                   </DropdownMenuItem>
+                  {/* Skip option - only for recurring meetings */}
+                  {meeting.recurrence_type && meeting.recurrence_type !== 'none' && (
+                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onSkip(meeting); }} className="cursor-pointer text-blue-600">
+                      <SkipForward className="w-4 h-4 mr-2" /> Skip This Week
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onCancel(meeting); }} className="cursor-pointer text-amber-600">
                     <XCircle className="w-4 h-4 mr-2" /> Cancel Meeting
                   </DropdownMenuItem>
@@ -474,6 +482,32 @@ const MeetingList = () => {
     }
   };
 
+  const handleSkip = async (meeting) => {
+    if (!window.confirm(`Skip "${meeting.title}"? The next occurrence will be created automatically.`)) return;
+    
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/meetings/${meeting.id}/skip`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (res.ok) {
+        const result = await res.json();
+        toast.success('Meeting skipped');
+        if (result.next_recurring_meeting_id) {
+          toast.info('Next occurrence created');
+        }
+        fetchMeetings();
+      } else {
+        const error = await res.json();
+        toast.error(error.detail || 'Failed to skip meeting');
+      }
+    } catch (error) {
+      toast.error('Error skipping meeting');
+    }
+  };
+
   const handleCalendarEventClick = (info) => {
     navigate(`/meetings/${info.event.id}`);
   };
@@ -672,6 +706,7 @@ const MeetingList = () => {
                   onDelete={handleDelete}
                   onStart={handleStart}
                   onCancel={handleCancel}
+                  onSkip={handleSkip}
                 />
               ))}
             </div>
@@ -706,6 +741,7 @@ const MeetingList = () => {
                   onDelete={handleDelete}
                   onStart={handleStart}
                   onCancel={handleCancel}
+                  onSkip={handleSkip}
                 />
               ))}
             </div>

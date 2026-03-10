@@ -6,7 +6,7 @@ import {
   Play, CheckCircle2, AlertCircle, Edit, MoreVertical, MessageSquare,
   ListTodo, RefreshCw, ChevronRight, ExternalLink, Copy, Check,
   PauseCircle, XCircle, ArrowRight, Zap, Scale, ShieldAlert, TrendingUp,
-  CloudUpload, Unlink
+  CloudUpload, Unlink, SkipForward
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -256,6 +256,37 @@ const MeetingDetail = () => {
       }
     } catch (error) {
       toast.error('Error cancelling meeting');
+    }
+  };
+
+  const handleSkipMeeting = async () => {
+    if (!window.confirm('Skip this meeting? The next occurrence will be created automatically.')) return;
+    
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/meetings/${meetingId}/skip`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (res.ok) {
+        const result = await res.json();
+        toast.success('Meeting skipped');
+        if (result.next_recurring_meeting_id) {
+          toast.info('Next occurrence created', {
+            action: {
+              label: 'View',
+              onClick: () => navigate(`/meetings/${result.next_recurring_meeting_id}`)
+            }
+          });
+        }
+        fetchMeeting();
+      } else {
+        const error = await res.json();
+        toast.error(error.detail || 'Failed to skip meeting');
+      }
+    } catch (error) {
+      toast.error('Error skipping meeting');
     }
   };
 
@@ -829,6 +860,13 @@ const MeetingDetail = () => {
                 <Play className="w-4 h-4 mr-2" />
                 Start Meeting
               </Button>
+              {/* Skip button - only for recurring meetings */}
+              {meeting.recurrence_type && meeting.recurrence_type !== 'none' && (
+                <Button onClick={handleSkipMeeting} variant="outline" className="border-amber-300 text-amber-600 hover:bg-amber-50">
+                  <SkipForward className="w-4 h-4 mr-2" />
+                  Skip
+                </Button>
+              )}
               <Button onClick={handleCancelMeeting} variant="outline" className="border-red-300 text-red-600 hover:bg-red-50">
                 <XCircle className="w-4 h-4 mr-2" />
                 Cancel
@@ -2356,6 +2394,7 @@ const MeetingDetail = () => {
                       <Badge variant="outline" className={
                         m.status === 'completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                         m.status === 'cancelled' ? 'bg-red-50 text-red-700 border-red-200' :
+                        m.status === 'skipped' ? 'bg-purple-50 text-purple-700 border-purple-200' :
                         m.status === 'in_progress' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                         'bg-amber-50 text-amber-700 border-amber-200'
                       }>

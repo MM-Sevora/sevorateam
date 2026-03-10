@@ -1358,6 +1358,52 @@ async def complete_meeting(
     }
 
 
+@router.post("/{meeting_id}/skip")
+async def skip_meeting(
+    meeting_id: str,
+    reason: Optional[str] = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Skip a recurring meeting occurrence and create the next one
+    
+    This is different from cancel - skip keeps the series going by 
+    automatically creating the next occurrence.
+    """
+    meeting = await db.meetings.find_one({"id": meeting_id}, {"_id": 0})
+    
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    
+    # Can only skip scheduled or postponed meetings
+    if meeting.get("status") not in ["scheduled", "postponed"]:
+        raise HTTPException(status_code=400, detail="Can only skip scheduled or postponed meetings")
+    
+    # Can only skip recurring meetings
+    if not meeting.get("recurrence_type") or meeting.get("recurrence_type") == RecurrenceType.NONE.value:
+        raise HTTPException(status_code=400, detail="Can only skip recurring meetings. Use cancel for non-recurring meetings.")
+    
+    # Update status to skipped
+    await db.meetings.update_one(
+        {"id": meeting_id},
+        {"$set": {
+            "status": MeetingStatus.SKIPPED.value,
+            "skip_reason": reason,
+            "skipped_by": user.get("id"),
+            "skipped_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Create the next occurrence automatically
+    next_meeting_id = await create_next_recurring_meeting(meeting)
+    
+    return {
+        "message": "Meeting skipped",
+        "skip_reason": reason,
+        "next_recurring_meeting_id": next_meeting_id
+    }
+
+
 async def create_next_recurring_meeting(meeting: dict) -> Optional[str]:
     """Create the next occurrence of a recurring meeting"""
     recurrence_type = meeting.get("recurrence_type")

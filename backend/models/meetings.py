@@ -43,6 +43,7 @@ class MeetingStatus(str, Enum):
     COMPLETED = "completed"
     CANCELLED = "cancelled"
     POSTPONED = "postponed"
+    SKIPPED = "skipped"
 
 
 class MeetingVisibility(str, Enum):
