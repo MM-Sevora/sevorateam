@@ -12,7 +12,7 @@ import {
     ChevronDown, ChevronRight, Briefcase, Mail, Check, Send, ListTodo, FolderKanban,
     HelpCircle, Award, Network, Shield, Flag, CalendarDays, RefreshCw, Plus, Globe,
     TrendingUp, PieChart, Activity, FileText, Package, Factory, FlaskConical, Search, Database,
-    Server, Plug
+    Server, Plug, Bell
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -145,9 +145,8 @@ const DEPARTMENT_CONFIG = {
         routes: [
             { path: '/admin/users', name: 'User Management', icon: Users },
             { path: '/admin/employees', name: 'Employee Database', icon: Award },
-            { path: '/admin/access-control', name: 'Permissions', icon: Shield },
             { path: '/admin/organization', name: 'Organization', icon: Building2 },
-            { path: '/admin/website-settings', name: 'Website Settings', icon: Globe },
+            { path: '/admin/access-control', name: 'Permissions', icon: Shield },
         ]
     },
     hr: {
@@ -215,7 +214,9 @@ const DEPARTMENT_CONFIG = {
             { path: '/systems', name: 'Overview', icon: LayoutDashboard },
             { path: '/systems/integrations', name: 'Integrations', icon: Plug },
             { path: '/systems/config', name: 'Configuration', icon: Settings },
-            { path: '/admin/access-control', name: 'Permissions', icon: Shield },
+            { path: '/settings/automations', name: 'Automations', icon: Zap },
+            { path: '/notifications', name: 'Notifications', icon: Bell },
+            { path: '/admin/website-settings', name: 'Website Settings', icon: Globe },
         ]
     }
 };
@@ -492,23 +493,7 @@ export const Layout = ({ children }) => {
                         );
                     })}
 
-                    {/* Settings Section */}
-                    <div className="mt-4 pt-4 border-t border-[#D4BBA6]">
-                        {/* Only show Automations link if user has access */}
-                        {(hasModuleAccess('automations') || hasModuleAccess('admin') || user?.role === 'super_admin') && (
-                            <Link
-                                to="/settings/automations"
-                                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
-                                    location.pathname.startsWith('/settings')
-                                        ? 'bg-[#E8D5C4] text-[#4A3728] font-medium'
-                                        : 'text-[#5D4A3A] hover:bg-[#E8D5C4]/50'
-                                }`}
-                            >
-                                <Zap className="w-5 h-5" />
-                                {sidebarOpen && <span className="font-semibold">Automations</span>}
-                            </Link>
-                        )}
-                    </div>
+                    {/* Removed standalone Automations - now under Systems module */}
                 </nav>
 
                 {/* User Section */}
