@@ -399,19 +399,24 @@ export default function TeamsChat() {
         status: 'todo',
         source: 'teams_chat'
       };
+
+      // Get actual assignee ID (handle 'self' value)
+      const actualAssigneeId = taskForm.assignee_id === 'self' || !taskForm.assignee_id 
+        ? currentUserId 
+        : taskForm.assignee_id;
       
       if (taskType === 'personal') {
         // Create personal task (My Tasks)
         endpoint = `${API}/api/projects/my-tasks`;
-        if (taskForm.assignee_id && taskForm.assignee_id !== currentUserId) {
-          // If assigning to someone else, use assigned tasks endpoint
-          body.assigned_to = taskForm.assignee_id;
+        if (actualAssigneeId && actualAssigneeId !== currentUserId) {
+          // If assigning to someone else
+          body.assigned_to = actualAssigneeId;
         }
       } else {
         // Project task
         body.project_id = taskForm.project_id;
-        if (taskForm.assignee_id) {
-          body.assigned_to = taskForm.assignee_id;
+        if (actualAssigneeId) {
+          body.assigned_to = actualAssigneeId;
         }
       }
       
@@ -425,8 +430,8 @@ export default function TeamsChat() {
       });
       
       if (res.ok) {
-        const assigneeName = taskForm.assignee_id 
-          ? employees.find(e => e.id === taskForm.assignee_id)?.name || 'team member'
+        const assigneeName = actualAssigneeId && actualAssigneeId !== currentUserId
+          ? employees.find(e => e.id === actualAssigneeId)?.name || 'team member'
           : 'yourself';
         toast.success(`Task created and assigned to ${assigneeName}!`);
         setShowTaskModal(false);
@@ -1065,14 +1070,14 @@ export default function TeamsChat() {
             <div className="space-y-2">
               <Label className="text-[#4A3728]">Assign To</Label>
               <Select 
-                value={taskForm.assignee_id || currentUserId} 
-                onValueChange={(value) => setTaskForm({ ...taskForm, assignee_id: value })}
+                value={taskForm.assignee_id || 'self'} 
+                onValueChange={(value) => setTaskForm({ ...taskForm, assignee_id: value === 'self' ? currentUserId : value })}
               >
                 <SelectTrigger className="border-[#D4BBA6]">
                   <SelectValue placeholder="Select assignee" />
                 </SelectTrigger>
                 <SelectContent className="bg-white border-[#D4BBA6] max-h-60">
-                  <SelectItem value={currentUserId}>
+                  <SelectItem value="self">
                     <div className="flex items-center gap-2">
                       <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#464EB8] to-[#5B64D4] flex items-center justify-center text-white text-xs">
                         Me

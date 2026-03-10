@@ -800,6 +800,61 @@ async def get_my_tasks(
     )
 
 
+@router.post("/my-tasks", response_model=TaskResponse)
+async def create_personal_task(
+    data: TaskCreate,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Create a personal task (not linked to a project)"""
+    task_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    user_id = user["id"]
+    
+    # Determine assignee
+    assignee_id = data.assigned_to if data.assigned_to else user_id
+    
+    task_doc = {
+        "id": task_id,
+        "name": data.name,
+        "description": data.description or "",
+        "status": TaskStatus.ASSIGNED.value,
+        "priority": data.priority.value if data.priority else Priority.MEDIUM.value,
+        "project_id": None,  # No project - personal task
+        "is_individual": True,
+        "parent_task_id": data.parent_task_id,
+        "assigned_to": assignee_id,
+        "created_by": user_id,
+        "due_date": data.due_date,
+        "start_date": None,
+        "estimated_hours": data.estimated_hours,
+        "tags": data.tags or [],
+        "attachments": [],
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.pm_tasks.insert_one(task_doc)
+    
+    # If assigning to someone else, create notification
+    if assignee_id != user_id:
+        await create_notification(
+            user_id=assignee_id,
+            notification_type="task_assigned",
+            title="New Task Assigned",
+            message=f"You have been assigned a task: {data.name}",
+            reference_id=task_id,
+            reference_type="task",
+            action_url=f"/projects/my-tasks?task={task_id}",
+            metadata={
+                "task_id": task_id,
+                "task_name": data.name,
+                "assigned_by": user["name"]
+            }
+        )
+    
+    return await enrich_task(task_doc)
+
+
 @router.get("/individual-tasks", response_model=List[TaskResponse])
 async def get_individual_tasks(
     status: Optional[TaskStatus] = None,
