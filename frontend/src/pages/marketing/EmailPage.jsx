@@ -83,9 +83,39 @@ const EmailPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   
   // MSAL hooks
-  const { instance, accounts } = useMsal();
+  const { instance, accounts, inProgress } = useMsal();
   const isAuthenticated = useIsAuthenticated();
   const account = accounts[0];
+  
+  // Track email-specific authentication state
+  const [emailConnected, setEmailConnected] = useState(false);
+  
+  // Check if user has email-connected account on mount and when accounts change
+  useEffect(() => {
+    const checkEmailConnection = async () => {
+      if (accounts.length > 0) {
+        // Check if we can get a token silently (means we have valid email permissions)
+        try {
+          const silentRequest = {
+            scopes: ["Mail.Read"],
+            account: accounts[0]
+          };
+          await instance.acquireTokenSilent(silentRequest);
+          console.log('Email connection verified - token acquired silently');
+          setEmailConnected(true);
+        } catch (error) {
+          console.log('Silent token acquisition failed, user may need to re-authenticate for email');
+          setEmailConnected(false);
+        }
+      } else {
+        setEmailConnected(false);
+      }
+    };
+    
+    if (inProgress === 'none') {
+      checkEmailConnection();
+    }
+  }, [accounts, instance, inProgress]);
   
   // State
   const [emails, setEmails] = useState([]);
@@ -283,7 +313,9 @@ Sevora Team`
     setMsLoginLoading(true);
     try {
       // Try popup first
-      await instance.loginPopup(mailRequest);
+      const response = await instance.loginPopup(mailRequest);
+      console.log('Popup login successful:', response?.account?.username);
+      setEmailConnected(true);
       toast.success('Successfully connected to Microsoft 365!');
     } catch (error) {
       console.error('Popup login error:', error);
@@ -323,7 +355,7 @@ Sevora Team`
 
   // Fetch emails using Graph API
   const fetchEmails = useCallback(async () => {
-    if (!isAuthenticated) return;
+    if (!emailConnected) return;
     
     setLoading(true);
     try {
@@ -359,7 +391,7 @@ Sevora Team`
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, currentFolder, searchQuery, callGraphAPI]);
+  }, [emailConnected, currentFolder, searchQuery, callGraphAPI]);
 
   // Sync emails
   const handleSync = async () => {
@@ -851,22 +883,34 @@ Sevora Team`
   };
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (emailConnected) {
       fetchEmails();
     }
-  }, [isAuthenticated, fetchEmails]);
+  }, [emailConnected, fetchEmails]);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (emailConnected) {
       const timer = setTimeout(() => fetchEmails(), 500);
       return () => clearTimeout(timer);
     }
-  }, [searchQuery, isAuthenticated, fetchEmails]);
+  }, [searchQuery, emailConnected, fetchEmails]);
 
   const unreadCount = emails.filter(e => !e.isRead).length;
 
-  // Show login screen if not authenticated
-  if (!isAuthenticated) {
+  // Show loading while MSAL is initializing
+  if (inProgress !== 'none') {
+    return (
+      <div className="h-[calc(100vh-64px)] flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-2" />
+          <p className="text-gray-600">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login screen if not authenticated with email permissions
+  if (!isAuthenticated || !emailConnected) {
     return (
       <div className="h-[calc(100vh-64px)] flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100" data-testid="email-page-login">
         <Card className="w-full max-w-md mx-4 shadow-xl">
