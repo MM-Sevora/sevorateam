@@ -92,6 +92,39 @@ DEFAULT_GOALS_PROJECTS_SETTINGS = {
             "email": True,
             "teams": False
         }
+    },
+    # Phase 3
+    "daily_task_digest": {
+        "enabled": True,
+        "description": "Send daily task digest email every morning",
+        "send_time": "08:00",
+        "include_overdue": True,
+        "include_due_today": True,
+        "include_due_this_week": True,
+        "channels": {
+            "in_app": False,
+            "email": True,
+            "teams": False
+        }
+    },
+    "auto_archive_completed": {
+        "enabled": True,
+        "description": "Automatically archive completed tasks after a period",
+        "archive_after_days": 30,
+        "archive_completed_projects": True,
+        "archive_completed_goals": False
+    },
+    "stale_task_reminder": {
+        "enabled": True,
+        "description": "Remind about tasks that haven't been updated in a while",
+        "stale_days": 7,
+        "notify_assignee": True,
+        "notify_manager": True,
+        "channels": {
+            "in_app": True,
+            "email": True,
+            "teams": False
+        }
     }
 }
 
@@ -1293,6 +1326,302 @@ async def send_weekly_report_notification(user: dict, report: dict, channels: di
                 
     except Exception as e:
         logger.error(f"Failed to send weekly report notification: {e}")
+
+
+# ============== PHASE 3 AUTOMATIONS ==============
+
+async def run_daily_task_digest():
+    """Send daily task digest to all users (Phase 3)"""
+    if not db:
+        logger.error("Database not initialized for daily task digest")
+        return
+    
+    logger.info("Running daily task digest automation")
+    
+    try:
+        # Get automation settings
+        settings_doc = await db.automation_settings.find_one({}) or {}
+        goals_projects_settings = settings_doc.get("goals_projects", DEFAULT_GOALS_PROJECTS_SETTINGS)
+        digest_settings = goals_projects_settings.get("daily_task_digest", {})
+        
+        if not digest_settings.get("enabled", True):
+            logger.info("Daily task digest is disabled")
+            return
+        
+        channels = digest_settings.get("channels", {"email": True})
+        include_overdue = digest_settings.get("include_overdue", True)
+        include_due_today = digest_settings.get("include_due_today", True)
+        include_due_this_week = digest_settings.get("include_due_this_week", True)
+        
+        # Get all active users
+        users = await db.users.find({"status": "active"}).to_list(None)
+        
+        today = datetime.now(timezone.utc).date()
+        end_of_week = today + timedelta(days=(6 - today.weekday()))
+        
+        for user in users:
+            user_id = user.get("id")
+            user_email = user.get("email")
+            user_name = user.get("name", "User")
+            
+            if not user_id:
+                continue
+            
+            # Get tasks for this user
+            tasks_query = {
+                "assigned_to": user_id,
+                "status": {"$nin": ["done", "archived"]}
+            }
+            
+            tasks = await db.pm_tasks.find(tasks_query).to_list(None)
+            
+            overdue_tasks = []
+            due_today_tasks = []
+            due_this_week_tasks = []
+            
+            for task in tasks:
+                due_date_str = task.get("due_date")
+                if not due_date_str:
+                    continue
+                    
+                try:
+                    if isinstance(due_date_str, str):
+                        due_date = datetime.fromisoformat(due_date_str.replace('Z', '+00:00')).date()
+                    else:
+                        due_date = due_date_str.date() if hasattr(due_date_str, 'date') else due_date_str
+                    
+                    if due_date < today and include_overdue:
+                        overdue_tasks.append(task)
+                    elif due_date == today and include_due_today:
+                        due_today_tasks.append(task)
+                    elif today < due_date <= end_of_week and include_due_this_week:
+                        due_this_week_tasks.append(task)
+                except Exception:
+                    continue
+            
+            # Skip if no tasks to report
+            total_tasks = len(overdue_tasks) + len(due_today_tasks) + len(due_this_week_tasks)
+            if total_tasks == 0:
+                continue
+            
+            # Send email digest
+            if channels.get("email", True) and email_service and user_email:
+                try:
+                    html_content = f"""
+                    <h2>Your Daily Task Digest</h2>
+                    <p>Good morning {user_name}!</p>
+                    <p>Here's your task summary for today:</p>
+                    """
+                    
+                    if overdue_tasks:
+                        html_content += f"""
+                        <h3 style="color: #dc2626;">Overdue Tasks ({len(overdue_tasks)})</h3>
+                        <ul>
+                        """
+                        for task in overdue_tasks[:5]:
+                            html_content += f"<li><strong>{task.get('name', 'Untitled')}</strong> - Due: {task.get('due_date', 'N/A')[:10]}</li>"
+                        if len(overdue_tasks) > 5:
+                            html_content += f"<li>...and {len(overdue_tasks) - 5} more</li>"
+                        html_content += "</ul>"
+                    
+                    if due_today_tasks:
+                        html_content += f"""
+                        <h3 style="color: #f59e0b;">Due Today ({len(due_today_tasks)})</h3>
+                        <ul>
+                        """
+                        for task in due_today_tasks[:5]:
+                            html_content += f"<li><strong>{task.get('name', 'Untitled')}</strong></li>"
+                        html_content += "</ul>"
+                    
+                    if due_this_week_tasks:
+                        html_content += f"""
+                        <h3 style="color: #3b82f6;">Due This Week ({len(due_this_week_tasks)})</h3>
+                        <ul>
+                        """
+                        for task in due_this_week_tasks[:5]:
+                            html_content += f"<li><strong>{task.get('name', 'Untitled')}</strong> - Due: {task.get('due_date', 'N/A')[:10]}</li>"
+                        if len(due_this_week_tasks) > 5:
+                            html_content += f"<li>...and {len(due_this_week_tasks) - 5} more</li>"
+                        html_content += "</ul>"
+                    
+                    html_content += f"""
+                    <p><a href="{os.environ.get('FRONTEND_URL', '')}/projects/my-tasks">View All Tasks</a></p>
+                    """
+                    
+                    await email_service.send_email(
+                        to=user_email,
+                        subject=f"[Sevora] Daily Task Digest - {total_tasks} tasks need attention",
+                        body=html_content,
+                        is_html=True
+                    )
+                    logger.info(f"Sent daily digest to {user_email}")
+                except Exception as e:
+                    logger.error(f"Failed to send daily digest to {user_email}: {e}")
+        
+        logger.info("Daily task digest completed")
+        
+    except Exception as e:
+        logger.error(f"Error running daily task digest: {e}")
+
+
+async def run_auto_archive():
+    """Archive completed tasks/projects after specified period (Phase 3)"""
+    if not db:
+        logger.error("Database not initialized for auto-archive")
+        return
+    
+    logger.info("Running auto-archive automation")
+    
+    try:
+        # Get automation settings
+        settings_doc = await db.automation_settings.find_one({}) or {}
+        goals_projects_settings = settings_doc.get("goals_projects", DEFAULT_GOALS_PROJECTS_SETTINGS)
+        archive_settings = goals_projects_settings.get("auto_archive_completed", {})
+        
+        if not archive_settings.get("enabled", True):
+            logger.info("Auto-archive is disabled")
+            return
+        
+        archive_after_days = archive_settings.get("archive_after_days", 30)
+        archive_projects = archive_settings.get("archive_completed_projects", True)
+        
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=archive_after_days)
+        cutoff_str = cutoff_date.isoformat()
+        
+        archived_count = 0
+        
+        # Archive completed tasks
+        tasks_result = await db.pm_tasks.update_many(
+            {
+                "status": "done",
+                "completed_at": {"$lt": cutoff_str},
+                "archived": {"$ne": True}
+            },
+            {
+                "$set": {
+                    "archived": True,
+                    "archived_at": datetime.now(timezone.utc).isoformat()
+                }
+            }
+        )
+        archived_count += tasks_result.modified_count
+        
+        # Archive completed projects if enabled
+        if archive_projects:
+            projects_result = await db.pm_projects.update_many(
+                {
+                    "status": "completed",
+                    "completed_at": {"$lt": cutoff_str},
+                    "archived": {"$ne": True}
+                },
+                {
+                    "$set": {
+                        "archived": True,
+                        "archived_at": datetime.now(timezone.utc).isoformat()
+                    }
+                }
+            )
+            archived_count += projects_result.modified_count
+        
+        logger.info(f"Auto-archive completed: {archived_count} items archived")
+        
+        # Log the automation run
+        await db.automation_logs.insert_one({
+            "id": str(uuid.uuid4()),
+            "automation_type": "auto_archive",
+            "run_at": datetime.now(timezone.utc).isoformat(),
+            "items_archived": archived_count,
+            "archive_after_days": archive_after_days
+        })
+        
+    except Exception as e:
+        logger.error(f"Error running auto-archive: {e}")
+
+
+async def run_stale_task_reminder():
+    """Remind about tasks that haven't been updated in a while (Phase 3)"""
+    if not db:
+        logger.error("Database not initialized for stale task reminder")
+        return
+    
+    logger.info("Running stale task reminder automation")
+    
+    try:
+        # Get automation settings
+        settings_doc = await db.automation_settings.find_one({}) or {}
+        goals_projects_settings = settings_doc.get("goals_projects", DEFAULT_GOALS_PROJECTS_SETTINGS)
+        stale_settings = goals_projects_settings.get("stale_task_reminder", {})
+        
+        if not stale_settings.get("enabled", True):
+            logger.info("Stale task reminder is disabled")
+            return
+        
+        stale_days = stale_settings.get("stale_days", 7)
+        notify_assignee = stale_settings.get("notify_assignee", True)
+        notify_manager = stale_settings.get("notify_manager", True)
+        channels = stale_settings.get("channels", {"in_app": True, "email": True})
+        
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=stale_days)
+        cutoff_str = cutoff_date.isoformat()
+        
+        # Find stale tasks (not updated recently, not completed/archived)
+        stale_tasks = await db.pm_tasks.find({
+            "status": {"$nin": ["done", "archived"]},
+            "updated_at": {"$lt": cutoff_str},
+            "$or": [
+                {"stale_notified_at": {"$exists": False}},
+                {"stale_notified_at": {"$lt": cutoff_str}}
+            ]
+        }).to_list(None)
+        
+        logger.info(f"Found {len(stale_tasks)} stale tasks")
+        
+        for task in stale_tasks:
+            task_id = task.get("id")
+            task_name = task.get("name", "Untitled Task")
+            assigned_to = task.get("assigned_to")
+            project_id = task.get("project_id")
+            
+            # Get project manager
+            project_manager = None
+            if project_id and notify_manager:
+                project = await db.pm_projects.find_one({"id": project_id})
+                if project:
+                    project_manager = project.get("owner_id")
+            
+            notification_targets = []
+            if notify_assignee and assigned_to:
+                notification_targets.append(assigned_to)
+            if notify_manager and project_manager and project_manager not in notification_targets:
+                notification_targets.append(project_manager)
+            
+            for target_user_id in notification_targets:
+                # In-app notification
+                if channels.get("in_app", True):
+                    notification = {
+                        "id": str(uuid.uuid4()),
+                        "user_id": target_user_id,
+                        "title": "Stale Task Alert",
+                        "message": f"Task '{task_name}' hasn't been updated in {stale_days} days",
+                        "type": "stale_task",
+                        "category": "task",
+                        "priority": "medium",
+                        "action_url": f"/projects/tasks/{task_id}",
+                        "is_read": False,
+                        "created_at": datetime.now(timezone.utc).isoformat()
+                    }
+                    await db.notifications.insert_one(notification)
+            
+            # Mark task as notified
+            await db.pm_tasks.update_one(
+                {"id": task_id},
+                {"$set": {"stale_notified_at": datetime.now(timezone.utc).isoformat()}}
+            )
+        
+        logger.info(f"Stale task reminder completed: {len(stale_tasks)} tasks notified")
+        
+    except Exception as e:
+        logger.error(f"Error running stale task reminder: {e}")
 
 
 # Import os for environment variables

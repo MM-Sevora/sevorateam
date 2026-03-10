@@ -1687,6 +1687,148 @@ async def delete_discussion_note(
     return {"message": "Note deleted"}
 
 
+# ============== AI MEETING SUMMARY ==============
+
+@router.post("/{meeting_id}/generate-summary")
+async def generate_meeting_summary(
+    meeting_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Generate AI summary of meeting notes, action items, and decisions"""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    from dotenv import load_dotenv
+    load_dotenv()
+    
+    # Get the meeting
+    meeting = await db.meetings.find_one({"id": meeting_id})
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    
+    # Gather meeting content
+    title = meeting.get("title", "Untitled Meeting")
+    description = meeting.get("description", "")
+    meeting_type = meeting.get("meeting_type", "general")
+    
+    # Get discussion notes
+    discussion_notes = meeting.get("discussion_notes", [])
+    notes_text = "\n".join([
+        f"- {note.get('topic', 'Note')}: {note.get('content', '')}" 
+        for note in discussion_notes
+    ]) if discussion_notes else "No discussion notes recorded."
+    
+    # Get action items
+    action_items = meeting.get("action_items", [])
+    actions_text = "\n".join([
+        f"- {item.get('title', 'Action')}: {item.get('description', '')} (Assigned to: {item.get('assigned_to_name', 'Unassigned')}, Status: {item.get('status', 'pending')})"
+        for item in action_items
+    ]) if action_items else "No action items recorded."
+    
+    # Get decisions
+    decisions = meeting.get("decisions", [])
+    decisions_text = "\n".join([
+        f"- {dec.get('title', 'Decision')}: {dec.get('description', '')} (Impact: {dec.get('impact', 'medium')})"
+        for dec in decisions
+    ]) if decisions else "No decisions recorded."
+    
+    # Get attendees
+    participants = meeting.get("participants", [])
+    attendees_text = ", ".join([
+        p.get("name", p.get("user_id", "Unknown")) 
+        for p in participants
+    ]) if participants else "No attendees recorded."
+    
+    # Build the prompt
+    prompt = f"""Please generate a professional meeting summary for the following meeting:
+
+**Meeting Title:** {title}
+**Meeting Type:** {meeting_type}
+**Description:** {description}
+
+**Attendees:** {attendees_text}
+
+**Discussion Notes:**
+{notes_text}
+
+**Action Items:**
+{actions_text}
+
+**Decisions Made:**
+{decisions_text}
+
+Please provide a summary with the following sections:
+1. **Executive Summary** (2-3 sentences overview)
+2. **Key Discussion Points** (bullet points of main topics discussed)
+3. **Decisions Made** (list of decisions with their impact)
+4. **Action Items** (list with assignees and deadlines)
+5. **Next Steps** (recommended follow-up actions)
+
+Keep the summary concise, professional, and actionable."""
+
+    try:
+        # Initialize LLM Chat
+        api_key = os.environ.get("EMERGENT_LLM_KEY")
+        if not api_key:
+            raise HTTPException(status_code=500, detail="AI service not configured")
+        
+        chat = LlmChat(
+            api_key=api_key,
+            session_id=f"meeting-summary-{meeting_id}",
+            system_message="You are a professional meeting summarizer. Generate clear, concise, and actionable meeting summaries."
+        ).with_model("openai", "gpt-4o")
+        
+        # Generate summary
+        user_message = UserMessage(text=prompt)
+        summary = await chat.send_message(user_message)
+        
+        # Store the summary in the meeting
+        await db.meetings.update_one(
+            {"id": meeting_id},
+            {
+                "$set": {
+                    "ai_summary": summary,
+                    "ai_summary_generated_at": datetime.now(timezone.utc).isoformat(),
+                    "ai_summary_generated_by": user.get("id"),
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+            }
+        )
+        
+        return {
+            "summary": summary,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "meeting_id": meeting_id
+        }
+        
+    except Exception as e:
+        print(f"AI Summary generation error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate summary: {str(e)}")
+
+
+@router.get("/{meeting_id}/ai-summary")
+async def get_meeting_ai_summary(
+    meeting_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get the stored AI summary for a meeting"""
+    meeting = await db.meetings.find_one({"id": meeting_id})
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    
+    ai_summary = meeting.get("ai_summary")
+    if not ai_summary:
+        return {
+            "summary": None,
+            "generated_at": None,
+            "message": "No AI summary generated yet"
+        }
+    
+    return {
+        "summary": ai_summary,
+        "generated_at": meeting.get("ai_summary_generated_at"),
+        "generated_by": meeting.get("ai_summary_generated_by")
+    }
+
+
 # ============== ACTION ITEMS ==============
 
 @router.post("/{meeting_id}/action-items")

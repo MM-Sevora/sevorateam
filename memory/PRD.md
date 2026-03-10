@@ -1536,6 +1536,54 @@ The Manager Dashboard was already functional with:
   - Added helper functions: `addAttendee`, `removeAttendee`, `toggleCategory`
   - Added `CATEGORIES` constant for color options
 
+### Phase 52: AI Meeting Summaries (COMPLETE - March 10, 2026)
+
+**Features Implemented:**
+- [x] Backend endpoint `POST /api/meetings/{id}/generate-summary` using GPT-4o
+- [x] Backend endpoint `GET /api/meetings/{id}/ai-summary` to retrieve stored summaries
+- [x] "AI Summary" button in meeting detail page header
+- [x] Summary modal with copy and regenerate functionality
+- [x] Summaries stored in meeting document for persistence
+- [x] Uses Emergent LLM Key for GPT-4o integration
+
+**Files Modified:**
+- `/app/backend/routes/meetings.py`: Added AI summary endpoints
+- `/app/frontend/src/pages/meetings/MeetingDetail.jsx`: Added AI summary UI
+
+### Phase 53: @mentions in Meeting Notes (COMPLETE - March 10, 2026)
+
+**Features Implemented:**
+- [x] RichTextEditor with @mentions support in meeting discussion notes
+- [x] Mention suggestions dropdown showing team members
+- [x] Mentions tracked and passed to backend
+- [x] "Use @ to mention" hint in note form
+
+**Files Modified:**
+- `/app/frontend/src/pages/meetings/MeetingDetail.jsx`: 
+  - Replaced Textarea with RichTextEditor for notes
+  - Added `noteMentions` state tracking
+  - Updated `handleAddNote` to include mentions
+
+### Phase 54: Phase 3 Automations (COMPLETE - March 10, 2026)
+
+**New Automations Implemented:**
+- [x] **Daily Task Digest**: Email summary of overdue, due today, and due this week tasks
+- [x] **Auto-Archive Completed**: Automatically archive completed tasks/projects after X days
+- [x] **Stale Task Reminder**: Notify about tasks not updated in X days
+
+**Files Modified:**
+- `/app/backend/services/automation_service.py`:
+  - Added `run_daily_task_digest()` function
+  - Added `run_auto_archive()` function
+  - Added `run_stale_task_reminder()` function
+  - Extended DEFAULT_GOALS_PROJECTS_SETTINGS with Phase 3 configs
+
+- `/app/frontend/src/pages/settings/AutomationSettings.jsx`:
+  - Added UI controls for Daily Task Digest
+  - Added UI controls for Auto-Archive Completed
+  - Added UI controls for Stale Task Reminder
+  - Phase 3 items marked with cyan "Phase 3" badge
+
 ### P1 - Upcoming Tasks
 - [ ] AI Meeting Summaries integration (using Emergent LLM Key)
 - [ ] @mentions in meeting notes

@@ -671,6 +671,153 @@ const AutomationSettings = () => {
                   data-testid="toggle-weekly-report"
                 />
               </div>
+
+              {/* Phase 3: Daily Task Digest */}
+              <div className="px-6 py-4 flex items-center justify-between bg-gradient-to-r from-cyan-50/30 to-transparent">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-cyan-600" />
+                    <span className="font-medium text-[#3D2E22]">Daily Task Digest</span>
+                    <span className="text-xs px-2 py-0.5 bg-cyan-100 text-cyan-700 rounded-full">Phase 3</span>
+                  </div>
+                  <p className="text-sm text-[#8B7355] mt-1">{settings.goals_projects.daily_task_digest?.description || 'Send daily task summary email every morning'}</p>
+                  {settings.goals_projects.daily_task_digest?.enabled && (
+                    <div className="mt-3 space-y-2">
+                      <div className="flex items-center gap-4 text-sm">
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={settings.goals_projects.daily_task_digest?.include_overdue ?? true}
+                            onChange={(e) => updateSetting('goals_projects', 'daily_task_digest', 'include_overdue', e.target.checked)}
+                            className="rounded border-[#E8D5C4]"
+                          />
+                          <span className="text-[#5D4A3A]">Include overdue</span>
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={settings.goals_projects.daily_task_digest?.include_due_today ?? true}
+                            onChange={(e) => updateSetting('goals_projects', 'daily_task_digest', 'include_due_today', e.target.checked)}
+                            className="rounded border-[#E8D5C4]"
+                          />
+                          <span className="text-[#5D4A3A]">Due today</span>
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={settings.goals_projects.daily_task_digest?.include_due_this_week ?? true}
+                            onChange={(e) => updateSetting('goals_projects', 'daily_task_digest', 'include_due_this_week', e.target.checked)}
+                            className="rounded border-[#E8D5C4]"
+                          />
+                          <span className="text-[#5D4A3A]">Due this week</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <Switch
+                  checked={settings.goals_projects.daily_task_digest?.enabled ?? true}
+                  onCheckedChange={(checked) => updateSetting('goals_projects', 'daily_task_digest', 'enabled', checked)}
+                  data-testid="toggle-daily-digest"
+                />
+              </div>
+
+              {/* Phase 3: Auto-Archive */}
+              <div className="px-6 py-4 flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <History className="w-4 h-4 text-cyan-600" />
+                    <span className="font-medium text-[#3D2E22]">Auto-Archive Completed</span>
+                    <span className="text-xs px-2 py-0.5 bg-cyan-100 text-cyan-700 rounded-full">Phase 3</span>
+                  </div>
+                  <p className="text-sm text-[#8B7355] mt-1">{settings.goals_projects.auto_archive_completed?.description || 'Automatically archive completed items after a period'}</p>
+                  {settings.goals_projects.auto_archive_completed?.enabled && (
+                    <div className="mt-3 space-y-2">
+                      <div className="flex items-center gap-4 text-sm">
+                        <span className="text-[#5D4A3A]">Archive after:</span>
+                        <input
+                          type="number"
+                          min="7"
+                          max="365"
+                          value={settings.goals_projects.auto_archive_completed?.archive_after_days ?? 30}
+                          onChange={(e) => updateSetting('goals_projects', 'auto_archive_completed', 'archive_after_days', parseInt(e.target.value))}
+                          className="w-16 px-2 py-1 border border-[#E8D5C4] rounded text-sm"
+                        />
+                        <span className="text-[#5D4A3A]">days</span>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm">
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={settings.goals_projects.auto_archive_completed?.archive_completed_projects ?? true}
+                            onChange={(e) => updateSetting('goals_projects', 'auto_archive_completed', 'archive_completed_projects', e.target.checked)}
+                            className="rounded border-[#E8D5C4]"
+                          />
+                          <span className="text-[#5D4A3A]">Archive projects</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <Switch
+                  checked={settings.goals_projects.auto_archive_completed?.enabled ?? true}
+                  onCheckedChange={(checked) => updateSetting('goals_projects', 'auto_archive_completed', 'enabled', checked)}
+                  data-testid="toggle-auto-archive"
+                />
+              </div>
+
+              {/* Phase 3: Stale Task Reminder */}
+              <div className="px-6 py-4 flex items-center justify-between bg-gradient-to-r from-cyan-50/30 to-transparent">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-cyan-600" />
+                    <span className="font-medium text-[#3D2E22]">Stale Task Reminder</span>
+                    <span className="text-xs px-2 py-0.5 bg-cyan-100 text-cyan-700 rounded-full">Phase 3</span>
+                  </div>
+                  <p className="text-sm text-[#8B7355] mt-1">{settings.goals_projects.stale_task_reminder?.description || 'Remind about tasks not updated recently'}</p>
+                  {settings.goals_projects.stale_task_reminder?.enabled && (
+                    <div className="mt-3 space-y-2">
+                      <div className="flex items-center gap-4 text-sm">
+                        <span className="text-[#5D4A3A]">Stale after:</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max="30"
+                          value={settings.goals_projects.stale_task_reminder?.stale_days ?? 7}
+                          onChange={(e) => updateSetting('goals_projects', 'stale_task_reminder', 'stale_days', parseInt(e.target.value))}
+                          className="w-16 px-2 py-1 border border-[#E8D5C4] rounded text-sm"
+                        />
+                        <span className="text-[#5D4A3A]">days without update</span>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm">
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={settings.goals_projects.stale_task_reminder?.notify_assignee ?? true}
+                            onChange={(e) => updateSetting('goals_projects', 'stale_task_reminder', 'notify_assignee', e.target.checked)}
+                            className="rounded border-[#E8D5C4]"
+                          />
+                          <span className="text-[#5D4A3A]">Notify assignee</span>
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={settings.goals_projects.stale_task_reminder?.notify_manager ?? true}
+                            onChange={(e) => updateSetting('goals_projects', 'stale_task_reminder', 'notify_manager', e.target.checked)}
+                            className="rounded border-[#E8D5C4]"
+                          />
+                          <span className="text-[#5D4A3A]">Notify manager</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <Switch
+                  checked={settings.goals_projects.stale_task_reminder?.enabled ?? true}
+                  onCheckedChange={(checked) => updateSetting('goals_projects', 'stale_task_reminder', 'enabled', checked)}
+                  data-testid="toggle-stale-reminder"
+                />
+              </div>
             </div>
           </div>
           )}

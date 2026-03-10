@@ -6,7 +6,7 @@ import {
   Play, CheckCircle2, AlertCircle, Edit, MoreVertical, MessageSquare,
   ListTodo, RefreshCw, ChevronRight, ExternalLink, Copy, Check,
   PauseCircle, XCircle, ArrowRight, Zap, Scale, ShieldAlert, TrendingUp,
-  CloudUpload, Unlink, SkipForward
+  CloudUpload, Unlink, SkipForward, Sparkles, Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -37,6 +37,8 @@ import {
   DropdownMenuSeparator,
 } from '../../components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { ScrollArea } from '../../components/ui/scroll-area';
+import RichTextEditor from '../../components/ui/rich-text-editor';
 import { toast } from 'sonner';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -117,6 +119,7 @@ const MeetingDetail = () => {
   
   // Form states
   const [noteForm, setNoteForm] = useState({ topic: '', notes: '', related_goal_id: '', related_project_id: '' });
+  const [noteMentions, setNoteMentions] = useState([]);
   const [actionItemForm, setActionItemForm] = useState({ title: '', description: '', assigned_to: '', deadline: '', priority: 'medium', linked_project_id: '' });
   const [convertForm, setConvertForm] = useState({ project_id: '', module_id: '' });
   const [minutesForm, setMinutesForm] = useState({ summary: '', key_discussions: '', decisions: '', next_steps: '' });
@@ -127,6 +130,11 @@ const MeetingDetail = () => {
   const [users, setUsers] = useState([]);
   const [projects, setProjects] = useState([]);
   const [goals, setGoals] = useState([]);
+  
+  // AI Summary state
+  const [aiSummary, setAiSummary] = useState(null);
+  const [generatingSummary, setGeneratingSummary] = useState(false);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
   
   // Series modal
   const [showSeriesModal, setShowSeriesModal] = useState(false);
@@ -193,14 +201,62 @@ const MeetingDetail = () => {
     }
   };
 
+  // AI Summary functions
+  const fetchAiSummary = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/meetings/${meetingId}/ai-summary`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        if (data.summary) {
+          setAiSummary(data);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching AI summary:', error);
+    }
+  }, [meetingId]);
+
+  const generateAiSummary = async () => {
+    setGeneratingSummary(true);
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/meetings/${meetingId}/generate-summary`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setAiSummary(data);
+        setShowSummaryModal(true);
+        toast.success('AI summary generated successfully!');
+      } else {
+        const error = await res.json();
+        toast.error(error.detail || 'Failed to generate summary');
+      }
+    } catch (error) {
+      console.error('Error generating AI summary:', error);
+      toast.error('Failed to generate summary');
+    } finally {
+      setGeneratingSummary(false);
+    }
+  };
+
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([fetchMeeting(), fetchPreviousContext(), fetchOptions()]);
+      await Promise.all([fetchMeeting(), fetchPreviousContext(), fetchOptions(), fetchAiSummary()]);
       setLoading(false);
     };
     loadData();
-  }, [fetchMeeting, fetchPreviousContext]);
+  }, [fetchMeeting, fetchPreviousContext, fetchAiSummary]);
 
   // Meeting Status Actions
   const handleStartMeeting = async () => {
@@ -360,6 +416,11 @@ const MeetingDetail = () => {
       });
       if (noteForm.related_goal_id) params.append('related_goal_id', noteForm.related_goal_id);
       if (noteForm.related_project_id) params.append('related_project_id', noteForm.related_project_id);
+      
+      // Add mentions if any
+      if (noteMentions && noteMentions.length > 0) {
+        params.append('mentions', JSON.stringify(noteMentions));
+      }
 
       const res = await fetch(`${API}/api/meetings/${meetingId}/notes?${params}`, {
         method: 'POST',
@@ -370,6 +431,7 @@ const MeetingDetail = () => {
         toast.success('Note added');
         setShowNoteModal(false);
         setNoteForm({ topic: '', notes: '', related_goal_id: '', related_project_id: '' });
+        setNoteMentions([]);
         fetchMeeting();
       }
     } catch (error) {
@@ -906,6 +968,25 @@ const MeetingDetail = () => {
               Meeting Minutes
             </Button>
           )}
+          <Button 
+            variant="outline" 
+            className="border-violet-300 text-violet-700 hover:bg-violet-50"
+            onClick={generateAiSummary}
+            disabled={generatingSummary}
+            data-testid="generate-ai-summary-btn"
+          >
+            {generatingSummary ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4 mr-2" />
+                {aiSummary ? 'Regenerate Summary' : 'AI Summary'}
+              </>
+            )}
+          </Button>
           <Button variant="outline" className="border-[#D4BBA6]" onClick={() => navigate(`/meetings/${meetingId}/edit`)}>
             <Edit className="w-4 h-4 mr-2" />
             Edit
@@ -1753,6 +1834,9 @@ const MeetingDetail = () => {
         <DialogContent className="bg-white border-[#D4BBA6] max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-[#4A3728]">Add Discussion Note</DialogTitle>
+            <DialogDescription className="text-[#6B5D52] text-sm">
+              Use @ to mention team members
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -1765,12 +1849,14 @@ const MeetingDetail = () => {
               />
             </div>
             <div>
-              <Label className="text-[#4A3728]">Notes *</Label>
-              <Textarea
+              <Label className="text-[#4A3728]">Notes * <span className="text-xs text-[#6B5D52] font-normal">(Type @ to mention)</span></Label>
+              <RichTextEditor
                 value={noteForm.notes}
-                onChange={(e) => setNoteForm({ ...noteForm, notes: e.target.value })}
-                placeholder="Key points discussed..."
-                className="border-[#D4BBA6] min-h-[120px]"
+                onChange={(content) => setNoteForm({ ...noteForm, notes: content })}
+                onMentionsChange={setNoteMentions}
+                users={users.map(u => ({ id: u.id, name: u.name, email: u.email, avatar: u.avatar }))}
+                placeholder="Key points discussed... Use @ to mention team members"
+                className="min-h-[120px]"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -2438,6 +2524,82 @@ const MeetingDetail = () => {
               Cancel All Future
             </Button>
             <Button variant="outline" onClick={() => setShowSeriesModal(false)} className="border-[#D4BBA6]">
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Summary Modal */}
+      <Dialog open={showSummaryModal} onOpenChange={setShowSummaryModal}>
+        <DialogContent className="bg-white border-[#D4BBA6] max-w-3xl max-h-[85vh]">
+          <DialogHeader>
+            <DialogTitle className="text-[#4A3728] flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-violet-600" />
+              AI Meeting Summary
+            </DialogTitle>
+          </DialogHeader>
+          
+          <ScrollArea className="h-[500px] pr-4">
+            {aiSummary?.summary ? (
+              <div className="prose prose-sm max-w-none">
+                <div className="bg-gradient-to-r from-violet-50 to-purple-50 rounded-lg p-4 mb-4 border border-violet-200">
+                  <p className="text-xs text-violet-600 mb-1">
+                    Generated on {aiSummary.generated_at ? new Date(aiSummary.generated_at).toLocaleString() : 'Just now'}
+                  </p>
+                </div>
+                <div 
+                  className="text-[#4A3728] whitespace-pre-wrap"
+                  dangerouslySetInnerHTML={{ 
+                    __html: aiSummary.summary
+                      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                      .replace(/\n/g, '<br/>')
+                      .replace(/^- /gm, '• ')
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <Sparkles className="w-12 h-12 mx-auto text-violet-300 mb-4" />
+                <p className="text-[#6B5D52]">No summary generated yet</p>
+              </div>
+            )}
+          </ScrollArea>
+          
+          <DialogFooter className="gap-2 pt-4 border-t border-[#E8D5C4]">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                if (aiSummary?.summary) {
+                  navigator.clipboard.writeText(aiSummary.summary);
+                  toast.success('Summary copied to clipboard');
+                }
+              }}
+              className="border-[#D4BBA6]"
+              disabled={!aiSummary?.summary}
+            >
+              <Copy className="w-4 h-4 mr-2" />
+              Copy
+            </Button>
+            <Button 
+              onClick={generateAiSummary}
+              disabled={generatingSummary}
+              variant="outline"
+              className="border-violet-300 text-violet-700 hover:bg-violet-50"
+            >
+              {generatingSummary ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Regenerating...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Regenerate
+                </>
+              )}
+            </Button>
+            <Button onClick={() => setShowSummaryModal(false)} className="bg-violet-600 hover:bg-violet-700 text-white">
               Close
             </Button>
           </DialogFooter>
