@@ -322,6 +322,32 @@ export const AuthProvider = ({ children }) => {
         }
     }, [fetchUserProfile, accounts, inProgress, processAzureToken]);
 
+    // Fetch site settings and update document title
+    useEffect(() => {
+        const fetchSiteSettings = async () => {
+            try {
+                // Use public endpoint - no auth required
+                const response = await axios.get(`${API}/settings/website/public`);
+                if (response.data?.site_name) {
+                    document.title = response.data.site_name;
+                    // Also update meta description if present
+                    if (response.data.site_description) {
+                        const metaDesc = document.querySelector('meta[name="description"]');
+                        if (metaDesc) {
+                            metaDesc.setAttribute('content', response.data.site_description);
+                        }
+                    }
+                }
+            } catch (error) {
+                // Silently fail - keep default title
+                console.log('Could not fetch site settings for title');
+            }
+        };
+        
+        // Fetch on mount
+        fetchSiteSettings();
+    }, []);
+
     // Create authenticated API instance
     const api = useMemo(() => {
         const instance = axios.create({

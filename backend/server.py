@@ -4896,6 +4896,27 @@ app.add_middleware(
 # ============= Website Settings Router =============
 settings_router = APIRouter(prefix="/settings")
 
+@settings_router.get("/website/public")
+async def get_public_website_settings():
+    """Get public website settings (no auth required) - site name, tagline, description for branding"""
+    settings = await db.website_settings.find_one({"type": "global"}, {"_id": 0})
+    if not settings or not settings.get("settings"):
+        return {
+            "site_name": "Sevora Team",
+            "site_tagline": "Unified Operations Platform",
+            "site_description": "A comprehensive platform for team collaboration and project management.",
+            "primary_color": "#4A3728",
+            "logo_url": None
+        }
+    s = settings.get("settings", {})
+    return {
+        "site_name": s.get("site_name", "Sevora Team"),
+        "site_tagline": s.get("site_tagline", ""),
+        "site_description": s.get("site_description", ""),
+        "primary_color": s.get("primary_color", "#4A3728"),
+        "logo_url": s.get("logo_url", None)
+    }
+
 @settings_router.get("/website")
 async def get_website_settings(user: dict = Depends(require_module_access(["admin"]))):
     """Get website settings"""

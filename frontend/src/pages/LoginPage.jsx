@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
@@ -8,6 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { toast } from 'sonner';
 import { Briefcase, Mail, Lock, User, Building2 } from 'lucide-react';
+import axios from 'axios';
+
+const API = process.env.REACT_APP_BACKEND_URL;
 
 // Microsoft Logo SVG
 const MicrosoftLogo = () => (
@@ -24,6 +27,28 @@ export const LoginPage = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('login');
+    const [siteSettings, setSiteSettings] = useState({
+        site_name: 'SEVORA TEAM',
+        site_tagline: 'Unified Operations Platform'
+    });
+
+    // Fetch site branding
+    useEffect(() => {
+        const fetchBranding = async () => {
+            try {
+                const res = await axios.get(`${API}/api/settings/website/public`);
+                if (res.data) {
+                    setSiteSettings({
+                        site_name: res.data.site_name || 'SEVORA TEAM',
+                        site_tagline: res.data.site_tagline || 'Unified Operations Platform'
+                    });
+                }
+            } catch (e) {
+                // Use defaults
+            }
+        };
+        fetchBranding();
+    }, []);
 
     // Login form state
     const [loginEmail, setLoginEmail] = useState('');
@@ -100,10 +125,10 @@ export const LoginPage = () => {
                     <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#4A3728] mb-4 shadow-lg">
                         <Briefcase className="w-8 h-8 text-[#4A3728]" />
                     </div>
-                    <h1 className="text-3xl font-bold text-[#4A3728]">
-                        SEVORA TEAM
+                    <h1 className="text-3xl font-bold text-[#4A3728] uppercase tracking-wide">
+                        {siteSettings.site_name}
                     </h1>
-                    <p className="text-[#5D4A3A] text-sm mt-1">Unified Operations Platform</p>
+                    <p className="text-[#5D4A3A] text-sm mt-1">{siteSettings.site_tagline}</p>
                 </div>
 
                 <Card className="bg-white/95 backdrop-blur-xl border-[#D4BBA6] shadow-xl">
