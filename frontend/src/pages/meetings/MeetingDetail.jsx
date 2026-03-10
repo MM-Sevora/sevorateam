@@ -38,7 +38,7 @@ import {
 } from '../../components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { ScrollArea } from '../../components/ui/scroll-area';
-import RichTextEditor from '../../components/ui/rich-text-editor';
+import { RichTextEditor } from '../../components/ui/rich-text-editor';
 import { toast } from 'sonner';
 
 const API = process.env.REACT_APP_BACKEND_URL;
