@@ -3,7 +3,7 @@ import {
   MessageSquare, Users, Search, Send, Plus, RefreshCw, 
   CheckCircle, XCircle, Loader2, ChevronLeft, Settings,
   User, AtSign, MoreVertical, Phone, Video, Info, ListTodo,
-  Calendar, Flag, FolderKanban
+  Calendar, Flag, FolderKanban, CalendarPlus, Clock, MapPin, Target
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -18,7 +18,8 @@ import {
   DropdownMenu, 
   DropdownMenuContent, 
   DropdownMenuItem, 
-  DropdownMenuTrigger 
+  DropdownMenuTrigger,
+  DropdownMenuSeparator
 } from '../../components/ui/dropdown-menu';
 import { toast } from 'sonner';
 
@@ -72,6 +73,21 @@ export default function TeamsChat() {
     assignee_id: '',
     priority: 'medium',
     due_date: ''
+  });
+  
+  // Meeting creation state
+  const [showMeetingModal, setShowMeetingModal] = useState(false);
+  const [meetingMessage, setMeetingMessage] = useState(null);
+  const [creatingMeeting, setCreatingMeeting] = useState(false);
+  const [meetingForm, setMeetingForm] = useState({
+    title: '',
+    meeting_type: 'team_sync',
+    start_date: '',
+    start_time: '',
+    end_time: '',
+    location: '',
+    description: '',
+    linked_project_id: ''
   });
   
   const token = localStorage.getItem('sevora_token');
