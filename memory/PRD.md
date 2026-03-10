@@ -1325,6 +1325,41 @@ The Manager Dashboard was already functional with:
 - [x] Schedule Meeting buttons/dropdowns verified
 - [x] URL pre-fills for goal_id and objective_id verified
 
+### Phase 48i: Meeting Module Bug Fixes (COMPLETE - March 10, 2026)
+**Bug Fix 1: Edit Meeting (Critical)**
+- [x] Added `useParams` to get `meetingId` from URL in CreateMeeting.jsx
+- [x] Added `isEditMode` detection and `loading` state
+- [x] Added `fetchMeetingData()` to load existing meeting when editing
+- [x] Form now pre-fills with all existing meeting data (title, date, time, location, type, recurrence, etc.)
+- [x] Title changes from "Schedule Meeting" to "Edit Meeting" in edit mode
+- [x] Button changes from "Create Meeting" to "Save Changes"
+- [x] handleSubmit uses PUT method when editing, POST when creating
+
+**Bug Fix 2: Cancel Meeting**
+- [x] Backend: Added `POST /api/meetings/{id}/cancel` endpoint
+- [x] Backend: Added `POST /api/meetings/{id}/postpone` endpoint
+- [x] Backend: Sets status to 'cancelled', records cancellation reason, cancelled_by, cancelled_at
+- [x] Frontend: Added `handleCancelMeeting` in MeetingDetail.jsx
+- [x] Frontend: Added Cancel button (red border, XCircle icon) next to Start Meeting for scheduled meetings
+- [x] Frontend: Added `handleCancel` in MeetingList.jsx
+- [x] Frontend: Added "Cancel Meeting" dropdown option (amber colored) in MeetingCard for scheduled meetings
+
+**Bug Fix 3: Edit Template**
+- [x] Added `isEditMode`, `editingTemplateId` state in MeetingTemplates.jsx
+- [x] Added `handleEditTemplate()` to populate form with existing template data
+- [x] Added `handleSaveTemplate()` that uses PUT for edit, POST for create
+- [x] Added `handleCloseModal()` to reset form and edit state
+- [x] Added "Edit Template" option in template card dropdown
+- [x] Modal title changes to "Edit Meeting Template" in edit mode
+- [x] Button changes to "Save Changes" in edit mode
+
+**Testing:**
+- [x] 7/7 tests passed (100%)
+- [x] Edit Meeting form pre-fill verified
+- [x] Cancel Meeting from list and detail verified
+- [x] Edit Template dropdown and modal verified
+- [x] All backend APIs verified
+
 ### P3 - Backlog
 - [ ] Gantt Chart View for projects
 - [ ] Slack/WhatsApp integration
