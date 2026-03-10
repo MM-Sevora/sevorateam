@@ -45,6 +45,17 @@ export const calendarRequest = {
     ],
 };
 
+// Teams Chat-specific scopes for Microsoft Graph Chat API
+export const teamsRequest = {
+    scopes: [
+        "User.Read",
+        "Chat.ReadWrite",
+        "Chat.Read",
+        "User.ReadBasic.All",
+        "offline_access"
+    ],
+};
+
 export const graphConfig = {
     graphMeEndpoint: "https://graph.microsoft.com/v1.0/me",
 };

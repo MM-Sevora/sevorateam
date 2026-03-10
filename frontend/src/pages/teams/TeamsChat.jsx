@@ -1,9 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useMsal, useIsAuthenticated } from '@azure/msal-react';
+import { InteractionRequiredAuthError } from '@azure/msal-browser';
 import { 
   MessageSquare, Users, Search, Send, Plus, RefreshCw, 
   CheckCircle, XCircle, Loader2, ChevronLeft, Settings,
   User, AtSign, MoreVertical, Phone, Video, Info, ListTodo,
-  Calendar, Flag, FolderKanban, CalendarPlus, Clock, MapPin, Target
+  Calendar, Flag, FolderKanban, CalendarPlus, Clock, MapPin, Target,
+  LogOut, ChevronDown
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -22,8 +25,10 @@ import {
   DropdownMenuSeparator
 } from '../../components/ui/dropdown-menu';
 import { toast } from 'sonner';
+import { teamsRequest } from '../../authConfig';
 
 const API = process.env.REACT_APP_BACKEND_URL;
+const GRAPH_ENDPOINT = 'https://graph.microsoft.com/v1.0';
 
 // Helper to decode HTML entities
 const decodeHtml = (html) => {
@@ -40,8 +45,13 @@ const stripHtml = (html) => {
 };
 
 export default function TeamsChat() {
+  const { instance, accounts, inProgress } = useMsal();
+  const isAuthenticated = useIsAuthenticated();
+  const account = accounts[0];
+
   const [connected, setConnected] = useState(false);
-  const [connecting, setConnecting] = useState(false);
+  const [checkingConnection, setCheckingConnection] = useState(true);
+  const [msLoginLoading, setMsLoginLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [chats, setChats] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
@@ -92,18 +102,111 @@ export default function TeamsChat() {
   
   const token = localStorage.getItem('sevora_token');
 
+  // Get access token from MSAL
+  const getAccessToken = useCallback(async () => {
+    if (!account) return null;
+
+    try {
+      const response = await instance.acquireTokenSilent({
+        ...teamsRequest,
+        account: account,
+      });
+      return response.accessToken;
+    } catch (error) {
+      if (error instanceof InteractionRequiredAuthError) {
+        try {
+          const response = await instance.acquireTokenPopup(teamsRequest);
+          return response.accessToken;
+        } catch (popupError) {
+          console.error('Failed to acquire token:', popupError);
+          return null;
+        }
+      }
+      console.error('Token error:', error);
+      return null;
+    }
+  }, [instance, account]);
+
+  // Microsoft Graph API call helper
+  const callGraphAPI = useCallback(
+    async (endpoint, options = {}) => {
+      const msToken = await getAccessToken();
+      if (!msToken) {
+        toast.error('Please sign in with Microsoft');
+        return null;
+      }
+
+      const response = await fetch(`${GRAPH_ENDPOINT}${endpoint}`, {
+        ...options,
+        headers: {
+          Authorization: `Bearer ${msToken}`,
+          'Content-Type': 'application/json',
+          ...options.headers,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error?.message || 'API call failed');
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        return response.json();
+      }
+
+      return true;
+    },
+    [getAccessToken]
+  );
+
+  // Check Teams connection
   useEffect(() => {
-    // Get current user email and ID for identifying own messages
+    const checkConnection = async () => {
+      setCheckingConnection(true);
+      if (accounts.length > 0 && account) {
+        try {
+          const silentRequest = {
+            scopes: ["Chat.Read"],
+            account: account,
+          };
+          const response = await instance.acquireTokenSilent(silentRequest);
+          if (response && response.accessToken) {
+            setConnected(true);
+            // Set current user info from MS account
+            setCurrentUserEmail(account.username || '');
+          } else {
+            setConnected(false);
+          }
+        } catch (error) {
+          console.log('Teams Chat silent token failed:', error.message);
+          setConnected(false);
+        }
+      } else {
+        setConnected(false);
+      }
+      setCheckingConnection(false);
+      setLoading(false);
+    };
+
+    if (inProgress === 'none') {
+      checkConnection();
+    }
+  }, [accounts, account, instance, inProgress]);
+
+  useEffect(() => {
+    // Get current user ID from Sevora
     const userData = localStorage.getItem('sevora_user');
     if (userData) {
       try {
         const user = JSON.parse(userData);
-        setCurrentUserEmail(user.email);
         setCurrentUserId(user.id);
+        if (!currentUserEmail) {
+          setCurrentUserEmail(user.email);
+        }
       } catch (e) {}
     }
-    checkConnection();
-  }, []);
+  }, [currentUserEmail]);
 
   useEffect(() => {
     if (connected) {
@@ -125,116 +228,174 @@ export default function TeamsChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const checkConnection = async () => {
+  // Handle Microsoft login
+  const handleMicrosoftLogin = async () => {
+    setMsLoginLoading(true);
     try {
-      const res = await fetch(`${API}/api/teams/auth/status`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setConnected(data.connected);
+      // If user is already signed in, try popup for consent
+      if (accounts.length > 0) {
+        try {
+          const response = await instance.acquireTokenPopup(teamsRequest);
+          if (response && response.accessToken) {
+            setConnected(true);
+            setCurrentUserEmail(account?.username || '');
+            toast.success('Teams Chat connected!');
+            setMsLoginLoading(false);
+            return;
+          }
+        } catch (popupError) {
+          console.log('Popup consent failed, trying redirect:', popupError.message);
+        }
       }
+      
+      // Use redirect flow for full sign-in
+      sessionStorage.setItem('msalRedirectPath', window.location.pathname);
+      sessionStorage.setItem('msalLoginType', 'teams');
+      await instance.loginRedirect(teamsRequest);
+    } catch (error) {
+      console.error('Login error:', error);
+      setMsLoginLoading(false);
+      toast.error('Failed to connect to Microsoft');
+    }
+  };
+
+  // Handle Microsoft logout
+  const handleMicrosoftLogout = async () => {
+    try {
+      await instance.logoutPopup();
+      setConnected(false);
+      setChats([]);
+      setSelectedChat(null);
+      setMessages([]);
+      toast.success('Signed out from Microsoft');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  // Fetch chats using Graph API
+  const fetchChats = async () => {
+    if (!connected) return;
+    
+    setLoading(true);
+    try {
+      const data = await callGraphAPI('/me/chats?$expand=lastMessagePreview,members&$top=50');
+      setChats(data?.value || []);
     } catch (e) {
-      console.error('Error checking Teams connection:', e);
+      console.error('Error fetching chats:', e);
+      toast.error('Failed to load chats');
     } finally {
       setLoading(false);
     }
   };
 
-  const connectTeams = async () => {
-    setConnecting(true);
+  // Fetch messages for a chat
+  const fetchMessages = async (chatId) => {
+    if (!chatId) return;
+    
+    setLoadingMessages(true);
     try {
-      const configRes = await fetch(`${API}/api/teams/auth/config`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      if (!configRes.ok) {
-        throw new Error('Failed to get auth config');
-      }
-      
-      const config = await configRes.json();
-      
-      const authUrl = new URL(`${config.authority}/oauth2/v2.0/authorize`);
-      authUrl.searchParams.set('client_id', config.client_id);
-      authUrl.searchParams.set('response_type', 'code');
-      authUrl.searchParams.set('redirect_uri', window.location.origin + '/teams/callback');
-      authUrl.searchParams.set('scope', config.scope_string);
-      authUrl.searchParams.set('response_mode', 'query');
-      authUrl.searchParams.set('state', 'teams_connect');
-      
-      const width = 600;
-      const height = 700;
-      const left = window.screenX + (window.outerWidth - width) / 2;
-      const top = window.screenY + (window.outerHeight - height) / 2;
-      
-      const popup = window.open(
-        authUrl.toString(),
-        'Teams Auth',
-        `width=${width},height=${height},left=${left},top=${top}`
-      );
-      
-      const handleMessage = async (event) => {
-        if (event.data.type === 'teams_auth_callback') {
-          window.removeEventListener('message', handleMessage);
-          popup?.close();
-          
-          if (event.data.code) {
-            const callbackRes = await fetch(`${API}/api/teams/auth/callback?code=${event.data.code}`, {
-              method: 'POST',
-              headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (callbackRes.ok) {
-              toast.success('Teams connected successfully!');
-              setConnected(true);
-            } else {
-              toast.error('Failed to connect Teams');
-            }
-          } else if (event.data.error) {
-            toast.error(`Auth error: ${event.data.error}`);
-          }
-          
-          setConnecting(false);
-        }
-      };
-      
-      window.addEventListener('message', handleMessage);
-      
-      setTimeout(() => {
-        window.removeEventListener('message', handleMessage);
-        setConnecting(false);
-      }, 300000);
-      
+      const data = await callGraphAPI(`/me/chats/${chatId}/messages?$top=50&$orderby=createdDateTime desc`);
+      // Reverse to show oldest first
+      setMessages((data?.value || []).reverse());
     } catch (e) {
-      console.error('Error connecting Teams:', e);
-      toast.error('Failed to connect Teams');
-      setConnecting(false);
+      console.error('Error fetching messages:', e);
+      toast.error('Failed to load messages');
+    } finally {
+      setLoadingMessages(false);
     }
   };
 
-  const disconnectTeams = async () => {
+  // Send message
+  const sendMessage = async () => {
+    if (!newMessage.trim() || !selectedChat) return;
+    
+    setSending(true);
     try {
-      const res = await fetch(`${API}/api/teams/auth/disconnect`, {
+      await callGraphAPI(`/me/chats/${selectedChat.id}/messages`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+        body: JSON.stringify({
+          body: {
+            content: newMessage,
+          },
+        }),
       });
-      if (res.ok) {
-        setConnected(false);
-        setChats([]);
-        setSelectedChat(null);
-        setMessages([]);
-        toast.success('Teams disconnected');
-      }
+      
+      setNewMessage('');
+      fetchMessages(selectedChat.id);
     } catch (e) {
-      toast.error('Failed to disconnect');
+      console.error('Error sending message:', e);
+      toast.error('Failed to send message');
+    } finally {
+      setSending(false);
     }
   };
 
-  const fetchChats = async () => {
+  // Search users for new chat
+  const searchForUsers = async (query) => {
+    if (!query || query.length < 2) {
+      setSearchUsers([]);
+      return;
+    }
+    
+    setSearchingUsers(true);
     try {
-      const res = await fetch(`${API}/api/teams/chats?with_preview=true&include_members=true`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const data = await callGraphAPI(`/users?$filter=startswith(displayName,'${query}') or startswith(mail,'${query}')&$top=10`);
+      setSearchUsers(data?.value || []);
+    } catch (e) {
+      console.error('Error searching users:', e);
+    } finally {
+      setSearchingUsers(false);
+    }
+  };
+
+  // Start new chat with user
+  const startNewChat = async (user) => {
+    try {
+      const data = await callGraphAPI('/me/chats', {
+        method: 'POST',
+        body: JSON.stringify({
+          chatType: 'oneOnOne',
+          members: [
+            {
+              '@odata.type': '#microsoft.graph.aadUserConversationMember',
+              roles: ['owner'],
+              'user@odata.bind': `https://graph.microsoft.com/v1.0/users/${account?.localAccountId || account?.homeAccountId}`,
+            },
+            {
+              '@odata.type': '#microsoft.graph.aadUserConversationMember',
+              roles: ['owner'],
+              'user@odata.bind': `https://graph.microsoft.com/v1.0/users/${user.id}`,
+            },
+          ],
+        }),
       });
+      
+      if (data) {
+        setShowNewChat(false);
+        setUserSearchQuery('');
+        setSearchUsers([]);
+        fetchChats();
+        setSelectedChat(data);
+        toast.success('Chat created!');
+      }
+    } catch (e) {
+      console.error('Error creating chat:', e);
+      toast.error('Failed to create chat');
+    }
+  };
+
+  useEffect(() => {
+    if (connected) {
+      fetchChats();
+    }
+  }, [connected]);
+
+  useEffect(() => {
+    if (selectedChat) {
+      fetchMessages(selectedChat.id);
+    }
+  }, [selectedChat]);
       if (res.ok) {
         const data = await res.json();
         setChats(data.chats || []);
