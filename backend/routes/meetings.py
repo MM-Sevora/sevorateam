@@ -1173,6 +1173,34 @@ async def get_meeting(
         raise HTTPException(status_code=404, detail="Meeting not found")
     
     meeting = await enrich_meeting(meeting)
+    
+    # Add series occurrence info for recurring meetings
+    if meeting.get("recurrence_type") and meeting.get("recurrence_type") != "none":
+        series_id = meeting.get("parent_recurring_id") or meeting.get("id")
+        
+        # Get all meetings in the series, sorted by start_time
+        series_meetings = await db.meetings.find(
+            {"$or": [
+                {"id": series_id},
+                {"parent_recurring_id": series_id}
+            ]},
+            {"_id": 0, "id": 1, "start_time": 1}
+        ).sort("start_time", 1).to_list(200)
+        
+        # Find current occurrence number
+        total_occurrences = len(series_meetings)
+        current_occurrence = 1
+        for idx, m in enumerate(series_meetings):
+            if m.get("id") == meeting_id:
+                current_occurrence = idx + 1
+                break
+        
+        meeting["series_info"] = {
+            "series_id": series_id,
+            "current_occurrence": current_occurrence,
+            "total_occurrences": total_occurrences
+        }
+    
     return MeetingResponse(**meeting)
 
 

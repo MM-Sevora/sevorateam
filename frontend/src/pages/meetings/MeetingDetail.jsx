@@ -815,6 +815,17 @@ const MeetingDetail = () => {
                   <span className="ml-1 text-xs opacity-70">• View Series</span>
                 </Badge>
               )}
+              
+              {/* Series Occurrence Summary */}
+              {meeting.series_info && (
+                <Badge 
+                  variant="outline" 
+                  className="bg-violet-50 text-violet-700 border-violet-200"
+                  data-testid="series-occurrence-badge"
+                >
+                  #{meeting.series_info.current_occurrence} of {meeting.series_info.total_occurrences}
+                </Badge>
+              )}
             </div>
             <h1 className="text-2xl font-bold text-[#4A3728]">{meeting.title}</h1>
             <div className="flex items-center gap-4 mt-2 text-sm text-[#5D4A3A]">

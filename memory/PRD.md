@@ -1360,6 +1360,63 @@ The Manager Dashboard was already functional with:
 - [x] Edit Template dropdown and modal verified
 - [x] All backend APIs verified
 
+### Phase 48j: Advanced Recurring Meeting Features (COMPLETE - March 10, 2026)
+**View Series Feature:**
+- [x] Backend: `GET /api/meetings/series/{series_id}` - Returns series summary with stats
+- [x] Backend: Added `series_id` filter parameter to list_meetings for filtering by series
+- [x] Frontend: Recurring badge now clickable with "View Series" text
+- [x] Frontend: Series Modal showing:
+  - Series title and recurrence type
+  - Stats grid (Total/Completed/Upcoming/Cancelled)
+  - End date display
+  - Scrollable list of all occurrences with status badges
+  - "Original" and "Current" badges for context
+  - Click to navigate to any occurrence
+
+**Edit Series Feature:**
+- [x] Backend: `PUT /api/meetings/series/{series_id}` - Updates all future meetings in series
+- [x] Backend: Supports `update_scope` parameter ('future' or 'all')
+- [x] Frontend: When saving recurring meeting, shows choice modal:
+  - "This meeting only" - Updates single occurrence
+  - "All future meetings" - Updates all upcoming meetings in series
+
+**Cancel Series Feature:**
+- [x] Backend: `POST /api/meetings/series/{series_id}/cancel` - Cancels all future meetings
+- [x] Backend: Supports `cancel_scope` parameter ('future' or 'all')
+- [x] Frontend: "Cancel All Future" button (red) in Series modal footer
+
+**Skip Occurrence Feature:**
+- [x] Backend: Added `SKIPPED` status to MeetingStatus enum
+- [x] Backend: `POST /api/meetings/{id}/skip` - Skips meeting and creates next occurrence
+- [x] Frontend: "Skip" button (amber) for recurring scheduled meetings
+- [x] Frontend: "Skip This Week" dropdown option in MeetingCard
+- [x] Frontend: Added purple status color for "skipped" status
+
+**Recurrence Day Selection:**
+- [x] Backend: Updated `create_next_recurring_meeting()` to use day selection fields
+- [x] Backend: Weekly meetings respect `recurrence_day_of_week` (0=Monday to 6=Sunday)
+- [x] Backend: Monthly meetings respect `recurrence_day_of_month` (1-31)
+- [x] Frontend: "Repeat On" dropdown for Weekly - select specific day of week
+- [x] Frontend: "Repeat On Day" dropdown for Monthly - select day of month (1st-31st)
+- [x] Frontend: Recurring badge shows day info: "Weekly (Fri)" or "Monthly (15th)"
+
+**Series Summary in Header:**
+- [x] Backend: Added `series_info` to MeetingResponse model
+- [x] Backend: Get meeting endpoint calculates occurrence number and total
+- [x] Frontend: "#3 of 10" badge (violet) in meeting detail header
+
+**Testing:**
+- [x] All API endpoints verified via curl
+- [x] Frontend features verified via Playwright screenshots
+- [x] Day selection correctly schedules next occurrence
+
+### P1 - Upcoming Tasks
+- [ ] Apply consistent Edit/Save/Cancel UX to other pages
+- [ ] Complete `server.py` route extraction
+
+### P2 - Future Tasks
+- [ ] `@mentions` in comments
+
 ### P3 - Backlog
 - [ ] Gantt Chart View for projects
 - [ ] Slack/WhatsApp integration

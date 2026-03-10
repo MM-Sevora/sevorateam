@@ -337,6 +337,9 @@ class MeetingResponse(BaseModel):
     total_action_items: int = 0
     completed_action_items: int = 0
     pending_action_items: int = 0
+    
+    # Series info (for recurring meetings)
+    series_info: Optional[dict] = None
 
 
 class MeetingListItem(BaseModel):
