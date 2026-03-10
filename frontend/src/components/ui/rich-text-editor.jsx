@@ -183,6 +183,8 @@ const RichTextEditor = forwardRef(({
         heading: {
           levels: [1, 2, 3],
         },
+        // Disable built-in extensions that we're adding separately with custom config
+        // StarterKit doesn't include underline or link by default, so no conflicts there
       }),
       Underline,
       Link.configure({
