@@ -182,13 +182,45 @@ export const AuthProvider = ({ children }) => {
         }
     }, [instance, accounts]);
 
-    // Check if user has access to department
+    // Module-to-Department mapping for backward compatibility
+    const MODULE_DEPARTMENT_MAP = {
+        "dashboard": ["admin", "marketing", "sales", "social", "mail"],
+        "marketing_ops": ["marketing", "admin"],
+        "project_management": ["admin", "marketing", "sales"],
+        "mail": ["mail", "marketing", "admin"],
+        "social": ["social", "marketing", "admin"],
+        "admin": ["admin"],
+        "hr": ["admin", "hr"],
+        "help_support": ["admin", "marketing", "sales", "social", "mail"],
+        "automations": ["admin"],
+        "meetings": ["admin", "marketing", "sales"],
+        "communication_hub": ["marketing", "sales", "admin"]
+    };
+
+    // Check if user has access to department (DEPRECATED - use hasModuleAccess)
+    // Now also checks module-based access for backward compatibility
     const hasAccessToDepartment = (department) => {
         if (!user) return false;
-        // First check if user has 'admin' in their departments (full access)
-        // Then check if the specific department is in their list
+        
+        // Super admin always has access
+        if (user.role === 'super_admin') return true;
+        
+        // First check old department-based system
         const userDepts = user.departments || getUserDepartments(user.role);
-        return userDepts.includes('admin') || userDepts.includes(department);
+        if (userDepts.includes('admin') || userDepts.includes(department)) {
+            return true;
+        }
+        
+        // NEW: Also check module-based access for backward compatibility
+        const userModules = user.merged_module_access || [];
+        for (const module of userModules) {
+            const moduleDepts = MODULE_DEPARTMENT_MAP[module] || [];
+            if (moduleDepts.includes(department)) {
+                return true;
+            }
+        }
+        
+        return false;
     };
 
     // Check if user has access to a specific module (new module-based system)

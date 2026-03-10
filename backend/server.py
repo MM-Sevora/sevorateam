@@ -559,15 +559,63 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
+# Module-to-Department mapping for backward compatibility during migration
+MODULE_DEPARTMENT_MAP = {
+    "dashboard": ["admin", "marketing", "sales", "social", "mail"],
+    "marketing_ops": ["marketing", "admin"],
+    "project_management": ["admin", "marketing", "sales"],
+    "mail": ["mail", "marketing", "admin"],
+    "social": ["social", "marketing", "admin"],
+    "admin": ["admin"],
+    "hr": ["admin", "hr"],
+    "help_support": ["admin", "marketing", "sales", "social", "mail"],
+    "automations": ["admin"],
+    "meetings": ["admin", "marketing", "sales"],
+    "communication_hub": ["marketing", "sales", "admin"]
+}
+
+# Reverse mapping: department to modules
+DEPARTMENT_MODULE_MAP = {
+    "admin": ["dashboard", "marketing_ops", "project_management", "mail", "social", "admin", "hr", "help_support", "automations", "meetings", "communication_hub"],
+    "marketing": ["dashboard", "marketing_ops", "project_management", "social", "help_support", "meetings", "communication_hub"],
+    "sales": ["dashboard", "project_management", "help_support", "meetings", "communication_hub"],
+    "social": ["dashboard", "social", "help_support"],
+    "mail": ["dashboard", "mail", "help_support"],
+    "hr": ["dashboard", "hr", "help_support"]
+}
+
 def require_department(allowed_departments: List[str]):
+    """
+    DEPRECATED: Use require_module_access() instead.
+    This function now also checks module-based access for backward compatibility.
+    """
     async def department_checker(user: dict = Depends(get_current_user)):
         user_depts = user.get('departments', [])
-        # Admin access or matching department
+        
+        # Admin access or matching department (old system)
         if 'admin' in user_depts or any(dept in user_depts for dept in allowed_departments):
             return user
+        
         # Also check by role level (80+ = admin equivalent)
         if user.get('role_level', 0) >= 80:
             return user
+        
+        # NEW: Also check module-based access for backward compatibility
+        user_modules = user.get('merged_module_access', [])
+        if not user_modules:
+            custom_role_ids = user.get('custom_role_ids', [])
+            if custom_role_ids:
+                roles = await db.custom_roles.find({"id": {"$in": custom_role_ids}}).to_list(10)
+                for role in roles:
+                    user_modules.extend(role.get('module_access', []))
+                user_modules = list(set(user_modules))
+        
+        # Check if any user module maps to the allowed departments
+        for module in user_modules:
+            module_depts = MODULE_DEPARTMENT_MAP.get(module, [])
+            if any(dept in module_depts for dept in allowed_departments):
+                return user
+        
         raise HTTPException(status_code=403, detail="Access denied to this department")
     return department_checker
 

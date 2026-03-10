@@ -1584,6 +1584,44 @@ The Manager Dashboard was already functional with:
   - Added UI controls for Stale Task Reminder
   - Phase 3 items marked with cyan "Phase 3" badge
 
+### Phase 58: Dual Permission System Migration (COMPLETE - March 10, 2026)
+
+**Migration Completed:**
+
+1. **Module-to-Department Mapping** ✅
+   - Created `MODULE_DEPARTMENT_MAP` and `DEPARTMENT_MODULE_MAP` for backward compatibility
+   - Old `require_department()` now also checks module-based access
+   - Users with module access automatically get corresponding department access
+
+2. **Frontend hasAccessToDepartment Updated** ✅
+   - Now checks both old department system AND new module-based system
+   - Ensures backward compatibility during migration
+
+3. **ProtectedRoute Enhanced** ✅
+   - Added `requiredModule` prop for new module-based protection
+   - Example: `<ProtectedRoute requiredModule="automations">`
+
+4. **Automations Protected** ✅
+   - Route: `/settings/automations` requires `automations` module
+   - API: `/api/automations/*` endpoints protected with `require_module_access(["automations", "admin"])`
+   - Sidebar: Automations link hidden for users without access
+
+**Files Modified:**
+- `/app/backend/server.py`: Added MODULE_DEPARTMENT_MAP, updated require_department(), protected automation routes
+- `/app/frontend/src/context/AuthContext.jsx`: Added MODULE_DEPARTMENT_MAP, updated hasAccessToDepartment()
+- `/app/frontend/src/App.js`: Enhanced ProtectedRoute with requiredModule prop
+
+**Testing:**
+- ✅ Super Admin can access automations (API + UI)
+- ✅ Viewer cannot access automations (403 from API, redirected in UI)
+- ✅ Test viewer user created: viewer@test.com / viewer123
+
+**Migration Status:**
+- Phase 1 (Mapping): COMPLETE
+- Phase 2 (Critical Routes): COMPLETE
+- Phase 3 (All Routes): Backward compatible - can migrate gradually
+- Phase 4 (Cleanup): Future task - remove old system once all routes migrated
+
 ### Phase 57: Permission System Fixes (COMPLETE - March 10, 2026)
 
 **Critical Issues Fixed (P0):**

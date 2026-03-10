@@ -240,8 +240,8 @@ const MsalInitializer = ({ children }) => {
 };
 
 // Protected Route Component
-const ProtectedRoute = ({ children, requiredDepartment }) => {
-    const { isAuthenticated, loading, hasAccessToDepartment } = useAuth();
+const ProtectedRoute = ({ children, requiredDepartment, requiredModule }) => {
+    const { isAuthenticated, loading, hasAccessToDepartment, hasModuleAccess } = useAuth();
 
     if (loading) {
         return (
@@ -255,6 +255,12 @@ const ProtectedRoute = ({ children, requiredDepartment }) => {
         return <Navigate to="/login" replace />;
     }
 
+    // Check module-based access (new system)
+    if (requiredModule && !hasModuleAccess(requiredModule)) {
+        return <Navigate to="/" replace />;
+    }
+
+    // Check department-based access (old system - backward compatible)
     if (requiredDepartment && !hasAccessToDepartment(requiredDepartment)) {
         return <Navigate to="/" replace />;
     }
@@ -366,7 +372,7 @@ function AppRoutes() {
             <Route path="/admin/team" element={<ProtectedRoute><TeamDashboard /></ProtectedRoute>} />
 
             {/* Settings Routes */}
-            <Route path="/settings/automations" element={<ProtectedRoute><AutomationSettings /></ProtectedRoute>} />
+            <Route path="/settings/automations" element={<ProtectedRoute requiredModule="automations"><AutomationSettings /></ProtectedRoute>} />
 
             {/* Goals & Objectives Routes */}
             <Route path="/goals" element={<ProtectedRoute><GoalsDashboard /></ProtectedRoute>} />
