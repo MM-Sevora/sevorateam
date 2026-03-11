@@ -1,3 +1,48 @@
+## March 11, 2026 - Role-Based Sidebar Visibility COMPLETE ✅
+
+### Feature: Dynamic Sidebar Based on User's Module Access
+
+#### Implementation:
+1. **Frontend (Layout.jsx)**:
+   - Updated `DEPARTMENT_CONFIG` with correct `requiredModule` keys for each sidebar section
+   - Each section now maps to a specific access module (e.g., `sourcing` → Buying & Sourcing)
+   - Individual routes within sections can also have `requiredModule` for fine-grained control
+
+2. **Frontend (AuthContext.jsx)**:
+   - Enhanced `hasModuleAccess()` to check default access modules first
+   - Default access modules: `dashboard`, `sevora_pulse`, `notifications`, `help_support`
+   - All users see these modules regardless of role
+
+3. **Backend (server.py)**:
+   - Enhanced `get_current_user()` to compute `merged_module_access` dynamically
+   - Now fetches and merges module access from all assigned custom roles
+   - Returns complete module access list in `/auth/me` endpoint
+
+#### Module → Sidebar Section Mapping:
+| Module Key | Sidebar Section |
+|------------|-----------------|
+| `sevora_pulse` | Sevora Pulse (Default ✓) |
+| `analytics_insights` | Analytics & Insights |
+| `goals` | Goals & Objectives |
+| `communication_hub` | Communication Hub |
+| `project_management` | Project Management |
+| `operational_tasks` | Operational Tasks |
+| `marketing_ops` | Marketing Ops |
+| `sales` | Sales & CRM |
+| `social` | Social Media |
+| `expense` | HR & Finance |
+| `sourcing` | Buying & Sourcing |
+| `admin` | Administration |
+| `systems` | Systems |
+
+#### Testing Results:
+- Super Admin sees all 13 sections ✅
+- HR Admin sees 3 sections (Pulse, Analytics, Goals) ✅
+- Employee sees 4 sections (Pulse, Goals, Projects, HR & Finance) ✅
+- Viewer sees only Pulse (default access) ✅
+
+---
+
 ## March 11, 2026 - Access Control System Module Integration COMPLETE ✅
 
 ### New System Modules Added (8 new modules):

@@ -36,7 +36,7 @@ const DEPARTMENT_CONFIG = {
         color: 'from-rose-600 to-rose-700',
         bgColor: 'bg-rose-50',
         textColor: 'text-rose-700',
-        requiredModule: null,  // Available to everyone
+        requiredModule: 'sevora_pulse',  // Default access for all users
         routes: [
             { path: '/pulse', name: 'Company Wall', icon: MessageCircle },
             { path: '/pulse/departments', name: 'Department Walls', icon: Building2 },
@@ -51,7 +51,7 @@ const DEPARTMENT_CONFIG = {
         color: 'from-cyan-600 to-cyan-700',
         bgColor: 'bg-cyan-50',
         textColor: 'text-cyan-700',
-        requiredModule: 'dashboard',
+        requiredModule: 'analytics_insights',  // NEW: Dedicated module
         routes: [
             { path: '/analytics', name: 'Team Dashboard', icon: BarChart3 },
             { path: '/analytics/reports', name: 'Reports', icon: FileText },
@@ -63,7 +63,7 @@ const DEPARTMENT_CONFIG = {
         color: 'from-indigo-600 to-indigo-700',
         bgColor: 'bg-indigo-50',
         textColor: 'text-indigo-700',
-        requiredModule: 'project_management',  // Module-based access
+        requiredModule: 'goals',  // NEW: Dedicated module
         routes: [
             { path: '/goals', name: 'Dashboard', icon: BarChart3 },
             { path: '/goals/strategic', name: 'Strategic Goals', icon: Flag },
@@ -77,7 +77,7 @@ const DEPARTMENT_CONFIG = {
         color: 'from-violet-600 to-violet-700',
         bgColor: 'bg-violet-50',
         textColor: 'text-violet-700',
-        requiredModule: 'communication_hub',  // Module-based access
+        requiredModule: 'communication_hub',
         routes: [
             { path: '/meetings', name: 'Meetings', icon: CalendarDays, requiredModule: 'meetings' },
             { path: '/meetings/new', name: 'Schedule Meeting', icon: Plus, requiredModule: 'meetings' },
@@ -92,7 +92,7 @@ const DEPARTMENT_CONFIG = {
         color: 'from-rose-600 to-rose-700',
         bgColor: 'bg-rose-50',
         textColor: 'text-rose-700',
-        requiredModule: 'project_management',  // Module-based access
+        requiredModule: 'project_management',
         routes: [
             { path: '/projects/manager', name: 'Manager Dashboard', icon: BarChart3 },
             { path: '/projects/my-tasks', name: 'My Tasks', icon: ListTodo },
@@ -106,7 +106,7 @@ const DEPARTMENT_CONFIG = {
         color: 'from-teal-600 to-teal-700',
         bgColor: 'bg-teal-50',
         textColor: 'text-teal-700',
-        requiredModule: 'project_management',  // Uses same module access as projects
+        requiredModule: 'operational_tasks',  // NEW: Dedicated module
         routes: [
             { path: '/tasks', name: 'All Tasks', icon: ClipboardList },
             { path: '/tasks/activities', name: 'Activity Feed', icon: Activity },
@@ -119,7 +119,7 @@ const DEPARTMENT_CONFIG = {
         color: 'from-amber-700 to-amber-800',
         bgColor: 'bg-amber-50',
         textColor: 'text-amber-800',
-        requiredModule: 'marketing_ops',  // Module-based access
+        requiredModule: 'marketing_ops',
         routes: [
             { path: '/marketing', name: 'Insights & Analytics', icon: BarChart3 },
             { path: '/marketing/influencers', name: 'Influencers', icon: Users },
@@ -137,7 +137,7 @@ const DEPARTMENT_CONFIG = {
         color: 'from-stone-600 to-stone-700',
         bgColor: 'bg-stone-50',
         textColor: 'text-stone-700',
-        requiredModule: 'project_management',  // Sales uses project_management module
+        requiredModule: 'sales',  // NEW: Dedicated module
         routes: [
             { path: '/sales', name: 'Dashboard', icon: LayoutDashboard },
             { path: '/sales/leads', name: 'Leads', icon: UserPlus },
@@ -155,7 +155,7 @@ const DEPARTMENT_CONFIG = {
         color: 'from-rose-600 to-rose-700',
         bgColor: 'bg-rose-50',
         textColor: 'text-rose-700',
-        requiredModule: 'social',  // Module-based access
+        requiredModule: 'social',
         routes: [
             { path: '/social', name: 'Dashboard & Analytics', icon: BarChart3 },
             { path: '/social/inbox', name: 'Inbox', icon: MessageSquare },
@@ -177,7 +177,7 @@ const DEPARTMENT_CONFIG = {
         color: 'from-emerald-600 to-emerald-700',
         bgColor: 'bg-emerald-50',
         textColor: 'text-emerald-700',
-        requiredModule: 'hr',  // Module-based access
+        requiredModule: 'expense',  // NEW: Dedicated expense module
         routes: [
             { path: '/hr/expenses', name: 'Expenses & Reimbursement', icon: DollarSign },
         ]
@@ -188,7 +188,7 @@ const DEPARTMENT_CONFIG = {
         color: 'from-orange-600 to-orange-700',
         bgColor: 'bg-orange-50',
         textColor: 'text-orange-700',
-        requiredModule: 'project_management',
+        requiredModule: 'sourcing',  // NEW: Dedicated module
         routes: [
             { path: '/sourcing', name: 'Dashboard', icon: LayoutDashboard },
             { 
@@ -231,11 +231,11 @@ const DEPARTMENT_CONFIG = {
         color: 'from-slate-600 to-slate-700',
         bgColor: 'bg-slate-50',
         textColor: 'text-slate-700',
-        requiredModule: 'admin',  // Module-based access
+        requiredModule: 'admin',
         routes: [
             { path: '/admin/users', name: 'User Management', icon: Users },
-            { path: '/admin/employees', name: 'Employee Database', icon: Award },
-            { path: '/admin/organization', name: 'Organization', icon: Building2 },
+            { path: '/admin/employees', name: 'Employee Database', icon: Award, requiredModule: 'hr' },
+            { path: '/admin/organization', name: 'Organization', icon: Building2, requiredModule: 'hr' },
             { path: '/admin/access-control', name: 'Permissions', icon: Shield },
         ]
     },
@@ -250,8 +250,8 @@ const DEPARTMENT_CONFIG = {
             { path: '/systems', name: 'Overview', icon: LayoutDashboard },
             { path: '/systems/integrations', name: 'Integrations', icon: Plug },
             { path: '/systems/config', name: 'Configuration', icon: Settings },
-            { path: '/settings/automations', name: 'Automations', icon: Zap },
-            { path: '/notifications', name: 'Notifications', icon: Bell },
+            { path: '/settings/automations', name: 'Automations', icon: Zap, requiredModule: 'automations' },
+            { path: '/notifications', name: 'Notifications', icon: Bell, requiredModule: 'notifications' },
             { path: '/admin/website-settings', name: 'Website Settings', icon: Globe },
         ]
     }
