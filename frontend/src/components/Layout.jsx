@@ -40,6 +40,10 @@ const DEPARTMENT_CONFIG = {
         routes: [
             { path: '/pulse', name: 'Activity Feed', icon: MessageCircle },
             { path: '/pulse/feed', name: 'Company Wall', icon: Users },
+            { path: '/pulse/departments', name: 'Department Walls', icon: Building2 },
+            { path: '/pulse/recognition', name: 'Recognition', icon: Award },
+            { path: '/pulse/updates', name: 'Work Updates', icon: ClipboardList },
+            { path: '/pulse/leadership', name: 'Leadership Dashboard', icon: BarChart3 },
         ]
     },
     analytics: {

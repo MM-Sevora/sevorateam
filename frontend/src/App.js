@@ -59,6 +59,10 @@ import SocialListening from "./pages/social/SocialListening";
 import PlatformIntegrations from "./pages/social/PlatformIntegrations";
 import EngagementTracker from "./pages/social/EngagementTracker";
 import PulseFeed from "./pages/pulse/PulseFeed";
+import LeadershipDashboard from "./pages/pulse/LeadershipDashboard";
+import DepartmentWall from "./pages/pulse/DepartmentWall";
+import Recognition from "./pages/pulse/Recognition";
+import WorkUpdates from "./pages/pulse/WorkUpdates";
 
 // Email Page
 import EmailPage from "./pages/marketing/EmailPage";
@@ -411,6 +415,11 @@ function AppRoutes() {
             {/* Sevora Pulse - Company Wall */}
             <Route path="/pulse" element={<ProtectedRoute><PulseFeed /></ProtectedRoute>} />
             <Route path="/pulse/feed" element={<ProtectedRoute><PulseFeed /></ProtectedRoute>} />
+            <Route path="/pulse/leadership" element={<ProtectedRoute><LeadershipDashboard /></ProtectedRoute>} />
+            <Route path="/pulse/departments" element={<ProtectedRoute><DepartmentWall /></ProtectedRoute>} />
+            <Route path="/pulse/departments/:department" element={<ProtectedRoute><DepartmentWall /></ProtectedRoute>} />
+            <Route path="/pulse/recognition" element={<ProtectedRoute><Recognition /></ProtectedRoute>} />
+            <Route path="/pulse/updates" element={<ProtectedRoute><WorkUpdates /></ProtectedRoute>} />
             {/* Redirect old routes to dashboard */}
             <Route path="/social/analytics" element={<Navigate to="/social" replace />} />
             <Route path="/social/ai-tools" element={<Navigate to="/social" replace />} />
