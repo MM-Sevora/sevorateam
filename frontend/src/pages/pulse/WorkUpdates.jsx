@@ -48,6 +48,7 @@ import {
     FolderKanban,
     ListTodo,
     ExternalLink,
+    ListChecks,
 } from 'lucide-react';
 
 export default function WorkUpdates() {
@@ -237,6 +238,31 @@ export default function WorkUpdates() {
             toast.error('Failed to submit weekly update');
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    // Create task from blocker
+    const handleCreateTaskFromBlocker = async (updateId, blockerIndex, blockerText) => {
+        try {
+            const response = await api.post(`/pulse/updates/daily/${updateId}/create-task?blocker_index=${blockerIndex}`, {
+                priority: 'high'
+            });
+            
+            if (response.data.success) {
+                toast.success('Task created from blocker!', {
+                    description: `"${blockerText.substring(0, 50)}..." is now a task`,
+                    action: {
+                        label: 'View',
+                        onClick: () => window.location.href = '/projects'
+                    }
+                });
+                fetchUpdates();
+            } else {
+                toast.info(response.data.message);
+            }
+        } catch (error) {
+            toast.error('Failed to create task');
+            console.error('Create task error:', error);
         }
     };
 
@@ -795,10 +821,32 @@ export default function WorkUpdates() {
                                                         <h4 className="text-sm font-medium text-red-700 flex items-center gap-1 mb-1">
                                                             <AlertTriangle className="w-4 h-4" /> Blockers
                                                         </h4>
-                                                        <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-                                                            {update.blockers?.map((blocker, i) => (
-                                                                <li key={i}>{blocker}</li>
-                                                            ))}
+                                                        <ul className="text-sm text-gray-700 space-y-2">
+                                                            {(update.blocker_items || update.blockers?.map(b => ({ text: b }))).map((blocker, i) => {
+                                                                const blockerText = typeof blocker === 'string' ? blocker : blocker.text;
+                                                                const hasTask = blocker.linked_task_id;
+                                                                return (
+                                                                    <li key={i} className="flex items-start gap-2 group">
+                                                                        <span className="text-red-500 mt-0.5">•</span>
+                                                                        <span className="flex-1">{blockerText}</span>
+                                                                        {!hasTask ? (
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="sm"
+                                                                                className="opacity-0 group-hover:opacity-100 h-6 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                                                                onClick={() => handleCreateTaskFromBlocker(update.id, i, blockerText)}
+                                                                            >
+                                                                                <ListChecks className="w-3 h-3 mr-1" />
+                                                                                Create Task
+                                                                            </Button>
+                                                                        ) : (
+                                                                            <span className="text-xs text-green-600 flex items-center gap-1">
+                                                                                <CheckCircle className="w-3 h-3" /> Task Created
+                                                                            </span>
+                                                                        )}
+                                                                    </li>
+                                                                );
+                                                            })}
                                                         </ul>
                                                     </div>
                                                 )}

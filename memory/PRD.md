@@ -1,3 +1,33 @@
+## March 11, 2026 - Quick Actions & Reverse Integrations COMPLETE ✅
+
+### Feature: Create Tasks from Pulse Posts
+
+#### Backend Endpoints:
+1. **POST /api/pulse/posts/{post_id}/create-task** - Create task from any post
+2. **GET /api/pulse/posts/{post_id}/linked-task** - Get linked task if exists
+3. **POST /api/pulse/updates/daily/{update_id}/create-task** - Create task from specific blocker
+
+#### Task Creation Details:
+- Task name prefixed with [From Pulse] or [Blocker]
+- Links back to source post/update via source_post_id or source_update_id
+- Labels: "from-pulse", "blocker" (for blockers)
+- Default priority: high for blockers, medium for regular posts
+- Post updated with linked_task_id after task creation
+
+#### Frontend Changes:
+- **PulseFeed.jsx**: Added "Create Task" dropdown option on posts
+- **PulseFeed.jsx**: Shows "View Linked Task" if task already exists
+- **WorkUpdates.jsx**: Hover "Create Task" button on blockers
+- **WorkUpdates.jsx**: Shows "Task Created" indicator for resolved blockers
+- Toast notifications with "View" action to navigate to Projects
+
+### Testing: Verified via curl
+- Create task from post: ✅
+- Create task from blocker: ✅
+- Duplicate task prevention: ✅
+
+---
+
 ## March 11, 2026 - Real-time Pulse Feed Updates (WebSocket) COMPLETE ✅
 
 ### WebSocket Implementation:

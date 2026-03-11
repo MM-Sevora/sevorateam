@@ -2109,3 +2109,182 @@ async def export_pulse_data(
         return {"csv": output.getvalue(), "filename": f"pulse_{export_type}_{datetime.now().strftime('%Y%m%d')}.csv"}
     
     return {"data": data, "count": len(data) if isinstance(data, list) else None}
+
+
+
+# ============== QUICK ACTIONS - REVERSE INTEGRATIONS ==============
+
+class CreateTaskFromPostRequest(BaseModel):
+    project_id: Optional[str] = None
+    assignee_id: Optional[str] = None
+    due_date: Optional[str] = None
+    priority: Optional[str] = "medium"
+
+@router.post("/posts/{post_id}/create-task")
+async def create_task_from_post(
+    post_id: str,
+    request: CreateTaskFromPostRequest = None,
+    user: dict = Depends(get_current_user)
+):
+    """Create a task from a Pulse post (blocker, issue, or any post)"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not available")
+    
+    # Get the post
+    post = await db.pulse_posts.find_one({"id": post_id})
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    # Check if task already exists for this post
+    if post.get("linked_task_id"):
+        existing_task = await db.pm_tasks.find_one({"id": post["linked_task_id"]}, {"_id": 0})
+        if existing_task:
+            return {
+                "success": False,
+                "message": "Task already exists for this post",
+                "task": existing_task
+            }
+    
+    # Create the task
+    task_id = str(uuid.uuid4())
+    task_doc = {
+        "id": task_id,
+        "name": f"[From Pulse] {post.get('title', 'Task from Pulse')}",
+        "description": f"Created from Pulse post.\n\n---\n{post.get('content', '')}",
+        "status": "not_started",
+        "priority": request.priority if request else post.get("priority", "medium"),
+        "project_id": request.project_id if request else None,
+        "assigned_to": request.assignee_id if request else user.get("id"),
+        "due_date": request.due_date if request else None,
+        "labels": ["from-pulse"],
+        "created_by": user.get("id"),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "source_module": "pulse",
+        "source_post_id": post_id,
+    }
+    
+    # Add specific labels based on post type
+    if post.get("post_type") == "daily_update" and "blocker" in post.get("content", "").lower():
+        task_doc["labels"].append("blocker")
+    if post.get("post_type") == "issue":
+        task_doc["labels"].append("issue")
+    
+    await db.pm_tasks.insert_one(task_doc)
+    
+    # Update the post to link to the task
+    await db.pulse_posts.update_one(
+        {"id": post_id},
+        {"$set": {
+            "linked_task_id": task_id,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Remove MongoDB _id
+    if "_id" in task_doc:
+        del task_doc["_id"]
+    
+    return {
+        "success": True,
+        "message": "Task created successfully",
+        "task": task_doc
+    }
+
+
+@router.get("/posts/{post_id}/linked-task")
+async def get_linked_task(post_id: str, user: dict = Depends(get_current_user)):
+    """Get the task linked to a Pulse post, if any"""
+    if db is None:
+        return {"task": None}
+    
+    post = await db.pulse_posts.find_one({"id": post_id}, {"linked_task_id": 1})
+    if not post or not post.get("linked_task_id"):
+        return {"task": None}
+    
+    task = await db.pm_tasks.find_one({"id": post["linked_task_id"]}, {"_id": 0})
+    return {"task": task}
+
+
+@router.post("/updates/daily/{update_id}/create-task")
+async def create_task_from_daily_update_blocker(
+    update_id: str,
+    blocker_index: int = 0,
+    request: CreateTaskFromPostRequest = None,
+    user: dict = Depends(get_current_user)
+):
+    """Create a task from a specific blocker in a daily update"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not available")
+    
+    # Get the daily update
+    update = await db.pulse_daily_updates.find_one({"id": update_id})
+    if not update:
+        raise HTTPException(status_code=404, detail="Daily update not found")
+    
+    # Get blocker items (prefer new structure, fallback to legacy)
+    blocker_items = update.get("blocker_items", [])
+    if not blocker_items:
+        blockers = update.get("blockers", [])
+        blocker_items = [{"text": b} for b in blockers]
+    
+    if blocker_index >= len(blocker_items):
+        raise HTTPException(status_code=400, detail="Invalid blocker index")
+    
+    blocker = blocker_items[blocker_index]
+    blocker_text = blocker.get("text", "") if isinstance(blocker, dict) else blocker
+    
+    # Check if task already exists
+    existing_task = await db.pm_tasks.find_one({
+        "source_module": "pulse_blocker",
+        "source_update_id": update_id,
+        "source_blocker_index": blocker_index
+    }, {"_id": 0})
+    
+    if existing_task:
+        return {
+            "success": False,
+            "message": "Task already exists for this blocker",
+            "task": existing_task
+        }
+    
+    # Create the task
+    task_id = str(uuid.uuid4())
+    linked_item = blocker.get("linked_item") if isinstance(blocker, dict) else None
+    
+    task_doc = {
+        "id": task_id,
+        "name": f"[Blocker] {blocker_text[:100]}",
+        "description": f"Blocker reported by {update.get('user_name', 'Team member')} on {update.get('date', 'unknown date')}.\n\n{blocker_text}",
+        "status": "not_started",
+        "priority": request.priority if request else "high",  # Blockers are high priority by default
+        "project_id": request.project_id if request else (linked_item.get("project_id") if linked_item else None),
+        "assigned_to": request.assignee_id if request else user.get("id"),
+        "due_date": request.due_date if request else None,
+        "labels": ["from-pulse", "blocker"],
+        "created_by": user.get("id"),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "source_module": "pulse_blocker",
+        "source_update_id": update_id,
+        "source_blocker_index": blocker_index,
+    }
+    
+    await db.pm_tasks.insert_one(task_doc)
+    
+    # Update the blocker to link to the task
+    if blocker_items and isinstance(blocker_items[blocker_index], dict):
+        blocker_items[blocker_index]["linked_task_id"] = task_id
+        await db.pulse_daily_updates.update_one(
+            {"id": update_id},
+            {"$set": {"blocker_items": blocker_items}}
+        )
+    
+    if "_id" in task_doc:
+        del task_doc["_id"]
+    
+    return {
+        "success": True,
+        "message": "Task created from blocker",
+        "task": task_doc
+    }

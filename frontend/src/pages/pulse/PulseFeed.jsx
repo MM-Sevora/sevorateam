@@ -67,6 +67,8 @@ import {
     ChevronDown,
     Wifi,
     WifiOff,
+    ListChecks,
+    ArrowRightCircle,
 } from 'lucide-react';
 
 const POST_TYPE_CONFIG = {
@@ -388,6 +390,39 @@ export default function PulseFeed() {
         setNewPost({ ...newPost, tags: newPost.tags.filter(t => t !== tag) });
     };
 
+    // Create task from post
+    const handleCreateTaskFromPost = async (postId, postTitle) => {
+        try {
+            const response = await api.post(`/pulse/posts/${postId}/create-task`, {
+                priority: 'high'
+            });
+            
+            if (response.data.success) {
+                toast.success('Task created!', {
+                    description: `Task "${response.data.task.name}" created successfully`,
+                    action: {
+                        label: 'View',
+                        onClick: () => window.location.href = '/projects'
+                    }
+                });
+                
+                // Update the post in state to show linked task
+                setPosts(posts.map(p => 
+                    p.id === postId 
+                        ? { ...p, linked_task_id: response.data.task.id }
+                        : p
+                ));
+            } else {
+                toast.info(response.data.message, {
+                    description: 'A task already exists for this post'
+                });
+            }
+        } catch (error) {
+            toast.error('Failed to create task');
+            console.error('Create task error:', error);
+        }
+    };
+
     const formatDate = (dateString) => {
         const date = new Date(dateString);
         const now = new Date();
@@ -641,6 +676,25 @@ export default function PulseFeed() {
                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
+                                                    {/* Create Task from Post */}
+                                                    {!post.linked_task_id && (
+                                                        <DropdownMenuItem 
+                                                            onClick={() => handleCreateTaskFromPost(post.id, post.title)}
+                                                            className="text-blue-600"
+                                                        >
+                                                            <ListChecks className="w-4 h-4 mr-2" />
+                                                            Create Task
+                                                        </DropdownMenuItem>
+                                                    )}
+                                                    {post.linked_task_id && (
+                                                        <DropdownMenuItem 
+                                                            onClick={() => window.location.href = '/projects'}
+                                                            className="text-green-600"
+                                                        >
+                                                            <ArrowRightCircle className="w-4 h-4 mr-2" />
+                                                            View Linked Task
+                                                        </DropdownMenuItem>
+                                                    )}
                                                     {(user?.role === 'superadmin' || user?.role === 'admin') && (
                                                         <DropdownMenuItem onClick={() => handlePinPost(post.id)}>
                                                             <Pin className="w-4 h-4 mr-2" />
