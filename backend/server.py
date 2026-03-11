@@ -4090,6 +4090,15 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Social Listening routes: {e}")
 
+# Load Social Platform Integrations routes (Phase 5 - Direct API Publishing)
+try:
+    from routes.social_integrations import router as social_integrations_router, init_router as init_integrations_router
+    init_integrations_router(db, get_current_user)
+    api_router.include_router(social_integrations_router)
+    logger.info("Social Integrations routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Social Integrations routes: {e}")
+
 # Load Admin V2 routes
 try:
     from routes.admin import router as admin_v2_router, set_database as set_admin_db, set_jwt_settings as set_admin_jwt

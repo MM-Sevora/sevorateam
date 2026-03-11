@@ -1,0 +1,693 @@
+"""
+Social Media Platform Integrations - Phase 5
+Direct API connections for auto-publishing to social platforms.
+
+Structure-ready implementation: Mock publishing with real API patterns.
+Easy to swap for real APIs when developer credentials are available.
+"""
+
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any, Callable
+from datetime import datetime, timezone
+import uuid
+import os
+import logging
+import jwt
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/social/integrations", tags=["Social Integrations"])
+
+# Database and auth references - will be set by server.py
+db = None
+JWT_SECRET = None
+JWT_ALGORITHM = 'HS256'
+security = HTTPBearer(auto_error=False)
+
+def init_router(database, get_current_user_func: Callable):
+    """Initialize router with database and auth function"""
+    global db
+    db = database
+
+def set_jwt_config(secret: str, algorithm: str = 'HS256'):
+    global JWT_SECRET, JWT_ALGORITHM
+    JWT_SECRET = secret
+    JWT_ALGORITHM = algorithm
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get current user from JWT token"""
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        # Use the same JWT settings as the main server
+        import os
+        secret = os.environ.get('JWT_SECRET', 'sevora-team-secret-2024')
+        payload = jwt.decode(credentials.credentials, secret, algorithms=['HS256'])
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        if db is None:
+            return {"id": user_id, "name": "User"}
+        user = await db.users.find_one({"id": user_id}, {"_id": 0, "password": 0})
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        return user
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+class PlatformConfig(BaseModel):
+    platform: str  # linkedin, twitter, instagram, facebook, youtube
+    access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
+    expires_at: Optional[str] = None
+    account_id: Optional[str] = None
+    account_name: Optional[str] = None
+    profile_url: Optional[str] = None
+    profile_image: Optional[str] = None
+    permissions: List[str] = []
+    
+class PlatformConnection(BaseModel):
+    id: str
+    user_id: str
+    platform: str
+    status: str  # connected, disconnected, expired, error
+    account_name: Optional[str] = None
+    account_id: Optional[str] = None
+    profile_url: Optional[str] = None
+    profile_image: Optional[str] = None
+    permissions: List[str] = []
+    last_synced: Optional[str] = None
+    connected_at: Optional[str] = None
+    error_message: Optional[str] = None
+
+class PublishRequest(BaseModel):
+    platform: str
+    content: str
+    media_urls: List[str] = []
+    link_url: Optional[str] = None
+    schedule_time: Optional[str] = None  # ISO format for scheduled posts
+    post_type: str = "text"  # text, image, video, link, carousel
+
+class PublishResponse(BaseModel):
+    success: bool
+    platform: str
+    platform_post_id: Optional[str] = None
+    platform_url: Optional[str] = None
+    message: str
+    published_at: Optional[str] = None
+    scheduled_for: Optional[str] = None
+
+class PublishHistory(BaseModel):
+    id: str
+    user_id: str
+    post_id: Optional[str] = None  # Reference to social_posts
+    platform: str
+    platform_post_id: Optional[str] = None
+    platform_url: Optional[str] = None
+    status: str  # published, scheduled, failed, deleted
+    content_preview: str
+    published_at: Optional[str] = None
+    error_message: Optional[str] = None
+    engagement: Optional[Dict[str, int]] = None  # likes, comments, shares
+
+
+class MultiPublishRequest(BaseModel):
+    platforms: List[str]
+    content: str
+    media_urls: List[str] = []
+    link_url: Optional[str] = None
+    post_type: str = "text"
+
+
+# ============== PLATFORM CONFIGURATIONS ==============
+
+PLATFORM_CONFIGS = {
+    "linkedin": {
+        "name": "LinkedIn",
+        "icon": "linkedin",
+        "color": "#0A66C2",
+        "auth_url": "https://www.linkedin.com/oauth/v2/authorization",
+        "token_url": "https://www.linkedin.com/oauth/v2/accessToken",
+        "api_base": "https://api.linkedin.com/v2",
+        "scopes": ["r_liteprofile", "r_emailaddress", "w_member_social"],
+        "post_types": ["text", "image", "video", "link", "article"],
+        "max_chars": 3000,
+        "supports_scheduling": True,
+        "supports_analytics": True,
+    },
+    "twitter": {
+        "name": "Twitter/X",
+        "icon": "twitter",
+        "color": "#1DA1F2",
+        "auth_url": "https://twitter.com/i/oauth2/authorize",
+        "token_url": "https://api.twitter.com/2/oauth2/token",
+        "api_base": "https://api.twitter.com/2",
+        "scopes": ["tweet.read", "tweet.write", "users.read", "offline.access"],
+        "post_types": ["text", "image", "video", "poll"],
+        "max_chars": 280,
+        "supports_scheduling": True,
+        "supports_analytics": True,
+    },
+    "instagram": {
+        "name": "Instagram",
+        "icon": "instagram",
+        "color": "#E4405F",
+        "auth_url": "https://api.instagram.com/oauth/authorize",
+        "token_url": "https://api.instagram.com/oauth/access_token",
+        "api_base": "https://graph.instagram.com",
+        "scopes": ["instagram_basic", "instagram_content_publish", "instagram_manage_insights"],
+        "post_types": ["image", "video", "carousel", "story", "reel"],
+        "max_chars": 2200,
+        "supports_scheduling": True,
+        "supports_analytics": True,
+    },
+    "facebook": {
+        "name": "Facebook",
+        "icon": "facebook",
+        "color": "#1877F2",
+        "auth_url": "https://www.facebook.com/v18.0/dialog/oauth",
+        "token_url": "https://graph.facebook.com/v18.0/oauth/access_token",
+        "api_base": "https://graph.facebook.com/v18.0",
+        "scopes": ["pages_manage_posts", "pages_read_engagement", "pages_show_list"],
+        "post_types": ["text", "image", "video", "link", "carousel"],
+        "max_chars": 63206,
+        "supports_scheduling": True,
+        "supports_analytics": True,
+    },
+    "youtube": {
+        "name": "YouTube",
+        "icon": "youtube",
+        "color": "#FF0000",
+        "auth_url": "https://accounts.google.com/o/oauth2/v2/auth",
+        "token_url": "https://oauth2.googleapis.com/token",
+        "api_base": "https://www.googleapis.com/youtube/v3",
+        "scopes": ["https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube.readonly"],
+        "post_types": ["video", "short"],
+        "max_chars": 5000,  # description
+        "supports_scheduling": True,
+        "supports_analytics": True,
+    },
+}
+
+
+# ============== HELPER FUNCTIONS ==============
+
+# Note: get_current_user is defined at the top of this file (line ~39) with proper JWT auth
+
+
+async def mock_publish_to_platform(platform: str, content: str, media_urls: List[str], 
+                                   link_url: Optional[str], post_type: str) -> Dict[str, Any]:
+    """
+    Mock publishing function - simulates API response.
+    Replace this with actual API calls when credentials are available.
+    """
+    import random
+    import string
+    
+    # Generate mock platform post ID
+    platform_post_id = ''.join(random.choices(string.digits, k=18))
+    
+    # Platform-specific URL patterns
+    url_patterns = {
+        "linkedin": f"https://www.linkedin.com/feed/update/urn:li:share:{platform_post_id}",
+        "twitter": f"https://twitter.com/user/status/{platform_post_id}",
+        "instagram": f"https://www.instagram.com/p/{platform_post_id[:11]}/",
+        "facebook": f"https://www.facebook.com/permalink.php?id={platform_post_id}",
+        "youtube": f"https://www.youtube.com/watch?v={platform_post_id[:11]}",
+    }
+    
+    # Simulate success (95% success rate for demo)
+    success = random.random() > 0.05
+    
+    if success:
+        return {
+            "success": True,
+            "platform_post_id": platform_post_id,
+            "platform_url": url_patterns.get(platform, f"https://{platform}.com/post/{platform_post_id}"),
+            "message": f"Successfully published to {PLATFORM_CONFIGS[platform]['name']}",
+        }
+    else:
+        return {
+            "success": False,
+            "platform_post_id": None,
+            "platform_url": None,
+            "message": f"Failed to publish to {PLATFORM_CONFIGS[platform]['name']}: Rate limit exceeded (simulated)",
+        }
+
+
+# ============== ENDPOINTS ==============
+
+@router.get("/platforms")
+async def get_available_platforms():
+    """Get list of all available platforms with their configurations"""
+    platforms = []
+    for key, config in PLATFORM_CONFIGS.items():
+        platforms.append({
+            "id": key,
+            "name": config["name"],
+            "icon": config["icon"],
+            "color": config["color"],
+            "post_types": config["post_types"],
+            "max_chars": config["max_chars"],
+            "supports_scheduling": config["supports_scheduling"],
+            "supports_analytics": config["supports_analytics"],
+            "scopes": config["scopes"],
+        })
+    return {"platforms": platforms}
+
+
+@router.get("/connections")
+async def get_user_connections(user: dict = Depends(get_current_user)):
+    """Get all platform connections for current user"""
+    if db is None:
+        # Return mock data for structure-ready implementation
+        return {
+            "connections": [
+                {
+                    "id": "conn-linkedin-1",
+                    "user_id": user["id"],
+                    "platform": "linkedin",
+                    "status": "disconnected",
+                    "account_name": None,
+                    "permissions": [],
+                    "connected_at": None,
+                }
+            ],
+            "available_platforms": list(PLATFORM_CONFIGS.keys())
+        }
+    
+    connections = await db.social_platform_connections.find(
+        {"user_id": user["id"]},
+        {"_id": 0}
+    ).to_list(10)
+    
+    # Add any platforms not yet connected
+    connected_platforms = {c["platform"] for c in connections}
+    for platform in PLATFORM_CONFIGS.keys():
+        if platform not in connected_platforms:
+            connections.append({
+                "id": f"conn-{platform}-new",
+                "user_id": user["id"],
+                "platform": platform,
+                "status": "disconnected",
+                "account_name": None,
+                "permissions": [],
+                "connected_at": None,
+            })
+    
+    return {
+        "connections": connections,
+        "available_platforms": list(PLATFORM_CONFIGS.keys())
+    }
+
+
+@router.get("/connections/{platform}")
+async def get_platform_connection(platform: str, user: dict = Depends(get_current_user)):
+    """Get connection status for a specific platform"""
+    if platform not in PLATFORM_CONFIGS:
+        raise HTTPException(status_code=400, detail=f"Unknown platform: {platform}")
+    
+    if db is None:
+        return {
+            "platform": platform,
+            "status": "disconnected",
+            "config": PLATFORM_CONFIGS[platform],
+            "message": "Database not connected - structure-ready mode"
+        }
+    
+    connection = await db.social_platform_connections.find_one(
+        {"user_id": user["id"], "platform": platform},
+        {"_id": 0}
+    )
+    
+    return {
+        "platform": platform,
+        "connection": connection,
+        "config": PLATFORM_CONFIGS[platform],
+        "status": connection["status"] if connection else "disconnected"
+    }
+
+
+@router.post("/connect/{platform}")
+async def initiate_platform_connection(platform: str, user: dict = Depends(get_current_user)):
+    """
+    Initiate OAuth flow for platform connection.
+    In production, this returns the OAuth URL to redirect the user.
+    For structure-ready, it simulates a successful connection.
+    """
+    if platform not in PLATFORM_CONFIGS:
+        raise HTTPException(status_code=400, detail=f"Unknown platform: {platform}")
+    
+    config = PLATFORM_CONFIGS[platform]
+    
+    # Structure-ready: Simulate OAuth and create mock connection
+    connection_id = str(uuid.uuid4())
+    mock_account_id = f"mock_{platform}_{uuid.uuid4().hex[:8]}"
+    
+    connection_doc = {
+        "id": connection_id,
+        "user_id": user["id"],
+        "platform": platform,
+        "status": "connected",
+        "account_id": mock_account_id,
+        "account_name": f"{user.get('name', 'User')}'s {config['name']} Account",
+        "profile_url": f"https://{platform}.com/user/{mock_account_id}",
+        "profile_image": None,
+        "permissions": config["scopes"],
+        "access_token": f"mock_token_{uuid.uuid4().hex}",  # Would be real token
+        "refresh_token": f"mock_refresh_{uuid.uuid4().hex}",
+        "expires_at": None,
+        "connected_at": datetime.now(timezone.utc).isoformat(),
+        "last_synced": datetime.now(timezone.utc).isoformat(),
+    }
+    
+    if db is not None:
+        # Upsert connection
+        await db.social_platform_connections.update_one(
+            {"user_id": user["id"], "platform": platform},
+            {"$set": connection_doc},
+            upsert=True
+        )
+    
+    return {
+        "success": True,
+        "message": f"Successfully connected to {config['name']} (structure-ready mode)",
+        "connection": {
+            "id": connection_id,
+            "platform": platform,
+            "status": "connected",
+            "account_name": connection_doc["account_name"],
+            "connected_at": connection_doc["connected_at"],
+        },
+        "note": "This is a simulated connection. Replace with real OAuth when API credentials are available."
+    }
+
+
+@router.delete("/disconnect/{platform}")
+async def disconnect_platform(platform: str, user: dict = Depends(get_current_user)):
+    """Disconnect a platform integration"""
+    if platform not in PLATFORM_CONFIGS:
+        raise HTTPException(status_code=400, detail=f"Unknown platform: {platform}")
+    
+    if db is not None:
+        result = await db.social_platform_connections.update_one(
+            {"user_id": user["id"], "platform": platform},
+            {"$set": {
+                "status": "disconnected",
+                "access_token": None,
+                "refresh_token": None,
+                "disconnected_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+    
+    return {
+        "success": True,
+        "message": f"Disconnected from {PLATFORM_CONFIGS[platform]['name']}",
+        "platform": platform
+    }
+
+
+@router.post("/publish")
+async def publish_to_platform(
+    request: PublishRequest,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Publish content to a specific platform.
+    Structure-ready: Uses mock publishing, easy to swap for real APIs.
+    """
+    if request.platform not in PLATFORM_CONFIGS:
+        raise HTTPException(status_code=400, detail=f"Unknown platform: {request.platform}")
+    
+    config = PLATFORM_CONFIGS[request.platform]
+    
+    # Validate content length
+    if len(request.content) > config["max_chars"]:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Content exceeds {config['max_chars']} character limit for {config['name']}"
+        )
+    
+    # Validate post type
+    if request.post_type not in config["post_types"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Post type '{request.post_type}' not supported for {config['name']}. Supported: {config['post_types']}"
+        )
+    
+    # Check connection status
+    connection = None
+    if db is not None:
+        connection = await db.social_platform_connections.find_one(
+            {"user_id": user["id"], "platform": request.platform, "status": "connected"},
+            {"_id": 0}
+        )
+    
+    # For structure-ready, allow publishing even without DB connection
+    if connection is None and db is not None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Not connected to {config['name']}. Please connect your account first."
+        )
+    
+    # Publish (mock for structure-ready)
+    result = await mock_publish_to_platform(
+        platform=request.platform,
+        content=request.content,
+        media_urls=request.media_urls,
+        link_url=request.link_url,
+        post_type=request.post_type
+    )
+    
+    # Log publish history
+    history_id = str(uuid.uuid4())
+    history_doc = {
+        "id": history_id,
+        "user_id": user["id"],
+        "platform": request.platform,
+        "platform_post_id": result.get("platform_post_id"),
+        "platform_url": result.get("platform_url"),
+        "status": "published" if result["success"] else "failed",
+        "content_preview": request.content[:200],
+        "media_urls": request.media_urls,
+        "post_type": request.post_type,
+        "published_at": datetime.now(timezone.utc).isoformat() if result["success"] else None,
+        "error_message": None if result["success"] else result["message"],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    
+    if db is not None:
+        await db.social_publish_history.insert_one(history_doc)
+    
+    return PublishResponse(
+        success=result["success"],
+        platform=request.platform,
+        platform_post_id=result.get("platform_post_id"),
+        platform_url=result.get("platform_url"),
+        message=result["message"],
+        published_at=history_doc.get("published_at"),
+    )
+
+
+@router.post("/publish/multi")
+async def publish_to_multiple_platforms(
+    request: MultiPublishRequest,
+    user: dict = Depends(get_current_user)
+):
+    """Publish same content to multiple platforms at once"""
+    results = []
+    
+    for platform in request.platforms:
+        if platform not in PLATFORM_CONFIGS:
+            results.append({
+                "platform": platform,
+                "success": False,
+                "message": f"Unknown platform: {platform}"
+            })
+            continue
+        
+        config = PLATFORM_CONFIGS[platform]
+        
+        # Truncate content if needed for platform limits
+        platform_content = request.content[:config["max_chars"]]
+        
+        result = await mock_publish_to_platform(
+            platform=platform,
+            content=platform_content,
+            media_urls=request.media_urls,
+            link_url=request.link_url,
+            post_type=request.post_type
+        )
+        
+        results.append({
+            "platform": platform,
+            "platform_name": config["name"],
+            **result
+        })
+        
+        # Log to history
+        if db is not None:
+            await db.social_publish_history.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": user["id"],
+                "platform": platform,
+                "platform_post_id": result.get("platform_post_id"),
+                "platform_url": result.get("platform_url"),
+                "status": "published" if result["success"] else "failed",
+                "content_preview": platform_content[:200],
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+    
+    success_count = sum(1 for r in results if r.get("success"))
+    
+    return {
+        "total": len(request.platforms),
+        "successful": success_count,
+        "failed": len(request.platforms) - success_count,
+        "results": results
+    }
+
+
+@router.get("/history")
+async def get_publish_history(
+    platform: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 50,
+    user: dict = Depends(get_current_user)
+):
+    """Get publishing history for the current user"""
+    if db is None:
+        return {
+            "history": [],
+            "total": 0,
+            "message": "Database not connected - structure-ready mode"
+        }
+    
+    query = {"user_id": user["id"]}
+    if platform:
+        query["platform"] = platform
+    if status:
+        query["status"] = status
+    
+    history = await db.social_publish_history.find(
+        query,
+        {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    total = await db.social_publish_history.count_documents(query)
+    
+    return {
+        "history": history,
+        "total": total
+    }
+
+
+@router.get("/stats")
+async def get_integration_stats(user: dict = Depends(get_current_user)):
+    """Get publishing statistics across all platforms"""
+    if db is None:
+        # Return mock stats for structure-ready mode
+        return {
+            "connected_platforms": 0,
+            "total_posts": 0,
+            "posts_today": 0,
+            "posts_this_week": 0,
+            "by_platform": {},
+            "by_status": {"published": 0, "failed": 0, "scheduled": 0},
+            "message": "Database not connected - structure-ready mode"
+        }
+    
+    # Get connected platforms count
+    connected = await db.social_platform_connections.count_documents({
+        "user_id": user["id"],
+        "status": "connected"
+    })
+    
+    # Get total posts
+    total_posts = await db.social_publish_history.count_documents({
+        "user_id": user["id"]
+    })
+    
+    # Get posts by status
+    pipeline = [
+        {"$match": {"user_id": user["id"]}},
+        {"$group": {"_id": "$status", "count": {"$sum": 1}}}
+    ]
+    status_agg = await db.social_publish_history.aggregate(pipeline).to_list(10)
+    by_status = {item["_id"]: item["count"] for item in status_agg}
+    
+    # Get posts by platform
+    platform_pipeline = [
+        {"$match": {"user_id": user["id"]}},
+        {"$group": {"_id": "$platform", "count": {"$sum": 1}}}
+    ]
+    platform_agg = await db.social_publish_history.aggregate(platform_pipeline).to_list(10)
+    by_platform = {item["_id"]: item["count"] for item in platform_agg}
+    
+    return {
+        "connected_platforms": connected,
+        "total_posts": total_posts,
+        "by_platform": by_platform,
+        "by_status": by_status,
+    }
+
+
+@router.post("/test/{platform}")
+async def test_platform_connection(platform: str, user: dict = Depends(get_current_user)):
+    """Test if the platform connection is working"""
+    if platform not in PLATFORM_CONFIGS:
+        raise HTTPException(status_code=400, detail=f"Unknown platform: {platform}")
+    
+    config = PLATFORM_CONFIGS[platform]
+    
+    # Structure-ready: Simulate test post
+    test_result = await mock_publish_to_platform(
+        platform=platform,
+        content=f"Test post from Sevora Social Media Manager - {datetime.now().isoformat()}",
+        media_urls=[],
+        link_url=None,
+        post_type="text"
+    )
+    
+    return {
+        "platform": platform,
+        "platform_name": config["name"],
+        "test_successful": test_result["success"],
+        "message": test_result["message"],
+        "note": "This is a simulated test. No actual post was made."
+    }
+
+
+# ============== OAUTH CALLBACK HANDLERS ==============
+# These would handle the OAuth redirect from each platform
+
+@router.get("/callback/linkedin")
+async def linkedin_callback(code: str, state: str):
+    """Handle LinkedIn OAuth callback"""
+    # In production: Exchange code for tokens, store connection
+    return {"message": "LinkedIn OAuth callback - structure ready", "code": code[:10] + "..."}
+
+@router.get("/callback/twitter")
+async def twitter_callback(code: str, state: str):
+    """Handle Twitter OAuth callback"""
+    return {"message": "Twitter OAuth callback - structure ready", "code": code[:10] + "..."}
+
+@router.get("/callback/instagram")
+async def instagram_callback(code: str):
+    """Handle Instagram OAuth callback"""
+    return {"message": "Instagram OAuth callback - structure ready", "code": code[:10] + "..."}
+
+@router.get("/callback/facebook")
+async def facebook_callback(code: str, state: str):
+    """Handle Facebook OAuth callback"""
+    return {"message": "Facebook OAuth callback - structure ready", "code": code[:10] + "..."}
+
+@router.get("/callback/youtube")
+async def youtube_callback(code: str, state: str):
+    """Handle YouTube OAuth callback"""
+    return {"message": "YouTube OAuth callback - structure ready", "code": code[:10] + "..."}

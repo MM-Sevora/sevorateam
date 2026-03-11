@@ -56,6 +56,7 @@ import SocialInbox from "./pages/social/SocialInbox";
 import AutoReplyRules from "./pages/social/AutoReplyRules";
 import SocialAnalyticsDashboard from "./pages/social/SocialAnalyticsDashboard";
 import SocialListening from "./pages/social/SocialListening";
+import PlatformIntegrations from "./pages/social/PlatformIntegrations";
 
 // Email Page
 import EmailPage from "./pages/marketing/EmailPage";
@@ -402,6 +403,7 @@ function AppRoutes() {
             <Route path="/social/inbox" element={<ProtectedRoute requiredModule="social"><SocialInbox /></ProtectedRoute>} />
             <Route path="/social/auto-reply" element={<ProtectedRoute requiredModule="social"><AutoReplyRules /></ProtectedRoute>} />
             <Route path="/social/listening" element={<ProtectedRoute requiredModule="social"><SocialListening /></ProtectedRoute>} />
+            <Route path="/social/integrations" element={<ProtectedRoute requiredModule="social"><PlatformIntegrations /></ProtectedRoute>} />
             {/* Redirect old routes to dashboard */}
             <Route path="/social/analytics" element={<Navigate to="/social" replace />} />
             <Route path="/social/ai-tools" element={<Navigate to="/social" replace />} />
