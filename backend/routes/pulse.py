@@ -750,3 +750,609 @@ async def get_popular_tags(user: dict = Depends(get_current_user)):
     return {
         "tags": [{"name": t["_id"], "count": t["count"]} for t in tag_agg]
     }
+
+
+
+# ============== RECOGNITION & BADGES ==============
+
+BADGE_TYPES = {
+    "team_player": {"label": "Team Player", "emoji": "🤝", "color": "#3B82F6", "description": "Goes above and beyond to help teammates"},
+    "problem_solver": {"label": "Problem Solver", "emoji": "🧩", "color": "#10B981", "description": "Finds creative solutions to challenges"},
+    "innovation": {"label": "Innovation", "emoji": "💡", "color": "#F59E0B", "description": "Brings fresh ideas and improvements"},
+    "execution_champion": {"label": "Execution Champion", "emoji": "🏆", "color": "#8B5CF6", "description": "Delivers results with excellence"},
+    "mentor": {"label": "Mentor", "emoji": "🎓", "color": "#EC4899", "description": "Helps others grow and learn"},
+    "customer_hero": {"label": "Customer Hero", "emoji": "⭐", "color": "#EF4444", "description": "Exceptional customer service"},
+}
+
+class RecognitionCreate(BaseModel):
+    recipient_id: str
+    badge_type: str
+    reason: str
+    is_public: bool = True
+
+
+@router.get("/badges/types")
+async def get_badge_types():
+    """Get all available badge types"""
+    return {"badges": BADGE_TYPES}
+
+
+@router.post("/recognition")
+async def give_recognition(recognition: RecognitionCreate, user: dict = Depends(get_current_user)):
+    """Give a badge/recognition to another employee"""
+    if recognition.badge_type not in BADGE_TYPES:
+        raise HTTPException(status_code=400, detail=f"Invalid badge type. Must be one of: {list(BADGE_TYPES.keys())}")
+    
+    if recognition.recipient_id == user["id"]:
+        raise HTTPException(status_code=400, detail="You cannot give a badge to yourself")
+    
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not available")
+    
+    # Get recipient info
+    recipient = await db.users.find_one({"id": recognition.recipient_id}, {"_id": 0, "password": 0})
+    if not recipient:
+        raise HTTPException(status_code=404, detail="Recipient not found")
+    
+    recognition_id = str(uuid.uuid4())
+    badge_info = BADGE_TYPES[recognition.badge_type]
+    
+    recognition_doc = {
+        "id": recognition_id,
+        "giver_id": user["id"],
+        "giver_name": user.get("name", "Unknown"),
+        "giver_department": user.get("department"),
+        "recipient_id": recognition.recipient_id,
+        "recipient_name": recipient.get("name", "Unknown"),
+        "recipient_department": recipient.get("department"),
+        "badge_type": recognition.badge_type,
+        "badge_label": badge_info["label"],
+        "badge_emoji": badge_info["emoji"],
+        "reason": recognition.reason,
+        "is_public": recognition.is_public,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    
+    await db.pulse_recognitions.insert_one(recognition_doc)
+    
+    # Also create a post if public
+    if recognition.is_public:
+        post_id = str(uuid.uuid4())
+        post_doc = {
+            "id": post_id,
+            "title": f"{badge_info['emoji']} {recipient.get('name')} received {badge_info['label']} badge!",
+            "content": f"{user.get('name')} recognized {recipient.get('name')} with the {badge_info['label']} badge.\n\n\"{recognition.reason}\"",
+            "post_type": "appreciation",
+            "visibility": "public",
+            "department": recipient.get("department"),
+            "author_id": user["id"],
+            "author_name": user.get("name"),
+            "author_department": user.get("department"),
+            "tags": ["recognition", recognition.badge_type],
+            "attachments": [],
+            "priority": "normal",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "is_pinned": False,
+            "is_edited": False,
+            "recognition_id": recognition_id,
+        }
+        await db.pulse_posts.insert_one(post_doc)
+    
+    # Create notification for recipient
+    await db.notifications.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": recognition.recipient_id,
+        "type": "pulse_recognition",
+        "title": f"{badge_info['emoji']} You received a badge!",
+        "message": f"{user.get('name')} gave you the {badge_info['label']} badge: \"{recognition.reason[:100]}...\"",
+        "link": "/pulse/recognition",
+        "read": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    
+    # Remove _id if present
+    if "_id" in recognition_doc:
+        del recognition_doc["_id"]
+    
+    return {
+        "success": True,
+        "message": f"Badge awarded to {recipient.get('name')}!",
+        "recognition": recognition_doc
+    }
+
+
+@router.get("/recognition")
+async def get_recognitions(
+    recipient_id: Optional[str] = None,
+    badge_type: Optional[str] = None,
+    limit: int = 50,
+    user: dict = Depends(get_current_user)
+):
+    """Get recognition/badges with optional filters"""
+    if db is None:
+        return {"recognitions": [], "total": 0}
+    
+    query = {"is_public": True}
+    if recipient_id:
+        query["recipient_id"] = recipient_id
+    if badge_type:
+        query["badge_type"] = badge_type
+    
+    recognitions = await db.pulse_recognitions.find(
+        query, {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    total = await db.pulse_recognitions.count_documents(query)
+    
+    return {"recognitions": recognitions, "total": total}
+
+
+@router.get("/recognition/leaderboard")
+async def get_recognition_leaderboard(
+    period: str = "month",
+    user: dict = Depends(get_current_user)
+):
+    """Get badge leaderboard - top recognized employees"""
+    if db is None:
+        return {"leaderboard": [], "by_badge": {}}
+    
+    # Calculate date range
+    now = datetime.now(timezone.utc)
+    if period == "week":
+        start = now - timedelta(days=7)
+    elif period == "month":
+        start = now - timedelta(days=30)
+    elif period == "year":
+        start = now - timedelta(days=365)
+    else:
+        start = None
+    
+    match_query = {}
+    if start:
+        match_query["created_at"] = {"$gte": start.isoformat()}
+    
+    # Top recipients
+    pipeline = [
+        {"$match": match_query},
+        {"$group": {
+            "_id": "$recipient_id",
+            "name": {"$first": "$recipient_name"},
+            "department": {"$first": "$recipient_department"},
+            "badge_count": {"$sum": 1},
+            "badges": {"$push": "$badge_type"}
+        }},
+        {"$sort": {"badge_count": -1}},
+        {"$limit": 10}
+    ]
+    top_recipients = await db.pulse_recognitions.aggregate(pipeline).to_list(10)
+    
+    # Count by badge type
+    badge_pipeline = [
+        {"$match": match_query},
+        {"$group": {"_id": "$badge_type", "count": {"$sum": 1}}}
+    ]
+    badge_counts = await db.pulse_recognitions.aggregate(badge_pipeline).to_list(10)
+    by_badge = {b["_id"]: b["count"] for b in badge_counts}
+    
+    return {
+        "leaderboard": [
+            {
+                "user_id": r["_id"],
+                "name": r["name"],
+                "department": r["department"],
+                "badge_count": r["badge_count"],
+                "badge_types": list(set(r["badges"]))
+            }
+            for r in top_recipients
+        ],
+        "by_badge": by_badge,
+        "period": period
+    }
+
+
+@router.get("/users/{user_id}/badges")
+async def get_user_badges(user_id: str, current_user: dict = Depends(get_current_user)):
+    """Get all badges received by a specific user"""
+    if db is None:
+        return {"badges": [], "total": 0}
+    
+    badges = await db.pulse_recognitions.find(
+        {"recipient_id": user_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+    
+    # Count by type
+    badge_counts = {}
+    for b in badges:
+        bt = b["badge_type"]
+        badge_counts[bt] = badge_counts.get(bt, 0) + 1
+    
+    return {
+        "badges": badges,
+        "total": len(badges),
+        "by_type": badge_counts
+    }
+
+
+# ============== DAILY/WEEKLY UPDATES ==============
+
+class DailyUpdateCreate(BaseModel):
+    completed_tasks: List[str]
+    blockers: List[str] = []
+    tomorrow_focus: List[str] = []
+    notes: Optional[str] = None
+
+class WeeklyUpdateCreate(BaseModel):
+    achievements: List[str]
+    key_metrics: Dict[str, Any] = {}
+    issues_faced: List[str] = []
+    next_week_focus: List[str] = []
+    team_highlights: List[str] = []
+    notes: Optional[str] = None
+
+
+@router.post("/updates/daily")
+async def submit_daily_update(update: DailyUpdateCreate, user: dict = Depends(get_current_user)):
+    """Submit a daily work update"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not available")
+    
+    update_id = str(uuid.uuid4())
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    
+    # Check if already submitted today
+    existing = await db.pulse_daily_updates.find_one({
+        "user_id": user["id"],
+        "date": today
+    })
+    
+    update_doc = {
+        "id": update_id,
+        "user_id": user["id"],
+        "user_name": user.get("name"),
+        "department": user.get("department"),
+        "date": today,
+        "completed_tasks": update.completed_tasks,
+        "blockers": update.blockers,
+        "tomorrow_focus": update.tomorrow_focus,
+        "notes": update.notes,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    
+    if existing:
+        # Update existing
+        await db.pulse_daily_updates.update_one(
+            {"id": existing["id"]},
+            {"$set": {
+                "completed_tasks": update.completed_tasks,
+                "blockers": update.blockers,
+                "tomorrow_focus": update.tomorrow_focus,
+                "notes": update.notes,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }}
+        )
+        update_doc["id"] = existing["id"]
+        message = "Daily update updated"
+    else:
+        await db.pulse_daily_updates.insert_one(update_doc)
+        
+        # Create a post
+        content = "**Completed:**\n" + "\n".join(f"• {t}" for t in update.completed_tasks)
+        if update.blockers:
+            content += "\n\n**Blockers:**\n" + "\n".join(f"• {b}" for b in update.blockers)
+        if update.tomorrow_focus:
+            content += "\n\n**Tomorrow's Focus:**\n" + "\n".join(f"• {f}" for f in update.tomorrow_focus)
+        
+        post_doc = {
+            "id": str(uuid.uuid4()),
+            "title": f"Daily Update - {today}",
+            "content": content,
+            "post_type": "daily_update",
+            "visibility": "department",
+            "department": user.get("department"),
+            "author_id": user["id"],
+            "author_name": user.get("name"),
+            "author_department": user.get("department"),
+            "tags": ["daily-update"],
+            "attachments": [],
+            "priority": "normal",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "is_pinned": False,
+            "is_edited": False,
+            "daily_update_id": update_id,
+        }
+        await db.pulse_posts.insert_one(post_doc)
+        message = "Daily update submitted"
+    
+    if "_id" in update_doc:
+        del update_doc["_id"]
+    
+    return {"success": True, "message": message, "update": update_doc}
+
+
+@router.post("/updates/weekly")
+async def submit_weekly_update(update: WeeklyUpdateCreate, user: dict = Depends(get_current_user)):
+    """Submit a weekly update (usually by team leads)"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not available")
+    
+    update_id = str(uuid.uuid4())
+    week_start = (datetime.now(timezone.utc) - timedelta(days=datetime.now(timezone.utc).weekday())).strftime("%Y-%m-%d")
+    
+    update_doc = {
+        "id": update_id,
+        "user_id": user["id"],
+        "user_name": user.get("name"),
+        "department": user.get("department"),
+        "week_start": week_start,
+        "achievements": update.achievements,
+        "key_metrics": update.key_metrics,
+        "issues_faced": update.issues_faced,
+        "next_week_focus": update.next_week_focus,
+        "team_highlights": update.team_highlights,
+        "notes": update.notes,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    
+    await db.pulse_weekly_updates.insert_one(update_doc)
+    
+    # Create a post
+    content = "**Weekly Achievements:**\n" + "\n".join(f"• {a}" for a in update.achievements)
+    if update.team_highlights:
+        content += "\n\n**Team Highlights:**\n" + "\n".join(f"• {h}" for h in update.team_highlights)
+    if update.issues_faced:
+        content += "\n\n**Challenges:**\n" + "\n".join(f"• {i}" for i in update.issues_faced)
+    if update.next_week_focus:
+        content += "\n\n**Next Week Focus:**\n" + "\n".join(f"• {f}" for f in update.next_week_focus)
+    
+    post_doc = {
+        "id": str(uuid.uuid4()),
+        "title": f"Weekly Update - Week of {week_start}",
+        "content": content,
+        "post_type": "weekly_update",
+        "visibility": "public",
+        "department": user.get("department"),
+        "author_id": user["id"],
+        "author_name": user.get("name"),
+        "author_department": user.get("department"),
+        "tags": ["weekly-update", user.get("department", "general")],
+        "attachments": [],
+        "priority": "normal",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "is_pinned": False,
+        "is_edited": False,
+        "weekly_update_id": update_id,
+    }
+    await db.pulse_posts.insert_one(post_doc)
+    
+    if "_id" in update_doc:
+        del update_doc["_id"]
+    
+    return {"success": True, "message": "Weekly update submitted", "update": update_doc}
+
+
+@router.get("/updates/daily")
+async def get_daily_updates(
+    user_id: Optional[str] = None,
+    department: Optional[str] = None,
+    date: Optional[str] = None,
+    limit: int = 20,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get daily updates with filters"""
+    if db is None:
+        return {"updates": []}
+    
+    query = {}
+    if user_id:
+        query["user_id"] = user_id
+    if department:
+        query["department"] = department
+    if date:
+        query["date"] = date
+    
+    updates = await db.pulse_daily_updates.find(
+        query, {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    return {"updates": updates}
+
+
+@router.get("/updates/weekly")
+async def get_weekly_updates(
+    department: Optional[str] = None,
+    limit: int = 10,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get weekly updates"""
+    if db is None:
+        return {"updates": []}
+    
+    query = {}
+    if department:
+        query["department"] = department
+    
+    updates = await db.pulse_weekly_updates.find(
+        query, {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    return {"updates": updates}
+
+
+# ============== LEADERSHIP DASHBOARD ==============
+
+@router.get("/leadership/dashboard")
+async def get_leadership_dashboard(user: dict = Depends(get_current_user)):
+    """Get leadership overview dashboard with all departments"""
+    if db is None:
+        return {
+            "overview": {},
+            "departments": [],
+            "top_contributors": [],
+            "recent_issues": [],
+            "recent_achievements": []
+        }
+    
+    now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    week_start = now - timedelta(days=7)
+    
+    # Overall stats
+    total_posts = await db.pulse_posts.count_documents({})
+    posts_today = await db.pulse_posts.count_documents({"created_at": {"$gte": today_start.isoformat()}})
+    posts_week = await db.pulse_posts.count_documents({"created_at": {"$gte": week_start.isoformat()}})
+    total_recognitions = await db.pulse_recognitions.count_documents({})
+    
+    # Issues raised this week
+    issues_count = await db.pulse_posts.count_documents({
+        "post_type": "issue",
+        "created_at": {"$gte": week_start.isoformat()}
+    })
+    
+    # Achievements this week
+    achievements_count = await db.pulse_posts.count_documents({
+        "post_type": "achievement",
+        "created_at": {"$gte": week_start.isoformat()}
+    })
+    
+    # Department breakdown
+    dept_pipeline = [
+        {"$match": {"created_at": {"$gte": week_start.isoformat()}}},
+        {"$group": {
+            "_id": "$department",
+            "post_count": {"$sum": 1},
+            "contributors": {"$addToSet": "$author_id"}
+        }},
+        {"$project": {
+            "department": "$_id",
+            "post_count": 1,
+            "contributor_count": {"$size": "$contributors"}
+        }},
+        {"$sort": {"post_count": -1}}
+    ]
+    departments = await db.pulse_posts.aggregate(dept_pipeline).to_list(20)
+    
+    # Top contributors this week
+    contrib_pipeline = [
+        {"$match": {"created_at": {"$gte": week_start.isoformat()}}},
+        {"$group": {
+            "_id": "$author_id",
+            "name": {"$first": "$author_name"},
+            "department": {"$first": "$author_department"},
+            "post_count": {"$sum": 1}
+        }},
+        {"$sort": {"post_count": -1}},
+        {"$limit": 5}
+    ]
+    top_contributors = await db.pulse_posts.aggregate(contrib_pipeline).to_list(5)
+    
+    # Recent issues
+    recent_issues = await db.pulse_posts.find(
+        {"post_type": "issue"},
+        {"_id": 0, "id": 1, "title": 1, "author_name": 1, "department": 1, "created_at": 1, "priority": 1}
+    ).sort("created_at", -1).limit(5).to_list(5)
+    
+    # Recent achievements
+    recent_achievements = await db.pulse_posts.find(
+        {"post_type": "achievement"},
+        {"_id": 0, "id": 1, "title": 1, "author_name": 1, "department": 1, "created_at": 1}
+    ).sort("created_at", -1).limit(5).to_list(5)
+    
+    return {
+        "overview": {
+            "total_posts": total_posts,
+            "posts_today": posts_today,
+            "posts_this_week": posts_week,
+            "total_recognitions": total_recognitions,
+            "issues_this_week": issues_count,
+            "achievements_this_week": achievements_count,
+        },
+        "departments": [
+            {
+                "name": d.get("_id") or "general",
+                "posts": d["post_count"],
+                "contributors": d["contributor_count"]
+            }
+            for d in departments if d.get("_id")
+        ],
+        "top_contributors": [
+            {
+                "user_id": c["_id"],
+                "name": c["name"],
+                "department": c["department"],
+                "posts": c["post_count"]
+            }
+            for c in top_contributors
+        ],
+        "recent_issues": recent_issues,
+        "recent_achievements": recent_achievements,
+    }
+
+
+# ============== AUTOMATED SYSTEM UPDATES ==============
+
+@router.post("/system/auto-update")
+async def create_system_update(
+    module: str,
+    title: str,
+    content: str,
+    metrics: Dict[str, Any] = None,
+    api_key: str = None
+):
+    """
+    Create an automated system update from other Sevora modules.
+    Can be called by internal services.
+    """
+    # Simple API key check (in production, use proper service auth)
+    expected_key = os.environ.get("PULSE_SYSTEM_KEY", "sevora-pulse-internal")
+    if api_key != expected_key:
+        raise HTTPException(status_code=403, detail="Invalid system key")
+    
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not available")
+    
+    post_id = str(uuid.uuid4())
+    post_doc = {
+        "id": post_id,
+        "title": title,
+        "content": content,
+        "post_type": "operational",
+        "visibility": "public",
+        "department": module,
+        "author_id": "system",
+        "author_name": f"Sevora {module.title()} System",
+        "author_department": module,
+        "tags": ["system-update", module],
+        "attachments": [],
+        "priority": "normal",
+        "is_system_generated": True,
+        "system_module": module,
+        "system_metrics": metrics or {},
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "is_pinned": False,
+        "is_edited": False,
+    }
+    
+    await db.pulse_posts.insert_one(post_doc)
+    
+    return {"success": True, "post_id": post_id, "message": "System update posted"}
+
+
+@router.get("/system/recent")
+async def get_system_updates(limit: int = 10, user: dict = Depends(get_current_user)):
+    """Get recent system-generated updates"""
+    if db is None:
+        return {"updates": []}
+    
+    updates = await db.pulse_posts.find(
+        {"is_system_generated": True},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    return {"updates": updates}
+
