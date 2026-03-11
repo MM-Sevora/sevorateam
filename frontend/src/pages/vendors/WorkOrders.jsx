@@ -44,6 +44,8 @@ const WorkOrders = () => {
     vendor_id: '',
     department: '',
     work_description: '',
+    campaign_project: '',  // For creator/freelancer work
+    deliverable_type: '',  // For creator/freelancer work
     start_date: '',
     expected_completion_date: ''
   });
@@ -189,6 +191,8 @@ const WorkOrders = () => {
       vendor_id: '',
       department: '',
       work_description: '',
+      campaign_project: '',
+      deliverable_type: '',
       start_date: '',
       expected_completion_date: ''
     });
@@ -369,25 +373,74 @@ const WorkOrders = () => {
 
       {/* Create Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="bg-white max-w-md">
+        <DialogContent className="bg-white max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-[#4A3728]">New Work Order</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <label className="text-sm text-[#8B7355]">Vendor *</label>
+              <label className="text-sm text-[#8B7355]">Vendor / Creator *</label>
               <Select value={formData.vendor_id || "placeholder"} onValueChange={(v) => setFormData(f => ({...f, vendor_id: v === "placeholder" ? "" : v}))}>
                 <SelectTrigger className="bg-white border-[#D4BBA6]" data-testid="order-vendor-select">
-                  <SelectValue placeholder="Select vendor" />
+                  <SelectValue placeholder="Select vendor or creator" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="placeholder" disabled>Select vendor</SelectItem>
+                  <SelectItem value="placeholder" disabled>Select vendor or creator</SelectItem>
                   {vendors.filter(v => v.status === 'active').map(v => (
-                    <SelectItem key={v.id} value={v.id}>{v.name} ({v.category})</SelectItem>
+                    <SelectItem key={v.id} value={v.id}>
+                      {v.name} ({v.vendor_type === 'freelancer' || v.vendor_type === 'influencer' ? v.vendor_type : v.category})
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Show creator fields if freelancer/influencer selected */}
+            {formData.vendor_id && (() => {
+              const selectedVendor = vendors.find(v => v.id === formData.vendor_id);
+              const isCreator = selectedVendor?.vendor_type === 'freelancer' || selectedVendor?.vendor_type === 'influencer';
+              
+              if (isCreator) {
+                return (
+                  <div className="p-3 bg-purple-50 rounded-lg border border-purple-200 space-y-3">
+                    <p className="text-sm font-medium text-purple-700">Creator Work Details</p>
+                    <div>
+                      <label className="text-xs text-purple-600">Campaign / Project</label>
+                      <Input
+                        value={formData.campaign_project}
+                        onChange={(e) => setFormData(f => ({...f, campaign_project: e.target.value}))}
+                        className="bg-white border-purple-200"
+                        placeholder="e.g., Wedding Season Campaign"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-purple-600">Deliverable Type</label>
+                      <Select value={formData.deliverable_type || "placeholder"} onValueChange={(v) => setFormData(f => ({...f, deliverable_type: v === "placeholder" ? "" : v}))}>
+                        <SelectTrigger className="bg-white border-purple-200">
+                          <SelectValue placeholder="Select deliverable" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="placeholder" disabled>Select deliverable</SelectItem>
+                          <SelectItem value="Instagram Post">Instagram Post</SelectItem>
+                          <SelectItem value="Instagram Reel">Instagram Reel</SelectItem>
+                          <SelectItem value="Instagram Story">Instagram Story</SelectItem>
+                          <SelectItem value="YouTube Video">YouTube Video</SelectItem>
+                          <SelectItem value="YouTube Shorts">YouTube Shorts</SelectItem>
+                          <SelectItem value="Blog Post">Blog Post</SelectItem>
+                          <SelectItem value="Twitter Thread">Twitter Thread</SelectItem>
+                          <SelectItem value="LinkedIn Post">LinkedIn Post</SelectItem>
+                          <SelectItem value="Photography">Photography</SelectItem>
+                          <SelectItem value="Video Production">Video Production</SelectItem>
+                          <SelectItem value="Other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
             <div>
               <label className="text-sm text-[#8B7355]">Department *</label>
               <Select value={formData.department || "placeholder"} onValueChange={(v) => setFormData(f => ({...f, department: v === "placeholder" ? "" : v}))}>
@@ -427,7 +480,7 @@ const WorkOrders = () => {
                 onChange={(e) => setFormData(f => ({...f, work_description: e.target.value}))}
                 className="bg-white border-[#D4BBA6]"
                 placeholder="Describe the work to be done..."
-                rows={4}
+                rows={3}
                 data-testid="order-description-input"
               />
             </div>

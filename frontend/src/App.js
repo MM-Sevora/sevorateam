@@ -168,7 +168,6 @@ import WorkRequests from "./pages/vendors/WorkRequests";
 import WorkOrders from "./pages/vendors/WorkOrders";
 import RecurringWork from "./pages/vendors/RecurringWork";
 import Approvals from "./pages/vendors/Approvals";
-import CreatorPayments from "./pages/vendors/CreatorPayments";
 
 import "./App.css";
 
@@ -488,7 +487,6 @@ function AppRoutes() {
             <Route path="/vendors/work-orders" element={<ProtectedRoute requiredModule="finance"><WorkOrders /></ProtectedRoute>} />
             <Route path="/vendors/recurring" element={<ProtectedRoute requiredModule="finance"><RecurringWork /></ProtectedRoute>} />
             <Route path="/vendors/approvals" element={<ProtectedRoute requiredModule="finance"><Approvals /></ProtectedRoute>} />
-            <Route path="/vendors/creator-payments" element={<ProtectedRoute requiredModule="finance"><CreatorPayments /></ProtectedRoute>} />
 
             {/* Settings Routes */}
             <Route path="/settings/automations" element={<ProtectedRoute requiredModule="automations"><AutomationSettings /></ProtectedRoute>} />

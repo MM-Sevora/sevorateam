@@ -184,6 +184,8 @@ class WorkOrderCreate(BaseModel):
     requirement_id: Optional[str] = None
     department: str
     work_description: str
+    campaign_project: Optional[str] = None  # For creator/freelancer work
+    deliverable_type: Optional[str] = None  # For creator/freelancer work
     start_date: Optional[str] = None
     expected_completion_date: Optional[str] = None
     attachments: Optional[List[str]] = []
@@ -191,6 +193,8 @@ class WorkOrderCreate(BaseModel):
 
 class WorkOrderUpdate(BaseModel):
     work_description: Optional[str] = None
+    campaign_project: Optional[str] = None
+    deliverable_type: Optional[str] = None
     assigned_owner_id: Optional[str] = None
     start_date: Optional[str] = None
     expected_completion_date: Optional[str] = None
@@ -1279,7 +1283,7 @@ async def create_work_order(
 ):
     """Create a vendor work order"""
     # Verify vendor exists
-    vendor = await db.vendors.find_one({"id": order.vendor_id}, {"name": 1})
+    vendor = await db.vendors.find_one({"id": order.vendor_id}, {"name": 1, "vendor_type": 1})
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
     
@@ -1291,9 +1295,12 @@ async def create_work_order(
         "work_order_id": wo_id,
         "vendor_id": order.vendor_id,
         "vendor_name": vendor.get("name"),
+        "vendor_type": vendor.get("vendor_type", "vendor"),
         "requirement_id": order.requirement_id,
         "department": order.department,
         "work_description": order.work_description,
+        "campaign_project": order.campaign_project,  # For creator work
+        "deliverable_type": order.deliverable_type,  # For creator work
         "assigned_owner_id": user.get("id"),
         "assigned_owner_name": user.get("name"),
         "start_date": order.start_date,

@@ -92,11 +92,6 @@ const VendorDashboard = () => {
               <Scale className="w-4 h-4 mr-2" /> Approvals
             </Button>
           </Link>
-          <Link to="/vendors/creator-payments">
-            <Button variant="outline" className="border-purple-300 text-purple-600 hover:bg-purple-50">
-              <Star className="w-4 h-4 mr-2" /> Creator Payments
-            </Button>
-          </Link>
         </div>
       </div>
 
