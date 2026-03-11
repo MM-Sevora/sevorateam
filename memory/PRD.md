@@ -1,4 +1,15 @@
 
+## March 11, 2026 - Work Updates - Team Member Filtering for Managers ✅
+
+### Enhanced Work Updates Page:
+- ✅ **Team Member Filter** - Managers can filter updates by specific employee
+- ✅ **View Mode Toggle** - Switch between "List" view and "By Team" view
+- ✅ **By Team View** - Groups updates by employee with compact card layout
+- ✅ **Department + Employee Filtering** - Can filter by department first, then by team member
+- ✅ Backend support for `user_id` filter on both daily and weekly updates APIs
+
+---
+
 ## March 11, 2026 - Sevora Pulse Phase 2 COMPLETE ✅
 
 ### New Phase 2 Features Implemented:

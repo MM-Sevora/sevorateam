@@ -1164,6 +1164,7 @@ async def get_daily_updates(
 
 @router.get("/updates/weekly")
 async def get_weekly_updates(
+    user_id: Optional[str] = None,
     department: Optional[str] = None,
     limit: int = 10,
     current_user: dict = Depends(get_current_user)
@@ -1173,6 +1174,8 @@ async def get_weekly_updates(
         return {"updates": []}
     
     query = {}
+    if user_id:
+        query["user_id"] = user_id
     if department:
         query["department"] = department
     

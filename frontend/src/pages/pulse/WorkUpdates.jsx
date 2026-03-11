@@ -34,6 +34,10 @@ import {
     Users,
     X,
     Send,
+    Search,
+    User,
+    LayoutGrid,
+    List,
 } from 'lucide-react';
 
 export default function WorkUpdates() {
@@ -45,6 +49,10 @@ export default function WorkUpdates() {
     const [showWeeklyDialog, setShowWeeklyDialog] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [filterDepartment, setFilterDepartment] = useState('all');
+    const [filterEmployee, setFilterEmployee] = useState('all');
+    const [employees, setEmployees] = useState([]);
+    const [viewMode, setViewMode] = useState('list'); // 'list' or 'team'
+    const [searchQuery, setSearchQuery] = useState('');
 
     const [dailyForm, setDailyForm] = useState({
         completed_tasks: [''],
@@ -62,18 +70,47 @@ export default function WorkUpdates() {
     });
 
     const DEPARTMENTS = ['marketing', 'buying', 'warehouse', 'technology', 'operations', 'finance', 'hr', 'sales', 'leadership'];
+    
+    // Check if user is manager/admin
+    const isManager = ['super_admin', 'admin', 'department_manager', 'team_lead'].includes(user?.role);
 
     useEffect(() => {
         fetchUpdates();
-    }, [filterDepartment]);
+        if (isManager) {
+            fetchEmployees();
+        }
+    }, [filterDepartment, filterEmployee]);
+
+    const fetchEmployees = async () => {
+        try {
+            const response = await api.get('/admin/users');
+            setEmployees(response.data || []);
+        } catch (error) {
+            console.error('Failed to fetch employees:', error);
+        }
+    };
 
     const fetchUpdates = async () => {
         setLoading(true);
         try {
-            const deptParam = filterDepartment !== 'all' ? `?department=${filterDepartment}` : '';
+            let dailyParams = [];
+            let weeklyParams = [];
+            
+            if (filterDepartment && filterDepartment !== 'all') {
+                dailyParams.push(`department=${filterDepartment}`);
+                weeklyParams.push(`department=${filterDepartment}`);
+            }
+            if (filterEmployee && filterEmployee !== 'all') {
+                dailyParams.push(`user_id=${filterEmployee}`);
+                weeklyParams.push(`user_id=${filterEmployee}`);
+            }
+            
+            const dailyQuery = dailyParams.length > 0 ? `?${dailyParams.join('&')}` : '';
+            const weeklyQuery = weeklyParams.length > 0 ? `?${weeklyParams.join('&')}` : '';
+            
             const [dailyRes, weeklyRes] = await Promise.all([
-                api.get(`/pulse/updates/daily${deptParam}`),
-                api.get(`/pulse/updates/weekly${deptParam}`),
+                api.get(`/pulse/updates/daily${dailyQuery}`),
+                api.get(`/pulse/updates/weekly${weeklyQuery}`),
             ]);
             setDailyUpdates(dailyRes.data.updates || []);
             setWeeklyUpdates(weeklyRes.data.updates || []);
@@ -225,6 +262,33 @@ export default function WorkUpdates() {
         </div>
     );
 
+    // Filter employees by search and department
+    const filteredEmployees = employees.filter(emp => {
+        const matchesSearch = !searchQuery || 
+            emp.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            emp.email?.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesDept = filterDepartment === 'all' || emp.department === filterDepartment;
+        return matchesSearch && matchesDept;
+    });
+
+    // Group updates by employee for team view
+    const groupUpdatesByEmployee = (updates) => {
+        const grouped = {};
+        updates.forEach(update => {
+            const key = update.user_id || update.user_name;
+            if (!grouped[key]) {
+                grouped[key] = {
+                    user_id: update.user_id,
+                    user_name: update.user_name,
+                    department: update.department,
+                    updates: []
+                };
+            }
+            grouped[key].updates.push(update);
+        });
+        return Object.values(grouped);
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-96">
@@ -236,58 +300,109 @@ export default function WorkUpdates() {
     return (
         <div className="p-8 max-w-6xl mx-auto" data-testid="work-updates-page">
             {/* Header */}
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center justify-between mb-6">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Work Updates</h1>
                     <p className="text-gray-500 mt-1">Track daily and weekly progress across teams</p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <Select value={filterDepartment} onValueChange={setFilterDepartment}>
-                        <SelectTrigger className="w-40">
-                            <SelectValue placeholder="Department" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Departments</SelectItem>
-                            {DEPARTMENTS.map(d => (
-                                <SelectItem key={d} value={d} className="capitalize">{d}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <Button variant="outline" onClick={fetchUpdates}>
-                        <RefreshCw className="w-4 h-4" />
+                <div className="flex gap-2">
+                    <Button
+                        onClick={() => setShowDailyDialog(true)}
+                        className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+                    >
+                        <Calendar className="w-4 h-4" />
+                        Submit Daily
+                    </Button>
+                    <Button
+                        onClick={() => setShowWeeklyDialog(true)}
+                        className="gap-2 bg-violet-600 hover:bg-violet-700"
+                    >
+                        <CalendarRange className="w-4 h-4" />
+                        Submit Weekly
                     </Button>
                 </div>
             </div>
 
-            <Tabs defaultValue="daily" className="space-y-6">
-                <div className="flex items-center justify-between">
-                    <TabsList>
-                        <TabsTrigger value="daily" className="gap-2">
-                            <Calendar className="w-4 h-4" />
-                            Daily Updates
-                        </TabsTrigger>
-                        <TabsTrigger value="weekly" className="gap-2">
-                            <CalendarRange className="w-4 h-4" />
-                            Weekly Updates
-                        </TabsTrigger>
-                    </TabsList>
-                    <div className="flex gap-2">
-                        <Button
-                            onClick={() => setShowDailyDialog(true)}
-                            className="gap-2 bg-emerald-600 hover:bg-emerald-700"
-                        >
-                            <Calendar className="w-4 h-4" />
-                            Submit Daily
-                        </Button>
-                        <Button
-                            onClick={() => setShowWeeklyDialog(true)}
-                            className="gap-2 bg-violet-600 hover:bg-violet-700"
-                        >
-                            <CalendarRange className="w-4 h-4" />
-                            Submit Weekly
+            {/* Filters Section - Enhanced for Managers */}
+            <Card className="mb-6">
+                <CardContent className="p-4">
+                    <div className="flex flex-wrap items-center gap-3">
+                        {/* Department Filter */}
+                        <Select value={filterDepartment} onValueChange={(v) => { setFilterDepartment(v); setFilterEmployee('all'); }}>
+                            <SelectTrigger className="w-44">
+                                <SelectValue placeholder="Department" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Departments</SelectItem>
+                                {DEPARTMENTS.map(d => (
+                                    <SelectItem key={d} value={d} className="capitalize">{d}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        {/* Team Member Filter - Only for Managers */}
+                        {isManager && (
+                            <Select value={filterEmployee} onValueChange={setFilterEmployee}>
+                                <SelectTrigger className="w-52">
+                                    <User className="w-4 h-4 mr-2" />
+                                    <SelectValue placeholder="Team Member" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Team Members</SelectItem>
+                                    {filteredEmployees.map(emp => (
+                                        <SelectItem key={emp.id} value={emp.id}>
+                                            <div className="flex items-center gap-2">
+                                                <span>{emp.name}</span>
+                                                <span className="text-xs text-gray-400 capitalize">({emp.department})</span>
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+
+                        {/* View Mode Toggle - Only for Managers */}
+                        {isManager && (
+                            <div className="flex items-center border rounded-lg overflow-hidden ml-auto">
+                                <Button
+                                    variant={viewMode === 'list' ? 'default' : 'ghost'}
+                                    size="sm"
+                                    onClick={() => setViewMode('list')}
+                                    className={`rounded-none ${viewMode === 'list' ? 'bg-rose-600' : ''}`}
+                                >
+                                    <List className="w-4 h-4 mr-1" />
+                                    List
+                                </Button>
+                                <Button
+                                    variant={viewMode === 'team' ? 'default' : 'ghost'}
+                                    size="sm"
+                                    onClick={() => setViewMode('team')}
+                                    className={`rounded-none ${viewMode === 'team' ? 'bg-rose-600' : ''}`}
+                                >
+                                    <Users className="w-4 h-4 mr-1" />
+                                    By Team
+                                </Button>
+                            </div>
+                        )}
+
+                        <Button variant="outline" onClick={fetchUpdates}>
+                            <RefreshCw className="w-4 h-4" />
                         </Button>
                     </div>
-                </div>
+                </CardContent>
+            </Card>
+
+            <Tabs defaultValue="daily" className="space-y-6">
+                <TabsList>
+                    <TabsTrigger value="daily" className="gap-2">
+                        <Calendar className="w-4 h-4" />
+                        Daily Updates
+                    </TabsTrigger>
+                    <TabsTrigger value="weekly" className="gap-2">
+                        <CalendarRange className="w-4 h-4" />
+                        Weekly Updates
+                    </TabsTrigger>
+                </TabsList>
 
                 {/* Daily Updates Tab */}
                 <TabsContent value="daily">
@@ -299,6 +414,69 @@ export default function WorkUpdates() {
                                 <p className="text-gray-500 mt-1">Submit your first daily update!</p>
                             </CardContent>
                         </Card>
+                    ) : viewMode === 'team' && isManager ? (
+                        /* Team View - Grouped by Employee */
+                        <div className="space-y-6">
+                            {groupUpdatesByEmployee(dailyUpdates).map(group => (
+                                <Card key={group.user_id || group.user_name}>
+                                    <CardHeader className="pb-2 bg-gray-50 border-b">
+                                        <div className="flex items-center gap-3">
+                                            <Avatar className="w-10 h-10">
+                                                <AvatarFallback className="bg-emerald-100 text-emerald-700">
+                                                    {getInitials(group.user_name)}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div>
+                                                <CardTitle className="text-base">{group.user_name}</CardTitle>
+                                                <p className="text-sm text-gray-500 capitalize">{group.department}</p>
+                                            </div>
+                                            <Badge variant="secondary" className="ml-auto">
+                                                {group.updates.length} update{group.updates.length !== 1 ? 's' : ''}
+                                            </Badge>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="p-4 space-y-4">
+                                        {group.updates.map(update => (
+                                            <div key={update.id} className="border-l-2 border-emerald-300 pl-4">
+                                                <p className="text-sm font-medium text-gray-600 mb-2">{formatDate(update.date)}</p>
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                                    {update.completed_tasks?.length > 0 && (
+                                                        <div>
+                                                            <h5 className="text-xs font-medium text-emerald-700 flex items-center gap-1 mb-1">
+                                                                <CheckCircle className="w-3 h-3" /> Completed
+                                                            </h5>
+                                                            <ul className="text-xs text-gray-600 space-y-0.5">
+                                                                {update.completed_tasks.map((t, i) => <li key={i}>• {t}</li>)}
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                    {update.blockers?.length > 0 && update.blockers[0] && (
+                                                        <div>
+                                                            <h5 className="text-xs font-medium text-red-700 flex items-center gap-1 mb-1">
+                                                                <AlertTriangle className="w-3 h-3" /> Blockers
+                                                            </h5>
+                                                            <ul className="text-xs text-gray-600 space-y-0.5">
+                                                                {update.blockers.filter(b => b).map((b, i) => <li key={i}>• {b}</li>)}
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                    {update.tomorrow_focus?.length > 0 && update.tomorrow_focus[0] && (
+                                                        <div>
+                                                            <h5 className="text-xs font-medium text-blue-700 flex items-center gap-1 mb-1">
+                                                                <Target className="w-3 h-3" /> Tomorrow
+                                                            </h5>
+                                                            <ul className="text-xs text-gray-600 space-y-0.5">
+                                                                {update.tomorrow_focus.filter(f => f).map((f, i) => <li key={i}>• {f}</li>)}
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
                     ) : (
                         <div className="space-y-4">
                             {dailyUpdates.map(update => (
@@ -375,6 +553,79 @@ export default function WorkUpdates() {
                                 <p className="text-gray-500 mt-1">Submit your first weekly update!</p>
                             </CardContent>
                         </Card>
+                    ) : viewMode === 'team' && isManager ? (
+                        /* Team View - Grouped by Employee */
+                        <div className="space-y-6">
+                            {groupUpdatesByEmployee(weeklyUpdates).map(group => (
+                                <Card key={group.user_id || group.user_name}>
+                                    <CardHeader className="pb-2 bg-gray-50 border-b">
+                                        <div className="flex items-center gap-3">
+                                            <Avatar className="w-10 h-10">
+                                                <AvatarFallback className="bg-violet-100 text-violet-700">
+                                                    {getInitials(group.user_name)}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div>
+                                                <CardTitle className="text-base">{group.user_name}</CardTitle>
+                                                <p className="text-sm text-gray-500 capitalize">{group.department}</p>
+                                            </div>
+                                            <Badge variant="secondary" className="ml-auto">
+                                                {group.updates.length} update{group.updates.length !== 1 ? 's' : ''}
+                                            </Badge>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="p-4 space-y-4">
+                                        {group.updates.map(update => (
+                                            <div key={update.id} className="border-l-2 border-violet-300 pl-4">
+                                                <p className="text-sm font-medium text-gray-600 mb-2">Week of {update.week_start}</p>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    {update.achievements?.length > 0 && (
+                                                        <div>
+                                                            <h5 className="text-xs font-medium text-violet-700 flex items-center gap-1 mb-1">
+                                                                <CheckCircle className="w-3 h-3" /> Achievements
+                                                            </h5>
+                                                            <ul className="text-xs text-gray-600 space-y-0.5">
+                                                                {update.achievements.map((t, i) => <li key={i}>• {t}</li>)}
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                    {update.team_highlights?.length > 0 && update.team_highlights[0] && (
+                                                        <div>
+                                                            <h5 className="text-xs font-medium text-blue-700 flex items-center gap-1 mb-1">
+                                                                <Users className="w-3 h-3" /> Team Highlights
+                                                            </h5>
+                                                            <ul className="text-xs text-gray-600 space-y-0.5">
+                                                                {update.team_highlights.filter(h => h).map((h, i) => <li key={i}>• {h}</li>)}
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                    {update.issues_faced?.length > 0 && update.issues_faced[0] && (
+                                                        <div>
+                                                            <h5 className="text-xs font-medium text-red-700 flex items-center gap-1 mb-1">
+                                                                <AlertTriangle className="w-3 h-3" /> Challenges
+                                                            </h5>
+                                                            <ul className="text-xs text-gray-600 space-y-0.5">
+                                                                {update.issues_faced.filter(i => i).map((i, idx) => <li key={idx}>• {i}</li>)}
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                    {update.next_week_focus?.length > 0 && update.next_week_focus[0] && (
+                                                        <div>
+                                                            <h5 className="text-xs font-medium text-emerald-700 flex items-center gap-1 mb-1">
+                                                                <Target className="w-3 h-3" /> Next Week
+                                                            </h5>
+                                                            <ul className="text-xs text-gray-600 space-y-0.5">
+                                                                {update.next_week_focus.filter(f => f).map((f, i) => <li key={i}>• {f}</li>)}
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
                     ) : (
                         <div className="space-y-4">
                             {weeklyUpdates.map(update => (
