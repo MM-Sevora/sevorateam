@@ -58,6 +58,7 @@ import SocialAnalyticsDashboard from "./pages/social/SocialAnalyticsDashboard";
 import SocialListening from "./pages/social/SocialListening";
 import PlatformIntegrations from "./pages/social/PlatformIntegrations";
 import EngagementTracker from "./pages/social/EngagementTracker";
+import PulseFeed from "./pages/pulse/PulseFeed";
 
 // Email Page
 import EmailPage from "./pages/marketing/EmailPage";
@@ -406,6 +407,10 @@ function AppRoutes() {
             <Route path="/social/listening" element={<ProtectedRoute requiredModule="social"><SocialListening /></ProtectedRoute>} />
             <Route path="/social/integrations" element={<ProtectedRoute requiredModule="social"><PlatformIntegrations /></ProtectedRoute>} />
             <Route path="/social/engagement" element={<ProtectedRoute requiredModule="social"><EngagementTracker /></ProtectedRoute>} />
+            
+            {/* Sevora Pulse - Company Wall */}
+            <Route path="/pulse" element={<ProtectedRoute><PulseFeed /></ProtectedRoute>} />
+            <Route path="/pulse/feed" element={<ProtectedRoute><PulseFeed /></ProtectedRoute>} />
             {/* Redirect old routes to dashboard */}
             <Route path="/social/analytics" element={<Navigate to="/social" replace />} />
             <Route path="/social/ai-tools" element={<Navigate to="/social" replace />} />

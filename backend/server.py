@@ -4108,6 +4108,15 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Social Webhooks routes: {e}")
 
+# Load Sevora Pulse routes (Company Wall & Team Engagement)
+try:
+    from routes.pulse import router as pulse_router, init_router as init_pulse_router
+    init_pulse_router(db)
+    api_router.include_router(pulse_router)
+    logger.info("Sevora Pulse routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Sevora Pulse routes: {e}")
+
 # Load Admin V2 routes
 try:
     from routes.admin import router as admin_v2_router, set_database as set_admin_db, set_jwt_settings as set_admin_jwt

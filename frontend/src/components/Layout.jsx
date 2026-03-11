@@ -12,7 +12,7 @@ import {
     ChevronDown, ChevronRight, Briefcase, Mail, Check, Send, ListTodo, FolderKanban,
     HelpCircle, Award, Network, Shield, Flag, CalendarDays, RefreshCw, Plus, Globe,
     TrendingUp, PieChart, Activity, FileText, Package, Factory, FlaskConical, Search, Database,
-    Server, Plug, Bell, ClipboardList, Bot, Cog, CheckCircle
+    Server, Plug, Bell, ClipboardList, Bot, Cog, CheckCircle, MessageCircle
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -30,6 +30,18 @@ import {
 } from './ui/dropdown-menu';
 
 const DEPARTMENT_CONFIG = {
+    pulse: {
+        name: 'Sevora Pulse',
+        icon: Activity,
+        color: 'from-rose-600 to-rose-700',
+        bgColor: 'bg-rose-50',
+        textColor: 'text-rose-700',
+        requiredModule: null,  // Available to everyone
+        routes: [
+            { path: '/pulse', name: 'Activity Feed', icon: MessageCircle },
+            { path: '/pulse/feed', name: 'Company Wall', icon: Users },
+        ]
+    },
     analytics: {
         name: 'Analytics & Insights',
         icon: TrendingUp,
