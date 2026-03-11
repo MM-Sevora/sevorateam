@@ -397,19 +397,6 @@ export const Layout = ({ children }) => {
 
                 {/* Navigation */}
                 <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-2" data-tour="sidebar">
-                    {/* Home Dashboard */}
-                    <Link
-                        to="/"
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
-                            location.pathname === '/' 
-                                ? 'bg-[#4A3728] text-white font-medium shadow-sm' 
-                                : 'text-[#4A3728] hover:bg-[#E8D5C4]'
-                        }`}
-                    >
-                        <LayoutDashboard className="w-5 h-5" />
-                        {sidebarOpen && <span className="text-sm font-medium">Overview</span>}
-                    </Link>
-
                     {/* Department Sections */}
                     {accessibleDepartments.map(deptKey => {
                         const dept = DEPARTMENT_CONFIG[deptKey];
