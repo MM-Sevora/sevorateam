@@ -38,11 +38,10 @@ const DEPARTMENT_CONFIG = {
         textColor: 'text-rose-700',
         requiredModule: null,  // Available to everyone
         routes: [
-            { path: '/pulse', name: 'Activity Feed', icon: MessageCircle },
-            { path: '/pulse/feed', name: 'Company Wall', icon: Users },
+            { path: '/pulse', name: 'Company Wall', icon: MessageCircle },
             { path: '/pulse/departments', name: 'Department Walls', icon: Building2 },
-            { path: '/pulse/recognition', name: 'Recognition', icon: Award },
             { path: '/pulse/updates', name: 'Work Updates', icon: ClipboardList },
+            { path: '/pulse/recognition', name: 'Recognition', icon: Award },
             { path: '/pulse/leadership', name: 'Leadership Dashboard', icon: BarChart3 },
         ]
     },
