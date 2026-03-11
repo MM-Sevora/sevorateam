@@ -456,6 +456,165 @@ async def publish_to_platform_real(platform: str, content: str, media_urls: List
     return await mock_publish_to_platform(platform, content, media_urls, link_url, post_type)
 
 
+# ============== YOUTUBE OAUTH ==============
+
+def get_youtube_auth_url(redirect_uri: str, state: str) -> str:
+    """Generate YouTube/Google OAuth authorization URL"""
+    client_id = os.environ.get("YOUTUBE_CLIENT_ID")
+    # Scopes for YouTube upload and channel management
+    scopes = "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/youtube.force-ssl"
+    
+    return (
+        f"https://accounts.google.com/o/oauth2/v2/auth?"
+        f"response_type=code&"
+        f"client_id={client_id}&"
+        f"redirect_uri={redirect_uri}&"
+        f"state={state}&"
+        f"scope={scopes}&"
+        f"access_type=offline&"
+        f"prompt=consent"
+    )
+
+
+async def exchange_youtube_code(code: str, redirect_uri: str) -> Dict[str, Any]:
+    """Exchange authorization code for YouTube access token"""
+    client_id = os.environ.get("YOUTUBE_CLIENT_ID")
+    client_secret = os.environ.get("YOUTUBE_CLIENT_SECRET")
+    
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                "https://oauth2.googleapis.com/token",
+                data={
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "redirect_uri": redirect_uri,
+                    "client_id": client_id,
+                    "client_secret": client_secret
+                },
+                headers={"Content-Type": "application/x-www-form-urlencoded"}
+            )
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+async def get_youtube_channel(access_token: str) -> Dict[str, Any]:
+    """Get YouTube channel info for the authenticated user"""
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(
+                "https://www.googleapis.com/youtube/v3/channels",
+                params={
+                    "part": "snippet,statistics,contentDetails",
+                    "mine": "true"
+                },
+                headers={"Authorization": f"Bearer {access_token}"}
+            )
+            data = response.json()
+            if "items" in data and len(data["items"]) > 0:
+                channel = data["items"][0]
+                return {
+                    "id": channel["id"],
+                    "title": channel["snippet"]["title"],
+                    "description": channel["snippet"].get("description", ""),
+                    "thumbnail": channel["snippet"]["thumbnails"]["default"]["url"],
+                    "subscriberCount": channel["statistics"].get("subscriberCount", 0),
+                    "videoCount": channel["statistics"].get("videoCount", 0),
+                    "viewCount": channel["statistics"].get("viewCount", 0),
+                }
+            return {"error": "No channel found"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+async def upload_youtube_video(access_token: str, video_url: str, title: str, description: str, 
+                                privacy: str = "public") -> Dict[str, Any]:
+    """
+    Upload a video to YouTube.
+    Note: This initiates a resumable upload - for large files, chunked upload would be needed.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            # First, download the video from URL
+            video_response = await client.get(video_url)
+            if video_response.status_code != 200:
+                return {"success": False, "message": "Could not download video from URL"}
+            
+            video_data = video_response.content
+            
+            # Create video metadata
+            metadata = {
+                "snippet": {
+                    "title": title,
+                    "description": description,
+                    "categoryId": "22"  # People & Blogs
+                },
+                "status": {
+                    "privacyStatus": privacy,
+                    "selfDeclaredMadeForKids": False
+                }
+            }
+            
+            # Initiate resumable upload
+            init_response = await client.post(
+                "https://www.googleapis.com/upload/youtube/v3/videos",
+                params={
+                    "uploadType": "resumable",
+                    "part": "snippet,status"
+                },
+                json=metadata,
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json",
+                    "X-Upload-Content-Type": "video/*",
+                    "X-Upload-Content-Length": str(len(video_data))
+                }
+            )
+            
+            if init_response.status_code != 200:
+                return {
+                    "success": False, 
+                    "message": f"Upload init failed: {init_response.text}"
+                }
+            
+            upload_url = init_response.headers.get("Location")
+            
+            # Upload the video data
+            upload_response = await client.put(
+                upload_url,
+                content=video_data,
+                headers={
+                    "Content-Type": "video/*",
+                    "Content-Length": str(len(video_data))
+                }
+            )
+            
+            if upload_response.status_code in [200, 201]:
+                data = upload_response.json()
+                video_id = data.get("id")
+                return {
+                    "success": True,
+                    "platform_post_id": video_id,
+                    "platform_url": f"https://www.youtube.com/watch?v={video_id}",
+                    "message": "Successfully uploaded to YouTube"
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": f"Upload failed: {upload_response.text}"
+                }
+                
+    except Exception as e:
+        logger.error(f"YouTube upload error: {e}")
+        return {
+            "success": False,
+            "platform_post_id": None,
+            "platform_url": None,
+            "message": f"YouTube upload error: {str(e)}"
+        }
+
+
 # ============== LINKEDIN OAUTH ==============
 
 def get_linkedin_auth_url(redirect_uri: str, state: str) -> str:
@@ -728,6 +887,38 @@ async def initiate_platform_connection(platform: str, user: dict = Depends(get_c
                 "requires_oauth": True,
                 "auth_url": auth_url,
                 "message": f"Please authorize LinkedIn access. Redirect to the auth_url.",
+                "note": "User should be redirected to auth_url to complete OAuth flow"
+            }
+    
+    # YouTube: Real OAuth flow
+    if platform == "youtube":
+        client_id = os.environ.get("YOUTUBE_CLIENT_ID")
+        if client_id:
+            preview_url = "https://sevora-hub.preview.emergentagent.com"
+            base_url = preview_url
+            redirect_uri = f"{base_url}/api/social/integrations/callback/youtube"
+            state = f"{user['id']}_{uuid.uuid4().hex[:8]}"
+            
+            auth_url = get_youtube_auth_url(redirect_uri, state)
+            
+            # Store state in DB for verification
+            if db is not None:
+                await db.oauth_states.update_one(
+                    {"user_id": user["id"], "platform": "youtube"},
+                    {"$set": {
+                        "state": state,
+                        "user_id": user["id"],
+                        "platform": "youtube",
+                        "created_at": datetime.now(timezone.utc).isoformat()
+                    }},
+                    upsert=True
+                )
+            
+            return {
+                "success": True,
+                "requires_oauth": True,
+                "auth_url": auth_url,
+                "message": f"Please authorize YouTube access. Redirect to the auth_url.",
                 "note": "User should be redirected to auth_url to complete OAuth flow"
             }
     
@@ -1303,5 +1494,70 @@ async def facebook_callback(code: str, state: str):
 
 @router.get("/callback/youtube")
 async def youtube_callback(code: str, state: str):
-    """Handle YouTube OAuth callback"""
-    return {"message": "YouTube OAuth callback - structure ready", "code": code[:10] + "..."}
+    """Handle YouTube OAuth callback - exchange code for token"""
+    # Verify state
+    user_id = None
+    if db is not None:
+        state_doc = await db.oauth_states.find_one({"state": state})
+        if state_doc:
+            user_id = state_doc["user_id"]
+            await db.oauth_states.delete_one({"state": state})
+    
+    preview_url = "https://sevora-hub.preview.emergentagent.com"
+    redirect_uri = f"{preview_url}/api/social/integrations/callback/youtube"
+    
+    # Exchange code for token
+    token_data = await exchange_youtube_code(code, redirect_uri)
+    
+    if "error" in token_data:
+        return {"success": False, "error": token_data.get("error_description", token_data.get("error"))}
+    
+    access_token = token_data.get("access_token")
+    refresh_token = token_data.get("refresh_token")
+    expires_in = token_data.get("expires_in", 3600)
+    
+    # Get channel info
+    channel = await get_youtube_channel(access_token)
+    
+    if "error" in channel:
+        return {"success": False, "error": "Could not fetch YouTube channel info"}
+    
+    # Store connection in database
+    connection_id = str(uuid.uuid4())
+    connection_doc = {
+        "id": connection_id,
+        "user_id": user_id or "unknown",
+        "platform": "youtube",
+        "status": "connected",
+        "account_id": channel.get("id"),
+        "account_name": channel.get("title"),
+        "profile_url": f"https://www.youtube.com/channel/{channel.get('id')}",
+        "profile_image": channel.get("thumbnail"),
+        "channel_stats": {
+            "subscribers": channel.get("subscriberCount"),
+            "videos": channel.get("videoCount"),
+            "views": channel.get("viewCount")
+        },
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "expires_at": (datetime.now(timezone.utc) + timedelta(seconds=expires_in)).isoformat(),
+        "connected_at": datetime.now(timezone.utc).isoformat(),
+        "permissions": ["youtube.upload", "youtube.readonly"],
+    }
+    
+    if db is not None:
+        await db.social_platform_connections.update_one(
+            {"user_id": user_id, "platform": "youtube"},
+            {"$set": connection_doc},
+            upsert=True
+        )
+    
+    # Redirect to frontend success page
+    frontend_url = os.environ.get("FRONTEND_URL", preview_url)
+    
+    return {
+        "success": True,
+        "message": f"Successfully connected YouTube channel: {channel.get('title')}",
+        "channel": channel,
+        "redirect_url": f"{frontend_url}/social/integrations?connected=youtube"
+    }
