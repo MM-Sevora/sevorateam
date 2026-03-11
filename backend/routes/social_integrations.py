@@ -1263,7 +1263,8 @@ async def linkedin_callback(code: str, state: str):
         )
     
     # Redirect to frontend success page
-    frontend_url = os.environ.get("FRONTEND_URL", base_url)
+    preview_url = "https://sevora-hub.preview.emergentagent.com"
+    frontend_url = os.environ.get("FRONTEND_URL", preview_url)
     
     return {
         "success": True,
