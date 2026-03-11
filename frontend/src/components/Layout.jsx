@@ -12,7 +12,7 @@ import {
     ChevronDown, ChevronRight, Briefcase, Mail, Check, Send, ListTodo, FolderKanban,
     HelpCircle, Award, Network, Shield, Flag, CalendarDays, RefreshCw, Plus, Globe,
     TrendingUp, PieChart, Activity, FileText, Package, Factory, FlaskConical, Search, Database,
-    Server, Plug, Bell, ClipboardList, Bot, Cog, CheckCircle, MessageCircle
+    Server, Plug, Bell, ClipboardList, Bot, Cog, CheckCircle, MessageCircle, Key, Lock
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -254,6 +254,23 @@ const DEPARTMENT_CONFIG = {
             { path: '/notifications', name: 'Notifications', icon: Bell, requiredModule: 'notifications' },
             { path: '/admin/website-settings', name: 'Website Settings', icon: Globe },
         ]
+    },
+    itadmin: {
+        name: 'IT Admin',
+        icon: Shield,
+        color: 'from-red-600 to-red-700',
+        bgColor: 'bg-red-50',
+        textColor: 'text-red-700',
+        requiredModule: 'admin',
+        routes: [
+            { path: '/it-admin', name: 'Dashboard', icon: LayoutDashboard },
+            { path: '/it-admin/tools', name: 'Tool Registry', icon: Package },
+            { path: '/it-admin/access', name: 'Access Management', icon: Key },
+            { path: '/it-admin/requests', name: 'Access Requests', icon: ClipboardList },
+            { path: '/it-admin/credentials', name: 'Credential Vault', icon: Lock },
+            { path: '/it-admin/audit-logs', name: 'Audit Logs', icon: FileText },
+            { path: '/it-admin/onboarding', name: 'Onboarding', icon: UserPlus },
+        ]
     }
 };
 
@@ -271,7 +288,7 @@ export const Layout = ({ children }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(true);
-    const [expandedDepts, setExpandedDepts] = useState(['analytics', 'goals', 'meetings', 'projects', 'tasks', 'marketing', 'sales', 'social', 'hr', 'sourcing', 'admin', 'systems']);
+    const [expandedDepts, setExpandedDepts] = useState(['analytics', 'goals', 'meetings', 'projects', 'tasks', 'marketing', 'sales', 'social', 'hr', 'sourcing', 'admin', 'systems', 'itadmin']);
     const [expandedSubgroups, setExpandedSubgroups] = useState([]);
 
     const toggleDepartment = (dept) => {

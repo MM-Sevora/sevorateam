@@ -4196,6 +4196,15 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Analytics routes: {e}")
 
+# Register Access & Credential Management System (ACMS) routes
+try:
+    from routes.acms import router as acms_router, init_router as init_acms_router
+    init_acms_router(db, get_current_user)
+    api_router.include_router(acms_router)
+    logger.info("ACMS routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load ACMS routes: {e}")
+
 # Register Unified Contacts routes (merged contacts/influencers/publications)
 try:
     from modules.contacts.routes import contacts_router
