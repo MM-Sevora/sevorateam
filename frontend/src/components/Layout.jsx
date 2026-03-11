@@ -266,6 +266,7 @@ const DEPARTMENT_CONFIG = {
                     { path: '/finance/budgets', name: 'Budget Planning', icon: BarChart3 },
                     { path: '/finance/payments', name: 'Payment Requests', icon: CreditCard },
                     { path: '/hr/expenses', name: 'Reimbursements', icon: Receipt },
+                    { path: '/vendors', name: 'Vendor Management', icon: Building2 },
                     { path: '/expense', name: 'Expense Management', icon: DollarSign },
                 ]
             },

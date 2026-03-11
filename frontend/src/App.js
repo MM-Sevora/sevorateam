@@ -160,6 +160,12 @@ import OnboardingManagement from "./pages/it-admin/OnboardingManagement";
 import BudgetPlanning from "./pages/finance/BudgetPlanning";
 import PaymentRequests from "./pages/finance/PaymentRequests";
 
+// Vendor Management
+import VendorDashboard from "./pages/vendors/VendorDashboard";
+import VendorDatabase from "./pages/vendors/VendorDatabase";
+import WorkRequests from "./pages/vendors/WorkRequests";
+import WorkOrders from "./pages/vendors/WorkOrders";
+
 import "./App.css";
 
 // Initialize MSAL instance
@@ -469,6 +475,12 @@ function AppRoutes() {
             {/* Finance Admin Routes */}
             <Route path="/finance/budgets" element={<ProtectedRoute requiredModule="finance"><BudgetPlanning /></ProtectedRoute>} />
             <Route path="/finance/payments" element={<ProtectedRoute requiredModule="finance"><PaymentRequests /></ProtectedRoute>} />
+
+            {/* Vendor Management Routes */}
+            <Route path="/vendors" element={<ProtectedRoute requiredModule="finance"><VendorDashboard /></ProtectedRoute>} />
+            <Route path="/vendors/database" element={<ProtectedRoute requiredModule="finance"><VendorDatabase /></ProtectedRoute>} />
+            <Route path="/vendors/requests" element={<ProtectedRoute requiredModule="finance"><WorkRequests /></ProtectedRoute>} />
+            <Route path="/vendors/work-orders" element={<ProtectedRoute requiredModule="finance"><WorkOrders /></ProtectedRoute>} />
 
             {/* Settings Routes */}
             <Route path="/settings/automations" element={<ProtectedRoute requiredModule="automations"><AutomationSettings /></ProtectedRoute>} />

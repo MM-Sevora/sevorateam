@@ -4214,6 +4214,15 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Finance Management routes: {e}")
 
+# Register Vendor Management System routes
+try:
+    from routes.vendors import router as vendors_router, init_router as init_vendors_router
+    init_vendors_router(db, get_current_user)
+    api_router.include_router(vendors_router)
+    logger.info("Vendor Management routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Vendor Management routes: {e}")
+
 # Register Unified Contacts routes (merged contacts/influencers/publications)
 try:
     from modules.contacts.routes import contacts_router
