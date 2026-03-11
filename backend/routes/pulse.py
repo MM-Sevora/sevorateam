@@ -1168,59 +1168,65 @@ class LinkedItem(BaseModel):
     project_id: Optional[str] = None  # Parent project if item is a task
     project_name: Optional[str] = None
 
-class CompletedTaskItem(BaseModel):
-    """A completed task with optional link to system item"""
+class LinkableTextItem(BaseModel):
+    """A text item with optional link to system item (used for all fields)"""
     text: str
     linked_item: Optional[LinkedItem] = None
     completion_date: Optional[str] = None  # Date from linked item if available
 
+# Alias for backward compatibility
+CompletedTaskItem = LinkableTextItem
+
 class DailyUpdateCreate(BaseModel):
     completed_tasks: List[str] = []  # Legacy: simple text list
-    completed_items: List[CompletedTaskItem] = []  # New: items with links
-    blockers: List[str] = []
-    tomorrow_focus: List[str] = []
+    completed_items: List[LinkableTextItem] = []  # New: items with links
+    blockers: List[str] = []  # Legacy: simple text list
+    blocker_items: List[LinkableTextItem] = []  # New: blockers with links
+    tomorrow_focus: List[str] = []  # Legacy: simple text list
+    tomorrow_focus_items: List[LinkableTextItem] = []  # New: focus items with links
     notes: Optional[str] = None
     update_date: Optional[str] = None  # Allow specifying date (defaults to today)
 
 class WeeklyUpdateCreate(BaseModel):
     achievements: List[str] = []  # Legacy: simple text list
-    achievement_items: List[CompletedTaskItem] = []  # New: items with links
+    achievement_items: List[LinkableTextItem] = []  # New: items with links
     key_metrics: Dict[str, Any] = {}
-    issues_faced: List[str] = []
-    next_week_focus: List[str] = []
-    team_highlights: List[str] = []
+    issues_faced: List[str] = []  # Legacy: simple text list
+    issues_faced_items: List[LinkableTextItem] = []  # New: issues with links
+    next_week_focus: List[str] = []  # Legacy: simple text list
+    next_week_focus_items: List[LinkableTextItem] = []  # New: focus items with links
+    team_highlights: List[str] = []  # Legacy: simple text list
+    team_highlights_items: List[LinkableTextItem] = []  # New: highlights with links
     notes: Optional[str] = None
 
 
 @router.post("/updates/daily")
 async def submit_daily_update(update: DailyUpdateCreate, user: dict = Depends(get_current_user)):
-    """Submit a daily work update with optional linked tasks/projects"""
+    """Submit a daily work update with optional linked tasks/projects for all fields"""
     if db is None:
         raise HTTPException(status_code=500, detail="Database not available")
     
     update_id = str(uuid.uuid4())
-    # Use provided date or default to today
     update_date = update.update_date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
     
-    # Merge legacy completed_tasks with new completed_items
-    all_completed_items = []
-    
-    # Add legacy text-only tasks
-    for task_text in update.completed_tasks:
-        if task_text.strip():
-            all_completed_items.append({
-                "text": task_text,
-                "linked_item": None,
-                "completion_date": None
+    # Helper function to merge legacy and new items
+    def merge_items(legacy_list, new_items_list):
+        all_items = []
+        for text in legacy_list:
+            if text and text.strip():
+                all_items.append({"text": text, "linked_item": None, "completion_date": None})
+        for item in new_items_list:
+            all_items.append({
+                "text": item.text,
+                "linked_item": item.linked_item.model_dump() if item.linked_item else None,
+                "completion_date": item.completion_date
             })
+        return all_items
     
-    # Add new items with links
-    for item in update.completed_items:
-        all_completed_items.append({
-            "text": item.text,
-            "linked_item": item.linked_item.model_dump() if item.linked_item else None,
-            "completion_date": item.completion_date
-        })
+    # Merge all fields
+    all_completed_items = merge_items(update.completed_tasks, update.completed_items)
+    all_blocker_items = merge_items(update.blockers, update.blocker_items)
+    all_tomorrow_focus_items = merge_items(update.tomorrow_focus, update.tomorrow_focus_items)
     
     if not all_completed_items:
         raise HTTPException(status_code=400, detail="Please add at least one completed task")
@@ -1237,24 +1243,27 @@ async def submit_daily_update(update: DailyUpdateCreate, user: dict = Depends(ge
         "user_name": user.get("name"),
         "department": user.get("department"),
         "date": update_date,
-        "completed_tasks": [item["text"] for item in all_completed_items],  # Legacy field
-        "completed_items": all_completed_items,  # New field with full data
-        "blockers": update.blockers,
-        "tomorrow_focus": update.tomorrow_focus,
+        "completed_tasks": [item["text"] for item in all_completed_items],
+        "completed_items": all_completed_items,
+        "blockers": [item["text"] for item in all_blocker_items],
+        "blocker_items": all_blocker_items,
+        "tomorrow_focus": [item["text"] for item in all_tomorrow_focus_items],
+        "tomorrow_focus_items": all_tomorrow_focus_items,
         "notes": update.notes,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
     
     if existing:
-        # Update existing
         await db.pulse_daily_updates.update_one(
             {"id": existing["id"]},
             {"$set": {
                 "completed_tasks": [item["text"] for item in all_completed_items],
                 "completed_items": all_completed_items,
-                "blockers": update.blockers,
-                "tomorrow_focus": update.tomorrow_focus,
+                "blockers": [item["text"] for item in all_blocker_items],
+                "blocker_items": all_blocker_items,
+                "tomorrow_focus": [item["text"] for item in all_tomorrow_focus_items],
+                "tomorrow_focus_items": all_tomorrow_focus_items,
                 "notes": update.notes,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }}
@@ -1264,23 +1273,27 @@ async def submit_daily_update(update: DailyUpdateCreate, user: dict = Depends(ge
     else:
         await db.pulse_daily_updates.insert_one(update_doc)
         
-        # Create post content with links
-        content_lines = ["**Completed:**"]
-        for item in all_completed_items:
-            if item.get("linked_item"):
-                link = item["linked_item"]
-                link_type = link.get("item_type", "item")
-                link_name = link.get("item_name", "")
-                content_lines.append(f"• {item['text']} [🔗 {link_type}: {link_name}]")
-            else:
-                content_lines.append(f"• {item['text']}")
+        # Helper to format items for post content
+        def format_items_for_content(items, section_title):
+            if not items:
+                return ""
+            lines = [f"\n\n**{section_title}:**"]
+            for item in items:
+                if item.get("linked_item"):
+                    link = item["linked_item"]
+                    lines.append(f"• {item['text']} [🔗 {link.get('item_type', 'item')}: {link.get('item_name', '')}]")
+                else:
+                    lines.append(f"• {item['text']}")
+            return "\n".join(lines)
         
-        content = "\n".join(content_lines)
+        content = format_items_for_content(all_completed_items, "Completed").strip()
+        content += format_items_for_content(all_blocker_items, "Blockers")
+        content += format_items_for_content(all_tomorrow_focus_items, "Tomorrow's Focus")
         
-        if update.blockers:
-            content += "\n\n**Blockers:**\n" + "\n".join(f"• {b}" for b in update.blockers)
-        if update.tomorrow_focus:
-            content += "\n\n**Tomorrow's Focus:**\n" + "\n".join(f"• {f}" for f in update.tomorrow_focus)
+        # Collect all linked items from all fields
+        all_linked = []
+        for items in [all_completed_items, all_blocker_items, all_tomorrow_focus_items]:
+            all_linked.extend([item["linked_item"] for item in items if item.get("linked_item")])
         
         post_doc = {
             "id": str(uuid.uuid4()),
@@ -1300,7 +1313,7 @@ async def submit_daily_update(update: DailyUpdateCreate, user: dict = Depends(ge
             "is_pinned": False,
             "is_edited": False,
             "daily_update_id": update_id,
-            "linked_items": [item["linked_item"] for item in all_completed_items if item.get("linked_item")],
+            "linked_items": all_linked,
         }
         await db.pulse_posts.insert_one(post_doc)
         message = "Daily update submitted"
@@ -1313,32 +1326,32 @@ async def submit_daily_update(update: DailyUpdateCreate, user: dict = Depends(ge
 
 @router.post("/updates/weekly")
 async def submit_weekly_update(update: WeeklyUpdateCreate, user: dict = Depends(get_current_user)):
-    """Submit a weekly update with optional linked tasks/projects"""
+    """Submit a weekly update with optional linked tasks/projects for all fields"""
     if db is None:
         raise HTTPException(status_code=500, detail="Database not available")
     
     update_id = str(uuid.uuid4())
     week_start = (datetime.now(timezone.utc) - timedelta(days=datetime.now(timezone.utc).weekday())).strftime("%Y-%m-%d")
     
-    # Merge legacy achievements with new achievement_items
-    all_achievement_items = []
-    
-    # Add legacy text-only achievements
-    for achievement_text in update.achievements:
-        if achievement_text.strip():
-            all_achievement_items.append({
-                "text": achievement_text,
-                "linked_item": None,
-                "completion_date": None
+    # Helper function to merge legacy and new items
+    def merge_items(legacy_list, new_items_list):
+        all_items = []
+        for text in legacy_list:
+            if text and text.strip():
+                all_items.append({"text": text, "linked_item": None, "completion_date": None})
+        for item in new_items_list:
+            all_items.append({
+                "text": item.text,
+                "linked_item": item.linked_item.model_dump() if item.linked_item else None,
+                "completion_date": item.completion_date
             })
+        return all_items
     
-    # Add new items with links
-    for item in update.achievement_items:
-        all_achievement_items.append({
-            "text": item.text,
-            "linked_item": item.linked_item.model_dump() if item.linked_item else None,
-            "completion_date": item.completion_date
-        })
+    # Merge all fields
+    all_achievement_items = merge_items(update.achievements, update.achievement_items)
+    all_issues_items = merge_items(update.issues_faced, update.issues_faced_items)
+    all_next_week_items = merge_items(update.next_week_focus, update.next_week_focus_items)
+    all_highlights_items = merge_items(update.team_highlights, update.team_highlights_items)
     
     if not all_achievement_items:
         raise HTTPException(status_code=400, detail="Please add at least one achievement")
@@ -1349,37 +1362,43 @@ async def submit_weekly_update(update: WeeklyUpdateCreate, user: dict = Depends(
         "user_name": user.get("name"),
         "department": user.get("department"),
         "week_start": week_start,
-        "achievements": [item["text"] for item in all_achievement_items],  # Legacy field
-        "achievement_items": all_achievement_items,  # New field with full data
+        "achievements": [item["text"] for item in all_achievement_items],
+        "achievement_items": all_achievement_items,
         "key_metrics": update.key_metrics,
-        "issues_faced": update.issues_faced,
-        "next_week_focus": update.next_week_focus,
-        "team_highlights": update.team_highlights,
+        "issues_faced": [item["text"] for item in all_issues_items],
+        "issues_faced_items": all_issues_items,
+        "next_week_focus": [item["text"] for item in all_next_week_items],
+        "next_week_focus_items": all_next_week_items,
+        "team_highlights": [item["text"] for item in all_highlights_items],
+        "team_highlights_items": all_highlights_items,
         "notes": update.notes,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     
     await db.pulse_weekly_updates.insert_one(update_doc)
     
-    # Create post content with links
-    content_lines = ["**Weekly Achievements:**"]
-    for item in all_achievement_items:
-        if item.get("linked_item"):
-            link = item["linked_item"]
-            link_type = link.get("item_type", "item")
-            link_name = link.get("item_name", "")
-            content_lines.append(f"• {item['text']} [🔗 {link_type}: {link_name}]")
-        else:
-            content_lines.append(f"• {item['text']}")
+    # Helper to format items for post content
+    def format_items_for_content(items, section_title):
+        if not items:
+            return ""
+        lines = [f"\n\n**{section_title}:**"]
+        for item in items:
+            if item.get("linked_item"):
+                link = item["linked_item"]
+                lines.append(f"• {item['text']} [🔗 {link.get('item_type', 'item')}: {link.get('item_name', '')}]")
+            else:
+                lines.append(f"• {item['text']}")
+        return "\n".join(lines)
     
-    content = "\n".join(content_lines)
+    content = format_items_for_content(all_achievement_items, "Weekly Achievements").strip()
+    content += format_items_for_content(all_highlights_items, "Team Highlights")
+    content += format_items_for_content(all_issues_items, "Challenges")
+    content += format_items_for_content(all_next_week_items, "Next Week Focus")
     
-    if update.team_highlights:
-        content += "\n\n**Team Highlights:**\n" + "\n".join(f"• {h}" for h in update.team_highlights)
-    if update.issues_faced:
-        content += "\n\n**Challenges:**\n" + "\n".join(f"• {i}" for i in update.issues_faced)
-    if update.next_week_focus:
-        content += "\n\n**Next Week Focus:**\n" + "\n".join(f"• {f}" for f in update.next_week_focus)
+    # Collect all linked items from all fields
+    all_linked = []
+    for items in [all_achievement_items, all_issues_items, all_next_week_items, all_highlights_items]:
+        all_linked.extend([item["linked_item"] for item in items if item.get("linked_item")])
     
     post_doc = {
         "id": str(uuid.uuid4()),
@@ -1399,7 +1418,7 @@ async def submit_weekly_update(update: WeeklyUpdateCreate, user: dict = Depends(
         "is_pinned": False,
         "is_edited": False,
         "weekly_update_id": update_id,
-        "linked_items": [item["linked_item"] for item in all_achievement_items if item.get("linked_item")],
+        "linked_items": all_linked,
     }
     await db.pulse_posts.insert_one(post_doc)
     
