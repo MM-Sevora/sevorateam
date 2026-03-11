@@ -1,5 +1,59 @@
 # CHANGELOG - Sevora Team Platform
 
+## March 11, 2026 - Social Media Phase 2 COMPLETE ✅
+
+### All Phase 2 Features Implemented:
+
+#### 1. Unified Social Inbox (NEW)
+- ✅ **Backend**: Full CRUD at `/api/social/inbox/items`
+  - Filter by platform, message_type, status, sentiment, search
+  - Paginated results with statistics
+  - Bulk actions (mark_read, archive, delete, mark_spam)
+- ✅ **Frontend**: New page at `/social/inbox` (`SocialInbox.jsx`)
+  - Split view: Message list + Detail panel
+  - Platform icons with brand colors
+  - Sentiment badges (Positive, Neutral, Negative)
+  - Status indicators (unread blue dot)
+  - Reply suggestions with AI/rule-based options
+  - Bulk selection and actions
+- ✅ **Seed Demo Data**: `/api/social/inbox/seed-demo` creates 10 sample items
+
+#### 2. Mention Tracking (NEW)
+- ✅ **Backend**: Dedicated endpoints for mentions
+  - `GET /api/social/inbox/mentions` - Filter for mention-type items
+  - `GET /api/social/inbox/mentions/stats` - Sentiment breakdown
+- ✅ **Frontend**: Mentions appear in inbox with "@" icon and "Mention" badge
+
+#### 3. Auto-Reply System - Rule-based + AI (NEW)
+- ✅ **Backend**: Full rule engine at `/api/social/auto-reply/`
+  - Rule CRUD with conditions (contains, starts_with, regex)
+  - Actions: reply, tag, assign, archive, escalate
+  - Priority-based processing
+  - Stats tracking (triggered count)
+  - AI reply generation (template fallback when LLM not configured)
+- ✅ **Frontend**: New page at `/social/auto-reply` (`AutoReplyRules.jsx`)
+  - Rule list with condition preview
+  - Action badges with colors
+  - Rule editor with condition builder
+  - Platform/message type filters
+  - Reply template with variable support ({author_name}, {platform})
+- ✅ **Seed Defaults**: `/api/social/auto-reply/seed-defaults` creates 4 rules:
+  - Support Request Escalation
+  - Pricing Inquiry
+  - Partnership Inquiries
+  - Thank You Response
+
+### Test Results (Iteration 64):
+- **Backend**: 100% (24/24 tests passed)
+- **Frontend**: 100% (all UI flows working)
+- Bug Fixed: Bulk action endpoint now accepts JSON body correctly
+
+### Note on AI Integration:
+- AI reply generation currently returns template response
+- Ready for GPT integration when Emergent LLM key is configured
+
+---
+
 ## March 11, 2026 - Social Media Phase 1 COMPLETE ✅
 
 ### All Phase 1 Features Implemented:
