@@ -302,8 +302,8 @@ export default function WorkUpdates() {
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Work Updates</h1>
-                    <p className="text-gray-500 mt-1">Track daily and weekly progress across teams</p>
+                    <h1 className="text-2xl font-bold text-[#4A3728]">Work Updates</h1>
+                    <p className="text-[#5D4A3A] mt-1">Track daily and weekly progress across teams</p>
                 </div>
                 <div className="flex gap-2">
                     <Button
@@ -324,12 +324,12 @@ export default function WorkUpdates() {
             </div>
 
             {/* Filters Section - Enhanced for Managers */}
-            <Card className="mb-6">
+            <Card className="mb-6 bg-white border-[#E8D5C4]">
                 <CardContent className="p-4">
                     <div className="flex flex-wrap items-center gap-3">
                         {/* Department Filter */}
                         <Select value={filterDepartment} onValueChange={(v) => { setFilterDepartment(v); setFilterEmployee('all'); }}>
-                            <SelectTrigger className="w-44">
+                            <SelectTrigger className="w-44 border-[#E8D5C4]">
                                 <SelectValue placeholder="Department" />
                             </SelectTrigger>
                             <SelectContent>
@@ -343,7 +343,7 @@ export default function WorkUpdates() {
                         {/* Team Member Filter - Only for Managers */}
                         {isManager && (
                             <Select value={filterEmployee} onValueChange={setFilterEmployee}>
-                                <SelectTrigger className="w-52">
+                                <SelectTrigger className="w-52 border-[#E8D5C4]">
                                     <User className="w-4 h-4 mr-2" />
                                     <SelectValue placeholder="Team Member" />
                                 </SelectTrigger>
@@ -353,7 +353,7 @@ export default function WorkUpdates() {
                                         <SelectItem key={emp.id} value={emp.id}>
                                             <div className="flex items-center gap-2">
                                                 <span>{emp.name}</span>
-                                                <span className="text-xs text-gray-400 capitalize">({emp.department})</span>
+                                                <span className="text-xs text-[#9C8C74] capitalize">({emp.department})</span>
                                             </div>
                                         </SelectItem>
                                     ))}
@@ -363,12 +363,12 @@ export default function WorkUpdates() {
 
                         {/* View Mode Toggle - Only for Managers */}
                         {isManager && (
-                            <div className="flex items-center border rounded-lg overflow-hidden ml-auto">
+                            <div className="flex items-center border border-[#E8D5C4] rounded-lg overflow-hidden ml-auto">
                                 <Button
                                     variant={viewMode === 'list' ? 'default' : 'ghost'}
                                     size="sm"
                                     onClick={() => setViewMode('list')}
-                                    className={`rounded-none ${viewMode === 'list' ? 'bg-rose-600' : ''}`}
+                                    className={`rounded-none ${viewMode === 'list' ? 'bg-rose-600' : 'hover:bg-[#F5EBE0]'}`}
                                 >
                                     <List className="w-4 h-4 mr-1" />
                                     List
@@ -377,7 +377,7 @@ export default function WorkUpdates() {
                                     variant={viewMode === 'team' ? 'default' : 'ghost'}
                                     size="sm"
                                     onClick={() => setViewMode('team')}
-                                    className={`rounded-none ${viewMode === 'team' ? 'bg-rose-600' : ''}`}
+                                    className={`rounded-none ${viewMode === 'team' ? 'bg-rose-600' : 'hover:bg-[#F5EBE0]'}`}
                                 >
                                     <Users className="w-4 h-4 mr-1" />
                                     By Team
@@ -385,7 +385,7 @@ export default function WorkUpdates() {
                             </div>
                         )}
 
-                        <Button variant="outline" onClick={fetchUpdates}>
+                        <Button variant="outline" onClick={fetchUpdates} className="border-[#E8D5C4] hover:bg-[#F5EBE0]">
                             <RefreshCw className="w-4 h-4" />
                         </Button>
                     </div>

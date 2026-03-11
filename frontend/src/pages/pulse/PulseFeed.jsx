@@ -259,8 +259,8 @@ export default function PulseFeed() {
             <div className="mb-8">
                 <div className="flex items-center justify-between mb-6">
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Sevora Pulse</h1>
-                        <p className="text-gray-500 mt-1">Company updates, achievements, and team activity</p>
+                        <h1 className="text-2xl font-bold text-[#4A3728]">Sevora Pulse</h1>
+                        <p className="text-[#5D4A3A] mt-1">Company updates, achievements, and team activity</p>
                     </div>
                     <Button
                         onClick={() => setShowCreateDialog(true)}
@@ -274,54 +274,54 @@ export default function PulseFeed() {
                 {/* Stats Row */}
                 {stats && (
                     <div className="grid grid-cols-4 gap-4 mb-6">
-                        <Card>
+                        <Card className="bg-white border-[#E8D5C4] hover:shadow-md transition-shadow">
                             <CardContent className="p-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-lg bg-blue-100">
-                                        <MessageCircle className="w-5 h-5 text-blue-600" />
+                                    <div className="p-2 rounded-lg bg-[#E8D5C4]/50">
+                                        <MessageCircle className="w-5 h-5 text-[#4A3728]" />
                                     </div>
                                     <div>
-                                        <p className="text-2xl font-bold">{stats.posts_today}</p>
-                                        <p className="text-xs text-gray-500">Posts Today</p>
+                                        <p className="text-2xl font-bold text-[#4A3728]">{stats.posts_today}</p>
+                                        <p className="text-xs text-[#5D4A3A]">Posts Today</p>
                                     </div>
                                 </div>
                             </CardContent>
                         </Card>
-                        <Card>
+                        <Card className="bg-white border-[#E8D5C4] hover:shadow-md transition-shadow">
                             <CardContent className="p-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-lg bg-green-100">
-                                        <TrendingUp className="w-5 h-5 text-green-600" />
+                                    <div className="p-2 rounded-lg bg-emerald-100">
+                                        <TrendingUp className="w-5 h-5 text-emerald-600" />
                                     </div>
                                     <div>
-                                        <p className="text-2xl font-bold">{stats.posts_this_week}</p>
-                                        <p className="text-xs text-gray-500">This Week</p>
+                                        <p className="text-2xl font-bold text-[#4A3728]">{stats.posts_this_week}</p>
+                                        <p className="text-xs text-[#5D4A3A]">This Week</p>
                                     </div>
                                 </div>
                             </CardContent>
                         </Card>
-                        <Card>
+                        <Card className="bg-white border-[#E8D5C4] hover:shadow-md transition-shadow">
                             <CardContent className="p-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-lg bg-purple-100">
-                                        <Users className="w-5 h-5 text-purple-600" />
+                                    <div className="p-2 rounded-lg bg-rose-100">
+                                        <Users className="w-5 h-5 text-rose-600" />
                                     </div>
                                     <div>
-                                        <p className="text-2xl font-bold">{stats.top_contributors?.length || 0}</p>
-                                        <p className="text-xs text-gray-500">Active Contributors</p>
+                                        <p className="text-2xl font-bold text-[#4A3728]">{stats.top_contributors?.length || 0}</p>
+                                        <p className="text-xs text-[#5D4A3A]">Active Contributors</p>
                                     </div>
                                 </div>
                             </CardContent>
                         </Card>
-                        <Card>
+                        <Card className="bg-white border-[#E8D5C4] hover:shadow-md transition-shadow">
                             <CardContent className="p-4">
                                 <div className="flex items-center gap-3">
                                     <div className="p-2 rounded-lg bg-amber-100">
                                         <Trophy className="w-5 h-5 text-amber-600" />
                                     </div>
                                     <div>
-                                        <p className="text-2xl font-bold">{stats.by_type?.achievement || 0}</p>
-                                        <p className="text-xs text-gray-500">Achievements</p>
+                                        <p className="text-2xl font-bold text-[#4A3728]">{stats.by_type?.achievement || 0}</p>
+                                        <p className="text-xs text-[#5D4A3A]">Achievements</p>
                                     </div>
                                 </div>
                             </CardContent>
@@ -332,12 +332,13 @@ export default function PulseFeed() {
                 {/* Filters */}
                 <div className="flex items-center gap-3 flex-wrap">
                     <div className="relative flex-1 max-w-xs">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9C8C74]" />
                         <Input
                             placeholder="Search posts..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && fetchPosts()}
+                            className="pl-9 border-[#E8D5C4] focus:border-[#4A3728]"
                             className="pl-9"
                         />
                     </div>
@@ -410,7 +411,7 @@ export default function PulseFeed() {
                         return (
                             <Card 
                                 key={post.id} 
-                                className={`overflow-hidden ${post.is_pinned ? 'ring-2 ring-amber-400' : ''}`}
+                                className={`overflow-hidden bg-white border-[#E8D5C4] hover:shadow-md transition-shadow ${post.is_pinned ? 'ring-2 ring-amber-400' : ''}`}
                             >
                                 {post.is_pinned && (
                                     <div className="bg-amber-50 px-4 py-1 text-xs text-amber-700 flex items-center gap-1">
@@ -423,18 +424,18 @@ export default function PulseFeed() {
                                         <div className="flex items-center gap-3">
                                             <Avatar className="w-10 h-10">
                                                 <AvatarImage src={post.author?.avatar} />
-                                                <AvatarFallback className="bg-rose-100 text-rose-700">
+                                                <AvatarFallback className="bg-[#E8D5C4] text-[#4A3728]">
                                                     {getInitials(post.author?.name)}
                                                 </AvatarFallback>
                                             </Avatar>
                                             <div>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="font-medium">{post.author?.name || 'Unknown'}</span>
-                                                    <Badge variant="outline" className="text-xs capitalize">
+                                                    <span className="font-medium text-[#4A3728]">{post.author?.name || 'Unknown'}</span>
+                                                    <Badge variant="outline" className="text-xs capitalize border-[#E8D5C4] text-[#5D4A3A]">
                                                         {post.department}
                                                     </Badge>
                                                 </div>
-                                                <div className="flex items-center gap-2 text-xs text-gray-500">
+                                                <div className="flex items-center gap-2 text-xs text-[#9C8C74]">
                                                     <span>{formatDate(post.created_at)}</span>
                                                     <span>•</span>
                                                     <VisIcon className={`w-3 h-3 ${visConfig.color}`} />
@@ -472,8 +473,8 @@ export default function PulseFeed() {
                                     </div>
 
                                     {/* Post Content */}
-                                    <h3 className="text-lg font-semibold mb-2">{post.title}</h3>
-                                    <p className="text-gray-700 whitespace-pre-wrap mb-3">{post.content}</p>
+                                    <h3 className="text-lg font-semibold text-[#4A3728] mb-2">{post.title}</h3>
+                                    <p className="text-[#5D4A3A] whitespace-pre-wrap mb-3">{post.content}</p>
 
                                     {/* Tags */}
                                     {post.tags?.length > 0 && (

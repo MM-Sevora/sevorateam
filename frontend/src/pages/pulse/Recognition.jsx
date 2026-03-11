@@ -148,15 +148,15 @@ export default function Recognition() {
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                        <Award className="w-7 h-7 text-pink-500" />
+                    <h1 className="text-2xl font-bold text-[#4A3728] flex items-center gap-2">
+                        <Award className="w-7 h-7 text-rose-600" />
                         Recognition Wall
                     </h1>
-                    <p className="text-gray-500 mt-1">Celebrate your teammates' achievements</p>
+                    <p className="text-[#5D4A3A] mt-1">Celebrate your teammates' achievements</p>
                 </div>
                 <Button
                     onClick={() => setShowGiveDialog(true)}
-                    className="gap-2 bg-pink-600 hover:bg-pink-700"
+                    className="gap-2 bg-rose-600 hover:bg-rose-700"
                 >
                     <Plus className="w-4 h-4" />
                     Give Recognition
@@ -166,11 +166,11 @@ export default function Recognition() {
             {/* Badge Stats */}
             <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-8">
                 {Object.entries(BADGE_CONFIG).map(([key, config]) => (
-                    <Card key={key}>
+                    <Card key={key} className="bg-white border-[#E8D5C4] hover:shadow-md transition-shadow">
                         <CardContent className="p-3 text-center">
                             <div className="text-2xl mb-1">{config.emoji}</div>
-                            <p className="text-lg font-bold">{badgeStats[key] || 0}</p>
-                            <p className="text-xs text-gray-500 truncate">{config.label}</p>
+                            <p className="text-lg font-bold text-[#4A3728]">{badgeStats[key] || 0}</p>
+                            <p className="text-xs text-[#5D4A3A] truncate">{config.label}</p>
                         </CardContent>
                     </Card>
                 ))}

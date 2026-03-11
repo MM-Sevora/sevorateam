@@ -111,7 +111,7 @@ export default function DepartmentWall() {
             <div className="mb-8">
                 <div className="flex items-center gap-4 mb-4">
                     <Link to="/pulse">
-                        <Button variant="ghost" size="sm" className="gap-2">
+                        <Button variant="ghost" size="sm" className="gap-2 text-[#4A3728] hover:bg-[#F5EBE0]">
                             <ArrowLeft className="w-4 h-4" />
                             Back to Feed
                         </Button>
@@ -124,15 +124,15 @@ export default function DepartmentWall() {
                             <Building2 className="w-8 h-8 text-white" />
                         </div>
                         <div>
-                            <h1 className="text-2xl font-bold text-gray-900 capitalize">
+                            <h1 className="text-2xl font-bold text-[#4A3728] capitalize">
                                 {currentDeptConfig.name} Wall
                             </h1>
-                            <p className="text-gray-500">Department updates and announcements</p>
+                            <p className="text-[#5D4A3A]">Department updates and announcements</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
                         <Select value={selectedDept} onValueChange={setSelectedDept}>
-                            <SelectTrigger className="w-48">
+                            <SelectTrigger className="w-48 border-[#E8D5C4]">
                                 <SelectValue placeholder="Select Department" />
                             </SelectTrigger>
                             <SelectContent>
@@ -146,7 +146,7 @@ export default function DepartmentWall() {
                                 ))}
                             </SelectContent>
                         </Select>
-                        <Button variant="outline" onClick={fetchDepartmentFeed} className="gap-2">
+                        <Button variant="outline" onClick={fetchDepartmentFeed} className="gap-2 border-[#E8D5C4] hover:bg-[#F5EBE0]">
                             <RefreshCw className="w-4 h-4" />
                         </Button>
                     </div>
@@ -155,30 +155,36 @@ export default function DepartmentWall() {
 
             {/* Stats */}
             <div className="grid grid-cols-3 gap-4 mb-6">
-                <Card>
+                <Card className="bg-white border-[#E8D5C4]">
                     <CardContent className="p-4 flex items-center gap-3">
-                        <MessageCircle className="w-8 h-8 text-blue-500" />
+                        <div className="p-2 rounded-lg bg-[#E8D5C4]/50">
+                            <MessageCircle className="w-6 h-6 text-[#4A3728]" />
+                        </div>
                         <div>
-                            <p className="text-2xl font-bold">{stats.total}</p>
-                            <p className="text-xs text-gray-500">Total Posts</p>
+                            <p className="text-2xl font-bold text-[#4A3728]">{stats.total}</p>
+                            <p className="text-xs text-[#5D4A3A]">Total Posts</p>
                         </div>
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="bg-white border-[#E8D5C4]">
                     <CardContent className="p-4 flex items-center gap-3">
-                        <Users className="w-8 h-8 text-green-500" />
+                        <div className="p-2 rounded-lg bg-emerald-100">
+                            <Users className="w-6 h-6 text-emerald-600" />
+                        </div>
                         <div>
-                            <p className="text-2xl font-bold">{posts.length}</p>
-                            <p className="text-xs text-gray-500">Recent Posts</p>
+                            <p className="text-2xl font-bold text-[#4A3728]">{posts.length}</p>
+                            <p className="text-xs text-[#5D4A3A]">Recent Posts</p>
                         </div>
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="bg-white border-[#E8D5C4]">
                     <CardContent className="p-4 flex items-center gap-3">
-                        <TrendingUp className="w-8 h-8 text-purple-500" />
+                        <div className="p-2 rounded-lg bg-violet-100">
+                            <TrendingUp className="w-6 h-6 text-violet-600" />
+                        </div>
                         <div>
-                            <p className="text-2xl font-bold capitalize">{selectedDept}</p>
-                            <p className="text-xs text-gray-500">Department</p>
+                            <p className="text-2xl font-bold text-[#4A3728] capitalize">{selectedDept}</p>
+                            <p className="text-xs text-[#5D4A3A]">Department</p>
                         </div>
                     </CardContent>
                 </Card>

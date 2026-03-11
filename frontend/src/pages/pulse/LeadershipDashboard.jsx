@@ -81,10 +81,10 @@ export default function LeadershipDashboard() {
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Leadership Dashboard</h1>
-                    <p className="text-gray-500 mt-1">Overview of team activity and engagement</p>
+                    <h1 className="text-2xl font-bold text-[#4A3728]">Leadership Dashboard</h1>
+                    <p className="text-[#5D4A3A] mt-1">Overview of team activity and engagement</p>
                 </div>
-                <Button variant="outline" onClick={fetchDashboard} className="gap-2">
+                <Button variant="outline" onClick={fetchDashboard} className="gap-2 border-[#E8D5C4] text-[#4A3728] hover:bg-[#F5EBE0]">
                     <RefreshCw className="w-4 h-4" />
                     Refresh
                 </Button>
@@ -92,55 +92,67 @@ export default function LeadershipDashboard() {
 
             {/* Overview Stats */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-                <Card>
+                <Card className="bg-white border-[#E8D5C4] hover:shadow-md transition-shadow">
                     <CardContent className="p-4 text-center">
-                        <MessageCircle className="w-8 h-8 mx-auto mb-2 text-blue-500" />
-                        <p className="text-2xl font-bold">{data?.overview?.total_posts || 0}</p>
-                        <p className="text-xs text-gray-500">Total Posts</p>
+                        <div className="w-10 h-10 rounded-lg bg-[#E8D5C4]/50 flex items-center justify-center mx-auto mb-2">
+                            <MessageCircle className="w-5 h-5 text-[#4A3728]" />
+                        </div>
+                        <p className="text-2xl font-bold text-[#4A3728]">{data?.overview?.total_posts || 0}</p>
+                        <p className="text-xs text-[#5D4A3A]">Total Posts</p>
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="bg-white border-[#E8D5C4] hover:shadow-md transition-shadow">
                     <CardContent className="p-4 text-center">
-                        <TrendingUp className="w-8 h-8 mx-auto mb-2 text-green-500" />
-                        <p className="text-2xl font-bold">{data?.overview?.posts_today || 0}</p>
-                        <p className="text-xs text-gray-500">Posts Today</p>
+                        <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center mx-auto mb-2">
+                            <TrendingUp className="w-5 h-5 text-emerald-600" />
+                        </div>
+                        <p className="text-2xl font-bold text-[#4A3728]">{data?.overview?.posts_today || 0}</p>
+                        <p className="text-xs text-[#5D4A3A]">Posts Today</p>
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="bg-white border-[#E8D5C4] hover:shadow-md transition-shadow">
                     <CardContent className="p-4 text-center">
-                        <Calendar className="w-8 h-8 mx-auto mb-2 text-purple-500" />
-                        <p className="text-2xl font-bold">{data?.overview?.posts_this_week || 0}</p>
-                        <p className="text-xs text-gray-500">This Week</p>
+                        <div className="w-10 h-10 rounded-lg bg-violet-100 flex items-center justify-center mx-auto mb-2">
+                            <Calendar className="w-5 h-5 text-violet-600" />
+                        </div>
+                        <p className="text-2xl font-bold text-[#4A3728]">{data?.overview?.posts_this_week || 0}</p>
+                        <p className="text-xs text-[#5D4A3A]">This Week</p>
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="bg-white border-[#E8D5C4] hover:shadow-md transition-shadow">
                     <CardContent className="p-4 text-center">
-                        <Award className="w-8 h-8 mx-auto mb-2 text-pink-500" />
-                        <p className="text-2xl font-bold">{data?.overview?.total_recognitions || 0}</p>
-                        <p className="text-xs text-gray-500">Recognitions</p>
+                        <div className="w-10 h-10 rounded-lg bg-rose-100 flex items-center justify-center mx-auto mb-2">
+                            <Award className="w-5 h-5 text-rose-600" />
+                        </div>
+                        <p className="text-2xl font-bold text-[#4A3728]">{data?.overview?.total_recognitions || 0}</p>
+                        <p className="text-xs text-[#5D4A3A]">Recognitions</p>
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="bg-white border-[#E8D5C4] hover:shadow-md transition-shadow">
                     <CardContent className="p-4 text-center">
-                        <Trophy className="w-8 h-8 mx-auto mb-2 text-amber-500" />
-                        <p className="text-2xl font-bold">{data?.overview?.achievements_this_week || 0}</p>
-                        <p className="text-xs text-gray-500">Achievements</p>
+                        <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center mx-auto mb-2">
+                            <Trophy className="w-5 h-5 text-amber-600" />
+                        </div>
+                        <p className="text-2xl font-bold text-[#4A3728]">{data?.overview?.achievements_this_week || 0}</p>
+                        <p className="text-xs text-[#5D4A3A]">Achievements</p>
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="bg-white border-[#E8D5C4] hover:shadow-md transition-shadow">
                     <CardContent className="p-4 text-center">
-                        <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-red-500" />
-                        <p className="text-2xl font-bold">{data?.overview?.issues_this_week || 0}</p>
-                        <p className="text-xs text-gray-500">Issues Raised</p>
+                        <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center mx-auto mb-2">
+                            <AlertTriangle className="w-5 h-5 text-red-600" />
+                        </div>
+                        <p className="text-2xl font-bold text-[#4A3728]">{data?.overview?.issues_this_week || 0}</p>
+                        <p className="text-xs text-[#5D4A3A]">Issues Raised</p>
                     </CardContent>
                 </Card>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Department Activity */}
-                <Card className="lg:col-span-2">
+                <Card className="lg:col-span-2 bg-white border-[#E8D5C4]">
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-lg flex items-center gap-2">
+                        <CardTitle className="text-lg flex items-center gap-2 text-[#4A3728]">
                             <Building2 className="w-5 h-5" />
                             Department Activity (This Week)
                         </CardTitle>
@@ -150,10 +162,10 @@ export default function LeadershipDashboard() {
                             {data?.departments?.length > 0 ? (
                                 data.departments.map((dept, idx) => (
                                     <div key={dept.name} className="flex items-center gap-4">
-                                        <div className="w-24 text-sm font-medium capitalize truncate">
+                                        <div className="w-24 text-sm font-medium capitalize truncate text-[#4A3728]">
                                             {dept.name}
                                         </div>
-                                        <div className="flex-1 h-6 bg-gray-100 rounded-full overflow-hidden">
+                                        <div className="flex-1 h-6 bg-[#F5EBE0] rounded-full overflow-hidden">
                                             <div
                                                 className="h-full bg-gradient-to-r from-rose-500 to-rose-600 rounded-full transition-all"
                                                 style={{
@@ -161,26 +173,26 @@ export default function LeadershipDashboard() {
                                                 }}
                                             />
                                         </div>
-                                        <div className="text-sm text-gray-600 w-20 text-right">
+                                        <div className="text-sm text-[#5D4A3A] w-20 text-right">
                                             {dept.posts} posts
                                         </div>
-                                        <div className="text-xs text-gray-400 w-20">
+                                        <div className="text-xs text-[#9C8C74] w-20">
                                             {dept.contributors} contributors
                                         </div>
                                     </div>
                                 ))
                             ) : (
-                                <p className="text-gray-500 text-center py-4">No department data yet</p>
+                                <p className="text-[#9C8C74] text-center py-4">No department data yet</p>
                             )}
                         </div>
                     </CardContent>
                 </Card>
 
                 {/* Top Contributors */}
-                <Card>
+                <Card className="bg-white border-[#E8D5C4]">
                     <CardHeader className="pb-3">
                         <div className="flex items-center justify-between">
-                            <CardTitle className="text-lg flex items-center gap-2">
+                            <CardTitle className="text-lg flex items-center gap-2 text-[#4A3728]">
                                 <Users className="w-5 h-5" />
                                 Top Contributors
                             </CardTitle>
