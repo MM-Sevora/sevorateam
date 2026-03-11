@@ -1715,6 +1715,19 @@ async def update_project(
     
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     
+    # ===== PULSE INTEGRATION: Auto-post for project status changes =====
+    old_status = project.get("status")
+    new_status = update_data.get("status")
+    if new_status and new_status != old_status:
+        try:
+            from services.pulse_integrations import on_project_completed, on_project_started
+            if new_status == "completed":
+                await on_project_completed(project, user)
+            elif new_status == "in_progress" and old_status in ["draft", "planning", None]:
+                await on_project_started(project, user)
+        except Exception as e:
+            logger.warning(f"Pulse integration failed for project status (non-fatal): {e}")
+    
     await db.pm_projects.update_one({"id": project_id}, {"$set": update_data})
     await log_activity("project", project_id, project.get("name"), "updated", user["id"], update_data)
     
@@ -2235,6 +2248,14 @@ async def update_task(
         # Handle recurring task - create next instance when completed
         if new_status in ["completed", "approved"] and task.get("is_recurring"):
             await create_next_recurring_task(task, user["id"])
+        
+        # ===== PULSE INTEGRATION: Auto-post for critical task completion =====
+        if new_status in ["completed", "approved"] and task.get("priority") in ["high", "critical", "urgent"]:
+            try:
+                from services.pulse_integrations import on_critical_task_completed
+                await on_critical_task_completed(task, user)
+            except Exception as e:
+                logger.warning(f"Pulse integration failed for task completion (non-fatal): {e}")
         
         # Recalculate objective progress if project is linked to an objective
         if task.get("project_id"):

@@ -729,6 +729,13 @@ async def register(user: UserCreate):
     }
     await db.users.insert_one(user_doc)
     
+    # ===== PULSE INTEGRATION: Announce new employee =====
+    try:
+        from services.pulse_integrations import on_new_employee_joined
+        await on_new_employee_joined(user_doc)
+    except Exception as e:
+        logger.warning(f"Pulse integration failed for new employee (non-fatal): {e}")
+    
     token = create_access_token({"sub": user_id, "email": user.email, "role": user.role.value})
     departments = get_user_departments(user.role.value)
     return TokenResponse(
@@ -1879,6 +1886,213 @@ async def get_unified_dashboard(user: dict = Depends(get_current_user)):
             "negotiations": await db.negotiations.count_documents({"status": "pending"})
         }
     
+
+# ============== PULSE INTEGRATION ENDPOINTS ==============
+
+@api_router.post("/integrations/pulse/trigger")
+async def trigger_pulse_integration(
+    integration_type: str = Body(...),
+    data: dict = Body(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Trigger a Pulse integration manually or from other modules
+    
+    Integration types:
+    - project_completed, project_milestone, project_started
+    - task_completed, blocker_reported
+    - okr_progress, goal_achieved, quarterly_review
+    - new_employee, work_anniversary, promotion
+    - deal_closed, lead_converted
+    - influencer_signed, influencer_content
+    - press_release, media_coverage
+    - post_viral, campaign_launched
+    - ticket_resolved
+    - mention_spike, competitor_activity
+    - automation_milestone
+    - issue_to_task (reverse integration)
+    """
+    try:
+        from services.pulse_integrations import (
+            on_project_completed, on_project_milestone_reached, on_project_started,
+            on_critical_task_completed, on_blocker_reported,
+            on_okr_progress_milestone, on_strategic_goal_achieved, on_quarterly_review_complete,
+            on_new_employee_joined, on_work_anniversary, on_promotion,
+            on_deal_closed, on_lead_converted,
+            on_influencer_signed, on_influencer_content_published,
+            on_press_release_published, on_media_coverage,
+            on_post_viral, on_social_campaign_launched,
+            on_critical_ticket_resolved,
+            on_brand_mention_spike, on_competitor_activity,
+            on_automation_milestone,
+            create_task_from_issue_post
+        )
+        
+        result = None
+        
+        # Project integrations
+        if integration_type == "project_completed":
+            result = await on_project_completed(data.get("project", {}), current_user)
+        elif integration_type == "project_milestone":
+            result = await on_project_milestone_reached(
+                data.get("project", {}), 
+                data.get("milestone", {}), 
+                current_user
+            )
+        elif integration_type == "project_started":
+            result = await on_project_started(data.get("project", {}), current_user)
+        
+        # Task integrations
+        elif integration_type == "task_completed":
+            result = await on_critical_task_completed(data.get("task", {}), current_user)
+        elif integration_type == "blocker_reported":
+            result = await on_blocker_reported(
+                data.get("task", {}), 
+                current_user, 
+                data.get("description", "Blocker reported")
+            )
+        
+        # Goal integrations
+        elif integration_type == "okr_progress":
+            result = await on_okr_progress_milestone(
+                data.get("objective", {}),
+                data.get("key_result", {}),
+                data.get("progress", 0),
+                current_user
+            )
+        elif integration_type == "goal_achieved":
+            result = await on_strategic_goal_achieved(data.get("goal", {}), current_user)
+        elif integration_type == "quarterly_review":
+            result = await on_quarterly_review_complete(
+                data.get("quarter", {}),
+                data.get("summary", {}),
+                current_user
+            )
+        
+        # HR integrations
+        elif integration_type == "new_employee":
+            result = await on_new_employee_joined(
+                data.get("employee", {}),
+                data.get("manager")
+            )
+        elif integration_type == "work_anniversary":
+            result = await on_work_anniversary(
+                data.get("employee", {}),
+                data.get("years", 1)
+            )
+        elif integration_type == "promotion":
+            result = await on_promotion(
+                data.get("employee", {}),
+                data.get("old_role", "Previous Role"),
+                data.get("new_role", "New Role"),
+                current_user
+            )
+        
+        # Sales integrations
+        elif integration_type == "deal_closed":
+            result = await on_deal_closed(
+                data.get("deal", {}),
+                current_user,
+                data.get("amount")
+            )
+        elif integration_type == "lead_converted":
+            result = await on_lead_converted(data.get("lead", {}), current_user)
+        
+        # Influencer integrations
+        elif integration_type == "influencer_signed":
+            result = await on_influencer_signed(data.get("influencer", {}), current_user)
+        elif integration_type == "influencer_content":
+            result = await on_influencer_content_published(
+                data.get("influencer", {}),
+                data.get("content", {}),
+                data.get("metrics")
+            )
+        
+        # PR integrations
+        elif integration_type == "press_release":
+            result = await on_press_release_published(data.get("press_release", {}), current_user)
+        elif integration_type == "media_coverage":
+            result = await on_media_coverage(data.get("coverage", {}))
+        
+        # Social integrations
+        elif integration_type == "post_viral":
+            result = await on_post_viral(
+                data.get("post", {}),
+                data.get("platform", "Social Media"),
+                data.get("engagement", 0)
+            )
+        elif integration_type == "campaign_launched":
+            result = await on_social_campaign_launched(data.get("campaign", {}), current_user)
+        
+        # Support integrations
+        elif integration_type == "ticket_resolved":
+            result = await on_critical_ticket_resolved(
+                data.get("ticket", {}),
+                current_user,
+                data.get("resolution_time")
+            )
+        
+        # Listening integrations
+        elif integration_type == "mention_spike":
+            result = await on_brand_mention_spike(
+                data.get("alert", {}),
+                data.get("count", 0),
+                data.get("sentiment")
+            )
+        elif integration_type == "competitor_activity":
+            result = await on_competitor_activity(
+                data.get("competitor", "Competitor"),
+                data.get("activity", "Activity detected")
+            )
+        
+        # Automation integrations
+        elif integration_type == "automation_milestone":
+            result = await on_automation_milestone(
+                data.get("automation", {}),
+                data.get("hours_saved", 0),
+                data.get("period", "this month")
+            )
+        
+        # Reverse integration: Issue to Task
+        elif integration_type == "issue_to_task":
+            result = await create_task_from_issue_post(data.get("post", {}))
+        
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown integration type: {integration_type}")
+        
+        if result:
+            return {"success": True, "result": result}
+        else:
+            return {"success": False, "message": "Integration triggered but no result"}
+            
+    except ImportError as e:
+        raise HTTPException(status_code=500, detail=f"Integration service not available: {e}")
+    except Exception as e:
+        logger.error(f"Integration trigger failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/integrations/pulse/types")
+async def get_pulse_integration_types(current_user: dict = Depends(get_current_user)):
+    """Get all available Pulse integration types"""
+    return {
+        "integration_types": {
+            "projects": ["project_completed", "project_milestone", "project_started"],
+            "tasks": ["task_completed", "blocker_reported"],
+            "goals": ["okr_progress", "goal_achieved", "quarterly_review"],
+            "hr": ["new_employee", "work_anniversary", "promotion"],
+            "sales": ["deal_closed", "lead_converted"],
+            "influencer": ["influencer_signed", "influencer_content"],
+            "pr": ["press_release", "media_coverage"],
+            "social": ["post_viral", "campaign_launched"],
+            "support": ["ticket_resolved"],
+            "listening": ["mention_spike", "competitor_activity"],
+            "automation": ["automation_milestone"],
+            "reverse": ["issue_to_task"]
+        }
+    }
+
+
     if 'admin' in departments or 'sales' in departments:
         result['stats']['sales'] = {
             "leads": await db.leads.count_documents({}),
@@ -4116,6 +4330,14 @@ try:
     logger.info("Sevora Pulse routes loaded successfully")
 except Exception as e:
     logger.error(f"Failed to load Sevora Pulse routes: {e}")
+
+# Initialize Pulse Integration Service
+try:
+    from services.pulse_integrations import init_integration_service
+    init_integration_service(db)
+    logger.info("Pulse Integration Service initialized")
+except Exception as e:
+    logger.error(f"Failed to initialize Pulse Integration Service: {e}")
 
 # Load Admin V2 routes
 try:

@@ -688,12 +688,34 @@ async def update_key_result(kr_id: str, data: KeyResultUpdate):
     # Recalculate progress
     target = update_data.get("target_value", kr.get("target_value", 0))
     current = update_data.get("current_value", kr.get("current_value", 0))
+    old_progress = kr.get("progress", 0)
+    new_progress = 0
     if target > 0:
-        update_data["progress"] = min((current / target * 100), 100)
+        new_progress = min((current / target * 100), 100)
+        update_data["progress"] = new_progress
     
     update_data["updated_at"] = datetime.now(timezone.utc)
     
     await db.key_results.update_one({"_id": ObjectId(kr_id)}, {"$set": update_data})
+    
+    # ===== PULSE INTEGRATION: Auto-post for OKR milestones =====
+    try:
+        milestones = [25, 50, 75, 100]
+        for milestone in milestones:
+            if old_progress < milestone <= new_progress:
+                from services.pulse_integrations import on_okr_progress_milestone
+                objective = await db.objectives.find_one({"_id": ObjectId(kr.get("objective_id"))})
+                if objective:
+                    await on_okr_progress_milestone(
+                        serialize_doc(objective),
+                        serialize_doc(kr),
+                        milestone,
+                        {"id": "system", "name": "Goals System"}
+                    )
+                break
+    except Exception as e:
+        import logging
+        logging.warning(f"Pulse integration failed for OKR progress (non-fatal): {e}")
     
     updated_kr = await db.key_results.find_one({"_id": ObjectId(kr_id)})
     return serialize_doc(updated_kr)

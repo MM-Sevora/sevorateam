@@ -194,6 +194,17 @@ async def update_campaign(campaign_id: str, data: CampaignUpdate, user: dict = D
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     
+    # ===== PULSE INTEGRATION: Auto-post when campaign goes active =====
+    old_status = existing.get("status")
+    new_status = update_data.get("status")
+    if new_status == "active" and old_status != "active":
+        try:
+            from services.pulse_integrations import on_social_campaign_launched
+            await on_social_campaign_launched(existing, user)
+        except Exception as e:
+            import logging
+            logging.warning(f"Pulse integration failed for campaign launch (non-fatal): {e}")
+    
     await db.social_campaigns.update_one({"id": campaign_id}, {"$set": update_data})
     
     updated = await db.social_campaigns.find_one({"id": campaign_id}, {"_id": 0})
