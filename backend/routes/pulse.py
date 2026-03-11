@@ -31,11 +31,22 @@ notify_pulse_comment = None
 notify_pulse_recognition = None
 notify_pulse_announcement = None
 
+# WebSocket manager for real-time updates
+ws_manager = None
+
 def init_router(database):
     """Initialize router with database and notification helpers"""
     global db, notify_pulse_mention, notify_pulse_reaction, notify_pulse_comment
-    global notify_pulse_recognition, notify_pulse_announcement
+    global notify_pulse_recognition, notify_pulse_announcement, ws_manager
     db = database
+    
+    # Import WebSocket manager
+    try:
+        from services.websocket_service import manager
+        ws_manager = manager
+        logger.info("Pulse WebSocket manager initialized")
+    except Exception as e:
+        logger.warning(f"Could not initialize Pulse WebSocket manager: {e}")
     
     # Import notification helpers
     try:
@@ -389,6 +400,16 @@ async def create_post(post: PostCreate, user: dict = Depends(get_current_user)):
     # Remove _id if added by MongoDB
     if "_id" in post_doc:
         del post_doc["_id"]
+    
+    # Broadcast new post via WebSocket for real-time feed updates
+    if ws_manager:
+        try:
+            await ws_manager.broadcast_pulse_post(
+                post=post_doc,
+                department=post_doc.get("department") if post_doc.get("visibility") == "department" else None
+            )
+        except Exception as e:
+            logger.warning(f"Failed to broadcast Pulse post via WebSocket: {e}")
     
     return {
         "success": True,

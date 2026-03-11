@@ -174,6 +174,68 @@ class ConnectionManager:
         }
         await self.broadcast_to_department("social", notification)
     
+    async def broadcast_pulse_post(self, post: dict, department: str = None):
+        """Broadcast new Pulse post to relevant users"""
+        message = json.dumps({
+            "type": "pulse_new_post",
+            "data": {
+                "post_id": post.get("id"),
+                "title": post.get("title"),
+                "post_type": post.get("post_type"),
+                "author_name": post.get("author_name"),
+                "department": post.get("department"),
+                "is_auto_generated": post.get("is_auto_generated", False),
+                "source_module": post.get("source_module"),
+                "created_at": post.get("created_at")
+            }
+        })
+        
+        if department and department != "public":
+            # Send to specific department
+            user_ids = self.department_subscriptions.get(department, set())
+            user_ids = user_ids.union(self.department_subscriptions.get("all", set()))
+            for user_id in user_ids:
+                if user_id in self.active_connections:
+                    for connection in self.active_connections[user_id]:
+                        try:
+                            await connection.send_text(message)
+                        except Exception:
+                            pass
+        else:
+            # Broadcast to all connected users for public posts
+            for user_id, connections in self.active_connections.items():
+                for connection in connections:
+                    try:
+                        await connection.send_text(message)
+                    except Exception:
+                        pass
+        
+        logger.info(f"Broadcasted Pulse post: {post.get('title', 'Unknown')}")
+    
+    async def send_pulse_reaction(self, post_id: str, reaction_type: str, user_name: str, post_author_id: str):
+        """Notify post author of new reaction"""
+        notification = {
+            "id": f"pulse_reaction_{datetime.now(timezone.utc).timestamp()}",
+            "type": "pulse_reaction",
+            "title": "New reaction on your post",
+            "message": f"{user_name} reacted with {reaction_type}",
+            "post_id": post_id,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await self.send_personal_notification(post_author_id, notification)
+    
+    async def send_pulse_comment(self, post_id: str, commenter_name: str, comment_preview: str, post_author_id: str):
+        """Notify post author of new comment"""
+        notification = {
+            "id": f"pulse_comment_{datetime.now(timezone.utc).timestamp()}",
+            "type": "pulse_comment",
+            "title": "New comment on your post",
+            "message": f"{commenter_name}: {comment_preview[:50]}...",
+            "post_id": post_id,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await self.send_personal_notification(post_author_id, notification)
+    
     def get_online_users_count(self) -> int:
         """Get count of online users"""
         return len(self.active_connections)

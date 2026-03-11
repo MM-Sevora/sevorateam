@@ -1,3 +1,31 @@
+## March 11, 2026 - Real-time Pulse Feed Updates (WebSocket) COMPLETE ✅
+
+### WebSocket Implementation:
+
+#### Backend Changes:
+- **websocket_service.py**: Added `broadcast_pulse_post()` method to broadcast new posts
+- **pulse.py**: Added WebSocket broadcast after creating manual posts
+- **pulse_integrations.py**: Added WebSocket broadcast for auto-generated posts
+- Support for department-specific broadcasts (private posts)
+- Support for public broadcasts (all connected users)
+
+#### Frontend Changes:
+- **PulseFeed.jsx**: Added WebSocket connection with automatic reconnection
+- Live status indicator (green "Live" / gray "Offline")
+- "New posts" notification button when posts arrive
+- Toast notifications for important posts (announcements, auto-generated)
+- Auto-reconnect after 5 seconds if disconnected
+
+### Features:
+- ✅ Real-time post notifications via WebSocket
+- ✅ Visual indicator showing connection status
+- ✅ "N new posts - Click to load" button
+- ✅ Toast notifications for announcements
+- ✅ Department-aware broadcasting
+- ✅ Automatic reconnection on disconnect
+
+---
+
 ## March 11, 2026 - Pulse Integrations Phase 3 (Operations) COMPLETE ✅
 
 ### Auto-Post Integrations Implemented:

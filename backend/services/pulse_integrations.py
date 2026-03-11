@@ -128,6 +128,17 @@ async def create_auto_post(
         if "_id" in post_doc:
             del post_doc["_id"]
         
+        # Broadcast via WebSocket for real-time feed updates
+        try:
+            from services.websocket_service import manager
+            await manager.broadcast_pulse_post(
+                post=post_doc,
+                department=department if visibility == "department" else None
+            )
+            logger.debug(f"WebSocket broadcast sent for auto-post: {title}")
+        except Exception as ws_error:
+            logger.warning(f"Failed to broadcast auto-post via WebSocket: {ws_error}")
+        
         return post_doc
         
     except Exception as e:

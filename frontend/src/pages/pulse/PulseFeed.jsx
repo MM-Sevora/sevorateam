@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
@@ -65,6 +65,8 @@ import {
     Zap,
     X,
     ChevronDown,
+    Wifi,
+    WifiOff,
 } from 'lucide-react';
 
 const POST_TYPE_CONFIG = {
@@ -148,11 +150,17 @@ const formatModuleName = (module) => {
 };
 
 export default function PulseFeed() {
-    const { api, user } = useAuth();
+    const { api, user, token } = useAuth();
     const [posts, setPosts] = useState([]);
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showCreateDialog, setShowCreateDialog] = useState(false);
+    
+    // WebSocket state
+    const wsRef = useRef(null);
+    const [wsConnected, setWsConnected] = useState(false);
+    const [newPostsCount, setNewPostsCount] = useState(0);
+    const reconnectTimeoutRef = useRef(null);
     
     // Filters
     const [searchQuery, setSearchQuery] = useState('');
@@ -173,6 +181,92 @@ export default function PulseFeed() {
     });
     const [tagInput, setTagInput] = useState('');
     const [submitting, setSubmitting] = useState(false);
+
+    // WebSocket connection
+    const connectWebSocket = useCallback(() => {
+        if (!token || wsRef.current?.readyState === WebSocket.OPEN) return;
+        
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsHost = process.env.REACT_APP_BACKEND_URL?.replace(/^https?:\/\//, '') || window.location.host;
+        const wsUrl = `${wsProtocol}//${wsHost}/ws/${token}`;
+        
+        try {
+            wsRef.current = new WebSocket(wsUrl);
+            
+            wsRef.current.onopen = () => {
+                console.log('Pulse WebSocket connected');
+                setWsConnected(true);
+            };
+            
+            wsRef.current.onmessage = (event) => {
+                try {
+                    const message = JSON.parse(event.data);
+                    
+                    if (message.type === 'pulse_new_post') {
+                        // New post received - show notification badge
+                        const postData = message.data;
+                        
+                        // Don't show notification for own posts
+                        if (postData.author_id !== user?.id) {
+                            setNewPostsCount(prev => prev + 1);
+                            
+                            // Show toast for important posts
+                            if (postData.post_type === 'announcement' || postData.is_auto_generated) {
+                                toast.info(`New: ${postData.title}`, {
+                                    description: `by ${postData.author_name}`,
+                                    action: {
+                                        label: 'View',
+                                        onClick: () => {
+                                            setNewPostsCount(0);
+                                            fetchPosts();
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed to parse WebSocket message:', e);
+                }
+            };
+            
+            wsRef.current.onclose = () => {
+                console.log('Pulse WebSocket disconnected');
+                setWsConnected(false);
+                
+                // Reconnect after 5 seconds
+                reconnectTimeoutRef.current = setTimeout(() => {
+                    connectWebSocket();
+                }, 5000);
+            };
+            
+            wsRef.current.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+        } catch (error) {
+            console.error('Failed to connect WebSocket:', error);
+        }
+    }, [token, user?.id]);
+    
+    // Cleanup WebSocket on unmount
+    useEffect(() => {
+        connectWebSocket();
+        
+        return () => {
+            if (wsRef.current) {
+                wsRef.current.close();
+            }
+            if (reconnectTimeoutRef.current) {
+                clearTimeout(reconnectTimeoutRef.current);
+            }
+        };
+    }, [connectWebSocket]);
+
+    // Load new posts button handler
+    const handleLoadNewPosts = () => {
+        setNewPostsCount(0);
+        fetchPosts();
+    };
 
     useEffect(() => {
         fetchPosts();
@@ -316,9 +410,25 @@ export default function PulseFeed() {
             {/* Header */}
             <div className="mb-8">
                 <div className="flex items-center justify-between mb-6">
-                    <div>
-                        <h1 className="text-2xl font-bold text-[#4A3728]">Sevora Pulse</h1>
-                        <p className="text-[#5D4A3A] mt-1">Company updates, achievements, and team activity</p>
+                    <div className="flex items-center gap-3">
+                        <div>
+                            <h1 className="text-2xl font-bold text-[#4A3728]">Sevora Pulse</h1>
+                            <p className="text-[#5D4A3A] mt-1">Company updates, achievements, and team activity</p>
+                        </div>
+                        {/* WebSocket Status Indicator */}
+                        <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${wsConnected ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                            {wsConnected ? (
+                                <>
+                                    <Wifi className="w-3 h-3" />
+                                    <span>Live</span>
+                                </>
+                            ) : (
+                                <>
+                                    <WifiOff className="w-3 h-3" />
+                                    <span>Offline</span>
+                                </>
+                            )}
+                        </div>
                     </div>
                     <Button
                         onClick={() => setShowCreateDialog(true)}
@@ -460,6 +570,20 @@ export default function PulseFeed() {
                 </Card>
             ) : (
                 <div className="space-y-4">
+                    {/* New Posts Notification */}
+                    {newPostsCount > 0 && (
+                        <div className="sticky top-0 z-10">
+                            <Button
+                                onClick={handleLoadNewPosts}
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg animate-pulse"
+                                data-testid="load-new-posts-btn"
+                            >
+                                <RefreshCw className="w-4 h-4 mr-2" />
+                                {newPostsCount} new post{newPostsCount > 1 ? 's' : ''} - Click to load
+                            </Button>
+                        </div>
+                    )}
+                    
                     {posts.map(post => {
                         const typeConfig = POST_TYPE_CONFIG[post.post_type] || POST_TYPE_CONFIG.update;
                         const TypeIcon = typeConfig.icon;
