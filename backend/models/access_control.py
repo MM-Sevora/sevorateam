@@ -33,6 +33,15 @@ class SystemModule(str, Enum):
     MEETINGS = "meetings"
     COMMUNICATION_HUB = "communication_hub"
     SYSTEMS = "systems"
+    # New modules
+    SEVORA_PULSE = "sevora_pulse"
+    ANALYTICS_INSIGHTS = "analytics_insights"
+    SOURCING = "sourcing"
+    GOALS = "goals"
+    SALES = "sales"
+    OPERATIONAL_TASKS = "operational_tasks"
+    NOTIFICATIONS = "notifications"
+    EXPENSE = "expense"
 
 
 # Module definitions with display info
@@ -44,10 +53,52 @@ MODULE_DEFINITIONS = {
         "routes": ["/", "/overview"],
         "default_access": True  # Everyone gets this
     },
+    "sevora_pulse": {
+        "name": "Sevora Pulse",
+        "description": "Internal collaboration, work updates, recognitions, and team activity",
+        "icon": "Activity",
+        "routes": ["/pulse", "/pulse/feed", "/pulse/updates", "/pulse/recognition", "/pulse/leadership", "/pulse/departments"],
+        "default_access": True  # All employees can access Pulse
+    },
+    "analytics_insights": {
+        "name": "Analytics & Insights",
+        "description": "Team performance, productivity metrics, and business intelligence",
+        "icon": "BarChart3",
+        "routes": ["/analytics", "/analytics/team", "/analytics/performance"],
+        "default_access": False
+    },
+    "sourcing": {
+        "name": "Buying & Sourcing",
+        "description": "Brand discovery, suppliers, manufacturers, and procurement",
+        "icon": "Package",
+        "routes": ["/sourcing", "/sourcing/brands", "/sourcing/suppliers", "/sourcing/manufacturers", "/sourcing/calendar"],
+        "default_access": False
+    },
+    "goals": {
+        "name": "Goals & OKRs",
+        "description": "Company, department, and personal goal tracking",
+        "icon": "Target",
+        "routes": ["/goals", "/goals/company", "/goals/department", "/goals/personal"],
+        "default_access": False
+    },
+    "sales": {
+        "name": "Sales & CRM",
+        "description": "Leads, customers, deals, and sales pipeline",
+        "icon": "TrendingUp",
+        "routes": ["/sales", "/sales/leads", "/sales/customers", "/sales/deals", "/sales/pipeline"],
+        "default_access": False
+    },
+    "operational_tasks": {
+        "name": "Operational Tasks",
+        "description": "Cross-module task management, triggers, and activity feed",
+        "icon": "ClipboardList",
+        "routes": ["/tasks", "/tasks/activities", "/tasks/triggers"],
+        "default_access": False
+    },
     "marketing_ops": {
         "name": "Marketing Ops",
         "description": "Marketing campaigns, content, and analytics",
-        "icon": "Target",
+        "icon": "Megaphone",
         "routes": ["/marketing", "/influencers", "/publications", "/campaign-hub", "/pipeline", "/content", "/budget", "/ai-tools"],
         "default_access": False
     },
@@ -66,10 +117,24 @@ MODULE_DEFINITIONS = {
         "default_access": False
     },
     "social": {
-        "name": "Social",
-        "description": "Social media management and analytics",
-        "icon": "Youtube",
-        "routes": ["/social"],
+        "name": "Social Media",
+        "description": "Social media management, scheduling, and analytics",
+        "icon": "Share2",
+        "routes": ["/social", "/social/posts", "/social/analytics", "/social/inbox", "/social/listening"],
+        "default_access": False
+    },
+    "notifications": {
+        "name": "Notifications",
+        "description": "Notification center and preferences",
+        "icon": "Bell",
+        "routes": ["/notifications"],
+        "default_access": True  # Everyone can access their notifications
+    },
+    "expense": {
+        "name": "Expense Management",
+        "description": "Expense tracking, approvals, and reimbursements",
+        "icon": "Receipt",
+        "routes": ["/expense", "/expense/submit", "/expense/approvals"],
         "default_access": False
     },
     "admin": {
@@ -186,7 +251,12 @@ DEFAULT_CUSTOM_ROLES = [
         "name": "Super Admin",
         "code": "super_admin",
         "description": "Full system access with all administrative privileges",
-        "module_access": ["dashboard", "marketing_ops", "project_management", "mail", "social", "admin", "hr", "help_support", "automations", "meetings", "communication_hub"],
+        "module_access": [
+            "dashboard", "sevora_pulse", "analytics_insights", "sourcing", "goals", "sales",
+            "operational_tasks", "marketing_ops", "project_management", "mail", "social",
+            "notifications", "expense", "admin", "hr", "help_support", "automations",
+            "meetings", "communication_hub", "systems"
+        ],
         "is_system_role": True,
         "can_manage_users": True,
         "can_manage_employees": True,
@@ -196,7 +266,10 @@ DEFAULT_CUSTOM_ROLES = [
         "name": "HR Admin",
         "code": "hr_admin",
         "description": "Manage employees, onboarding, and organizational structure",
-        "module_access": ["dashboard", "hr", "help_support", "automations"],
+        "module_access": [
+            "dashboard", "sevora_pulse", "analytics_insights", "goals", "hr",
+            "notifications", "help_support", "automations"
+        ],
         "is_system_role": True,
         "can_manage_users": True,
         "can_manage_employees": True,
@@ -206,7 +279,11 @@ DEFAULT_CUSTOM_ROLES = [
         "name": "Marketing Manager",
         "code": "marketing_manager",
         "description": "Marketing operations, campaigns, and social media",
-        "module_access": ["dashboard", "marketing_ops", "social", "project_management", "help_support", "meetings", "communication_hub"],
+        "module_access": [
+            "dashboard", "sevora_pulse", "analytics_insights", "goals", "marketing_ops",
+            "social", "project_management", "notifications", "help_support",
+            "meetings", "communication_hub"
+        ],
         "is_system_role": True,
         "can_manage_users": False,
         "can_manage_employees": False,
@@ -216,7 +293,11 @@ DEFAULT_CUSTOM_ROLES = [
         "name": "Project Manager",
         "code": "project_manager",
         "description": "Project and task management",
-        "module_access": ["dashboard", "project_management", "help_support", "meetings", "automations"],
+        "module_access": [
+            "dashboard", "sevora_pulse", "analytics_insights", "goals",
+            "project_management", "operational_tasks", "notifications",
+            "help_support", "meetings", "automations"
+        ],
         "is_system_role": True,
         "can_manage_users": False,
         "can_manage_employees": False,
@@ -226,7 +307,25 @@ DEFAULT_CUSTOM_ROLES = [
         "name": "Sales Manager",
         "code": "sales_manager",
         "description": "Sales operations and customer management",
-        "module_access": ["dashboard", "project_management", "mail", "help_support", "meetings", "communication_hub"],
+        "module_access": [
+            "dashboard", "sevora_pulse", "analytics_insights", "goals", "sales",
+            "project_management", "mail", "notifications", "expense",
+            "help_support", "meetings", "communication_hub"
+        ],
+        "is_system_role": True,
+        "can_manage_users": False,
+        "can_manage_employees": False,
+        "can_manage_roles": False
+    },
+    {
+        "name": "Sourcing Manager",
+        "code": "sourcing_manager",
+        "description": "Buying, sourcing, and supplier management",
+        "module_access": [
+            "dashboard", "sevora_pulse", "analytics_insights", "goals", "sourcing",
+            "project_management", "mail", "notifications", "expense",
+            "help_support", "meetings"
+        ],
         "is_system_role": True,
         "can_manage_users": False,
         "can_manage_employees": False,
@@ -236,7 +335,10 @@ DEFAULT_CUSTOM_ROLES = [
         "name": "Content Creator",
         "code": "content_creator",
         "description": "Content creation and social media posting",
-        "module_access": ["dashboard", "marketing_ops", "social", "help_support"],
+        "module_access": [
+            "dashboard", "sevora_pulse", "marketing_ops", "social",
+            "notifications", "help_support"
+        ],
         "is_system_role": True,
         "can_manage_users": False,
         "can_manage_employees": False,
@@ -245,8 +347,11 @@ DEFAULT_CUSTOM_ROLES = [
     {
         "name": "Employee",
         "code": "employee",
-        "description": "Basic employee access - view own profile and assigned tasks",
-        "module_access": ["dashboard", "project_management", "help_support", "meetings"],
+        "description": "Basic employee access - tasks, pulse, and personal goals",
+        "module_access": [
+            "dashboard", "sevora_pulse", "goals", "project_management",
+            "notifications", "expense", "help_support", "meetings"
+        ],
         "is_system_role": True,
         "can_manage_users": False,
         "can_manage_employees": False,
@@ -256,7 +361,7 @@ DEFAULT_CUSTOM_ROLES = [
         "name": "Viewer",
         "code": "viewer",
         "description": "Read-only access to basic modules - NO automation access",
-        "module_access": ["dashboard", "help_support"],
+        "module_access": ["dashboard", "sevora_pulse", "notifications", "help_support"],
         "is_system_role": True,
         "can_manage_users": False,
         "can_manage_employees": False,
