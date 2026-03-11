@@ -54,6 +54,7 @@ import ApprovalWorkflows from "./pages/social/ApprovalWorkflows";
 import PostingQueues from "./pages/social/PostingQueues";
 import SocialInbox from "./pages/social/SocialInbox";
 import AutoReplyRules from "./pages/social/AutoReplyRules";
+import SocialAnalyticsDashboard from "./pages/social/SocialAnalyticsDashboard";
 
 // Email Page
 import EmailPage from "./pages/marketing/EmailPage";
@@ -389,7 +390,7 @@ function AppRoutes() {
             <Route path="/sales/analytics" element={<ProtectedRoute requiredModule="project_management"><SalesAnalyticsPage /></ProtectedRoute>} />
 
             {/* Social Routes */}
-            <Route path="/social" element={<ProtectedRoute requiredModule="social"><SocialDashboard /></ProtectedRoute>} />
+            <Route path="/social" element={<ProtectedRoute requiredModule="social"><SocialAnalyticsDashboard /></ProtectedRoute>} />
             <Route path="/social/studio" element={<ProtectedRoute requiredModule="social"><ContentStudio /></ProtectedRoute>} />
             <Route path="/social/posts" element={<ProtectedRoute requiredModule="social"><PostsAndSchedulePage /></ProtectedRoute>} />
             <Route path="/social/library" element={<ProtectedRoute requiredModule="social"><ContentLibraryPage /></ProtectedRoute>} />

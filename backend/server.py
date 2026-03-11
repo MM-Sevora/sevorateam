@@ -4072,6 +4072,15 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Auto-Reply routes: {e}")
 
+# Load Social Analytics routes (Performance Dashboards)
+try:
+    from routes.social_analytics import social_analytics_router, init_social_analytics_router
+    init_social_analytics_router(db, get_current_user)
+    api_router.include_router(social_analytics_router)
+    logger.info("Social Analytics routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Social Analytics routes: {e}")
+
 # Load Admin V2 routes
 try:
     from routes.admin import router as admin_v2_router, set_database as set_admin_db, set_jwt_settings as set_admin_jwt
