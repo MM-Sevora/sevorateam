@@ -1160,14 +1160,31 @@ async def get_user_badges(user_id: str, current_user: dict = Depends(get_current
 
 # ============== DAILY/WEEKLY UPDATES ==============
 
+class LinkedItem(BaseModel):
+    """Represents a linked task, project, or activity"""
+    item_type: str  # "task", "project", "activity"
+    item_id: str
+    item_name: str
+    project_id: Optional[str] = None  # Parent project if item is a task
+    project_name: Optional[str] = None
+
+class CompletedTaskItem(BaseModel):
+    """A completed task with optional link to system item"""
+    text: str
+    linked_item: Optional[LinkedItem] = None
+    completion_date: Optional[str] = None  # Date from linked item if available
+
 class DailyUpdateCreate(BaseModel):
-    completed_tasks: List[str]
+    completed_tasks: List[str] = []  # Legacy: simple text list
+    completed_items: List[CompletedTaskItem] = []  # New: items with links
     blockers: List[str] = []
     tomorrow_focus: List[str] = []
     notes: Optional[str] = None
+    update_date: Optional[str] = None  # Allow specifying date (defaults to today)
 
 class WeeklyUpdateCreate(BaseModel):
-    achievements: List[str]
+    achievements: List[str] = []  # Legacy: simple text list
+    achievement_items: List[CompletedTaskItem] = []  # New: items with links
     key_metrics: Dict[str, Any] = {}
     issues_faced: List[str] = []
     next_week_focus: List[str] = []
@@ -1177,17 +1194,41 @@ class WeeklyUpdateCreate(BaseModel):
 
 @router.post("/updates/daily")
 async def submit_daily_update(update: DailyUpdateCreate, user: dict = Depends(get_current_user)):
-    """Submit a daily work update"""
+    """Submit a daily work update with optional linked tasks/projects"""
     if db is None:
         raise HTTPException(status_code=500, detail="Database not available")
     
     update_id = str(uuid.uuid4())
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    # Use provided date or default to today
+    update_date = update.update_date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
     
-    # Check if already submitted today
+    # Merge legacy completed_tasks with new completed_items
+    all_completed_items = []
+    
+    # Add legacy text-only tasks
+    for task_text in update.completed_tasks:
+        if task_text.strip():
+            all_completed_items.append({
+                "text": task_text,
+                "linked_item": None,
+                "completion_date": None
+            })
+    
+    # Add new items with links
+    for item in update.completed_items:
+        all_completed_items.append({
+            "text": item.text,
+            "linked_item": item.linked_item.model_dump() if item.linked_item else None,
+            "completion_date": item.completion_date
+        })
+    
+    if not all_completed_items:
+        raise HTTPException(status_code=400, detail="Please add at least one completed task")
+    
+    # Check if already submitted for this date
     existing = await db.pulse_daily_updates.find_one({
         "user_id": user["id"],
-        "date": today
+        "date": update_date
     })
     
     update_doc = {
@@ -1195,8 +1236,9 @@ async def submit_daily_update(update: DailyUpdateCreate, user: dict = Depends(ge
         "user_id": user["id"],
         "user_name": user.get("name"),
         "department": user.get("department"),
-        "date": today,
-        "completed_tasks": update.completed_tasks,
+        "date": update_date,
+        "completed_tasks": [item["text"] for item in all_completed_items],  # Legacy field
+        "completed_items": all_completed_items,  # New field with full data
         "blockers": update.blockers,
         "tomorrow_focus": update.tomorrow_focus,
         "notes": update.notes,
@@ -1209,7 +1251,8 @@ async def submit_daily_update(update: DailyUpdateCreate, user: dict = Depends(ge
         await db.pulse_daily_updates.update_one(
             {"id": existing["id"]},
             {"$set": {
-                "completed_tasks": update.completed_tasks,
+                "completed_tasks": [item["text"] for item in all_completed_items],
+                "completed_items": all_completed_items,
                 "blockers": update.blockers,
                 "tomorrow_focus": update.tomorrow_focus,
                 "notes": update.notes,
@@ -1221,8 +1264,19 @@ async def submit_daily_update(update: DailyUpdateCreate, user: dict = Depends(ge
     else:
         await db.pulse_daily_updates.insert_one(update_doc)
         
-        # Create a post
-        content = "**Completed:**\n" + "\n".join(f"• {t}" for t in update.completed_tasks)
+        # Create post content with links
+        content_lines = ["**Completed:**"]
+        for item in all_completed_items:
+            if item.get("linked_item"):
+                link = item["linked_item"]
+                link_type = link.get("item_type", "item")
+                link_name = link.get("item_name", "")
+                content_lines.append(f"• {item['text']} [🔗 {link_type}: {link_name}]")
+            else:
+                content_lines.append(f"• {item['text']}")
+        
+        content = "\n".join(content_lines)
+        
         if update.blockers:
             content += "\n\n**Blockers:**\n" + "\n".join(f"• {b}" for b in update.blockers)
         if update.tomorrow_focus:
@@ -1230,7 +1284,7 @@ async def submit_daily_update(update: DailyUpdateCreate, user: dict = Depends(ge
         
         post_doc = {
             "id": str(uuid.uuid4()),
-            "title": f"Daily Update - {today}",
+            "title": f"Daily Update - {update_date}",
             "content": content,
             "post_type": "daily_update",
             "visibility": "department",
@@ -1246,6 +1300,7 @@ async def submit_daily_update(update: DailyUpdateCreate, user: dict = Depends(ge
             "is_pinned": False,
             "is_edited": False,
             "daily_update_id": update_id,
+            "linked_items": [item["linked_item"] for item in all_completed_items if item.get("linked_item")],
         }
         await db.pulse_posts.insert_one(post_doc)
         message = "Daily update submitted"
@@ -1258,12 +1313,35 @@ async def submit_daily_update(update: DailyUpdateCreate, user: dict = Depends(ge
 
 @router.post("/updates/weekly")
 async def submit_weekly_update(update: WeeklyUpdateCreate, user: dict = Depends(get_current_user)):
-    """Submit a weekly update (usually by team leads)"""
+    """Submit a weekly update with optional linked tasks/projects"""
     if db is None:
         raise HTTPException(status_code=500, detail="Database not available")
     
     update_id = str(uuid.uuid4())
     week_start = (datetime.now(timezone.utc) - timedelta(days=datetime.now(timezone.utc).weekday())).strftime("%Y-%m-%d")
+    
+    # Merge legacy achievements with new achievement_items
+    all_achievement_items = []
+    
+    # Add legacy text-only achievements
+    for achievement_text in update.achievements:
+        if achievement_text.strip():
+            all_achievement_items.append({
+                "text": achievement_text,
+                "linked_item": None,
+                "completion_date": None
+            })
+    
+    # Add new items with links
+    for item in update.achievement_items:
+        all_achievement_items.append({
+            "text": item.text,
+            "linked_item": item.linked_item.model_dump() if item.linked_item else None,
+            "completion_date": item.completion_date
+        })
+    
+    if not all_achievement_items:
+        raise HTTPException(status_code=400, detail="Please add at least one achievement")
     
     update_doc = {
         "id": update_id,
@@ -1271,7 +1349,8 @@ async def submit_weekly_update(update: WeeklyUpdateCreate, user: dict = Depends(
         "user_name": user.get("name"),
         "department": user.get("department"),
         "week_start": week_start,
-        "achievements": update.achievements,
+        "achievements": [item["text"] for item in all_achievement_items],  # Legacy field
+        "achievement_items": all_achievement_items,  # New field with full data
         "key_metrics": update.key_metrics,
         "issues_faced": update.issues_faced,
         "next_week_focus": update.next_week_focus,
@@ -1282,8 +1361,19 @@ async def submit_weekly_update(update: WeeklyUpdateCreate, user: dict = Depends(
     
     await db.pulse_weekly_updates.insert_one(update_doc)
     
-    # Create a post
-    content = "**Weekly Achievements:**\n" + "\n".join(f"• {a}" for a in update.achievements)
+    # Create post content with links
+    content_lines = ["**Weekly Achievements:**"]
+    for item in all_achievement_items:
+        if item.get("linked_item"):
+            link = item["linked_item"]
+            link_type = link.get("item_type", "item")
+            link_name = link.get("item_name", "")
+            content_lines.append(f"• {item['text']} [🔗 {link_type}: {link_name}]")
+        else:
+            content_lines.append(f"• {item['text']}")
+    
+    content = "\n".join(content_lines)
+    
     if update.team_highlights:
         content += "\n\n**Team Highlights:**\n" + "\n".join(f"• {h}" for h in update.team_highlights)
     if update.issues_faced:
@@ -1309,6 +1399,7 @@ async def submit_weekly_update(update: WeeklyUpdateCreate, user: dict = Depends(
         "is_pinned": False,
         "is_edited": False,
         "weekly_update_id": update_id,
+        "linked_items": [item["linked_item"] for item in all_achievement_items if item.get("linked_item")],
     }
     await db.pulse_posts.insert_one(post_doc)
     
@@ -1367,6 +1458,93 @@ async def get_weekly_updates(
     ).sort("created_at", -1).limit(limit).to_list(limit)
     
     return {"updates": updates}
+
+
+# ============== LINKABLE ITEMS FOR UPDATES ==============
+
+@router.get("/updates/linkable-items")
+async def get_linkable_items(
+    search: Optional[str] = None,
+    item_type: Optional[str] = None,  # "task", "project", or None for all
+    limit: int = 50,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get tasks and projects that can be linked to work updates"""
+    if db is None:
+        return {"items": []}
+    
+    items = []
+    user_id = current_user["id"]
+    
+    # Get tasks assigned to user or created by user
+    if not item_type or item_type == "task":
+        task_query = {
+            "$or": [
+                {"assigned_to": user_id},
+                {"created_by": user_id}
+            ]
+        }
+        if search:
+            task_query["name"] = {"$regex": search, "$options": "i"}
+        
+        tasks = await db.pm_tasks.find(
+            task_query,
+            {"_id": 0, "id": 1, "name": 1, "project_id": 1, "status": 1, "due_date": 1, "updated_at": 1}
+        ).sort("updated_at", -1).limit(limit).to_list(limit)
+        
+        # Enrich tasks with project name
+        for task in tasks:
+            project_name = None
+            if task.get("project_id"):
+                project = await db.pm_projects.find_one(
+                    {"id": task["project_id"]},
+                    {"_id": 0, "name": 1}
+                )
+                project_name = project.get("name") if project else None
+            
+            items.append({
+                "item_type": "task",
+                "item_id": task["id"],
+                "item_name": task["name"],
+                "project_id": task.get("project_id"),
+                "project_name": project_name,
+                "status": task.get("status"),
+                "due_date": task.get("due_date"),
+            })
+    
+    # Get projects user is part of
+    if not item_type or item_type == "project":
+        project_query = {
+            "$or": [
+                {"owner_id": user_id},
+                {"project_manager": user_id},
+                {"team_members": user_id}
+            ]
+        }
+        if search:
+            project_query["name"] = {"$regex": search, "$options": "i"}
+        
+        projects = await db.pm_projects.find(
+            project_query,
+            {"_id": 0, "id": 1, "name": 1, "project_id": 1, "status": 1, "end_date": 1, "updated_at": 1}
+        ).sort("updated_at", -1).limit(limit).to_list(limit)
+        
+        for project in projects:
+            items.append({
+                "item_type": "project",
+                "item_id": project["id"],
+                "item_name": project["name"],
+                "project_id": None,
+                "project_name": None,
+                "status": project.get("status"),
+                "due_date": project.get("end_date"),
+                "display_id": project.get("project_id"),  # PRJ-XXX format
+            })
+    
+    # Sort all items by most recently updated
+    items.sort(key=lambda x: x.get("due_date") or "", reverse=True)
+    
+    return {"items": items[:limit]}
 
 
 # ============== LEADERSHIP DASHBOARD ==============

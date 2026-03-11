@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
@@ -21,6 +21,11 @@ import {
     SelectTrigger,
     SelectValue,
 } from '../../components/ui/select';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '../../components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import {
     Calendar,
@@ -38,6 +43,10 @@ import {
     User,
     LayoutGrid,
     List,
+    Link2,
+    FolderKanban,
+    ListTodo,
+    ExternalLink,
 } from 'lucide-react';
 
 export default function WorkUpdates() {
@@ -53,16 +62,22 @@ export default function WorkUpdates() {
     const [employees, setEmployees] = useState([]);
     const [viewMode, setViewMode] = useState('list'); // 'list' or 'team'
     const [searchQuery, setSearchQuery] = useState('');
+    
+    // Linkable items state
+    const [linkableItems, setLinkableItems] = useState([]);
+    const [linkableLoading, setLinkableLoading] = useState(false);
+    const [linkSearch, setLinkSearch] = useState('');
 
+    // Updated form state to support linked items
     const [dailyForm, setDailyForm] = useState({
-        completed_tasks: [''],
+        completed_items: [{ text: '', linked_item: null }],  // New structure
         blockers: [''],
         tomorrow_focus: [''],
         notes: '',
     });
 
     const [weeklyForm, setWeeklyForm] = useState({
-        achievements: [''],
+        achievement_items: [{ text: '', linked_item: null }],  // New structure
         issues_faced: [''],
         next_week_focus: [''],
         team_highlights: [''],
@@ -74,12 +89,36 @@ export default function WorkUpdates() {
     // Check if user is manager/admin
     const isManager = ['super_admin', 'admin', 'department_manager', 'team_lead'].includes(user?.role);
 
+    // Fetch linkable items (tasks/projects)
+    const fetchLinkableItems = useCallback(async (search = '') => {
+        setLinkableLoading(true);
+        try {
+            const params = new URLSearchParams();
+            if (search) params.append('search', search);
+            params.append('limit', '30');
+            
+            const response = await api.get(`/pulse/updates/linkable-items?${params}`);
+            setLinkableItems(response.data.items || []);
+        } catch (error) {
+            console.error('Failed to fetch linkable items:', error);
+        } finally {
+            setLinkableLoading(false);
+        }
+    }, [api]);
+
     useEffect(() => {
         fetchUpdates();
         if (isManager) {
             fetchEmployees();
         }
     }, [filterDepartment, filterEmployee]);
+    
+    // Fetch linkable items when dialog opens
+    useEffect(() => {
+        if (showDailyDialog || showWeeklyDialog) {
+            fetchLinkableItems();
+        }
+    }, [showDailyDialog, showWeeklyDialog, fetchLinkableItems]);
 
     const fetchEmployees = async () => {
         try {
@@ -123,8 +162,8 @@ export default function WorkUpdates() {
     };
 
     const handleSubmitDaily = async () => {
-        const cleanedTasks = dailyForm.completed_tasks.filter(t => t.trim());
-        if (cleanedTasks.length === 0) {
+        const validItems = dailyForm.completed_items.filter(item => item.text.trim());
+        if (validItems.length === 0) {
             toast.error('Please add at least one completed task');
             return;
         }
@@ -132,7 +171,11 @@ export default function WorkUpdates() {
         setSubmitting(true);
         try {
             await api.post('/pulse/updates/daily', {
-                completed_tasks: cleanedTasks,
+                completed_items: validItems.map(item => ({
+                    text: item.text,
+                    linked_item: item.linked_item,
+                    completion_date: item.linked_item?.due_date || null,
+                })),
                 blockers: dailyForm.blockers.filter(b => b.trim()),
                 tomorrow_focus: dailyForm.tomorrow_focus.filter(t => t.trim()),
                 notes: dailyForm.notes || null,
@@ -140,7 +183,7 @@ export default function WorkUpdates() {
             toast.success('Daily update submitted!');
             setShowDailyDialog(false);
             setDailyForm({
-                completed_tasks: [''],
+                completed_items: [{ text: '', linked_item: null }],
                 blockers: [''],
                 tomorrow_focus: [''],
                 notes: '',
@@ -154,8 +197,8 @@ export default function WorkUpdates() {
     };
 
     const handleSubmitWeekly = async () => {
-        const cleanedAchievements = weeklyForm.achievements.filter(a => a.trim());
-        if (cleanedAchievements.length === 0) {
+        const validItems = weeklyForm.achievement_items.filter(item => item.text.trim());
+        if (validItems.length === 0) {
             toast.error('Please add at least one achievement');
             return;
         }
@@ -163,7 +206,11 @@ export default function WorkUpdates() {
         setSubmitting(true);
         try {
             await api.post('/pulse/updates/weekly', {
-                achievements: cleanedAchievements,
+                achievement_items: validItems.map(item => ({
+                    text: item.text,
+                    linked_item: item.linked_item,
+                    completion_date: item.linked_item?.due_date || null,
+                })),
                 issues_faced: weeklyForm.issues_faced.filter(i => i.trim()),
                 next_week_focus: weeklyForm.next_week_focus.filter(f => f.trim()),
                 team_highlights: weeklyForm.team_highlights.filter(h => h.trim()),
@@ -172,7 +219,7 @@ export default function WorkUpdates() {
             toast.success('Weekly update submitted!');
             setShowWeeklyDialog(false);
             setWeeklyForm({
-                achievements: [''],
+                achievement_items: [{ text: '', linked_item: null }],
                 issues_faced: [''],
                 next_week_focus: [''],
                 team_highlights: [''],
@@ -186,6 +233,7 @@ export default function WorkUpdates() {
         }
     };
 
+    // Handlers for simple list items (blockers, focus, etc.)
     const addListItem = (formType, field) => {
         if (formType === 'daily') {
             setDailyForm({ ...dailyForm, [field]: [...dailyForm[field], ''] });
@@ -213,6 +261,94 @@ export default function WorkUpdates() {
         } else {
             const updated = weeklyForm[field].filter((_, i) => i !== index);
             setWeeklyForm({ ...weeklyForm, [field]: updated.length ? updated : [''] });
+        }
+    };
+
+    // Handlers for linked items (completed tasks / achievements)
+    const addLinkedItem = (formType) => {
+        if (formType === 'daily') {
+            setDailyForm({
+                ...dailyForm,
+                completed_items: [...dailyForm.completed_items, { text: '', linked_item: null }]
+            });
+        } else {
+            setWeeklyForm({
+                ...weeklyForm,
+                achievement_items: [...weeklyForm.achievement_items, { text: '', linked_item: null }]
+            });
+        }
+    };
+
+    const updateLinkedItemText = (formType, index, text) => {
+        if (formType === 'daily') {
+            const updated = [...dailyForm.completed_items];
+            updated[index] = { ...updated[index], text };
+            setDailyForm({ ...dailyForm, completed_items: updated });
+        } else {
+            const updated = [...weeklyForm.achievement_items];
+            updated[index] = { ...updated[index], text };
+            setWeeklyForm({ ...weeklyForm, achievement_items: updated });
+        }
+    };
+
+    const setLinkedItem = (formType, index, item) => {
+        if (formType === 'daily') {
+            const updated = [...dailyForm.completed_items];
+            updated[index] = {
+                ...updated[index],
+                linked_item: item ? {
+                    item_type: item.item_type,
+                    item_id: item.item_id,
+                    item_name: item.item_name,
+                    project_id: item.project_id,
+                    project_name: item.project_name,
+                } : null,
+                // Auto-fill text if empty
+                text: updated[index].text || item?.item_name || ''
+            };
+            setDailyForm({ ...dailyForm, completed_items: updated });
+        } else {
+            const updated = [...weeklyForm.achievement_items];
+            updated[index] = {
+                ...updated[index],
+                linked_item: item ? {
+                    item_type: item.item_type,
+                    item_id: item.item_id,
+                    item_name: item.item_name,
+                    project_id: item.project_id,
+                    project_name: item.project_name,
+                } : null,
+                text: updated[index].text || item?.item_name || ''
+            };
+            setWeeklyForm({ ...weeklyForm, achievement_items: updated });
+        }
+    };
+
+    const removeLinkedItem = (formType, index) => {
+        if (formType === 'daily') {
+            const updated = dailyForm.completed_items.filter((_, i) => i !== index);
+            setDailyForm({
+                ...dailyForm,
+                completed_items: updated.length ? updated : [{ text: '', linked_item: null }]
+            });
+        } else {
+            const updated = weeklyForm.achievement_items.filter((_, i) => i !== index);
+            setWeeklyForm({
+                ...weeklyForm,
+                achievement_items: updated.length ? updated : [{ text: '', linked_item: null }]
+            });
+        }
+    };
+
+    const clearLinkedItem = (formType, index) => {
+        if (formType === 'daily') {
+            const updated = [...dailyForm.completed_items];
+            updated[index] = { ...updated[index], linked_item: null };
+            setDailyForm({ ...dailyForm, completed_items: updated });
+        } else {
+            const updated = [...weeklyForm.achievement_items];
+            updated[index] = { ...updated[index], linked_item: null };
+            setWeeklyForm({ ...weeklyForm, achievement_items: updated });
         }
     };
 
@@ -261,6 +397,156 @@ export default function WorkUpdates() {
             </Button>
         </div>
     );
+
+    // Linkable Item Input component for tasks with optional link to projects/tasks
+    const LinkableItemInput = ({ formType, items, placeholder }) => {
+        const [openPopoverIndex, setOpenPopoverIndex] = useState(null);
+        const [localSearch, setLocalSearch] = useState('');
+
+        const filteredItems = linkableItems.filter(item => 
+            !localSearch || 
+            item.item_name?.toLowerCase().includes(localSearch.toLowerCase()) ||
+            item.project_name?.toLowerCase().includes(localSearch.toLowerCase())
+        );
+
+        return (
+            <div className="space-y-2">
+                {items.map((item, idx) => (
+                    <div key={idx} className="space-y-1">
+                        <div className="flex items-center gap-2">
+                            <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                            <Input
+                                value={item.text}
+                                onChange={(e) => updateLinkedItemText(formType, idx, e.target.value)}
+                                placeholder={placeholder}
+                                className="flex-1"
+                                data-testid={`linked-item-text-${idx}`}
+                            />
+                            <Popover modal={true} open={openPopoverIndex === idx} onOpenChange={(open) => setOpenPopoverIndex(open ? idx : null)}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant={item.linked_item ? "default" : "outline"}
+                                        size="sm"
+                                        className={item.linked_item ? "bg-blue-600 hover:bg-blue-700" : ""}
+                                        data-testid={`link-button-${idx}`}
+                                    >
+                                        <Link2 className="w-4 h-4" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-80 p-2 z-[100]" align="end">
+                                    <div className="space-y-2">
+                                        <div className="relative">
+                                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
+                                            <Input
+                                                placeholder="Search tasks & projects..."
+                                                value={localSearch}
+                                                onChange={(e) => {
+                                                    setLocalSearch(e.target.value);
+                                                    fetchLinkableItems(e.target.value);
+                                                }}
+                                                className="pl-8"
+                                                data-testid="link-search-input"
+                                            />
+                                        </div>
+                                        <div className="max-h-60 overflow-y-auto space-y-1">
+                                            {linkableLoading ? (
+                                                <div className="flex items-center justify-center py-4">
+                                                    <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                                                </div>
+                                            ) : filteredItems.length === 0 ? (
+                                                <p className="text-sm text-gray-500 text-center py-4">No items found</p>
+                                            ) : (
+                                                filteredItems.map((linkItem) => (
+                                                    <button
+                                                        key={`${linkItem.item_type}-${linkItem.item_id}`}
+                                                        onClick={() => {
+                                                            setLinkedItem(formType, idx, linkItem);
+                                                            setOpenPopoverIndex(null);
+                                                            setLocalSearch('');
+                                                        }}
+                                                        className="w-full text-left p-2 rounded hover:bg-gray-100 flex items-start gap-2 transition-colors"
+                                                        data-testid={`link-option-${linkItem.item_id}`}
+                                                    >
+                                                        {linkItem.item_type === 'task' ? (
+                                                            <ListTodo className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                                                        ) : (
+                                                            <FolderKanban className="w-4 h-4 text-violet-500 flex-shrink-0 mt-0.5" />
+                                                        )}
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-medium truncate">{linkItem.item_name}</p>
+                                                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                                                                <span className="capitalize">{linkItem.item_type}</span>
+                                                                {linkItem.project_name && (
+                                                                    <>
+                                                                        <span>•</span>
+                                                                        <span className="truncate">{linkItem.project_name}</span>
+                                                                    </>
+                                                                )}
+                                                                {linkItem.status && (
+                                                                    <Badge variant="outline" className="text-xs py-0 capitalize">
+                                                                        {linkItem.status}
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </button>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+                                </PopoverContent>
+                            </Popover>
+                            {items.length > 1 && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeLinkedItem(formType, idx)}
+                                >
+                                    <X className="w-4 h-4" />
+                                </Button>
+                            )}
+                        </div>
+                        {/* Show linked item badge */}
+                        {item.linked_item && (
+                            <div className="ml-6 flex items-center gap-1">
+                                <Badge 
+                                    variant="secondary" 
+                                    className="text-xs flex items-center gap-1 pr-1"
+                                    data-testid={`linked-badge-${idx}`}
+                                >
+                                    {item.linked_item.item_type === 'task' ? (
+                                        <ListTodo className="w-3 h-3" />
+                                    ) : (
+                                        <FolderKanban className="w-3 h-3" />
+                                    )}
+                                    <span className="capitalize">{item.linked_item.item_type}:</span>
+                                    <span className="font-medium max-w-32 truncate">{item.linked_item.item_name}</span>
+                                    <button 
+                                        onClick={() => clearLinkedItem(formType, idx)}
+                                        className="ml-1 hover:bg-gray-300 rounded p-0.5"
+                                    >
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                </Badge>
+                                {item.linked_item.project_name && (
+                                    <span className="text-xs text-gray-500">in {item.linked_item.project_name}</span>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                ))}
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => addLinkedItem(formType)}
+                    className="w-full"
+                    data-testid="add-linked-item-btn"
+                >
+                    <Plus className="w-4 h-4 mr-1" /> Add Item
+                </Button>
+            </div>
+        );
+    };
 
     // Filter employees by search and department
     const filteredEmployees = employees.filter(emp => {
@@ -720,15 +1006,18 @@ export default function WorkUpdates() {
                     </DialogHeader>
                     <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
                         <div>
-                            <label className="text-sm font-medium mb-2 block text-emerald-700">
-                                What did you complete today? *
-                            </label>
-                            <ListInput
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="text-sm font-medium text-emerald-700">
+                                    What did you complete today? *
+                                </label>
+                                <span className="text-xs text-gray-500 flex items-center gap-1">
+                                    <Link2 className="w-3 h-3" /> Link to Task/Project
+                                </span>
+                            </div>
+                            <LinkableItemInput
                                 formType="daily"
-                                field="completed_tasks"
-                                items={dailyForm.completed_tasks}
+                                items={dailyForm.completed_items}
                                 placeholder="Completed task..."
-                                icon={CheckCircle}
                             />
                         </div>
 
@@ -795,15 +1084,18 @@ export default function WorkUpdates() {
                     </DialogHeader>
                     <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
                         <div>
-                            <label className="text-sm font-medium mb-2 block text-violet-700">
-                                Key achievements this week *
-                            </label>
-                            <ListInput
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="text-sm font-medium text-violet-700">
+                                    Key achievements this week *
+                                </label>
+                                <span className="text-xs text-gray-500 flex items-center gap-1">
+                                    <Link2 className="w-3 h-3" /> Link to Task/Project
+                                </span>
+                            </div>
+                            <LinkableItemInput
                                 formType="weekly"
-                                field="achievements"
-                                items={weeklyForm.achievements}
+                                items={weeklyForm.achievement_items}
                                 placeholder="Achievement..."
-                                icon={CheckCircle}
                             />
                         </div>
 
