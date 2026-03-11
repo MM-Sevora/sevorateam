@@ -239,6 +239,215 @@ async def mock_publish_to_platform(platform: str, content: str, media_urls: List
         }
 
 
+# ============== REAL API INTEGRATIONS ==============
+
+import httpx
+
+async def publish_to_instagram(content: str, media_urls: List[str], post_type: str) -> Dict[str, Any]:
+    """
+    Publish to Instagram using the Graph API.
+    Supports: image posts, carousel posts, and reels.
+    Note: Instagram requires media (no text-only posts).
+    """
+    access_token = os.environ.get("INSTAGRAM_ACCESS_TOKEN")
+    account_id = os.environ.get("INSTAGRAM_BUSINESS_ACCOUNT_ID")
+    
+    if not access_token or not account_id:
+        return {
+            "success": False,
+            "platform_post_id": None,
+            "platform_url": None,
+            "message": "Instagram credentials not configured. Please add INSTAGRAM_ACCESS_TOKEN and INSTAGRAM_BUSINESS_ACCOUNT_ID to .env"
+        }
+    
+    api_base = "https://graph.facebook.com/v18.0"
+    
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            # Instagram requires at least one media item
+            if not media_urls:
+                return {
+                    "success": False,
+                    "platform_post_id": None,
+                    "platform_url": None,
+                    "message": "Instagram requires at least one image or video. Text-only posts are not supported."
+                }
+            
+            if post_type == "carousel" and len(media_urls) > 1:
+                # Carousel post (multiple images)
+                children_ids = []
+                for media_url in media_urls[:10]:  # Max 10 items
+                    # Create container for each media
+                    child_response = await client.post(
+                        f"{api_base}/{account_id}/media",
+                        params={
+                            "image_url": media_url,
+                            "is_carousel_item": "true",
+                            "access_token": access_token
+                        }
+                    )
+                    child_data = child_response.json()
+                    if "id" in child_data:
+                        children_ids.append(child_data["id"])
+                
+                if not children_ids:
+                    return {
+                        "success": False,
+                        "platform_post_id": None,
+                        "platform_url": None,
+                        "message": "Failed to create carousel items"
+                    }
+                
+                # Create carousel container
+                container_response = await client.post(
+                    f"{api_base}/{account_id}/media",
+                    params={
+                        "media_type": "CAROUSEL",
+                        "children": ",".join(children_ids),
+                        "caption": content,
+                        "access_token": access_token
+                    }
+                )
+                container_data = container_response.json()
+                
+            elif post_type in ["video", "reel"]:
+                # Video/Reel post
+                container_response = await client.post(
+                    f"{api_base}/{account_id}/media",
+                    params={
+                        "media_type": "REELS" if post_type == "reel" else "VIDEO",
+                        "video_url": media_urls[0],
+                        "caption": content,
+                        "access_token": access_token
+                    }
+                )
+                container_data = container_response.json()
+                
+            else:
+                # Single image post
+                container_response = await client.post(
+                    f"{api_base}/{account_id}/media",
+                    params={
+                        "image_url": media_urls[0],
+                        "caption": content,
+                        "access_token": access_token
+                    }
+                )
+                container_data = container_response.json()
+            
+            if "id" not in container_data:
+                error_msg = container_data.get("error", {}).get("message", "Unknown error")
+                return {
+                    "success": False,
+                    "platform_post_id": None,
+                    "platform_url": None,
+                    "message": f"Instagram API error: {error_msg}"
+                }
+            
+            container_id = container_data["id"]
+            
+            # Publish the container
+            publish_response = await client.post(
+                f"{api_base}/{account_id}/media_publish",
+                params={
+                    "creation_id": container_id,
+                    "access_token": access_token
+                }
+            )
+            publish_data = publish_response.json()
+            
+            if "id" in publish_data:
+                media_id = publish_data["id"]
+                # Get permalink
+                permalink_response = await client.get(
+                    f"{api_base}/{media_id}",
+                    params={
+                        "fields": "permalink,shortcode",
+                        "access_token": access_token
+                    }
+                )
+                permalink_data = permalink_response.json()
+                
+                return {
+                    "success": True,
+                    "platform_post_id": media_id,
+                    "platform_url": permalink_data.get("permalink", f"https://www.instagram.com/p/{permalink_data.get('shortcode', media_id)}/"),
+                    "message": "Successfully published to Instagram"
+                }
+            else:
+                error_msg = publish_data.get("error", {}).get("message", "Failed to publish")
+                return {
+                    "success": False,
+                    "platform_post_id": None,
+                    "platform_url": None,
+                    "message": f"Instagram publish error: {error_msg}"
+                }
+                
+    except httpx.TimeoutException:
+        return {
+            "success": False,
+            "platform_post_id": None,
+            "platform_url": None,
+            "message": "Instagram API timeout. Please try again."
+        }
+    except Exception as e:
+        logger.error(f"Instagram publish error: {e}")
+        return {
+            "success": False,
+            "platform_post_id": None,
+            "platform_url": None,
+            "message": f"Instagram error: {str(e)}"
+        }
+
+
+async def get_youtube_channel_info() -> Dict[str, Any]:
+    """
+    Get YouTube channel information using the Data API.
+    Note: YouTube API Key only allows reading. Uploading requires OAuth.
+    """
+    api_key = os.environ.get("YOUTUBE_API_KEY")
+    
+    if not api_key:
+        return {"error": "YouTube API key not configured"}
+    
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            # This would need OAuth for the user's channel
+            # With just API key, we can search and read public data
+            response = await client.get(
+                "https://www.googleapis.com/youtube/v3/channels",
+                params={
+                    "part": "snippet,statistics",
+                    "mine": "true",
+                    "key": api_key
+                }
+            )
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+async def publish_to_platform_real(platform: str, content: str, media_urls: List[str], 
+                                    link_url: Optional[str], post_type: str) -> Dict[str, Any]:
+    """
+    Route to real API or mock based on platform and available credentials.
+    """
+    # Check for real credentials
+    if platform == "instagram":
+        access_token = os.environ.get("INSTAGRAM_ACCESS_TOKEN")
+        account_id = os.environ.get("INSTAGRAM_BUSINESS_ACCOUNT_ID")
+        if access_token and account_id:
+            logger.info("Using real Instagram API")
+            return await publish_to_instagram(content, media_urls, post_type)
+    
+    # YouTube requires OAuth for uploads - API key only allows reading
+    # For now, YouTube publishing remains mock until OAuth is set up
+    
+    # Fall back to mock for platforms without credentials
+    logger.info(f"Using mock API for {platform}")
+    return await mock_publish_to_platform(platform, content, media_urls, link_url, post_type)
+
+
 # ============== ENDPOINTS ==============
 
 @router.get("/platforms")
@@ -455,8 +664,8 @@ async def publish_to_platform(
             detail=f"Not connected to {config['name']}. Please connect your account first."
         )
     
-    # Publish (mock for structure-ready)
-    result = await mock_publish_to_platform(
+    # Publish using real API if available, otherwise mock
+    result = await publish_to_platform_real(
         platform=request.platform,
         content=request.content,
         media_urls=request.media_urls,
@@ -516,7 +725,7 @@ async def publish_to_multiple_platforms(
         # Truncate content if needed for platform limits
         platform_content = request.content[:config["max_chars"]]
         
-        result = await mock_publish_to_platform(
+        result = await publish_to_platform_real(
             platform=platform,
             content=platform_content,
             media_urls=request.media_urls,
@@ -645,7 +854,100 @@ async def test_platform_connection(platform: str, user: dict = Depends(get_curre
     
     config = PLATFORM_CONFIGS[platform]
     
-    # Structure-ready: Simulate test post
+    # Test real Instagram connection
+    if platform == "instagram":
+        access_token = os.environ.get("INSTAGRAM_ACCESS_TOKEN")
+        account_id = os.environ.get("INSTAGRAM_BUSINESS_ACCOUNT_ID")
+        
+        if access_token and account_id:
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    # Test by fetching account info
+                    response = await client.get(
+                        f"https://graph.facebook.com/v18.0/{account_id}",
+                        params={
+                            "fields": "username,name,profile_picture_url,followers_count,media_count",
+                            "access_token": access_token
+                        }
+                    )
+                    data = response.json()
+                    
+                    if "error" in data:
+                        return {
+                            "platform": platform,
+                            "platform_name": config["name"],
+                            "test_successful": False,
+                            "message": f"Instagram API error: {data['error'].get('message', 'Unknown error')}",
+                            "note": "Check if your access token is valid and has the correct permissions."
+                        }
+                    
+                    return {
+                        "platform": platform,
+                        "platform_name": config["name"],
+                        "test_successful": True,
+                        "message": f"Connected to Instagram account: @{data.get('username', 'unknown')}",
+                        "account_info": {
+                            "username": data.get("username"),
+                            "name": data.get("name"),
+                            "followers": data.get("followers_count"),
+                            "posts": data.get("media_count"),
+                            "profile_picture": data.get("profile_picture_url")
+                        },
+                        "note": "Real Instagram API connection verified!"
+                    }
+            except Exception as e:
+                return {
+                    "platform": platform,
+                    "platform_name": config["name"],
+                    "test_successful": False,
+                    "message": f"Connection error: {str(e)}",
+                    "note": "Could not connect to Instagram API."
+                }
+    
+    # Test YouTube API (read-only with API key)
+    if platform == "youtube":
+        api_key = os.environ.get("YOUTUBE_API_KEY")
+        if api_key:
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    # Test by searching (API key allows this)
+                    response = await client.get(
+                        "https://www.googleapis.com/youtube/v3/search",
+                        params={
+                            "part": "snippet",
+                            "q": "test",
+                            "maxResults": 1,
+                            "key": api_key
+                        }
+                    )
+                    data = response.json()
+                    
+                    if "error" in data:
+                        return {
+                            "platform": platform,
+                            "platform_name": config["name"],
+                            "test_successful": False,
+                            "message": f"YouTube API error: {data['error'].get('message', 'Unknown error')}",
+                            "note": "Check if your API key is valid."
+                        }
+                    
+                    return {
+                        "platform": platform,
+                        "platform_name": config["name"],
+                        "test_successful": True,
+                        "message": "YouTube API key is working!",
+                        "note": "Note: Uploading videos requires OAuth. API key only allows reading data."
+                    }
+            except Exception as e:
+                return {
+                    "platform": platform,
+                    "platform_name": config["name"],
+                    "test_successful": False,
+                    "message": f"Connection error: {str(e)}",
+                    "note": "Could not connect to YouTube API."
+                }
+    
+    # Simulated test for other platforms
     test_result = await mock_publish_to_platform(
         platform=platform,
         content=f"Test post from Sevora Social Media Manager - {datetime.now().isoformat()}",
