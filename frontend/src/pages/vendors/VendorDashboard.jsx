@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
 import {
   Building2, Users, ClipboardList, FileText, TrendingUp,
   Clock, CheckCircle, AlertTriangle, ChevronRight, Plus,
-  Package, Star, Loader2
+  Package, Star, Loader2, RefreshCw, Scale
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
@@ -66,15 +66,30 @@ const VendorDashboard = () => {
           <h1 className="text-2xl font-bold text-[#4A3728]">Vendor Management</h1>
           <p className="text-[#8B7355]">Manage vendors, work requests, and orders</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Link to="/vendors/database">
             <Button variant="outline" className="border-[#D4BBA6]">
-              <Building2 className="w-4 h-4 mr-2" /> View Vendors
+              <Building2 className="w-4 h-4 mr-2" /> Vendors
+            </Button>
+          </Link>
+          <Link to="/vendors/requests">
+            <Button variant="outline" className="border-[#D4BBA6]">
+              <ClipboardList className="w-4 h-4 mr-2" /> Requests
             </Button>
           </Link>
           <Link to="/vendors/work-orders">
-            <Button className="bg-[#4A3728] hover:bg-[#5D4A3A] text-white">
-              <Plus className="w-4 h-4 mr-2" /> New Work Order
+            <Button variant="outline" className="border-[#D4BBA6]">
+              <FileText className="w-4 h-4 mr-2" /> Orders
+            </Button>
+          </Link>
+          <Link to="/vendors/recurring">
+            <Button variant="outline" className="border-[#D4BBA6]">
+              <RefreshCw className="w-4 h-4 mr-2" /> Recurring
+            </Button>
+          </Link>
+          <Link to="/vendors/approvals">
+            <Button variant="outline" className="border-[#D4BBA6]">
+              <Scale className="w-4 h-4 mr-2" /> Approvals
             </Button>
           </Link>
         </div>

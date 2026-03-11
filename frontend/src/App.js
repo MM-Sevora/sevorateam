@@ -165,6 +165,8 @@ import VendorDashboard from "./pages/vendors/VendorDashboard";
 import VendorDatabase from "./pages/vendors/VendorDatabase";
 import WorkRequests from "./pages/vendors/WorkRequests";
 import WorkOrders from "./pages/vendors/WorkOrders";
+import RecurringWork from "./pages/vendors/RecurringWork";
+import Approvals from "./pages/vendors/Approvals";
 
 import "./App.css";
 
@@ -481,6 +483,8 @@ function AppRoutes() {
             <Route path="/vendors/database" element={<ProtectedRoute requiredModule="finance"><VendorDatabase /></ProtectedRoute>} />
             <Route path="/vendors/requests" element={<ProtectedRoute requiredModule="finance"><WorkRequests /></ProtectedRoute>} />
             <Route path="/vendors/work-orders" element={<ProtectedRoute requiredModule="finance"><WorkOrders /></ProtectedRoute>} />
+            <Route path="/vendors/recurring" element={<ProtectedRoute requiredModule="finance"><RecurringWork /></ProtectedRoute>} />
+            <Route path="/vendors/approvals" element={<ProtectedRoute requiredModule="finance"><Approvals /></ProtectedRoute>} />
 
             {/* Settings Routes */}
             <Route path="/settings/automations" element={<ProtectedRoute requiredModule="automations"><AutomationSettings /></ProtectedRoute>} />

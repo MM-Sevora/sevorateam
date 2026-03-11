@@ -410,6 +410,208 @@ async def list_po_invoices(
     }
 
 
+# ============== ROUTES THAT MUST BE BEFORE /{vendor_id} TO AVOID ROUTE CONFLICT ==============
+
+@router.get("/requirements")
+async def list_work_requests_v2(
+    status: Optional[str] = None,
+    department: Optional[str] = None,
+    assigned_to: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50,
+    user: dict = Depends(get_current_user_dep)
+):
+    """List vendor work requests"""
+    query = {"is_active": True}
+    
+    if status:
+        query["status"] = status
+    if department:
+        query["department"] = department
+    if assigned_to:
+        query["assigned_owner_id"] = assigned_to
+    
+    requests = await db.vendor_requirements.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    total = await db.vendor_requirements.count_documents(query)
+    
+    return {
+        "requirements": requests,
+        "total": total,
+        "skip": skip,
+        "limit": limit
+    }
+
+
+@router.get("/work-orders")
+async def list_work_orders_v2(
+    status: Optional[str] = None,
+    vendor_id: Optional[str] = None,
+    department: Optional[str] = None,
+    assigned_to: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50,
+    user: dict = Depends(get_current_user_dep)
+):
+    """List vendor work orders"""
+    query = {"is_active": True}
+    
+    if status:
+        query["status"] = status
+    if vendor_id:
+        query["vendor_id"] = vendor_id
+    if department:
+        query["department"] = department
+    if assigned_to:
+        query["assigned_owner_id"] = assigned_to
+    
+    orders = await db.vendor_work_orders.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    total = await db.vendor_work_orders.count_documents(query)
+    
+    return {
+        "work_orders": orders,
+        "total": total,
+        "skip": skip,
+        "limit": limit
+    }
+
+
+@router.get("/audit-logs")
+async def get_audit_logs_v2(
+    entity_type: Optional[str] = None,
+    entity_id: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get vendor audit logs"""
+    query = {}
+    if entity_type:
+        query["entity_type"] = entity_type
+    if entity_id:
+        query["entity_id"] = entity_id
+    
+    logs = await db.vendor_audit_logs.find(query, {"_id": 0}).sort("timestamp", -1).skip(skip).limit(limit).to_list(limit)
+    total = await db.vendor_audit_logs.count_documents(query)
+    
+    return {
+        "logs": logs,
+        "total": total
+    }
+
+
+@router.get("/approvals/pending")
+async def get_pending_approvals_v2(
+    level: Optional[str] = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get pending approvals"""
+    query = {"is_active": True, "overall_status": ApprovalStatus.pending.value}
+    if level:
+        query["current_level"] = level
+    
+    approvals = await db.vendor_approvals.find(query, {"_id": 0}).sort("submitted_at", -1).to_list(50)
+    
+    # Enrich with entity details
+    for approval in approvals:
+        if approval.get("entity_type") == "requirement":
+            req = await db.vendor_requirements.find_one(
+                {"id": approval["entity_id"]},
+                {"_id": 0, "title": 1, "department": 1, "selected_vendor_id": 1, "proposals": 1}
+            )
+            if req:
+                approval["requirement_details"] = req
+                # Get selected proposal amount
+                selected = next((p for p in req.get("proposals", []) if p.get("status") == "selected"), None)
+                if selected:
+                    approval["selected_amount"] = selected.get("amount")
+    
+    return {"approvals": approvals}
+
+
+@router.get("/dashboard/stats")
+async def get_dashboard_stats_v2(user: dict = Depends(get_current_user_dep)):
+    """Get vendor management dashboard statistics"""
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
+    
+    # Vendor stats
+    total_vendors = await db.vendors.count_documents({"is_active": True})
+    active_vendors = await db.vendors.count_documents({"is_active": True, "status": "active"})
+    under_review = await db.vendors.count_documents({"is_active": True, "status": "under_review"})
+    
+    # Vendors by category
+    vendors_by_category = await db.vendors.aggregate([
+        {"$match": {"is_active": True}},
+        {"$group": {"_id": "$category", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]).to_list(20)
+    
+    # Work request stats
+    total_requirements = await db.vendor_requirements.count_documents({"is_active": True})
+    pending_requirements = await db.vendor_requirements.count_documents({
+        "is_active": True,
+        "status": {"$in": ["draft", "proposal_requested", "proposals_received"]}
+    })
+    
+    # Work order stats
+    total_work_orders = await db.vendor_work_orders.count_documents({"is_active": True})
+    open_work_orders = await db.vendor_work_orders.count_documents({
+        "is_active": True,
+        "status": {"$in": ["assigned", "in_progress"]}
+    })
+    completed_this_month = await db.vendor_work_orders.count_documents({
+        "is_active": True,
+        "status": "completed",
+        "actual_completion_date": {"$gte": month_start}
+    })
+    
+    # Work orders by status
+    wo_by_status = await db.vendor_work_orders.aggregate([
+        {"$match": {"is_active": True}},
+        {"$group": {"_id": "$status", "count": {"$sum": 1}}}
+    ]).to_list(10)
+    
+    # Recent work orders
+    recent_work_orders = await db.vendor_work_orders.find(
+        {"is_active": True},
+        {"_id": 0, "id": 1, "work_order_id": 1, "vendor_name": 1, "status": 1, "created_at": 1, "department": 1}
+    ).sort("created_at", -1).limit(5).to_list(5)
+    
+    # Recent requirements
+    recent_requirements = await db.vendor_requirements.find(
+        {"is_active": True},
+        {"_id": 0, "id": 1, "requirement_id": 1, "title": 1, "status": 1, "created_at": 1, "department": 1}
+    ).sort("created_at", -1).limit(5).to_list(5)
+    
+    # Top vendors by work orders
+    top_vendors = await db.vendors.find(
+        {"is_active": True, "total_work_orders": {"$gt": 0}},
+        {"_id": 0, "id": 1, "vendor_id": 1, "name": 1, "category": 1, "total_work_orders": 1, "rating": 1}
+    ).sort("total_work_orders", -1).limit(5).to_list(5)
+    
+    return {
+        "vendors": {
+            "total": total_vendors,
+            "active": active_vendors,
+            "under_review": under_review,
+            "by_category": [{"category": v["_id"] or "Uncategorized", "count": v["count"]} for v in vendors_by_category]
+        },
+        "requirements": {
+            "total": total_requirements,
+            "pending": pending_requirements,
+            "recent": recent_requirements
+        },
+        "work_orders": {
+            "total": total_work_orders,
+            "open": open_work_orders,
+            "completed_this_month": completed_this_month,
+            "by_status": {s["_id"]: s["count"] for s in wo_by_status},
+            "recent": recent_work_orders
+        },
+        "top_vendors": top_vendors
+    }
+
+
 @router.get("/{vendor_id}")
 async def get_vendor(vendor_id: str, user: dict = Depends(get_current_user_dep)):
     """Get vendor details"""
