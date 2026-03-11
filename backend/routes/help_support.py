@@ -20,6 +20,9 @@ from models.help_support import (
     DEFAULT_HELP_SECTIONS, DEFAULT_FAQ_TEMPLATES
 )
 
+# Import Pulse integration service
+from services.pulse_integrations import on_critical_ticket_resolved
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/help", tags=["Help & Support"])
@@ -760,6 +763,16 @@ async def update_ticket(
                 )
         except Exception as e:
             logger.error(f"Failed to send ticket resolution email: {e}")
+        
+        # PULSE INTEGRATION: Auto-post when critical/high priority ticket is resolved
+        if ticket.get("priority") in ["critical", "high"]:
+            try:
+                await on_critical_ticket_resolved(
+                    ticket=result,
+                    resolved_by=user
+                )
+            except Exception as e:
+                logger.error(f"Pulse integration error (ticket_resolved): {e}")
     
     return result
 

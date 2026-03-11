@@ -13,6 +13,9 @@ from enum import Enum
 import uuid
 import logging
 
+# Import Pulse integration service
+from services.pulse_integrations import on_brand_mention_spike, on_competitor_activity
+
 logger = logging.getLogger(__name__)
 
 social_listening_router = APIRouter(prefix="/social/listening", tags=["Social Listening"])
@@ -311,15 +314,17 @@ async def get_alerts(
 async def create_alert(data: dict, user: dict = Depends(lambda: get_current_user)):
     """Create an alert (usually triggered automatically)"""
     alert_id = str(uuid.uuid4())
+    alert_type = data.get("type", AlertType.KEYWORD_MENTION.value)
+    priority = data.get("priority", AlertPriority.MEDIUM.value)
     
     alert_doc = {
         "alert_id": alert_id,
-        "type": data.get("type", AlertType.KEYWORD_MENTION.value),
+        "type": alert_type,
         "title": data.get("title", "New Alert"),
         "message": data.get("message", ""),
         "keyword_id": data.get("keyword_id"),
         "mention_id": data.get("mention_id"),
-        "priority": data.get("priority", AlertPriority.MEDIUM.value),
+        "priority": priority,
         "read": False,
         "actioned": False,
         "created_at": datetime.now(timezone.utc).isoformat()
@@ -327,6 +332,25 @@ async def create_alert(data: dict, user: dict = Depends(lambda: get_current_user
     
     await db.listening_alerts.insert_one(alert_doc)
     del alert_doc["_id"]
+    
+    # PULSE INTEGRATION: Auto-post for significant alerts
+    if priority in ["high", "urgent"]:
+        try:
+            if alert_type in [AlertType.SENTIMENT_SPIKE.value, AlertType.VOLUME_SPIKE.value]:
+                await on_brand_mention_spike(
+                    alert=alert_doc,
+                    mention_count=data.get("count", 0),
+                    sentiment=data.get("sentiment", "mixed")
+                )
+            elif alert_type == "competitor_activity":
+                await on_competitor_activity(
+                    competitor=data.get("competitor", "Competitor"),
+                    activity=data.get("activity_description", "significant activity"),
+                    detected_by="Social Listening"
+                )
+        except Exception as e:
+            logger.error(f"Pulse integration error (listening_alert): {e}")
+    
     return alert_doc
 
 
