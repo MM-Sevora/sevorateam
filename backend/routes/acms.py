@@ -90,7 +90,6 @@ async def send_access_request_notification(
     try:
         tool_name = request_info.get('tool_name', 'Unknown Tool')
         requester_name = request_info.get('requester_name', 'Unknown')
-        status = request_info.get('status', '')
         comments = request_info.get('comments', '')
         
         if notification_type == 'submitted':
@@ -907,6 +906,26 @@ async def create_access_request(
         details={"tool": tool.get("name"), "reason": request.reason}
     )
     
+    # Send email notification to manager/admins
+    # Find user's manager
+    requester = await db.users.find_one({"id": user.get("id")}, {"manager_id": 1})
+    if requester and requester.get("manager_id"):
+        manager = await db.users.find_one({"id": requester["manager_id"]}, {"name": 1, "email": 1})
+        if manager and manager.get("email"):
+            background_tasks.add_task(
+                send_access_request_notification,
+                to_email=manager["email"],
+                to_name=manager.get("name", "Manager"),
+                subject=f"Access Request Pending: {tool.get('name')}",
+                request_info={
+                    "tool_name": tool.get("name"),
+                    "requester_name": user.get("name"),
+                    "reason": request.reason,
+                    "requested_level": request.requested_level.value
+                },
+                notification_type="submitted"
+            )
+    
     del request_doc["_id"]
     return request_doc
 
@@ -957,6 +976,29 @@ async def manager_action_on_request(
         user_id=user.get("id"),
         user_name=user.get("name")
     )
+    
+    # Send email notification to requester
+    requester = await db.users.find_one({"id": request_doc.get("requester_id")}, {"name": 1, "email": 1})
+    tool = await db.acms_tools.find_one({"id": request_doc.get("tool_id")}, {"name": 1})
+    
+    if requester and requester.get("email"):
+        notification_type = "manager_approved" if action.action == "approve" else "rejected"
+        subject = f"Access Request {'Approved by Manager' if action.action == 'approve' else 'Rejected'}: {tool.get('name') if tool else 'Tool'}"
+        
+        background_tasks.add_task(
+            send_access_request_notification,
+            to_email=requester["email"],
+            to_name=requester.get("name", "User"),
+            subject=subject,
+            request_info={
+                "tool_name": tool.get("name") if tool else "Unknown",
+                "requester_name": requester.get("name"),
+                "status": action.action,
+                "comments": action.comments,
+                "requested_level": request_doc.get("requested_level")
+            },
+            notification_type=notification_type
+        )
     
     return {"message": f"Request {action.action}d by manager"}
 
@@ -1026,6 +1068,29 @@ async def admin_action_on_request(
         user_name=user.get("name")
     )
     
+    # Send email notification to requester
+    requester = await db.users.find_one({"id": request_doc.get("requester_id")}, {"name": 1, "email": 1})
+    tool = await db.acms_tools.find_one({"id": request_doc.get("tool_id")}, {"name": 1})
+    
+    if requester and requester.get("email"):
+        notification_type = "approved" if action.action == "approve" else "rejected"
+        subject = f"Access Request {'Approved' if action.action == 'approve' else 'Rejected'}: {tool.get('name') if tool else 'Tool'}"
+        
+        background_tasks.add_task(
+            send_access_request_notification,
+            to_email=requester["email"],
+            to_name=requester.get("name", "User"),
+            subject=subject,
+            request_info={
+                "tool_name": tool.get("name") if tool else "Unknown",
+                "requester_name": requester.get("name"),
+                "status": action.action,
+                "comments": action.comments,
+                "requested_level": request_doc.get("requested_level")
+            },
+            notification_type=notification_type
+        )
+    
     return {"message": f"Request {action.action}d by admin"}
 
 
@@ -1055,6 +1120,86 @@ async def get_credentials(
             visible_creds.append(cred)
     
     return {"credentials": visible_creds}
+
+
+# Note: rotation-status must be defined BEFORE /credentials/{credential_id} to avoid route conflict
+@router.get("/credentials/rotation-status")
+async def get_password_rotation_status(user: dict = Depends(get_current_user_dep)):
+    """Get password rotation status for all credentials"""
+    now = datetime.now(timezone.utc)
+    
+    credentials = await db.acms_credentials.find(
+        {"is_active": True},
+        {"_id": 0}
+    ).to_list(500)
+    
+    rotation_status = []
+    overdue = []
+    due_soon = []
+    up_to_date = []
+    
+    for cred in credentials:
+        # Get tool info
+        tool = await db.acms_tools.find_one({"id": cred.get("tool_id")}, {"name": 1, "criticality": 1})
+        tool_name = tool.get("name") if tool else "Unknown"
+        
+        # Get rotation config or use defaults
+        rotation_config = cred.get("rotation_config", {})
+        rotation_days = rotation_config.get("rotation_days", 90)
+        notify_days = rotation_config.get("notify_days_before", 14)
+        
+        # Calculate last password change
+        password_history = cred.get("password_history", [])
+        if password_history:
+            last_change = password_history[-1].get("changed_at")
+            if last_change:
+                last_change_date = datetime.fromisoformat(last_change.replace('Z', '+00:00'))
+                days_since_change = (now - last_change_date).days
+                next_rotation_date = last_change_date + timedelta(days=rotation_days)
+                days_until_rotation = (next_rotation_date - now).days
+            else:
+                days_since_change = rotation_days + 1
+                days_until_rotation = -1
+        else:
+            days_since_change = rotation_days + 1
+            days_until_rotation = -1
+        
+        status_entry = {
+            "credential_id": cred.get("id"),
+            "tool_id": cred.get("tool_id"),
+            "tool_name": tool_name,
+            "criticality": tool.get("criticality") if tool else "medium",
+            "login_email": cred.get("login_email"),
+            "days_since_last_change": days_since_change,
+            "days_until_rotation": days_until_rotation,
+            "rotation_days_policy": rotation_days,
+            "last_changed_at": password_history[-1].get("changed_at") if password_history else None,
+            "status": "up_to_date"
+        }
+        
+        if days_until_rotation < 0:
+            status_entry["status"] = "overdue"
+            overdue.append(status_entry)
+        elif days_until_rotation <= notify_days:
+            status_entry["status"] = "due_soon"
+            due_soon.append(status_entry)
+        else:
+            up_to_date.append(status_entry)
+        
+        rotation_status.append(status_entry)
+    
+    return {
+        "summary": {
+            "total_credentials": len(credentials),
+            "overdue": len(overdue),
+            "due_soon": len(due_soon),
+            "ok": len(up_to_date)
+        },
+        "rotation_status": rotation_status,
+        "overdue": overdue,
+        "due_soon": due_soon,
+        "up_to_date": up_to_date
+    }
 
 
 @router.get("/credentials/{credential_id}")
@@ -1281,7 +1426,6 @@ async def get_acms_dashboard(user: dict = Depends(get_current_user_dep)):
     """Get ACMS dashboard metrics"""
     now = datetime.now(timezone.utc)
     week_ago = (now - timedelta(days=7)).isoformat()
-    month_ago = (now - timedelta(days=30)).isoformat()
     
     # Tool metrics
     total_tools = await db.acms_tools.count_documents({"is_active": True})
@@ -1556,4 +1700,506 @@ async def preview_offboard(user_id: str, user: dict = Depends(get_current_user_d
         "tools_to_revoke": tools_to_revoke,
         "credentials_to_transfer": creds_to_transfer,
         "total_access_records": len(user_access)
+    }
+
+
+
+# ============== SAAS COST MANAGEMENT ==============
+
+class SaaSCostUpdate(BaseModel):
+    monthly_cost: float
+    billing_cycle: str = "monthly"  # monthly, annual, quarterly
+    renewal_date: Optional[str] = None
+    contract_end_date: Optional[str] = None
+    notes: Optional[str] = None
+
+
+@router.get("/cost-management/overview")
+async def get_saas_cost_overview(
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get SaaS cost overview and spending trends"""
+    now = datetime.now(timezone.utc)
+    
+    # Total monthly cost
+    cost_result = await db.acms_tools.aggregate([
+        {"$match": {"is_active": True, "monthly_cost": {"$exists": True, "$gt": 0}}},
+        {"$group": {"_id": None, "total": {"$sum": "$monthly_cost"}}}
+    ]).to_list(1)
+    total_monthly_cost = cost_result[0]["total"] if cost_result else 0
+    
+    # Cost by category
+    cost_by_category = await db.acms_tools.aggregate([
+        {"$match": {"is_active": True, "monthly_cost": {"$exists": True, "$gt": 0}}},
+        {"$group": {
+            "_id": "$category",
+            "total_cost": {"$sum": "$monthly_cost"},
+            "tool_count": {"$sum": 1}
+        }},
+        {"$sort": {"total_cost": -1}}
+    ]).to_list(20)
+    
+    # Cost by department
+    cost_by_department = await db.acms_tools.aggregate([
+        {"$match": {"is_active": True, "monthly_cost": {"$exists": True, "$gt": 0}}},
+        {"$group": {
+            "_id": "$department",
+            "total_cost": {"$sum": "$monthly_cost"},
+            "tool_count": {"$sum": 1}
+        }},
+        {"$sort": {"total_cost": -1}}
+    ]).to_list(20)
+    
+    # Top 10 most expensive tools
+    top_expensive = await db.acms_tools.find(
+        {"is_active": True, "monthly_cost": {"$exists": True, "$gt": 0}},
+        {"_id": 0, "id": 1, "name": 1, "monthly_cost": 1, "category": 1, "department": 1, "criticality": 1}
+    ).sort("monthly_cost", -1).limit(10).to_list(10)
+    
+    # Get user counts for cost-per-user calculation
+    for tool in top_expensive:
+        user_count = await db.acms_user_access.count_documents({
+            "tool_id": tool["id"],
+            "is_active": True
+        })
+        tool["user_count"] = user_count
+        tool["cost_per_user"] = round(tool["monthly_cost"] / max(user_count, 1), 2)
+    
+    # Tools with upcoming renewals (next 30 days)
+    renewal_date = (now + timedelta(days=30)).isoformat()
+    upcoming_renewals = await db.acms_tools.find(
+        {
+            "is_active": True,
+            "renewal_date": {"$lte": renewal_date, "$gte": now.isoformat()}
+        },
+        {"_id": 0, "id": 1, "name": 1, "monthly_cost": 1, "renewal_date": 1}
+    ).sort("renewal_date", 1).to_list(10)
+    
+    # Unused tools (tools with zero active access in last 30 days)
+    all_tools = await db.acms_tools.find(
+        {"is_active": True},
+        {"_id": 0, "id": 1, "name": 1, "monthly_cost": 1}
+    ).to_list(100)
+    
+    potentially_unused = []
+    for tool in all_tools:
+        active_users = await db.acms_user_access.count_documents({
+            "tool_id": tool["id"],
+            "is_active": True
+        })
+        if active_users == 0 and tool.get("monthly_cost", 0) > 0:
+            potentially_unused.append({
+                **tool,
+                "potential_savings": tool.get("monthly_cost", 0)
+            })
+    
+    return {
+        "total_monthly_cost": total_monthly_cost,
+        "projected_annual_cost": total_monthly_cost * 12,
+        "cost_by_category": [
+            {"category": c["_id"] or "Uncategorized", "total_cost": c["total_cost"], "tool_count": c["tool_count"]}
+            for c in cost_by_category
+        ],
+        "cost_by_department": [
+            {"department": d["_id"] or "Unassigned", "total_cost": d["total_cost"], "tool_count": d["tool_count"]}
+            for d in cost_by_department
+        ],
+        "top_expensive_tools": top_expensive,
+        "upcoming_renewals": upcoming_renewals,
+        "potentially_unused_tools": potentially_unused,
+        "potential_savings": sum(t.get("potential_savings", 0) for t in potentially_unused)
+    }
+
+
+@router.put("/tools/{tool_id}/cost")
+async def update_tool_cost(
+    tool_id: str,
+    cost_data: SaaSCostUpdate,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Update tool cost and billing information"""
+    tool = await db.acms_tools.find_one({"id": tool_id})
+    if not tool:
+        raise HTTPException(status_code=404, detail="Tool not found")
+    
+    update_data = {
+        "monthly_cost": cost_data.monthly_cost,
+        "billing_cycle": cost_data.billing_cycle,
+        "renewal_date": cost_data.renewal_date,
+        "contract_end_date": cost_data.contract_end_date,
+        "cost_notes": cost_data.notes,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.acms_tools.update_one({"id": tool_id}, {"$set": update_data})
+    
+    # Log activity
+    background_tasks.add_task(
+        log_activity,
+        action="tool_cost_updated",
+        entity_type="tool",
+        entity_id=tool_id,
+        entity_name=tool.get("name"),
+        user_id=user.get("id"),
+        user_name=user.get("name"),
+        details={"monthly_cost": cost_data.monthly_cost}
+    )
+    
+    return {"message": "Tool cost updated", "monthly_cost": cost_data.monthly_cost}
+
+
+# ============== ACCESS REVIEW REPORTS ==============
+
+class AccessReviewReportRequest(BaseModel):
+    report_type: str = "quarterly"  # monthly, quarterly, annual
+    department: Optional[str] = None
+    include_inactive: bool = False
+
+
+@router.post("/reports/access-review")
+async def generate_access_review_report(
+    request: AccessReviewReportRequest,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Generate an access review report for auditing purposes"""
+    now = datetime.now(timezone.utc)
+    
+    # Calculate period boundaries
+    if request.report_type == "monthly":
+        period_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        period_name = now.strftime("%B %Y")
+    elif request.report_type == "quarterly":
+        quarter_month = ((now.month - 1) // 3) * 3 + 1
+        period_start = now.replace(month=quarter_month, day=1, hour=0, minute=0, second=0, microsecond=0)
+        quarter_num = (now.month - 1) // 3 + 1
+        period_name = f"Q{quarter_num} {now.year}"
+    else:  # annual
+        period_start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        period_name = str(now.year)
+    
+    period_start_str = period_start.isoformat()
+    
+    # Get all active access records
+    access_query = {"is_active": True}
+    if not request.include_inactive:
+        access_query["is_active"] = True
+    
+    access_records = await db.acms_user_access.find(access_query, {"_id": 0}).to_list(1000)
+    
+    # Enrich with user and tool details
+    user_access_summary = {}
+    tool_access_summary = {}
+    
+    for record in access_records:
+        user_id = record.get("user_id")
+        tool_id = record.get("tool_id")
+        
+        # Get user info
+        if user_id not in user_access_summary:
+            user_info = await db.users.find_one({"id": user_id}, {"name": 1, "email": 1, "department": 1, "status": 1})
+            if user_info:
+                # Apply department filter
+                if request.department and user_info.get("department") != request.department:
+                    continue
+                user_access_summary[user_id] = {
+                    "user_id": user_id,
+                    "name": user_info.get("name", "Unknown"),
+                    "email": user_info.get("email", ""),
+                    "department": user_info.get("department", ""),
+                    "status": user_info.get("status", "active"),
+                    "tools": [],
+                    "high_privilege_count": 0,
+                    "total_tools": 0
+                }
+        
+        if user_id in user_access_summary:
+            tool_info = await db.acms_tools.find_one({"id": tool_id}, {"name": 1, "criticality": 1, "category": 1})
+            tool_entry = {
+                "tool_id": tool_id,
+                "tool_name": tool_info.get("name") if tool_info else "Unknown",
+                "access_level": record.get("access_level"),
+                "criticality": tool_info.get("criticality") if tool_info else "medium",
+                "granted_at": record.get("granted_at"),
+                "access_type": record.get("access_type")
+            }
+            user_access_summary[user_id]["tools"].append(tool_entry)
+            user_access_summary[user_id]["total_tools"] += 1
+            if record.get("access_level") in ["admin", "editor"]:
+                user_access_summary[user_id]["high_privilege_count"] += 1
+        
+        # Tool summary
+        if tool_id not in tool_access_summary:
+            tool_info = await db.acms_tools.find_one({"id": tool_id}, {"name": 1, "criticality": 1, "monthly_cost": 1})
+            tool_access_summary[tool_id] = {
+                "tool_id": tool_id,
+                "tool_name": tool_info.get("name") if tool_info else "Unknown",
+                "criticality": tool_info.get("criticality") if tool_info else "medium",
+                "monthly_cost": tool_info.get("monthly_cost", 0),
+                "users": [],
+                "admin_count": 0,
+                "editor_count": 0,
+                "viewer_count": 0
+            }
+        
+        tool_access_summary[tool_id]["users"].append({
+            "user_id": user_id,
+            "access_level": record.get("access_level")
+        })
+        if record.get("access_level") == "admin":
+            tool_access_summary[tool_id]["admin_count"] += 1
+        elif record.get("access_level") == "editor":
+            tool_access_summary[tool_id]["editor_count"] += 1
+        else:
+            tool_access_summary[tool_id]["viewer_count"] += 1
+    
+    # Access changes in the period
+    access_changes = await db.acms_audit_logs.find({
+        "timestamp": {"$gte": period_start_str},
+        "action": {"$in": ["access_granted", "access_revoked", "access_updated"]}
+    }, {"_id": 0}).sort("timestamp", -1).to_list(500)
+    
+    # Identify risk indicators
+    risk_indicators = []
+    
+    # Users with high-privilege access to critical tools
+    for user_id, data in user_access_summary.items():
+        critical_admin_access = [t for t in data["tools"] if t["criticality"] == "high" and t["access_level"] == "admin"]
+        if len(critical_admin_access) > 3:
+            risk_indicators.append({
+                "type": "high_privilege_concentration",
+                "user_id": user_id,
+                "user_name": data["name"],
+                "description": f"User has admin access to {len(critical_admin_access)} critical tools",
+                "severity": "high"
+            })
+    
+    # Tools with many admins
+    for tool_id, data in tool_access_summary.items():
+        if data["admin_count"] > 5:
+            risk_indicators.append({
+                "type": "excessive_admins",
+                "tool_id": tool_id,
+                "tool_name": data["tool_name"],
+                "description": f"Tool has {data['admin_count']} admin users",
+                "severity": "medium"
+            })
+    
+    # Generate report
+    report = {
+        "id": str(uuid.uuid4()),
+        "report_type": request.report_type,
+        "period_name": period_name,
+        "period_start": period_start_str,
+        "period_end": now.isoformat(),
+        "generated_at": now.isoformat(),
+        "generated_by": user.get("id"),
+        "generated_by_name": user.get("name"),
+        "department_filter": request.department,
+        "summary": {
+            "total_users_with_access": len(user_access_summary),
+            "total_tools_in_use": len(tool_access_summary),
+            "total_access_records": len(access_records),
+            "access_changes_in_period": len(access_changes),
+            "risk_indicators_count": len(risk_indicators)
+        },
+        "user_access_summary": list(user_access_summary.values()),
+        "tool_access_summary": list(tool_access_summary.values()),
+        "access_changes": access_changes[:100],  # Limit to recent 100
+        "risk_indicators": risk_indicators
+    }
+    
+    # Save report to database
+    await db.acms_reports.insert_one(report)
+    
+    # Log activity
+    background_tasks.add_task(
+        log_activity,
+        action="access_review_report_generated",
+        entity_type="report",
+        entity_id=report["id"],
+        entity_name=f"Access Review - {period_name}",
+        user_id=user.get("id"),
+        user_name=user.get("name")
+    )
+    
+    del report["_id"]
+    return report
+
+
+@router.get("/reports")
+async def list_access_reports(
+    report_type: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 20,
+    user: dict = Depends(get_current_user_dep)
+):
+    """List generated access review reports"""
+    query = {}
+    if report_type:
+        query["report_type"] = report_type
+    
+    reports = await db.acms_reports.find(
+        query,
+        {"_id": 0, "id": 1, "report_type": 1, "period_name": 1, "generated_at": 1, "generated_by_name": 1, "summary": 1}
+    ).sort("generated_at", -1).skip(skip).limit(limit).to_list(limit)
+    
+    total = await db.acms_reports.count_documents(query)
+    
+    return {
+        "reports": reports,
+        "total": total,
+        "skip": skip,
+        "limit": limit
+    }
+
+
+@router.get("/reports/{report_id}")
+async def get_access_report(report_id: str, user: dict = Depends(get_current_user_dep)):
+    """Get a specific access review report"""
+    report = await db.acms_reports.find_one({"id": report_id}, {"_id": 0})
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    return report
+
+
+# ============== PASSWORD ROTATION REMINDERS ==============
+
+class PasswordRotationConfig(BaseModel):
+    rotation_days: int = 90  # Days between required password changes
+    notify_days_before: int = 14  # Days before expiry to start notifications
+    is_enabled: bool = True
+
+
+@router.put("/credentials/{credential_id}/rotation-config")
+async def set_password_rotation_config(
+    credential_id: str,
+    config: PasswordRotationConfig,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Set password rotation policy for a credential"""
+    cred = await db.acms_credentials.find_one({"id": credential_id})
+    if not cred:
+        raise HTTPException(status_code=404, detail="Credential not found")
+    
+    rotation_config = {
+        "rotation_days": config.rotation_days,
+        "notify_days_before": config.notify_days_before,
+        "is_enabled": config.is_enabled,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "updated_by": user.get("id")
+    }
+    
+    await db.acms_credentials.update_one(
+        {"id": credential_id},
+        {"$set": {"rotation_config": rotation_config}}
+    )
+    
+    background_tasks.add_task(
+        log_activity,
+        action="rotation_policy_updated",
+        entity_type="credential",
+        entity_id=credential_id,
+        entity_name=f"Credential #{credential_id[:8]}",
+        user_id=user.get("id"),
+        user_name=user.get("name"),
+        details={"rotation_days": config.rotation_days}
+    )
+    
+    return {"message": "Rotation policy updated", "config": rotation_config}
+
+
+@router.post("/credentials/send-rotation-reminders")
+async def send_rotation_reminders(
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Send password rotation reminders for credentials that are due"""
+    now = datetime.now(timezone.utc)
+    
+    credentials = await db.acms_credentials.find(
+        {"is_active": True},
+        {"_id": 0}
+    ).to_list(500)
+    
+    reminders_sent = []
+    
+    for cred in credentials:
+        rotation_config = cred.get("rotation_config", {})
+        if not rotation_config.get("is_enabled", True):
+            continue
+        
+        rotation_days = rotation_config.get("rotation_days", 90)
+        notify_days = rotation_config.get("notify_days_before", 14)
+        
+        password_history = cred.get("password_history", [])
+        if not password_history:
+            continue
+        
+        last_change = password_history[-1].get("changed_at")
+        if not last_change:
+            continue
+        
+        last_change_date = datetime.fromisoformat(last_change.replace('Z', '+00:00'))
+        next_rotation_date = last_change_date + timedelta(days=rotation_days)
+        days_until_rotation = (next_rotation_date - now).days
+        
+        if days_until_rotation <= notify_days and days_until_rotation > -30:
+            # Get tool name
+            tool = await db.acms_tools.find_one({"id": cred.get("tool_id")}, {"name": 1})
+            tool_name = tool.get("name") if tool else "Unknown Tool"
+            
+            # Get owner info
+            owner = await db.users.find_one({"id": cred.get("owner_id")}, {"name": 1, "email": 1})
+            
+            if owner and owner.get("email"):
+                reminder = {
+                    "credential_id": cred.get("id"),
+                    "tool_name": tool_name,
+                    "owner_email": owner.get("email"),
+                    "owner_name": owner.get("name"),
+                    "days_until_rotation": days_until_rotation,
+                    "status": "overdue" if days_until_rotation < 0 else "due_soon"
+                }
+                reminders_sent.append(reminder)
+                
+                # Send email notification (would be actual email in production)
+                if _email_service:
+                    subject = f"Password Rotation {'Overdue' if days_until_rotation < 0 else 'Reminder'}: {tool_name}"
+                    body = f"""
+                    <h2>Password Rotation {'Required' if days_until_rotation < 0 else 'Reminder'}</h2>
+                    <p>Hi {owner.get('name')},</p>
+                    <p>The password for <strong>{tool_name}</strong> {'is overdue for rotation' if days_until_rotation < 0 else 'needs to be rotated soon'}.</p>
+                    <ul>
+                        <li><strong>Login:</strong> {cred.get('login_email')}</li>
+                        <li><strong>{'Days Overdue' if days_until_rotation < 0 else 'Days Until Rotation'}:</strong> {abs(days_until_rotation)}</li>
+                    </ul>
+                    <p>Please update the password in the Credential Vault.</p>
+                    """
+                    try:
+                        await _email_service.send_email(
+                            to_email=owner.get("email"),
+                            subject=subject,
+                            html_content=body
+                        )
+                    except Exception as e:
+                        print(f"Failed to send reminder email: {e}")
+    
+    # Log activity
+    background_tasks.add_task(
+        log_activity,
+        action="rotation_reminders_sent",
+        entity_type="system",
+        entity_id="rotation_reminders",
+        entity_name="Password Rotation Reminders",
+        user_id=user.get("id"),
+        user_name=user.get("name"),
+        details={"reminders_count": len(reminders_sent)}
+    )
+    
+    return {
+        "message": f"Sent {len(reminders_sent)} rotation reminders",
+        "reminders": reminders_sent
     }

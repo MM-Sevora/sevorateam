@@ -29,7 +29,8 @@ import {
   UserPlus, BarChart3, PieChart, Activity, Bell, Loader2,
   ArrowUpRight, ArrowDownRight, Minus, Search, Filter,
   Download, Eye, Star, Award, Zap, Timer, CheckSquare,
-  XCircle, Pause, Play, ChevronDown, Mail, Phone
+  XCircle, Pause, Play, ChevronDown, Mail, Phone, Heart,
+  MessageCircle, Share2, Trophy, Hash, Building2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -85,18 +86,20 @@ const TeamDashboard = () => {
   const [teamPerformance, setTeamPerformance] = useState(null);
   const [selectedMember, setSelectedMember] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [pulseEngagement, setPulseEngagement] = useState(null);
   const [sortBy, setSortBy] = useState('completed');
   const [sortOrder, setSortOrder] = useState('desc');
 
   const fetchDashboardData = async () => {
     try {
-      const [summaryRes, productivityRes, workloadRes, activityRes, employeesRes, teamPerfRes] = await Promise.all([
+      const [summaryRes, productivityRes, workloadRes, activityRes, employeesRes, teamPerfRes, pulseRes] = await Promise.all([
         api.get('/analytics/dashboard-summary'),
         api.get(`/analytics/productivity-trends?period=${selectedPeriod}`),
         api.get('/analytics/workload-distribution?limit=20'),
         api.get('/analytics/activity-feed?limit=15'),
         api.get('/admin/users'),
-        api.get(`/tasks/team-performance?period=${selectedPeriod}&task_type=${selectedTaskType}&department=${selectedDepartment}`)
+        api.get(`/tasks/team-performance?period=${selectedPeriod}&task_type=${selectedTaskType}&department=${selectedDepartment}`),
+        api.get(`/analytics/pulse-engagement?period=${selectedPeriod}`)
       ]);
 
       setDashboardData(summaryRes.data);
@@ -104,6 +107,7 @@ const TeamDashboard = () => {
       setWorkloadData(workloadRes.data || []);
       setActivityFeed(activityRes.data || []);
       setTeamPerformance(teamPerfRes.data);
+      setPulseEngagement(pulseRes.data);
       
       // Process team members with real performance data
       const employees = employeesRes.data?.employees || employeesRes.data || [];
@@ -369,6 +373,9 @@ const TeamDashboard = () => {
           </TabsTrigger>
           <TabsTrigger value="tasks" className="data-[state=active]:bg-white">
             <CheckSquare className="w-4 h-4 mr-2" /> Tasks Analysis
+          </TabsTrigger>
+          <TabsTrigger value="pulse" className="data-[state=active]:bg-white">
+            <Activity className="w-4 h-4 mr-2" /> Pulse Engagement
           </TabsTrigger>
           <TabsTrigger value="trends" className="data-[state=active]:bg-white">
             <TrendingUp className="w-4 h-4 mr-2" /> Trends
@@ -830,6 +837,242 @@ const TeamDashboard = () => {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* Pulse Engagement Tab */}
+        <TabsContent value="pulse" className="space-y-6" data-testid="pulse-engagement-tab">
+          {/* Pulse Stats Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <Card className="bg-white border-[#E8D5C4]">
+              <CardContent className="p-4 text-center">
+                <div className="w-10 h-10 mx-auto rounded-xl bg-blue-50 flex items-center justify-center mb-2">
+                  <MessageCircle className="w-5 h-5 text-blue-600" />
+                </div>
+                <p className="text-2xl font-bold text-[#4A3728]">{pulseEngagement?.total_posts || 0}</p>
+                <p className="text-xs text-[#8B7355]">Total Posts</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-white border-[#E8D5C4]">
+              <CardContent className="p-4 text-center">
+                <div className="w-10 h-10 mx-auto rounded-xl bg-emerald-50 flex items-center justify-center mb-2">
+                  <TrendingUp className="w-5 h-5 text-emerald-600" />
+                </div>
+                <p className="text-2xl font-bold text-emerald-600">{pulseEngagement?.posts_this_week || 0}</p>
+                <p className="text-xs text-[#8B7355]">This Week</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-white border-[#E8D5C4]">
+              <CardContent className="p-4 text-center">
+                <div className="w-10 h-10 mx-auto rounded-xl bg-pink-50 flex items-center justify-center mb-2">
+                  <Heart className="w-5 h-5 text-pink-600" />
+                </div>
+                <p className="text-2xl font-bold text-pink-600">{pulseEngagement?.total_reactions || 0}</p>
+                <p className="text-xs text-[#8B7355]">Reactions</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-white border-[#E8D5C4]">
+              <CardContent className="p-4 text-center">
+                <div className="w-10 h-10 mx-auto rounded-xl bg-amber-50 flex items-center justify-center mb-2">
+                  <MessageCircle className="w-5 h-5 text-amber-600" />
+                </div>
+                <p className="text-2xl font-bold text-amber-600">{pulseEngagement?.total_comments || 0}</p>
+                <p className="text-xs text-[#8B7355]">Comments</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-white border-[#E8D5C4]">
+              <CardContent className="p-4 text-center">
+                <div className="w-10 h-10 mx-auto rounded-xl bg-purple-50 flex items-center justify-center mb-2">
+                  <Trophy className="w-5 h-5 text-purple-600" />
+                </div>
+                <p className="text-2xl font-bold text-purple-600">{pulseEngagement?.total_recognitions || 0}</p>
+                <p className="text-xs text-[#8B7355]">Recognitions</p>
+              </CardContent>
+            </Card>
+            <Card className="bg-white border-[#E8D5C4]">
+              <CardContent className="p-4 text-center">
+                <div className="w-10 h-10 mx-auto rounded-xl bg-teal-50 flex items-center justify-center mb-2">
+                  <Zap className="w-5 h-5 text-teal-600" />
+                </div>
+                <p className="text-2xl font-bold text-teal-600">{pulseEngagement?.engagement_rate || 0}%</p>
+                <p className="text-xs text-[#8B7355]">Engagement Rate</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Department Engagement Chart */}
+            <Card className="bg-white border-[#E8D5C4]">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg text-[#4A3728] flex items-center gap-2">
+                  <Building2 className="w-5 h-5 text-[#8B7355]" />
+                  Engagement by Department
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {pulseEngagement?.department_engagement?.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart data={pulseEngagement.department_engagement} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E8D5C4" />
+                      <XAxis type="number" stroke="#8B7355" fontSize={12} />
+                      <YAxis type="category" dataKey="department" width={100} stroke="#8B7355" fontSize={11}
+                        tickFormatter={(dept) => dept?.length > 12 ? dept.slice(0, 12) + '...' : dept} />
+                      <Tooltip contentStyle={{ backgroundColor: '#FDF8F3', border: '1px solid #E8D5C4', borderRadius: '8px' }} />
+                      <Bar dataKey="posts" name="Posts" fill={COLORS.info} radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[280px] flex items-center justify-center text-[#8B7355]">
+                    <p>No department engagement data</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Recognition Leaderboard */}
+            <Card className="bg-white border-[#E8D5C4]">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg text-[#4A3728] flex items-center gap-2">
+                  <Trophy className="w-5 h-5 text-amber-500" />
+                  Recognition Leaderboard
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {pulseEngagement?.recognition_leaderboard?.length > 0 ? (
+                  <div className="space-y-3">
+                    {pulseEngagement.recognition_leaderboard.map((entry, idx) => (
+                      <div key={entry.user_id || idx} className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#F5EDE5]">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                          idx === 0 ? 'bg-amber-100 text-amber-700' :
+                          idx === 1 ? 'bg-gray-100 text-gray-700' :
+                          idx === 2 ? 'bg-orange-100 text-orange-700' :
+                          'bg-[#E8D5C4] text-[#4A3728]'
+                        }`}>
+                          {idx + 1}
+                        </div>
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback className="bg-[#D4BBA6] text-[#4A3728] text-xs">
+                            {entry.name?.charAt(0)?.toUpperCase() || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-[#4A3728] truncate">{entry.name}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-purple-600">{entry.recognitions}</p>
+                          <p className="text-xs text-[#8B7355]">badges</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="h-[200px] flex items-center justify-center text-[#8B7355]">
+                    <p>No recognition data yet</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Top Badge Types */}
+            <Card className="bg-white border-[#E8D5C4]">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg text-[#4A3728] flex items-center gap-2">
+                  <Award className="w-5 h-5 text-[#8B7355]" />
+                  Top Badge Types
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {pulseEngagement?.top_badge_types?.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <RechartsPie>
+                      <Pie
+                        data={pulseEngagement.top_badge_types}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={40}
+                        outerRadius={80}
+                        paddingAngle={2}
+                        dataKey="count"
+                        nameKey="badge_type"
+                        label={({ badge_type, count }) => `${badge_type}: ${count}`}
+                      >
+                        {pulseEngagement.top_badge_types.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={Object.values(COLORS)[index % Object.keys(COLORS).length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </RechartsPie>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[200px] flex items-center justify-center text-[#8B7355]">
+                    <p>No badge data yet</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Trending Tags */}
+            <Card className="bg-white border-[#E8D5C4]">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg text-[#4A3728] flex items-center gap-2">
+                  <Hash className="w-5 h-5 text-[#8B7355]" />
+                  Trending Tags
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {pulseEngagement?.trending_tags?.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {pulseEngagement.trending_tags.map((tag, idx) => (
+                      <Badge 
+                        key={tag.tag} 
+                        variant="outline" 
+                        className={`px-3 py-1 text-sm ${
+                          idx < 3 ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-[#F5EDE5] text-[#4A3728] border-[#D4BBA6]'
+                        }`}
+                      >
+                        #{tag.tag} <span className="ml-1 text-xs opacity-70">({tag.count})</span>
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="h-[100px] flex items-center justify-center text-[#8B7355]">
+                    <p>No trending tags</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Work Updates Stats */}
+          <Card className="bg-white border-[#E8D5C4]">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg text-[#4A3728] flex items-center gap-2">
+                <CheckSquare className="w-5 h-5 text-[#8B7355]" />
+                Work Updates Overview
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-4 bg-[#F5EDE5] rounded-lg text-center">
+                  <p className="text-2xl font-bold text-[#4A3728]">{pulseEngagement?.work_updates_submitted || 0}</p>
+                  <p className="text-sm text-[#8B7355]">Updates Submitted</p>
+                </div>
+                <div className="p-4 bg-red-50 rounded-lg text-center">
+                  <p className="text-2xl font-bold text-red-600">{pulseEngagement?.blockers_reported || 0}</p>
+                  <p className="text-sm text-red-600/70">Blockers Reported</p>
+                </div>
+                <div className="p-4 bg-emerald-50 rounded-lg text-center">
+                  <p className="text-2xl font-bold text-emerald-600">{pulseEngagement?.active_posters || 0}</p>
+                  <p className="text-sm text-emerald-600/70">Active Contributors</p>
+                </div>
+                <div className="p-4 bg-blue-50 rounded-lg text-center">
+                  <p className="text-2xl font-bold text-blue-600">{pulseEngagement?.posts_this_month || 0}</p>
+                  <p className="text-sm text-blue-600/70">Posts This Month</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Trends Tab */}
