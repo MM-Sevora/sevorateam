@@ -690,7 +690,11 @@ async def initiate_platform_connection(platform: str, user: dict = Depends(get_c
     if platform == "linkedin":
         client_id = os.environ.get("LINKEDIN_CLIENT_ID")
         if client_id:
-            base_url = os.environ.get("BACKEND_URL", os.environ.get("FRONTEND_URL", ""))
+            # Use preview URL for testing, production URL when deployed
+            preview_url = "https://sevora-hub.preview.emergentagent.com"
+            production_url = os.environ.get("PRODUCTION_URL", "https://teams.sevora.com")
+            # For now, use preview URL since we're testing there
+            base_url = preview_url
             redirect_uri = f"{base_url}/api/social/integrations/callback/linkedin"
             state = f"{user['id']}_{uuid.uuid4().hex[:8]}"
             
@@ -1212,8 +1216,9 @@ async def linkedin_callback(code: str, state: str):
             user_id = state_doc["user_id"]
             await db.oauth_states.delete_one({"state": state})
     
-    base_url = os.environ.get("BACKEND_URL", os.environ.get("FRONTEND_URL", ""))
-    redirect_uri = f"{base_url}/api/social/integrations/callback/linkedin"
+    # Use preview URL to match what was used in authorization
+    preview_url = "https://sevora-hub.preview.emergentagent.com"
+    redirect_uri = f"{preview_url}/api/social/integrations/callback/linkedin"
     
     # Exchange code for token
     token_data = await exchange_linkedin_code(code, redirect_uri)
