@@ -287,6 +287,19 @@ async def get_tasks_by_assignee(
     ]
     
     results = await db.unified_tasks.aggregate(pipeline).to_list(length=20)
+    
+    return {
+        "assignees": [
+            {
+                "assigned_to": r["_id"]["assigned_to"],
+                "name": r["_id"]["assigned_to_name"] or "Unassigned",
+                "tasks": r["tasks"],
+                "total": r["total"]
+            }
+            for r in results
+        ],
+        "period": period
+    }
 
 
 @router.get("/team-performance")
@@ -381,7 +394,7 @@ async def get_team_performance(
         total_tasks = operational_total + project_total
         total_completed = operational_completed + project_completed
         total_overdue = operational_overdue + project_overdue
-        completion_rate = round((total_completed / total_tasks * 100) if total_tasks > 0 else 0, 1)
+        _ = round((total_completed / total_tasks * 100) if total_tasks > 0 else 0, 1)  # Used in breakdown
         
         # Filter by task type if specified
         if task_type == 'operational':
@@ -455,30 +468,6 @@ async def get_team_performance(
             "total_overdue": sum(m["performance"]["overdue"] for m in team_performance)
         }
     }
-    
-    # Format results
-    assignee_stats = []
-    for r in results:
-        if r["_id"]["assigned_to"]:
-            stats = {
-                "user_id": r["_id"]["assigned_to"],
-                "user_name": r["_id"]["assigned_to_name"] or "Unknown",
-                "total": r["total"],
-                "completed": 0,
-                "in_progress": 0,
-                "pending": 0,
-                "overdue": 0
-            }
-            for task in r["tasks"]:
-                if task["status"] == "completed":
-                    stats["completed"] = task["count"]
-                elif task["status"] == "in_progress":
-                    stats["in_progress"] = task["count"]
-                elif task["status"] == "pending":
-                    stats["pending"] = task["count"]
-            assignee_stats.append(stats)
-    
-    return assignee_stats
 
 
 @router.post("")
@@ -589,6 +578,23 @@ async def update_task(
     
     await db.unified_tasks.update_one({"id": task_id}, {"$set": update_data})
     
+    # BIDIRECTIONAL SYNC: Update pm_tasks if this task is synced
+    if task.get("synced_pm_task_id") or task.get("source_module") == "meetings":
+        pm_update = {}
+        if "status" in update_data:
+            # Map unified_tasks status to pm_tasks status
+            status_map = {"pending": "todo", "in_progress": "in_progress", "completed": "done", "cancelled": "cancelled"}
+            pm_update["status"] = status_map.get(update_data["status"], update_data["status"])
+        if "assigned_to" in update_data:
+            pm_update["assigned_to"] = update_data["assigned_to"]
+        if "priority" in update_data:
+            pm_update["priority"] = update_data["priority"]
+        if "due_date" in update_data:
+            pm_update["due_date"] = update_data["due_date"]
+        if pm_update:
+            pm_update["updated_at"] = now
+            await db.pm_tasks.update_one({"id": task_id}, {"$set": pm_update})
+    
     # Log activity
     action = "updated"
     if "status" in update_data:
@@ -677,6 +683,113 @@ async def create_activity_log(
         user_name=activity.user_name or current_user.get("name")
     )
     return {"message": "Activity logged"}
+
+
+# ============== TASK SYNC ENDPOINTS ==============
+
+class PMTaskSync(BaseModel):
+    """Sync a PM task status to unified tasks"""
+    pm_task_id: str
+    status: str
+    assigned_to: Optional[str] = None
+    priority: Optional[str] = None
+    due_date: Optional[str] = None
+
+
+@router.post("/sync/from-pm-task")
+async def sync_from_pm_task(
+    sync_data: PMTaskSync,
+    current_user: dict = Depends(get_current_user_dep)
+):
+    """Sync status from pm_tasks to unified_tasks (called when PM task is updated)"""
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Find corresponding unified task
+    unified_task = await db.unified_tasks.find_one({"id": sync_data.pm_task_id})
+    
+    if unified_task:
+        # Map pm_tasks status to unified_tasks status
+        status_map = {"todo": "pending", "in_progress": "in_progress", "done": "completed", "cancelled": "cancelled"}
+        
+        update_data = {
+            "status": status_map.get(sync_data.status, sync_data.status),
+            "updated_at": now
+        }
+        
+        if sync_data.status in ["done", "completed"]:
+            update_data["completed_at"] = now
+        
+        if sync_data.assigned_to:
+            update_data["assigned_to"] = sync_data.assigned_to
+        if sync_data.priority:
+            update_data["priority"] = sync_data.priority
+        if sync_data.due_date:
+            update_data["due_date"] = sync_data.due_date
+        
+        await db.unified_tasks.update_one({"id": sync_data.pm_task_id}, {"$set": update_data})
+        
+        return {"message": "Unified task synced", "task_id": sync_data.pm_task_id}
+    
+    return {"message": "No unified task found to sync", "task_id": sync_data.pm_task_id}
+
+
+@router.get("/unified-view")
+async def get_unified_task_view(
+    assigned_to: Optional[str] = None,
+    status: Optional[str] = None,
+    source: str = "all",  # all, unified, pm
+    include_completed: bool = False,
+    limit: int = 100,
+    current_user: dict = Depends(get_current_user_dep)
+):
+    """Get a unified view of tasks from both unified_tasks and pm_tasks"""
+    user_id = assigned_to or current_user.get("id")
+    tasks = []
+    
+    # Build base query
+    base_query = {"$or": [{"assigned_to": user_id}, {"created_by": user_id}]}
+    if status:
+        base_query["status"] = status
+    if not include_completed:
+        base_query["status"] = {"$nin": ["completed", "done", "cancelled"]}
+    
+    # Get from unified_tasks
+    if source in ["all", "unified"]:
+        unified = await db.unified_tasks.find(base_query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+        for t in unified:
+            t["_source"] = "operational"
+            t["_display_status"] = t.get("status", "pending")
+        tasks.extend(unified)
+    
+    # Get from pm_tasks (exclude those already synced)
+    if source in ["all", "pm"]:
+        pm_query = {**base_query}
+        pm_status_map = {"pending": {"$in": ["todo", "in_progress"]}, "completed": "done"}
+        if status and status in pm_status_map:
+            pm_query["status"] = pm_status_map[status]
+        if not include_completed:
+            pm_query["status"] = {"$nin": ["done", "cancelled"]}
+        
+        pm_tasks = await db.pm_tasks.find(pm_query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+        
+        # Exclude already synced tasks
+        unified_ids = {t.get("id") for t in tasks}
+        for t in pm_tasks:
+            if t.get("id") not in unified_ids and not t.get("synced_unified_task_id"):
+                t["_source"] = "project"
+                t["title"] = t.get("name", t.get("title"))  # Normalize field name
+                status_map = {"todo": "pending", "in_progress": "in_progress", "done": "completed"}
+                t["_display_status"] = status_map.get(t.get("status"), t.get("status"))
+                tasks.append(t)
+    
+    # Sort all tasks by created_at
+    tasks.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+    
+    return {
+        "tasks": tasks[:limit],
+        "total": len(tasks),
+        "sources": {"unified": source in ["all", "unified"], "pm": source in ["all", "pm"]}
+    }
 
 
 # ============== TASK TRIGGER CONFIGURATION ==============

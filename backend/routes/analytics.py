@@ -659,6 +659,246 @@ async def get_dashboard_summary(
     )
 
 
+# ============== PULSE ANALYTICS FOR TEAM DASHBOARD ==============
+
+class PulseEngagementStats(BaseModel):
+    total_posts: int = 0
+    posts_this_week: int = 0
+    posts_this_month: int = 0
+    total_reactions: int = 0
+    total_comments: int = 0
+    total_recognitions: int = 0
+    recognitions_this_week: int = 0
+    active_posters: int = 0
+    engagement_rate: float = 0.0
+    top_badge_types: List[Dict[str, Any]] = []
+    recognition_leaderboard: List[Dict[str, Any]] = []
+    department_engagement: List[Dict[str, Any]] = []
+    trending_tags: List[Dict[str, Any]] = []
+    work_updates_submitted: int = 0
+    blockers_reported: int = 0
+
+
+@router.get("/pulse-engagement", response_model=PulseEngagementStats)
+async def get_pulse_engagement_stats(
+    period: str = "month",  # week, month, quarter, year
+    department: Optional[str] = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get Pulse engagement statistics for the team dashboard"""
+    now = datetime.now(timezone.utc)
+    
+    # Calculate period boundaries
+    if period == "week":
+        period_start = (now - timedelta(days=7)).isoformat()
+    elif period == "month":
+        period_start = (now - timedelta(days=30)).isoformat()
+    elif period == "quarter":
+        period_start = (now - timedelta(days=90)).isoformat()
+    else:  # year
+        period_start = (now - timedelta(days=365)).isoformat()
+    
+    week_start = (now - timedelta(days=7)).isoformat()
+    month_start = (now - timedelta(days=30)).isoformat()
+    
+    # Build base query
+    base_query = {}
+    if department:
+        base_query["author_department"] = department
+    
+    # Total posts
+    total_posts = await db.pulse_posts.count_documents(base_query)
+    
+    # Posts this week/month
+    posts_this_week = await db.pulse_posts.count_documents({
+        **base_query,
+        "created_at": {"$gte": week_start}
+    })
+    posts_this_month = await db.pulse_posts.count_documents({
+        **base_query,
+        "created_at": {"$gte": month_start}
+    })
+    
+    # Get reaction and comment counts via aggregation
+    engagement_pipeline = [
+        {"$match": base_query},
+        {"$project": {
+            "reactions_count": {"$size": {"$ifNull": ["$reactions", []]}},
+            "comments_count": {"$size": {"$ifNull": ["$comments", []]}}
+        }},
+        {"$group": {
+            "_id": None,
+            "total_reactions": {"$sum": "$reactions_count"},
+            "total_comments": {"$sum": "$comments_count"}
+        }}
+    ]
+    
+    engagement_result = await db.pulse_posts.aggregate(engagement_pipeline).to_list(1)
+    total_reactions = engagement_result[0]["total_reactions"] if engagement_result else 0
+    total_comments = engagement_result[0]["total_comments"] if engagement_result else 0
+    
+    # Recognition stats
+    recognition_query = {}
+    if department:
+        recognition_query["recipient_department"] = department
+    
+    total_recognitions = await db.pulse_recognitions.count_documents(recognition_query)
+    recognitions_this_week = await db.pulse_recognitions.count_documents({
+        **recognition_query,
+        "created_at": {"$gte": week_start}
+    })
+    
+    # Active posters (unique authors in the period)
+    active_authors = await db.pulse_posts.distinct("author_id", {
+        **base_query,
+        "created_at": {"$gte": period_start}
+    })
+    active_posters = len(active_authors)
+    
+    # Calculate engagement rate (interactions / posts)
+    engagement_rate = 0.0
+    if total_posts > 0:
+        total_interactions = total_reactions + total_comments
+        engagement_rate = round((total_interactions / total_posts) * 100, 1)
+    
+    # Top badge types
+    badge_pipeline = [
+        {"$match": {"created_at": {"$gte": period_start}}},
+        {"$group": {"_id": "$badge_type", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 5}
+    ]
+    top_badges = await db.pulse_recognitions.aggregate(badge_pipeline).to_list(5)
+    top_badge_types = [{"badge_type": b["_id"], "count": b["count"]} for b in top_badges]
+    
+    # Recognition leaderboard (top recipients)
+    leaderboard_pipeline = [
+        {"$match": {"created_at": {"$gte": period_start}}},
+        {"$group": {
+            "_id": "$recipient_id",
+            "name": {"$first": "$recipient_name"},
+            "count": {"$sum": 1}
+        }},
+        {"$sort": {"count": -1}},
+        {"$limit": 5}
+    ]
+    leaderboard = await db.pulse_recognitions.aggregate(leaderboard_pipeline).to_list(5)
+    recognition_leaderboard = [
+        {"user_id": entry["_id"], "name": entry.get("name", "Unknown"), "recognitions": entry["count"]}
+        for entry in leaderboard
+    ]
+    
+    # Department engagement
+    dept_pipeline = [
+        {"$match": {"created_at": {"$gte": period_start}}},
+        {"$group": {
+            "_id": "$author_department",
+            "posts": {"$sum": 1}
+        }},
+        {"$sort": {"posts": -1}},
+        {"$limit": 10}
+    ]
+    dept_engagement = await db.pulse_posts.aggregate(dept_pipeline).to_list(10)
+    department_engagement = [
+        {"department": d["_id"] or "Unknown", "posts": d["posts"]}
+        for d in dept_engagement if d["_id"]
+    ]
+    
+    # Trending tags
+    tag_pipeline = [
+        {"$match": {"created_at": {"$gte": period_start}}},
+        {"$unwind": "$tags"},
+        {"$group": {"_id": "$tags", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 10}
+    ]
+    trending = await db.pulse_posts.aggregate(tag_pipeline).to_list(10)
+    trending_tags = [{"tag": t["_id"], "count": t["count"]} for t in trending]
+    
+    # Work updates stats
+    daily_updates = await db.daily_updates.count_documents({
+        "created_at": {"$gte": period_start}
+    })
+    weekly_updates = await db.weekly_updates.count_documents({
+        "created_at": {"$gte": period_start}
+    })
+    work_updates_submitted = daily_updates + weekly_updates
+    
+    # Count blockers reported
+    blocker_pipeline = [
+        {"$match": {"created_at": {"$gte": period_start}}},
+        {"$project": {"blocker_count": {"$size": {"$ifNull": ["$blockers", []]}}}},
+        {"$group": {"_id": None, "total": {"$sum": "$blocker_count"}}}
+    ]
+    blocker_result = await db.daily_updates.aggregate(blocker_pipeline).to_list(1)
+    blockers_reported = blocker_result[0]["total"] if blocker_result else 0
+    
+    return PulseEngagementStats(
+        total_posts=total_posts,
+        posts_this_week=posts_this_week,
+        posts_this_month=posts_this_month,
+        total_reactions=total_reactions,
+        total_comments=total_comments,
+        total_recognitions=total_recognitions,
+        recognitions_this_week=recognitions_this_week,
+        active_posters=active_posters,
+        engagement_rate=engagement_rate,
+        top_badge_types=top_badge_types,
+        recognition_leaderboard=recognition_leaderboard,
+        department_engagement=department_engagement,
+        trending_tags=trending_tags,
+        work_updates_submitted=work_updates_submitted,
+        blockers_reported=blockers_reported
+    )
+
+
+@router.get("/pulse-trends")
+async def get_pulse_trends(
+    period: str = "month",
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get Pulse activity trends over time"""
+    now = datetime.now(timezone.utc)
+    
+    # Determine granularity based on period
+    if period == "week":
+        days = 7
+        group_format = "%Y-%m-%d"
+    elif period == "month":
+        days = 30
+        group_format = "%Y-%m-%d"
+    else:  # quarter/year
+        days = 90 if period == "quarter" else 365
+        group_format = "%Y-%W"  # Week number
+    
+    period_start = (now - timedelta(days=days)).isoformat()
+    
+    # Get daily post counts
+    pipeline = [
+        {"$match": {"created_at": {"$gte": period_start}}},
+        {"$addFields": {
+            "date": {"$dateFromString": {"dateString": "$created_at"}}
+        }},
+        {"$group": {
+            "_id": {"$dateToString": {"format": group_format, "date": "$date"}},
+            "posts": {"$sum": 1},
+            "reactions": {"$sum": {"$size": {"$ifNull": ["$reactions", []]}}},
+            "comments": {"$sum": {"$size": {"$ifNull": ["$comments", []]}}}
+        }},
+        {"$sort": {"_id": 1}}
+    ]
+    
+    trends = await db.pulse_posts.aggregate(pipeline).to_list(100)
+    
+    return {
+        "period": period,
+        "data": [
+            {"date": t["_id"], "posts": t["posts"], "reactions": t["reactions"], "comments": t["comments"]}
+            for t in trends
+        ]
+    }
+
+
 
 # ============== REPORTS MODULE ==============
 

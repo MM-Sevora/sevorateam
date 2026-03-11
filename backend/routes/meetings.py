@@ -2166,11 +2166,15 @@ async def add_action_item(
     priority: ActionItemPriority = ActionItemPriority.MEDIUM,
     linked_project_id: Optional[str] = None,
     linked_goal_id: Optional[str] = None,
+    auto_create_task: bool = True,  # NEW: Auto-create task flag
     user: dict = Depends(get_current_user_dep)
 ):
-    """Add an action item to a meeting"""
+    """Add an action item to a meeting and optionally auto-create a task"""
+    action_item_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
     action_item = {
-        "id": str(uuid.uuid4()),
+        "id": action_item_id,
         "title": title,
         "description": description,
         "assigned_to": assigned_to,
@@ -2183,22 +2187,85 @@ async def add_action_item(
         "linked_goal_id": linked_goal_id,
         "linked_goal_name": await get_goal_name(linked_goal_id) if linked_goal_id else None,
         "converted_task_id": None,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": now,
         "completed_at": None
     }
+    
+    # Get meeting info for task creation
+    meeting = await db.meetings.find_one({"id": meeting_id}, {"_id": 0, "title": 1})
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    
+    # AUTO-CREATE TASK if enabled
+    task_id = None
+    if auto_create_task:
+        task_id = str(uuid.uuid4())
+        
+        # Create in unified_tasks (Operational Tasks)
+        unified_task = {
+            "id": task_id,
+            "title": title,
+            "description": description or f"Action item from meeting: {meeting.get('title')}",
+            "assigned_to": assigned_to,
+            "assigned_team": None,
+            "priority": priority.value,
+            "due_date": deadline,
+            "status": "pending",
+            "source_module": "meetings",
+            "source_entity_type": "action_item",
+            "source_entity_id": action_item_id,
+            "source_meeting_id": meeting_id,
+            "tags": ["from-meeting", "action-item"],
+            "related_url": f"/meetings/{meeting_id}",
+            "created_by": user.get("id"),
+            "created_by_name": user.get("name"),
+            "created_at": now,
+            "updated_at": now
+        }
+        await db.unified_tasks.insert_one(unified_task)
+        
+        # Also create in pm_tasks if project is linked
+        if linked_project_id:
+            pm_task = {
+                "id": task_id,  # Same ID for sync
+                "name": title,
+                "description": description or f"Action item from meeting: {meeting.get('title')}",
+                "project_id": linked_project_id,
+                "assigned_to": assigned_to,
+                "due_date": deadline,
+                "priority": priority.value,
+                "status": "todo",
+                "tags": ["from-meeting", "action-item"],
+                "source_meeting_id": meeting_id,
+                "source_action_item_id": action_item_id,
+                "synced_unified_task_id": task_id,
+                "created_by": user.get("id"),
+                "created_at": now,
+                "updated_at": now
+            }
+            await db.pm_tasks.insert_one(pm_task)
+        
+        # Update action item with task reference
+        action_item["converted_task_id"] = task_id
+        action_item["status"] = ActionItemStatus.CONVERTED_TO_TASK.value
     
     result = await db.meetings.update_one(
         {"id": meeting_id},
         {
             "$push": {"action_items": action_item},
-            "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}
+            "$set": {"updated_at": now}
         }
     )
     
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Meeting not found")
     
-    return action_item
+    response = {**action_item}
+    if task_id:
+        response["created_task_id"] = task_id
+        response["message"] = "Action item added and task created"
+    
+    return response
 
 
 @router.put("/{meeting_id}/action-items/{action_item_id}")
@@ -2353,6 +2420,131 @@ async def delete_action_item(
         raise HTTPException(status_code=404, detail="Meeting not found")
     
     return {"message": "Action item deleted"}
+
+
+# ============== POST MEETING SUMMARY TO PULSE ==============
+
+class MeetingSummaryPostRequest(BaseModel):
+    include_action_items: bool = True
+    include_decisions: bool = True
+    include_participants: bool = True
+    custom_message: Optional[str] = None
+    visibility: str = "department"  # company, department, private
+
+
+@router.post("/{meeting_id}/post-to-pulse")
+async def post_meeting_summary_to_pulse(
+    meeting_id: str,
+    request: MeetingSummaryPostRequest,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Post a meeting summary to Sevora Pulse"""
+    meeting = await db.meetings.find_one({"id": meeting_id}, {"_id": 0})
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    
+    meeting = await enrich_meeting(meeting)
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Build the summary content
+    content_parts = []
+    
+    # Title and basic info
+    meeting_title = meeting.get("title", "Meeting")
+    meeting_type = meeting.get("meeting_type", "").replace("_", " ").title()
+    content_parts.append(f"📋 **Meeting Summary: {meeting_title}**")
+    if meeting_type:
+        content_parts.append(f"*Type: {meeting_type}*")
+    
+    # Custom message
+    if request.custom_message:
+        content_parts.append(f"\n{request.custom_message}")
+    
+    # Participants
+    if request.include_participants:
+        participants = meeting.get("participants", [])
+        if participants:
+            participant_names = [p.get("name") or await get_user_name(p.get("user_id")) for p in participants[:5]]
+            participant_names = [n for n in participant_names if n]
+            if participant_names:
+                more_count = len(participants) - 5 if len(participants) > 5 else 0
+                names_str = ", ".join(participant_names)
+                if more_count > 0:
+                    names_str += f" +{more_count} more"
+                content_parts.append(f"\n👥 **Attendees:** {names_str}")
+    
+    # Key decisions from discussion notes
+    if request.include_decisions:
+        discussion_notes = meeting.get("discussion_notes", [])
+        decisions = [note for note in discussion_notes if note.get("is_decision")]
+        if decisions:
+            content_parts.append("\n✅ **Key Decisions:**")
+            for i, decision in enumerate(decisions[:5], 1):
+                content_parts.append(f"  {i}. {decision.get('content', '')[:100]}")
+    
+    # Action items
+    if request.include_action_items:
+        action_items = meeting.get("action_items", [])
+        if action_items:
+            pending_items = [ai for ai in action_items if ai.get("status") not in ["completed", "cancelled"]]
+            if pending_items:
+                content_parts.append(f"\n📌 **Action Items ({len(pending_items)}):**")
+                for i, ai in enumerate(pending_items[:5], 1):
+                    assignee = ai.get("assigned_to_name") or "Unassigned"
+                    deadline = ai.get("deadline", "")[:10] if ai.get("deadline") else "No deadline"
+                    content_parts.append(f"  {i}. {ai.get('title', '')} → {assignee} ({deadline})")
+    
+    # Linked project/goal
+    if meeting.get("linked_project_name"):
+        content_parts.append(f"\n🔗 Linked to Project: {meeting['linked_project_name']}")
+    if meeting.get("linked_goal_name"):
+        content_parts.append(f"\n🎯 Linked to Goal: {meeting['linked_goal_name']}")
+    
+    # Create the Pulse post
+    post_id = str(uuid.uuid4())
+    
+    pulse_post = {
+        "id": post_id,
+        "content": "\n".join(content_parts),
+        "post_type": "meeting_summary",
+        "author_id": user.get("id"),
+        "author_name": user.get("name"),
+        "author_avatar": user.get("avatar"),
+        "author_department": user.get("department"),
+        "author_role": user.get("role"),
+        "visibility": request.visibility,
+        "department": user.get("department") if request.visibility == "department" else None,
+        "tags": ["meeting-summary", meeting_type.lower().replace(" ", "-")] if meeting_type else ["meeting-summary"],
+        "reactions": [],
+        "comments": [],
+        "is_pinned": False,
+        "is_auto_generated": True,
+        "source_type": "meeting",
+        "source_id": meeting_id,
+        "source_title": meeting_title,
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.pulse_posts.insert_one(pulse_post)
+    
+    # Update meeting to mark as posted to Pulse
+    await db.meetings.update_one(
+        {"id": meeting_id},
+        {
+            "$set": {
+                "posted_to_pulse": True,
+                "pulse_post_id": post_id,
+                "updated_at": now
+            }
+        }
+    )
+    
+    return {
+        "message": "Meeting summary posted to Pulse",
+        "post_id": post_id,
+        "content_preview": "\n".join(content_parts)[:500]
+    }
 
 
 # ============== MEETING MINUTES ==============
