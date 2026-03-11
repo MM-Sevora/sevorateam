@@ -255,7 +255,7 @@ const DEPARTMENT_CONFIG = {
                 items: [
                     { path: '/admin/employees', name: 'Employee Database', icon: Award },
                     { path: '/admin/organization', name: 'Organization', icon: Building2 },
-                    { path: '/finance/reimbursements', name: 'Reimbursements', icon: Receipt },
+                    { path: '/hr/expenses', name: 'Reimbursements', icon: Receipt },
                 ]
             },
             {
@@ -265,7 +265,7 @@ const DEPARTMENT_CONFIG = {
                 items: [
                     { path: '/finance/budgets', name: 'Budget Planning', icon: BarChart3 },
                     { path: '/finance/payments', name: 'Payment Requests', icon: CreditCard },
-                    { path: '/finance/reimbursements', name: 'Reimbursements', icon: Receipt },
+                    { path: '/hr/expenses', name: 'Reimbursements', icon: Receipt },
                     { path: '/expense', name: 'Expense Management', icon: DollarSign },
                 ]
             },

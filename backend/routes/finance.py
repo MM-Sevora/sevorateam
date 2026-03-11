@@ -53,15 +53,6 @@ class PaymentStatus(str, Enum):
     completed = "completed"
     cancelled = "cancelled"
 
-class ReimbursementStatus(str, Enum):
-    draft = "draft"
-    submitted = "submitted"
-    under_review = "under_review"
-    approved = "approved"
-    rejected = "rejected"
-    processing = "processing"
-    paid = "paid"
-
 
 # ============== MODELS ==============
 
@@ -94,20 +85,6 @@ class PaymentRequestCreate(BaseModel):
 
 class PaymentRequestAction(BaseModel):
     action: str  # approve, reject, process, complete, cancel
-    comments: Optional[str] = None
-
-class ReimbursementCreate(BaseModel):
-    title: str
-    category: str  # travel, meals, supplies, equipment, other
-    amount: float
-    currency: str = "USD"
-    description: str
-    expense_date: str
-    receipt_urls: Optional[List[str]] = []
-    project_id: Optional[str] = None
-
-class ReimbursementAction(BaseModel):
-    action: str  # submit, approve, reject, process, pay
     comments: Optional[str] = None
 
 
@@ -479,245 +456,6 @@ async def get_payment_stats(user: dict = Depends(get_current_user_dep)):
     }
 
 
-# ============== REIMBURSEMENTS ==============
-
-@router.post("/reimbursements")
-async def create_reimbursement(
-    reimbursement: ReimbursementCreate,
-    user: dict = Depends(get_current_user_dep)
-):
-    """Create a new reimbursement request"""
-    reimbursement_doc = {
-        "id": str(uuid.uuid4()),
-        "title": reimbursement.title,
-        "category": reimbursement.category,
-        "amount": reimbursement.amount,
-        "currency": reimbursement.currency,
-        "description": reimbursement.description,
-        "expense_date": reimbursement.expense_date,
-        "receipt_urls": reimbursement.receipt_urls or [],
-        "project_id": reimbursement.project_id,
-        "status": ReimbursementStatus.draft.value,
-        "employee_id": user.get("id"),
-        "employee_name": user.get("name"),
-        "employee_email": user.get("email"),
-        "employee_department": user.get("department"),
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-        "submitted_at": None,
-        "reviewed_by": None,
-        "reviewed_at": None,
-        "approved_by": None,
-        "approved_at": None,
-        "paid_at": None,
-        "comments": [],
-        "is_active": True
-    }
-    
-    await db.finance_reimbursements.insert_one(reimbursement_doc)
-    del reimbursement_doc["_id"]
-    return reimbursement_doc
-
-
-@router.get("/reimbursements")
-async def list_reimbursements(
-    status: Optional[str] = None,
-    category: Optional[str] = None,
-    employee_id: Optional[str] = None,
-    department: Optional[str] = None,
-    skip: int = 0,
-    limit: int = 50,
-    user: dict = Depends(get_current_user_dep)
-):
-    """List reimbursements"""
-    query = {"is_active": True}
-    
-    if status:
-        query["status"] = status
-    if category:
-        query["category"] = category
-    if employee_id:
-        query["employee_id"] = employee_id
-    if department:
-        query["employee_department"] = department
-    
-    reimbursements = await db.finance_reimbursements.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
-    total = await db.finance_reimbursements.count_documents(query)
-    
-    return {
-        "reimbursements": reimbursements,
-        "total": total,
-        "skip": skip,
-        "limit": limit
-    }
-
-
-@router.get("/reimbursements/my")
-async def get_my_reimbursements(
-    status: Optional[str] = None,
-    skip: int = 0,
-    limit: int = 20,
-    user: dict = Depends(get_current_user_dep)
-):
-    """Get current user's reimbursements"""
-    query = {"employee_id": user.get("id"), "is_active": True}
-    if status:
-        query["status"] = status
-    
-    reimbursements = await db.finance_reimbursements.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
-    total = await db.finance_reimbursements.count_documents(query)
-    
-    return {
-        "reimbursements": reimbursements,
-        "total": total
-    }
-
-
-@router.get("/reimbursements/{reimbursement_id}")
-async def get_reimbursement(reimbursement_id: str, user: dict = Depends(get_current_user_dep)):
-    """Get a specific reimbursement"""
-    reimbursement = await db.finance_reimbursements.find_one({"id": reimbursement_id}, {"_id": 0})
-    if not reimbursement:
-        raise HTTPException(status_code=404, detail="Reimbursement not found")
-    return reimbursement
-
-
-@router.put("/reimbursements/{reimbursement_id}")
-async def update_reimbursement(
-    reimbursement_id: str,
-    title: Optional[str] = None,
-    amount: Optional[float] = None,
-    description: Optional[str] = None,
-    receipt_urls: Optional[List[str]] = None,
-    user: dict = Depends(get_current_user_dep)
-):
-    """Update a reimbursement (only if draft)"""
-    reimbursement = await db.finance_reimbursements.find_one({"id": reimbursement_id})
-    if not reimbursement:
-        raise HTTPException(status_code=404, detail="Reimbursement not found")
-    
-    if reimbursement.get("status") != ReimbursementStatus.draft.value:
-        raise HTTPException(status_code=400, detail="Can only edit draft reimbursements")
-    
-    update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
-    if title:
-        update_data["title"] = title
-    if amount:
-        update_data["amount"] = amount
-    if description:
-        update_data["description"] = description
-    if receipt_urls is not None:
-        update_data["receipt_urls"] = receipt_urls
-    
-    await db.finance_reimbursements.update_one({"id": reimbursement_id}, {"$set": update_data})
-    return {"message": "Reimbursement updated"}
-
-
-@router.post("/reimbursements/{reimbursement_id}/action")
-async def reimbursement_action(
-    reimbursement_id: str,
-    action: ReimbursementAction,
-    user: dict = Depends(get_current_user_dep)
-):
-    """Perform action on reimbursement"""
-    reimbursement = await db.finance_reimbursements.find_one({"id": reimbursement_id})
-    if not reimbursement:
-        raise HTTPException(status_code=404, detail="Reimbursement not found")
-    
-    now = datetime.now(timezone.utc).isoformat()
-    update_data = {"updated_at": now}
-    
-    if action.action == "submit":
-        update_data["status"] = ReimbursementStatus.submitted.value
-        update_data["submitted_at"] = now
-    
-    elif action.action == "review":
-        update_data["status"] = ReimbursementStatus.under_review.value
-        update_data["reviewed_by"] = user.get("id")
-        update_data["reviewer_name"] = user.get("name")
-        update_data["reviewed_at"] = now
-    
-    elif action.action == "approve":
-        update_data["status"] = ReimbursementStatus.approved.value
-        update_data["approved_by"] = user.get("id")
-        update_data["approver_name"] = user.get("name")
-        update_data["approved_at"] = now
-    
-    elif action.action == "reject":
-        update_data["status"] = ReimbursementStatus.rejected.value
-        update_data["rejected_by"] = user.get("id")
-        update_data["rejector_name"] = user.get("name")
-        update_data["rejected_at"] = now
-    
-    elif action.action == "process":
-        update_data["status"] = ReimbursementStatus.processing.value
-    
-    elif action.action == "pay":
-        update_data["status"] = ReimbursementStatus.paid.value
-        update_data["paid_at"] = now
-    
-    # Add comment
-    if action.comments:
-        comment = {
-            "user_id": user.get("id"),
-            "user_name": user.get("name"),
-            "action": action.action,
-            "comment": action.comments,
-            "timestamp": now
-        }
-        await db.finance_reimbursements.update_one(
-            {"id": reimbursement_id},
-            {"$push": {"comments": comment}}
-        )
-    
-    await db.finance_reimbursements.update_one({"id": reimbursement_id}, {"$set": update_data})
-    
-    return {"message": f"Reimbursement {action.action}d", "status": update_data.get("status")}
-
-
-@router.get("/reimbursements/summary/stats")
-async def get_reimbursement_stats(
-    department: Optional[str] = None,
-    user: dict = Depends(get_current_user_dep)
-):
-    """Get reimbursement statistics"""
-    now = datetime.now(timezone.utc)
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
-    
-    query = {"is_active": True}
-    if department:
-        query["employee_department"] = department
-    
-    # By status
-    status_stats = await db.finance_reimbursements.aggregate([
-        {"$match": query},
-        {"$group": {"_id": "$status", "count": {"$sum": 1}, "total": {"$sum": "$amount"}}}
-    ]).to_list(10)
-    
-    # By category
-    category_stats = await db.finance_reimbursements.aggregate([
-        {"$match": query},
-        {"$group": {"_id": "$category", "count": {"$sum": 1}, "total": {"$sum": "$amount"}}}
-    ]).to_list(10)
-    
-    # This month
-    month_query = {**query, "created_at": {"$gte": month_start}}
-    month_stats = await db.finance_reimbursements.aggregate([
-        {"$match": month_query},
-        {"$group": {"_id": None, "count": {"$sum": 1}, "total": {"$sum": "$amount"}}}
-    ]).to_list(1)
-    
-    pending_count = sum(s["count"] for s in status_stats if s["_id"] in ["submitted", "under_review"])
-    pending_amount = sum(s["total"] for s in status_stats if s["_id"] in ["submitted", "under_review"])
-    
-    return {
-        "by_status": {s["_id"]: {"count": s["count"], "amount": s["total"]} for s in status_stats},
-        "by_category": {c["_id"]: {"count": c["count"], "amount": c["total"]} for c in category_stats},
-        "this_month": month_stats[0] if month_stats else {"count": 0, "total": 0},
-        "pending_review": {"count": pending_count, "amount": pending_amount}
-    }
-
-
 # ============== DASHBOARD ==============
 
 @router.get("/dashboard")
@@ -743,26 +481,14 @@ async def get_finance_dashboard(user: dict = Depends(get_current_user_dep)):
         {"$group": {"_id": None, "count": {"$sum": 1}, "total": {"$sum": "$amount"}}}
     ]).to_list(1)
     
-    # Reimbursements pending
-    pending_reimbursements = await db.finance_reimbursements.aggregate([
-        {"$match": {"status": {"$in": ["submitted", "under_review"]}, "is_active": True}},
-        {"$group": {"_id": None, "count": {"$sum": 1}, "total": {"$sum": "$amount"}}}
-    ]).to_list(1)
-    
     # Recent activity
     recent_payments = await db.finance_payment_requests.find(
         {"is_active": True},
         {"_id": 0, "id": 1, "title": 1, "amount": 1, "status": 1, "created_at": 1, "vendor_name": 1}
-    ).sort("created_at", -1).limit(5).to_list(5)
-    
-    recent_reimbursements = await db.finance_reimbursements.find(
-        {"is_active": True},
-        {"_id": 0, "id": 1, "title": 1, "amount": 1, "status": 1, "created_at": 1, "employee_name": 1}
-    ).sort("created_at", -1).limit(5).to_list(5)
+    ).sort("created_at", -1).limit(10).to_list(10)
     
     budget_data = budget_summary[0] if budget_summary else {"total_allocated": 0, "total_spent": 0, "count": 0}
     payment_data = pending_payments[0] if pending_payments else {"count": 0, "total": 0}
-    reimbursement_data = pending_reimbursements[0] if pending_reimbursements else {"count": 0, "total": 0}
     
     return {
         "budget_summary": {
@@ -776,10 +502,5 @@ async def get_finance_dashboard(user: dict = Depends(get_current_user_dep)):
             "count": payment_data.get("count", 0),
             "amount": payment_data.get("total", 0)
         },
-        "pending_reimbursements": {
-            "count": reimbursement_data.get("count", 0),
-            "amount": reimbursement_data.get("total", 0)
-        },
-        "recent_payments": recent_payments,
-        "recent_reimbursements": recent_reimbursements
+        "recent_payments": recent_payments
     }
