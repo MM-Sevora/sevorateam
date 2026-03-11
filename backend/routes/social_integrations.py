@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any, Callable
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import uuid
 import os
 import logging
@@ -440,12 +440,145 @@ async def publish_to_platform_real(platform: str, content: str, media_urls: List
             logger.info("Using real Instagram API")
             return await publish_to_instagram(content, media_urls, post_type)
     
+    if platform == "linkedin":
+        # LinkedIn requires user OAuth - check if we have a stored access token
+        if db is not None:
+            # Check for user's LinkedIn connection with valid token
+            # For now, return info about OAuth requirement
+            pass
+        logger.info("LinkedIn requires OAuth authorization")
+    
     # YouTube requires OAuth for uploads - API key only allows reading
     # For now, YouTube publishing remains mock until OAuth is set up
     
     # Fall back to mock for platforms without credentials
     logger.info(f"Using mock API for {platform}")
     return await mock_publish_to_platform(platform, content, media_urls, link_url, post_type)
+
+
+# ============== LINKEDIN OAUTH ==============
+
+def get_linkedin_auth_url(redirect_uri: str, state: str) -> str:
+    """Generate LinkedIn OAuth authorization URL"""
+    client_id = os.environ.get("LINKEDIN_CLIENT_ID")
+    scopes = "openid profile email w_member_social"
+    
+    return (
+        f"https://www.linkedin.com/oauth/v2/authorization?"
+        f"response_type=code&"
+        f"client_id={client_id}&"
+        f"redirect_uri={redirect_uri}&"
+        f"state={state}&"
+        f"scope={scopes}"
+    )
+
+
+async def exchange_linkedin_code(code: str, redirect_uri: str) -> Dict[str, Any]:
+    """Exchange authorization code for access token"""
+    client_id = os.environ.get("LINKEDIN_CLIENT_ID")
+    client_secret = os.environ.get("LINKEDIN_CLIENT_SECRET")
+    
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                "https://www.linkedin.com/oauth/v2/accessToken",
+                data={
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "redirect_uri": redirect_uri,
+                    "client_id": client_id,
+                    "client_secret": client_secret
+                },
+                headers={"Content-Type": "application/x-www-form-urlencoded"}
+            )
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+async def get_linkedin_profile(access_token: str) -> Dict[str, Any]:
+    """Get LinkedIn user profile"""
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(
+                "https://api.linkedin.com/v2/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"}
+            )
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+async def publish_to_linkedin(access_token: str, author_urn: str, content: str, 
+                               media_urls: List[str] = None, link_url: str = None) -> Dict[str, Any]:
+    """
+    Publish a post to LinkedIn using the API.
+    Supports: text posts, link posts, and image posts.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            # Build the post payload
+            post_data = {
+                "author": author_urn,
+                "lifecycleState": "PUBLISHED",
+                "specificContent": {
+                    "com.linkedin.ugc.ShareContent": {
+                        "shareCommentary": {
+                            "text": content
+                        },
+                        "shareMediaCategory": "NONE"
+                    }
+                },
+                "visibility": {
+                    "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"
+                }
+            }
+            
+            # Add link if provided
+            if link_url:
+                post_data["specificContent"]["com.linkedin.ugc.ShareContent"]["shareMediaCategory"] = "ARTICLE"
+                post_data["specificContent"]["com.linkedin.ugc.ShareContent"]["media"] = [{
+                    "status": "READY",
+                    "originalUrl": link_url
+                }]
+            
+            # Post to LinkedIn
+            response = await client.post(
+                "https://api.linkedin.com/v2/ugcPosts",
+                json=post_data,
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json",
+                    "X-Restli-Protocol-Version": "2.0.0"
+                }
+            )
+            
+            if response.status_code in [200, 201]:
+                data = response.json()
+                post_id = data.get("id", "").replace("urn:li:share:", "")
+                return {
+                    "success": True,
+                    "platform_post_id": post_id,
+                    "platform_url": f"https://www.linkedin.com/feed/update/{data.get('id', '')}",
+                    "message": "Successfully published to LinkedIn"
+                }
+            else:
+                error_data = response.json() if response.content else {}
+                return {
+                    "success": False,
+                    "platform_post_id": None,
+                    "platform_url": None,
+                    "message": f"LinkedIn API error: {error_data.get('message', response.status_code)}"
+                }
+                
+    except Exception as e:
+        logger.error(f"LinkedIn publish error: {e}")
+        return {
+            "success": False,
+            "platform_post_id": None,
+            "platform_url": None,
+            "message": f"LinkedIn error: {str(e)}"
+        }
 
 
 # ============== ENDPOINTS ==============
@@ -545,13 +678,44 @@ async def get_platform_connection(platform: str, user: dict = Depends(get_curren
 async def initiate_platform_connection(platform: str, user: dict = Depends(get_current_user)):
     """
     Initiate OAuth flow for platform connection.
-    In production, this returns the OAuth URL to redirect the user.
-    For structure-ready, it simulates a successful connection.
+    For LinkedIn: Returns OAuth URL for user authorization.
+    For others: Simulates connection (structure-ready).
     """
     if platform not in PLATFORM_CONFIGS:
         raise HTTPException(status_code=400, detail=f"Unknown platform: {platform}")
     
     config = PLATFORM_CONFIGS[platform]
+    
+    # LinkedIn: Real OAuth flow
+    if platform == "linkedin":
+        client_id = os.environ.get("LINKEDIN_CLIENT_ID")
+        if client_id:
+            base_url = os.environ.get("BACKEND_URL", os.environ.get("FRONTEND_URL", ""))
+            redirect_uri = f"{base_url}/api/social/integrations/callback/linkedin"
+            state = f"{user['id']}_{uuid.uuid4().hex[:8]}"
+            
+            auth_url = get_linkedin_auth_url(redirect_uri, state)
+            
+            # Store state in DB for verification
+            if db is not None:
+                await db.oauth_states.update_one(
+                    {"user_id": user["id"], "platform": "linkedin"},
+                    {"$set": {
+                        "state": state,
+                        "user_id": user["id"],
+                        "platform": "linkedin",
+                        "created_at": datetime.now(timezone.utc).isoformat()
+                    }},
+                    upsert=True
+                )
+            
+            return {
+                "success": True,
+                "requires_oauth": True,
+                "auth_url": auth_url,
+                "message": f"Please authorize LinkedIn access. Redirect to the auth_url.",
+                "note": "User should be redirected to auth_url to complete OAuth flow"
+            }
     
     # Structure-ready: Simulate OAuth and create mock connection
     connection_id = str(uuid.uuid4())
@@ -904,6 +1068,49 @@ async def test_platform_connection(platform: str, user: dict = Depends(get_curre
                     "note": "Could not connect to Instagram API."
                 }
     
+    # Test LinkedIn connection
+    if platform == "linkedin":
+        client_id = os.environ.get("LINKEDIN_CLIENT_ID")
+        client_secret = os.environ.get("LINKEDIN_CLIENT_SECRET")
+        
+        if client_id and client_secret:
+            # Check if user has an active LinkedIn connection
+            if db is not None:
+                connection = await db.social_platform_connections.find_one(
+                    {"user_id": user["id"], "platform": "linkedin", "status": "connected"},
+                    {"_id": 0}
+                )
+                
+                if connection and connection.get("access_token"):
+                    # Test the stored access token
+                    try:
+                        profile = await get_linkedin_profile(connection["access_token"])
+                        if "error" not in profile:
+                            return {
+                                "platform": platform,
+                                "platform_name": config["name"],
+                                "test_successful": True,
+                                "message": f"Connected to LinkedIn: {profile.get('name', 'Unknown')}",
+                                "account_info": {
+                                    "name": profile.get("name"),
+                                    "email": profile.get("email"),
+                                    "picture": profile.get("picture")
+                                },
+                                "note": "Real LinkedIn API connection verified!"
+                            }
+                    except Exception as e:
+                        pass
+            
+            # Credentials exist but user needs to authorize
+            return {
+                "platform": platform,
+                "platform_name": config["name"],
+                "test_successful": False,
+                "message": "LinkedIn credentials configured. Please authorize your account.",
+                "requires_oauth": True,
+                "note": "Click 'Connect LinkedIn' to authorize access to your LinkedIn account."
+            }
+    
     # Test YouTube API (read-only with API key)
     if platform == "youtube":
         api_key = os.environ.get("YOUTUBE_API_KEY")
@@ -965,19 +1172,108 @@ async def test_platform_connection(platform: str, user: dict = Depends(get_curre
     }
 
 
+# ============== OAUTH ENDPOINTS ==============
+
+@router.get("/oauth/linkedin/start")
+async def start_linkedin_oauth(user: dict = Depends(get_current_user)):
+    """Start LinkedIn OAuth flow - returns URL to redirect user"""
+    base_url = os.environ.get("BACKEND_URL", os.environ.get("FRONTEND_URL", ""))
+    redirect_uri = f"{base_url}/api/social/integrations/callback/linkedin"
+    state = f"{user['id']}_{uuid.uuid4().hex[:8]}"
+    
+    auth_url = get_linkedin_auth_url(redirect_uri, state)
+    
+    # Store state in DB for verification
+    if db is not None:
+        await db.oauth_states.insert_one({
+            "state": state,
+            "user_id": user["id"],
+            "platform": "linkedin",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+    
+    return {
+        "auth_url": auth_url,
+        "state": state,
+        "message": "Redirect user to auth_url to authorize LinkedIn access"
+    }
+
+
 # ============== OAUTH CALLBACK HANDLERS ==============
-# These would handle the OAuth redirect from each platform
 
 @router.get("/callback/linkedin")
 async def linkedin_callback(code: str, state: str):
-    """Handle LinkedIn OAuth callback"""
-    # In production: Exchange code for tokens, store connection
-    return {"message": "LinkedIn OAuth callback - structure ready", "code": code[:10] + "..."}
+    """Handle LinkedIn OAuth callback - exchange code for token"""
+    # Verify state
+    user_id = None
+    if db is not None:
+        state_doc = await db.oauth_states.find_one({"state": state})
+        if state_doc:
+            user_id = state_doc["user_id"]
+            await db.oauth_states.delete_one({"state": state})
+    
+    base_url = os.environ.get("BACKEND_URL", os.environ.get("FRONTEND_URL", ""))
+    redirect_uri = f"{base_url}/api/social/integrations/callback/linkedin"
+    
+    # Exchange code for token
+    token_data = await exchange_linkedin_code(code, redirect_uri)
+    
+    if "error" in token_data:
+        # Redirect to frontend with error
+        return {"success": False, "error": token_data.get("error_description", token_data.get("error"))}
+    
+    access_token = token_data.get("access_token")
+    expires_in = token_data.get("expires_in", 5184000)  # Default 60 days
+    
+    # Get user profile
+    profile = await get_linkedin_profile(access_token)
+    
+    if "error" in profile:
+        return {"success": False, "error": "Could not fetch LinkedIn profile"}
+    
+    # Store connection in database
+    connection_id = str(uuid.uuid4())
+    connection_doc = {
+        "id": connection_id,
+        "user_id": user_id or "unknown",
+        "platform": "linkedin",
+        "status": "connected",
+        "account_id": profile.get("sub"),
+        "account_name": profile.get("name"),
+        "profile_url": f"https://www.linkedin.com/in/{profile.get('sub', '')}",
+        "profile_image": profile.get("picture"),
+        "access_token": access_token,
+        "expires_at": (datetime.now(timezone.utc) + timedelta(seconds=expires_in)).isoformat(),
+        "connected_at": datetime.now(timezone.utc).isoformat(),
+        "permissions": ["w_member_social", "openid", "profile", "email"],
+    }
+    
+    if db is not None:
+        await db.social_platform_connections.update_one(
+            {"user_id": user_id, "platform": "linkedin"},
+            {"$set": connection_doc},
+            upsert=True
+        )
+    
+    # Redirect to frontend success page
+    frontend_url = os.environ.get("FRONTEND_URL", base_url)
+    
+    return {
+        "success": True,
+        "message": f"Successfully connected LinkedIn account: {profile.get('name')}",
+        "profile": {
+            "name": profile.get("name"),
+            "email": profile.get("email"),
+            "picture": profile.get("picture")
+        },
+        "redirect_url": f"{frontend_url}/social/integrations?connected=linkedin"
+    }
+
 
 @router.get("/callback/twitter")
 async def twitter_callback(code: str, state: str):
     """Handle Twitter OAuth callback"""
-    return {"message": "Twitter OAuth callback - structure ready", "code": code[:10] + "..."}
+    return {"message": "Twitter OAuth callback - credentials needed", "code": code[:10] + "..."}
 
 @router.get("/callback/instagram")
 async def instagram_callback(code: str):

@@ -94,6 +94,15 @@ export default function PlatformIntegrations() {
     const [testingPlatform, setTestingPlatform] = useState(null);
 
     useEffect(() => {
+        // Check for OAuth callback success
+        const urlParams = new URLSearchParams(window.location.search);
+        const connected = urlParams.get('connected');
+        if (connected) {
+            toast.success(`Successfully connected ${connected}!`);
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+        
         fetchData();
     }, []);
 
@@ -122,6 +131,14 @@ export default function PlatformIntegrations() {
     const handleConnect = async (platform) => {
         try {
             const response = await api.post(`/social/integrations/connect/${platform}`);
+            
+            // Check if OAuth redirect is needed
+            if (response.data.requires_oauth && response.data.auth_url) {
+                // Redirect to OAuth provider
+                window.location.href = response.data.auth_url;
+                return;
+            }
+            
             toast.success(response.data.message);
             fetchData();
         } catch (error) {
