@@ -512,11 +512,18 @@ async def get_linkedin_profile(access_token: str) -> Dict[str, Any]:
 
 
 async def publish_to_linkedin(access_token: str, author_urn: str, content: str, 
-                               media_urls: List[str] = None, link_url: str = None) -> Dict[str, Any]:
+                               media_urls: List[str] = None, link_url: str = None,
+                               post_to_company: bool = False) -> Dict[str, Any]:
     """
     Publish a post to LinkedIn using the API.
     Supports: text posts, link posts, and image posts.
+    Can post to personal profile or company page.
     """
+    # If posting to company page, use organization URN
+    company_id = os.environ.get("LINKEDIN_COMPANY_ID")
+    if post_to_company and company_id:
+        author_urn = f"urn:li:organization:{company_id}"
+    
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
             # Build the post payload
@@ -558,11 +565,12 @@ async def publish_to_linkedin(access_token: str, author_urn: str, content: str,
             if response.status_code in [200, 201]:
                 data = response.json()
                 post_id = data.get("id", "").replace("urn:li:share:", "")
+                company_suffix = " (Company Page)" if post_to_company else " (Personal)"
                 return {
                     "success": True,
                     "platform_post_id": post_id,
                     "platform_url": f"https://www.linkedin.com/feed/update/{data.get('id', '')}",
-                    "message": "Successfully published to LinkedIn"
+                    "message": f"Successfully published to LinkedIn{company_suffix}"
                 }
             else:
                 error_data = response.json() if response.content else {}
