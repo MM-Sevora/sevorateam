@@ -14,6 +14,7 @@ import uuid
 import os
 import logging
 import jwt
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -23,10 +24,36 @@ router = APIRouter(prefix="/pulse", tags=["Sevora Pulse"])
 db = None
 security = HTTPBearer(auto_error=False)
 
+# Import notification helpers (will be set after init)
+notify_pulse_mention = None
+notify_pulse_reaction = None
+notify_pulse_comment = None
+notify_pulse_recognition = None
+notify_pulse_announcement = None
+
 def init_router(database):
-    """Initialize router with database"""
-    global db
+    """Initialize router with database and notification helpers"""
+    global db, notify_pulse_mention, notify_pulse_reaction, notify_pulse_comment
+    global notify_pulse_recognition, notify_pulse_announcement
     db = database
+    
+    # Import notification helpers
+    try:
+        from routes.notifications import (
+            notify_pulse_mention as npm,
+            notify_pulse_reaction as npr,
+            notify_pulse_comment as npc,
+            notify_pulse_recognition as nprc,
+            notify_pulse_announcement as npa
+        )
+        notify_pulse_mention = npm
+        notify_pulse_reaction = npr
+        notify_pulse_comment = npc
+        notify_pulse_recognition = nprc
+        notify_pulse_announcement = npa
+        logger.info("Pulse notification helpers initialized")
+    except ImportError as e:
+        logger.warning(f"Could not import notification helpers: {e}")
 
 
 # ============== MODELS ==============
@@ -180,6 +207,52 @@ def can_view_leadership_dashboard(user: dict) -> bool:
     return has_pulse_permission(user, "view_leadership_dashboard")
 
 
+async def extract_mentions(content: str) -> List[dict]:
+    """Extract @mentions from content and resolve to user IDs"""
+    if not content or db is None:
+        return []
+    
+    # Find all @mentions (handles names with spaces like "@John Doe")
+    mention_pattern = r'@([A-Za-z]+(?:\s+[A-Za-z]+)?)'
+    matches = re.findall(mention_pattern, content)
+    
+    if not matches:
+        return []
+    
+    mentions = []
+    for name in matches:
+        # Try to find user by name (case-insensitive)
+        user = await db.users.find_one(
+            {"name": {"$regex": f"^{re.escape(name)}$", "$options": "i"}},
+            {"_id": 0, "id": 1, "name": 1}
+        )
+        if user:
+            mentions.append({
+                "user_id": user["id"],
+                "name": user["name"],
+                "mention_text": f"@{name}"
+            })
+    
+    return mentions
+
+
+async def send_mention_notifications(mentions: List[dict], author_name: str, post_title: str, post_id: str):
+    """Send notifications to all mentioned users"""
+    if not mentions or notify_pulse_mention is None:
+        return
+    
+    for mention in mentions:
+        try:
+            await notify_pulse_mention(
+                mentioned_user_id=mention["user_id"],
+                author_name=author_name,
+                post_title=post_title,
+                post_id=post_id
+            )
+        except Exception as e:
+            logger.error(f"Failed to send mention notification: {e}")
+
+
 async def enrich_post(post: dict) -> dict:
     """Add author info, reaction counts, comment counts to post"""
     if db is None:
@@ -235,6 +308,9 @@ async def create_post(post: PostCreate, user: dict = Depends(get_current_user)):
     
     post_id = str(uuid.uuid4())
     
+    # Extract @mentions from content
+    mentions = await extract_mentions(post.content)
+    
     post_doc = {
         "id": post_id,
         "title": post.title,
@@ -252,6 +328,7 @@ async def create_post(post: PostCreate, user: dict = Depends(get_current_user)):
         "author_id": user["id"],
         "author_name": user.get("name", "Unknown"),
         "author_department": user.get("department"),
+        "mentions": mentions,  # Store extracted mentions
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "is_pinned": False,
@@ -269,6 +346,45 @@ async def create_post(post: PostCreate, user: dict = Depends(get_current_user)):
             "post_id": post_id,
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
+        
+        # Send mention notifications (async, don't block)
+        if mentions:
+            await send_mention_notifications(
+                mentions=mentions,
+                author_name=user.get("name", "Someone"),
+                post_title=post.title,
+                post_id=post_id
+            )
+        
+        # Send announcement notifications if it's an announcement
+        if post.post_type == "announcement" and notify_pulse_announcement:
+            try:
+                # Get all users to notify (based on visibility)
+                if post.visibility == "public":
+                    users = await db.users.find(
+                        {"status": {"$ne": "inactive"}},
+                        {"_id": 0, "id": 1}
+                    ).to_list(1000)
+                    user_ids = [u["id"] for u in users if u["id"] != user["id"]]
+                elif post.visibility == "department":
+                    users = await db.users.find(
+                        {"department": post.department or user.get("department"), "status": {"$ne": "inactive"}},
+                        {"_id": 0, "id": 1}
+                    ).to_list(500)
+                    user_ids = [u["id"] for u in users if u["id"] != user["id"]]
+                else:
+                    user_ids = []
+                
+                if user_ids:
+                    await notify_pulse_announcement(
+                        user_ids=user_ids,
+                        author_name=user.get("name", "Someone"),
+                        announcement_title=post.title,
+                        post_id=post_id,
+                        department=post.department
+                    )
+            except Exception as e:
+                logger.error(f"Failed to send announcement notifications: {e}")
     
     # Remove _id if added by MongoDB
     if "_id" in post_doc:
@@ -475,6 +591,10 @@ async def create_comment(post_id: str, comment: CommentCreate, user: dict = Depe
         raise HTTPException(status_code=403, detail="You don't have permission to comment on this post")
     
     comment_id = str(uuid.uuid4())
+    
+    # Extract mentions from comment
+    mentions = await extract_mentions(comment.content)
+    
     comment_doc = {
         "id": comment_id,
         "post_id": post_id,
@@ -483,24 +603,35 @@ async def create_comment(post_id: str, comment: CommentCreate, user: dict = Depe
         "author_id": user["id"],
         "author_name": user.get("name", "Unknown"),
         "author_avatar": user.get("avatar"),
+        "mentions": mentions,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "is_edited": False,
     }
     
     await db.pulse_comments.insert_one(comment_doc)
     
-    # Create notification for post author
+    # Send notification to post author (if not self-commenting)
     if post["author_id"] != user["id"]:
-        await db.notifications.insert_one({
-            "id": str(uuid.uuid4()),
-            "user_id": post["author_id"],
-            "type": "pulse_comment",
-            "title": "New comment on your post",
-            "message": f"{user.get('name', 'Someone')} commented on your post: \"{post['title'][:50]}...\"",
-            "link": f"/pulse/post/{post_id}",
-            "read": False,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        })
+        if notify_pulse_comment:
+            try:
+                await notify_pulse_comment(
+                    post_author_id=post["author_id"],
+                    commenter_name=user.get("name", "Someone"),
+                    comment_preview=comment.content,
+                    post_title=post["title"],
+                    post_id=post_id
+                )
+            except Exception as e:
+                logger.error(f"Failed to send comment notification: {e}")
+    
+    # Send mention notifications
+    if mentions:
+        await send_mention_notifications(
+            mentions=mentions,
+            author_name=user.get("name", "Someone"),
+            post_title=f"comment on: {post['title']}",
+            post_id=post_id
+        )
     
     return {
         "success": True,
@@ -595,19 +726,19 @@ async def add_reaction(post_id: str, reaction: ReactionCreate, user: dict = Depe
         }
         await db.pulse_reactions.insert_one(reaction_doc)
         
-        # Create notification for post author
+        # Send notification to post author (if not self-reacting)
         if post["author_id"] != user["id"]:
-            emoji = REACTION_TYPES[reaction.reaction_type]["emoji"]
-            await db.notifications.insert_one({
-                "id": str(uuid.uuid4()),
-                "user_id": post["author_id"],
-                "type": "pulse_reaction",
-                "title": f"{emoji} New reaction",
-                "message": f"{user.get('name', 'Someone')} reacted to your post",
-                "link": f"/pulse/post/{post_id}",
-                "read": False,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-            })
+            if notify_pulse_reaction:
+                try:
+                    await notify_pulse_reaction(
+                        post_author_id=post["author_id"],
+                        reactor_name=user.get("name", "Someone"),
+                        reaction_type=reaction.reaction_type,
+                        post_title=post["title"],
+                        post_id=post_id
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to send reaction notification: {e}")
         
         return {"success": True, "action": "added", "reaction_type": reaction.reaction_type}
 
@@ -890,17 +1021,18 @@ async def give_recognition(recognition: RecognitionCreate, user: dict = Depends(
         }
         await db.pulse_posts.insert_one(post_doc)
     
-    # Create notification for recipient
-    await db.notifications.insert_one({
-        "id": str(uuid.uuid4()),
-        "user_id": recognition.recipient_id,
-        "type": "pulse_recognition",
-        "title": f"{badge_info['emoji']} You received a badge!",
-        "message": f"{user.get('name')} gave you the {badge_info['label']} badge: \"{recognition.reason[:100]}...\"",
-        "link": "/pulse/recognition",
-        "read": False,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    })
+    # Send notification to recipient using proper helper
+    if notify_pulse_recognition:
+        try:
+            await notify_pulse_recognition(
+                recipient_id=recognition.recipient_id,
+                giver_name=user.get("name", "Someone"),
+                badge_type=recognition.badge_type,
+                reason=recognition.reason,
+                recognition_id=recognition_id
+            )
+        except Exception as e:
+            logger.error(f"Failed to send recognition notification: {e}")
     
     # Remove _id if present
     if "_id" in recognition_doc:
@@ -1610,3 +1742,152 @@ async def get_user_permissions(user: dict = Depends(get_current_user)):
         "can_delete_any_post": can_delete_any_post(user),
         "can_view_leadership_dashboard": can_view_leadership_dashboard(user),
     }
+
+
+
+# ============== ANALYTICS & REPORTING ==============
+
+@router.get("/analytics/engagement")
+async def get_engagement_analytics(
+    period: str = "week",  # day, week, month
+    user: dict = Depends(get_current_user)
+):
+    """Get engagement analytics for Pulse"""
+    if not can_view_leadership_dashboard(user):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    if db is None:
+        return {"analytics": {}}
+    
+    # Calculate date range
+    now = datetime.now(timezone.utc)
+    if period == "day":
+        start_date = (now - timedelta(days=1)).isoformat()
+    elif period == "week":
+        start_date = (now - timedelta(days=7)).isoformat()
+    else:  # month
+        start_date = (now - timedelta(days=30)).isoformat()
+    
+    # Posts by type
+    posts_by_type = await db.pulse_posts.aggregate([
+        {"$match": {"created_at": {"$gte": start_date}}},
+        {"$group": {"_id": "$post_type", "count": {"$sum": 1}}}
+    ]).to_list(20)
+    
+    # Reactions count
+    reactions_count = await db.pulse_reactions.count_documents({"created_at": {"$gte": start_date}})
+    
+    # Comments count
+    comments_count = await db.pulse_comments.count_documents({"created_at": {"$gte": start_date}})
+    
+    # Recognitions count
+    recognitions_count = await db.pulse_recognitions.count_documents({"created_at": {"$gte": start_date}})
+    
+    # Most engaging posts (by reactions + comments)
+    top_posts = await db.pulse_posts.aggregate([
+        {"$match": {"created_at": {"$gte": start_date}}},
+        {"$lookup": {
+            "from": "pulse_reactions",
+            "localField": "id",
+            "foreignField": "post_id",
+            "as": "reactions_list"
+        }},
+        {"$lookup": {
+            "from": "pulse_comments",
+            "localField": "id",
+            "foreignField": "post_id",
+            "as": "comments_list"
+        }},
+        {"$addFields": {
+            "engagement": {"$add": [{"$size": "$reactions_list"}, {"$size": "$comments_list"}]}
+        }},
+        {"$sort": {"engagement": -1}},
+        {"$limit": 5},
+        {"$project": {
+            "_id": 0,
+            "id": 1,
+            "title": 1,
+            "author_name": 1,
+            "post_type": 1,
+            "engagement": 1,
+            "created_at": 1
+        }}
+    ]).to_list(5)
+    
+    # Activity by day
+    daily_activity = await db.pulse_posts.aggregate([
+        {"$match": {"created_at": {"$gte": start_date}}},
+        {"$addFields": {
+            "date": {"$substr": ["$created_at", 0, 10]}
+        }},
+        {"$group": {"_id": "$date", "posts": {"$sum": 1}}},
+        {"$sort": {"_id": 1}}
+    ]).to_list(31)
+    
+    return {
+        "period": period,
+        "analytics": {
+            "posts_by_type": {p["_id"]: p["count"] for p in posts_by_type},
+            "total_posts": sum(p["count"] for p in posts_by_type),
+            "total_reactions": reactions_count,
+            "total_comments": comments_count,
+            "total_recognitions": recognitions_count,
+            "top_engaging_posts": top_posts,
+            "daily_activity": [{"date": d["_id"], "posts": d["posts"]} for d in daily_activity]
+        }
+    }
+
+
+@router.get("/analytics/export")
+async def export_pulse_data(
+    export_type: str = "posts",  # posts, recognitions, updates
+    format: str = "json",  # json, csv
+    limit: int = 1000,
+    user: dict = Depends(get_current_user)
+):
+    """Export Pulse data for reporting"""
+    if not can_view_leadership_dashboard(user):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    if db is None:
+        return {"data": []}
+    
+    if export_type == "posts":
+        data = await db.pulse_posts.find(
+            {},
+            {"_id": 0, "id": 1, "title": 1, "content": 1, "post_type": 1, "author_name": 1, 
+             "department": 1, "created_at": 1, "visibility": 1}
+        ).sort("created_at", -1).limit(limit).to_list(limit)
+    elif export_type == "recognitions":
+        data = await db.pulse_recognitions.find(
+            {},
+            {"_id": 0, "id": 1, "giver_name": 1, "recipient_name": 1, "badge_type": 1, 
+             "reason": 1, "created_at": 1}
+        ).sort("created_at", -1).limit(limit).to_list(limit)
+    elif export_type == "updates":
+        daily = await db.pulse_daily_updates.find(
+            {},
+            {"_id": 0, "id": 1, "user_name": 1, "department": 1, "date": 1, 
+             "completed_tasks": 1, "blockers": 1}
+        ).sort("created_at", -1).limit(limit // 2).to_list(limit // 2)
+        weekly = await db.pulse_weekly_updates.find(
+            {},
+            {"_id": 0, "id": 1, "user_name": 1, "department": 1, "week_start": 1, 
+             "achievements": 1}
+        ).sort("created_at", -1).limit(limit // 2).to_list(limit // 2)
+        data = {"daily_updates": daily, "weekly_updates": weekly}
+    else:
+        data = []
+    
+    if format == "csv" and export_type != "updates":
+        # Convert to CSV string
+        import csv
+        import io
+        output = io.StringIO()
+        if data:
+            writer = csv.DictWriter(output, fieldnames=data[0].keys())
+            writer.writeheader()
+            writer.writerows(data)
+        return {"csv": output.getvalue(), "filename": f"pulse_{export_type}_{datetime.now().strftime('%Y%m%d')}.csv"}
+    
+    return {"data": data, "count": len(data) if isinstance(data, list) else None}
