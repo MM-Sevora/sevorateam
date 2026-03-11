@@ -461,7 +461,9 @@ async def publish_to_platform_real(platform: str, content: str, media_urls: List
 def get_linkedin_auth_url(redirect_uri: str, state: str) -> str:
     """Generate LinkedIn OAuth authorization URL"""
     client_id = os.environ.get("LINKEDIN_CLIENT_ID")
-    scopes = "openid profile email w_member_social"
+    # Use minimal scopes - w_member_social requires "Share on LinkedIn" product approval
+    # openid profile email requires "Sign In with LinkedIn using OpenID Connect"
+    scopes = "openid profile w_member_social"
     
     return (
         f"https://www.linkedin.com/oauth/v2/authorization?"
