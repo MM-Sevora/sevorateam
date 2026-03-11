@@ -163,10 +163,12 @@ import PaymentRequests from "./pages/finance/PaymentRequests";
 // Vendor Management
 import VendorDashboard from "./pages/vendors/VendorDashboard";
 import VendorDatabase from "./pages/vendors/VendorDatabase";
+import VendorDetails from "./pages/vendors/VendorDetails";
 import WorkRequests from "./pages/vendors/WorkRequests";
 import WorkOrders from "./pages/vendors/WorkOrders";
 import RecurringWork from "./pages/vendors/RecurringWork";
 import Approvals from "./pages/vendors/Approvals";
+import CreatorPayments from "./pages/vendors/CreatorPayments";
 
 import "./App.css";
 
@@ -481,10 +483,12 @@ function AppRoutes() {
             {/* Vendor Management Routes */}
             <Route path="/vendors" element={<ProtectedRoute requiredModule="finance"><VendorDashboard /></ProtectedRoute>} />
             <Route path="/vendors/database" element={<ProtectedRoute requiredModule="finance"><VendorDatabase /></ProtectedRoute>} />
+            <Route path="/vendors/details/:vendorId" element={<ProtectedRoute requiredModule="finance"><VendorDetails /></ProtectedRoute>} />
             <Route path="/vendors/requests" element={<ProtectedRoute requiredModule="finance"><WorkRequests /></ProtectedRoute>} />
             <Route path="/vendors/work-orders" element={<ProtectedRoute requiredModule="finance"><WorkOrders /></ProtectedRoute>} />
             <Route path="/vendors/recurring" element={<ProtectedRoute requiredModule="finance"><RecurringWork /></ProtectedRoute>} />
             <Route path="/vendors/approvals" element={<ProtectedRoute requiredModule="finance"><Approvals /></ProtectedRoute>} />
+            <Route path="/vendors/creator-payments" element={<ProtectedRoute requiredModule="finance"><CreatorPayments /></ProtectedRoute>} />
 
             {/* Settings Routes */}
             <Route path="/settings/automations" element={<ProtectedRoute requiredModule="automations"><AutomationSettings /></ProtectedRoute>} />

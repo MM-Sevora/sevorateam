@@ -90,11 +90,44 @@ class RecurringFrequency(str, Enum):
     yearly = "yearly"
 
 
+class VendorType(str, Enum):
+    vendor = "vendor"
+    freelancer = "freelancer"
+    influencer = "influencer"
+
+
+class CreatorPlatform(str, Enum):
+    instagram = "instagram"
+    youtube = "youtube"
+    twitter = "twitter"
+    linkedin = "linkedin"
+    facebook = "facebook"
+    tiktok = "tiktok"
+    other = "other"
+
+
+class CreatorPaymentType(str, Enum):
+    per_deliverable = "per_deliverable"
+    per_campaign = "per_campaign"
+    per_project = "per_project"
+    monthly_retainer = "monthly_retainer"
+
+
+class CreatorPaymentStatus(str, Enum):
+    pending_deliverable = "pending_deliverable"
+    ready_for_payment = "ready_for_payment"
+    payment_requested = "payment_requested"
+    payment_approved = "payment_approved"
+    paid = "paid"
+    cancelled = "cancelled"
+
+
 # ============== MODELS ==============
 
 class VendorCreate(BaseModel):
     name: str
     category: str
+    vendor_type: Optional[str] = "vendor"  # vendor, freelancer, influencer
     services: Optional[List[str]] = []
     contact_person: Optional[str] = None
     phone: Optional[str] = None
@@ -102,11 +135,18 @@ class VendorCreate(BaseModel):
     address: Optional[str] = None
     gst_tax_id: Optional[str] = None
     notes: Optional[str] = None
+    # Creator-specific fields
+    platform: Optional[str] = None  # instagram, youtube, etc.
+    handle: Optional[str] = None  # @username or profile link
+    creator_category: Optional[str] = None  # fashion, lifestyle, tech, etc.
+    followers: Optional[int] = None
+    rate_card: Optional[str] = None
 
 
 class VendorUpdate(BaseModel):
     name: Optional[str] = None
     category: Optional[str] = None
+    vendor_type: Optional[str] = None
     services: Optional[List[str]] = None
     contact_person: Optional[str] = None
     phone: Optional[str] = None
@@ -115,6 +155,12 @@ class VendorUpdate(BaseModel):
     gst_tax_id: Optional[str] = None
     notes: Optional[str] = None
     status: Optional[VendorStatus] = None
+    # Creator-specific fields
+    platform: Optional[str] = None
+    handle: Optional[str] = None
+    creator_category: Optional[str] = None
+    followers: Optional[int] = None
+    rate_card: Optional[str] = None
 
 
 class WorkRequestCreate(BaseModel):
@@ -201,6 +247,32 @@ class POInvoiceCreate(BaseModel):
     notes: Optional[str] = None
 
 
+class CreatorPaymentCreate(BaseModel):
+    creator_id: str  # vendor_id of the freelancer/influencer
+    campaign_project: str  # Campaign or project name/reference
+    department: str
+    deliverable_type: str  # e.g., "Instagram Reel", "YouTube Video", "Blog Post"
+    agreed_fee: float
+    payment_type: CreatorPaymentType = CreatorPaymentType.per_deliverable
+    expected_payment_date: Optional[str] = None
+    notes: Optional[str] = None
+    contract_url: Optional[str] = None
+    content_link: Optional[str] = None
+
+
+class CreatorPaymentUpdate(BaseModel):
+    campaign_project: Optional[str] = None
+    deliverable_type: Optional[str] = None
+    agreed_fee: Optional[float] = None
+    payment_type: Optional[CreatorPaymentType] = None
+    expected_payment_date: Optional[str] = None
+    notes: Optional[str] = None
+    status: Optional[CreatorPaymentStatus] = None
+    contract_url: Optional[str] = None
+    content_link: Optional[str] = None
+    invoice_url: Optional[str] = None
+
+
 # ============== VENDOR CATEGORIES (Configurable) ==============
 
 @router.get("/categories")
@@ -282,6 +354,7 @@ async def create_vendor(
         "vendor_id": vendor_id,
         "name": vendor.name,
         "category": vendor.category,
+        "vendor_type": vendor.vendor_type or "vendor",
         "services": vendor.services or [],
         "contact_person": vendor.contact_person,
         "phone": vendor.phone,
@@ -289,10 +362,17 @@ async def create_vendor(
         "address": vendor.address,
         "gst_tax_id": vendor.gst_tax_id,
         "notes": vendor.notes,
+        # Creator-specific fields
+        "platform": vendor.platform,
+        "handle": vendor.handle,
+        "creator_category": vendor.creator_category,
+        "followers": vendor.followers,
+        "rate_card": vendor.rate_card,
         "status": VendorStatus.active.value,
         "rating": None,
         "total_ratings": 0,
         "total_work_orders": 0,
+        "total_payments": 0,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "created_by": user.get("id"),
         "created_by_name": user.get("name"),
@@ -316,6 +396,7 @@ async def create_vendor(
 async def list_vendors(
     category: Optional[str] = None,
     status: Optional[str] = None,
+    vendor_type: Optional[str] = None,
     search: Optional[str] = None,
     skip: int = 0,
     limit: int = 50,
@@ -328,11 +409,14 @@ async def list_vendors(
         query["category"] = category
     if status:
         query["status"] = status
+    if vendor_type:
+        query["vendor_type"] = vendor_type
     if search:
         query["$or"] = [
             {"name": {"$regex": search, "$options": "i"}},
             {"services": {"$regex": search, "$options": "i"}},
-            {"vendor_id": {"$regex": search, "$options": "i"}}
+            {"vendor_id": {"$regex": search, "$options": "i"}},
+            {"handle": {"$regex": search, "$options": "i"}}
         ]
     
     vendors = await db.vendors.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
@@ -612,20 +696,393 @@ async def get_dashboard_stats_v2(user: dict = Depends(get_current_user_dep)):
     }
 
 
+# ============== CREATOR/FREELANCER PAYMENTS ==============
+
+@router.get("/creator-payments")
+async def list_creator_payments(
+    creator_id: Optional[str] = None,
+    status: Optional[str] = None,
+    department: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50,
+    user: dict = Depends(get_current_user_dep)
+):
+    """List creator/freelancer payment records"""
+    query = {"is_active": True}
+    if creator_id:
+        query["creator_id"] = creator_id
+    if status:
+        query["status"] = status
+    if department:
+        query["department"] = department
+    
+    payments = await db.creator_payments.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    total = await db.creator_payments.count_documents(query)
+    
+    # Get summary stats
+    pending_count = await db.creator_payments.count_documents({"is_active": True, "status": "pending_deliverable"})
+    ready_count = await db.creator_payments.count_documents({"is_active": True, "status": "ready_for_payment"})
+    paid_count = await db.creator_payments.count_documents({"is_active": True, "status": "paid"})
+    
+    # Calculate totals
+    pipeline = [
+        {"$match": {"is_active": True}},
+        {"$group": {
+            "_id": "$status",
+            "total": {"$sum": "$agreed_fee"},
+            "count": {"$sum": 1}
+        }}
+    ]
+    by_status = await db.creator_payments.aggregate(pipeline).to_list(10)
+    
+    return {
+        "payments": payments,
+        "total": total,
+        "summary": {
+            "pending_deliverable": pending_count,
+            "ready_for_payment": ready_count,
+            "paid": paid_count,
+            "by_status": {s["_id"]: {"count": s["count"], "total": s["total"]} for s in by_status}
+        }
+    }
+
+
+@router.post("/creator-payments")
+async def create_creator_payment(
+    payment: CreatorPaymentCreate,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Create a creator/freelancer payment record"""
+    # Verify creator exists and is freelancer/influencer
+    creator = await db.vendors.find_one({"id": payment.creator_id, "is_active": True})
+    if not creator:
+        raise HTTPException(status_code=404, detail="Creator not found")
+    if creator.get("vendor_type") not in ["freelancer", "influencer"]:
+        raise HTTPException(status_code=400, detail="Vendor is not a freelancer or influencer")
+    
+    # Generate payment ID
+    count = await db.creator_payments.count_documents({})
+    payment_id = f"CP-{str(count + 1).zfill(5)}"
+    
+    payment_doc = {
+        "id": str(uuid.uuid4()),
+        "payment_id": payment_id,
+        "creator_id": payment.creator_id,
+        "creator_name": creator.get("name"),
+        "creator_type": creator.get("vendor_type"),
+        "campaign_project": payment.campaign_project,
+        "department": payment.department,
+        "deliverable_type": payment.deliverable_type,
+        "agreed_fee": payment.agreed_fee,
+        "currency": "INR",
+        "payment_type": payment.payment_type.value,
+        "expected_payment_date": payment.expected_payment_date,
+        "notes": payment.notes,
+        "contract_url": payment.contract_url,
+        "content_link": payment.content_link,
+        "status": CreatorPaymentStatus.pending_deliverable.value,
+        "assigned_owner_id": user.get("id"),
+        "assigned_owner_name": user.get("name"),
+        "payment_request_id": None,
+        "payment_date": None,
+        "transaction_reference": None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_by": user.get("id"),
+        "created_by_name": user.get("name"),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "is_active": True
+    }
+    
+    await db.creator_payments.insert_one(payment_doc)
+    
+    # Update creator total payments count
+    await db.vendors.update_one(
+        {"id": payment.creator_id},
+        {"$inc": {"total_payments": 1}}
+    )
+    
+    # Log audit
+    await log_vendor_audit(
+        db, "creator_payment_created", "creator_payment", payment_doc["id"],
+        f"{creator.get('name')} - {payment.campaign_project}",
+        user.get("id"), user.get("name")
+    )
+    
+    del payment_doc["_id"]
+    return payment_doc
+
+
+@router.get("/creator-payments/dashboard/stats")
+async def get_creator_payments_dashboard(user: dict = Depends(get_current_user_dep)):
+    """Get creator payments dashboard statistics"""
+    # Count by status
+    pending = await db.creator_payments.count_documents({"is_active": True, "status": "pending_deliverable"})
+    ready = await db.creator_payments.count_documents({"is_active": True, "status": "ready_for_payment"})
+    requested = await db.creator_payments.count_documents({"is_active": True, "status": "payment_requested"})
+    paid = await db.creator_payments.count_documents({"is_active": True, "status": "paid"})
+    
+    # Total amounts
+    pipeline = [
+        {"$match": {"is_active": True}},
+        {"$group": {
+            "_id": "$status",
+            "total": {"$sum": "$agreed_fee"}
+        }}
+    ]
+    amounts = await db.creator_payments.aggregate(pipeline).to_list(10)
+    amounts_by_status = {a["_id"]: a["total"] for a in amounts}
+    
+    # By campaign/project
+    by_campaign = await db.creator_payments.aggregate([
+        {"$match": {"is_active": True}},
+        {"$group": {
+            "_id": "$campaign_project",
+            "count": {"$sum": 1},
+            "total": {"$sum": "$agreed_fee"}
+        }},
+        {"$sort": {"total": -1}},
+        {"$limit": 10}
+    ]).to_list(10)
+    
+    # By creator
+    by_creator = await db.creator_payments.aggregate([
+        {"$match": {"is_active": True}},
+        {"$group": {
+            "_id": {"id": "$creator_id", "name": "$creator_name"},
+            "count": {"$sum": 1},
+            "total": {"$sum": "$agreed_fee"}
+        }},
+        {"$sort": {"total": -1}},
+        {"$limit": 10}
+    ]).to_list(10)
+    
+    # Recent payments
+    recent = await db.creator_payments.find(
+        {"is_active": True},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(5).to_list(5)
+    
+    return {
+        "counts": {
+            "pending_deliverable": pending,
+            "ready_for_payment": ready,
+            "payment_requested": requested,
+            "paid": paid,
+            "total": pending + ready + requested + paid
+        },
+        "amounts": {
+            "pending": amounts_by_status.get("pending_deliverable", 0) + amounts_by_status.get("ready_for_payment", 0),
+            "requested": amounts_by_status.get("payment_requested", 0),
+            "paid": amounts_by_status.get("paid", 0),
+            "total": sum(amounts_by_status.values())
+        },
+        "by_campaign": [{"campaign": c["_id"], "count": c["count"], "total": c["total"]} for c in by_campaign],
+        "by_creator": [{"creator_id": c["_id"]["id"], "creator_name": c["_id"]["name"], "count": c["count"], "total": c["total"]} for c in by_creator],
+        "recent": recent
+    }
+
+
+@router.get("/creator-payments/{payment_id}")
+async def get_creator_payment(payment_id: str, user: dict = Depends(get_current_user_dep)):
+    """Get creator payment details"""
+    payment = await db.creator_payments.find_one({"id": payment_id}, {"_id": 0})
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment record not found")
+    
+    # Get creator details
+    creator = await db.vendors.find_one(
+        {"id": payment.get("creator_id")},
+        {"_id": 0, "name": 1, "vendor_type": 1, "platform": 1, "handle": 1, "email": 1, "phone": 1}
+    )
+    payment["creator_details"] = creator
+    
+    return payment
+
+
+@router.put("/creator-payments/{payment_id}")
+async def update_creator_payment(
+    payment_id: str,
+    update: CreatorPaymentUpdate,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Update creator payment record"""
+    payment = await db.creator_payments.find_one({"id": payment_id})
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment record not found")
+    
+    update_data = {k: v for k, v in update.dict().items() if v is not None}
+    if "status" in update_data:
+        update_data["status"] = update_data["status"].value if hasattr(update_data["status"], "value") else update_data["status"]
+    if "payment_type" in update_data:
+        update_data["payment_type"] = update_data["payment_type"].value if hasattr(update_data["payment_type"], "value") else update_data["payment_type"]
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.creator_payments.update_one({"id": payment_id}, {"$set": update_data})
+    
+    await log_vendor_audit(
+        db, "creator_payment_updated", "creator_payment", payment_id,
+        payment.get("payment_id"), user.get("id"), user.get("name"),
+        {"updated_fields": list(update_data.keys())}
+    )
+    
+    return {"message": "Payment record updated", "id": payment_id}
+
+
+@router.post("/creator-payments/{payment_id}/mark-ready")
+async def mark_creator_payment_ready(
+    payment_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Mark creator payment as ready for payment (deliverable completed)"""
+    payment = await db.creator_payments.find_one({"id": payment_id})
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment record not found")
+    
+    if payment.get("status") != "pending_deliverable":
+        raise HTTPException(status_code=400, detail="Payment is not in pending deliverable status")
+    
+    await db.creator_payments.update_one(
+        {"id": payment_id},
+        {"$set": {
+            "status": CreatorPaymentStatus.ready_for_payment.value,
+            "deliverable_completed_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    await log_vendor_audit(
+        db, "creator_payment_ready", "creator_payment", payment_id,
+        payment.get("payment_id"), user.get("id"), user.get("name")
+    )
+    
+    return {"message": "Payment marked as ready", "id": payment_id}
+
+
+@router.post("/creator-payments/{payment_id}/create-payment-request")
+async def create_creator_payment_request(
+    payment_id: str,
+    invoice_url: Optional[str] = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Create a payment request for the creator payment"""
+    payment = await db.creator_payments.find_one({"id": payment_id})
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment record not found")
+    
+    if payment.get("status") not in ["ready_for_payment", "pending_deliverable"]:
+        raise HTTPException(status_code=400, detail="Payment is not ready for payment request")
+    
+    # Create payment request in finance module
+    count = await db.finance_payment_requests.count_documents({})
+    request_id = f"PR-{str(count + 1).zfill(5)}"
+    
+    payment_request = {
+        "id": str(uuid.uuid4()),
+        "request_id": request_id,
+        "vendor_id": payment.get("creator_id"),
+        "vendor_name": payment.get("creator_name"),
+        "amount": payment.get("agreed_fee"),
+        "currency": "INR",
+        "category": "Creator Payment",
+        "description": f"{payment.get('deliverable_type')} - {payment.get('campaign_project')}",
+        "status": "pending",
+        "department": payment.get("department"),
+        "linked_entity_type": "creator_payment",
+        "linked_entity_id": payment_id,
+        "invoice_number": payment.get("payment_id"),
+        "invoice_url": invoice_url or payment.get("invoice_url"),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_by": user.get("id"),
+        "created_by_name": user.get("name"),
+        "is_active": True
+    }
+    
+    await db.finance_payment_requests.insert_one(payment_request)
+    
+    # Update creator payment status
+    await db.creator_payments.update_one(
+        {"id": payment_id},
+        {"$set": {
+            "status": CreatorPaymentStatus.payment_requested.value,
+            "payment_request_id": payment_request["id"],
+            "invoice_url": invoice_url or payment.get("invoice_url"),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    await log_vendor_audit(
+        db, "creator_payment_request_created", "creator_payment", payment_id,
+        payment.get("payment_id"), user.get("id"), user.get("name")
+    )
+    
+    del payment_request["_id"]
+    return {
+        "message": "Payment request created",
+        "payment_request": payment_request,
+        "creator_payment_id": payment_id
+    }
+
+
 @router.get("/{vendor_id}")
 async def get_vendor(vendor_id: str, user: dict = Depends(get_current_user_dep)):
-    """Get vendor details"""
+    """Get vendor details with complete work history"""
     vendor = await db.vendors.find_one({"id": vendor_id}, {"_id": 0})
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
     
-    # Get recent work orders
+    # Get ALL work orders for this vendor
     work_orders = await db.vendor_work_orders.find(
         {"vendor_id": vendor_id, "is_active": True},
-        {"_id": 0, "id": 1, "work_order_id": 1, "work_description": 1, "status": 1, "created_at": 1}
-    ).sort("created_at", -1).limit(5).to_list(5)
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
     
-    vendor["recent_work_orders"] = work_orders
+    # Get proposals submitted by this vendor
+    proposals = await db.vendor_proposals.find(
+        {"vendor_id": vendor_id, "is_active": True},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+    
+    # Get recurring work for this vendor
+    recurring = await db.vendor_recurring.find(
+        {"vendor_id": vendor_id, "is_active": True},
+        {"_id": 0}
+    ).to_list(20)
+    
+    # Get creator payments (if freelancer/influencer)
+    creator_payments = []
+    if vendor.get("vendor_type") in ["freelancer", "influencer"]:
+        creator_payments = await db.creator_payments.find(
+            {"creator_id": vendor_id, "is_active": True},
+            {"_id": 0}
+        ).sort("created_at", -1).to_list(50)
+    
+    # Calculate statistics
+    total_work_orders = len(work_orders)
+    completed_orders = len([wo for wo in work_orders if wo.get("status") == "completed"])
+    in_progress_orders = len([wo for wo in work_orders if wo.get("status") == "in_progress"])
+    
+    # Calculate total payments
+    total_payments = 0
+    for wo in work_orders:
+        payments = wo.get("payment_requests", [])
+        for p in payments:
+            if p.get("status") == "completed":
+                total_payments += p.get("amount", 0)
+    
+    vendor["work_orders"] = work_orders
+    vendor["proposals"] = proposals
+    vendor["recurring_work"] = recurring
+    vendor["creator_payments"] = creator_payments
+    vendor["statistics"] = {
+        "total_work_orders": total_work_orders,
+        "completed_orders": completed_orders,
+        "in_progress_orders": in_progress_orders,
+        "total_payments": total_payments,
+        "total_proposals": len(proposals),
+        "selected_proposals": len([p for p in proposals if p.get("status") == "selected"]),
+        "recurring_schedules": len(recurring)
+    }
+    
     return vendor
 
 

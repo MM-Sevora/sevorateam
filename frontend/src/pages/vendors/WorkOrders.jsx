@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -9,11 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Textarea } from '../../components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { toast } from 'sonner';
-import { Link } from 'react-router-dom';
 import {
   FileText, Plus, Clock, CheckCircle, Building2, Calendar, User, Eye, 
   DollarSign, Loader2, Play, Package, Receipt, CreditCard, FileCheck,
-  ArrowUpCircle, CircleDollarSign, Milestone, CheckCircle2
+  ArrowUpCircle, CircleDollarSign, Milestone, CheckCircle2, ArrowLeft
 } from 'lucide-react';
 
 const DEPARTMENTS = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance', 'Operations', 'Admin', 'Production'];
@@ -26,6 +26,7 @@ const PAYMENT_TYPES = [
 ];
 
 const WorkOrders = () => {
+  const navigate = useNavigate();
   const { api, user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [vendors, setVendors] = useState([]);
@@ -75,7 +76,8 @@ const WorkOrders = () => {
       ]);
       setOrders(ordersRes.data.work_orders || []);
       setVendors(vendorsRes.data.vendors || []);
-      setUsers(usersRes.data.users || []);
+      // Users endpoint returns array directly
+      setUsers(Array.isArray(usersRes.data) ? usersRes.data : usersRes.data.users || []);
     } catch (error) {
       console.error('Failed to fetch work orders:', error);
       toast.error('Failed to load work orders');
@@ -235,6 +237,11 @@ const WorkOrders = () => {
 
   return (
     <div className="p-6 space-y-6 bg-[#FDF8F3] min-h-screen" data-testid="work-orders">
+      {/* Back Button */}
+      <Button variant="ghost" onClick={() => navigate('/vendors')} className="text-[#8B7355] hover:text-[#4A3728]" data-testid="back-btn">
+        <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
+      </Button>
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
