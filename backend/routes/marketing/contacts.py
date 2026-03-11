@@ -13,6 +13,9 @@ from .base import (
     CommunicationCreate, CommunicationResponse
 )
 
+# Import pulse integration service
+from services.pulse_integrations import on_influencer_signed
+
 router = APIRouter(tags=["Contacts"])
 
 
@@ -96,6 +99,7 @@ async def update_contact(contact_id: str, data: ContactUpdate, user: dict = Depe
         raise HTTPException(status_code=404, detail="Contact not found")
     
     old_publication_id = existing.get("publication_id")
+    old_status = existing.get("status")
     
     # Only include non-None values for partial update
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
@@ -114,6 +118,7 @@ async def update_contact(contact_id: str, data: ContactUpdate, user: dict = Depe
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     
     new_publication_id = update_data.get("publication_id", old_publication_id)
+    new_status = update_data.get("status", old_status)
     
     await db.contacts.update_one({"id": contact_id}, {"$set": update_data})
     
@@ -129,6 +134,19 @@ async def update_contact(contact_id: str, data: ContactUpdate, user: dict = Depe
                 {"id": new_publication_id},
                 {"$inc": {"journalist_count": 1}}
             )
+    
+    # PULSE INTEGRATION: Auto-post when influencer is signed/contracted
+    if existing.get("contact_type") == "influencer":
+        signed_statuses = ["signed", "contracted", "agreed", "delivered"]
+        if new_status in signed_statuses and old_status not in signed_statuses:
+            try:
+                await on_influencer_signed(
+                    influencer={**existing, **update_data},
+                    signed_by=user
+                )
+            except Exception as e:
+                # Log but don't fail the request
+                print(f"Pulse integration error: {e}")
     
     updated = await db.contacts.find_one({"id": contact_id}, {"_id": 0})
     return updated

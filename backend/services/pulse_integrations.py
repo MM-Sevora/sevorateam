@@ -356,9 +356,10 @@ async def on_promotion(employee: dict, old_role: str, new_role: str, promoted_by
 
 # ============== SALES INTEGRATIONS ==============
 
-async def on_deal_closed(deal: dict, sales_rep: dict, amount: float = None):
+async def on_deal_closed(deal: dict, sales_rep: dict = None, amount: float = None):
     """Auto-post when a significant deal is closed"""
     amount_str = f"${amount:,.0f}" if amount else "significant value"
+    sales_rep = sales_rep or {"id": None, "name": "Sales Team"}
     return await create_auto_post(
         title=f"🎯 Deal Closed: {deal.get('name', 'New Deal')}!",
         content=f"Great news! We've closed a deal!\n\n"

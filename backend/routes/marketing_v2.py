@@ -61,6 +61,9 @@ from models.marketing import (
 import logging
 logger = logging.getLogger(__name__)
 
+# Import pulse integration service for auto-posts
+from services.pulse_integrations import on_press_release_published, on_media_coverage, on_deal_closed, on_influencer_signed
+
 marketing_v2_router = APIRouter(prefix="/marketing/v2", tags=["Marketing V2"])
 
 # Import db and auth dependencies from main server
@@ -458,6 +461,7 @@ async def update_contact(contact_id: str, data: ContactUpdate, user: dict = Depe
         raise HTTPException(status_code=404, detail="Contact not found")
     
     old_publication_id = existing.get("publication_id")
+    old_status = existing.get("status")
     
     # Only include non-None values for partial update
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
@@ -476,6 +480,7 @@ async def update_contact(contact_id: str, data: ContactUpdate, user: dict = Depe
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     
     new_publication_id = update_data.get("publication_id", old_publication_id)
+    new_status = update_data.get("status", old_status)
     
     await db.contacts.update_one({"id": contact_id}, {"$set": update_data})
     
@@ -493,6 +498,19 @@ async def update_contact(contact_id: str, data: ContactUpdate, user: dict = Depe
                 {"id": new_publication_id},
                 {"$inc": {"journalist_count": 1}}
             )
+    
+    # PULSE INTEGRATION: Auto-post when influencer is signed/contracted
+    if existing.get("contact_type") == "influencer":
+        signed_statuses = ["signed", "contracted", "agreed", "delivered"]
+        if new_status in signed_statuses and old_status not in signed_statuses:
+            try:
+                await on_influencer_signed(
+                    influencer={**existing, **update_data},
+                    signed_by=user
+                )
+            except Exception as e:
+                # Log but don't fail the request
+                print(f"Pulse integration error (influencer_signed): {e}")
     
     updated = await db.contacts.find_one({"id": contact_id}, {"_id": 0})
     return updated
@@ -1293,6 +1311,17 @@ async def update_deal_status(deal_id: str, status: str, note: Optional[str] = No
                 {"id": campaign_id},
                 {"$inc": {"confirmed_count": -1}}
             )
+    
+    # PULSE INTEGRATION: Auto-post when deal is completed/signed
+    if status in ["completed", "signed"] and old_status not in ["completed", "signed"]:
+        try:
+            await on_deal_closed(
+                deal=deal,
+                sales_rep=None,  # No user context in this endpoint
+                amount=deal.get("final_amount") or deal.get("value") or amount
+            )
+        except Exception as e:
+            print(f"Pulse integration error (deal_closed): {e}")
     
     return {"message": f"Deal status updated to {status}", "contact_synced": True}
 
@@ -2766,12 +2795,32 @@ async def update_pr_campaign_status(
     """Update PR campaign status"""
     db = get_db()
     
-    result = await db.pr_campaigns.update_one(
+    # Get existing campaign to check old status
+    campaign = await db.pr_campaigns.find_one({"id": campaign_id})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="PR Campaign not found")
+    
+    old_status = campaign.get("status")
+    
+    await db.pr_campaigns.update_one(
         {"id": campaign_id},
         {"$set": {"status": status, "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="PR Campaign not found")
+    
+    # PULSE INTEGRATION: Auto-post when PR campaign goes active/live
+    if status in ["active", "live", "published"] and old_status not in ["active", "live", "published"]:
+        try:
+            await on_press_release_published(
+                press_release={
+                    "id": campaign_id,
+                    "title": campaign.get("name"),
+                    "summary": campaign.get("description") or campaign.get("objectives", "")
+                },
+                published_by=user
+            )
+        except Exception as e:
+            # Log but don't fail the request
+            print(f"Pulse integration error: {e}")
     
     return {"message": f"Campaign status updated to {status}"}
 

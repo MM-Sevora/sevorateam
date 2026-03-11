@@ -14,6 +14,9 @@ from .base import (
     PaymentCreate, PaymentResponse
 )
 
+# Import pulse integration service
+from services.pulse_integrations import on_deal_closed
+
 router = APIRouter(tags=["Deals"])
 
 
@@ -64,6 +67,7 @@ async def update_deal_status(
     if not deal:
         raise HTTPException(status_code=404, detail="Deal not found")
     
+    old_status = deal.get("status")
     new_status = data.get("status")
     notes = data.get("notes")
     
@@ -96,6 +100,18 @@ async def update_deal_status(
                     "stage_updated_at": datetime.now(timezone.utc).isoformat()
                 }}
             )
+    
+    # PULSE INTEGRATION: Auto-post when deal is completed/closed
+    if new_status in ["completed", "signed"] and old_status not in ["completed", "signed"]:
+        try:
+            await on_deal_closed(
+                deal=deal,
+                sales_rep=user,
+                amount=deal.get("value") or deal.get("amount")
+            )
+        except Exception as e:
+            # Log but don't fail the request
+            print(f"Pulse integration error: {e}")
     
     updated = await db.deals.find_one({"id": deal_id}, {"_id": 0})
     return updated
