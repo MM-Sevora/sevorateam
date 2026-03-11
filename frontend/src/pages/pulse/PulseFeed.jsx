@@ -58,6 +58,11 @@ import {
     Loader2,
     ImageIcon,
     Paperclip,
+    ExternalLink,
+    FolderKanban,
+    ListTodo,
+    Target,
+    Zap,
     X,
     ChevronDown,
 } from 'lucide-react';
@@ -91,6 +96,56 @@ const DEPARTMENTS = [
     'marketing', 'buying', 'warehouse', 'technology',
     'operations', 'finance', 'hr', 'sales', 'leadership'
 ];
+
+// Helper functions for linked items
+const getLinkedModuleUrl = (module, itemId) => {
+    const moduleRoutes = {
+        'projects': `/projects/${itemId}`,
+        'goals': `/goals`,
+        'social_campaigns': `/social/campaigns/${itemId}`,
+        'hr': `/hr/employees`,
+        'deals': `/deals/${itemId}`,
+        'influencers': `/influencer/${itemId}`,
+        'pr': `/pr/${itemId}`,
+        'support': `/support/tickets/${itemId}`,
+    };
+    return moduleRoutes[module] || '#';
+};
+
+const getLinkedItemUrl = (item) => {
+    if (item.item_type === 'project') {
+        return `/projects/${item.item_id}`;
+    } else if (item.item_type === 'task') {
+        return item.project_id ? `/projects/${item.project_id}` : '/projects';
+    }
+    return '#';
+};
+
+const getLinkedModuleIcon = (module) => {
+    const icons = {
+        'projects': <FolderKanban className="w-4 h-4" />,
+        'goals': <Target className="w-4 h-4" />,
+        'social_campaigns': <Megaphone className="w-4 h-4" />,
+        'hr': <Users className="w-4 h-4" />,
+        'deals': <TrendingUp className="w-4 h-4" />,
+        'support': <AlertTriangle className="w-4 h-4" />,
+    };
+    return icons[module] || <Zap className="w-4 h-4" />;
+};
+
+const formatModuleName = (module) => {
+    const names = {
+        'projects': 'Project',
+        'goals': 'Goal',
+        'social_campaigns': 'Campaign',
+        'hr': 'Employee',
+        'deals': 'Deal',
+        'influencers': 'Influencer',
+        'pr': 'PR Campaign',
+        'support': 'Ticket',
+    };
+    return names[module] || module;
+};
 
 export default function PulseFeed() {
     const { api, user } = useAuth();
@@ -494,6 +549,37 @@ export default function PulseFeed() {
                                                 <Badge key={tag} variant="secondary" className="text-xs">
                                                     #{tag}
                                                 </Badge>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Linked Items - For auto-generated posts or updates with links */}
+                                    {(post.linked_items?.length > 0 || post.linked_module) && (
+                                        <div className="flex flex-wrap gap-2 mb-3 p-2 bg-blue-50 rounded-lg">
+                                            {post.linked_module && (
+                                                <Link
+                                                    to={getLinkedModuleUrl(post.linked_module, post.linked_item_id)}
+                                                    className="inline-flex items-center gap-1.5 text-sm text-blue-700 hover:text-blue-800 font-medium transition-colors"
+                                                >
+                                                    {getLinkedModuleIcon(post.linked_module)}
+                                                    <span>View {formatModuleName(post.linked_module)}</span>
+                                                    <ExternalLink className="w-3 h-3" />
+                                                </Link>
+                                            )}
+                                            {post.linked_items?.map((item, idx) => (
+                                                <Link
+                                                    key={idx}
+                                                    to={getLinkedItemUrl(item)}
+                                                    className="inline-flex items-center gap-1.5 text-sm text-blue-700 hover:text-blue-800 font-medium transition-colors"
+                                                >
+                                                    {item.item_type === 'task' ? (
+                                                        <ListTodo className="w-4 h-4" />
+                                                    ) : (
+                                                        <FolderKanban className="w-4 h-4" />
+                                                    )}
+                                                    <span className="max-w-32 truncate">{item.item_name}</span>
+                                                    <ExternalLink className="w-3 h-3" />
+                                                </Link>
                                             ))}
                                         </div>
                                     )}

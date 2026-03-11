@@ -726,13 +726,21 @@ export default function WorkUpdates() {
                                             <div key={update.id} className="border-l-2 border-emerald-300 pl-4">
                                                 <p className="text-sm font-medium text-gray-600 mb-2">{formatDate(update.date)}</p>
                                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                                    {update.completed_tasks?.length > 0 && (
+                                                    {(update.completed_items || update.completed_tasks)?.length > 0 && (
                                                         <div>
                                                             <h5 className="text-xs font-medium text-emerald-700 flex items-center gap-1 mb-1">
                                                                 <CheckCircle className="w-3 h-3" /> Completed
                                                             </h5>
                                                             <ul className="text-xs text-gray-600 space-y-0.5">
-                                                                {update.completed_tasks.map((t, i) => <li key={i}>• {t}</li>)}
+                                                                {(update.completed_items || update.completed_tasks?.map(t => ({ text: t }))).map((item, i) => (
+                                                                    <li key={i} className="flex items-start gap-1">
+                                                                        <span>•</span>
+                                                                        <span>{typeof item === 'string' ? item : item.text}</span>
+                                                                        {item.linked_item && (
+                                                                            <span className="text-blue-600 text-[10px]">🔗</span>
+                                                                        )}
+                                                                    </li>
+                                                                ))}
                                                             </ul>
                                                         </div>
                                                     )}
@@ -786,9 +794,28 @@ export default function WorkUpdates() {
                                                     <h4 className="text-sm font-medium text-emerald-700 flex items-center gap-1 mb-1">
                                                         <CheckCircle className="w-4 h-4" /> Completed
                                                     </h4>
-                                                    <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-                                                        {update.completed_tasks?.map((task, i) => (
-                                                            <li key={i}>{task}</li>
+                                                    <ul className="text-sm text-gray-700 space-y-1.5">
+                                                        {/* Use completed_items if available, fallback to completed_tasks */}
+                                                        {(update.completed_items || update.completed_tasks?.map(t => ({ text: t })))?.map((item, i) => (
+                                                            <li key={i} className="flex items-start gap-2">
+                                                                <span className="text-emerald-500 mt-0.5">•</span>
+                                                                <div className="flex-1">
+                                                                    <span>{typeof item === 'string' ? item : item.text}</span>
+                                                                    {item.linked_item && (
+                                                                        <Badge 
+                                                                            variant="secondary" 
+                                                                            className="ml-2 text-xs py-0 px-1.5 inline-flex items-center gap-1"
+                                                                        >
+                                                                            {item.linked_item.item_type === 'task' ? (
+                                                                                <ListTodo className="w-3 h-3" />
+                                                                            ) : (
+                                                                                <FolderKanban className="w-3 h-3" />
+                                                                            )}
+                                                                            <span className="max-w-24 truncate">{item.linked_item.item_name}</span>
+                                                                        </Badge>
+                                                                    )}
+                                                                </div>
+                                                            </li>
                                                         ))}
                                                     </ul>
                                                 </div>
@@ -865,13 +892,21 @@ export default function WorkUpdates() {
                                             <div key={update.id} className="border-l-2 border-violet-300 pl-4">
                                                 <p className="text-sm font-medium text-gray-600 mb-2">Week of {update.week_start}</p>
                                                 <div className="grid grid-cols-2 gap-3">
-                                                    {update.achievements?.length > 0 && (
+                                                    {(update.achievement_items || update.achievements)?.length > 0 && (
                                                         <div>
                                                             <h5 className="text-xs font-medium text-violet-700 flex items-center gap-1 mb-1">
                                                                 <CheckCircle className="w-3 h-3" /> Achievements
                                                             </h5>
                                                             <ul className="text-xs text-gray-600 space-y-0.5">
-                                                                {update.achievements.map((t, i) => <li key={i}>• {t}</li>)}
+                                                                {(update.achievement_items || update.achievements?.map(a => ({ text: a }))).map((item, i) => (
+                                                                    <li key={i} className="flex items-start gap-1">
+                                                                        <span>•</span>
+                                                                        <span>{typeof item === 'string' ? item : item.text}</span>
+                                                                        {item.linked_item && (
+                                                                            <span className="text-blue-600 text-[10px]">🔗</span>
+                                                                        )}
+                                                                    </li>
+                                                                ))}
                                                             </ul>
                                                         </div>
                                                     )}
@@ -936,9 +971,27 @@ export default function WorkUpdates() {
                                                         <h4 className="text-sm font-medium text-violet-700 flex items-center gap-1 mb-1">
                                                             <CheckCircle className="w-4 h-4" /> Achievements
                                                         </h4>
-                                                        <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-                                                            {update.achievements?.map((item, i) => (
-                                                                <li key={i}>{item}</li>
+                                                        <ul className="text-sm text-gray-700 space-y-1.5">
+                                                            {(update.achievement_items || update.achievements?.map(a => ({ text: a })))?.map((item, i) => (
+                                                                <li key={i} className="flex items-start gap-2">
+                                                                    <span className="text-violet-500 mt-0.5">•</span>
+                                                                    <div className="flex-1">
+                                                                        <span>{typeof item === 'string' ? item : item.text}</span>
+                                                                        {item.linked_item && (
+                                                                            <Badge 
+                                                                                variant="secondary" 
+                                                                                className="ml-2 text-xs py-0 px-1.5 inline-flex items-center gap-1"
+                                                                            >
+                                                                                {item.linked_item.item_type === 'task' ? (
+                                                                                    <ListTodo className="w-3 h-3" />
+                                                                                ) : (
+                                                                                    <FolderKanban className="w-3 h-3" />
+                                                                                )}
+                                                                                <span className="max-w-24 truncate">{item.linked_item.item_name}</span>
+                                                                            </Badge>
+                                                                        )}
+                                                                    </div>
+                                                                </li>
                                                             ))}
                                                         </ul>
                                                     </div>
