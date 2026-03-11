@@ -1,5 +1,60 @@
 # CHANGELOG - Sevora Team Platform
 
+## March 11, 2026 - Social Media Phase 4: Social Listening COMPLETE ✅
+
+### Keyword Monitoring Features:
+
+#### 1. Keyword Management
+- ✅ **Backend**: Full CRUD at `/api/social/listening/keywords`
+  - Track keywords/phrases/hashtags across platforms
+  - Platform-specific filtering (LinkedIn, Twitter, Instagram, Facebook)
+  - Alert configuration per keyword
+  - Sentiment tracking toggle
+- ✅ **Frontend**: Keywords list with status, mention count, platform icons
+  - Add keyword modal with platform selection
+  - Toggle active/paused status
+  - Delete with confirmation
+
+#### 2. Mentions Tracking
+- ✅ **Backend**: `/api/social/listening/mentions` 
+  - Store mentions from webhooks (ready for real API integration)
+  - Filter by keyword, platform, sentiment
+  - Track reach and engagement per mention
+- ✅ **Frontend**: Mentions panel showing:
+  - Author info and platform
+  - Content preview
+  - Sentiment indicator
+  - Reach/engagement stats
+  - External link to original post
+
+#### 3. Alerts System
+- ✅ **Backend**: `/api/social/listening/alerts`
+  - Alert creation on keyword mention
+  - Priority levels (low, medium, high, urgent)
+  - Mark read/unread
+  - Bulk mark all read
+- ✅ **Frontend**: Alerts tab with:
+  - Unread badge count
+  - Priority badges
+  - Mark read functionality
+
+#### 4. Reports (Structure Ready)
+- ✅ **Backend**: `/api/social/listening/reports`
+  - Generate on-demand reports
+  - Report configurations for scheduled delivery
+  - Sentiment and volume breakdown
+- ✅ **Frontend**: Reports tab placeholder (UI ready for future expansion)
+
+#### 5. Dashboard Overview
+- ✅ Stats cards: Active Keywords, Total Mentions, Last 24h, Unread Alerts
+- ✅ Real-time data from MongoDB aggregations
+
+### Note:
+- Structure ready for real social API integration (Twitter API, LinkedIn API, etc.)
+- Currently uses webhook-based mention ingestion pattern
+
+---
+
 ## March 11, 2026 - Social Media Phase 3: Analytics Dashboard COMPLETE ✅
 
 ### Performance Dashboard Features:

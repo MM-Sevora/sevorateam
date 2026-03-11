@@ -55,6 +55,7 @@ import PostingQueues from "./pages/social/PostingQueues";
 import SocialInbox from "./pages/social/SocialInbox";
 import AutoReplyRules from "./pages/social/AutoReplyRules";
 import SocialAnalyticsDashboard from "./pages/social/SocialAnalyticsDashboard";
+import SocialListening from "./pages/social/SocialListening";
 
 // Email Page
 import EmailPage from "./pages/marketing/EmailPage";
@@ -400,6 +401,7 @@ function AppRoutes() {
             <Route path="/social/queues" element={<ProtectedRoute requiredModule="social"><PostingQueues /></ProtectedRoute>} />
             <Route path="/social/inbox" element={<ProtectedRoute requiredModule="social"><SocialInbox /></ProtectedRoute>} />
             <Route path="/social/auto-reply" element={<ProtectedRoute requiredModule="social"><AutoReplyRules /></ProtectedRoute>} />
+            <Route path="/social/listening" element={<ProtectedRoute requiredModule="social"><SocialListening /></ProtectedRoute>} />
             {/* Redirect old routes to dashboard */}
             <Route path="/social/analytics" element={<Navigate to="/social" replace />} />
             <Route path="/social/ai-tools" element={<Navigate to="/social" replace />} />

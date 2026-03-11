@@ -4081,6 +4081,15 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Social Analytics routes: {e}")
 
+# Load Social Listening routes (Keyword Monitoring, Alerts)
+try:
+    from routes.social_listening import social_listening_router, init_social_listening_router
+    init_social_listening_router(db, get_current_user)
+    api_router.include_router(social_listening_router)
+    logger.info("Social Listening routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Social Listening routes: {e}")
+
 # Load Admin V2 routes
 try:
     from routes.admin import router as admin_v2_router, set_database as set_admin_db, set_jwt_settings as set_admin_jwt
