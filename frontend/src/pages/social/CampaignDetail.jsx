@@ -53,7 +53,7 @@ export default function CampaignDetail() {
   const fetchCampaignPosts = async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/api/social/campaigns/${campaignId}/posts`);
+      const res = await api.get(`/social/campaigns/${campaignId}/posts`);
       setCampaign(res.data.campaign);
       setPosts(res.data.posts);
     } catch (err) {
@@ -82,7 +82,7 @@ export default function CampaignDetail() {
   const handleLinkPost = async (postId) => {
     setLinking(postId);
     try {
-      await api.post(`/api/social/campaigns/${campaignId}/link-post/${postId}`);
+      await api.post(`/social/campaigns/${campaignId}/link-post/${postId}`);
       toast.success('Post linked to campaign');
       fetchCampaignPosts();
       fetchAvailablePosts();
@@ -96,7 +96,7 @@ export default function CampaignDetail() {
   const handleUnlinkPost = async (postId) => {
     if (!window.confirm('Unlink this post from the campaign?')) return;
     try {
-      await api.post(`/api/social/campaigns/${campaignId}/unlink-post/${postId}`);
+      await api.post(`/social/campaigns/${campaignId}/unlink-post/${postId}`);
       toast.success('Post unlinked');
       fetchCampaignPosts();
     } catch (err) {

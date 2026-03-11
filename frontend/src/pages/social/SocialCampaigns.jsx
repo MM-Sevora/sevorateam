@@ -53,8 +53,8 @@ export default function SocialCampaigns() {
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [filterPlatform, setFilterPlatform] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterPlatform, setFilterPlatform] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -84,10 +84,10 @@ export default function SocialCampaigns() {
   const fetchCampaigns = async () => {
     setLoading(true);
     try {
-      let url = '/api/social/campaigns';
+      let url = '/social/campaigns';
       const params = new URLSearchParams();
-      if (filterStatus) params.append('status', filterStatus);
-      if (filterPlatform) params.append('platform', filterPlatform);
+      if (filterStatus && filterStatus !== 'all') params.append('status', filterStatus);
+      if (filterPlatform && filterPlatform !== 'all') params.append('platform', filterPlatform);
       if (params.toString()) url += `?${params.toString()}`;
       
       const res = await api.get(url);
@@ -102,7 +102,7 @@ export default function SocialCampaigns() {
 
   const fetchStats = async () => {
     try {
-      const res = await api.get('/api/social/campaigns/stats');
+      const res = await api.get('/social/campaigns/stats');
       setStats(res.data);
     } catch (err) {
       console.error(err);
@@ -111,7 +111,7 @@ export default function SocialCampaigns() {
 
   const fetchUsers = async () => {
     try {
-      const res = await api.get('/api/admin/users');
+      const res = await api.get('/admin/users');
       setUsers(res.data.filter(u => u.status === 'active'));
     } catch (err) {
       console.error(err);
@@ -137,10 +137,10 @@ export default function SocialCampaigns() {
       };
 
       if (editingCampaign) {
-        await api.put(`/api/social/campaigns/${editingCampaign.id}`, payload);
+        await api.put(`/social/campaigns/${editingCampaign.id}`, payload);
         toast.success('Campaign updated');
       } else {
-        await api.post('/api/social/campaigns', payload);
+        await api.post('/social/campaigns', payload);
         toast.success('Campaign created');
       }
       
@@ -177,7 +177,7 @@ export default function SocialCampaigns() {
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this campaign? Posts will be unlinked.')) return;
     try {
-      await api.delete(`/api/social/campaigns/${id}`);
+      await api.delete(`/social/campaigns/${id}`);
       toast.success('Campaign deleted');
       fetchCampaigns();
       fetchStats();
@@ -188,7 +188,7 @@ export default function SocialCampaigns() {
 
   const handleDuplicate = async (id) => {
     try {
-      await api.post(`/api/social/campaigns/${id}/duplicate`);
+      await api.post(`/social/campaigns/${id}/duplicate`);
       toast.success('Campaign duplicated');
       fetchCampaigns();
       fetchStats();
@@ -199,7 +199,7 @@ export default function SocialCampaigns() {
 
   const handleStatusChange = async (id, newStatus) => {
     try {
-      await api.put(`/api/social/campaigns/${id}`, { status: newStatus });
+      await api.put(`/social/campaigns/${id}`, { status: newStatus });
       toast.success(`Campaign ${newStatus}`);
       fetchCampaigns();
       fetchStats();
@@ -328,7 +328,7 @@ export default function SocialCampaigns() {
             <SelectValue placeholder="All Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Status</SelectItem>
+            <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="draft">Draft</SelectItem>
             <SelectItem value="active">Active</SelectItem>
             <SelectItem value="paused">Paused</SelectItem>
@@ -340,7 +340,7 @@ export default function SocialCampaigns() {
             <SelectValue placeholder="All Platforms" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Platforms</SelectItem>
+            <SelectItem value="all">All Platforms</SelectItem>
             {platforms.map(p => (
               <SelectItem key={p.key} value={p.key}>{p.label}</SelectItem>
             ))}
