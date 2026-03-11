@@ -168,13 +168,13 @@ const ToolRegistry = () => {
   };
 
   return (
-    <div className="space-y-6" data-testid="tool-registry">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6" data-testid="tool-registry">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tool Registry</h1>
-          <p className="text-gray-500 mt-1">Manage all tools and platforms used in the organization</p>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900">Tool Registry</h1>
+          <p className="text-sm md:text-base text-gray-500 mt-1">Manage all tools and platforms used in the organization</p>
         </div>
-        <Button onClick={() => { resetForm(); setShowDialog(true); }} data-testid="add-tool-btn">
+        <Button onClick={() => { resetForm(); setShowDialog(true); }} data-testid="add-tool-btn" className="w-full sm:w-auto">
           <Plus className="w-4 h-4 mr-2" />
           Add Tool
         </Button>
@@ -182,9 +182,9 @@ const ToolRegistry = () => {
 
       {/* Filters */}
       <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-wrap gap-4">
-            <div className="flex-1 min-w-[200px]">
+        <CardContent className="p-3 md:p-4">
+          <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
+            <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
@@ -196,28 +196,30 @@ const ToolRegistry = () => {
                 />
               </div>
             </div>
-            <Select value={categoryFilter || "all"} onValueChange={(v) => setCategoryFilter(v === "all" ? "" : v)}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="All Categories" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {CATEGORIES.map(cat => (
-                  <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={criticalityFilter || "all"} onValueChange={(v) => setCriticalityFilter(v === "all" ? "" : v)}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="All Levels" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Levels</SelectItem>
-                {CRITICALITY.map(c => (
-                  <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2">
+              <Select value={categoryFilter || "all"} onValueChange={(v) => setCategoryFilter(v === "all" ? "" : v)}>
+                <SelectTrigger className="w-full sm:w-[150px]">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {CATEGORIES.map(cat => (
+                    <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={criticalityFilter || "all"} onValueChange={(v) => setCriticalityFilter(v === "all" ? "" : v)}>
+                <SelectTrigger className="w-full sm:w-[120px]">
+                  <SelectValue placeholder="Level" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Levels</SelectItem>
+                  {CRITICALITY.map(c => (
+                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -228,17 +230,17 @@ const ToolRegistry = () => {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
           {filteredTools.map(tool => (
             <Card key={tool.id} className="hover:shadow-md transition-shadow" data-testid={`tool-card-${tool.id}`}>
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                      <Package className="w-5 h-5 text-gray-600" />
+              <CardContent className="p-3 md:p-4">
+                <div className="flex items-start justify-between mb-2 md:mb-3">
+                  <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+                    <div className="w-8 h-8 md:w-10 md:h-10 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Package className="w-4 h-4 md:w-5 md:h-5 text-gray-600" />
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{tool.name}</h3>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-semibold text-gray-900 text-sm md:text-base truncate">{tool.name}</h3>
                       <p className="text-xs text-gray-500 capitalize">{tool.category}</p>
                     </div>
                   </div>
@@ -246,42 +248,42 @@ const ToolRegistry = () => {
                 </div>
                 
                 {tool.description && (
-                  <p className="text-sm text-gray-600 mb-3 line-clamp-2">{tool.description}</p>
+                  <p className="text-xs md:text-sm text-gray-600 mb-2 md:mb-3 line-clamp-2">{tool.description}</p>
                 )}
                 
-                <div className="flex flex-wrap gap-2 mb-3">
+                <div className="flex flex-wrap gap-1.5 md:gap-2 mb-2 md:mb-3">
                   <Badge variant="outline" className="text-xs">
                     {LOGIN_TYPES.find(t => t.value === tool.login_type)?.label || tool.login_type}
                   </Badge>
                   {tool.monthly_cost > 0 && (
                     <Badge variant="secondary" className="text-xs">
-                      <DollarSign className="w-3 h-3 mr-1" />
+                      <DollarSign className="w-3 h-3 mr-0.5" />
                       {tool.monthly_cost}/mo
                     </Badge>
                   )}
                   <Badge variant="secondary" className="text-xs">
-                    <Users className="w-3 h-3 mr-1" />
-                    {tool.user_count || 0} users
+                    <Users className="w-3 h-3 mr-0.5" />
+                    {tool.user_count || 0}
                   </Badge>
                 </div>
                 
-                <div className="flex items-center justify-between pt-3 border-t">
+                <div className="flex items-center justify-between pt-2 md:pt-3 border-t">
                   {tool.url && (
                     <a 
                       href={tool.url} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                      className="text-xs md:text-sm text-blue-600 hover:underline flex items-center gap-1"
                     >
                       <ExternalLink className="w-3 h-3" />
                       Open
                     </a>
                   )}
-                  <div className="flex gap-2 ml-auto">
-                    <Button variant="ghost" size="sm" onClick={() => handleEdit(tool)}>
+                  <div className="flex gap-1 md:gap-2 ml-auto">
+                    <Button variant="ghost" size="sm" onClick={() => handleEdit(tool)} className="h-8 w-8 p-0">
                       <Edit className="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(tool)}>
+                    <Button variant="ghost" size="sm" onClick={() => handleDelete(tool)} className="h-8 w-8 p-0">
                       <Trash2 className="w-4 h-4 text-red-500" />
                     </Button>
                   </div>

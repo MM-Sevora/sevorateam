@@ -123,13 +123,13 @@ const CredentialVault = () => {
   const DEPARTMENTS = ['marketing', 'sales', 'design', 'development', 'hr', 'finance', 'operations'];
 
   return (
-    <div className="space-y-6" data-testid="credential-vault">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6" data-testid="credential-vault">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Credential Vault</h1>
-          <p className="text-gray-500 mt-1">Securely store and manage shared credentials</p>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900">Credential Vault</h1>
+          <p className="text-sm md:text-base text-gray-500 mt-1">Securely store and manage shared credentials</p>
         </div>
-        <Button onClick={() => { resetForm(); setShowDialog(true); }} data-testid="add-credential-btn">
+        <Button onClick={() => { resetForm(); setShowDialog(true); }} data-testid="add-credential-btn" className="w-full sm:w-auto">
           <Plus className="w-4 h-4 mr-2" />
           Add Credential
         </Button>
@@ -137,9 +137,9 @@ const CredentialVault = () => {
 
       {/* Security Notice */}
       <Card className="border-amber-200 bg-amber-50">
-        <CardContent className="p-4 flex items-center gap-3">
-          <Shield className="w-5 h-5 text-amber-600" />
-          <p className="text-sm text-amber-800">
+        <CardContent className="p-3 md:p-4 flex items-center gap-2 md:gap-3">
+          <Shield className="w-4 h-4 md:w-5 md:h-5 text-amber-600 flex-shrink-0" />
+          <p className="text-xs md:text-sm text-amber-800">
             All credentials are encrypted with AES-256. Password views are logged for security audit.
           </p>
         </CardContent>
@@ -154,33 +154,34 @@ const CredentialVault = () => {
         <div className="space-y-4">
           {credentials.map(cred => (
             <Card key={cred.id} className="hover:shadow-md transition-shadow" data-testid={`credential-${cred.id}`}>
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center">
-                      <Lock className="w-6 h-6 text-white" />
+              <CardContent className="p-3 md:p-4">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                  <div className="flex items-center gap-3 md:gap-4">
+                    <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Lock className="w-5 h-5 md:w-6 md:h-6 text-white" />
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{cred.tool_name}</h3>
-                      <p className="text-sm text-gray-500">{cred.login_email}</p>
-                      <p className="text-xs text-gray-400 mt-1">Owner: {cred.owner_name}</p>
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-gray-900 text-sm md:text-base">{cred.tool_name}</h3>
+                      <p className="text-xs md:text-sm text-gray-500 truncate">{cred.login_email}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">Owner: {cred.owner_name}</p>
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 self-end sm:self-start">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleRevealPassword(cred.id)}
                       data-testid={`reveal-password-${cred.id}`}
+                      className="text-xs"
                     >
                       {revealedPasswords[cred.id] ? (
-                        <><EyeOff className="w-4 h-4 mr-1" /> Hide</>
+                        <><EyeOff className="w-3 h-3 md:w-4 md:h-4 mr-1" /> Hide</>
                       ) : (
-                        <><Eye className="w-4 h-4 mr-1" /> Reveal</>
+                        <><Eye className="w-3 h-3 md:w-4 md:h-4 mr-1" /> Reveal</>
                       )}
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(cred)}>
+                    <Button variant="ghost" size="sm" onClick={() => handleDelete(cred)} className="h-8 w-8 p-0">
                       <Trash2 className="w-4 h-4 text-red-500" />
                     </Button>
                   </div>

@@ -26,6 +26,7 @@ security = HTTPBearer()
 # Will be set by main app
 db = None
 _get_current_user_func = None
+_email_service = None  # Email service for notifications
 
 # Encryption key for credential vault (in production, use env variable)
 ENCRYPTION_KEY = os.environ.get("ACMS_ENCRYPTION_KEY", Fernet.generate_key().decode())
@@ -60,10 +61,11 @@ def decrypt_credential(encrypted_text: str) -> str:
         return "***DECRYPTION_ERROR***"
 
 
-def init_router(database, auth_dependency):
-    global db, _get_current_user_func
+def init_router(database, auth_dependency, email_service=None):
+    global db, _get_current_user_func, _email_service
     db = database
     _get_current_user_func = auth_dependency
+    _email_service = email_service
     return router
 
 
@@ -71,6 +73,83 @@ async def get_current_user_dep(credentials: HTTPAuthorizationCredentials = Depen
     if _get_current_user_func is None:
         raise HTTPException(status_code=500, detail="Auth not configured")
     return await _get_current_user_func(credentials)
+
+
+async def send_access_request_notification(
+    to_email: str,
+    to_name: str,
+    subject: str,
+    request_info: dict,
+    notification_type: str  # 'submitted', 'manager_approved', 'approved', 'rejected'
+):
+    """Send email notification for access request status changes"""
+    if not _email_service:
+        print(f"Email service not configured - skipping notification to {to_email}")
+        return
+    
+    try:
+        tool_name = request_info.get('tool_name', 'Unknown Tool')
+        requester_name = request_info.get('requester_name', 'Unknown')
+        status = request_info.get('status', '')
+        comments = request_info.get('comments', '')
+        
+        if notification_type == 'submitted':
+            body = f"""
+            <h2>New Access Request</h2>
+            <p>Hi {to_name},</p>
+            <p>A new access request requires your approval:</p>
+            <ul>
+                <li><strong>Tool:</strong> {tool_name}</li>
+                <li><strong>Requested by:</strong> {requester_name}</li>
+                <li><strong>Reason:</strong> {request_info.get('reason', 'N/A')}</li>
+                <li><strong>Access Level:</strong> {request_info.get('requested_level', 'viewer')}</li>
+            </ul>
+            <p>Please review this request in the IT Admin portal.</p>
+            """
+        elif notification_type == 'approved':
+            body = f"""
+            <h2>Access Request Approved</h2>
+            <p>Hi {to_name},</p>
+            <p>Your access request has been approved!</p>
+            <ul>
+                <li><strong>Tool:</strong> {tool_name}</li>
+                <li><strong>Access Level:</strong> {request_info.get('requested_level', 'viewer')}</li>
+            </ul>
+            {f'<p><strong>Comments:</strong> {comments}</p>' if comments else ''}
+            <p>You can now access this tool from the IT Admin portal.</p>
+            """
+        elif notification_type == 'rejected':
+            body = f"""
+            <h2>Access Request Denied</h2>
+            <p>Hi {to_name},</p>
+            <p>Unfortunately, your access request has been denied:</p>
+            <ul>
+                <li><strong>Tool:</strong> {tool_name}</li>
+            </ul>
+            {f'<p><strong>Reason:</strong> {comments}</p>' if comments else ''}
+            <p>Please contact your manager if you have questions.</p>
+            """
+        elif notification_type == 'manager_approved':
+            body = f"""
+            <h2>Request Pending Admin Approval</h2>
+            <p>Hi {to_name},</p>
+            <p>Your access request has been approved by your manager and is now pending IT Admin approval:</p>
+            <ul>
+                <li><strong>Tool:</strong> {tool_name}</li>
+            </ul>
+            <p>You will be notified once the request is fully processed.</p>
+            """
+        else:
+            return
+        
+        await _email_service.send_email(
+            to_email=to_email,
+            subject=subject,
+            html_content=body
+        )
+        print(f"✅ Notification sent to {to_email}: {subject}")
+    except Exception as e:
+        print(f"❌ Failed to send notification: {e}")
 
 
 # ============== ENUMS ==============

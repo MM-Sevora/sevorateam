@@ -104,27 +104,27 @@ const ITAdminDashboard = () => {
   ];
 
   return (
-    <div className="space-y-6" data-testid="it-admin-dashboard">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6" data-testid="it-admin-dashboard">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Access & Credential Management</h1>
-          <p className="text-gray-500 mt-1">Manage tools, access permissions, and credentials</p>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900">Access & Credential Management</h1>
+          <p className="text-sm md:text-base text-gray-500 mt-1">Manage tools, access permissions, and credentials</p>
         </div>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
         {stats.map((stat, index) => (
           <Link to={stat.link} key={index}>
-            <Card className="hover:shadow-md transition-shadow cursor-pointer" data-testid={`stat-${stat.title.toLowerCase().replace(/\s+/g, '-')}`}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-500">{stat.title}</p>
-                    <p className="text-2xl font-bold mt-1">{stat.value}</p>
+            <Card className="hover:shadow-md transition-shadow cursor-pointer h-full" data-testid={`stat-${stat.title.toLowerCase().replace(/\s+/g, '-')}`}>
+              <CardContent className="p-3 md:p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs md:text-sm text-gray-500 truncate">{stat.title}</p>
+                    <p className="text-lg md:text-2xl font-bold mt-1">{stat.value}</p>
                   </div>
-                  <div className={`p-3 rounded-full ${stat.bgColor}`}>
-                    <stat.icon className={`w-6 h-6 ${stat.color}`} />
+                  <div className={`p-2 md:p-3 rounded-full ${stat.bgColor} flex-shrink-0`}>
+                    <stat.icon className={`w-4 h-4 md:w-6 md:h-6 ${stat.color}`} />
                   </div>
                 </div>
               </CardContent>
@@ -194,38 +194,38 @@ const ITAdminDashboard = () => {
 
       {/* Quick Actions */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Quick Actions</CardTitle>
+        <CardHeader className="pb-2 md:pb-4">
+          <CardTitle className="text-base md:text-lg">Quick Actions</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             <Link 
               to="/it-admin/tools?action=new"
-              className="p-4 border rounded-lg hover:bg-gray-50 transition-colors text-center"
+              className="p-3 md:p-4 border rounded-lg hover:bg-gray-50 transition-colors text-center"
             >
-              <Package className="w-8 h-8 mx-auto mb-2 text-blue-600" />
-              <span className="text-sm font-medium">Add Tool</span>
+              <Package className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-1 md:mb-2 text-blue-600" />
+              <span className="text-xs md:text-sm font-medium">Add Tool</span>
             </Link>
             <Link 
               to="/it-admin/access?action=new"
-              className="p-4 border rounded-lg hover:bg-gray-50 transition-colors text-center"
+              className="p-3 md:p-4 border rounded-lg hover:bg-gray-50 transition-colors text-center"
             >
-              <Key className="w-8 h-8 mx-auto mb-2 text-green-600" />
-              <span className="text-sm font-medium">Grant Access</span>
+              <Key className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-1 md:mb-2 text-green-600" />
+              <span className="text-xs md:text-sm font-medium">Grant Access</span>
             </Link>
             <Link 
               to="/it-admin/credentials?action=new"
-              className="p-4 border rounded-lg hover:bg-gray-50 transition-colors text-center"
+              className="p-3 md:p-4 border rounded-lg hover:bg-gray-50 transition-colors text-center"
             >
-              <Shield className="w-8 h-8 mx-auto mb-2 text-purple-600" />
-              <span className="text-sm font-medium">Add Credential</span>
+              <Shield className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-1 md:mb-2 text-purple-600" />
+              <span className="text-xs md:text-sm font-medium">Add Credential</span>
             </Link>
             <Link 
               to="/it-admin/requests"
-              className="p-4 border rounded-lg hover:bg-gray-50 transition-colors text-center"
+              className="p-3 md:p-4 border rounded-lg hover:bg-gray-50 transition-colors text-center"
             >
-              <Clock className="w-8 h-8 mx-auto mb-2 text-orange-600" />
-              <span className="text-sm font-medium">Review Requests</span>
+              <Clock className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-1 md:mb-2 text-orange-600" />
+              <span className="text-xs md:text-sm font-medium">Review Requests</span>
             </Link>
           </div>
         </CardContent>
