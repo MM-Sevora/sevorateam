@@ -4099,6 +4099,15 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Social Integrations routes: {e}")
 
+# Load Social Webhooks routes (Real-time Engagement Tracking)
+try:
+    from routes.social_webhooks import router as social_webhooks_router, init_router as init_webhooks_router
+    init_webhooks_router(db)
+    api_router.include_router(social_webhooks_router)
+    logger.info("Social Webhooks routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Social Webhooks routes: {e}")
+
 # Load Admin V2 routes
 try:
     from routes.admin import router as admin_v2_router, set_database as set_admin_db, set_jwt_settings as set_admin_jwt

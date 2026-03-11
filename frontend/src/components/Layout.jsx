@@ -146,6 +146,7 @@ const DEPARTMENT_CONFIG = {
             { path: '/social/inbox', name: 'Inbox', icon: MessageSquare },
             { path: '/social/listening', name: 'Social Listening', icon: Search },
             { path: '/social/integrations', name: 'Platform Integrations', icon: Plug },
+            { path: '/social/engagement', name: 'Engagement Tracker', icon: Activity },
             { path: '/social/campaigns', name: 'Campaigns', icon: Target },
             { path: '/social/studio', name: 'Content Studio', icon: PenTool },
             { path: '/social/posts', name: 'Posts & Schedule', icon: Clock },
