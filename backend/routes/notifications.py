@@ -577,3 +577,132 @@ async def notify_post_published(
         action_url=f"/social/posts/{post_id}",
         metadata={"platform": platform}
     )
+
+
+
+# ============== PULSE NOTIFICATIONS ==============
+
+async def notify_pulse_mention(
+    mentioned_user_id: str,
+    author_name: str,
+    post_title: str,
+    post_id: str
+):
+    """Notify user when mentioned in a Pulse post"""
+    return await create_notification(
+        user_id=mentioned_user_id,
+        notification_type=NotificationType.MENTION,
+        category=NotificationCategory.COMMUNICATION,
+        title="You were mentioned",
+        message=f"{author_name} mentioned you in: {post_title}",
+        priority=NotificationPriority.MEDIUM,
+        entity_type="pulse_post",
+        entity_id=post_id,
+        action_url=f"/pulse?post={post_id}",
+        metadata={"author": author_name}
+    )
+
+
+async def notify_pulse_reaction(
+    post_author_id: str,
+    reactor_name: str,
+    reaction_type: str,
+    post_title: str,
+    post_id: str
+):
+    """Notify post author when someone reacts"""
+    emoji_map = {"like": "👍", "celebrate": "🎉", "support": "💪", "love": "❤️", "insightful": "💡"}
+    emoji = emoji_map.get(reaction_type, "👍")
+    
+    return await create_notification(
+        user_id=post_author_id,
+        notification_type=NotificationType.REACTION,
+        category=NotificationCategory.COMMUNICATION,
+        title="New reaction on your post",
+        message=f"{reactor_name} reacted {emoji} to: {post_title}",
+        priority=NotificationPriority.LOW,
+        entity_type="pulse_post",
+        entity_id=post_id,
+        action_url=f"/pulse?post={post_id}",
+        metadata={"reactor": reactor_name, "reaction": reaction_type}
+    )
+
+
+async def notify_pulse_comment(
+    post_author_id: str,
+    commenter_name: str,
+    comment_preview: str,
+    post_title: str,
+    post_id: str
+):
+    """Notify post author when someone comments"""
+    return await create_notification(
+        user_id=post_author_id,
+        notification_type=NotificationType.COMMENT,
+        category=NotificationCategory.COMMUNICATION,
+        title="New comment on your post",
+        message=f"{commenter_name} commented: {comment_preview[:50]}{'...' if len(comment_preview) > 50 else ''}",
+        priority=NotificationPriority.MEDIUM,
+        entity_type="pulse_post",
+        entity_id=post_id,
+        action_url=f"/pulse?post={post_id}",
+        metadata={"commenter": commenter_name}
+    )
+
+
+async def notify_pulse_recognition(
+    recipient_id: str,
+    giver_name: str,
+    badge_type: str,
+    reason: str,
+    recognition_id: str
+):
+    """Notify user when they receive a recognition badge"""
+    badge_labels = {
+        "team_player": "Team Player 🤝",
+        "problem_solver": "Problem Solver 🧩",
+        "innovation": "Innovation 💡",
+        "execution_champion": "Execution Champion 🏆",
+        "mentor": "Mentor 🎓",
+        "customer_hero": "Customer Hero ⭐"
+    }
+    badge_label = badge_labels.get(badge_type, badge_type)
+    
+    return await create_notification(
+        user_id=recipient_id,
+        notification_type=NotificationType.ACHIEVEMENT,
+        category=NotificationCategory.PULSE,
+        title=f"You received a {badge_label} badge!",
+        message=f"{giver_name} recognized you: {reason[:80]}{'...' if len(reason) > 80 else ''}",
+        priority=NotificationPriority.HIGH,
+        entity_type="pulse_recognition",
+        entity_id=recognition_id,
+        action_url="/pulse/recognition",
+        metadata={"giver": giver_name, "badge": badge_type}
+    )
+
+
+async def notify_pulse_announcement(
+    user_ids: list,
+    author_name: str,
+    announcement_title: str,
+    post_id: str,
+    department: str = None
+):
+    """Notify users about a new announcement"""
+    message = f"New announcement from {author_name}: {announcement_title}"
+    if department:
+        message = f"[{department.upper()}] {message}"
+    
+    return await create_bulk_notifications(
+        user_ids=user_ids,
+        notification_type=NotificationType.ANNOUNCEMENT,
+        category=NotificationCategory.PULSE,
+        title="New Announcement",
+        message=message,
+        priority=NotificationPriority.HIGH,
+        entity_type="pulse_post",
+        entity_id=post_id,
+        action_url=f"/pulse?post={post_id}",
+        metadata={"author": author_name, "department": department}
+    )

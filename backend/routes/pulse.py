@@ -137,6 +137,49 @@ def can_view_post(post: dict, user: dict) -> bool:
     return False
 
 
+# ============== PULSE PERMISSIONS ==============
+
+PULSE_PERMISSIONS = {
+    # Role -> Allowed actions
+    "super_admin": ["*"],  # All actions
+    "admin": ["create_announcement", "pin_post", "delete_any_post", "view_leadership_dashboard", "manage_recognitions"],
+    "department_manager": ["create_announcement", "pin_post", "view_leadership_dashboard", "view_department_updates"],
+    "team_lead": ["create_announcement", "view_department_updates"],
+    "employee": ["create_post", "create_update", "give_recognition"],
+}
+
+def has_pulse_permission(user: dict, action: str) -> bool:
+    """Check if user has permission for a Pulse action"""
+    role = user.get("role", "employee")
+    permissions = PULSE_PERMISSIONS.get(role, PULSE_PERMISSIONS["employee"])
+    
+    # Super admin or wildcard permission
+    if "*" in permissions:
+        return True
+    
+    return action in permissions
+
+
+def can_create_announcement(user: dict) -> bool:
+    """Check if user can create announcements"""
+    return has_pulse_permission(user, "create_announcement")
+
+
+def can_pin_post(user: dict) -> bool:
+    """Check if user can pin posts"""
+    return has_pulse_permission(user, "pin_post")
+
+
+def can_delete_any_post(user: dict) -> bool:
+    """Check if user can delete any post"""
+    return has_pulse_permission(user, "delete_any_post")
+
+
+def can_view_leadership_dashboard(user: dict) -> bool:
+    """Check if user can view leadership dashboard"""
+    return has_pulse_permission(user, "view_leadership_dashboard")
+
+
 async def enrich_post(post: dict) -> dict:
     """Add author info, reaction counts, comment counts to post"""
     if db is None:
@@ -182,6 +225,14 @@ async def get_pulse_config():
 @router.post("/posts")
 async def create_post(post: PostCreate, user: dict = Depends(get_current_user)):
     """Create a new post on the Pulse wall"""
+    
+    # Permission check for announcements
+    if post.post_type == "announcement" and not can_create_announcement(user):
+        raise HTTPException(
+            status_code=403, 
+            detail="Only managers and admins can create announcements"
+        )
+    
     post_id = str(uuid.uuid4())
     
     post_doc = {
@@ -388,9 +439,9 @@ async def delete_post(post_id: str, user: dict = Depends(get_current_user)):
 
 @router.post("/posts/{post_id}/pin")
 async def pin_post(post_id: str, user: dict = Depends(get_current_user)):
-    """Pin/unpin a post (admin only)"""
-    if user.get("role") not in ["superadmin", "admin", "department_manager"]:
-        raise HTTPException(status_code=403, detail="Only admins can pin posts")
+    """Pin/unpin a post (requires pin_post permission)"""
+    if not can_pin_post(user):
+        raise HTTPException(status_code=403, detail="You don't have permission to pin posts")
     
     if db is None:
         raise HTTPException(status_code=404, detail="Post not found")
@@ -1191,6 +1242,14 @@ async def get_weekly_updates(
 @router.get("/leadership/dashboard")
 async def get_leadership_dashboard(user: dict = Depends(get_current_user)):
     """Get leadership overview dashboard with all departments"""
+    
+    # Permission check
+    if not can_view_leadership_dashboard(user):
+        raise HTTPException(
+            status_code=403, 
+            detail="Only managers and admins can view the leadership dashboard"
+        )
+    
     if db is None:
         return {
             "overview": {},
@@ -1359,3 +1418,195 @@ async def get_system_updates(limit: int = 10, user: dict = Depends(get_current_u
     
     return {"updates": updates}
 
+
+
+# ============== EMPLOYEE PROFILE ==============
+
+@router.get("/employees/{employee_id}/profile")
+async def get_employee_profile(employee_id: str, current_user: dict = Depends(get_current_user)):
+    """Get employee profile with activity summary"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not available")
+    
+    # Get employee info
+    employee = await db.users.find_one({"id": employee_id}, {"_id": 0, "password": 0})
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    
+    # Get activity counts
+    posts_count = await db.pulse_posts.count_documents({"author_id": employee_id})
+    recognitions_received = await db.pulse_recognitions.count_documents({"recipient_id": employee_id})
+    recognitions_given = await db.pulse_recognitions.count_documents({"giver_id": employee_id})
+    daily_updates = await db.pulse_daily_updates.count_documents({"user_id": employee_id})
+    weekly_updates = await db.pulse_weekly_updates.count_documents({"user_id": employee_id})
+    
+    # Get badge breakdown
+    badge_pipeline = [
+        {"$match": {"recipient_id": employee_id}},
+        {"$group": {"_id": "$badge_type", "count": {"$sum": 1}}}
+    ]
+    badges = await db.pulse_recognitions.aggregate(badge_pipeline).to_list(20)
+    badges_by_type = {b["_id"]: b["count"] for b in badges}
+    
+    return {
+        "employee": employee,
+        "stats": {
+            "posts_count": posts_count,
+            "recognitions_received": recognitions_received,
+            "recognitions_given": recognitions_given,
+            "daily_updates": daily_updates,
+            "weekly_updates": weekly_updates,
+            "total_badges": recognitions_received,
+            "badges_by_type": badges_by_type
+        }
+    }
+
+
+@router.get("/employees/{employee_id}/activity")
+async def get_employee_activity(
+    employee_id: str,
+    activity_type: Optional[str] = None,  # posts, recognitions, updates
+    limit: int = 20,
+    skip: int = 0,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get employee activity timeline"""
+    if db is None:
+        return {"activities": [], "total": 0}
+    
+    activities = []
+    
+    # Fetch posts
+    if not activity_type or activity_type == "posts":
+        posts = await db.pulse_posts.find(
+            {"author_id": employee_id},
+            {"_id": 0}
+        ).sort("created_at", -1).limit(limit if activity_type else 10).to_list(limit if activity_type else 10)
+        
+        for post in posts:
+            activities.append({
+                "type": "post",
+                "id": post.get("id"),
+                "title": post.get("title"),
+                "content": post.get("content", "")[:200],
+                "post_type": post.get("post_type"),
+                "created_at": post.get("created_at"),
+                "reactions": post.get("reactions", {}),
+                "comment_count": post.get("comment_count", 0)
+            })
+    
+    # Fetch recognitions received
+    if not activity_type or activity_type == "recognitions":
+        recognitions = await db.pulse_recognitions.find(
+            {"recipient_id": employee_id},
+            {"_id": 0}
+        ).sort("created_at", -1).limit(limit if activity_type else 10).to_list(limit if activity_type else 10)
+        
+        for rec in recognitions:
+            activities.append({
+                "type": "recognition_received",
+                "id": rec.get("id"),
+                "badge_type": rec.get("badge_type"),
+                "reason": rec.get("reason"),
+                "giver_name": rec.get("giver_name"),
+                "giver_id": rec.get("giver_id"),
+                "created_at": rec.get("created_at")
+            })
+    
+    # Fetch daily updates
+    if not activity_type or activity_type == "updates":
+        daily = await db.pulse_daily_updates.find(
+            {"user_id": employee_id},
+            {"_id": 0}
+        ).sort("created_at", -1).limit(limit if activity_type else 5).to_list(limit if activity_type else 5)
+        
+        for update in daily:
+            activities.append({
+                "type": "daily_update",
+                "id": update.get("id"),
+                "date": update.get("date"),
+                "completed_tasks": update.get("completed_tasks", []),
+                "blockers": update.get("blockers", []),
+                "created_at": update.get("created_at")
+            })
+        
+        # Weekly updates
+        weekly = await db.pulse_weekly_updates.find(
+            {"user_id": employee_id},
+            {"_id": 0}
+        ).sort("created_at", -1).limit(limit if activity_type else 5).to_list(limit if activity_type else 5)
+        
+        for update in weekly:
+            activities.append({
+                "type": "weekly_update",
+                "id": update.get("id"),
+                "week_start": update.get("week_start"),
+                "achievements": update.get("achievements", []),
+                "created_at": update.get("created_at")
+            })
+    
+    # Sort all activities by created_at
+    activities.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+    
+    # Apply pagination
+    total = len(activities)
+    activities = activities[skip:skip + limit]
+    
+    return {"activities": activities, "total": total}
+
+
+@router.get("/employees")
+async def list_employees(
+    department: Optional[str] = None,
+    search: Optional[str] = None,
+    limit: int = 50,
+    current_user: dict = Depends(get_current_user)
+):
+    """List employees for mentions and profiles"""
+    if db is None:
+        return {"employees": []}
+    
+    query = {"status": {"$ne": "inactive"}}
+    if department:
+        query["department"] = department
+    
+    employees = await db.users.find(
+        query,
+        {"_id": 0, "id": 1, "name": 1, "email": 1, "department": 1, "role": 1, "avatar": 1}
+    ).limit(limit).to_list(limit)
+    
+    # Filter by search if provided
+    if search:
+        search_lower = search.lower()
+        employees = [e for e in employees if 
+                    search_lower in e.get("name", "").lower() or 
+                    search_lower in e.get("email", "").lower()]
+    
+    return {"employees": employees}
+
+
+
+# ============== PERMISSIONS ==============
+
+@router.get("/permissions")
+async def get_user_permissions(user: dict = Depends(get_current_user)):
+    """Get current user's Pulse permissions"""
+    role = user.get("role", "employee")
+    permissions = PULSE_PERMISSIONS.get(role, PULSE_PERMISSIONS["employee"])
+    
+    # Expand wildcard
+    if "*" in permissions:
+        all_permissions = set()
+        for perms in PULSE_PERMISSIONS.values():
+            if "*" not in perms:
+                all_permissions.update(perms)
+        permissions = list(all_permissions)
+    
+    return {
+        "role": role,
+        "permissions": permissions,
+        "can_create_announcement": can_create_announcement(user),
+        "can_pin_post": can_pin_post(user),
+        "can_delete_any_post": can_delete_any_post(user),
+        "can_view_leadership_dashboard": can_view_leadership_dashboard(user),
+    }

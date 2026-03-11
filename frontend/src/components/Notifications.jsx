@@ -3,7 +3,7 @@ import { useWebSocket } from '../hooks/useWebSocket';
 import { 
     Bell, Check, CheckCheck, MessageSquare, UserPlus, Target, PenTool, X,
     ClipboardList, Folder, Mail, Share2, AlertTriangle, Clock, Filter,
-    Trash2, Settings, ExternalLink
+    Trash2, Settings, ExternalLink, Award, Heart, ThumbsUp, Megaphone
 } from 'lucide-react';
 import { Button } from './ui/button';
 import {
@@ -47,6 +47,12 @@ const NOTIFICATION_ICONS = {
     // Mention
     user_mentioned: MessageSquare,
     mention: MessageSquare,
+    // Pulse / Communication
+    reaction: ThumbsUp,
+    comment: MessageSquare,
+    recognition: Award,
+    achievement: Award,
+    announcement: Megaphone,
     // System
     system_alert: AlertTriangle,
     welcome: Bell,
@@ -64,6 +70,8 @@ const NOTIFICATION_COLORS = {
     approval: 'text-red-600 bg-red-50',
     system: 'text-gray-600 bg-gray-50',
     reminder: 'text-cyan-600 bg-cyan-50',
+    pulse: 'text-rose-600 bg-rose-50',
+    communication: 'text-rose-600 bg-rose-50',
     default: 'text-[#5D4A3A] bg-[#F5EDE5]'
 };
 

@@ -7,6 +7,8 @@ import { Textarea } from '../../components/ui/textarea';
 import { Badge } from '../../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
+import MentionInput, { MentionText } from '../../components/MentionInput';
+import { Link } from 'react-router-dom';
 import {
     Dialog,
     DialogContent,
@@ -112,6 +114,7 @@ export default function PulseFeed() {
         department: '',
         tags: [],
         priority: 'normal',
+        mentions: [],
     });
     const [tagInput, setTagInput] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -422,15 +425,19 @@ export default function PulseFeed() {
                                     {/* Post Header */}
                                     <div className="flex items-start justify-between mb-3">
                                         <div className="flex items-center gap-3">
-                                            <Avatar className="w-10 h-10">
-                                                <AvatarImage src={post.author?.avatar} />
-                                                <AvatarFallback className="bg-[#E8D5C4] text-[#4A3728]">
-                                                    {getInitials(post.author?.name)}
-                                                </AvatarFallback>
-                                            </Avatar>
+                                            <Link to={`/pulse/employee/${post.author_id}`}>
+                                                <Avatar className="w-10 h-10 hover:ring-2 hover:ring-rose-300 transition-all cursor-pointer">
+                                                    <AvatarImage src={post.author?.avatar} />
+                                                    <AvatarFallback className="bg-[#E8D5C4] text-[#4A3728]">
+                                                        {getInitials(post.author?.name)}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                            </Link>
                                             <div>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="font-medium text-[#4A3728]">{post.author?.name || 'Unknown'}</span>
+                                                    <Link to={`/pulse/employee/${post.author_id}`} className="hover:underline">
+                                                        <span className="font-medium text-[#4A3728]">{post.author?.name || 'Unknown'}</span>
+                                                    </Link>
                                                     <Badge variant="outline" className="text-xs capitalize border-[#E8D5C4] text-[#5D4A3A]">
                                                         {post.department}
                                                     </Badge>
@@ -474,7 +481,11 @@ export default function PulseFeed() {
 
                                     {/* Post Content */}
                                     <h3 className="text-lg font-semibold text-[#4A3728] mb-2">{post.title}</h3>
-                                    <p className="text-[#5D4A3A] whitespace-pre-wrap mb-3">{post.content}</p>
+                                    <MentionText 
+                                        text={post.content} 
+                                        mentions={post.mentions}
+                                        className="text-[#5D4A3A] whitespace-pre-wrap mb-3 block"
+                                    />
 
                                     {/* Tags */}
                                     {post.tags?.length > 0 && (
@@ -604,10 +615,10 @@ export default function PulseFeed() {
                         {/* Content */}
                         <div>
                             <label className="text-sm font-medium mb-1 block">Content</label>
-                            <Textarea
+                            <MentionInput
                                 value={newPost.content}
-                                onChange={(e) => setNewPost({ ...newPost, content: e.target.value })}
-                                placeholder="What would you like to share?"
+                                onChange={(content) => setNewPost(prev => ({ ...prev, content }))}
+                                placeholder="What would you like to share? Type @ to mention someone..."
                                 rows={5}
                             />
                         </div>

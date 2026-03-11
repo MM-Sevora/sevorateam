@@ -23,6 +23,8 @@ class NotificationCategory(str, Enum):
     MENTION = "mention"
     APPROVAL = "approval"
     REMINDER = "reminder"
+    PULSE = "pulse"
+    COMMUNICATION = "communication"
 
 
 class NotificationType(str, Enum):
@@ -65,6 +67,14 @@ class NotificationType(str, Enum):
     # System
     SYSTEM_ALERT = "system_alert"
     WELCOME = "welcome"
+    
+    # Pulse / Communication
+    MENTION = "mention"
+    REACTION = "reaction"
+    COMMENT = "comment"
+    RECOGNITION = "recognition"
+    ACHIEVEMENT = "achievement"
+    ANNOUNCEMENT = "announcement"
 
 
 class NotificationCreate(BaseModel):

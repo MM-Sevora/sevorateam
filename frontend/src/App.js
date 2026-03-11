@@ -63,6 +63,7 @@ import LeadershipDashboard from "./pages/pulse/LeadershipDashboard";
 import DepartmentWall from "./pages/pulse/DepartmentWall";
 import Recognition from "./pages/pulse/Recognition";
 import WorkUpdates from "./pages/pulse/WorkUpdates";
+import EmployeeProfile from "./pages/pulse/EmployeeProfile";
 
 // Email Page
 import EmailPage from "./pages/marketing/EmailPage";
@@ -420,6 +421,7 @@ function AppRoutes() {
             <Route path="/pulse/departments/:department" element={<ProtectedRoute><DepartmentWall /></ProtectedRoute>} />
             <Route path="/pulse/recognition" element={<ProtectedRoute><Recognition /></ProtectedRoute>} />
             <Route path="/pulse/updates" element={<ProtectedRoute><WorkUpdates /></ProtectedRoute>} />
+            <Route path="/pulse/employee/:employeeId" element={<ProtectedRoute><EmployeeProfile /></ProtectedRoute>} />
             {/* Redirect old routes to dashboard */}
             <Route path="/social/analytics" element={<Navigate to="/social" replace />} />
             <Route path="/social/ai-tools" element={<Navigate to="/social" replace />} />
