@@ -156,6 +156,11 @@ import CredentialVault from "./pages/it-admin/CredentialVault";
 import AuditLogs from "./pages/it-admin/AuditLogs";
 import OnboardingManagement from "./pages/it-admin/OnboardingManagement";
 
+// Finance Admin
+import BudgetPlanning from "./pages/finance/BudgetPlanning";
+import PaymentRequests from "./pages/finance/PaymentRequests";
+import Reimbursements from "./pages/finance/Reimbursements";
+
 import "./App.css";
 
 // Initialize MSAL instance
@@ -461,6 +466,11 @@ function AppRoutes() {
             <Route path="/it-admin/credentials" element={<ProtectedRoute requiredModule="admin"><CredentialVault /></ProtectedRoute>} />
             <Route path="/it-admin/audit-logs" element={<ProtectedRoute requiredModule="admin"><AuditLogs /></ProtectedRoute>} />
             <Route path="/it-admin/onboarding" element={<ProtectedRoute requiredModule="admin"><OnboardingManagement /></ProtectedRoute>} />
+
+            {/* Finance Admin Routes */}
+            <Route path="/finance/budgets" element={<ProtectedRoute requiredModule="finance"><BudgetPlanning /></ProtectedRoute>} />
+            <Route path="/finance/payments" element={<ProtectedRoute requiredModule="finance"><PaymentRequests /></ProtectedRoute>} />
+            <Route path="/finance/reimbursements" element={<ProtectedRoute><Reimbursements /></ProtectedRoute>} />
 
             {/* Settings Routes */}
             <Route path="/settings/automations" element={<ProtectedRoute requiredModule="automations"><AutomationSettings /></ProtectedRoute>} />

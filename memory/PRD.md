@@ -1,3 +1,68 @@
+## March 11, 2026 - Finance Admin Tools Added COMPLETE ✅
+
+### New Features:
+Added three new tools to the Finance Admin section:
+
+#### 1. Budget Planning (`/finance/budgets`)
+- Create and manage departmental budgets
+- Track allocated vs spent amounts
+- Visual charts: Budget by Department (bar chart), Budget by Category (pie chart)
+- Budget approval workflow
+- Fiscal year filtering
+- Overview cards: Total Allocated, Spent, Remaining, Utilization %
+
+#### 2. Payment Requests (`/finance/payments`)
+- Create vendor payment requests
+- Multi-stage approval workflow (pending → approved → processing → completed)
+- Category-based organization (Services, Software, Hardware, etc.)
+- Due date tracking
+- Invoice number support
+- Budget linking capability
+- Stats: Pending count/amount, Approved, Processing, This Month totals
+
+#### 3. Reimbursements (`/finance/reimbursements`)
+- Employee expense reimbursement submissions
+- Two views: All Requests & My Requests
+- Categories: Travel, Meals, Supplies, Equipment, Software, Training, Other
+- Full workflow: Draft → Submit → Under Review → Approved → Paid
+- Expense category breakdown pie chart
+- Receipt URL support for attachments
+
+### Backend API Endpoints (all under `/api/finance`):
+- `POST /budgets` - Create budget
+- `GET /budgets` - List budgets with filters
+- `GET /budgets/{id}` - Get specific budget
+- `PUT /budgets/{id}` - Update budget
+- `POST /budgets/{id}/approve` - Approve budget
+- `GET /budgets/summary/overview` - Budget overview stats
+- `POST /payment-requests` - Create payment request
+- `GET /payment-requests` - List payment requests
+- `POST /payment-requests/{id}/action` - Approve/reject/process/complete
+- `GET /payment-requests/summary/stats` - Payment statistics
+- `POST /reimbursements` - Create reimbursement
+- `GET /reimbursements` - List all reimbursements
+- `GET /reimbursements/my` - Get user's reimbursements
+- `POST /reimbursements/{id}/action` - Submit/approve/reject/pay
+- `GET /reimbursements/summary/stats` - Reimbursement statistics
+- `GET /dashboard` - Finance dashboard overview
+
+### Files Created:
+- `/app/backend/routes/finance.py` - Backend API routes
+- `/app/frontend/src/pages/finance/BudgetPlanning.jsx`
+- `/app/frontend/src/pages/finance/PaymentRequests.jsx`
+- `/app/frontend/src/pages/finance/Reimbursements.jsx`
+
+### Sidebar Updates:
+- Added Budget Planning, Payment Requests, Reimbursements under Finance Admin
+- Added Reimbursements under HR Admin (shared access)
+
+### Database Collections:
+- `finance_budgets`
+- `finance_payment_requests`
+- `finance_reimbursements`
+
+---
+
 ## March 11, 2026 - Sidebar Restructure: Unified Administration Section COMPLETE ✅
 
 ### Changes Made:

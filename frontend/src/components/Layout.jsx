@@ -12,7 +12,8 @@ import {
     ChevronDown, ChevronRight, Briefcase, Mail, Check, Send, ListTodo, FolderKanban,
     HelpCircle, Award, Network, Shield, Flag, CalendarDays, RefreshCw, Plus, Globe,
     TrendingUp, PieChart, Activity, FileText, Package, Factory, FlaskConical, Search, Database,
-    Server, Plug, Bell, ClipboardList, Bot, Cog, CheckCircle, MessageCircle, Key, Lock, Receipt
+    Server, Plug, Bell, ClipboardList, Bot, Cog, CheckCircle, MessageCircle, Key, Lock, Receipt,
+    CreditCard
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -254,6 +255,7 @@ const DEPARTMENT_CONFIG = {
                 items: [
                     { path: '/admin/employees', name: 'Employee Database', icon: Award },
                     { path: '/admin/organization', name: 'Organization', icon: Building2 },
+                    { path: '/finance/reimbursements', name: 'Reimbursements', icon: Receipt },
                 ]
             },
             {
@@ -261,7 +263,10 @@ const DEPARTMENT_CONFIG = {
                 groupIcon: DollarSign,
                 requiredModule: 'finance',
                 items: [
-                    { path: '/expense', name: 'Expense Management', icon: Receipt },
+                    { path: '/finance/budgets', name: 'Budget Planning', icon: BarChart3 },
+                    { path: '/finance/payments', name: 'Payment Requests', icon: CreditCard },
+                    { path: '/finance/reimbursements', name: 'Reimbursements', icon: Receipt },
+                    { path: '/expense', name: 'Expense Management', icon: DollarSign },
                 ]
             },
             {
