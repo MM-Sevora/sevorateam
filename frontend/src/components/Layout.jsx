@@ -12,7 +12,7 @@ import {
     ChevronDown, ChevronRight, Briefcase, Mail, Check, Send, ListTodo, FolderKanban,
     HelpCircle, Award, Network, Shield, Flag, CalendarDays, RefreshCw, Plus, Globe,
     TrendingUp, PieChart, Activity, FileText, Package, Factory, FlaskConical, Search, Database,
-    Server, Plug, Bell, ClipboardList, Bot, Cog, CheckCircle, MessageCircle, Key, Lock
+    Server, Plug, Bell, ClipboardList, Bot, Cog, CheckCircle, MessageCircle, Key, Lock, Receipt
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -233,10 +233,46 @@ const DEPARTMENT_CONFIG = {
         textColor: 'text-slate-700',
         requiredModule: 'admin',
         routes: [
-            { path: '/admin/users', name: 'User Management', icon: Users },
-            { path: '/admin/employees', name: 'Employee Database', icon: Award, requiredModule: 'hr' },
-            { path: '/admin/organization', name: 'Organization', icon: Building2, requiredModule: 'hr' },
-            { path: '/admin/access-control', name: 'Permissions', icon: Shield },
+            {
+                groupName: 'IT Admin',
+                groupIcon: Server,
+                requiredModule: 'admin',
+                items: [
+                    { path: '/it-admin', name: 'Dashboard', icon: LayoutDashboard },
+                    { path: '/it-admin/tools', name: 'Tool Registry', icon: Package },
+                    { path: '/it-admin/access', name: 'Access Management', icon: Key },
+                    { path: '/it-admin/requests', name: 'Access Requests', icon: ClipboardList },
+                    { path: '/it-admin/credentials', name: 'Credential Vault', icon: Lock },
+                    { path: '/it-admin/audit-logs', name: 'Audit Logs', icon: FileText },
+                    { path: '/it-admin/onboarding', name: 'Onboarding', icon: UserPlus },
+                ]
+            },
+            {
+                groupName: 'HR Admin',
+                groupIcon: Users,
+                requiredModule: 'hr',
+                items: [
+                    { path: '/admin/employees', name: 'Employee Database', icon: Award },
+                    { path: '/admin/organization', name: 'Organization', icon: Building2 },
+                ]
+            },
+            {
+                groupName: 'Finance Admin',
+                groupIcon: DollarSign,
+                requiredModule: 'finance',
+                items: [
+                    { path: '/expense', name: 'Expense Management', icon: Receipt },
+                ]
+            },
+            {
+                groupName: 'General Admin',
+                groupIcon: Shield,
+                requiredModule: 'admin',
+                items: [
+                    { path: '/admin/users', name: 'User Management', icon: Users },
+                    { path: '/admin/access-control', name: 'Permissions', icon: Shield },
+                ]
+            },
         ]
     },
     systems: {
@@ -253,23 +289,6 @@ const DEPARTMENT_CONFIG = {
             { path: '/settings/automations', name: 'Automations', icon: Zap, requiredModule: 'automations' },
             { path: '/notifications', name: 'Notifications', icon: Bell, requiredModule: 'notifications' },
             { path: '/admin/website-settings', name: 'Website Settings', icon: Globe },
-        ]
-    },
-    itadmin: {
-        name: 'IT Admin',
-        icon: Shield,
-        color: 'from-red-600 to-red-700',
-        bgColor: 'bg-red-50',
-        textColor: 'text-red-700',
-        requiredModule: 'admin',
-        routes: [
-            { path: '/it-admin', name: 'Dashboard', icon: LayoutDashboard },
-            { path: '/it-admin/tools', name: 'Tool Registry', icon: Package },
-            { path: '/it-admin/access', name: 'Access Management', icon: Key },
-            { path: '/it-admin/requests', name: 'Access Requests', icon: ClipboardList },
-            { path: '/it-admin/credentials', name: 'Credential Vault', icon: Lock },
-            { path: '/it-admin/audit-logs', name: 'Audit Logs', icon: FileText },
-            { path: '/it-admin/onboarding', name: 'Onboarding', icon: UserPlus },
         ]
     }
 };
@@ -288,7 +307,7 @@ export const Layout = ({ children }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(true);
-    const [expandedDepts, setExpandedDepts] = useState(['analytics', 'goals', 'meetings', 'projects', 'tasks', 'marketing', 'sales', 'social', 'hr', 'sourcing', 'admin', 'systems', 'itadmin']);
+    const [expandedDepts, setExpandedDepts] = useState(['analytics', 'goals', 'meetings', 'projects', 'tasks', 'marketing', 'sales', 'social', 'hr', 'sourcing', 'admin', 'systems']);
     const [expandedSubgroups, setExpandedSubgroups] = useState([]);
 
     const toggleDepartment = (dept) => {
@@ -458,7 +477,64 @@ export const Layout = ({ children }) => {
                                                 return true;
                                             })
                                             .map((route, idx) => {
-                                            // Handle grouped routes (with children)
+                                            // Handle nested admin groups (groupName + items)
+                                            if (route.groupName && route.items) {
+                                                const GroupIcon = route.groupIcon;
+                                                const groupKey = `${deptKey}-${route.groupName}`;
+                                                const isGroupExpanded = expandedSubgroups.includes(groupKey);
+                                                const isGroupActive = route.items.some(item => location.pathname === item.path);
+                                                
+                                                // Check module access for the group
+                                                if (route.requiredModule && !hasModuleAccess(route.requiredModule)) {
+                                                    return null;
+                                                }
+                                                
+                                                return (
+                                                    <div key={groupKey} className="space-y-1">
+                                                        <button
+                                                            onClick={() => toggleSubgroup(groupKey)}
+                                                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all ${
+                                                                isGroupActive 
+                                                                    ? `bg-[#E8D5C4] ${dept.textColor} font-medium` 
+                                                                    : 'text-[#5D4A3A] hover:bg-[#E8D5C4]/50'
+                                                            }`}
+                                                        >
+                                                            <div className="flex items-center gap-3">
+                                                                <GroupIcon className="w-4 h-4" />
+                                                                <span>{route.groupName}</span>
+                                                            </div>
+                                                            {isGroupExpanded 
+                                                                ? <ChevronDown className="w-3 h-3" />
+                                                                : <ChevronRight className="w-3 h-3" />
+                                                            }
+                                                        </button>
+                                                        {isGroupExpanded && (
+                                                            <div className="ml-4 pl-3 border-l border-[#D4BBA6]/50 space-y-1">
+                                                                {route.items.map(item => {
+                                                                    const ItemIcon = item.icon;
+                                                                    const isItemActive = location.pathname === item.path;
+                                                                    return (
+                                                                        <Link
+                                                                            key={item.path}
+                                                                            to={item.path}
+                                                                            className={`flex items-center gap-3 px-3 py-1.5 rounded-lg text-xs transition-all ${
+                                                                                isItemActive 
+                                                                                    ? `bg-[#D4BBA6] ${dept.textColor} font-medium` 
+                                                                                    : 'text-[#5D4A3A] hover:bg-[#E8D5C4]/50'
+                                                                            }`}
+                                                                        >
+                                                                            <ItemIcon className="w-3 h-3" />
+                                                                            <span>{item.name}</span>
+                                                                        </Link>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            }
+                                            
+                                            // Handle grouped routes (with children) - legacy structure
                                             if (route.isGroup && route.children) {
                                                 const GroupIcon = route.icon;
                                                 const groupKey = `${deptKey}-${route.name}`;
