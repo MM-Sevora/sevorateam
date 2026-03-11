@@ -143,10 +143,12 @@ const DEPARTMENT_CONFIG = {
         requiredModule: 'social',  // Module-based access
         routes: [
             { path: '/social', name: 'Dashboard & Analytics', icon: BarChart3 },
+            { path: '/social/inbox', name: 'Inbox', icon: MessageSquare },
             { path: '/social/campaigns', name: 'Campaigns', icon: Target },
             { path: '/social/studio', name: 'Content Studio', icon: PenTool },
             { path: '/social/posts', name: 'Posts & Schedule', icon: Clock },
             { path: '/social/queues', name: 'Posting Queues', icon: Calendar },
+            { path: '/social/auto-reply', name: 'Auto-Reply Rules', icon: Zap },
             { path: '/social/workflows', name: 'Approval Workflows', icon: CheckCircle },
             { path: '/social/library', name: 'Content Library', icon: Image },
         ]

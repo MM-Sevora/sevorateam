@@ -4053,6 +4053,25 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Social Workflows routes: {e}")
 
+# Load Social Inbox routes (Unified Inbox, Mentions)
+try:
+    from routes.social_inbox import social_inbox_router, init_social_inbox_router
+    init_social_inbox_router(db, get_current_user)
+    api_router.include_router(social_inbox_router)
+    logger.info("Social Inbox routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Social Inbox routes: {e}")
+
+# Load Auto-Reply routes (Rule-based + AI)
+try:
+    from routes.social_auto_reply import auto_reply_router, init_auto_reply_router
+    # AI client is optional - will use template responses if not configured
+    init_auto_reply_router(db, get_current_user, None)
+    api_router.include_router(auto_reply_router)
+    logger.info("Auto-Reply routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Auto-Reply routes: {e}")
+
 # Load Admin V2 routes
 try:
     from routes.admin import router as admin_v2_router, set_database as set_admin_db, set_jwt_settings as set_admin_jwt
