@@ -346,6 +346,70 @@ async def list_vendors(
     }
 
 
+# ============== RECURRING VENDOR WORK (listed here to prevent route conflict with /{vendor_id}) ==============
+
+@router.get("/recurring")
+async def list_recurring_work(
+    vendor_id: Optional[str] = None,
+    department: Optional[str] = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """List recurring vendor work"""
+    query = {"is_active": True}
+    if vendor_id:
+        query["vendor_id"] = vendor_id
+    if department:
+        query["department"] = department
+    
+    recurring = await db.vendor_recurring.find(query, {"_id": 0}).sort("next_due_date", 1).to_list(50)
+    
+    # Mark items due soon
+    now = datetime.now(timezone.utc)
+    for r in recurring:
+        next_due_str = r.get("next_due_date", "")
+        try:
+            # Handle both timezone-aware and naive datetime strings
+            if '+' in next_due_str or 'Z' in next_due_str:
+                next_due = datetime.fromisoformat(next_due_str.replace('Z', '+00:00'))
+            else:
+                # Assume UTC if no timezone info
+                next_due = datetime.fromisoformat(next_due_str).replace(tzinfo=timezone.utc)
+            days_until_due = (next_due - now).days
+        except (ValueError, TypeError):
+            days_until_due = 0
+        r["days_until_due"] = days_until_due
+        r["is_overdue"] = days_until_due < 0
+        r["is_due_soon"] = 0 <= days_until_due <= 7
+    
+    return {"recurring_work": recurring}
+
+
+# ============== PO & INVOICE TRACKING (listed here to prevent route conflict with /{vendor_id}) ==============
+
+@router.get("/po-invoices")
+async def list_po_invoices(
+    vendor_id: Optional[str] = None,
+    work_order_id: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50,
+    user: dict = Depends(get_current_user_dep)
+):
+    """List PO/Invoice records"""
+    query = {"is_active": True}
+    if vendor_id:
+        query["vendor_id"] = vendor_id
+    if work_order_id:
+        query["work_order_id"] = work_order_id
+    
+    records = await db.vendor_po_invoices.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    total = await db.vendor_po_invoices.count_documents(query)
+    
+    return {
+        "records": records,
+        "total": total
+    }
+
+
 @router.get("/{vendor_id}")
 async def get_vendor(vendor_id: str, user: dict = Depends(get_current_user_dep)):
     """Get vendor details"""
@@ -963,7 +1027,8 @@ async def add_proposal(
         {"requirement_id": requirement_id, "amount": proposal.amount}
     )
     
-    del proposal_doc["_id"] if "_id" in proposal_doc else None
+    if "_id" in proposal_doc:
+        del proposal_doc["_id"]
     return proposal_doc
 
 
@@ -1371,33 +1436,6 @@ async def create_recurring_work(
     return recurring_doc
 
 
-@router.get("/recurring")
-async def list_recurring_work(
-    vendor_id: Optional[str] = None,
-    department: Optional[str] = None,
-    user: dict = Depends(get_current_user_dep)
-):
-    """List recurring vendor work"""
-    query = {"is_active": True}
-    if vendor_id:
-        query["vendor_id"] = vendor_id
-    if department:
-        query["department"] = department
-    
-    recurring = await db.vendor_recurring.find(query, {"_id": 0}).sort("next_due_date", 1).to_list(50)
-    
-    # Mark items due soon
-    now = datetime.now(timezone.utc)
-    for r in recurring:
-        next_due = datetime.fromisoformat(r["next_due_date"].replace('Z', '+00:00'))
-        days_until_due = (next_due - now).days
-        r["days_until_due"] = days_until_due
-        r["is_overdue"] = days_until_due < 0
-        r["is_due_soon"] = 0 <= days_until_due <= 7
-    
-    return {"recurring_work": recurring}
-
-
 @router.post("/recurring/{recurring_id}/create-work-order")
 async def create_work_order_from_recurring(
     recurring_id: str,
@@ -1525,30 +1563,6 @@ async def create_po_invoice_record(
     
     del doc["_id"]
     return doc
-
-
-@router.get("/po-invoices")
-async def list_po_invoices(
-    vendor_id: Optional[str] = None,
-    work_order_id: Optional[str] = None,
-    skip: int = 0,
-    limit: int = 50,
-    user: dict = Depends(get_current_user_dep)
-):
-    """List PO/Invoice records"""
-    query = {"is_active": True}
-    if vendor_id:
-        query["vendor_id"] = vendor_id
-    if work_order_id:
-        query["work_order_id"] = work_order_id
-    
-    records = await db.vendor_po_invoices.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
-    total = await db.vendor_po_invoices.count_documents(query)
-    
-    return {
-        "records": records,
-        "total": total
-    }
 
 
 @router.get("/po-invoices/{record_id}")
