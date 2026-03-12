@@ -124,7 +124,6 @@ const DEPARTMENT_CONFIG = {
         routes: [
             { path: '/marketing', name: 'Insights & Analytics', icon: BarChart3 },
             { path: '/marketing/influencers', name: 'Influencers', icon: Users },
-            { path: '/marketing/discovery', name: 'Discovery & Compare', icon: Search },
             { path: '/marketing/publications', name: 'Publications', icon: Building2 },
             { path: '/marketing/campaigns', name: 'Campaign Hub', icon: Target },
             { path: '/marketing/pipeline', name: 'Pipeline', icon: Briefcase },
