@@ -3,6 +3,16 @@
 ### What Was Built
 Consolidated three separate admin pages (User Management, User Permissions, System Modules) into a single seamless "Users & Permissions" hub at `/admin/users-permissions`.
 
+### Bulk Actions Feature (NEW)
+Added multi-select capability with bulk actions toolbar:
+- **Select users** via checkboxes (individual or "Select All")
+- **Bulk Activate** - Activate multiple users at once
+- **Bulk Deactivate** - Deactivate multiple users at once
+- **Bulk Assign Roles** - Opens dialog to select roles, assigns to all selected users
+- **Bulk Delete** - Delete multiple users with confirmation dialog
+- Selection count badge and "Clear" button for easy management
+- Selected rows highlighted in blue for visual feedback
+
 ### New Page Structure
 **4 Tabs:**
 1. **Users Tab** - Complete user management with table view

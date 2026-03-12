@@ -117,6 +117,13 @@ const UsersPermissionsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   
+  // Bulk selection state
+  const [selectedUserIds, setSelectedUserIds] = useState([]);
+  const [bulkRolesDialog, setBulkRolesDialog] = useState(false);
+  const [bulkRoleIds, setBulkRoleIds] = useState([]);
+  const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false);
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+  
   // User panel state
   const [selectedUser, setSelectedUser] = useState(null);
   const [userPanelOpen, setUserPanelOpen] = useState(false);
@@ -636,6 +643,92 @@ const UsersPermissionsPage = () => {
     }
   };
 
+  // ================== BULK ACTIONS ==================
+  const toggleUserSelection = (userId) => {
+    setSelectedUserIds(prev => 
+      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedUserIds.length === filteredUsers.length) {
+      setSelectedUserIds([]);
+    } else {
+      setSelectedUserIds(filteredUsers.map(u => u.id));
+    }
+  };
+
+  const clearSelection = () => setSelectedUserIds([]);
+
+  const handleBulkActivate = async () => {
+    if (selectedUserIds.length === 0) return;
+    setBulkProcessing(true);
+    try {
+      await Promise.all(selectedUserIds.map(id => api.put(`/workos/users/${id}`, { status: 'active' })));
+      toast.success(`${selectedUserIds.length} users activated`);
+      clearSelection();
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to activate some users');
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
+
+  const handleBulkDeactivate = async () => {
+    if (selectedUserIds.length === 0) return;
+    setBulkProcessing(true);
+    try {
+      await Promise.all(selectedUserIds.map(id => api.put(`/workos/users/${id}`, { status: 'inactive' })));
+      toast.success(`${selectedUserIds.length} users deactivated`);
+      clearSelection();
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to deactivate some users');
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
+
+  const openBulkRolesDialog = () => {
+    setBulkRoleIds([]);
+    setBulkRolesDialog(true);
+  };
+
+  const handleBulkAssignRoles = async () => {
+    if (selectedUserIds.length === 0 || bulkRoleIds.length === 0) return;
+    setBulkProcessing(true);
+    try {
+      await Promise.all(selectedUserIds.map(id => 
+        api.put(`/access/users/${id}/roles`, { custom_role_ids: bulkRoleIds })
+      ));
+      toast.success(`Roles assigned to ${selectedUserIds.length} users`);
+      setBulkRolesDialog(false);
+      clearSelection();
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to assign roles to some users');
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedUserIds.length === 0) return;
+    setBulkProcessing(true);
+    try {
+      await Promise.all(selectedUserIds.map(id => api.delete(`/workos/users/${id}`)));
+      toast.success(`${selectedUserIds.length} users deleted`);
+      setBulkDeleteDialog(false);
+      clearSelection();
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to delete some users');
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
+
   // Helper functions
   const getIcon = (iconName) => {
     const IconComponent = ICON_MAP[iconName] || Server;
@@ -752,11 +845,44 @@ const UsersPermissionsPage = () => {
             </Button>
           </div>
 
+          {/* Bulk Actions Toolbar */}
+          {selectedUserIds.length > 0 && (
+            <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg" data-testid="bulk-actions-toolbar">
+              <div className="flex items-center gap-2">
+                <Badge className="bg-blue-600 text-white">{selectedUserIds.length} selected</Badge>
+                <Button variant="ghost" size="sm" onClick={clearSelection} className="text-blue-600">
+                  <X className="h-4 w-4 mr-1" /> Clear
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={handleBulkActivate} disabled={bulkProcessing} className="border-green-300 text-green-700 hover:bg-green-50">
+                  <CheckCircle className="h-4 w-4 mr-1" /> Activate
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleBulkDeactivate} disabled={bulkProcessing} className="border-amber-300 text-amber-700 hover:bg-amber-50">
+                  <XCircle className="h-4 w-4 mr-1" /> Deactivate
+                </Button>
+                <Button variant="outline" size="sm" onClick={openBulkRolesDialog} disabled={bulkProcessing} className="border-purple-300 text-purple-700 hover:bg-purple-50">
+                  <Shield className="h-4 w-4 mr-1" /> Assign Roles
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setBulkDeleteDialog(true)} disabled={bulkProcessing} className="border-red-300 text-red-700 hover:bg-red-50">
+                  <Trash2 className="h-4 w-4 mr-1" /> Delete
+                </Button>
+              </div>
+            </div>
+          )}
+
           <Card className="border-[#E8D5C4]">
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-[#F5EDE5]">
+                    <TableHead className="w-12">
+                      <Checkbox 
+                        checked={filteredUsers.length > 0 && selectedUserIds.length === filteredUsers.length}
+                        onCheckedChange={toggleSelectAll}
+                        aria-label="Select all"
+                      />
+                    </TableHead>
                     <TableHead className="text-[#4A3728]">User</TableHead>
                     <TableHead className="text-[#4A3728]">Status</TableHead>
                     <TableHead className="text-[#4A3728]">HR Status</TableHead>
@@ -767,18 +893,26 @@ const UsersPermissionsPage = () => {
                 </TableHeader>
                 <TableBody>
                   {filteredUsers.length === 0 ? (
-                    <TableRow><TableCell colSpan={6} className="text-center py-8 text-[#5D4A3A]">No users found</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-[#5D4A3A]">No users found</TableCell></TableRow>
                   ) : (
                     filteredUsers.map(user => {
                       const roleNames = getUserRoleNames(user);
                       const onboarded = isUserOnboarded(user.id);
+                      const isSelected = selectedUserIds.includes(user.id);
                       return (
                         <TableRow 
                           key={user.id} 
-                          className="hover:bg-[#F5EDE5] cursor-pointer" 
+                          className={`hover:bg-[#F5EDE5] cursor-pointer ${isSelected ? 'bg-blue-50' : ''}`}
                           onClick={() => openUserPanel(user)}
                           data-testid={`user-row-${user.id}`}
                         >
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            <Checkbox 
+                              checked={isSelected}
+                              onCheckedChange={() => toggleUserSelection(user.id)}
+                              aria-label={`Select ${user.name}`}
+                            />
+                          </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-full bg-[#E8D5C4] flex items-center justify-center">
@@ -1562,6 +1696,68 @@ const UsersPermissionsPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ==================== BULK ASSIGN ROLES DIALOG ==================== */}
+      <Dialog open={bulkRolesDialog} onOpenChange={setBulkRolesDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Shield className="h-5 w-5" /> Bulk Assign Roles</DialogTitle>
+            <DialogDescription>Assign roles to {selectedUserIds.length} selected users. This will replace their existing roles.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="bg-blue-50 p-3 rounded-lg">
+              <p className="text-sm text-blue-800"><strong>{selectedUserIds.length}</strong> users selected</p>
+            </div>
+            <div>
+              <Label className="mb-2 block">Select Roles</Label>
+              <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-2">
+                {roles.map(role => (
+                  <label key={role.id} className={`flex items-center gap-3 p-2 rounded cursor-pointer hover:bg-gray-50 ${bulkRoleIds.includes(role.id) ? 'bg-purple-50 border border-purple-200' : ''}`}>
+                    <Checkbox 
+                      checked={bulkRoleIds.includes(role.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) setBulkRoleIds([...bulkRoleIds, role.id]);
+                        else setBulkRoleIds(bulkRoleIds.filter(id => id !== role.id));
+                      }}
+                    />
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{role.name}</p>
+                      <p className="text-xs text-gray-500">{role.description || role.code}</p>
+                    </div>
+                    <Badge variant="outline" className="text-xs">{role.module_access?.length || 0} modules</Badge>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkRolesDialog(false)}>Cancel</Button>
+            <Button onClick={handleBulkAssignRoles} disabled={bulkProcessing || bulkRoleIds.length === 0} className="bg-purple-600 hover:bg-purple-700">
+              {bulkProcessing ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Shield className="h-4 w-4 mr-2" />}
+              Assign to {selectedUserIds.length} Users
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ==================== BULK DELETE DIALOG ==================== */}
+      <AlertDialog open={bulkDeleteDialog} onOpenChange={setBulkDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-600">Delete {selectedUserIds.length} Users</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {selectedUserIds.length} users? This action cannot be undone and will remove all their data and access.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkDelete} className="bg-red-600 hover:bg-red-700" disabled={bulkProcessing}>
+              {bulkProcessing ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Delete {selectedUserIds.length} Users
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
