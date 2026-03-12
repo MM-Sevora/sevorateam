@@ -74,14 +74,18 @@ class BudgetUpdate(BaseModel):
 
 class PaymentRequestCreate(BaseModel):
     title: str
-    vendor_name: str
+    vendor_name: Optional[str] = None
     amount: float
-    currency: str = "USD"
+    currency: str = "INR"
     category: str
     description: Optional[str] = None
     due_date: Optional[str] = None
     invoice_number: Optional[str] = None
     budget_id: Optional[str] = None
+    department: Optional[str] = None
+    payment_method: Optional[str] = None
+    account_details: Optional[str] = None
+    reference_number: Optional[str] = None
 
 class PaymentRequestAction(BaseModel):
     action: str  # approve, reject, process, complete, cancel
@@ -301,7 +305,7 @@ async def create_payment_request(
     request_doc = {
         "id": str(uuid.uuid4()),
         "title": request.title,
-        "vendor_name": request.vendor_name,
+        "vendor_name": request.vendor_name or request.category,
         "amount": request.amount,
         "currency": request.currency,
         "category": request.category,
@@ -309,10 +313,14 @@ async def create_payment_request(
         "due_date": request.due_date,
         "invoice_number": request.invoice_number,
         "budget_id": request.budget_id,
+        "department": request.department,
+        "payment_method": request.payment_method,
+        "account_details": request.account_details,
+        "reference_number": request.reference_number,
         "status": PaymentStatus.pending.value,
         "requester_id": user.get("id"),
         "requester_name": user.get("name"),
-        "requester_department": user.get("department"),
+        "requester_department": request.department or user.get("department"),
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "approver_id": None,
