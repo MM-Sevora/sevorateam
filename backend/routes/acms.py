@@ -2203,3 +2203,463 @@ async def send_rotation_reminders(
         "message": f"Sent {len(reminders_sent)} rotation reminders",
         "reminders": reminders_sent
     }
+
+
+
+# ==================== TOOL TEMPLATES & AUTO-PROVISIONING ====================
+
+class ToolTemplateCreate(BaseModel):
+    """Create a tool template for auto-provisioning"""
+    name: str
+    description: Optional[str] = None
+    department_id: Optional[str] = None  # If null, applies to all
+    role_code: Optional[str] = None  # If null, applies to all roles in dept
+    tool_ids: List[str] = []  # List of tool IDs to provision
+    default_access_level: str = "viewer"  # viewer, editor, admin
+    is_active: bool = True
+
+class ToolTemplateUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    department_id: Optional[str] = None
+    role_code: Optional[str] = None
+    tool_ids: Optional[List[str]] = None
+    default_access_level: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class ProvisioningAction(BaseModel):
+    """Manual provisioning action"""
+    user_ids: List[str]
+    tool_ids: List[str]
+    access_level: str = "viewer"
+    action: str  # "grant" or "revoke"
+
+# --- Tool Templates CRUD ---
+
+@router.get("/templates")
+async def get_tool_templates(
+    department_id: Optional[str] = None,
+    is_active: Optional[bool] = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get all tool provisioning templates"""
+    query = {}
+    if department_id:
+        query["department_id"] = department_id
+    if is_active is not None:
+        query["is_active"] = is_active
+    
+    templates = await db.acms_tool_templates.find(query, {"_id": 0}).sort("name", 1).to_list(100)
+    
+    # Enrich with department and tool names
+    for template in templates:
+        if template.get("department_id"):
+            dept = await db.departments.find_one({"id": template["department_id"]}, {"name": 1})
+            template["department_name"] = dept.get("name") if dept else "Unknown"
+        else:
+            template["department_name"] = "All Departments"
+        
+        # Get tool names
+        tool_names = []
+        for tool_id in template.get("tool_ids", []):
+            tool = await db.acms_tools.find_one({"id": tool_id}, {"name": 1})
+            if tool:
+                tool_names.append(tool.get("name"))
+        template["tool_names"] = tool_names
+    
+    return {"templates": templates}
+
+@router.post("/templates")
+async def create_tool_template(
+    template: ToolTemplateCreate,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Create a new tool provisioning template"""
+    template_doc = {
+        "id": str(uuid.uuid4()),
+        **template.dict(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_by": user.get("id"),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.acms_tool_templates.insert_one(template_doc)
+    
+    # Log activity
+    background_tasks.add_task(
+        log_activity,
+        action="template_created",
+        entity_type="template",
+        entity_id=template_doc["id"],
+        entity_name=template.name,
+        user_id=user.get("id"),
+        user_name=user.get("name"),
+        details={"tool_count": len(template.tool_ids)}
+    )
+    
+    return {"message": "Template created", "template_id": template_doc["id"]}
+
+@router.put("/templates/{template_id}")
+async def update_tool_template(
+    template_id: str,
+    template: ToolTemplateUpdate,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Update a tool provisioning template"""
+    existing = await db.acms_tool_templates.find_one({"id": template_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    update_data = {k: v for k, v in template.dict().items() if v is not None}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.acms_tool_templates.update_one({"id": template_id}, {"$set": update_data})
+    
+    background_tasks.add_task(
+        log_activity,
+        action="template_updated",
+        entity_type="template",
+        entity_id=template_id,
+        entity_name=existing.get("name"),
+        user_id=user.get("id"),
+        user_name=user.get("name")
+    )
+    
+    return {"message": "Template updated"}
+
+@router.delete("/templates/{template_id}")
+async def delete_tool_template(
+    template_id: str,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Delete a tool provisioning template"""
+    existing = await db.acms_tool_templates.find_one({"id": template_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    await db.acms_tool_templates.delete_one({"id": template_id})
+    
+    background_tasks.add_task(
+        log_activity,
+        action="template_deleted",
+        entity_type="template",
+        entity_id=template_id,
+        entity_name=existing.get("name"),
+        user_id=user.get("id"),
+        user_name=user.get("name")
+    )
+    
+    return {"message": "Template deleted"}
+
+# --- Auto-Provisioning Functions ---
+
+async def provision_tools_for_user(
+    user_id: str,
+    tool_ids: List[str],
+    access_level: str,
+    provisioner_id: str,
+    provisioner_name: str,
+    reason: str = "auto_provisioning"
+):
+    """Grant tool access to a user"""
+    results = []
+    for tool_id in tool_ids:
+        # Check if access already exists
+        existing = await db.acms_user_access.find_one({
+            "user_id": user_id,
+            "tool_id": tool_id,
+            "is_active": True
+        })
+        
+        if existing:
+            results.append({"tool_id": tool_id, "status": "already_exists"})
+            continue
+        
+        # Create access record
+        access_doc = {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "tool_id": tool_id,
+            "access_level": access_level,
+            "access_type": "auto_provisioned",
+            "granted_at": datetime.now(timezone.utc).isoformat(),
+            "granted_by": provisioner_id,
+            "is_active": True,
+            "provisioning_reason": reason
+        }
+        
+        await db.acms_user_access.insert_one(access_doc)
+        
+        # Get names for logging
+        tool_name = await get_tool_name(tool_id)
+        user = await db.users.find_one({"id": user_id}, {"name": 1})
+        user_name = user.get("name") if user else "Unknown"
+        
+        # Log activity
+        await log_activity(
+            action="access_auto_provisioned",
+            entity_type="access",
+            entity_id=access_doc["id"],
+            entity_name=tool_name,
+            user_id=provisioner_id,
+            user_name=provisioner_name,
+            details={
+                "target_user": user_name,
+                "target_user_id": user_id,
+                "tool": tool_name,
+                "access_level": access_level,
+                "reason": reason
+            }
+        )
+        
+        results.append({"tool_id": tool_id, "status": "granted", "access_id": access_doc["id"]})
+    
+    return results
+
+async def revoke_tools_for_user(
+    user_id: str,
+    tool_ids: Optional[List[str]] = None,
+    revoker_id: str = "system",
+    revoker_name: str = "System",
+    reason: str = "auto_offboarding"
+):
+    """Revoke tool access from a user"""
+    query = {"user_id": user_id, "is_active": True}
+    if tool_ids:
+        query["tool_id"] = {"$in": tool_ids}
+    
+    access_records = await db.acms_user_access.find(query, {"_id": 0}).to_list(100)
+    results = []
+    
+    for access in access_records:
+        await db.acms_user_access.update_one(
+            {"id": access["id"]},
+            {
+                "$set": {
+                    "is_active": False,
+                    "revoked_at": datetime.now(timezone.utc).isoformat(),
+                    "revoked_by": revoker_id,
+                    "revocation_reason": reason
+                }
+            }
+        )
+        
+        tool_name = await get_tool_name(access.get("tool_id"))
+        user = await db.users.find_one({"id": user_id}, {"name": 1})
+        user_name = user.get("name") if user else "Unknown"
+        
+        await log_activity(
+            action="access_auto_revoked",
+            entity_type="access",
+            entity_id=access["id"],
+            entity_name=tool_name,
+            user_id=revoker_id,
+            user_name=revoker_name,
+            details={
+                "target_user": user_name,
+                "target_user_id": user_id,
+                "tool": tool_name,
+                "reason": reason
+            }
+        )
+        
+        results.append({"tool_id": access.get("tool_id"), "status": "revoked"})
+    
+    return results
+
+@router.post("/provision/onboard")
+async def provision_onboarding(
+    user_id: str,
+    department_id: Optional[str] = None,
+    role_code: Optional[str] = None,
+    background_tasks: BackgroundTasks = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Auto-provision tools for a new employee based on templates"""
+    # Find matching templates
+    query = {"is_active": True}
+    
+    # Get templates that match the department or are global
+    templates = await db.acms_tool_templates.find(query, {"_id": 0}).to_list(100)
+    
+    matching_templates = []
+    for template in templates:
+        # Global template (no department specified)
+        if not template.get("department_id"):
+            matching_templates.append(template)
+        # Department-specific template
+        elif template.get("department_id") == department_id:
+            # Check role if specified
+            if template.get("role_code"):
+                if template.get("role_code") == role_code:
+                    matching_templates.append(template)
+            else:
+                matching_templates.append(template)
+    
+    # Collect all tools to provision
+    tools_to_provision = {}
+    for template in matching_templates:
+        for tool_id in template.get("tool_ids", []):
+            # Use highest access level if tool appears in multiple templates
+            current_level = tools_to_provision.get(tool_id, {}).get("level", 0)
+            template_level = {"viewer": 1, "editor": 2, "admin": 3}.get(template.get("default_access_level", "viewer"), 1)
+            if template_level > current_level:
+                tools_to_provision[tool_id] = {
+                    "level": template_level,
+                    "access_level": template.get("default_access_level", "viewer")
+                }
+    
+    # Provision tools
+    results = []
+    for tool_id, info in tools_to_provision.items():
+        result = await provision_tools_for_user(
+            user_id=user_id,
+            tool_ids=[tool_id],
+            access_level=info["access_level"],
+            provisioner_id=user.get("id"),
+            provisioner_name=user.get("name"),
+            reason="employee_onboarding"
+        )
+        results.extend(result)
+    
+    # Log provisioning summary
+    await log_activity(
+        action="onboarding_provisioning_completed",
+        entity_type="provisioning",
+        entity_id=user_id,
+        entity_name="Employee Onboarding",
+        user_id=user.get("id"),
+        user_name=user.get("name"),
+        details={
+            "target_user_id": user_id,
+            "templates_matched": len(matching_templates),
+            "tools_provisioned": len([r for r in results if r.get("status") == "granted"])
+        }
+    )
+    
+    return {
+        "message": f"Provisioned {len([r for r in results if r.get('status') == 'granted'])} tools",
+        "templates_matched": len(matching_templates),
+        "results": results
+    }
+
+@router.post("/provision/offboard")
+async def provision_offboarding(
+    user_id: str,
+    background_tasks: BackgroundTasks = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Auto-revoke all tools for an offboarding employee"""
+    results = await revoke_tools_for_user(
+        user_id=user_id,
+        revoker_id=user.get("id"),
+        revoker_name=user.get("name"),
+        reason="employee_offboarding"
+    )
+    
+    await log_activity(
+        action="offboarding_revocation_completed",
+        entity_type="provisioning",
+        entity_id=user_id,
+        entity_name="Employee Offboarding",
+        user_id=user.get("id"),
+        user_name=user.get("name"),
+        details={
+            "target_user_id": user_id,
+            "tools_revoked": len(results)
+        }
+    )
+    
+    return {
+        "message": f"Revoked {len(results)} tool access records",
+        "results": results
+    }
+
+@router.post("/provision/bulk")
+async def bulk_provisioning(
+    action: ProvisioningAction,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Bulk grant or revoke tool access"""
+    all_results = []
+    
+    for user_id in action.user_ids:
+        if action.action == "grant":
+            results = await provision_tools_for_user(
+                user_id=user_id,
+                tool_ids=action.tool_ids,
+                access_level=action.access_level,
+                provisioner_id=user.get("id"),
+                provisioner_name=user.get("name"),
+                reason="bulk_provisioning"
+            )
+        else:  # revoke
+            results = await revoke_tools_for_user(
+                user_id=user_id,
+                tool_ids=action.tool_ids,
+                revoker_id=user.get("id"),
+                revoker_name=user.get("name"),
+                reason="bulk_revocation"
+            )
+        all_results.append({"user_id": user_id, "results": results})
+    
+    return {
+        "message": f"Processed {len(action.user_ids)} users",
+        "results": all_results
+    }
+
+@router.get("/provision/history")
+async def get_provisioning_history(
+    user_id: Optional[str] = None,
+    limit: int = Query(50, le=200),
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get provisioning history from audit logs"""
+    query = {
+        "action": {"$in": [
+            "access_auto_provisioned", "access_auto_revoked",
+            "onboarding_provisioning_completed", "offboarding_revocation_completed"
+        ]}
+    }
+    
+    if user_id:
+        query["$or"] = [
+            {"entity_id": user_id},
+            {"details.target_user_id": user_id}
+        ]
+    
+    logs = await db.acms_audit_logs.find(query, {"_id": 0}).sort("timestamp", -1).limit(limit).to_list(limit)
+    
+    return {"history": logs}
+
+@router.get("/provision/pending")
+async def get_pending_provisioning(
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get employees who might need provisioning (active but no tool access)"""
+    # Get all active users
+    active_users = await db.users.find(
+        {"status": "active", "is_activated": True},
+        {"_id": 0, "id": 1, "name": 1, "email": 1, "department": 1, "role": 1}
+    ).to_list(500)
+    
+    pending = []
+    for u in active_users:
+        # Check if user has any active tool access
+        access_count = await db.acms_user_access.count_documents({
+            "user_id": u["id"],
+            "is_active": True
+        })
+        
+        if access_count == 0:
+            pending.append({
+                **u,
+                "access_count": access_count,
+                "status": "no_tools_assigned"
+            })
+    
+    return {"pending_users": pending, "total": len(pending)}
