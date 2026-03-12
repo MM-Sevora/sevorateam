@@ -81,8 +81,14 @@ def create_manufacturers_router(db, get_current_user: Callable):
         pipeline_stage: Optional[str] = None,
         city: Optional[str] = None,
         search: Optional[str] = None,
+        include_my_manufacturers: bool = True,
         limit: int = Query(default=100, le=500)
     ):
+        """List manufacturers with filters. Includes manufacturers created by or assigned to user."""
+        user_id = current_user.get("id")
+        user_role = current_user.get("role", "")
+        is_admin = user_role in ["super_admin", "admin"] or current_user.get("can_manage_users")
+        
         query = {}
         if manufacturer_type:
             query["manufacturer_type"] = manufacturer_type
@@ -95,7 +101,25 @@ def create_manufacturers_router(db, get_current_user: Callable):
                 {"name": {"$regex": search, "$options": "i"}},
                 {"city": {"$regex": search, "$options": "i"}}
             ]
-        return await populate_creator_names(db, await db.sourcing_manufacturers.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(length=limit))
+        
+        manufacturers = await db.sourcing_manufacturers.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(length=limit)
+        
+        # Populate creator names and permissions
+        user_ids = list(set([m.get("created_by") for m in manufacturers if m.get("created_by")]))
+        user_map = {}
+        if user_ids:
+            users = await db.users.find({"id": {"$in": user_ids}}, {"_id": 0, "id": 1, "name": 1}).to_list(100)
+            user_map = {u["id"]: u.get("name", "Unknown") for u in users}
+        
+        for mfg in manufacturers:
+            mfg["created_by_name"] = user_map.get(mfg.get("created_by"), "Unknown") if mfg.get("created_by") else None
+            mfg["_permissions"] = {
+                "can_edit": mfg.get("created_by") == user_id or mfg.get("assigned_to") == user_id or is_admin,
+                "can_delete": mfg.get("created_by") == user_id or is_admin,
+                "is_owner": mfg.get("created_by") == user_id if mfg.get("created_by") else False,
+            }
+        
+        return manufacturers
 
     async def populate_creator_names(db, items):
         """Helper to populate created_by_name for a list of items"""

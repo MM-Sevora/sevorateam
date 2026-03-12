@@ -1631,13 +1631,19 @@ async def get_marketing_dashboard(user: dict = Depends(require_department(["mark
     }
 
 # ============== SALES ROUTES ==============
-@sales_router.get("/leads", response_model=List[LeadResponse])
+@sales_router.get("/leads")
 async def get_leads(
     source: Optional[str] = None,
     stage: Optional[str] = None,
     search: Optional[str] = None,
+    include_my_leads: bool = True,
     user: dict = Depends(require_department(["sales"]))
 ):
+    """Get leads with filters. Always includes leads assigned to or created by current user."""
+    user_id = user.get("id")
+    user_role = user.get("role", "")
+    is_admin = user_role in ["super_admin", "admin"] or user.get("can_manage_users")
+    
     query = {}
     if source:
         query["source"] = source
@@ -1649,8 +1655,36 @@ async def get_leads(
             {"phone": {"$regex": search, "$options": "i"}}
         ]
     
+    # Non-admins see: their leads + assigned to them + filtered
+    if not is_admin and include_my_leads:
+        if query:
+            original_query = dict(query)
+            query = {
+                "$or": [
+                    {"assigned_to": user_id},
+                    {"created_by": user_id},
+                    original_query
+                ]
+            }
+        else:
+            query = {
+                "$or": [
+                    {"assigned_to": user_id},
+                    {"created_by": user_id}
+                ]
+            }
+    
     leads = await db.leads.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
-    return [LeadResponse(**lead) for lead in leads]
+    
+    # Add permissions to each lead
+    for lead in leads:
+        lead["_permissions"] = {
+            "can_edit": lead.get("created_by") == user_id or lead.get("assigned_to") == user_id or is_admin,
+            "can_delete": lead.get("created_by") == user_id or is_admin,
+            "is_owner": lead.get("created_by") == user_id,
+        }
+    
+    return leads
 
 @sales_router.post("/leads", response_model=LeadResponse)
 async def create_lead(lead: LeadCreate, user: dict = Depends(require_department(["sales"]))):
@@ -1698,22 +1732,53 @@ async def update_lead(lead_id: str, update: dict, user: dict = Depends(require_d
 
 @sales_router.delete("/leads/{lead_id}")
 async def delete_lead(lead_id: str, user: dict = Depends(require_department(["sales"]))):
-    result = await db.leads.delete_one({"id": lead_id})
-    if result.deleted_count == 0:
+    """Delete a lead - only creator or admin can delete"""
+    lead = await db.leads.find_one({"id": lead_id})
+    if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
+    
+    user_id = user.get("id")
+    user_role = user.get("role", "")
+    is_admin = user_role in ["super_admin", "admin"] or user.get("can_manage_users")
+    
+    # Only creator or admin can delete
+    if lead.get("created_by") != user_id and not is_admin:
+        creator_name = lead.get("created_by_name") or "another user"
+        raise HTTPException(status_code=403, detail=f"You cannot delete this lead. It was created by {creator_name}. Only the creator or an admin can delete it.")
+    
+    await db.leads.delete_one({"id": lead_id})
     return {"message": "Lead deleted"}
 
 # Sales Customers
-@sales_router.get("/customers", response_model=List[CustomerResponse])
-async def get_customers(search: Optional[str] = None, user: dict = Depends(require_department(["sales"]))):
+@sales_router.get("/customers")
+async def get_customers(search: Optional[str] = None, include_my_customers: bool = True, user: dict = Depends(require_department(["sales"]))):
+    """Get customers with filters. Always includes customers created by current user."""
+    user_id = user.get("id")
+    user_role = user.get("role", "")
+    is_admin = user_role in ["super_admin", "admin"] or user.get("can_manage_users")
+    
     query = {}
     if search:
         query["$or"] = [
             {"name": {"$regex": search, "$options": "i"}},
             {"phone": {"$regex": search, "$options": "i"}}
         ]
+    
+    # Non-admins see their own + filtered
+    if not is_admin and include_my_customers and not search:
+        query = {"created_by": user_id}
+    
     customers = await db.customers.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
-    return [CustomerResponse(**c) for c in customers]
+    
+    # Add permissions
+    for customer in customers:
+        customer["_permissions"] = {
+            "can_edit": customer.get("created_by") == user_id or is_admin,
+            "can_delete": customer.get("created_by") == user_id or is_admin,
+            "is_owner": customer.get("created_by") == user_id,
+        }
+    
+    return customers
 
 @sales_router.post("/customers", response_model=CustomerResponse)
 async def create_customer(customer: CustomerCreate, user: dict = Depends(require_department(["sales"]))):

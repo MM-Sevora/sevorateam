@@ -8,11 +8,13 @@ Handles:
 - Reviews and approvals
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from typing import Optional, List
 from datetime import datetime, date, timedelta
 import uuid
 import os
+import jwt
 
 from models.marketing_content import (
     ContentType, ContentPlatform, ProjectStatus, TaskStatus, TaskType,
@@ -24,6 +26,10 @@ from models.marketing_content import (
 )
 
 router = APIRouter(prefix="/content", tags=["Marketing - Content Production"])
+security = HTTPBearer(auto_error=False)
+
+JWT_SECRET = os.environ.get("JWT_SECRET", "your-super-secret-jwt-key-change-this")
+JWT_ALGORITHM = "HS256"
 
 
 def get_db():
@@ -31,6 +37,19 @@ def get_db():
     from pymongo import MongoClient
     client = MongoClient(os.environ.get("MONGO_URL"))
     return client[os.environ.get("DB_NAME", "sevora_production")]
+
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get current user from JWT token"""
+    if not credentials:
+        return {"id": None, "role": "anonymous"}
+    try:
+        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        db = get_db()
+        user = db.users.find_one({"id": payload.get("sub")}, {"_id": 0, "password": 0})
+        return user or {"id": None, "role": "anonymous"}
+    except:
+        return {"id": None, "role": "anonymous"}
 
 
 def serialize_doc(doc: dict) -> dict:
@@ -43,7 +62,7 @@ def serialize_doc(doc: dict) -> dict:
 
 # ============== PROJECTS ==============
 
-@router.get("/projects", response_model=List[ContentProjectResponse])
+@router.get("/projects")
 async def list_content_projects(
     status: Optional[ProjectStatus] = None,
     content_type: Optional[ContentType] = None,
@@ -51,11 +70,16 @@ async def list_content_projects(
     campaign_id: Optional[str] = None,
     assigned_to: Optional[str] = None,
     priority: Optional[Priority] = None,
+    include_my_projects: bool = True,
     skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100)
+    limit: int = Query(50, ge=1, le=100),
+    current_user: dict = Depends(get_current_user)
 ):
-    """List content projects with filters"""
+    """List content projects with filters. Includes projects assigned to or created by user."""
     db = get_db()
+    user_id = current_user.get("id")
+    user_role = current_user.get("role", "")
+    is_admin = user_role in ["super_admin", "admin"] or current_user.get("can_manage_users")
     
     query = {}
     if status:
@@ -71,6 +95,27 @@ async def list_content_projects(
     if priority:
         query["priority"] = priority.value
     
+    # Non-admins see: their projects + assigned to them + filtered
+    if not is_admin and include_my_projects and not assigned_to:
+        if query:
+            original_query = dict(query)
+            query = {
+                "$or": [
+                    {"assigned_to": user_id},
+                    {"created_by": user_id},
+                    {"owner_id": user_id},
+                    original_query
+                ]
+            }
+        else:
+            query = {
+                "$or": [
+                    {"assigned_to": user_id},
+                    {"created_by": user_id},
+                    {"owner_id": user_id}
+                ]
+            }
+    
     projects = list(
         db.marketing_content_projects.find(query)
         .sort("created_at", -1)
@@ -78,7 +123,7 @@ async def list_content_projects(
         .limit(limit)
     )
     
-    # Add task counts
+    # Add task counts and permissions
     for project in projects:
         project_id = str(project["_id"])
         project["task_count"] = db.marketing_content_tasks.count_documents({"project_id": project_id})
@@ -86,8 +131,16 @@ async def list_content_projects(
             "project_id": project_id,
             "status": "completed"
         })
+        # Add permissions
+        serialized = serialize_doc(project)
+        serialized["_permissions"] = {
+            "can_edit": project.get("created_by") == user_id or project.get("assigned_to") == user_id or project.get("owner_id") == user_id or is_admin,
+            "can_delete": project.get("created_by") == user_id or is_admin,
+            "is_owner": project.get("created_by") == user_id,
+        }
+        projects[projects.index(project)] = serialized
     
-    return [serialize_doc(p) for p in projects]
+    return [p if isinstance(p, dict) and "id" in p else serialize_doc(p) for p in projects]
 
 
 @router.get("/projects/sources")
