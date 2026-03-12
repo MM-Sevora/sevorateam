@@ -1,3 +1,90 @@
+## March 12, 2026 - IT Admin ↔ HR Auto-Provisioning Integration COMPLETE ✅
+
+### Feature: Automated Tool Provisioning/De-provisioning Based on Employee Lifecycle
+
+The user requested an integration between the IT Admin (ACMS) module and HR module to automatically manage tool access when employees are onboarded, activated, terminated, or deactivated.
+
+### New Backend Features:
+
+#### 1. Tool Templates CRUD (`/api/acms/templates`)
+- **GET /api/acms/templates** - List all provisioning templates with enriched department_name and tool_names
+- **POST /api/acms/templates** - Create template with: name, description, department_id (optional), role_code (optional), tool_ids[], default_access_level, is_active
+- **PUT /api/acms/templates/{id}** - Update template fields
+- **DELETE /api/acms/templates/{id}** - Delete template
+
+#### 2. Auto-Provisioning Endpoints
+- **POST /api/acms/provision/onboard?user_id=...** - Auto-provision tools based on matching templates
+  - Matches templates by department_id and role_code
+  - Uses highest access level when tool appears in multiple templates
+  - Returns: templates_matched, tools_provisioned, results[]
+- **POST /api/acms/provision/offboard?user_id=...** - Auto-revoke all active tool access
+  - Revokes all tools in acms_user_access where is_active=true
+  - Returns: tools_revoked, results[]
+- **GET /api/acms/provision/history** - Get provisioning history from audit logs
+- **GET /api/acms/provision/pending** - Get employees without any tool access
+
+#### 3. HR Integration Hooks (in `/app/backend/routes/hr.py`)
+- **create_employee** - Auto-provisions tools for new employees
+- **update_employee** - Auto-provisions on status change to active/confirmed, auto-revokes on terminated/inactive/resigned
+- **terminate_employee** - Auto-revokes all tool access with reason
+
+#### 4. Access Control Integration Hooks (in `/app/backend/routes/access_control.py`)
+- **activate_employee** - Auto-provisions tools based on templates
+- **deactivate_employee** - Auto-revokes all tool access
+
+#### 5. Audit Logging
+All actions logged in acms_audit_logs with actions:
+- access_auto_provisioned
+- access_auto_revoked
+- onboarding_provisioning_completed
+- offboarding_revocation_completed
+- template_created, template_updated, template_deleted
+
+### Frontend Features (`/app/frontend/src/pages/it-admin/ToolsAccessTable.jsx`):
+
+#### 1. Templates Tab (New)
+- Info banner explaining auto-provisioning functionality
+- Templates table showing: Template Name, Department, Access Level, Tools Included, Status
+- Create Template button
+- Edit/Delete actions per template
+
+#### 2. Create Template Dialog
+- Template Name and Description fields
+- Scope Settings section:
+  - Department dropdown (or "All Departments")
+  - Default Access Level (viewer/editor/admin)
+- Tool selection list with checkboxes showing tool names, categories, costs
+- Active toggle to enable/disable template
+- Tool count indicator
+
+#### 3. Stats Card
+- Added Templates count in the stats row
+
+### Testing Results:
+- Backend: 100% (16/16 tests passed)
+- Frontend: 100% (all UI elements verified)
+- Test file: `/app/backend/tests/test_acms_provisioning.py`
+
+### Database Schema:
+**acms_tool_templates collection:**
+```json
+{
+  "id": "uuid",
+  "name": "string",
+  "description": "string",
+  "department_id": "string|null",
+  "role_code": "string|null",
+  "tool_ids": ["tool_id_1", "tool_id_2"],
+  "default_access_level": "viewer|editor|admin",
+  "is_active": true,
+  "created_at": "ISO timestamp",
+  "created_by": "user_id",
+  "updated_at": "ISO timestamp"
+}
+```
+
+---
+
 ## March 12, 2026 - VMS Work Request Workflow Redesign COMPLETE ✅
 
 ### Feature Enhancement: Work Request → Proposal → Approval → Work Order Flow
