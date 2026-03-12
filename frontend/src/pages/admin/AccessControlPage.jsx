@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Shield, Plus, Edit, Trash2, RefreshCw, Settings, Lock, Key, Layers, Users, Search, Save, ExternalLink
+  Shield, Edit, RefreshCw, Settings, Key, Layers, Users, Search, Save, ExternalLink,
+  ChevronDown, ChevronRight, Package
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Card, CardContent } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Checkbox } from '../../components/ui/checkbox';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import {
   Table,
   TableBody,
@@ -26,296 +26,225 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '../../components/ui/alert-dialog';
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '../../components/ui/collapsible';
 import { Label } from '../../components/ui/label';
-import { Textarea } from '../../components/ui/textarea';
 import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
 
 const AccessControlPage = () => {
   const { api } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('users');
   
-  // Roles state
-  const [roles, setRoles] = useState([]);
-  const [loadingRoles, setLoadingRoles] = useState(true);
-  const [modules, setModules] = useState({});
-  const [moduleKeys, setModuleKeys] = useState([]);
-  
-  // Users state for user-level permissions
+  // Data state
   const [users, setUsers] = useState([]);
-  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [roles, setRoles] = useState([]);
+  const [modules, setModules] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [showUserPermDialog, setShowUserPermDialog] = useState(false);
-  const [userPermissions, setUserPermissions] = useState({});
   
-  // Dialog states
-  const [showRoleDialog, setShowRoleDialog] = useState(false);
-  const [selectedRole, setSelectedRole] = useState(null);
-  const [deleteDialog, setDeleteDialog] = useState({ open: false, role: null });
-  
-  // Form states
-  const [roleForm, setRoleForm] = useState({
-    name: '',
-    code: '',
-    description: '',
+  // Permission dialog state
+  const [permDialog, setPermDialog] = useState({ open: false, user: null });
+  const [permForm, setPermForm] = useState({
+    role_ids: [],
     module_access: [],
-    module_permissions: {}, // New: { module_key: { create: true, read: true, update: true, delete: false } }
-    can_manage_users: false,
-    can_manage_employees: false,
-    can_manage_roles: false
+    sub_module_access: {},
   });
-  
+  const [expandedModules, setExpandedModules] = useState([]);
   const [saving, setSaving] = useState(false);
 
-  // Fetch roles
-  const fetchRoles = useCallback(async () => {
-    setLoadingRoles(true);
+  // Fetch all data
+  const fetchData = useCallback(async () => {
+    setLoading(true);
     try {
-      const response = await api.get('/access/roles');
-      setRoles(response.data || []);
+      const [usersRes, rolesRes, modulesRes, categoriesRes] = await Promise.all([
+        api.get('/admin/users'),
+        api.get('/access/roles'),
+        api.get('/system-modules/'),
+        api.get('/module-categories/'),
+      ]);
+      setUsers(usersRes.data || []);
+      setRoles(rolesRes.data || []);
+      setModules(modulesRes.data || []);
+      setCategories(categoriesRes.data || []);
     } catch (error) {
-      console.error('Failed to fetch roles:', error);
-      toast.error('Failed to fetch roles');
+      console.error('Failed to fetch data:', error);
+      toast.error('Failed to load data');
     } finally {
-      setLoadingRoles(false);
+      setLoading(false);
     }
   }, [api]);
 
-  // Fetch modules from new system-modules endpoint
-  const fetchModules = useCallback(async () => {
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Open permission dialog for a user
+  const openPermDialog = async (user) => {
     try {
-      const response = await api.get('/system-modules/');
-      // Convert to the format expected by this page
-      const modulesData = {};
-      const keys = [];
-      (response.data || []).forEach(mod => {
-        modulesData[mod.code] = {
-          name: mod.name,
-          description: mod.description,
-          default_access: mod.is_default,
-          category: mod.category
-        };
-        keys.push(mod.code);
+      const res = await api.get(`/system-modules/user/${user.id}/access`);
+      const userModules = res.data?.modules || [];
+      
+      setPermForm({
+        role_ids: user.custom_role_ids || [],
+        module_access: userModules.filter(m => m.has_access).map(m => m.code),
+        sub_module_access: user.sub_module_access || {},
       });
-      setModules(modulesData);
-      setModuleKeys(keys);
+      setPermDialog({ open: true, user });
     } catch (error) {
-      console.error('Failed to fetch modules:', error);
-    }
-  }, [api]);
-
-  // Fetch users for user-level permissions
-  const fetchUsers = useCallback(async () => {
-    setLoadingUsers(true);
-    try {
-      const response = await api.get('/admin/users');
-      setUsers(response.data || []);
-    } catch (error) {
-      console.error('Failed to fetch users:', error);
-    } finally {
-      setLoadingUsers(false);
-    }
-  }, [api]);
-
-  useEffect(() => {
-    fetchRoles();
-    fetchModules();
-    fetchUsers();
-  }, [fetchRoles, fetchModules, fetchUsers]);
-
-  // Create/Update role
-  const handleSaveRole = async () => {
-    if (!roleForm.name || !roleForm.code) {
-      toast.error('Name and code are required');
-      return;
-    }
-    
-    setSaving(true);
-    try {
-      if (selectedRole) {
-        await api.put(`/access/roles/${selectedRole.id}`, roleForm);
-        toast.success('Role updated successfully');
-      } else {
-        await api.post('/access/roles', roleForm);
-        toast.success('Role created successfully');
-      }
-      setShowRoleDialog(false);
-      setSelectedRole(null);
-      resetRoleForm();
-      fetchRoles();
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to save role');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Delete role
-  const handleDeleteRole = async () => {
-    if (!deleteDialog.role) return;
-    
-    try {
-      await api.delete(`/access/roles/${deleteDialog.role.id}`);
-      toast.success('Role deleted');
-      setDeleteDialog({ open: false, role: null });
-      fetchRoles();
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to delete role');
-    }
-  };
-
-  // Open user permissions dialog - now for module access
-  const openUserPermissions = (user) => {
-    setSelectedUser(user);
-    // Initialize with user's current custom_role_ids
-    setUserPermissions(user.custom_role_ids || []);
-    setShowUserPermDialog(true);
-  };
-
-  // Toggle user role assignment
-  const toggleUserRole = (roleId) => {
-    setUserPermissions(prev => {
-      if (prev.includes(roleId)) {
-        return prev.filter(id => id !== roleId);
-      } else {
-        return [...prev, roleId];
-      }
-    });
-  };
-
-  // Save user role assignments (module access)
-  const saveUserPermissions = async () => {
-    if (!selectedUser) return;
-    
-    if (!Array.isArray(userPermissions) || userPermissions.length === 0) {
-      toast.error('At least one role is required');
-      return;
-    }
-    
-    setSaving(true);
-    try {
-      await api.put(`/access/users/${selectedUser.id}/roles`, {
-        custom_role_ids: userPermissions
+      setPermForm({
+        role_ids: user.custom_role_ids || [],
+        module_access: user.merged_module_access || [],
+        sub_module_access: user.sub_module_access || {},
       });
-      toast.success('User roles updated');
-      setShowUserPermDialog(false);
-      fetchUsers();
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Failed to save roles');
-    } finally {
-      setSaving(false);
+      setPermDialog({ open: true, user });
     }
   };
 
-  // Filter users by search
-  const filteredUsers = users.filter(user => 
-    user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.email?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  // Reset forms
-  const resetRoleForm = () => {
-    setRoleForm({
-      name: '',
-      code: '',
-      description: '',
-      module_access: [],
-      module_permissions: {},
-      can_manage_users: false,
-      can_manage_employees: false,
-      can_manage_roles: false
-    });
-  };
-
-  // Open edit dialog
-  const openEditRole = (role) => {
-    setSelectedRole(role);
-    setRoleForm({
-      name: role.name,
-      code: role.code,
-      description: role.description || '',
-      module_access: role.module_access || [],
-      module_permissions: role.module_permissions || {},
-      can_manage_users: role.can_manage_users || false,
-      can_manage_employees: role.can_manage_employees || false,
-      can_manage_roles: role.can_manage_roles || false
-    });
-    setShowRoleDialog(true);
+  // Toggle role assignment
+  const toggleRole = (roleId) => {
+    setPermForm(prev => ({
+      ...prev,
+      role_ids: prev.role_ids.includes(roleId)
+        ? prev.role_ids.filter(id => id !== roleId)
+        : [...prev.role_ids, roleId]
+    }));
   };
 
   // Toggle module access
-  const toggleModule = (moduleKey) => {
-    setRoleForm(prev => {
-      const isCurrentlySelected = prev.module_access.includes(moduleKey);
-      if (isCurrentlySelected) {
-        // Remove module and its permissions
-        const newPermissions = { ...prev.module_permissions };
-        delete newPermissions[moduleKey];
+  const toggleModule = (moduleCode) => {
+    setPermForm(prev => {
+      const hasAccess = prev.module_access.includes(moduleCode);
+      if (hasAccess) {
+        const newSubModules = { ...prev.sub_module_access };
+        delete newSubModules[moduleCode];
         return {
           ...prev,
-          module_access: prev.module_access.filter(m => m !== moduleKey),
-          module_permissions: newPermissions
+          module_access: prev.module_access.filter(m => m !== moduleCode),
+          sub_module_access: newSubModules
         };
       } else {
-        // Add module with default permissions (all true)
+        const mod = modules.find(m => m.code === moduleCode);
+        const allSubModules = mod?.sub_modules?.map(s => s.code) || [];
         return {
           ...prev,
-          module_access: [...prev.module_access, moduleKey],
-          module_permissions: {
-            ...prev.module_permissions,
-            [moduleKey]: { create: true, read: true, update: true, delete: true }
+          module_access: [...prev.module_access, moduleCode],
+          sub_module_access: {
+            ...prev.sub_module_access,
+            [moduleCode]: allSubModules
           }
         };
       }
     });
   };
 
-  // Toggle specific CRUD permission for a module
-  const togglePermission = (moduleKey, permType) => {
-    setRoleForm(prev => ({
-      ...prev,
-      module_permissions: {
-        ...prev.module_permissions,
-        [moduleKey]: {
-          ...(prev.module_permissions[moduleKey] || { create: true, read: true, update: true, delete: true }),
-          [permType]: !(prev.module_permissions[moduleKey]?.[permType] ?? true)
+  // Toggle sub-module access
+  const toggleSubModule = (moduleCode, subModuleCode) => {
+    setPermForm(prev => {
+      const currentSubs = prev.sub_module_access[moduleCode] || [];
+      const hasSub = currentSubs.includes(subModuleCode);
+      
+      const newSubs = hasSub
+        ? currentSubs.filter(s => s !== subModuleCode)
+        : [...currentSubs, subModuleCode];
+      
+      return {
+        ...prev,
+        sub_module_access: {
+          ...prev.sub_module_access,
+          [moduleCode]: newSubs
         }
-      }
-    }));
+      };
+    });
   };
 
-  const tabs = [
-    { id: 'users', label: 'User Permissions', icon: Users, count: users.length },
-  ];
+  // Save user permissions
+  const savePermissions = async () => {
+    if (!permDialog.user) return;
+    setSaving(true);
+    try {
+      // Update user's roles
+      await api.put(`/admin/users/${permDialog.user.id}/roles`, {
+        role_ids: permForm.role_ids
+      });
+      
+      // Update user's direct module access
+      await api.put(`/system-modules/user/${permDialog.user.id}/access`, {
+        granted_modules: permForm.module_access,
+        denied_modules: []
+      });
+      
+      toast.success('Permissions updated');
+      setPermDialog({ open: false, user: null });
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to update permissions');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Filter users
+  const filteredUsers = users.filter(u => 
+    u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    u.email?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Get role names for a user
+  const getUserRoleNames = (user) => {
+    const roleIds = user.custom_role_ids || [];
+    return roles.filter(r => roleIds.includes(r.id)).map(r => r.name);
+  };
+
+  // Get module count for a user
+  const getUserModuleCount = (user) => {
+    return (user.merged_module_access || []).length;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#8B7355]"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6" data-testid="access-control-page">
+    <div className="p-6 space-y-6" data-testid="user-permissions-page">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#4A3728]">Access Control & Permissions</h1>
-          <p className="text-[#5D4A3A] text-sm">Manage system roles, permissions, and module access</p>
+          <p className="text-sm text-[#8B7355] uppercase tracking-wider">Administration</p>
+          <h1 className="text-3xl font-bold text-[#4A3728] flex items-center gap-2">
+            <Key className="h-8 w-8" /> User Permissions
+          </h1>
+          <p className="text-[#5D4A3A] mt-1">Assign roles, modules, and sub-modules to users</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => navigate('/admin/system-modules')} className="border-[#E8D5C4]">
+            <Settings className="h-4 w-4 mr-2" /> Manage Roles & Modules
+          </Button>
+          <Button variant="outline" onClick={fetchData} className="border-[#E8D5C4]">
+            <RefreshCw className="h-4 w-4 mr-2" /> Refresh
+          </Button>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <Card className="border-[#E8D5C4]">
           <CardContent className="p-4 text-center">
-            <Shield className="h-8 w-8 mx-auto text-[#8B7355] mb-2" />
+            <Users className="h-8 w-8 mx-auto text-[#8B7355] mb-2" />
+            <p className="text-2xl font-bold text-[#4A3728]">{users.length}</p>
+            <p className="text-xs text-[#5D4A3A]">Total Users</p>
+          </CardContent>
+        </Card>
+        <Card className="border-[#E8D5C4]">
+          <CardContent className="p-4 text-center">
+            <Shield className="h-8 w-8 mx-auto text-purple-600 mb-2" />
             <p className="text-2xl font-bold text-[#4A3728]">{roles.length}</p>
-            <p className="text-xs text-[#5D4A3A]">Custom Roles</p>
+            <p className="text-xs text-[#5D4A3A]">Available Roles</p>
           </CardContent>
         </Card>
         <Card 
@@ -323,8 +252,8 @@ const AccessControlPage = () => {
           onClick={() => navigate('/admin/system-modules')}
         >
           <CardContent className="p-4 text-center">
-            <Layers className="h-8 w-8 mx-auto text-blue-600 mb-2" />
-            <p className="text-2xl font-bold text-[#4A3728]">{moduleKeys.length}</p>
+            <Package className="h-8 w-8 mx-auto text-blue-600 mb-2" />
+            <p className="text-2xl font-bold text-[#4A3728]">{modules.length}</p>
             <p className="text-xs text-[#5D4A3A] flex items-center justify-center gap-1">
               System Modules <ExternalLink className="h-3 w-3" />
             </p>
@@ -332,582 +261,218 @@ const AccessControlPage = () => {
         </Card>
         <Card className="border-[#E8D5C4]">
           <CardContent className="p-4 text-center">
-            <Key className="h-8 w-8 mx-auto text-green-600 mb-2" />
+            <Layers className="h-8 w-8 mx-auto text-green-600 mb-2" />
             <p className="text-2xl font-bold text-[#4A3728]">
-              {roles.reduce((acc, r) => acc + (r.module_access?.length || 0), 0)}
+              {modules.reduce((acc, m) => acc + (m.sub_modules?.length || 0), 0)}
             </p>
-            <p className="text-xs text-[#5D4A3A]">Total Permissions</p>
+            <p className="text-xs text-[#5D4A3A]">Sub-Modules</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-[#E8D5C4]">
-          {tabs.map(tab => (
-            <TabsTrigger 
-              key={tab.id}
-              value={tab.id} 
-              className="data-[state=active]:bg-white"
-              data-testid={`tab-${tab.id}`}
-            >
-              <tab.icon className="h-4 w-4 mr-2" />
-              {tab.label}
-              {tab.count > 0 && (
-                <Badge variant="secondary" className="ml-2 bg-[#8B7355]/10">
-                  {tab.count}
-                </Badge>
-              )}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+      {/* Search */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8B7355]" />
+        <Input
+          placeholder="Search users..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10 border-[#E8D5C4]"
+        />
+      </div>
 
-        {/* User Permissions Tab */}
-        <TabsContent value="users" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-lg font-semibold text-[#4A3728]">User-Level Permissions</h2>
-              <p className="text-sm text-[#5D4A3A]">Set CRUD permissions for individual users across modules</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search users..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 w-64 border-[#E8D5C4]"
-                />
-              </div>
-              <Button variant="outline" onClick={fetchUsers} className="border-[#E8D5C4]">
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          <Card className="border-[#E8D5C4]">
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-[#F5EDE5]">
-                    <TableHead className="text-[#4A3728]">User</TableHead>
-                    <TableHead className="text-[#4A3728]">Role</TableHead>
-                    <TableHead className="text-[#4A3728]">Module Access</TableHead>
-                    <TableHead className="text-[#4A3728] text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loadingUsers ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8">
-                        <RefreshCw className="h-6 w-6 animate-spin mx-auto text-[#4A3728]" />
-                      </TableCell>
-                    </TableRow>
-                  ) : filteredUsers.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8 text-[#5D4A3A]">
-                        No users found.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredUsers.map((user) => (
-                      <TableRow key={user.id} className="hover:bg-[#F5EDE5]">
-                        <TableCell>
-                          <div>
-                            <p className="font-medium text-[#4A3728]">{user.name || 'Unnamed'}</p>
-                            <p className="text-xs text-[#5D4A3A]">{user.email}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {user.custom_role_names && user.custom_role_names.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {user.custom_role_names.slice(0, 2).map((name, idx) => (
-                                <Badge key={idx} variant="secondary" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
-                                  {name}
-                                </Badge>
-                              ))}
-                              {user.custom_role_names.length > 2 && (
-                                <Badge variant="outline" className="text-xs">+{user.custom_role_names.length - 2}</Badge>
-                              )}
-                            </div>
-                          ) : (
-                            <Badge variant="secondary" className="text-xs">
-                              {user.role || 'No Role'}
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-1 max-w-[400px]">
-                            {/* Show module access from the new system (merged_module_access) */}
-                            {user.merged_module_access && user.merged_module_access.length > 0 ? (
-                              user.merged_module_access.slice(0, 5).map((modKey) => {
-                                const modName = modules[modKey]?.name || modKey;
-                                return (
-                                  <Badge key={modKey} variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                                    {modName}
-                                  </Badge>
-                                );
-                              })
-                            ) : user.custom_role_names && user.custom_role_names.length > 0 ? (
-                              <span className="text-xs text-gray-500">Via role: {user.custom_role_names.join(', ')}</span>
-                            ) : (
-                              <span className="text-xs text-gray-400">No module access</span>
-                            )}
-                            {user.merged_module_access && user.merged_module_access.length > 5 && (
-                              <Badge variant="outline" className="text-xs">
-                                +{user.merged_module_access.length - 5} more
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openUserPermissions(user)}
-                            className="border-[#E8D5C4]"
-                            data-testid="edit-roles-btn"
-                          >
-                            <Edit className="h-4 w-4 mr-1" /> Assign Roles
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Roles Tab */}
-        <TabsContent value="roles" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-[#4A3728]">Custom Roles</h2>
-            <Button
-              onClick={() => {
-                setSelectedRole(null);
-                resetRoleForm();
-                setShowRoleDialog(true);
-              }}
-              className="bg-[#4A3728] hover:bg-[#5D4A3A] text-white"
-              data-testid="add-role-btn"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Create Role
-            </Button>
-          </div>
-
-          <Card className="border-[#E8D5C4]">
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-[#F5EDE5]">
-                    <TableHead className="text-[#4A3728]">Role</TableHead>
-                    <TableHead className="text-[#4A3728]">Module Access & CRUD</TableHead>
-                    <TableHead className="text-[#4A3728]">Admin Permissions</TableHead>
-                    <TableHead className="text-[#4A3728]">Employees</TableHead>
-                    <TableHead className="text-[#4A3728] text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loadingRoles ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8">
-                        <RefreshCw className="h-6 w-6 animate-spin mx-auto text-[#4A3728]" />
-                      </TableCell>
-                    </TableRow>
-                  ) : roles.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-[#5D4A3A]">
-                        No roles found. Click "Create Role" to add one.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    roles.map((role) => (
-                      <TableRow key={role.id} className="hover:bg-[#F5EDE5]" data-testid={`role-row-${role.id}`}>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium text-[#4A3728]">{role.name}</p>
-                            <p className="text-xs text-[#5D4A3A]">{role.code}</p>
-                            {role.is_system_role && (
-                              <Badge variant="outline" className="text-xs mt-1">System</Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-1 max-w-[350px]">
-                            {(role.module_names || []).slice(0, 3).map((name, idx) => {
-                              const moduleKey = (role.module_access || [])[idx];
-                              const perms = role.module_permissions?.[moduleKey] || {};
-                              const permStr = [
-                                perms.create ? 'C' : '',
-                                perms.read ? 'R' : '',
-                                perms.update ? 'U' : '',
-                                perms.delete ? 'D' : ''
-                              ].filter(Boolean).join('');
-                              return (
-                                <Badge key={idx} variant="secondary" className="text-xs">
-                                  {name}
-                                  {permStr && <span className="ml-1 text-[10px] opacity-70">({permStr})</span>}
-                                </Badge>
-                              );
-                            })}
-                            {(role.module_names || []).length > 3 && (
-                              <Badge variant="outline" className="text-xs">
-                                +{role.module_names.length - 3} more
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col gap-1">
-                            {role.can_manage_users && (
-                              <Badge className="bg-purple-100 text-purple-800 text-xs w-fit">Users</Badge>
-                            )}
-                            {role.can_manage_employees && (
-                              <Badge className="bg-blue-100 text-blue-800 text-xs w-fit">Employees</Badge>
-                            )}
-                            {role.can_manage_roles && (
-                              <Badge className="bg-red-100 text-red-800 text-xs w-fit">Roles</Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-[#4A3728] font-medium">{role.employee_count || 0}</span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openEditRole(role)}
-                              className="border-[#E8D5C4]"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            {!role.is_system_role && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setDeleteDialog({ open: true, role })}
-                                className="border-red-200 text-red-600 hover:bg-red-50"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* Role Dialog */}
-      <Dialog open={showRoleDialog} onOpenChange={setShowRoleDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-[#4A3728]">
-              {selectedRole ? 'Edit Role' : 'Create Custom Role'}
-            </DialogTitle>
-            <DialogDescription>
-              {selectedRole 
-                ? 'Update role settings and module access'
-                : 'Define a new role with specific module access and permissions'
-              }
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-6">
-            {/* Basic Info */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-[#4A3728]">Role Name *</Label>
-                <Input
-                  value={roleForm.name}
-                  onChange={(e) => setRoleForm({ ...roleForm, name: e.target.value })}
-                  placeholder="e.g., Marketing Manager"
-                  className="border-[#E8D5C4]"
-                  disabled={selectedRole?.is_system_role}
-                />
-              </div>
-              <div>
-                <Label className="text-[#4A3728]">Code *</Label>
-                <Input
-                  value={roleForm.code}
-                  onChange={(e) => setRoleForm({ ...roleForm, code: e.target.value.toLowerCase().replace(/\s/g, '_') })}
-                  placeholder="e.g., marketing_manager"
-                  className="border-[#E8D5C4]"
-                  disabled={selectedRole}
-                />
-              </div>
-            </div>
-            
-            <div>
-              <Label className="text-[#4A3728]">Description</Label>
-              <Textarea
-                value={roleForm.description}
-                onChange={(e) => setRoleForm({ ...roleForm, description: e.target.value })}
-                placeholder="Describe what this role is for..."
-                className="border-[#E8D5C4]"
-                rows={2}
-              />
-            </div>
-
-            {/* Module Access & CRUD Permissions */}
-            <div>
-              <Label className="text-[#4A3728] mb-3 block">Module Access & CRUD Permissions</Label>
-              <p className="text-xs text-[#5D4A3A] mb-3">Select modules and configure Create, Read, Update, Delete permissions for each.</p>
-              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-                {moduleKeys.map((key) => {
-                  const module = modules[key] || {};
-                  const isDefault = module.default_access;
-                  const isSelected = roleForm.module_access.includes(key);
-                  const perms = roleForm.module_permissions[key] || { create: true, read: true, update: true, delete: true };
-                  
-                  return (
-                    <div
-                      key={key}
-                      className={`p-3 rounded-lg border transition-colors ${
-                        isSelected || isDefault
-                          ? 'border-[#8B7355] bg-[#F5EDE5]'
-                          : 'border-[#E8D5C4] hover:border-[#D4BBA6]'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <Checkbox
-                          checked={isSelected || isDefault}
-                          disabled={isDefault}
-                          onCheckedChange={() => !isDefault && toggleModule(key)}
-                        />
-                        <div className="flex-1">
-                          <p className="font-medium text-[#4A3728] text-sm">{module.name || key}</p>
-                        </div>
-                        {isDefault && (
-                          <Badge variant="outline" className="text-xs">Default</Badge>
+      {/* Users Table */}
+      <Card className="border-[#E8D5C4]">
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>User</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Roles</TableHead>
+                <TableHead className="text-center">Modules</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredUsers.map(user => {
+                const roleNames = getUserRoleNames(user);
+                const moduleCount = getUserModuleCount(user);
+                return (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-medium">{user.name}</TableCell>
+                    <TableCell className="text-[#5D4A3A]">{user.email}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {roleNames.length > 0 ? (
+                          roleNames.slice(0, 2).map(name => (
+                            <Badge key={name} variant="secondary" className="text-xs">{name}</Badge>
+                          ))
+                        ) : (
+                          <span className="text-gray-400 text-sm">No roles</span>
+                        )}
+                        {roleNames.length > 2 && (
+                          <Badge variant="outline" className="text-xs">+{roleNames.length - 2}</Badge>
                         )}
                       </div>
-                      
-                      {/* CRUD Permissions - Show when module is selected */}
-                      {(isSelected || isDefault) && (
-                        <div className="ml-6 mt-2 flex gap-4 flex-wrap">
-                          <label className="flex items-center gap-1.5 text-xs cursor-pointer hover:opacity-80">
-                            <Checkbox
-                              checked={perms.create}
-                              onCheckedChange={() => togglePermission(key, 'create')}
-                              className="h-3.5 w-3.5"
-                            />
-                            <span className="text-green-700 font-medium">Create</span>
-                          </label>
-                          <label className="flex items-center gap-1.5 text-xs cursor-pointer hover:opacity-80">
-                            <Checkbox
-                              checked={perms.read}
-                              onCheckedChange={() => togglePermission(key, 'read')}
-                              className="h-3.5 w-3.5"
-                            />
-                            <span className="text-blue-700 font-medium">Read</span>
-                          </label>
-                          <label className="flex items-center gap-1.5 text-xs cursor-pointer hover:opacity-80">
-                            <Checkbox
-                              checked={perms.update}
-                              onCheckedChange={() => togglePermission(key, 'update')}
-                              className="h-3.5 w-3.5"
-                            />
-                            <span className="text-amber-700 font-medium">Update</span>
-                          </label>
-                          <label className="flex items-center gap-1.5 text-xs cursor-pointer hover:opacity-80">
-                            <Checkbox
-                              checked={perms.delete}
-                              onCheckedChange={() => togglePermission(key, 'delete')}
-                              className="h-3.5 w-3.5"
-                            />
-                            <span className="text-red-700 font-medium">Delete</span>
-                          </label>
-                        </div>
-                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant="outline">{moduleCount}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
+                        {user.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openPermDialog(user)}
+                        className="border-[#E8D5C4]"
+                      >
+                        <Edit className="h-4 w-4 mr-1" /> Permissions
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Permission Dialog */}
+      <Dialog open={permDialog.open} onOpenChange={(open) => !open && setPermDialog({ open: false, user: null })}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="h-5 w-5" />
+              Edit Permissions: {permDialog.user?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Assign roles, modules, and sub-modules to this user
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* Roles Section */}
+            <div className="space-y-3">
+              <Label className="text-base font-semibold flex items-center gap-2">
+                <Shield className="h-4 w-4" /> Roles ({permForm.role_ids.length} assigned)
+              </Label>
+              <div className="grid grid-cols-3 gap-2 p-3 bg-gray-50 rounded-lg">
+                {roles.map(role => (
+                  <label key={role.id} className="flex items-center gap-2 p-2 hover:bg-white rounded cursor-pointer">
+                    <Checkbox
+                      checked={permForm.role_ids.includes(role.id)}
+                      onCheckedChange={() => toggleRole(role.id)}
+                    />
+                    <span className="text-sm">{role.name}</span>
+                    <Badge variant="outline" className="text-xs ml-auto">{role.module_access?.length || 0}</Badge>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Modules & Sub-Modules Section */}
+            <div className="space-y-3">
+              <Label className="text-base font-semibold flex items-center gap-2">
+                <Package className="h-4 w-4" /> Modules & Sub-Modules ({permForm.module_access.length} modules)
+              </Label>
+              <div className="border rounded-lg max-h-96 overflow-y-auto">
+                {categories.map(cat => {
+                  const catModules = modules.filter(m => m.category === cat.code);
+                  if (catModules.length === 0) return null;
+                  
+                  return (
+                    <div key={cat.code} className="border-b last:border-0">
+                      <div className="px-3 py-2 bg-gray-100 text-xs font-semibold text-gray-600">
+                        {cat.name}
+                      </div>
+                      {catModules.map(mod => {
+                        const isModuleSelected = permForm.module_access.includes(mod.code);
+                        const isExpanded = expandedModules.includes(mod.code);
+                        const subModules = mod.sub_modules || [];
+                        const selectedSubCount = (permForm.sub_module_access[mod.code] || []).length;
+                        
+                        return (
+                          <Collapsible key={mod.code} open={isExpanded}>
+                            <div className="flex items-center justify-between px-3 py-2 hover:bg-gray-50 border-b last:border-0">
+                              <label className="flex items-center gap-2 flex-1 cursor-pointer">
+                                <Checkbox
+                                  checked={isModuleSelected}
+                                  onCheckedChange={() => toggleModule(mod.code)}
+                                />
+                                <span className="font-medium text-sm">{mod.name}</span>
+                                {mod.is_default && (
+                                  <Badge variant="outline" className="text-xs bg-green-50 text-green-700">Default</Badge>
+                                )}
+                              </label>
+                              {subModules.length > 0 && (
+                                <div className="flex items-center gap-2">
+                                  {isModuleSelected && (
+                                    <span className="text-xs text-gray-500">
+                                      {selectedSubCount}/{subModules.length} sub-modules
+                                    </span>
+                                  )}
+                                  <CollapsibleTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 w-6 p-0"
+                                      onClick={() => setExpandedModules(prev =>
+                                        prev.includes(mod.code) 
+                                          ? prev.filter(c => c !== mod.code)
+                                          : [...prev, mod.code]
+                                      )}
+                                    >
+                                      {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                    </Button>
+                                  </CollapsibleTrigger>
+                                </div>
+                              )}
+                            </div>
+                            {subModules.length > 0 && (
+                              <CollapsibleContent>
+                                <div className="pl-8 pr-3 py-2 bg-gray-50 space-y-1">
+                                  {subModules.map(sub => {
+                                    const isSubSelected = (permForm.sub_module_access[mod.code] || []).includes(sub.code);
+                                    return (
+                                      <label key={sub.code} className="flex items-center gap-2 py-1 cursor-pointer">
+                                        <Checkbox
+                                          checked={isSubSelected}
+                                          onCheckedChange={() => toggleSubModule(mod.code, sub.code)}
+                                          disabled={!isModuleSelected}
+                                        />
+                                        <span className={`text-sm ${!isModuleSelected ? 'text-gray-400' : ''}`}>
+                                          {sub.name}
+                                        </span>
+                                        <span className="text-xs text-gray-400 ml-auto">{sub.path}</span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </CollapsibleContent>
+                            )}
+                          </Collapsible>
+                        );
+                      })}
                     </div>
                   );
                 })}
-              </div>
-            </div>
-
-            {/* Admin Permissions */}
-            <div>
-              <Label className="text-[#4A3728] mb-3 block">Administrative Permissions</Label>
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="can_manage_users"
-                    checked={roleForm.can_manage_users}
-                    onCheckedChange={(checked) => setRoleForm({ ...roleForm, can_manage_users: checked })}
-                    disabled={selectedRole?.is_system_role}
-                  />
-                  <Label htmlFor="can_manage_users" className="text-sm text-[#5D4A3A]">
-                    Can manage users (create, edit, deactivate)
-                  </Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="can_manage_employees"
-                    checked={roleForm.can_manage_employees}
-                    onCheckedChange={(checked) => setRoleForm({ ...roleForm, can_manage_employees: checked })}
-                    disabled={selectedRole?.is_system_role}
-                  />
-                  <Label htmlFor="can_manage_employees" className="text-sm text-[#5D4A3A]">
-                    Can manage employees (onboarding, HR records)
-                  </Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="can_manage_roles"
-                    checked={roleForm.can_manage_roles}
-                    onCheckedChange={(checked) => setRoleForm({ ...roleForm, can_manage_roles: checked })}
-                    disabled={selectedRole?.is_system_role}
-                  />
-                  <Label htmlFor="can_manage_roles" className="text-sm text-[#5D4A3A]">
-                    Can manage roles and permissions
-                  </Label>
-                </div>
               </div>
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRoleDialog(false)} className="border-[#E8D5C4]">
+            <Button variant="outline" onClick={() => setPermDialog({ open: false, user: null })} className="border-[#E8D5C4]">
               Cancel
             </Button>
-            <Button
-              onClick={handleSaveRole}
-              disabled={saving}
-              className="bg-[#4A3728] hover:bg-[#5D4A3A] text-white"
-            >
-              {saving ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : null}
-              {selectedRole ? 'Update Role' : 'Create Role'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation */}
-      <AlertDialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Role</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete the role "{deleteDialog.role?.name}"?
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteRole} className="bg-red-600 hover:bg-red-700">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* User Permissions Dialog */}
-      <Dialog open={showUserPermDialog} onOpenChange={setShowUserPermDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-[#4A3728]">
-              Assign Roles - {selectedUser?.name || selectedUser?.email}
-            </DialogTitle>
-            <DialogDescription>
-              Select roles to assign to this user. Roles determine which modules they can access.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-sm text-blue-800">
-                <strong>Note:</strong> Users inherit module access from their assigned roles. 
-                Select one or more roles below.
-              </p>
-            </div>
-
-            <div>
-              <Label className="text-[#4A3728] mb-3 block">Available Roles</Label>
-              <div className="space-y-2">
-                {roles.map((role) => {
-                  const isSelected = Array.isArray(userPermissions) && userPermissions.includes(role.id);
-                  
-                  return (
-                    <div
-                      key={role.id}
-                      className={`p-3 rounded-lg border transition-colors cursor-pointer ${
-                        isSelected
-                          ? 'border-[#8B7355] bg-[#F5EDE5]'
-                          : 'border-[#E8D5C4] hover:border-[#D4BBA6]'
-                      }`}
-                      onClick={() => toggleUserRole(role.id)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => toggleUserRole(role.id)}
-                        />
-                        <div className="flex-1">
-                          <p className="font-medium text-[#4A3728] text-sm">{role.name}</p>
-                          <p className="text-xs text-gray-500">{role.description}</p>
-                        </div>
-                        <div className="flex flex-wrap gap-1 max-w-[200px]">
-                          {(role.module_access || []).slice(0, 3).map((mod) => (
-                            <Badge key={mod} variant="outline" className="text-[10px]">
-                              {modules[mod]?.name || mod}
-                            </Badge>
-                          ))}
-                          {(role.module_access || []).length > 3 && (
-                            <Badge variant="outline" className="text-[10px]">
-                              +{role.module_access.length - 3}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Show what modules will be accessible */}
-            {Array.isArray(userPermissions) && userPermissions.length > 0 && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <p className="text-sm text-green-800 font-medium mb-2">Resulting Module Access:</p>
-                <div className="flex flex-wrap gap-1">
-                  {[...new Set(
-                    userPermissions
-                      .flatMap(roleId => {
-                        const role = roles.find(r => r.id === roleId);
-                        return role?.module_access || [];
-                      })
-                  )].map((mod) => (
-                    <Badge key={mod} variant="secondary" className="text-xs bg-green-100 text-green-700">
-                      {modules[mod]?.name || mod}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <DialogFooter className="mt-6">
-            <Button variant="outline" onClick={() => setShowUserPermDialog(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={saveUserPermissions}
-              disabled={saving || !Array.isArray(userPermissions) || userPermissions.length === 0}
-              className="bg-[#4A3728] hover:bg-[#5D4A3A] text-white"
-            >
+            <Button onClick={savePermissions} disabled={saving} className="bg-[#8B7355] hover:bg-[#6B5344]">
               {saving ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-              Save Roles
+              Save Permissions
             </Button>
           </DialogFooter>
         </DialogContent>
