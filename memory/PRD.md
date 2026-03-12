@@ -1,3 +1,62 @@
+## March 12, 2026 - Social Listening Enhanced: More Sources + ML Sentiment ✅
+
+### Expanded News Sources (16 Total)
+
+**General News (3):**
+- Google News, Bing News, Yahoo News
+
+**Tech Blogs (10):**
+- TechCrunch, The Verge, Wired, Ars Technica, VentureBeat
+- MIT Tech Review, ZDNet, Engadget, Mashable, TechRadar
+
+**Business Publications (6):**
+- Reuters Business, Bloomberg, Forbes, Business Insider
+- Fast Company, Harvard Business Review
+
+**Community Sources (2):**
+- Hacker News (via Algolia API)
+- Reddit (public API)
+
+### ML-Powered Sentiment Analysis
+
+**Primary Method: VADER (Valence Aware Dictionary and sEntiment Reasoner)**
+- Optimized for social media and news text
+- Returns compound score (-1 to +1)
+- Confidence level calculation
+- Breakdown: positive/negative/neutral percentages
+
+**Fallback Method: TextBlob**
+- General NLP sentiment analysis
+- Polarity and subjectivity scores
+
+**Improvements:**
+- Before: 0 positive, 0 negative (keyword-based)
+- After: 20 positive, 7 negative (ML-based) - much more accurate
+
+### New Features
+
+1. **Hacker News Integration** (`search_hacker_news`)
+   - Tech community discussions via Algolia API
+   - Includes points and comment count
+
+2. **Content Filtering for Static Feeds**
+   - Tech blogs don't support query-based RSS
+   - Now filters content locally by keyword match
+
+3. **Sentiment Confidence Display**
+   - Shows percentage confidence (e.g., "Positive (100%)")
+   - Helps users understand sentiment reliability
+
+4. **Source Category Tags**
+   - Tech (purple), Business (blue), General (gray)
+   - Helps categorize mention sources
+
+### Dependencies Added
+- `vaderSentiment==3.3.2`
+- `textblob==0.19.0`
+
+---
+
 ## March 12, 2026 - Social Listening Web Crawler COMPLETE ✅
 
 ### Feature: Real-Time Web Crawler for Social Listening

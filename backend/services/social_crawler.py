@@ -6,7 +6,12 @@ Sources:
 1. Google Custom Search - Web/News mentions
 2. YouTube Data API - Video mentions
 3. Reddit API - Community discussions
-4. RSS/News Feeds - News aggregation
+4. RSS/News Feeds - News aggregation (General + Tech + Industry)
+5. Hacker News API - Tech community discussions
+
+Sentiment Analysis:
+- VADER (Valence Aware Dictionary and sEntiment Reasoner) for social media text
+- TextBlob as fallback for general text
 """
 
 import os
@@ -20,6 +25,19 @@ import uuid
 import re
 from urllib.parse import quote_plus
 
+# ML Sentiment Analysis
+try:
+    from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+    VADER_AVAILABLE = True
+except ImportError:
+    VADER_AVAILABLE = False
+
+try:
+    from textblob import TextBlob
+    TEXTBLOB_AVAILABLE = True
+except ImportError:
+    TEXTBLOB_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 # API Keys from environment
@@ -30,18 +48,183 @@ YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY")
 # Reddit API (public, no auth needed for read)
 REDDIT_USER_AGENT = "SevoraBot/1.0 (Social Listening)"
 
-# News RSS Feeds to monitor
-NEWS_RSS_FEEDS = [
-    {"name": "Google News", "url": "https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"},
-    {"name": "Bing News", "url": "https://www.bing.com/news/search?q={query}&format=rss"},
-    {"name": "Yahoo News", "url": "https://news.search.yahoo.com/rss?p={query}"},
+# ============== EXPANDED NEWS RSS FEEDS ==============
+
+# General News Sources
+GENERAL_NEWS_FEEDS = [
+    {"name": "Google News", "url": "https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en", "category": "general"},
+    {"name": "Bing News", "url": "https://www.bing.com/news/search?q={query}&format=rss", "category": "general"},
+    {"name": "Yahoo News", "url": "https://news.search.yahoo.com/rss?p={query}", "category": "general"},
 ]
 
-# Simple sentiment analysis keywords
-POSITIVE_WORDS = {'great', 'amazing', 'excellent', 'love', 'best', 'awesome', 'fantastic', 'wonderful', 
-                  'brilliant', 'perfect', 'good', 'happy', 'positive', 'success', 'recommend', 'innovative'}
-NEGATIVE_WORDS = {'bad', 'terrible', 'awful', 'hate', 'worst', 'horrible', 'poor', 'disappointing',
-                  'fail', 'scam', 'fraud', 'broken', 'useless', 'waste', 'avoid', 'negative', 'problem'}
+# Tech News & Blogs
+TECH_NEWS_FEEDS = [
+    {"name": "TechCrunch", "url": "https://techcrunch.com/feed/", "category": "tech", "search_in_content": True},
+    {"name": "The Verge", "url": "https://www.theverge.com/rss/index.xml", "category": "tech", "search_in_content": True},
+    {"name": "Wired", "url": "https://www.wired.com/feed/rss", "category": "tech", "search_in_content": True},
+    {"name": "Ars Technica", "url": "https://feeds.arstechnica.com/arstechnica/index", "category": "tech", "search_in_content": True},
+    {"name": "VentureBeat", "url": "https://venturebeat.com/feed/", "category": "tech", "search_in_content": True},
+    {"name": "MIT Tech Review", "url": "https://www.technologyreview.com/feed/", "category": "tech", "search_in_content": True},
+    {"name": "ZDNet", "url": "https://www.zdnet.com/news/rss.xml", "category": "tech", "search_in_content": True},
+    {"name": "Engadget", "url": "https://www.engadget.com/rss.xml", "category": "tech", "search_in_content": True},
+    {"name": "Mashable", "url": "https://mashable.com/feeds/rss/all", "category": "tech", "search_in_content": True},
+    {"name": "TechRadar", "url": "https://www.techradar.com/rss", "category": "tech", "search_in_content": True},
+]
+
+# Business & Industry Publications
+INDUSTRY_NEWS_FEEDS = [
+    {"name": "Reuters Business", "url": "https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best", "category": "business", "search_in_content": True},
+    {"name": "Bloomberg", "url": "https://feeds.bloomberg.com/markets/news.rss", "category": "business", "search_in_content": True},
+    {"name": "Forbes", "url": "https://www.forbes.com/innovation/feed/", "category": "business", "search_in_content": True},
+    {"name": "Business Insider", "url": "https://www.businessinsider.com/rss", "category": "business", "search_in_content": True},
+    {"name": "Fast Company", "url": "https://www.fastcompany.com/latest/rss", "category": "business", "search_in_content": True},
+    {"name": "Harvard Business Review", "url": "https://hbr.org/rss/topic/technology", "category": "business", "search_in_content": True},
+]
+
+# All feeds combined
+ALL_RSS_FEEDS = GENERAL_NEWS_FEEDS + TECH_NEWS_FEEDS + INDUSTRY_NEWS_FEEDS
+
+
+class MLSentimentAnalyzer:
+    """
+    ML-powered sentiment analysis using VADER and TextBlob.
+    VADER is optimized for social media and news text.
+    """
+    
+    def __init__(self):
+        self.vader = SentimentIntensityAnalyzer() if VADER_AVAILABLE else None
+        self.use_vader = VADER_AVAILABLE
+        self.use_textblob = TEXTBLOB_AVAILABLE
+        
+        logger.info(f"Sentiment Analysis initialized - VADER: {VADER_AVAILABLE}, TextBlob: {TEXTBLOB_AVAILABLE}")
+    
+    def analyze(self, text: str) -> Dict[str, Any]:
+        """
+        Analyze sentiment of text using ML models.
+        Returns sentiment label and confidence scores.
+        """
+        if not text or len(text.strip()) < 3:
+            return {"sentiment": "neutral", "confidence": 0.0, "scores": {}}
+        
+        # Clean text
+        text = self._clean_text(text)
+        
+        # Primary: Use VADER (best for social media/news)
+        if self.use_vader and self.vader:
+            return self._analyze_vader(text)
+        
+        # Fallback: Use TextBlob
+        if self.use_textblob:
+            return self._analyze_textblob(text)
+        
+        # Final fallback: Simple keyword matching
+        return self._analyze_keywords(text)
+    
+    def _clean_text(self, text: str) -> str:
+        """Clean text for analysis"""
+        # Remove URLs
+        text = re.sub(r'http\S+|www\S+', '', text)
+        # Remove special characters but keep punctuation (important for VADER)
+        text = re.sub(r'[^\w\s.,!?;:\'\"-]', '', text)
+        return text.strip()
+    
+    def _analyze_vader(self, text: str) -> Dict[str, Any]:
+        """
+        VADER sentiment analysis.
+        Compound score: -1 (most negative) to +1 (most positive)
+        """
+        scores = self.vader.polarity_scores(text)
+        compound = scores['compound']
+        
+        # VADER recommended thresholds
+        if compound >= 0.05:
+            sentiment = "positive"
+        elif compound <= -0.05:
+            sentiment = "negative"
+        else:
+            sentiment = "neutral"
+        
+        # Calculate confidence (distance from neutral zone)
+        confidence = min(abs(compound) / 0.5, 1.0)  # Normalize to 0-1
+        
+        return {
+            "sentiment": sentiment,
+            "confidence": round(confidence, 3),
+            "scores": {
+                "positive": round(scores['pos'], 3),
+                "negative": round(scores['neg'], 3),
+                "neutral": round(scores['neu'], 3),
+                "compound": round(compound, 3)
+            },
+            "method": "vader"
+        }
+    
+    def _analyze_textblob(self, text: str) -> Dict[str, Any]:
+        """
+        TextBlob sentiment analysis.
+        Polarity: -1 (negative) to +1 (positive)
+        Subjectivity: 0 (objective) to 1 (subjective)
+        """
+        blob = TextBlob(text)
+        polarity = blob.sentiment.polarity
+        subjectivity = blob.sentiment.subjectivity
+        
+        if polarity > 0.1:
+            sentiment = "positive"
+        elif polarity < -0.1:
+            sentiment = "negative"
+        else:
+            sentiment = "neutral"
+        
+        confidence = min(abs(polarity) / 0.5, 1.0)
+        
+        return {
+            "sentiment": sentiment,
+            "confidence": round(confidence, 3),
+            "scores": {
+                "polarity": round(polarity, 3),
+                "subjectivity": round(subjectivity, 3)
+            },
+            "method": "textblob"
+        }
+    
+    def _analyze_keywords(self, text: str) -> Dict[str, Any]:
+        """Fallback keyword-based sentiment (original method)"""
+        POSITIVE_WORDS = {'great', 'amazing', 'excellent', 'love', 'best', 'awesome', 'fantastic', 
+                         'wonderful', 'brilliant', 'perfect', 'good', 'happy', 'success', 'innovative'}
+        NEGATIVE_WORDS = {'bad', 'terrible', 'awful', 'hate', 'worst', 'horrible', 'poor', 
+                         'disappointing', 'fail', 'scam', 'fraud', 'broken', 'useless', 'problem'}
+        
+        text_lower = text.lower()
+        words = set(re.findall(r'\b\w+\b', text_lower))
+        
+        positive_count = len(words & POSITIVE_WORDS)
+        negative_count = len(words & NEGATIVE_WORDS)
+        
+        if positive_count > negative_count + 1:
+            sentiment = "positive"
+        elif negative_count > positive_count + 1:
+            sentiment = "negative"
+        else:
+            sentiment = "neutral"
+        
+        return {
+            "sentiment": sentiment,
+            "confidence": 0.3,  # Low confidence for keyword method
+            "scores": {"positive_keywords": positive_count, "negative_keywords": negative_count},
+            "method": "keywords"
+        }
+
+
+# Global sentiment analyzer instance
+_sentiment_analyzer = None
+
+def get_sentiment_analyzer() -> MLSentimentAnalyzer:
+    """Get or create global sentiment analyzer"""
+    global _sentiment_analyzer
+    if _sentiment_analyzer is None:
+        _sentiment_analyzer = MLSentimentAnalyzer()
+    return _sentiment_analyzer
 
 
 class SocialCrawler:
@@ -50,6 +233,7 @@ class SocialCrawler:
     def __init__(self, db):
         self.db = db
         self.session: Optional[aiohttp.ClientSession] = None
+        self.sentiment_analyzer = get_sentiment_analyzer()
     
     async def __aenter__(self):
         self.session = aiohttp.ClientSession()
@@ -60,21 +244,18 @@ class SocialCrawler:
             await self.session.close()
     
     def analyze_sentiment(self, text: str) -> str:
-        """Simple keyword-based sentiment analysis"""
-        if not text:
-            return "neutral"
-        
-        text_lower = text.lower()
-        words = set(re.findall(r'\b\w+\b', text_lower))
-        
-        positive_count = len(words & POSITIVE_WORDS)
-        negative_count = len(words & NEGATIVE_WORDS)
-        
-        if positive_count > negative_count + 1:
-            return "positive"
-        elif negative_count > positive_count + 1:
-            return "negative"
-        return "neutral"
+        """
+        Analyze sentiment using ML models (VADER/TextBlob).
+        Returns just the sentiment label for backward compatibility.
+        """
+        result = self.sentiment_analyzer.analyze(text)
+        return result["sentiment"]
+    
+    def analyze_sentiment_detailed(self, text: str) -> Dict[str, Any]:
+        """
+        Get detailed sentiment analysis with confidence scores.
+        """
+        return self.sentiment_analyzer.analyze(text)
     
     async def search_google(self, keyword: str, num_results: int = 10) -> List[Dict]:
         """Search Google Custom Search API for web mentions"""
@@ -100,6 +281,9 @@ class SocialCrawler:
                     items = data.get("items", [])
                     
                     for item in items:
+                        text = item.get("title", "") + " " + item.get("snippet", "")
+                        sentiment_result = self.analyze_sentiment_detailed(text)
+                        
                         mentions.append({
                             "platform": "web",
                             "source": "google_search",
@@ -107,8 +291,10 @@ class SocialCrawler:
                             "content": item.get("snippet", ""),
                             "url": item.get("link", ""),
                             "author": {"name": item.get("displayLink", "Unknown")},
-                            "published_at": None,  # Google doesn't provide exact date
-                            "sentiment": self.analyze_sentiment(item.get("snippet", "")),
+                            "published_at": None,
+                            "sentiment": sentiment_result["sentiment"],
+                            "sentiment_confidence": sentiment_result.get("confidence", 0),
+                            "sentiment_scores": sentiment_result.get("scores", {}),
                             "reach": 0,
                             "engagement": 0
                         })
@@ -220,39 +406,119 @@ class SocialCrawler:
         return mentions
     
     async def search_news_rss(self, keyword: str) -> List[Dict]:
-        """Search news RSS feeds"""
+        """
+        Search news RSS feeds from general, tech, and industry sources.
+        Uses both query-based feeds and content filtering for static feeds.
+        """
         mentions = []
+        keyword_lower = keyword.lower()
         
-        for feed_config in NEWS_RSS_FEEDS:
+        for feed_config in ALL_RSS_FEEDS:
             try:
-                feed_url = feed_config["url"].format(query=quote_plus(keyword))
+                # For query-based feeds, inject the keyword
+                if "{query}" in feed_config["url"]:
+                    feed_url = feed_config["url"].format(query=quote_plus(keyword))
+                else:
+                    # For static feeds, we'll filter content locally
+                    feed_url = feed_config["url"]
                 
                 async with self.session.get(feed_url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                     if resp.status == 200:
                         content = await resp.text()
                         feed = feedparser.parse(content)
                         
-                        for entry in feed.entries[:10]:  # Limit per feed
+                        entries_processed = 0
+                        for entry in feed.entries:
+                            if entries_processed >= 5:  # Limit per feed
+                                break
+                            
+                            title = entry.get("title", "")
+                            summary = entry.get("summary", "")
+                            
+                            # For static feeds, filter by keyword presence
+                            if feed_config.get("search_in_content"):
+                                combined_text = (title + " " + summary).lower()
+                                if keyword_lower not in combined_text:
+                                    continue
+                            
                             published = None
                             if hasattr(entry, 'published_parsed') and entry.published_parsed:
-                                published = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc).isoformat()
+                                try:
+                                    published = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc).isoformat()
+                                except Exception:
+                                    pass
+                            
+                            text = title + " " + summary
+                            sentiment_result = self.analyze_sentiment_detailed(text)
                             
                             mentions.append({
                                 "platform": "news",
                                 "source": feed_config["name"].lower().replace(" ", "_"),
-                                "title": entry.get("title", ""),
-                                "content": entry.get("summary", "")[:500],
+                                "source_category": feed_config.get("category", "general"),
+                                "title": title,
+                                "content": summary[:500],
                                 "url": entry.get("link", ""),
                                 "author": {"name": entry.get("author", feed_config["name"])},
                                 "published_at": published,
-                                "sentiment": self.analyze_sentiment(entry.get("title", "") + " " + entry.get("summary", "")),
+                                "sentiment": sentiment_result["sentiment"],
+                                "sentiment_confidence": sentiment_result.get("confidence", 0),
                                 "reach": 0,
                                 "engagement": 0
                             })
+                            entries_processed += 1
+                            
             except asyncio.TimeoutError:
                 logger.warning(f"RSS feed timeout: {feed_config['name']}")
             except Exception as e:
-                logger.error(f"RSS feed error ({feed_config['name']}): {str(e)}")
+                logger.debug(f"RSS feed error ({feed_config['name']}): {str(e)}")
+        
+        return mentions
+    
+    async def search_hacker_news(self, keyword: str, limit: int = 15) -> List[Dict]:
+        """
+        Search Hacker News via Algolia API.
+        Great for tech and startup discussions.
+        """
+        mentions = []
+        try:
+            url = "https://hn.algolia.com/api/v1/search_by_date"
+            params = {
+                "query": keyword,
+                "tags": "story",
+                "hitsPerPage": limit
+            }
+            
+            async with self.session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    hits = data.get("hits", [])
+                    
+                    for hit in hits:
+                        title = hit.get("title", "")
+                        
+                        # Skip if no title
+                        if not title:
+                            continue
+                        
+                        sentiment_result = self.analyze_sentiment_detailed(title)
+                        
+                        mentions.append({
+                            "platform": "hackernews",
+                            "source": "hacker_news",
+                            "source_category": "tech",
+                            "title": title,
+                            "content": "",
+                            "url": hit.get("url") or f"https://news.ycombinator.com/item?id={hit.get('objectID', '')}",
+                            "author": {"name": hit.get("author", "Unknown")},
+                            "published_at": hit.get("created_at"),
+                            "sentiment": sentiment_result["sentiment"],
+                            "sentiment_confidence": sentiment_result.get("confidence", 0),
+                            "reach": hit.get("points", 0),
+                            "engagement": hit.get("num_comments", 0),
+                            "hn_points": hit.get("points", 0)
+                        })
+        except Exception as e:
+            logger.error(f"Hacker News error: {str(e)}")
         
         return mentions
     
@@ -266,6 +532,7 @@ class SocialCrawler:
             return {"keyword_id": keyword_id, "mentions_found": 0, "error": "No keyword"}
         
         all_mentions = []
+        sources_searched = []
         
         # Determine which platforms to search
         search_all = not platforms or "all" in platforms
@@ -274,21 +541,31 @@ class SocialCrawler:
         if search_all or "web" in platforms:
             web_mentions = await self.search_google(keyword)
             all_mentions.extend(web_mentions)
+            sources_searched.append("google_search")
         
         # YouTube
         if search_all or "youtube" in platforms:
             youtube_mentions = await self.search_youtube(keyword)
             all_mentions.extend(youtube_mentions)
+            sources_searched.append("youtube")
         
         # Reddit
         if search_all or "reddit" in platforms:
             reddit_mentions = await self.search_reddit(keyword)
             all_mentions.extend(reddit_mentions)
+            sources_searched.append("reddit")
         
-        # News RSS
+        # Hacker News (tech discussions)
+        if search_all or "hackernews" in platforms or "tech" in platforms:
+            hn_mentions = await self.search_hacker_news(keyword)
+            all_mentions.extend(hn_mentions)
+            sources_searched.append("hacker_news")
+        
+        # News RSS (General + Tech + Industry)
         if search_all or "news" in platforms:
             news_mentions = await self.search_news_rss(keyword)
             all_mentions.extend(news_mentions)
+            sources_searched.append("news_rss")
         
         # Store mentions in database
         stored_count = 0

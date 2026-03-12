@@ -19,9 +19,29 @@ const DATA_SOURCES = {
   google_search: { icon: Globe, color: '#4285F4', label: 'Google Search' },
   youtube_api: { icon: Youtube, color: '#FF0000', label: 'YouTube' },
   reddit_api: { icon: FaReddit, color: '#FF4500', label: 'Reddit' },
+  hacker_news: { icon: Zap, color: '#FF6600', label: 'Hacker News' },
   google_news: { icon: Radio, color: '#4285F4', label: 'Google News' },
   bing_news: { icon: Radio, color: '#008373', label: 'Bing News' },
   yahoo_news: { icon: Radio, color: '#6001D2', label: 'Yahoo News' },
+  // Tech blogs
+  techcrunch: { icon: Radio, color: '#0A0', label: 'TechCrunch' },
+  the_verge: { icon: Radio, color: '#E5127D', label: 'The Verge' },
+  wired: { icon: Radio, color: '#000', label: 'Wired' },
+  ars_technica: { icon: Radio, color: '#FF4500', label: 'Ars Technica' },
+  venturebeat: { icon: Radio, color: '#D91E18', label: 'VentureBeat' },
+  engadget: { icon: Radio, color: '#02B875', label: 'Engadget' },
+  techradar: { icon: Radio, color: '#0078D7', label: 'TechRadar' },
+  // Business publications
+  fast_company: { icon: Radio, color: '#0066B3', label: 'Fast Company' },
+  business_insider: { icon: Radio, color: '#003366', label: 'Business Insider' },
+  forbes: { icon: Radio, color: '#5F5F5F', label: 'Forbes' },
+  bloomberg: { icon: Radio, color: '#1E1E1E', label: 'Bloomberg' },
+};
+
+const SOURCE_CATEGORIES = {
+  tech: { label: 'Tech', color: 'bg-purple-100 text-purple-700' },
+  business: { label: 'Business', color: 'bg-blue-100 text-blue-700' },
+  general: { label: 'General', color: 'bg-gray-100 text-gray-700' },
 };
 
 const SENTIMENTS = {
@@ -450,12 +470,25 @@ export default function SocialListening() {
                                 <PlatformIcon className="w-4 h-4" style={{ color: platform?.color || '#666' }} />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
+                                <div className="flex items-center gap-2 mb-1 flex-wrap">
                                   <span className="text-xs font-medium text-[#4A3728]">{mention.author?.name || 'Unknown'}</span>
-                                  <span className={`w-2 h-2 rounded-full ${sentiment?.dotColor}`} />
+                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${sentiment?.color}`}>
+                                    {sentiment?.label}
+                                    {mention.sentiment_confidence > 0 && (
+                                      <span className="ml-1 opacity-70">({Math.round(mention.sentiment_confidence * 100)}%)</span>
+                                    )}
+                                  </span>
                                   <span className="text-[10px] text-[#9ca3af]">{platform?.label || mention.source}</span>
+                                  {mention.source_category && SOURCE_CATEGORIES[mention.source_category] && (
+                                    <span className={`text-[9px] px-1.5 py-0.5 rounded ${SOURCE_CATEGORIES[mention.source_category].color}`}>
+                                      {SOURCE_CATEGORIES[mention.source_category].label}
+                                    </span>
+                                  )}
                                   {mention.subreddit && (
                                     <span className="text-[10px] text-orange-600">r/{mention.subreddit}</span>
+                                  )}
+                                  {mention.hn_points > 0 && (
+                                    <span className="text-[10px] text-orange-600">{mention.hn_points} points</span>
                                   )}
                                 </div>
                                 {mention.title && (
@@ -577,6 +610,62 @@ export default function SocialListening() {
                     {new Date(crawlerStatus.last_crawl.crawled_at).toLocaleString()}
                   </p>
                   <p className="text-xs text-[#5D4A3A]">Crawled At</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* News Sources Breakdown */}
+          {crawlerStatus?.news_sources && (
+            <div className="bg-white border border-[#E8D5C4] rounded-xl p-4">
+              <h4 className="font-medium text-[#4A3728] mb-3">News Sources (16 Total)</h4>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <p className="text-xs font-medium text-gray-500 mb-2 uppercase">General News</p>
+                  <div className="space-y-1">
+                    {crawlerStatus.news_sources.general?.map(source => (
+                      <span key={source} className="block text-sm text-[#4A3728]">{source}</span>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-purple-500 mb-2 uppercase">Tech Blogs</p>
+                  <div className="space-y-1">
+                    {crawlerStatus.news_sources.tech?.slice(0, 5).map(source => (
+                      <span key={source} className="block text-sm text-[#4A3728]">{source}</span>
+                    ))}
+                    {crawlerStatus.news_sources.tech?.length > 5 && (
+                      <span className="text-xs text-[#8B7355]">+{crawlerStatus.news_sources.tech.length - 5} more</span>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-blue-500 mb-2 uppercase">Business</p>
+                  <div className="space-y-1">
+                    {crawlerStatus.news_sources.business?.map(source => (
+                      <span key={source} className="block text-sm text-[#4A3728]">{source}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Sentiment Analysis Info */}
+          {crawlerStatus?.sentiment_analysis && (
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                  <BarChart3 className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-[#4A3728]">ML-Powered Sentiment Analysis</h3>
+                  <p className="text-sm text-[#5D4A3A] mt-1">
+                    <strong>Primary:</strong> {crawlerStatus.sentiment_analysis.primary_method}
+                  </p>
+                  <p className="text-sm text-[#5D4A3A]">
+                    <strong>Features:</strong> {crawlerStatus.sentiment_analysis.features?.join(', ')}
+                  </p>
                 </div>
               </div>
             </div>

@@ -682,6 +682,15 @@ async def get_crawl_status(
     async for doc in db.listening_mentions.aggregate(pipeline):
         source_counts[doc["_id"] or "unknown"] = doc["count"]
     
+    # Count mentions by source category
+    category_pipeline = [
+        {"$group": {"_id": "$source_category", "count": {"$sum": 1}}}
+    ]
+    category_counts = {}
+    async for doc in db.listening_mentions.aggregate(category_pipeline):
+        if doc["_id"]:
+            category_counts[doc["_id"]] = doc["count"]
+    
     return {
         "data_sources": {
             "google_search": {
@@ -695,18 +704,36 @@ async def get_crawl_status(
                 "description": "Video mentions via YouTube Data API"
             },
             "reddit": {
-                "configured": True,  # Public API, no auth needed
+                "configured": True,
                 "status": "active",
                 "description": "Community discussions via Reddit public API"
+            },
+            "hacker_news": {
+                "configured": True,
+                "status": "active",
+                "description": "Tech community discussions via Hacker News Algolia API"
             },
             "news_rss": {
                 "configured": True,
                 "status": "active",
-                "description": "News aggregation via RSS feeds (Google News, Bing, Yahoo)"
+                "description": "News aggregation via RSS (General, Tech, Industry - 16 sources)"
             }
+        },
+        "news_sources": {
+            "general": ["Google News", "Bing News", "Yahoo News"],
+            "tech": ["TechCrunch", "The Verge", "Wired", "Ars Technica", "VentureBeat", 
+                     "MIT Tech Review", "ZDNet", "Engadget", "Mashable", "TechRadar"],
+            "business": ["Reuters Business", "Bloomberg", "Forbes", "Business Insider", 
+                        "Fast Company", "Harvard Business Review"]
+        },
+        "sentiment_analysis": {
+            "primary_method": "VADER (ML-based, optimized for social media)",
+            "fallback_method": "TextBlob (general NLP)",
+            "features": ["compound score", "confidence level", "positive/negative/neutral breakdown"]
         },
         "active_keywords": active_keywords,
         "last_crawl": last_crawl,
-        "mentions_by_source": source_counts
+        "mentions_by_source": source_counts,
+        "mentions_by_category": category_counts
     }
 
