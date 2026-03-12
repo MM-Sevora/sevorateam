@@ -85,7 +85,7 @@ const PaymentCategorySettings = () => {
       setLoading(true);
       const [catRes, empRes] = await Promise.all([
         api.get('/finance/payment-categories'),
-        api.get('/employees').catch(() => ({ data: { employees: [] } }))
+        api.get('/pulse/employees').catch(() => ({ data: { employees: [] } }))
       ]);
       setCategories(catRes.data.categories || []);
       setEmployees(empRes.data.employees || []);
