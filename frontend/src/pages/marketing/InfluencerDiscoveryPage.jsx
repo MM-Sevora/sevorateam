@@ -42,7 +42,7 @@ const InfluencerDiscoveryPage = () => {
   // AI Discovery state
   const [aiQuery, setAiQuery] = useState('');
   const [aiBudget, setAiBudget] = useState('');
-  const [aiCampaignType, setAiCampaignType] = useState('');
+  const [aiCampaignType, setAiCampaignType] = useState('any');
   const [aiResults, setAiResults] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   
@@ -87,7 +87,7 @@ const InfluencerDiscoveryPage = () => {
       const response = await api.post('/marketing/v2/influencers/ai-discover', {
         query: aiQuery,
         budget_range: aiBudget || undefined,
-        campaign_type: aiCampaignType || undefined
+        campaign_type: aiCampaignType !== 'any' ? aiCampaignType : undefined
       });
       
       if (response.data.success) {
@@ -342,7 +342,7 @@ const InfluencerDiscoveryPage = () => {
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Any</SelectItem>
+                        <SelectItem value="any">Any</SelectItem>
                         <SelectItem value="product_launch">Product Launch</SelectItem>
                         <SelectItem value="brand_awareness">Brand Awareness</SelectItem>
                         <SelectItem value="event_promotion">Event Promotion</SelectItem>
