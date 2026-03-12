@@ -1,3 +1,66 @@
+## March 12, 2026 - Unified Users & Permissions Page ✅
+
+### What Was Built
+Consolidated three separate admin pages (User Management, User Permissions, System Modules) into a single seamless "Users & Permissions" hub at `/admin/users-permissions`.
+
+### New Page Structure
+**4 Tabs:**
+1. **Users Tab** - Complete user management with table view
+   - User list with Status, HR Status, Roles, Created date
+   - Click user row → Opens permissions side panel
+   - Quick actions: Onboard, Activate/Deactivate, Password, Edit, Delete
+   - Create User dialog
+
+2. **Modules Tab** - System module configuration
+   - Modules grouped by category (General, Operations, Business, etc.)
+   - Edit module: Category, Department, Team, Tags, Default status
+   - Sub-module counts displayed
+
+3. **Roles Tab** - Role-based access control
+   - Create/Edit custom roles
+   - Assign module access with CRUD permissions
+   - Admin capabilities (Manage Users, Employees, Roles)
+
+4. **Categories Tab** - Module category management
+   - Create custom categories with colors
+   - Access type configuration (Everyone, Team, Department, Admin)
+
+### Key Feature: User Permissions Side Panel
+- Opens when clicking any user row
+- Shows user info with status badge
+- **Assigned Roles** section with checkboxes
+- **Module Access** tree with expandable sub-modules
+- Toggle roles and modules directly
+- Save all permissions in one click
+
+### Route Changes
+- **New**: `/admin/users-permissions` → UsersPermissionsPage
+- **Redirects**: 
+  - `/admin/users` → `/admin/users-permissions`
+  - `/admin/access-control` → `/admin/users-permissions`
+  - `/admin/system-modules` → `/admin/users-permissions`
+
+### Sidebar Update
+- Administration > General Admin now shows single "Users & Permissions" link
+- Replaced three separate links (User Management, User Permissions, System Modules)
+
+### Files Created
+- `/app/frontend/src/pages/admin/UsersPermissionsPage.jsx` (1200+ lines)
+
+### Files Modified
+- `/app/frontend/src/App.js` - New route + redirects
+- `/app/frontend/src/components/Layout.jsx` - Simplified sidebar
+
+### Testing
+- All 4 tabs verified working
+- User permissions panel opens and saves correctly
+- Create dialogs work for User, Role, Category
+- Old routes redirect properly
+- 100% frontend test pass rate
+
+---
+
+
 ## March 12, 2026 - User Management Tasks 1 & 2 Complete ✅
 
 ### Task 1: Password Generation/Viewing for Admin ✅
