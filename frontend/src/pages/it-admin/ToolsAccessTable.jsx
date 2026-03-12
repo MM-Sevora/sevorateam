@@ -11,11 +11,12 @@ import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { Checkbox } from '../../components/ui/checkbox';
 import { toast } from 'sonner';
 import {
   ArrowLeft, Plus, Search, Package, Users, Key, ExternalLink, Edit, Trash2,
   UserPlus, X, Eye, EyeOff, Copy, Shield, Lock, UserX, DollarSign, 
-  ArrowUpDown, ArrowUp, ArrowDown, Filter, FileText, Clock
+  ArrowUpDown, ArrowUp, ArrowDown, Filter, FileText, Clock, Settings2, Zap, CheckCircle2
 } from 'lucide-react';
 
 const CATEGORIES = ['Marketing', 'Design', 'Development', 'Finance', 'HR', 'Sales', 'Operations', 'Communication', 'Analytics', 'Security', 'Other'];
@@ -54,6 +55,8 @@ const ToolsAccessTable = ({ defaultTab = 'tools' }) => {
   const [credentials, setCredentials] = useState([]);
   const [accessRecords, setAccessRecords] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [departments, setDepartments] = useState([]);
   
   // Table States
   const [searchTerm, setSearchTerm] = useState('');
@@ -83,23 +86,40 @@ const ToolsAccessTable = ({ defaultTab = 'tools' }) => {
   // Credential History Dialog
   const [showCredHistoryDialog, setShowCredHistoryDialog] = useState(false);
   const [credHistory, setCredHistory] = useState([]);
+  
+  // Template Dialog
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState(null);
+  const [templateForm, setTemplateForm] = useState({
+    name: '',
+    description: '',
+    department_id: '',
+    role_code: '',
+    tool_ids: [],
+    default_access_level: 'viewer',
+    is_active: true
+  });
 
   useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
     try {
-      const [toolsRes, usersRes, credsRes, accessRes, logsRes] = await Promise.all([
+      const [toolsRes, usersRes, credsRes, accessRes, logsRes, templatesRes, deptsRes] = await Promise.all([
         api.get('/acms/tools?limit=100'),
         api.get('/admin/users?limit=200'),
         api.get('/acms/credentials'),
         api.get('/acms/access?limit=500'),
-        api.get('/acms/audit-logs?limit=100')
+        api.get('/acms/audit-logs?limit=100'),
+        api.get('/acms/templates').catch(() => ({ data: { templates: [] } })),
+        api.get('/hr/departments').catch(() => ({ data: [] }))
       ]);
       setTools(toolsRes.data.tools || []);
       setUsers(Array.isArray(usersRes.data) ? usersRes.data : usersRes.data.users || []);
       setCredentials(credsRes.data.credentials || []);
       setAccessRecords(accessRes.data.access_records || []);
       setLogs(logsRes.data.logs || []);
+      setTemplates(templatesRes.data.templates || []);
+      setDepartments(Array.isArray(deptsRes.data) ? deptsRes.data : []);
     } catch (error) {
       console.error('Error:', error);
     } finally {
@@ -320,6 +340,71 @@ const ToolsAccessTable = ({ defaultTab = 'tools' }) => {
 
   const copyToClipboard = (text) => { navigator.clipboard.writeText(text); toast.success('Copied'); };
 
+  // ========== TEMPLATE CRUD ==========
+  const resetTemplateForm = () => {
+    setTemplateForm({
+      name: '', description: '', department_id: '', role_code: '',
+      tool_ids: [], default_access_level: 'viewer', is_active: true
+    });
+    setEditingTemplate(null);
+  };
+
+  const handleTemplateSubmit = async () => {
+    if (!templateForm.name) { toast.error('Template name is required'); return; }
+    if (templateForm.tool_ids.length === 0) { toast.error('Select at least one tool'); return; }
+    
+    try {
+      const payload = {
+        ...templateForm,
+        department_id: templateForm.department_id || null,
+        role_code: templateForm.role_code || null
+      };
+      
+      if (editingTemplate) {
+        await api.put(`/acms/templates/${editingTemplate.id}`, payload);
+        toast.success('Template updated');
+      } else {
+        await api.post('/acms/templates', payload);
+        toast.success('Template created');
+      }
+      setShowTemplateDialog(false);
+      resetTemplateForm();
+      fetchData();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed to save template'); }
+  };
+
+  const openEditTemplate = (template) => {
+    setEditingTemplate(template);
+    setTemplateForm({
+      name: template.name || '',
+      description: template.description || '',
+      department_id: template.department_id || '',
+      role_code: template.role_code || '',
+      tool_ids: template.tool_ids || [],
+      default_access_level: template.default_access_level || 'viewer',
+      is_active: template.is_active !== false
+    });
+    setShowTemplateDialog(true);
+  };
+
+  const handleDeleteTemplate = async (template) => {
+    if (!confirm(`Delete template "${template.name}"?`)) return;
+    try {
+      await api.delete(`/acms/templates/${template.id}`);
+      toast.success('Template deleted');
+      fetchData();
+    } catch { toast.error('Failed to delete'); }
+  };
+
+  const toggleToolInTemplate = (toolId) => {
+    setTemplateForm(f => ({
+      ...f,
+      tool_ids: f.tool_ids.includes(toolId)
+        ? f.tool_ids.filter(id => id !== toolId)
+        : [...f.tool_ids, toolId]
+    }));
+  };
+
   return (
     <div className="p-6 space-y-4 bg-[#FDF8F3] min-h-screen" data-testid="tools-access-table">
       {/* Header */}
@@ -334,7 +419,7 @@ const ToolsAccessTable = ({ defaultTab = 'tools' }) => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-5 gap-4">
         <Card className="bg-white border-[#E8D5C4]">
           <CardContent className="p-3 flex items-center gap-3">
             <Package className="w-8 h-8 text-blue-600" />
@@ -345,6 +430,12 @@ const ToolsAccessTable = ({ defaultTab = 'tools' }) => {
           <CardContent className="p-3 flex items-center gap-3">
             <DollarSign className="w-8 h-8 text-emerald-600" />
             <div><p className="text-xl font-bold text-emerald-600">${totalMonthlyCost.toLocaleString()}</p><p className="text-xs text-[#8B7355]">Monthly Cost</p></div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white border-[#E8D5C4]">
+          <CardContent className="p-3 flex items-center gap-3">
+            <Zap className="w-8 h-8 text-orange-600" />
+            <div><p className="text-xl font-bold text-orange-600">{templates.filter(t => t.is_active !== false).length}</p><p className="text-xs text-[#8B7355]">Templates</p></div>
           </CardContent>
         </Card>
         <Card className="bg-white border-[#E8D5C4]">
@@ -366,6 +457,9 @@ const ToolsAccessTable = ({ defaultTab = 'tools' }) => {
         <TabsList className="bg-white border border-[#E8D5C4] p-1">
           <TabsTrigger value="tools" className="data-[state=active]:bg-[#4A3728] data-[state=active]:text-white">
             <Package className="w-4 h-4 mr-2" /> Tools
+          </TabsTrigger>
+          <TabsTrigger value="templates" className="data-[state=active]:bg-[#4A3728] data-[state=active]:text-white">
+            <Zap className="w-4 h-4 mr-2" /> Templates
           </TabsTrigger>
           <TabsTrigger value="credentials" className="data-[state=active]:bg-[#4A3728] data-[state=active]:text-white">
             <Lock className="w-4 h-4 mr-2" /> Credentials
@@ -645,6 +739,116 @@ const ToolsAccessTable = ({ defaultTab = 'tools' }) => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* ========== TEMPLATES TAB ========== */}
+        <TabsContent value="templates" className="space-y-4">
+          {/* Templates Info Banner */}
+          <Card className="bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-orange-100 rounded-lg">
+                  <Zap className="w-5 h-5 text-orange-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-[#4A3728]">Auto-Provisioning Templates</h3>
+                  <p className="text-sm text-[#8B7355]">
+                    Create templates to automatically provision tools when employees are onboarded or activated. 
+                    Tools will be auto-revoked when employees are terminated or deactivated.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-end">
+            <Button onClick={() => { resetTemplateForm(); setShowTemplateDialog(true); }} className="bg-[#4A3728] hover:bg-[#5D4A3A] text-white">
+              <Plus className="w-4 h-4 mr-2" /> Create Template
+            </Button>
+          </div>
+
+          <Card className="bg-white border-[#E8D5C4]">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-[#F5EDE5]">
+                    <TableHead>Template Name</TableHead>
+                    <TableHead>Department</TableHead>
+                    <TableHead>Access Level</TableHead>
+                    <TableHead>Tools Included</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {templates.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-12">
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="p-3 bg-[#F5EDE5] rounded-full">
+                            <Settings2 className="w-8 h-8 text-[#8B7355]" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-[#4A3728]">No templates yet</p>
+                            <p className="text-sm text-[#8B7355]">Create a template to automate tool provisioning</p>
+                          </div>
+                          <Button onClick={() => { resetTemplateForm(); setShowTemplateDialog(true); }} variant="outline" className="mt-2 border-[#D4BBA6]">
+                            <Plus className="w-4 h-4 mr-2" /> Create First Template
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : templates.map(template => (
+                    <TableRow key={template.id} className="hover:bg-[#FDF8F3]">
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Zap className="w-4 h-4 text-orange-500" />
+                          <div>
+                            <p className="font-medium text-[#4A3728]">{template.name}</p>
+                            {template.description && <p className="text-xs text-[#8B7355] truncate max-w-[200px]">{template.description}</p>}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-[#8B7355]">{template.department_name || 'All Departments'}</TableCell>
+                      <TableCell>
+                        <Badge className={
+                          template.default_access_level === 'admin' ? 'bg-red-100 text-red-700' :
+                          template.default_access_level === 'editor' ? 'bg-blue-100 text-blue-700' :
+                          'bg-green-100 text-green-700'
+                        }>{template.default_access_level || 'viewer'}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {(template.tool_names || []).slice(0, 3).map((name, i) => (
+                            <Badge key={i} variant="outline" className="text-xs">{name}</Badge>
+                          ))}
+                          {(template.tool_names || []).length > 3 && (
+                            <Badge variant="outline" className="text-xs">+{template.tool_names.length - 3} more</Badge>
+                          )}
+                          {(template.tool_names || []).length === 0 && (
+                            <span className="text-xs text-[#8B7355]">{template.tool_ids?.length || 0} tools</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {template.is_active !== false ? (
+                          <Badge className="bg-emerald-100 text-emerald-700"><CheckCircle2 className="w-3 h-3 mr-1" />Active</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[#8B7355]">Inactive</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => openEditTemplate(template)}><Edit className="w-4 h-4 text-blue-600" /></Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleDeleteTemplate(template)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* ========== DIALOGS ========== */}
@@ -740,6 +944,137 @@ const ToolsAccessTable = ({ defaultTab = 'tools' }) => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCredHistoryDialog(false)} className="border-[#D4BBA6]">Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Template Dialog */}
+      <Dialog open={showTemplateDialog} onOpenChange={(open) => { if (!open) resetTemplateForm(); setShowTemplateDialog(open); }}>
+        <DialogContent className="bg-white max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-[#4A3728]">{editingTemplate ? 'Edit Template' : 'Create Provisioning Template'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Template Name & Description */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <Label>Template Name *</Label>
+                <Input 
+                  value={templateForm.name} 
+                  onChange={(e) => setTemplateForm(f => ({ ...f, name: e.target.value }))} 
+                  className="bg-white border-[#D4BBA6]" 
+                  placeholder="e.g., Marketing Team Default Tools"
+                />
+              </div>
+              <div className="col-span-2">
+                <Label>Description</Label>
+                <Textarea 
+                  value={templateForm.description} 
+                  onChange={(e) => setTemplateForm(f => ({ ...f, description: e.target.value }))} 
+                  className="bg-white border-[#D4BBA6]" 
+                  rows={2}
+                  placeholder="Describe when this template applies..."
+                />
+              </div>
+            </div>
+
+            {/* Scope Settings */}
+            <div className="p-4 bg-[#F5EDE5] rounded-lg space-y-3">
+              <h4 className="font-medium text-[#4A3728] flex items-center gap-2">
+                <Settings2 className="w-4 h-4" /> Scope Settings
+              </h4>
+              <p className="text-xs text-[#8B7355]">Leave empty to apply to all employees</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Department</Label>
+                  <Select 
+                    value={templateForm.department_id || "all"} 
+                    onValueChange={(v) => setTemplateForm(f => ({ ...f, department_id: v === "all" ? "" : v }))}
+                  >
+                    <SelectTrigger className="bg-white border-[#D4BBA6]">
+                      <SelectValue placeholder="All Departments" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Departments</SelectItem>
+                      {departments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Default Access Level</Label>
+                  <Select 
+                    value={templateForm.default_access_level} 
+                    onValueChange={(v) => setTemplateForm(f => ({ ...f, default_access_level: v }))}
+                  >
+                    <SelectTrigger className="bg-white border-[#D4BBA6]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="viewer">Viewer</SelectItem>
+                      <SelectItem value="editor">Editor</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            {/* Tool Selection */}
+            <div>
+              <Label className="mb-2 block">Select Tools to Provision *</Label>
+              <div className="border border-[#D4BBA6] rounded-lg max-h-[250px] overflow-y-auto">
+                {tools.length === 0 ? (
+                  <p className="text-center py-8 text-[#8B7355]">No tools available. Add tools first.</p>
+                ) : (
+                  <div className="divide-y divide-[#E8D5C4]">
+                    {tools.map(tool => (
+                      <div 
+                        key={tool.id} 
+                        className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-[#FDF8F3] transition-colors ${
+                          templateForm.tool_ids.includes(tool.id) ? 'bg-orange-50' : ''
+                        }`}
+                        onClick={() => toggleToolInTemplate(tool.id)}
+                      >
+                        <Checkbox 
+                          checked={templateForm.tool_ids.includes(tool.id)}
+                          onCheckedChange={() => toggleToolInTemplate(tool.id)}
+                          className="border-[#D4BBA6] data-[state=checked]:bg-[#4A3728]"
+                        />
+                        <Package className="w-4 h-4 text-[#8B7355]" />
+                        <div className="flex-1">
+                          <p className="font-medium text-[#4A3728]">{tool.name}</p>
+                          <p className="text-xs text-[#8B7355]">{tool.category}</p>
+                        </div>
+                        {tool.monthly_cost && (
+                          <span className="text-xs text-[#8B7355]">${tool.monthly_cost}/mo</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-[#8B7355] mt-1">{templateForm.tool_ids.length} tool(s) selected</p>
+            </div>
+
+            {/* Active Toggle */}
+            <div className="flex items-center gap-3 p-3 bg-[#F5EDE5] rounded-lg">
+              <Checkbox 
+                id="template-active"
+                checked={templateForm.is_active}
+                onCheckedChange={(checked) => setTemplateForm(f => ({ ...f, is_active: checked }))}
+                className="border-[#D4BBA6] data-[state=checked]:bg-emerald-600"
+              />
+              <Label htmlFor="template-active" className="cursor-pointer">
+                <span className="font-medium text-[#4A3728]">Active</span>
+                <p className="text-xs text-[#8B7355]">Inactive templates won't be applied during onboarding</p>
+              </Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { resetTemplateForm(); setShowTemplateDialog(false); }} className="border-[#D4BBA6]">Cancel</Button>
+            <Button onClick={handleTemplateSubmit} className="bg-[#4A3728] text-white">
+              <Zap className="w-4 h-4 mr-2" />{editingTemplate ? 'Update Template' : 'Create Template'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

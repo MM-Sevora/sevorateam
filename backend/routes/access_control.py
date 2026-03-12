@@ -1,6 +1,7 @@
 """
 Access Control Routes - Custom Roles, Module Access, Onboarding, Permissions
 Clean architecture separating User (Auth) from Employee (HR + Access)
+Includes IT Admin ↔ HR Auto-Provisioning Integration
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -33,6 +34,83 @@ def require_admin():
 def get_current_user_dep():
     from server import get_current_user
     return get_current_user
+
+
+# ============== AUTO-PROVISIONING HELPERS ==============
+
+async def _trigger_auto_provisioning(db, employee_id: str, department_id: Optional[str], role_code: Optional[str], admin_user: dict):
+    """Trigger auto-provisioning of tools for an activated employee"""
+    try:
+        # Find matching templates
+        templates = await db.acms_tool_templates.find({"is_active": True}, {"_id": 0}).to_list(100)
+        
+        matching_templates = []
+        for template in templates:
+            if not template.get("department_id"):
+                matching_templates.append(template)
+            elif template.get("department_id") == department_id:
+                if template.get("role_code"):
+                    if template.get("role_code") == role_code:
+                        matching_templates.append(template)
+                else:
+                    matching_templates.append(template)
+        
+        if not matching_templates:
+            return {"tools_provisioned": 0}
+        
+        tools_to_provision = {}
+        for template in matching_templates:
+            for tool_id in template.get("tool_ids", []):
+                current_level = tools_to_provision.get(tool_id, {}).get("level", 0)
+                template_level = {"viewer": 1, "editor": 2, "admin": 3}.get(template.get("default_access_level", "viewer"), 1)
+                if template_level > current_level:
+                    tools_to_provision[tool_id] = {"level": template_level, "access_level": template.get("default_access_level", "viewer")}
+        
+        provisioned_count = 0
+        for tool_id, info in tools_to_provision.items():
+            existing = await db.acms_user_access.find_one({"user_id": employee_id, "tool_id": tool_id, "is_active": True})
+            if existing:
+                continue
+            
+            access_doc = {
+                "id": str(uuid.uuid4()),
+                "user_id": employee_id,
+                "tool_id": tool_id,
+                "access_level": info["access_level"],
+                "access_type": "auto_provisioned",
+                "granted_at": datetime.now(timezone.utc).isoformat(),
+                "granted_by": admin_user.get("id"),
+                "is_active": True,
+                "provisioning_reason": "employee_activation"
+            }
+            await db.acms_user_access.insert_one(access_doc)
+            provisioned_count += 1
+        
+        return {"tools_provisioned": provisioned_count}
+    except Exception as e:
+        print(f"[Auto-Provision] Error: {str(e)}")
+        return {"tools_provisioned": 0, "error": str(e)}
+
+
+async def _trigger_auto_revocation(db, employee_id: str, admin_user: dict, reason: str = "deactivation"):
+    """Trigger auto-revocation of all tools for a deactivated employee"""
+    try:
+        access_records = await db.acms_user_access.find({"user_id": employee_id, "is_active": True}, {"_id": 0}).to_list(100)
+        
+        revoked_count = 0
+        now = datetime.now(timezone.utc).isoformat()
+        
+        for access in access_records:
+            await db.acms_user_access.update_one(
+                {"id": access["id"]},
+                {"$set": {"is_active": False, "revoked_at": now, "revoked_by": admin_user.get("id"), "revocation_reason": reason}}
+            )
+            revoked_count += 1
+        
+        return {"tools_revoked": revoked_count}
+    except Exception as e:
+        print(f"[Auto-Revoke] Error: {str(e)}")
+        return {"tools_revoked": 0, "error": str(e)}
 
 
 # ============== CUSTOM ROLES ==============
@@ -463,7 +541,7 @@ async def activate_employee(
     employee_id: str,
     current_user: dict = Depends(require_admin())
 ):
-    """Activate an onboarded employee - changes their status to Active"""
+    """Activate an onboarded employee - changes their status to Active and auto-provisions tools"""
     db = get_db()
     
     employee = await db.employees.find_one({"id": employee_id})
@@ -479,13 +557,27 @@ async def activate_employee(
     )
     
     # Update user status
-    if employee.get("user_id"):
+    user_id = employee.get("user_id")
+    if user_id:
         await db.users.update_one(
-            {"id": employee["user_id"]},
+            {"id": user_id},
             {"$set": {"status": UserStatus.ACTIVE.value, "updated_at": now}}
         )
     
-    return {"success": True, "message": "Employee activated"}
+    # Auto-provision tools based on templates
+    provisioning_result = await _trigger_auto_provisioning(
+        db=db,
+        employee_id=user_id or employee_id,
+        department_id=employee.get("department_id"),
+        role_code=employee.get("role"),
+        admin_user=current_user
+    )
+    
+    return {
+        "success": True, 
+        "message": "Employee activated",
+        "tools_provisioned": provisioning_result.get("tools_provisioned", 0)
+    }
 
 
 @access_control_router.post("/deactivate/{employee_id}")
@@ -493,7 +585,7 @@ async def deactivate_employee(
     employee_id: str,
     current_user: dict = Depends(require_admin())
 ):
-    """Deactivate an employee - removes system access"""
+    """Deactivate an employee - removes system access and auto-revokes all tools"""
     db = get_db()
     
     employee = await db.employees.find_one({"id": employee_id})
@@ -509,13 +601,26 @@ async def deactivate_employee(
     )
     
     # Update user status
-    if employee.get("user_id"):
+    user_id = employee.get("user_id")
+    if user_id:
         await db.users.update_one(
-            {"id": employee["user_id"]},
+            {"id": user_id},
             {"$set": {"status": UserStatus.INACTIVE.value, "updated_at": now}}
         )
     
-    return {"success": True, "message": "Employee deactivated"}
+    # Auto-revoke all tool access
+    revocation_result = await _trigger_auto_revocation(
+        db=db,
+        employee_id=user_id or employee_id,
+        admin_user=current_user,
+        reason="employee_deactivation"
+    )
+    
+    return {
+        "success": True, 
+        "message": "Employee deactivated",
+        "tools_revoked": revocation_result.get("tools_revoked", 0)
+    }
 
 
 # ============== PERMISSION CHECKS ==============

@@ -1,8 +1,9 @@
 """
 HR Routes - Employee Database, Grade Types, Teams, Positions, Reporting Structure, Org Chart
+Includes IT Admin ↔ HR Auto-Provisioning Integration
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
@@ -18,6 +19,228 @@ from models.hr import (
 )
 
 hr_router = APIRouter(prefix="/hr", tags=["HR - Employee Management"])
+
+
+# ============== AUTO-PROVISIONING INTEGRATION ==============
+
+async def trigger_auto_provisioning(
+    employee_id: str,
+    department_id: Optional[str],
+    role_code: Optional[str],
+    admin_user: dict
+):
+    """
+    Trigger auto-provisioning of tools for a new/activated employee.
+    Called when employee status changes to 'active'.
+    """
+    try:
+        db = get_db()
+        
+        # Find matching templates
+        query = {"is_active": True}
+        templates = await db.acms_tool_templates.find(query, {"_id": 0}).to_list(100)
+        
+        matching_templates = []
+        for template in templates:
+            # Global template (no department specified)
+            if not template.get("department_id"):
+                matching_templates.append(template)
+            # Department-specific template
+            elif template.get("department_id") == department_id:
+                # Check role if specified
+                if template.get("role_code"):
+                    if template.get("role_code") == role_code:
+                        matching_templates.append(template)
+                else:
+                    matching_templates.append(template)
+        
+        if not matching_templates:
+            print(f"[Auto-Provision] No matching templates for employee {employee_id}")
+            return {"message": "No matching templates", "tools_provisioned": 0}
+        
+        # Collect all tools to provision
+        tools_to_provision = {}
+        for template in matching_templates:
+            for tool_id in template.get("tool_ids", []):
+                # Use highest access level if tool appears in multiple templates
+                current_level = tools_to_provision.get(tool_id, {}).get("level", 0)
+                template_level = {"viewer": 1, "editor": 2, "admin": 3}.get(
+                    template.get("default_access_level", "viewer"), 1
+                )
+                if template_level > current_level:
+                    tools_to_provision[tool_id] = {
+                        "level": template_level,
+                        "access_level": template.get("default_access_level", "viewer")
+                    }
+        
+        # Provision tools
+        provisioned_count = 0
+        for tool_id, info in tools_to_provision.items():
+            # Check if access already exists
+            existing = await db.acms_user_access.find_one({
+                "user_id": employee_id,
+                "tool_id": tool_id,
+                "is_active": True
+            })
+            
+            if existing:
+                continue
+            
+            # Create access record
+            access_doc = {
+                "id": str(uuid.uuid4()),
+                "user_id": employee_id,
+                "tool_id": tool_id,
+                "access_level": info["access_level"],
+                "access_type": "auto_provisioned",
+                "granted_at": datetime.now(timezone.utc).isoformat(),
+                "granted_by": admin_user.get("id"),
+                "is_active": True,
+                "provisioning_reason": "employee_onboarding"
+            }
+            
+            await db.acms_user_access.insert_one(access_doc)
+            provisioned_count += 1
+            
+            # Log activity
+            tool = await db.acms_tools.find_one({"id": tool_id}, {"name": 1})
+            tool_name = tool.get("name") if tool else "Unknown"
+            emp = await db.users.find_one({"id": employee_id}, {"name": 1})
+            emp_name = emp.get("name") if emp else "Unknown"
+            
+            await db.acms_audit_logs.insert_one({
+                "id": str(uuid.uuid4()),
+                "action": "access_auto_provisioned",
+                "entity_type": "access",
+                "entity_id": access_doc["id"],
+                "entity_name": tool_name,
+                "user_id": admin_user.get("id"),
+                "user_name": admin_user.get("name"),
+                "details": {
+                    "target_user": emp_name,
+                    "target_user_id": employee_id,
+                    "tool": tool_name,
+                    "access_level": info["access_level"],
+                    "reason": "employee_onboarding"
+                },
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            })
+        
+        # Log summary
+        await db.acms_audit_logs.insert_one({
+            "id": str(uuid.uuid4()),
+            "action": "onboarding_provisioning_completed",
+            "entity_type": "provisioning",
+            "entity_id": employee_id,
+            "entity_name": "Employee Onboarding",
+            "user_id": admin_user.get("id"),
+            "user_name": admin_user.get("name"),
+            "details": {
+                "target_user_id": employee_id,
+                "templates_matched": len(matching_templates),
+                "tools_provisioned": provisioned_count
+            },
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+        
+        print(f"[Auto-Provision] Provisioned {provisioned_count} tools for employee {employee_id}")
+        return {
+            "message": f"Provisioned {provisioned_count} tools",
+            "templates_matched": len(matching_templates),
+            "tools_provisioned": provisioned_count
+        }
+    except Exception as e:
+        print(f"[Auto-Provision] Error: {str(e)}")
+        return {"error": str(e)}
+
+
+async def trigger_auto_revocation(
+    employee_id: str,
+    admin_user: dict,
+    reason: str = "employee_offboarding"
+):
+    """
+    Trigger auto-revocation of all tools for a terminated/deactivated employee.
+    Called when employee status changes to 'terminated' or 'inactive'.
+    """
+    try:
+        db = get_db()
+        
+        # Find all active access for this employee
+        access_records = await db.acms_user_access.find({
+            "user_id": employee_id,
+            "is_active": True
+        }, {"_id": 0}).to_list(100)
+        
+        if not access_records:
+            print(f"[Auto-Revoke] No active tool access for employee {employee_id}")
+            return {"message": "No tools to revoke", "tools_revoked": 0}
+        
+        revoked_count = 0
+        now = datetime.now(timezone.utc).isoformat()
+        
+        for access in access_records:
+            await db.acms_user_access.update_one(
+                {"id": access["id"]},
+                {
+                    "$set": {
+                        "is_active": False,
+                        "revoked_at": now,
+                        "revoked_by": admin_user.get("id"),
+                        "revocation_reason": reason
+                    }
+                }
+            )
+            revoked_count += 1
+            
+            # Log activity
+            tool = await db.acms_tools.find_one({"id": access.get("tool_id")}, {"name": 1})
+            tool_name = tool.get("name") if tool else "Unknown"
+            emp = await db.users.find_one({"id": employee_id}, {"name": 1})
+            emp_name = emp.get("name") if emp else "Unknown"
+            
+            await db.acms_audit_logs.insert_one({
+                "id": str(uuid.uuid4()),
+                "action": "access_auto_revoked",
+                "entity_type": "access",
+                "entity_id": access["id"],
+                "entity_name": tool_name,
+                "user_id": admin_user.get("id"),
+                "user_name": admin_user.get("name"),
+                "details": {
+                    "target_user": emp_name,
+                    "target_user_id": employee_id,
+                    "tool": tool_name,
+                    "reason": reason
+                },
+                "timestamp": now
+            })
+        
+        # Log summary
+        await db.acms_audit_logs.insert_one({
+            "id": str(uuid.uuid4()),
+            "action": "offboarding_revocation_completed",
+            "entity_type": "provisioning",
+            "entity_id": employee_id,
+            "entity_name": "Employee Offboarding",
+            "user_id": admin_user.get("id"),
+            "user_name": admin_user.get("name"),
+            "details": {
+                "target_user_id": employee_id,
+                "tools_revoked": revoked_count,
+                "reason": reason
+            },
+            "timestamp": now
+        })
+        
+        print(f"[Auto-Revoke] Revoked {revoked_count} tools for employee {employee_id}")
+        return {
+            "message": f"Revoked {revoked_count} tool access records",
+            "tools_revoked": revoked_count
+        }
+    except Exception as e:
+        print(f"[Auto-Revoke] Error: {str(e)}")
+        return {"error": str(e)}
 
 
 # Import db and auth from main server
@@ -620,8 +843,12 @@ async def get_employee(employee_id: str, user: dict = Depends(get_current_user_d
 
 
 @hr_router.post("/employees", response_model=EmployeeResponse)
-async def create_employee(data: EmployeeCreate, user: dict = Depends(require_admin())):
-    """Create a new employee"""
+async def create_employee(
+    data: EmployeeCreate, 
+    background_tasks: BackgroundTasks = None,
+    user: dict = Depends(require_admin())
+):
+    """Create a new employee - automatically provisions tools based on templates"""
     db = get_db()
     
     # Check for duplicate email
@@ -664,6 +891,14 @@ async def create_employee(data: EmployeeCreate, user: dict = Depends(require_adm
     
     await db.users.insert_one(emp_doc)
     
+    # Auto-provision tools for new employee based on templates
+    await trigger_auto_provisioning(
+        employee_id=emp_id,
+        department_id=data.department_id,
+        role_code=data.role if hasattr(data, 'role') else None,
+        admin_user=user
+    )
+    
     emp_doc = await _enrich_employee(db, emp_doc)
     if "_id" in emp_doc:
         del emp_doc["_id"]
@@ -674,15 +909,17 @@ async def create_employee(data: EmployeeCreate, user: dict = Depends(require_adm
 async def update_employee(
     employee_id: str,
     data: EmployeeUpdate,
+    background_tasks: BackgroundTasks = None,
     user: dict = Depends(require_admin())
 ):
-    """Update an employee"""
+    """Update an employee - triggers auto-provisioning/revocation on status changes"""
     db = get_db()
     
     existing = await db.users.find_one({"id": employee_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Employee not found")
     
+    old_status = existing.get("status")
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
     
     # Handle enum conversions
@@ -691,9 +928,29 @@ async def update_employee(
     if "status" in update_data and hasattr(update_data["status"], 'value'):
         update_data["status"] = update_data["status"].value
     
+    new_status = update_data.get("status", old_status)
+    
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     
     await db.users.update_one({"id": employee_id}, {"$set": update_data})
+    
+    # Handle auto-provisioning/revocation based on status change
+    if new_status != old_status:
+        # If changing to active status -> auto-provision tools
+        if new_status in ["active", "confirmed"] and old_status not in ["active", "confirmed"]:
+            await trigger_auto_provisioning(
+                employee_id=employee_id,
+                department_id=update_data.get("department_id") or existing.get("department_id"),
+                role_code=existing.get("role"),
+                admin_user=user
+            )
+        # If changing to terminated/inactive -> auto-revoke tools
+        elif new_status in ["terminated", "inactive", "resigned"]:
+            await trigger_auto_revocation(
+                employee_id=employee_id,
+                admin_user=user,
+                reason=f"status_change_to_{new_status}"
+            )
     
     updated = await db.users.find_one({"id": employee_id}, {"_id": 0, "password": 0})
     updated = await _enrich_employee(db, updated)
@@ -705,9 +962,10 @@ async def terminate_employee(
     employee_id: str, 
     exit_date: Optional[str] = None,
     exit_reason: Optional[str] = None,
+    background_tasks: BackgroundTasks = None,
     user: dict = Depends(require_admin())
 ):
-    """Terminate/deactivate an employee"""
+    """Terminate/deactivate an employee - automatically revokes all tool access"""
     db = get_db()
     
     existing = await db.users.find_one({"id": employee_id})
@@ -733,7 +991,18 @@ async def terminate_employee(
     
     await db.users.update_one({"id": employee_id}, {"$set": update_data})
     
-    return {"success": True, "message": "Employee terminated"}
+    # Auto-revoke all tool access for terminated employee
+    revocation_result = await trigger_auto_revocation(
+        employee_id=employee_id,
+        admin_user=user,
+        reason=f"employee_termination: {exit_reason or 'No reason provided'}"
+    )
+    
+    return {
+        "success": True, 
+        "message": "Employee terminated",
+        "tools_revoked": revocation_result.get("tools_revoked", 0)
+    }
 
 
 # ============== REPORTING STRUCTURE ==============
