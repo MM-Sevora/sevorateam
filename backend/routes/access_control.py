@@ -461,6 +461,7 @@ async def update_user_roles(
     """
     Update the custom roles assigned to a user.
     This updates the user's access control without re-onboarding.
+    Allows 0 roles - user will only have access to default modules and direct grants.
     """
     db = get_db()
     
@@ -469,12 +470,9 @@ async def update_user_roles(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # 2. Validate all role IDs exist
-    if not data.custom_role_ids or len(data.custom_role_ids) == 0:
-        raise HTTPException(status_code=400, detail="At least one role is required")
-    
+    # 2. Validate all role IDs exist (allow empty list)
     validated_roles = []
-    for role_id in data.custom_role_ids:
+    for role_id in (data.custom_role_ids or []):
         custom_role = await db.custom_roles.find_one({"id": role_id})
         if not custom_role:
             raise HTTPException(status_code=400, detail=f"Invalid role ID: {role_id}")
@@ -495,11 +493,18 @@ async def update_user_roles(
         if role.get("can_manage_roles"):
             can_manage_roles = True
     
+    # 3b. Also include direct module grants from user_module_access
+    user_access = await db.user_module_access.find_one({"user_id": user_id})
+    if user_access:
+        granted = set(user_access.get("granted_modules", []))
+        denied = set(user_access.get("denied_modules", []))
+        merged_module_access = (merged_module_access | granted) - denied
+    
     # 4. Update user record
     now = datetime.now(timezone.utc).isoformat()
     
     update_data = {
-        "custom_role_ids": data.custom_role_ids,
+        "custom_role_ids": data.custom_role_ids or [],
         "custom_role_id": data.custom_role_ids[0] if data.custom_role_ids else None,
         "merged_module_access": list(merged_module_access),
         "can_manage_users": can_manage_users,

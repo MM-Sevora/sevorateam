@@ -268,6 +268,7 @@ async def update_user_module_access(
     if invalid_granted or invalid_denied:
         raise HTTPException(status_code=400, detail=f"Invalid module codes: {invalid_granted | invalid_denied}")
     
+    # Save to user_module_access collection
     await db.user_module_access.update_one(
         {"user_id": user_id},
         {"$set": {
@@ -280,7 +281,32 @@ async def update_user_module_access(
         upsert=True
     )
     
-    return {"success": True, "message": "User module access updated"}
+    # IMPORTANT: Also update merged_module_access in user document
+    # This is what the frontend uses for sidebar access control
+    # Merge: role-based + granted - denied + defaults
+    role_modules = set()
+    custom_role_ids = target_user.get("custom_role_ids", [])
+    if custom_role_ids:
+        roles = await db.custom_roles.find({"id": {"$in": custom_role_ids}}).to_list(20)
+        for role in roles:
+            role_modules.update(role.get("module_access", []))
+    
+    # Calculate final merged access
+    final_access = (role_modules | set(granted_modules)) - set(denied_modules)
+    # Add default modules
+    default_modules = get_default_modules()
+    final_access.update(default_modules)
+    
+    # Update user document
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {
+            "merged_module_access": list(final_access),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {"success": True, "message": "User module access updated", "merged_access": list(final_access)}
 
 
 # ============== DEPARTMENTS & TEAMS ==============
