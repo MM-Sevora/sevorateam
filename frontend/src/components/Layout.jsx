@@ -239,7 +239,7 @@ const DEPARTMENT_CONFIG = {
                 groupIcon: Server,
                 requiredModule: 'admin',
                 items: [
-                    { path: '/it-admin', name: 'Tools & Access', icon: Package },
+                    { path: '/it-admin/tools-access', name: 'Tools & Access', icon: Package },
                 ]
             },
             {
