@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -12,7 +13,7 @@ import { toast } from 'sonner';
 import {
   Settings, Plus, Edit, Trash2, Loader2, CheckCircle, Shield,
   Home, Zap, Users, Wrench, Receipt, Package, Briefcase, Car,
-  ShoppingCart, GraduationCap, Heart, Wifi, Building2, FileText, Link
+  ShoppingCart, GraduationCap, Heart, Wifi, Building2, FileText, Link, ArrowLeft, X
 } from 'lucide-react';
 
 const ICON_OPTIONS = [
@@ -64,25 +65,32 @@ const COLOR_OPTIONS = [
 
 const PaymentCategorySettings = () => {
   const { api } = useAuth();
+  const navigate = useNavigate();
   const [categories, setCategories] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [formData, setFormData] = useState({
     key: '', label: '', icon: 'FileText', color: 'bg-gray-100 text-gray-700',
     module: 'finance', sub_module: '', requires_approval: true,
-    approval_levels: ['manager', 'finance'], link_path: ''
+    approvers: [], // [{id, name, level}]
+    link_path: ''
   });
 
-  useEffect(() => { fetchCategories(); }, []);
+  useEffect(() => { fetchData(); }, []);
 
-  const fetchCategories = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/finance/payment-categories');
-      setCategories(res.data.categories || []);
+      const [catRes, empRes] = await Promise.all([
+        api.get('/finance/payment-categories'),
+        api.get('/employees').catch(() => ({ data: { employees: [] } }))
+      ]);
+      setCategories(catRes.data.categories || []);
+      setEmployees(empRes.data.employees || []);
     } catch (error) {
-      toast.error('Failed to load categories');
+      toast.error('Failed to load data');
     } finally {
       setLoading(false);
     }
@@ -95,17 +103,24 @@ const PaymentCategorySettings = () => {
         return;
       }
 
+      // Convert approvers to approval_levels format for backend compatibility
+      const payload = {
+        ...formData,
+        approval_levels: formData.approvers.map(a => a.id),
+        approver_names: formData.approvers.map(a => a.name)
+      };
+
       if (editingCategory) {
-        await api.put(`/finance/payment-categories/${editingCategory.key}`, formData);
+        await api.put(`/finance/payment-categories/${editingCategory.key}`, payload);
         toast.success('Category updated');
       } else {
-        await api.post('/finance/payment-categories', formData);
+        await api.post('/finance/payment-categories', payload);
         toast.success('Category created');
       }
       
       setShowDialog(false);
       resetForm();
-      fetchCategories();
+      fetchData();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to save category');
     }
@@ -116,7 +131,7 @@ const PaymentCategorySettings = () => {
     try {
       await api.delete(`/finance/payment-categories/${category.key}`);
       toast.success('Category deleted');
-      fetchCategories();
+      fetchData();
     } catch (error) {
       toast.error('Failed to delete category');
     }
@@ -124,6 +139,12 @@ const PaymentCategorySettings = () => {
 
   const openEditDialog = (category) => {
     setEditingCategory(category);
+    // Convert approval_levels back to approvers format
+    const approvers = (category.approval_levels || []).map((id, idx) => ({
+      id,
+      name: category.approver_names?.[idx] || id,
+      level: idx + 1
+    }));
     setFormData({
       key: category.key,
       label: category.label,
@@ -132,7 +153,7 @@ const PaymentCategorySettings = () => {
       module: category.module,
       sub_module: category.sub_module || '',
       requires_approval: category.requires_approval,
-      approval_levels: category.approval_levels || ['manager', 'finance'],
+      approvers: approvers,
       link_path: category.link_path || ''
     });
     setShowDialog(true);
@@ -143,17 +164,29 @@ const PaymentCategorySettings = () => {
     setFormData({
       key: '', label: '', icon: 'FileText', color: 'bg-gray-100 text-gray-700',
       module: 'finance', sub_module: '', requires_approval: true,
-      approval_levels: ['manager', 'finance'], link_path: ''
+      approvers: [], link_path: ''
     });
   };
 
-  const toggleApprovalLevel = (level) => {
-    setFormData(f => {
-      const levels = f.approval_levels.includes(level)
-        ? f.approval_levels.filter(l => l !== level)
-        : [...f.approval_levels, level];
-      return { ...f, approval_levels: levels };
-    });
+  const addApprover = (employeeId) => {
+    if (!employeeId || employeeId === 'placeholder') return;
+    const emp = employees.find(e => e.id === employeeId);
+    if (!emp) return;
+    if (formData.approvers.find(a => a.id === employeeId)) {
+      toast.error('Employee already added as approver');
+      return;
+    }
+    setFormData(f => ({
+      ...f,
+      approvers: [...f.approvers, { id: emp.id, name: emp.name, level: f.approvers.length + 1 }]
+    }));
+  };
+
+  const removeApprover = (approverId) => {
+    setFormData(f => ({
+      ...f,
+      approvers: f.approvers.filter(a => a.id !== approverId).map((a, idx) => ({ ...a, level: idx + 1 }))
+    }));
   };
 
   const getIcon = (iconName) => {
@@ -161,13 +194,24 @@ const PaymentCategorySettings = () => {
     return <IconComponent className="w-4 h-4" />;
   };
 
+  const getApproverNames = (cat) => {
+    if (cat.approver_names?.length) return cat.approver_names;
+    // Fallback to old format
+    return cat.approval_levels || [];
+  };
+
   return (
     <div className="p-6 space-y-4 bg-[#FDF8F3] min-h-screen" data-testid="payment-category-settings">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-[#4A3728]">Payment Categories</h1>
-          <p className="text-[#8B7355]">Configure payment types, approval workflows, and module mappings</p>
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" onClick={() => navigate('/finance/payments')} className="text-[#8B7355] hover:text-[#4A3728]">
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold text-[#4A3728]">Payment Categories</h1>
+            <p className="text-[#8B7355]">Configure payment types, approvers, and module mappings</p>
+          </div>
         </div>
         <Button onClick={() => { resetForm(); setShowDialog(true); }} className="bg-[#4A3728] hover:bg-[#5D4A3A] text-white">
           <Plus className="w-4 h-4 mr-2" /> Add Category
@@ -248,10 +292,11 @@ const PaymentCategorySettings = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      <div className="flex gap-1">
-                        {cat.approval_levels?.map(level => (
-                          <Badge key={level} variant="outline" className="text-xs capitalize">{level}</Badge>
+                      <div className="flex flex-wrap gap-1">
+                        {getApproverNames(cat).map((name, idx) => (
+                          <Badge key={idx} variant="outline" className="text-xs">{name}</Badge>
                         ))}
+                        {!getApproverNames(cat).length && <span className="text-xs text-[#8B7355]">-</span>}
                       </div>
                     </TableCell>
                     <TableCell className="text-xs text-[#8B7355]">{cat.link_path || '-'}</TableCell>
