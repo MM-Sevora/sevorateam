@@ -4392,6 +4392,15 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Admin V2 routes: {e}")
 
+# Load System Modules routes
+try:
+    from routes.system_modules import router as system_modules_router, set_database as set_system_modules_db
+    set_system_modules_db(db)
+    api_router.include_router(system_modules_router)
+    logger.info("System Modules routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load System Modules routes: {e}")
+
 # Load Marketing V3 Modular routes (Digital Ads + Creative Assets)
 try:
     from routes.marketing import marketing_modular_router

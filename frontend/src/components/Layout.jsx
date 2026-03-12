@@ -290,6 +290,7 @@ const DEPARTMENT_CONFIG = {
                 items: [
                     { path: '/admin/users', name: 'User Management', icon: Users },
                     { path: '/admin/access-control', name: 'Permissions', icon: Shield },
+                    { path: '/admin/system-modules', name: 'System Modules', icon: Server },
                 ]
             },
         ]
