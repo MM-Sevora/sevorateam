@@ -1,3 +1,40 @@
+## March 12, 2026 - Content Production Flexible Workflows COMPLETE ✅
+
+### Project Type-Based Workflow System
+
+**Feature Implemented:**
+Flexible content production workflows that adapt based on project type, enabling different workflows for different content creation scenarios.
+
+**4 Project Types Supported:**
+1. **Original Production** - Full workflow with shoot (briefing, scripting, storyboard, shoot, edit, color, sound, review, export)
+2. **Adaptation / Repurpose** - Edit existing content for new platform (briefing, select source, edit, adjust, review, export) 
+3. **Delivery Only** - Just resize/format existing content (select source, resize, review, export)
+4. **Graphics / Design** - Static design work (briefing, design, review, revisions, export)
+
+**Backend Changes:**
+- `ProjectType` enum in `/app/backend/models/marketing_content.py`
+- `WORKFLOWS_BY_PROJECT_TYPE` dictionary for type-specific workflows
+- `generate-tasks` endpoint dynamically generates tasks based on project type
+- `/projects/sources` endpoint returns available source projects for adaptation
+
+**Frontend Changes:**
+- Project Type selector in Create Project dialog
+- Conditional Source Content picker (shows for Adaptation/Delivery Only)
+- Conditional Shoot Date field (shows only for Original Production)
+- Project Type column in projects table with badges
+- Source project reference display (↳ From: {source})
+
+**Testing:**
+- Backend: 12/12 tests passed (100%)
+- Frontend: All UI tests passed (100%)
+- Test file: `/app/backend/tests/test_content_production_project_types.py`
+
+**Bugs Fixed:**
+- Route ordering bug for `/projects/sources` endpoint
+- React SelectItem empty value error
+
+---
+
 ## March 12, 2026 - Marketing Ops Expansion Phase 1 COMPLETE ✅
 
 ### Digital Ads Management & Creative Assets Modules
