@@ -1,3 +1,49 @@
+## March 12, 2026 - Ownership-Based Permission UI Complete ✅
+
+### What Was Built
+Implemented comprehensive frontend permission UI to enforce ownership-based access control rules.
+
+### Permission Rules Implemented
+| Action | Own Data | Assigned to Me | Others |
+|--------|----------|----------------|--------|
+| View   | ✅       | ✅             | ✅ (with module access) |
+| Edit   | ✅       | ✅             | ❌ (Admin only) |
+| Delete | ✅       | ❌             | ❌ (Admin only) |
+
+### Backend Updates
+- Enhanced `_permissions` object returned by all list APIs:
+  - `/api/sales/leads` - Returns `can_view`, `can_edit`, `can_delete`, `is_owner`, `is_assigned`
+  - `/api/sales/customers` - Returns `can_view`, `can_edit`, `can_delete`, `is_owner`, `is_assigned`
+  - `/api/projects/list` - Returns `can_view`, `can_edit`, `can_delete`, `is_owner`, `is_pm`, `is_team_member`
+- Added `DELETE /api/sales/customers/{customer_id}` endpoint with ownership check
+
+### Frontend Updates
+1. **Leads.jsx** (`/app/frontend/src/pages/sales/Leads.jsx`)
+   - Added View Details, Edit, Delete options to dropdown menu
+   - Delete button shows "(Owner only)" when user cannot delete
+   - Added `handleDeleteLead` function
+
+2. **Customers.jsx** (`/app/frontend/src/pages/sales/Customers.jsx`)
+   - Added View Details, Edit, Delete options to dropdown menu
+   - Delete button shows "(Owner only)" when user cannot delete
+   - Added `handleDeleteCustomer` function
+
+3. **ProjectsList.jsx** (`/app/frontend/src/pages/projects/ProjectsList.jsx`)
+   - Updated ProjectCard and ProjectListView components
+   - Edit button only shows when `_permissions.can_edit` is true
+   - Delete button shows "(Owner only)" when `_permissions.can_delete` is false
+   - Added permission-based validation in delete handler
+
+### Utility Updates
+- Updated `/app/backend/utils/permissions.py` with improved documentation and rules
+
+### Testing
+- All APIs verified to return correct `_permissions` object
+- Frontend dropdown menus correctly show/hide Edit and Delete based on permissions
+- Test report: `/app/test_reports/iteration_89.json`
+
+---
+
 ## March 12, 2026 - Unified Users & Permissions Page ✅
 
 ### What Was Built
