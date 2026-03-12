@@ -2214,6 +2214,64 @@ async def create_recurring_work(
     return recurring_doc
 
 
+@router.put("/recurring/{recurring_id}")
+async def update_recurring_work(
+    recurring_id: str,
+    update_data: dict,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Update a recurring work schedule"""
+    recurring = await db.vendor_recurring.find_one({"id": recurring_id})
+    if not recurring:
+        raise HTTPException(status_code=404, detail="Recurring work not found")
+    
+    # Build update dict
+    update_fields = {}
+    allowed_fields = ["name", "description", "frequency", "estimated_amount", "start_date", "end_date", "is_active", "assigned_owner_id", "department"]
+    
+    for field in allowed_fields:
+        if field in update_data:
+            update_fields[field] = update_data[field]
+    
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.vendor_recurring.update_one(
+        {"id": recurring_id},
+        {"$set": update_fields}
+    )
+    
+    await log_vendor_audit(
+        db, "recurring_work_updated", "recurring", recurring_id,
+        recurring.get("name"), user.get("id"), user.get("name"),
+        {"updated_fields": list(update_fields.keys())}
+    )
+    
+    return {"message": "Recurring schedule updated", "updated_fields": list(update_fields.keys())}
+
+
+@router.delete("/recurring/{recurring_id}")
+async def delete_recurring_work(
+    recurring_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Delete a recurring work schedule"""
+    recurring = await db.vendor_recurring.find_one({"id": recurring_id})
+    if not recurring:
+        raise HTTPException(status_code=404, detail="Recurring work not found")
+    
+    await db.vendor_recurring.update_one(
+        {"id": recurring_id},
+        {"$set": {"is_active": False, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    await log_vendor_audit(
+        db, "recurring_work_deleted", "recurring", recurring_id,
+        recurring.get("name"), user.get("id"), user.get("name")
+    )
+    
+    return {"message": "Recurring schedule deleted"}
+
+
 @router.post("/recurring/{recurring_id}/create-work-order")
 async def create_work_order_from_recurring(
     recurring_id: str,

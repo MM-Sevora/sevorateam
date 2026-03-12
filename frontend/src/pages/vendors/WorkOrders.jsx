@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import {
   FileText, Plus, Search, Loader2, ArrowLeft, ArrowUpDown, ArrowUp, ArrowDown,
   X, Eye, DollarSign, CheckCircle, Clock, Package, Play, Receipt, CreditCard,
-  FileCheck, ArrowUpCircle, CircleDollarSign, Milestone, CheckCircle2, RefreshCw
+  FileCheck, ArrowUpCircle, CircleDollarSign, Milestone, CheckCircle2, RefreshCw, User
 } from 'lucide-react';
 
 const DEPARTMENTS = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance', 'Operations', 'Admin', 'Production'];
@@ -205,10 +205,11 @@ const WorkOrders = () => {
   };
 
   const getTypeBadge = (type) => {
+    const orderType = type || 'one_time';
     const styles = {
       one_time: 'bg-blue-100 text-blue-700', recurring: 'bg-purple-100 text-purple-700', project: 'bg-teal-100 text-teal-700'
     };
-    return <Badge className={styles[type] || 'bg-gray-100'}>{type?.replace(/_/g, ' ') || 'one-time'}</Badge>;
+    return <Badge className={styles[orderType] || 'bg-blue-100 text-blue-700'}>{orderType?.replace(/_/g, '-')}</Badge>;
   };
 
   const formatDate = (dateStr) => dateStr ? new Date(dateStr).toLocaleDateString() : '-';
@@ -298,6 +299,7 @@ const WorkOrders = () => {
                   <SortHeader column="vendor_name" label="Vendor" />
                   <TableHead>Type</TableHead>
                   <SortHeader column="department" label="Department" />
+                  <TableHead>Employee</TableHead>
                   <SortHeader column="status" label="Status" />
                   <SortHeader column="agreed_amount" label="Amount" />
                   <TableHead>Payments</TableHead>
@@ -315,6 +317,16 @@ const WorkOrders = () => {
                     </TableCell>
                     <TableCell>{getTypeBadge(order.order_type)}</TableCell>
                     <TableCell className="text-[#8B7355]">{order.department}</TableCell>
+                    <TableCell>
+                      <div className="text-xs">
+                        <div className="text-[#4A3728]">{order.created_by_name}</div>
+                        {order.assigned_owner_name && (
+                          <div className="text-blue-600 flex items-center gap-1">
+                            <User className="w-3 h-3" /> {order.assigned_owner_name}
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>{getStatusBadge(order.status)}</TableCell>
                     <TableCell className="font-semibold text-[#4A3728]">{formatCurrency(order.agreed_amount)}</TableCell>
                     <TableCell>
