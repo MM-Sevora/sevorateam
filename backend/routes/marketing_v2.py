@@ -745,6 +745,281 @@ def calculate_contact_score(contact: dict) -> float:
     
     return round(min(score, 100), 1)
 
+
+# ============== INFLUENCER ANALYTICS (Instagram & YouTube APIs) ==============
+
+@marketing_v2_router.get("/influencer-analytics/instagram/{username}")
+async def get_instagram_analytics(
+    username: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """
+    Fetch Instagram profile analytics for an influencer.
+    Returns: followers, engagement rate, recent posts performance.
+    
+    Note: Requires the target account to be a Business/Creator account.
+    """
+    from services.influencer_analytics import InfluencerAnalyticsService
+    
+    async with InfluencerAnalyticsService() as service:
+        result = await service.get_instagram_profile(username)
+        return result
+
+
+@marketing_v2_router.get("/influencer-analytics/youtube/{channel_id}")
+async def get_youtube_analytics(
+    channel_id: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """
+    Fetch YouTube channel analytics for an influencer.
+    Supports: channel ID (UC...), handle (@username), custom URL, or username.
+    Returns: subscribers, total views, video count, tier.
+    """
+    from services.influencer_analytics import InfluencerAnalyticsService
+    
+    async with InfluencerAnalyticsService() as service:
+        result = await service.get_youtube_channel(channel_id)
+        return result
+
+
+@marketing_v2_router.get("/influencer-analytics/youtube/{channel_id}/videos")
+async def get_youtube_channel_videos(
+    channel_id: str,
+    limit: int = Query(default=10, le=50),
+    user: dict = Depends(get_marketing_auth())
+):
+    """
+    Get recent videos from a YouTube channel with performance metrics.
+    Returns: video list with views, likes, comments, and averages.
+    """
+    from services.influencer_analytics import InfluencerAnalyticsService
+    
+    async with InfluencerAnalyticsService() as service:
+        # First get channel info to get the real channel ID
+        channel_info = await service.get_youtube_channel(channel_id)
+        if not channel_info.get("success"):
+            return channel_info
+        
+        real_channel_id = channel_info.get("channel_id")
+        return await service.get_youtube_recent_videos(real_channel_id, limit)
+
+
+@marketing_v2_router.post("/contacts/{contact_id}/fetch-metrics")
+async def fetch_contact_metrics(
+    contact_id: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """
+    Fetch and update metrics for a contact from their social profiles.
+    Automatically updates the contact record with fresh data.
+    """
+    db = get_db()
+    from services.influencer_analytics import InfluencerAnalyticsService
+    
+    # Get contact
+    contact = await db.contacts.find_one({"id": contact_id}, {"_id": 0})
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    instagram_handle = contact.get("instagram_handle")
+    youtube_handle = contact.get("youtube_handle")
+    
+    if not instagram_handle and not youtube_handle:
+        raise HTTPException(
+            status_code=400, 
+            detail="Contact has no Instagram or YouTube handle to fetch metrics from"
+        )
+    
+    async with InfluencerAnalyticsService() as service:
+        results = await service.fetch_all_metrics(
+            instagram_handle=instagram_handle,
+            youtube_handle=youtube_handle
+        )
+    
+    # Handle case where results is None (shouldn't happen but be defensive)
+    if results is None:
+        results = {
+            "instagram": None,
+            "youtube": None,
+            "combined_metrics": {},
+            "fetched_at": datetime.now(timezone.utc).isoformat()
+        }
+    
+    # Prepare update data
+    update_data = {
+        "metrics_fetched_at": datetime.now(timezone.utc).isoformat(),
+        "metrics_data": results
+    }
+    
+    # Update with Instagram data if successful
+    if results and results.get("instagram", {}) and results.get("instagram", {}).get("success"):
+        ig_data = results["instagram"]
+        ig_metrics = ig_data.get("metrics", {})
+        update_data.update({
+            "followers": ig_metrics.get("followers", contact.get("followers", 0)),
+            "engagement_rate": ig_metrics.get("engagement_rate", contact.get("engagement_rate", 0)),
+            "avg_likes": ig_metrics.get("avg_likes", 0),
+            "avg_comments": ig_metrics.get("avg_comments", 0),
+            "instagram_verified": True,
+            "instagram_bio": ig_data.get("bio"),
+            "instagram_profile_pic": ig_data.get("profile_picture"),
+            "instagram_posts_count": ig_metrics.get("posts", 0),
+        })
+        
+        # Update tier based on Instagram followers
+        if ig_metrics.get("followers"):
+            followers = ig_metrics["followers"]
+            if followers >= 10_000_000:
+                update_data["tier"] = "celebrity"
+            elif followers >= 1_000_000:
+                update_data["tier"] = "mega"
+            elif followers >= 100_000:
+                update_data["tier"] = "macro"
+            elif followers >= 10_000:
+                update_data["tier"] = "micro"
+            else:
+                update_data["tier"] = "nano"
+    
+    # Update with YouTube data if successful
+    if results and results.get("youtube", {}) and results.get("youtube", {}).get("success"):
+        yt_data = results["youtube"]
+        yt_metrics = yt_data.get("metrics", {})
+        update_data.update({
+            "youtube_subscribers": yt_metrics.get("subscribers", 0),
+            "youtube_total_views": yt_metrics.get("total_views", 0),
+            "youtube_videos_count": yt_metrics.get("videos", 0),
+            "youtube_verified": True,
+            "youtube_channel_id": yt_data.get("channel_id"),
+            "youtube_channel_url": yt_data.get("channel_url"),
+            "youtube_profile_pic": yt_data.get("profile_picture"),
+        })
+    
+    # Calculate combined reach
+    total_reach = 0
+    if results and results.get("combined_metrics"):
+        total_reach = results.get("combined_metrics", {}).get("total_reach", 0)
+    if total_reach > 0:
+        update_data["total_reach"] = total_reach
+    
+    # Update contact in database
+    await db.contacts.update_one(
+        {"id": contact_id},
+        {"$set": update_data}
+    )
+    
+    return {
+        "success": True,
+        "contact_id": contact_id,
+        "results": results,
+        "updated_fields": list(update_data.keys()),
+        "message": "Metrics fetched and contact updated successfully"
+    }
+
+
+@marketing_v2_router.post("/contacts/bulk-fetch-metrics")
+async def bulk_fetch_contact_metrics(
+    data: dict,
+    user: dict = Depends(get_marketing_auth())
+):
+    """
+    Fetch metrics for multiple contacts at once.
+    Limit: 10 contacts per request to avoid rate limiting.
+    """
+    db = get_db()
+    from services.influencer_analytics import InfluencerAnalyticsService
+    
+    contact_ids = data.get("contact_ids", [])
+    if not contact_ids:
+        raise HTTPException(status_code=400, detail="No contact IDs provided")
+    
+    if len(contact_ids) > 10:
+        raise HTTPException(
+            status_code=400, 
+            detail="Maximum 10 contacts per request to avoid API rate limiting"
+        )
+    
+    # Get contacts
+    contacts = await db.contacts.find(
+        {"id": {"$in": contact_ids}},
+        {"_id": 0}
+    ).to_list(len(contact_ids))
+    
+    results = {
+        "processed": 0,
+        "successful": 0,
+        "failed": 0,
+        "details": []
+    }
+    
+    async with InfluencerAnalyticsService() as service:
+        for contact in contacts:
+            contact_id = contact["id"]
+            instagram_handle = contact.get("instagram_handle")
+            youtube_handle = contact.get("youtube_handle")
+            
+            if not instagram_handle and not youtube_handle:
+                results["details"].append({
+                    "contact_id": contact_id,
+                    "name": contact.get("name"),
+                    "success": False,
+                    "error": "No social handles"
+                })
+                results["failed"] += 1
+                results["processed"] += 1
+                continue
+            
+            try:
+                fetch_results = await service.fetch_all_metrics(
+                    instagram_handle=instagram_handle,
+                    youtube_handle=youtube_handle
+                )
+                
+                # Update contact
+                update_data = {
+                    "metrics_fetched_at": datetime.now(timezone.utc).isoformat(),
+                    "metrics_data": fetch_results
+                }
+                
+                if fetch_results.get("instagram", {}).get("success"):
+                    ig_metrics = fetch_results["instagram"]["metrics"]
+                    update_data["followers"] = ig_metrics.get("followers", 0)
+                    update_data["engagement_rate"] = ig_metrics.get("engagement_rate", 0)
+                    update_data["instagram_verified"] = True
+                
+                if fetch_results.get("youtube", {}).get("success"):
+                    yt_metrics = fetch_results["youtube"]["metrics"]
+                    update_data["youtube_subscribers"] = yt_metrics.get("subscribers", 0)
+                    update_data["youtube_verified"] = True
+                
+                await db.contacts.update_one(
+                    {"id": contact_id},
+                    {"$set": update_data}
+                )
+                
+                results["details"].append({
+                    "contact_id": contact_id,
+                    "name": contact.get("name"),
+                    "success": True,
+                    "instagram": fetch_results.get("instagram", {}).get("success", False),
+                    "youtube": fetch_results.get("youtube", {}).get("success", False),
+                })
+                results["successful"] += 1
+                
+            except Exception as e:
+                results["details"].append({
+                    "contact_id": contact_id,
+                    "name": contact.get("name"),
+                    "success": False,
+                    "error": str(e)
+                })
+                results["failed"] += 1
+            
+            results["processed"] += 1
+    
+    return results
+
+
 # ============== PUBLICATIONS (PR equivalent of Influencers) ==============
 
 @marketing_v2_router.get("/publications", response_model=List[PublicationResponse])

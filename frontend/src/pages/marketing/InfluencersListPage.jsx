@@ -48,6 +48,9 @@ const InfluencersListPage = () => {
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   
+  // Metrics refresh state
+  const [refreshingMetrics, setRefreshingMetrics] = useState(null);
+  
   // Check if any filters are active
   const hasActiveFilters = filterPlatform !== 'all' || filterStatus !== 'all' || filterTier !== 'all' || 
     filterIndustry !== 'all' || filterCampaign !== 'all' || filterEngagement !== 'all' || 
@@ -130,30 +133,45 @@ const InfluencersListPage = () => {
     toast.info(`Fetching ${platform} data...`);
     
     try {
-      const endpoint = platform === 'instagram' ? 'profile' : 'channel';
-      const response = await api.get(`/social-api/${platform}/${endpoint}/${handle.replace('@', '')}`);
+      // Use the new influencer analytics endpoints
+      const endpoint = platform === 'instagram' 
+        ? `/marketing/v2/influencer-analytics/instagram/${encodeURIComponent(handle.replace('@', ''))}`
+        : `/marketing/v2/influencer-analytics/youtube/${encodeURIComponent(handle.replace('@', ''))}`;
+      
+      const response = await api.get(endpoint);
       const data = response.data;
       
-      if (platform === 'instagram') {
-        setNewInfluencer(prev => ({
-          ...prev,
-          followers: data.followers || prev.followers,
-          engagement_rate: data.engagement_rate || prev.engagement_rate,
-          avg_likes: data.avg_likes || prev.avg_likes,
-          avg_comments: data.avg_comments || prev.avg_comments,
-          bio: data.bio || prev.bio,
-          name: data.name || prev.name
-        }));
-      } else {
-        setNewInfluencer(prev => ({
-          ...prev,
-          followers: data.subscribers || prev.followers,
-          name: data.title || prev.name
-        }));
+      if (!data.success) {
+        toast.error(data.error || `Failed to fetch ${platform} data`);
+        return;
       }
-      toast.success(`${platform} data fetched!`);
+      
+      if (platform === 'instagram') {
+        const metrics = data.metrics || {};
+        setNewInfluencer(prev => ({
+          ...prev,
+          followers: metrics.followers?.toString() || prev.followers,
+          engagement_rate: metrics.engagement_rate?.toString() || prev.engagement_rate,
+          avg_likes: metrics.avg_likes?.toString() || prev.avg_likes,
+          avg_comments: metrics.avg_comments?.toString() || prev.avg_comments,
+          bio: data.bio || prev.bio,
+          name: data.name || prev.name,
+          tier: data.tier || prev.tier
+        }));
+        toast.success(`Instagram data fetched! ${metrics.followers?.toLocaleString()} followers`);
+      } else {
+        const metrics = data.metrics || {};
+        setNewInfluencer(prev => ({
+          ...prev,
+          followers: metrics.subscribers?.toString() || prev.followers,
+          name: data.name || prev.name,
+          tier: data.tier || prev.tier
+        }));
+        toast.success(`YouTube data fetched! ${metrics.subscribers?.toLocaleString()} subscribers`);
+      }
     } catch (error) {
-      toast.error(`Failed to fetch. API may not be configured.`);
+      const errorMsg = error.response?.data?.error || error.response?.data?.detail || 'Failed to fetch data';
+      toast.error(errorMsg);
     } finally {
       setFetching(prev => ({ ...prev, [platform]: false }));
     }
@@ -283,6 +301,44 @@ const InfluencersListPage = () => {
       toast.error('Failed to delete influencers');
     } finally {
       setBulkDeleting(false);
+    }
+  };
+
+  const handleRefreshMetrics = async (influencer) => {
+    if (!influencer.instagram_handle && !influencer.youtube_handle) {
+      toast.error('No social handles to fetch metrics from');
+      return;
+    }
+    
+    setRefreshingMetrics(influencer.id);
+    toast.info(`Fetching metrics for ${influencer.name}...`);
+    
+    try {
+      const response = await api.post(`/marketing/v2/contacts/${influencer.id}/fetch-metrics`);
+      
+      if (response.data.success) {
+        const results = response.data.results;
+        const igSuccess = results?.instagram?.success;
+        const ytSuccess = results?.youtube?.success;
+        
+        let message = 'Metrics updated: ';
+        if (igSuccess) {
+          message += `Instagram (${results.instagram.metrics.followers?.toLocaleString()} followers) `;
+        }
+        if (ytSuccess) {
+          message += `YouTube (${results.youtube.metrics.subscribers?.toLocaleString()} subs)`;
+        }
+        
+        toast.success(message);
+        fetchInfluencers(); // Refresh the list
+      } else {
+        toast.error('Failed to fetch metrics');
+      }
+    } catch (error) {
+      const errorMsg = error.response?.data?.detail || 'Failed to fetch metrics';
+      toast.error(errorMsg);
+    } finally {
+      setRefreshingMetrics(null);
     }
   };
 
@@ -1486,6 +1542,14 @@ const InfluencersListPage = () => {
                             <Edit className="w-4 h-4 mr-2" /> Edit Details
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={() => handleRefreshMetrics(inf)}
+                            className="cursor-pointer"
+                            disabled={refreshingMetrics === inf.id}
+                          >
+                            <RefreshCw className={`w-4 h-4 mr-2 ${refreshingMetrics === inf.id ? 'animate-spin' : ''}`} /> 
+                            {refreshingMetrics === inf.id ? 'Fetching...' : 'Refresh Metrics'}
+                          </DropdownMenuItem>
                           <DropdownMenuItem 
                             onClick={() => {
                               if (inf.instagram_handle) {
