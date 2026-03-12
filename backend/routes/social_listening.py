@@ -477,7 +477,8 @@ async def generate_report(
 ):
     """Generate an on-demand report"""
     report_id = str(uuid.uuid4())
-    days = int(period.replace("d", "")) if "d" in period else 7
+    # Parse period for potential future use
+    _ = int(period.replace("d", "")) if "d" in period else 7
     
     # Gather data for report
     query = {}
@@ -585,3 +586,127 @@ async def get_listening_dashboard(user: dict = Depends(lambda: get_current_user)
             "urgent": urgent_alerts
         }
     }
+
+
+# ============== CRAWLER ENDPOINTS ==============
+
+@social_listening_router.post("/crawl")
+async def trigger_crawl_all(
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(lambda: get_current_user)
+):
+    """
+    Trigger crawling for all active keywords.
+    Searches Google, YouTube, Reddit, and News RSS feeds.
+    """
+    from services.social_crawler import run_crawler
+    
+    # Run in background for large keyword sets
+    background_tasks.add_task(run_crawler, db)
+    
+    return {
+        "message": "Crawl started in background",
+        "status": "processing"
+    }
+
+
+@social_listening_router.post("/crawl/sync")
+async def trigger_crawl_all_sync(
+    user: dict = Depends(lambda: get_current_user)
+):
+    """
+    Trigger crawling for all active keywords (synchronous).
+    Returns results immediately - use for testing or small keyword sets.
+    """
+    from services.social_crawler import run_crawler
+    
+    result = await run_crawler(db)
+    return result
+
+
+@social_listening_router.post("/crawl/{keyword_id}")
+async def crawl_single_keyword(
+    keyword_id: str,
+    user: dict = Depends(lambda: get_current_user)
+):
+    """
+    Crawl a single keyword by ID.
+    Useful for testing or immediate updates.
+    """
+    from services.social_crawler import crawl_single_keyword as crawl_kw
+    
+    result = await crawl_kw(db, keyword_id)
+    return result
+
+
+@social_listening_router.get("/crawl/logs")
+async def get_crawl_logs(
+    limit: int = Query(20, le=100),
+    user: dict = Depends(lambda: get_current_user)
+):
+    """Get recent crawl logs"""
+    logs = await db.listening_crawl_logs.find(
+        {},
+        {"_id": 0}
+    ).sort("crawled_at", -1).limit(limit).to_list(limit)
+    
+    return {"logs": logs}
+
+
+@social_listening_router.get("/crawl/status")
+async def get_crawl_status(
+    user: dict = Depends(lambda: get_current_user)
+):
+    """Get crawler status and configuration"""
+    import os
+    
+    # Check API configurations
+    google_configured = bool(os.environ.get("GOOGLE_SEARCH_API_KEY") and os.environ.get("GOOGLE_SEARCH_ENGINE_ID"))
+    youtube_configured = bool(os.environ.get("YOUTUBE_API_KEY"))
+    
+    # Get last crawl
+    last_crawl = await db.listening_crawl_logs.find_one(
+        {},
+        {"_id": 0},
+        sort=[("crawled_at", -1)]
+    )
+    
+    # Count active keywords
+    active_keywords = await db.listening_keywords.count_documents({"status": "active"})
+    
+    # Count mentions by source
+    pipeline = [
+        {"$group": {"_id": "$source", "count": {"$sum": 1}}}
+    ]
+    source_counts = {}
+    async for doc in db.listening_mentions.aggregate(pipeline):
+        source_counts[doc["_id"] or "unknown"] = doc["count"]
+    
+    return {
+        "data_sources": {
+            "google_search": {
+                "configured": google_configured,
+                "status": "active" if google_configured else "not_configured",
+                "description": "Web and news mentions via Google Custom Search"
+            },
+            "youtube": {
+                "configured": youtube_configured,
+                "status": "active" if youtube_configured else "not_configured",
+                "description": "Video mentions via YouTube Data API"
+            },
+            "reddit": {
+                "configured": True,  # Public API, no auth needed
+                "status": "active",
+                "description": "Community discussions via Reddit public API"
+            },
+            "news_rss": {
+                "configured": True,
+                "status": "active",
+                "description": "News aggregation via RSS feeds (Google News, Bing, Yahoo)"
+            }
+        },
+        "active_keywords": active_keywords,
+        "last_crawl": last_crawl,
+        "mentions_by_source": source_counts
+    }
+

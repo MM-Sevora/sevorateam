@@ -152,3 +152,4 @@ yarl==1.23.0
 zipp==3.23.0
 httpx==0.28.1
 sendgrid==6.12.5
+feedparser==6.0.12

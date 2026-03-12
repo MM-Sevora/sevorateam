@@ -4,15 +4,24 @@ import {
   Search, Plus, Trash2, Play, Pause, Bell, BellOff, Settings, X,
   Loader2, CheckCircle, AlertTriangle, TrendingUp, TrendingDown,
   MessageSquare, Eye, Filter, RefreshCw, FileText, Clock, Tag,
-  ChevronRight, ExternalLink, BarChart3
+  ChevronRight, ExternalLink, BarChart3, Zap, Globe, Youtube, Radio
 } from 'lucide-react';
-import { FaLinkedin, FaFacebook, FaInstagram, FaTwitter } from 'react-icons/fa';
+import { FaLinkedin, FaFacebook, FaInstagram, FaTwitter, FaReddit } from 'react-icons/fa';
 
 const PLATFORMS = {
   linkedin: { icon: FaLinkedin, color: '#0A66C2', label: 'LinkedIn' },
   twitter: { icon: FaTwitter, color: '#1DA1F2', label: 'Twitter/X' },
   instagram: { icon: FaInstagram, color: '#E4405F', label: 'Instagram' },
   facebook: { icon: FaFacebook, color: '#1877F2', label: 'Facebook' },
+};
+
+const DATA_SOURCES = {
+  google_search: { icon: Globe, color: '#4285F4', label: 'Google Search' },
+  youtube_api: { icon: Youtube, color: '#FF0000', label: 'YouTube' },
+  reddit_api: { icon: FaReddit, color: '#FF4500', label: 'Reddit' },
+  google_news: { icon: Radio, color: '#4285F4', label: 'Google News' },
+  bing_news: { icon: Radio, color: '#008373', label: 'Bing News' },
+  yahoo_news: { icon: Radio, color: '#6001D2', label: 'Yahoo News' },
 };
 
 const SENTIMENTS = {
@@ -33,10 +42,13 @@ export default function SocialListening() {
   const [keywords, setKeywords] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [dashboard, setDashboard] = useState(null);
+  const [crawlerStatus, setCrawlerStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAddKeyword, setShowAddKeyword] = useState(false);
   const [newKeyword, setNewKeyword] = useState({ keyword: '', platforms: [], alert_on_mention: true, alert_on_negative: true });
   const [saving, setSaving] = useState(false);
+  const [crawling, setCrawling] = useState(false);
+  const [crawlingKeyword, setCrawlingKeyword] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [selectedKeyword, setSelectedKeyword] = useState(null);
@@ -49,19 +61,54 @@ export default function SocialListening() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [keywordsRes, alertsRes, dashboardRes] = await Promise.all([
+      const [keywordsRes, alertsRes, dashboardRes, statusRes] = await Promise.all([
         api.get('/social/listening/keywords'),
         api.get('/social/listening/alerts?limit=20'),
         api.get('/social/listening/dashboard'),
+        api.get('/social/listening/crawl/status'),
       ]);
       setKeywords(keywordsRes.data);
       setAlerts(alertsRes.data.alerts || []);
       setDashboard(dashboardRes.data);
+      setCrawlerStatus(statusRes.data);
     } catch (err) {
       console.error(err);
       setError('Failed to load data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const triggerCrawlAll = async () => {
+    setCrawling(true);
+    setError('');
+    try {
+      const res = await api.post('/social/listening/crawl/sync');
+      setSuccess(`Crawled ${res.data.keywords_crawled} keywords, found ${res.data.total_mentions_found} new mentions`);
+      fetchData();
+      setTimeout(() => setSuccess(''), 5000);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Crawl failed');
+    } finally {
+      setCrawling(false);
+    }
+  };
+
+  const triggerCrawlKeyword = async (keywordId) => {
+    setCrawlingKeyword(keywordId);
+    try {
+      const res = await api.post(`/social/listening/crawl/${keywordId}`);
+      setSuccess(`Found ${res.data.mentions_found} new mentions for "${res.data.keyword}"`);
+      fetchData();
+      if (selectedKeyword?.keyword_id === keywordId) {
+        const mentionsRes = await api.get(`/social/listening/mentions?keyword_id=${keywordId}&limit=20`);
+        setMentions(mentionsRes.data.mentions || []);
+      }
+      setTimeout(() => setSuccess(''), 5000);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Crawl failed');
+    } finally {
+      setCrawlingKeyword(null);
     }
   };
 
@@ -146,6 +193,7 @@ export default function SocialListening() {
 
   const tabs = [
     { id: 'keywords', label: 'Keywords', icon: Search },
+    { id: 'sources', label: 'Data Sources', icon: Globe },
     { id: 'alerts', label: 'Alerts', icon: Bell, badge: dashboard?.alerts?.unread },
     { id: 'reports', label: 'Reports', icon: FileText },
   ];
@@ -165,9 +213,24 @@ export default function SocialListening() {
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#5D4A3A] mb-1">SOCIAL MEDIA</p>
           <h1 className="text-2xl font-bold text-[#4A3728] tracking-tight">Social Listening</h1>
-          <p className="text-sm text-[#5D4A3A] mt-1">Monitor keywords and track brand mentions</p>
+          <p className="text-sm text-[#5D4A3A] mt-1">Monitor keywords and track brand mentions across the web</p>
         </div>
         <div className="flex items-center gap-2">
+          <button 
+            onClick={triggerCrawlAll} 
+            disabled={crawling}
+            className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white rounded-lg font-medium px-4 py-2.5 flex items-center gap-2 transition-colors"
+          >
+            {crawling ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" /> Crawling...
+              </>
+            ) : (
+              <>
+                <Zap className="w-4 h-4" /> Crawl Now
+              </>
+            )}
+          </button>
           <button onClick={fetchData} className="p-2 hover:bg-[#F5EDE5] rounded-lg text-[#5D4A3A]">
             <RefreshCw className="w-4 h-4" />
           </button>
@@ -301,6 +364,14 @@ export default function SocialListening() {
                     </div>
                     <div className="flex items-center gap-1">
                       <button
+                        onClick={(e) => { e.stopPropagation(); triggerCrawlKeyword(kw.keyword_id); }}
+                        disabled={crawlingKeyword === kw.keyword_id}
+                        className="p-1 rounded text-emerald-600 hover:bg-emerald-50 disabled:text-emerald-300"
+                        title="Crawl now"
+                      >
+                        {crawlingKeyword === kw.keyword_id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+                      </button>
+                      <button
                         onClick={(e) => { e.stopPropagation(); toggleKeyword(kw.keyword_id); }}
                         className={`p-1 rounded ${kw.status === 'active' ? 'text-green-600 hover:bg-green-50' : 'text-gray-400 hover:bg-gray-50'}`}
                       >
@@ -317,6 +388,9 @@ export default function SocialListening() {
                   <div className="flex items-center gap-3 text-xs text-[#5D4A3A]">
                     <span>{kw.stats?.total_mentions || 0} mentions</span>
                     {kw.alert_on_mention && <Bell className="w-3 h-3 text-amber-500" />}
+                    {kw.last_crawled && (
+                      <span className="text-[10px] text-[#8B7355]">Last crawl: {new Date(kw.last_crawled).toLocaleString()}</span>
+                    )}
                   </div>
                   {kw.platforms?.length > 0 && (
                     <div className="flex gap-1 mt-2">
@@ -361,30 +435,39 @@ export default function SocialListening() {
                     <div className="text-center py-8">
                       <MessageSquare className="w-10 h-10 text-[#D4BBA6] mx-auto mb-3" />
                       <p className="text-sm text-[#5D4A3A]">No mentions found yet</p>
-                      <p className="text-xs text-[#9ca3af] mt-1">Mentions will appear here when detected</p>
+                      <p className="text-xs text-[#9ca3af] mt-1">Click the lightning bolt to crawl for mentions</p>
                     </div>
                   ) : (
                     <div className="space-y-3">
                       {mentions.map(mention => {
-                        const platform = PLATFORMS[mention.platform];
-                        const PlatformIcon = platform?.icon || MessageSquare;
+                        const platform = PLATFORMS[mention.platform] || DATA_SOURCES[mention.source] || { icon: Globe, color: '#666', label: mention.platform };
+                        const PlatformIcon = platform?.icon || Globe;
                         const sentiment = SENTIMENTS[mention.sentiment];
                         return (
                           <div key={mention.mention_id} className="p-3 bg-[#F5EDE5] rounded-lg">
                             <div className="flex items-start gap-3">
-                              <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: `${platform?.color}15` }}>
-                                <PlatformIcon className="w-4 h-4" style={{ color: platform?.color }} />
+                              <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: `${platform?.color || '#666'}15` }}>
+                                <PlatformIcon className="w-4 h-4" style={{ color: platform?.color || '#666' }} />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
                                   <span className="text-xs font-medium text-[#4A3728]">{mention.author?.name || 'Unknown'}</span>
                                   <span className={`w-2 h-2 rounded-full ${sentiment?.dotColor}`} />
-                                  <span className="text-[10px] text-[#9ca3af]">{platform?.label}</span>
+                                  <span className="text-[10px] text-[#9ca3af]">{platform?.label || mention.source}</span>
+                                  {mention.subreddit && (
+                                    <span className="text-[10px] text-orange-600">r/{mention.subreddit}</span>
+                                  )}
                                 </div>
-                                <p className="text-sm text-[#4A3728]">{mention.content}</p>
+                                {mention.title && (
+                                  <p className="text-sm font-medium text-[#4A3728] mb-1">{mention.title}</p>
+                                )}
+                                <p className="text-sm text-[#5D4A3A]">{mention.content?.slice(0, 200)}{mention.content?.length > 200 ? '...' : ''}</p>
                                 <div className="flex items-center gap-3 mt-2 text-[10px] text-[#9ca3af]">
-                                  <span><Eye className="w-3 h-3 inline mr-1" />{mention.reach || 0} reach</span>
-                                  <span><TrendingUp className="w-3 h-3 inline mr-1" />{mention.engagement || 0} engagement</span>
+                                  {mention.reach > 0 && <span><Eye className="w-3 h-3 inline mr-1" />{mention.reach} reach</span>}
+                                  {mention.engagement > 0 && <span><TrendingUp className="w-3 h-3 inline mr-1" />{mention.engagement} engagement</span>}
+                                  {mention.published_at && (
+                                    <span><Clock className="w-3 h-3 inline mr-1" />{new Date(mention.published_at).toLocaleDateString()}</span>
+                                  )}
                                 </div>
                               </div>
                               {mention.url && (
@@ -409,6 +492,95 @@ export default function SocialListening() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Data Sources Tab */}
+      {activeTab === 'sources' && (
+        <div className="space-y-6">
+          {/* Info Banner */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                <Globe className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-[#4A3728]">Real-Time Web Crawler</h3>
+                <p className="text-sm text-[#5D4A3A] mt-1">
+                  Our crawler searches multiple public data sources to find mentions of your tracked keywords. 
+                  Click "Crawl Now" to fetch the latest mentions.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Data Sources Grid */}
+          <div className="grid grid-cols-2 gap-4">
+            {crawlerStatus && Object.entries(crawlerStatus.data_sources || {}).map(([key, source]) => {
+              const sourceConfig = DATA_SOURCES[key] || { icon: Globe, color: '#666', label: key };
+              const Icon = sourceConfig.icon;
+              const mentionCount = crawlerStatus.mentions_by_source?.[key] || 0;
+              
+              return (
+                <div key={key} className="bg-white border border-[#E8D5C4] rounded-xl p-4">
+                  <div className="flex items-start gap-3">
+                    <div 
+                      className="w-10 h-10 rounded-lg flex items-center justify-center"
+                      style={{ backgroundColor: `${sourceConfig.color}20` }}
+                    >
+                      <Icon className="w-5 h-5" style={{ color: sourceConfig.color }} />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-medium text-[#4A3728]">{sourceConfig.label}</h4>
+                        <span className={`w-2 h-2 rounded-full ${source.status === 'active' ? 'bg-green-500' : 'bg-gray-300'}`} />
+                      </div>
+                      <p className="text-xs text-[#5D4A3A] mt-1">{source.description}</p>
+                      <div className="flex items-center gap-4 mt-2">
+                        <span className="text-xs text-[#8B7355]">
+                          {mentionCount} mentions collected
+                        </span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                          source.configured 
+                            ? 'bg-green-100 text-green-700' 
+                            : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {source.configured ? 'Configured' : 'Not Configured'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Crawler Stats */}
+          {crawlerStatus?.last_crawl && (
+            <div className="bg-white border border-[#E8D5C4] rounded-xl p-4">
+              <h4 className="font-medium text-[#4A3728] mb-3">Last Crawl Summary</h4>
+              <div className="grid grid-cols-4 gap-4">
+                <div className="text-center p-3 bg-[#F5EDE5] rounded-lg">
+                  <p className="text-2xl font-bold text-[#4A3728]">{crawlerStatus.last_crawl.keywords_crawled}</p>
+                  <p className="text-xs text-[#5D4A3A]">Keywords Crawled</p>
+                </div>
+                <div className="text-center p-3 bg-[#F5EDE5] rounded-lg">
+                  <p className="text-2xl font-bold text-emerald-600">{crawlerStatus.last_crawl.total_mentions_found}</p>
+                  <p className="text-xs text-[#5D4A3A]">Mentions Found</p>
+                </div>
+                <div className="text-center p-3 bg-[#F5EDE5] rounded-lg">
+                  <p className="text-2xl font-bold text-[#4A3728]">{crawlerStatus.active_keywords}</p>
+                  <p className="text-xs text-[#5D4A3A]">Active Keywords</p>
+                </div>
+                <div className="text-center p-3 bg-[#F5EDE5] rounded-lg">
+                  <p className="text-sm font-medium text-[#4A3728]">
+                    {new Date(crawlerStatus.last_crawl.crawled_at).toLocaleString()}
+                  </p>
+                  <p className="text-xs text-[#5D4A3A]">Crawled At</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

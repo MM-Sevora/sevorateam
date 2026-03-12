@@ -1,3 +1,67 @@
+## March 12, 2026 - Social Listening Web Crawler COMPLETE ✅
+
+### Feature: Real-Time Web Crawler for Social Listening
+
+Built a comprehensive web crawler for the Social Listening module that collects public data from multiple sources.
+
+### Data Sources Implemented:
+
+1. **Google Custom Search API**
+   - Searches web and news for keyword mentions
+   - Date-restricted to last 7 days
+   - Extracts title, snippet, URL, author
+
+2. **YouTube Data API**
+   - Searches for video mentions of keywords
+   - Includes video title, description, channel info, thumbnail
+   - Filters by publish date (last 7 days)
+
+3. **Reddit Public API**
+   - Searches posts and discussions mentioning keywords
+   - Includes subreddit, score, comments count
+   - No authentication required (public API)
+
+4. **News RSS Feeds**
+   - Google News RSS
+   - Bing News RSS
+   - Yahoo News RSS
+   - Aggregates news articles with titles, summaries, dates
+
+### Backend Features (`/app/backend/services/social_crawler.py`):
+
+- **SocialCrawler class**: Async crawler with aiohttp
+- **Simple sentiment analysis**: Keyword-based positive/negative/neutral detection
+- **Duplicate detection**: Checks URL before storing new mentions
+- **Alert generation**: Auto-creates alerts for negative mentions
+- **Crawl logging**: Records all crawl activity for audit
+
+### New API Endpoints (`/app/backend/routes/social_listening.py`):
+
+- `POST /api/social/listening/crawl` - Trigger background crawl for all keywords
+- `POST /api/social/listening/crawl/sync` - Synchronous crawl (returns results immediately)
+- `POST /api/social/listening/crawl/{keyword_id}` - Crawl single keyword
+- `GET /api/social/listening/crawl/status` - Get crawler status and configuration
+- `GET /api/social/listening/crawl/logs` - Get crawl history
+
+### Frontend Updates (`/app/frontend/src/pages/social/SocialListening.jsx`):
+
+- **"Crawl Now" button** in header to trigger crawl for all keywords
+- **Lightning bolt icon** on each keyword card for individual crawling
+- **"Data Sources" tab** showing all configured sources with status
+- **Enhanced mentions display** with title, source, subreddit (Reddit), dates
+- **Last crawl timestamp** shown on keyword cards
+
+### Testing Results:
+- Created keyword "artificial intelligence"
+- Crawled successfully: 30 mentions found
+- Sources: 10 from Google News, 10 from Bing News, 10 from YouTube
+- All mentions stored with sentiment analysis
+
+### Dependencies Added:
+- `feedparser==6.0.12` for RSS feed parsing
+
+---
+
 ## March 12, 2026 - IT Admin ↔ HR Auto-Provisioning Integration COMPLETE ✅
 
 ### Feature: Automated Tool Provisioning/De-provisioning Based on Employee Lifecycle
