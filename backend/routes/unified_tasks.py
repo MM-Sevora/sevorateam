@@ -135,11 +135,16 @@ async def get_tasks(
     priority: Optional[str] = None,
     is_overdue: Optional[bool] = None,
     search: Optional[str] = None,
+    include_my_tasks: bool = True,  # NEW: Always include tasks assigned to current user
     skip: int = 0,
     limit: int = 50,
     current_user: dict = Depends(get_current_user_dep)
 ):
-    """Get all tasks with filters"""
+    """Get all tasks with filters. By default includes tasks assigned to current user."""
+    user_id = current_user.get("id")
+    user_role = current_user.get("role", "")
+    is_admin = user_role in ["super_admin", "admin"] or current_user.get("can_manage_users")
+    
     query = {}
     
     if status:
@@ -161,6 +166,27 @@ async def get_tasks(
         now = datetime.now(timezone.utc).isoformat()
         query["due_date"] = {"$lt": now}
         query["status"] = {"$nin": ["completed", "cancelled"]}
+    
+    # If not admin and include_my_tasks is True, ensure user sees their assigned tasks
+    if not is_admin and include_my_tasks and not assigned_to:
+        # Combine filter with "OR assigned to me"
+        if query:
+            original_query = dict(query)
+            query = {
+                "$or": [
+                    {"assigned_to": user_id},
+                    {"created_by": user_id},
+                    original_query
+                ]
+            }
+        else:
+            # No other filters, show all tasks user has access to
+            query = {
+                "$or": [
+                    {"assigned_to": user_id},
+                    {"created_by": user_id}
+                ]
+            }
     
     tasks = await db.unified_tasks.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(length=limit)
     total = await db.unified_tasks.count_documents(query)

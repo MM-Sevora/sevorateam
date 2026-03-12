@@ -579,6 +579,15 @@ async def list_projects(
             user_id == project_manager_id or 
             user_id in team_members):
             filtered_projects.append(project)
+            continue
+        
+        # Also check if user has tasks assigned in this project
+        task_count = await db.pm_tasks.count_documents({
+            "project_id": project["id"],
+            "assigned_to": user_id
+        })
+        if task_count > 0:
+            filtered_projects.append(project)
     
     # Enrich projects
     for project in filtered_projects:
@@ -2031,9 +2040,14 @@ async def list_all_tasks(
     assigned_to: Optional[str] = None,
     priority: Optional[Priority] = None,
     search: Optional[str] = None,
+    include_my_tasks: bool = True,
     user: dict = Depends(get_current_user_dep)
 ):
-    """List all tasks with filters"""
+    """List all tasks with filters. By default includes tasks assigned to current user."""
+    user_id = user.get("id")
+    user_role = user.get("role", "")
+    is_admin = user_role in ["super_admin", "admin"] or user.get("can_manage_users")
+    
     query = {"parent_task_id": None}  # Only top-level tasks
     
     if project_id:
@@ -2049,6 +2063,20 @@ async def list_all_tasks(
             {"name": {"$regex": search, "$options": "i"}},
             {"description": {"$regex": search, "$options": "i"}}
         ]
+    
+    # If not admin and include_my_tasks, ensure user sees their assigned tasks
+    if not is_admin and include_my_tasks and not assigned_to:
+        original_query = dict(query)
+        query = {
+            "$and": [
+                {"parent_task_id": None},
+                {"$or": [
+                    {"assigned_to": user_id},
+                    {"created_by": user_id},
+                    original_query
+                ]}
+            ]
+        }
     
     tasks = await db.pm_tasks.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
     
