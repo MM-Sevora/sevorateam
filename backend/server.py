@@ -4401,6 +4401,15 @@ try:
 except Exception as e:
     logger.error(f"Failed to load System Modules routes: {e}")
 
+# Load Module Categories routes
+try:
+    from routes.module_categories import router as module_categories_router, set_database as set_module_categories_db
+    set_module_categories_db(db)
+    api_router.include_router(module_categories_router)
+    logger.info("Module Categories routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Module Categories routes: {e}")
+
 # Load Marketing V3 Modular routes (Digital Ads + Creative Assets)
 try:
     from routes.marketing import marketing_modular_router

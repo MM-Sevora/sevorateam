@@ -3,12 +3,14 @@ import {
   Server, Package, Settings, Shield, Users, Target, Briefcase, 
   Activity, TrendingUp, Flag, CalendarDays, FolderKanban, ClipboardList,
   ShoppingBag, PenTool, Bell, HelpCircle, Zap, ChevronDown, ChevronRight,
-  Edit, Save, X, Tag, Building2, UsersRound, RefreshCw, Check
+  Edit, Save, X, Tag, Building2, UsersRound, RefreshCw, Check, Plus, Trash2,
+  Folder, Palette, GripVertical
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -45,44 +47,66 @@ import { useAuth } from '../../context/AuthContext';
 // Icon mapping
 const ICON_MAP = {
   Activity, TrendingUp, Flag, CalendarDays, FolderKanban, ClipboardList,
-  Target, ShoppingBag, PenTool, Package, Settings, Server, Zap, Bell, HelpCircle
+  Target, ShoppingBag, PenTool, Package, Settings, Server, Zap, Bell, HelpCircle,
+  Folder, Shield, Users, Briefcase
 };
 
-const CATEGORY_CONFIG = {
-  general: { name: 'General', color: 'bg-green-100 text-green-800 border-green-300', description: 'Everyone gets access' },
-  operations: { name: 'Operations', color: 'bg-yellow-100 text-yellow-800 border-yellow-300', description: 'Team-based access' },
-  business: { name: 'Business', color: 'bg-orange-100 text-orange-800 border-orange-300', description: 'Department-based access' },
-  admin: { name: 'Administration', color: 'bg-red-100 text-red-800 border-red-300', description: 'Admin-only access' },
-};
+const COLOR_OPTIONS = [
+  { value: 'green', label: 'Green', bg: 'bg-green-500', badge: 'bg-green-100 text-green-800 border-green-300' },
+  { value: 'yellow', label: 'Yellow', bg: 'bg-yellow-500', badge: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
+  { value: 'orange', label: 'Orange', bg: 'bg-orange-500', badge: 'bg-orange-100 text-orange-800 border-orange-300' },
+  { value: 'red', label: 'Red', bg: 'bg-red-500', badge: 'bg-red-100 text-red-800 border-red-300' },
+  { value: 'blue', label: 'Blue', bg: 'bg-blue-500', badge: 'bg-blue-100 text-blue-800 border-blue-300' },
+  { value: 'purple', label: 'Purple', bg: 'bg-purple-500', badge: 'bg-purple-100 text-purple-800 border-purple-300' },
+  { value: 'pink', label: 'Pink', bg: 'bg-pink-500', badge: 'bg-pink-100 text-pink-800 border-pink-300' },
+  { value: 'indigo', label: 'Indigo', bg: 'bg-indigo-500', badge: 'bg-indigo-100 text-indigo-800 border-indigo-300' },
+  { value: 'cyan', label: 'Cyan', bg: 'bg-cyan-500', badge: 'bg-cyan-100 text-cyan-800 border-cyan-300' },
+  { value: 'teal', label: 'Teal', bg: 'bg-teal-500', badge: 'bg-teal-100 text-teal-800 border-teal-300' },
+];
+
+const ACCESS_TYPE_OPTIONS = [
+  { value: 'everyone', label: 'Everyone', description: 'All users get access' },
+  { value: 'team', label: 'Team-based', description: 'Access based on team assignment' },
+  { value: 'department', label: 'Department-based', description: 'Access based on department' },
+  { value: 'admin', label: 'Admin-only', description: 'Only administrators' },
+];
 
 const SystemModulesPage = () => {
   const { api } = useAuth();
+  const [activeTab, setActiveTab] = useState('modules');
   const [modules, setModules] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedModules, setExpandedModules] = useState([]);
   
-  // Edit dialog state
+  // Edit module dialog state
   const [editDialog, setEditDialog] = useState({ open: false, module: null });
-  const [editForm, setEditForm] = useState({ department: '', team: '', tags: [], is_active: true });
+  const [editForm, setEditForm] = useState({ department: '', team: '', tags: [], is_active: true, category: 'general', is_default: false });
   const [tagInput, setTagInput] = useState('');
   const [saving, setSaving] = useState(false);
+  
+  // Category dialog state
+  const [categoryDialog, setCategoryDialog] = useState({ open: false, category: null, mode: 'create' });
+  const [categoryForm, setCategoryForm] = useState({ name: '', description: '', color: 'blue', access_type: 'department' });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [modulesRes, deptsRes, teamsRes] = await Promise.all([
+      const [modulesRes, categoriesRes, deptsRes, teamsRes] = await Promise.all([
         api.get('/system-modules/'),
+        api.get('/module-categories/'),
         api.get('/system-modules/config/departments'),
         api.get('/system-modules/config/teams'),
       ]);
       setModules(modulesRes.data || []);
+      setCategories(categoriesRes.data || []);
       setDepartments(deptsRes.data || []);
       setTeams(teamsRes.data || []);
     } catch (error) {
-      console.error('Error fetching modules:', error);
-      toast.error('Failed to fetch system modules');
+      console.error('Error fetching data:', error);
+      toast.error('Failed to fetch data');
     } finally {
       setLoading(false);
     }
@@ -142,6 +166,71 @@ const SystemModulesPage = () => {
     }
   };
 
+  // Category CRUD functions
+  const openCreateCategoryDialog = () => {
+    setCategoryForm({ name: '', description: '', color: 'blue', access_type: 'department' });
+    setCategoryDialog({ open: true, category: null, mode: 'create' });
+  };
+
+  const openEditCategoryDialog = (category) => {
+    setCategoryForm({
+      name: category.name,
+      description: category.description || '',
+      color: category.color,
+      access_type: category.access_type
+    });
+    setCategoryDialog({ open: true, category, mode: 'edit' });
+  };
+
+  const saveCategory = async () => {
+    if (!categoryForm.name.trim()) {
+      toast.error('Category name is required');
+      return;
+    }
+    setSaving(true);
+    try {
+      if (categoryDialog.mode === 'create') {
+        await api.post('/module-categories/', categoryForm);
+        toast.success('Category created');
+      } else {
+        await api.put(`/module-categories/${categoryDialog.category.id}`, categoryForm);
+        toast.success('Category updated');
+      }
+      setCategoryDialog({ open: false, category: null, mode: 'create' });
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to save category');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteCategory = async (category) => {
+    if (category.is_system) {
+      toast.error('System categories cannot be deleted');
+      return;
+    }
+    if (!window.confirm(`Delete category "${category.name}"? This cannot be undone.`)) return;
+    
+    try {
+      await api.delete(`/module-categories/${category.id}`);
+      toast.success('Category deleted');
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to delete category');
+    }
+  };
+
+  // Helper to get category config from dynamic categories
+  const getCategoryConfig = (code) => {
+    const cat = categories.find(c => c.code === code);
+    if (cat) {
+      const colorOpt = COLOR_OPTIONS.find(c => c.value === cat.color) || COLOR_OPTIONS[0];
+      return { name: cat.name, color: colorOpt.badge, description: cat.description };
+    }
+    return { name: code, color: 'bg-gray-100 text-gray-800 border-gray-300', description: '' };
+  };
+
   // Group modules by category
   const groupedModules = {};
   modules.forEach(mod => {
@@ -181,7 +270,7 @@ const SystemModulesPage = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -200,6 +289,17 @@ const SystemModulesPage = () => {
               <div>
                 <p className="text-2xl font-bold">{modules.length}</p>
                 <p className="text-sm text-gray-500">Total Modules</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-100 rounded-lg"><Folder className="h-5 w-5 text-indigo-600" /></div>
+              <div>
+                <p className="text-2xl font-bold">{categories.length}</p>
+                <p className="text-sm text-gray-500">Categories</p>
               </div>
             </div>
           </CardContent>
@@ -228,25 +328,40 @@ const SystemModulesPage = () => {
         </Card>
       </div>
 
-      {/* Modules by Category */}
-      {Object.entries(CATEGORY_CONFIG).map(([catKey, catConfig]) => {
-        const catModules = groupedModules[catKey] || [];
-        if (catModules.length === 0) return null;
+      {/* Tabs for Modules and Categories */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="modules" className="flex items-center gap-2">
+            <Package className="h-4 w-4" /> Modules ({modules.length})
+          </TabsTrigger>
+          <TabsTrigger value="categories" className="flex items-center gap-2">
+            <Folder className="h-4 w-4" /> Categories ({categories.length})
+          </TabsTrigger>
+        </TabsList>
 
-        return (
-          <Card key={catKey}>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Badge className={catConfig.color}>{catConfig.name}</Badge>
-                  <span className="text-sm text-gray-500">{catConfig.description}</span>
-                </div>
-                <span className="text-sm text-gray-400">{catModules.length} modules</span>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {catModules.map(mod => (
+        {/* Modules Tab */}
+        <TabsContent value="modules" className="space-y-4 mt-4">
+          {categories.map(cat => {
+            const catModules = groupedModules[cat.code] || [];
+            const colorOpt = COLOR_OPTIONS.find(c => c.value === cat.color) || COLOR_OPTIONS[0];
+
+            return (
+              <Card key={cat.code}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Badge className={colorOpt.badge}>{cat.name}</Badge>
+                      <span className="text-sm text-gray-500">{cat.description}</span>
+                    </div>
+                    <span className="text-sm text-gray-400">{catModules.length} modules</span>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {catModules.length === 0 ? (
+                    <p className="text-sm text-gray-400 text-center py-4">No modules in this category</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {catModules.map(mod => (
                   <Collapsible 
                     key={mod.code} 
                     open={expandedModules.includes(mod.code)}
@@ -331,13 +446,92 @@ const SystemModulesPage = () => {
                     </div>
                   </Collapsible>
                 ))}
-              </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </TabsContent>
+
+        {/* Categories Tab */}
+        <TabsContent value="categories" className="space-y-4 mt-4">
+          <div className="flex justify-end">
+            <Button onClick={openCreateCategoryDialog} className="bg-indigo-600 hover:bg-indigo-700">
+              <Plus className="h-4 w-4 mr-2" /> Create Category
+            </Button>
+          </div>
+          
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12"></TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Access Type</TableHead>
+                    <TableHead className="text-center">Modules</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {categories.map(cat => {
+                    const colorOpt = COLOR_OPTIONS.find(c => c.value === cat.color) || COLOR_OPTIONS[0];
+                    const accessOpt = ACCESS_TYPE_OPTIONS.find(a => a.value === cat.access_type);
+                    return (
+                      <TableRow key={cat.id}>
+                        <TableCell>
+                          <div className={`w-4 h-4 rounded ${colorOpt.bg}`}></div>
+                        </TableCell>
+                        <TableCell className="font-medium">{cat.name}</TableCell>
+                        <TableCell className="text-gray-500">{cat.description}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{accessOpt?.label || cat.access_type}</Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="secondary">{cat.module_count || 0}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          {cat.is_system ? (
+                            <Badge className="bg-blue-100 text-blue-800">System</Badge>
+                          ) : (
+                            <Badge className="bg-green-100 text-green-800">Custom</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEditCategoryDialog(cat)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            {!cat.is_system && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => deleteCategory(cat)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
-        );
-      })}
+        </TabsContent>
+      </Tabs>
 
-      {/* Edit Dialog */}
+      {/* Edit Module Dialog */}
       <Dialog open={editDialog.open} onOpenChange={(open) => !open && setEditDialog({ open: false, module: null })}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -383,10 +577,17 @@ const SystemModulesPage = () => {
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="general">General - Everyone gets access</SelectItem>
-                  <SelectItem value="operations">Operations - Team-based access</SelectItem>
-                  <SelectItem value="business">Business - Department-based access</SelectItem>
-                  <SelectItem value="admin">Administration - Admin-only access</SelectItem>
+                  {categories.map(cat => {
+                    const colorOpt = COLOR_OPTIONS.find(c => c.value === cat.color) || COLOR_OPTIONS[0];
+                    return (
+                      <SelectItem key={cat.code} value={cat.code}>
+                        <span className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${colorOpt.bg}`}></span>
+                          {cat.name} - {cat.description}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -463,6 +664,96 @@ const SystemModulesPage = () => {
             </Button>
             <Button onClick={saveModuleMetadata} disabled={saving}>
               {saving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create/Edit Category Dialog */}
+      <Dialog open={categoryDialog.open} onOpenChange={(open) => !open && setCategoryDialog({ open: false, category: null, mode: 'create' })}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Folder className="h-5 w-5" />
+              {categoryDialog.mode === 'create' ? 'Create Category' : 'Edit Category'}
+            </DialogTitle>
+            <DialogDescription>
+              {categoryDialog.mode === 'create' 
+                ? 'Create a new category to organize modules'
+                : `Edit ${categoryDialog.category?.name} category`
+              }
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Name */}
+            <div className="space-y-2">
+              <Label>Category Name *</Label>
+              <Input 
+                value={categoryForm.name}
+                onChange={(e) => setCategoryForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="e.g., Finance, HR, Engineering"
+                disabled={categoryDialog.category?.is_system}
+              />
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Input 
+                value={categoryForm.description}
+                onChange={(e) => setCategoryForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Brief description of this category"
+              />
+            </div>
+
+            {/* Color */}
+            <div className="space-y-2">
+              <Label>Color</Label>
+              <div className="flex flex-wrap gap-2">
+                {COLOR_OPTIONS.map(color => (
+                  <button
+                    key={color.value}
+                    type="button"
+                    className={`w-8 h-8 rounded-full ${color.bg} ${categoryForm.color === color.value ? 'ring-2 ring-offset-2 ring-gray-900' : ''}`}
+                    onClick={() => setCategoryForm(prev => ({ ...prev, color: color.value }))}
+                    title={color.label}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Access Type */}
+            <div className="space-y-2">
+              <Label>Access Type</Label>
+              <Select 
+                value={categoryForm.access_type}
+                onValueChange={(val) => setCategoryForm(prev => ({ ...prev, access_type: val }))}
+                disabled={categoryDialog.category?.is_system}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ACCESS_TYPE_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      <div>
+                        <div className="font-medium">{opt.label}</div>
+                        <div className="text-xs text-gray-500">{opt.description}</div>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCategoryDialog({ open: false, category: null, mode: 'create' })}>
+              Cancel
+            </Button>
+            <Button onClick={saveCategory} disabled={saving || !categoryForm.name.trim()}>
+              {saving ? 'Saving...' : categoryDialog.mode === 'create' ? 'Create Category' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </DialogContent>
