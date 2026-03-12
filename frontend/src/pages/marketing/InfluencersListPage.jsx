@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { 
   RefreshCw, Plus, Search, Filter, Instagram, Youtube, 
   MoreHorizontal, Users, Sparkles, ChevronUp, ChevronDown, Download, User, AtSign, DollarSign, Building, X,
-  TrendingUp, Heart, Target, Eye, Send, Trash2, Edit, ExternalLink, BadgeCheck, Loader2
+  TrendingUp, Heart, Target, Eye, Send, Trash2, Edit, ExternalLink, BadgeCheck, Loader2, GitCompare, Wand2
 } from 'lucide-react';
 
 const InfluencersListPage = () => {
@@ -47,6 +47,17 @@ const InfluencersListPage = () => {
   // Bulk delete state
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  
+  // Compare & Discovery state
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareIds, setCompareIds] = useState([]);
+  const [showCompareDialog, setShowCompareDialog] = useState(false);
+  const [compareData, setCompareData] = useState(null);
+  const [compareLoading, setCompareLoading] = useState(false);
+  const [showAiDiscovery, setShowAiDiscovery] = useState(false);
+  const [aiQuery, setAiQuery] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResults, setAiResults] = useState([]);
   
   // Metrics refresh state
   const [refreshingMetrics, setRefreshingMetrics] = useState(null);
@@ -464,6 +475,74 @@ const InfluencersListPage = () => {
     toast.success('Data refreshed');
   };
 
+  // Compare Functions
+  const toggleCompareSelection = (id) => {
+    if (compareIds.includes(id)) {
+      setCompareIds(compareIds.filter(i => i !== id));
+    } else {
+      if (compareIds.length >= 5) {
+        toast.warning('Maximum 5 influencers can be compared at once');
+        return;
+      }
+      setCompareIds([...compareIds, id]);
+    }
+  };
+
+  const handleCompare = async () => {
+    if (compareIds.length < 2) {
+      toast.error('Select at least 2 influencers to compare');
+      return;
+    }
+    
+    setCompareLoading(true);
+    setShowCompareDialog(true);
+    
+    try {
+      const response = await api.post('/marketing/v2/influencers/compare', {
+        influencer_ids: compareIds
+      });
+      setCompareData(response.data);
+    } catch (error) {
+      toast.error('Failed to compare influencers');
+      console.error(error);
+    } finally {
+      setCompareLoading(false);
+    }
+  };
+
+  const exitCompareMode = () => {
+    setCompareMode(false);
+    setCompareIds([]);
+    setCompareData(null);
+  };
+
+  // AI Discovery Functions
+  const handleAiDiscovery = async () => {
+    if (!aiQuery.trim()) {
+      toast.error('Please describe what you\'re looking for');
+      return;
+    }
+    
+    setAiLoading(true);
+    try {
+      const response = await api.post('/marketing/v2/influencers/ai-discover', {
+        query: aiQuery,
+        limit: 10
+      });
+      setAiResults(response.data.recommendations || []);
+      if (response.data.recommendations?.length === 0) {
+        toast.info('No matching influencers found. Try a different description.');
+      } else {
+        toast.success(`Found ${response.data.recommendations.length} recommendations`);
+      }
+    } catch (error) {
+      toast.error('AI Discovery failed. Please try again.');
+      console.error(error);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const formatNumber = (num) => {
     if (!num) return '0';
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -619,25 +698,61 @@ const InfluencersListPage = () => {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-serif italic text-gray-900">Influencers</h1>
         <div className="flex items-center gap-3">
-          {selectedIds.length > 0 && (
-            <Button 
-              variant="destructive" 
-              onClick={() => setShowBulkDeleteConfirm(true)}
-              className="gap-2"
-              data-testid="bulk-delete-btn"
-            >
-              <Trash2 className="w-4 h-4" /> Delete ({selectedIds.length})
-            </Button>
-          )}
-          <Button variant="outline" onClick={handleRefreshAll} className="gap-2">
-            <RefreshCw className="w-4 h-4" /> Refresh All
-          </Button>
-          <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-            <DialogTrigger asChild>
-              <Button className="bg-[#c4a35a] hover:bg-[#b39349] text-white gap-2">
-                <Plus className="w-4 h-4" /> Add Influencer
+          {/* Compare Mode Toggle */}
+          {compareMode ? (
+            <>
+              <Badge className="bg-purple-100 text-purple-700 px-3 py-1">
+                {compareIds.length} selected for comparison
+              </Badge>
+              <Button 
+                onClick={handleCompare}
+                disabled={compareIds.length < 2}
+                className="bg-purple-600 hover:bg-purple-700 text-white gap-2"
+                data-testid="compare-btn"
+              >
+                <GitCompare className="w-4 h-4" /> Compare ({compareIds.length})
               </Button>
-            </DialogTrigger>
+              <Button variant="outline" onClick={exitCompareMode}>
+                <X className="w-4 h-4 mr-1" /> Exit Compare
+              </Button>
+            </>
+          ) : (
+            <>
+              {selectedIds.length > 0 && (
+                <Button 
+                  variant="destructive" 
+                  onClick={() => setShowBulkDeleteConfirm(true)}
+                  className="gap-2"
+                  data-testid="bulk-delete-btn"
+                >
+                  <Trash2 className="w-4 h-4" /> Delete ({selectedIds.length})
+                </Button>
+              )}
+              <Button 
+                variant="outline" 
+                onClick={() => setCompareMode(true)}
+                className="gap-2 border-purple-300 text-purple-700 hover:bg-purple-50"
+                data-testid="enter-compare-mode-btn"
+              >
+                <GitCompare className="w-4 h-4" /> Compare
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowAiDiscovery(!showAiDiscovery)}
+                className={`gap-2 ${showAiDiscovery ? 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-300' : ''}`}
+                data-testid="ai-discovery-btn"
+              >
+                <Wand2 className="w-4 h-4" /> AI Discovery
+              </Button>
+              <Button variant="outline" onClick={handleRefreshAll} className="gap-2">
+                <RefreshCw className="w-4 h-4" /> Refresh
+              </Button>
+              <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+                <DialogTrigger asChild>
+                  <Button className="bg-[#c4a35a] hover:bg-[#b39349] text-white gap-2">
+                    <Plus className="w-4 h-4" /> Add Influencer
+                  </Button>
+                </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
               <DialogHeader>
                 <DialogTitle className="text-2xl font-serif italic">Add Influencer</DialogTitle>
@@ -1340,8 +1455,75 @@ const InfluencersListPage = () => {
               </div>
             </DialogContent>
           </Dialog>
+            </>
+          )}
         </div>
       </div>
+
+      {/* AI Discovery Panel */}
+      {showAiDiscovery && (
+        <Card className="bg-gradient-to-r from-purple-50 via-pink-50 to-amber-50 border-purple-200">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Wand2 className="w-5 h-5 text-purple-600" />
+              <h3 className="font-semibold text-gray-900">AI-Powered Discovery</h3>
+              <Badge className="bg-purple-100 text-purple-700 text-xs">GPT-4o</Badge>
+            </div>
+            <p className="text-sm text-gray-600 mb-3">
+              Describe the type of influencer you're looking for, and AI will find the best matches from your database.
+            </p>
+            <div className="flex gap-3">
+              <Input 
+                value={aiQuery}
+                onChange={(e) => setAiQuery(e.target.value)}
+                placeholder="e.g., Fashion influencers with high engagement for a luxury brand campaign..."
+                className="flex-1 bg-white"
+                onKeyDown={(e) => e.key === 'Enter' && handleAiDiscovery()}
+                data-testid="ai-query-input"
+              />
+              <Button 
+                onClick={handleAiDiscovery}
+                disabled={aiLoading}
+                className="bg-purple-600 hover:bg-purple-700 text-white gap-2"
+                data-testid="ai-search-btn"
+              >
+                {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                Find Matches
+              </Button>
+            </div>
+            
+            {/* AI Results */}
+            {aiResults.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-purple-200">
+                <p className="text-sm font-medium text-gray-700 mb-2">AI Recommendations ({aiResults.length})</p>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                  {aiResults.map((rec, idx) => (
+                    <div 
+                      key={idx}
+                      className="bg-white rounded-lg p-3 border border-gray-200 hover:border-purple-300 cursor-pointer transition-all hover:shadow-md"
+                      onClick={() => {
+                        const found = influencers.find(i => 
+                          i.name.toLowerCase().includes(rec.name?.toLowerCase()) ||
+                          rec.name?.toLowerCase().includes(i.name.toLowerCase())
+                        );
+                        if (found) navigate(`/marketing/influencer/${found.id}`);
+                      }}
+                    >
+                      <p className="font-medium text-sm text-gray-900 truncate">{rec.name}</p>
+                      <p className="text-xs text-purple-600 mt-1">{rec.reason?.slice(0, 50)}...</p>
+                      {rec.score && (
+                        <Badge className="mt-2 bg-purple-100 text-purple-700 text-xs">
+                          Match: {rec.score}%
+                        </Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats Overview Cards */}
       <div className="grid grid-cols-4 gap-4">
@@ -1704,14 +1886,22 @@ const InfluencersListPage = () => {
                     onClick={() => navigate(`/marketing/influencer/${inf.id}`)}
                   >
                     <td className="p-4" onClick={e => e.stopPropagation()}>
-                      <Checkbox 
-                        checked={selectedIds.includes(inf.id)}
-                        onCheckedChange={(checked) => {
-                          setSelectedIds(prev => 
-                            checked ? [...prev, inf.id] : prev.filter(id => id !== inf.id)
-                          );
-                        }}
-                      />
+                      {compareMode ? (
+                        <Checkbox 
+                          checked={compareIds.includes(inf.id)}
+                          onCheckedChange={() => toggleCompareSelection(inf.id)}
+                          className={compareIds.includes(inf.id) ? 'border-purple-500 data-[state=checked]:bg-purple-600' : ''}
+                        />
+                      ) : (
+                        <Checkbox 
+                          checked={selectedIds.includes(inf.id)}
+                          onCheckedChange={(checked) => {
+                            setSelectedIds(prev => 
+                              checked ? [...prev, inf.id] : prev.filter(id => id !== inf.id)
+                            );
+                          }}
+                        />
+                      )}
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-3">
@@ -1877,6 +2067,161 @@ const InfluencersListPage = () => {
               data-testid="confirm-bulk-delete-btn"
             >
               {bulkDeleting ? 'Deleting...' : `Delete ${selectedIds.length} Influencer${selectedIds.length > 1 ? 's' : ''}`}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Compare Dialog */}
+      <Dialog open={showCompareDialog} onOpenChange={setShowCompareDialog}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <GitCompare className="w-5 h-5 text-purple-600" />
+              Influencer Comparison
+              <Badge className="bg-purple-100 text-purple-700">{compareIds.length} influencers</Badge>
+            </DialogTitle>
+          </DialogHeader>
+          
+          {compareLoading ? (
+            <div className="py-12 text-center">
+              <Loader2 className="w-10 h-10 animate-spin mx-auto text-purple-600 mb-3" />
+              <p className="text-gray-500">Analyzing influencers...</p>
+            </div>
+          ) : compareData?.influencers ? (
+            <div className="space-y-6">
+              {/* Influencer Cards Row */}
+              <div className={`grid gap-4 ${compareData.influencers.length === 2 ? 'grid-cols-2' : compareData.influencers.length === 3 ? 'grid-cols-3' : compareData.influencers.length === 4 ? 'grid-cols-4' : 'grid-cols-5'}`}>
+                {compareData.influencers.map((inf, idx) => {
+                  const isWinner = compareData.winner_by_metric?.followers === inf.id;
+                  return (
+                    <Card key={inf.id} className={`relative ${isWinner ? 'ring-2 ring-amber-400 bg-amber-50' : ''}`}>
+                      {isWinner && (
+                        <Badge className="absolute -top-2 -right-2 bg-amber-500 text-white">
+                          Top Reach
+                        </Badge>
+                      )}
+                      <CardContent className="p-4 text-center">
+                        <div className={`w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center ${inf.primary_platform === 'youtube' ? 'bg-red-100' : 'bg-pink-100'}`}>
+                          {inf.primary_platform === 'youtube' ? 
+                            <Youtube className="w-8 h-8 text-red-600" /> : 
+                            <Instagram className="w-8 h-8 text-pink-600" />
+                          }
+                        </div>
+                        <h4 className="font-semibold text-gray-900">{inf.name}</h4>
+                        <p className="text-xs text-gray-500">@{inf.instagram_handle || inf.youtube_handle}</p>
+                        <Badge className="mt-2" variant="outline">{inf.tier || 'Unknown'}</Badge>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+              
+              {/* Metrics Comparison Table */}
+              <div className="border rounded-xl overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="text-left p-4 font-semibold text-gray-700">Metric</th>
+                      {compareData.influencers.map(inf => (
+                        <th key={inf.id} className="text-center p-4 font-semibold text-gray-700">{inf.name}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    <tr>
+                      <td className="p-4 font-medium text-gray-600">Followers</td>
+                      {compareData.influencers.map(inf => (
+                        <td key={inf.id} className={`p-4 text-center font-semibold ${compareData.winner_by_metric?.followers === inf.id ? 'text-amber-600 bg-amber-50' : ''}`}>
+                          {formatNumber(inf.followers)}
+                          {compareData.winner_by_metric?.followers === inf.id && <span className="ml-1">🏆</span>}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="p-4 font-medium text-gray-600">Engagement Rate</td>
+                      {compareData.influencers.map(inf => (
+                        <td key={inf.id} className={`p-4 text-center font-semibold ${compareData.winner_by_metric?.engagement === inf.id ? 'text-green-600 bg-green-50' : ''}`}>
+                          {inf.engagement_rate?.toFixed(2)}%
+                          {compareData.winner_by_metric?.engagement === inf.id && <span className="ml-1">🏆</span>}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="p-4 font-medium text-gray-600">Score</td>
+                      {compareData.influencers.map(inf => (
+                        <td key={inf.id} className={`p-4 text-center font-semibold ${compareData.winner_by_metric?.score === inf.id ? 'text-purple-600 bg-purple-50' : ''}`}>
+                          {inf.score || '-'}
+                          {compareData.winner_by_metric?.score === inf.id && <span className="ml-1">🏆</span>}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="p-4 font-medium text-gray-600">Industry</td>
+                      {compareData.influencers.map(inf => (
+                        <td key={inf.id} className="p-4 text-center capitalize">{inf.industry || '-'}</td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="p-4 font-medium text-gray-600">Location</td>
+                      {compareData.influencers.map(inf => (
+                        <td key={inf.id} className="p-4 text-center">{inf.city || '-'}</td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="p-4 font-medium text-gray-600">Pipeline Status</td>
+                      {compareData.influencers.map(inf => (
+                        <td key={inf.id} className="p-4 text-center capitalize">{inf.pipeline_status || 'identified'}</td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* Summary */}
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4">
+                <h4 className="font-semibold text-gray-900 mb-2">Comparison Summary</h4>
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-500">Best Reach:</span>
+                    <p className="font-semibold text-amber-600">
+                      {compareData.influencers.find(i => i.id === compareData.winner_by_metric?.followers)?.name || '-'}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Best Engagement:</span>
+                    <p className="font-semibold text-green-600">
+                      {compareData.influencers.find(i => i.id === compareData.winner_by_metric?.engagement)?.name || '-'}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Highest Score:</span>
+                    <p className="font-semibold text-purple-600">
+                      {compareData.influencers.find(i => i.id === compareData.winner_by_metric?.score)?.name || '-'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="py-12 text-center text-gray-500">
+              <GitCompare className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              <p>Select influencers to compare</p>
+            </div>
+          )}
+          
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button variant="outline" onClick={() => {
+              setShowCompareDialog(false);
+              exitCompareMode();
+            }}>
+              Close
+            </Button>
+            <Button 
+              onClick={() => navigate('/marketing/discovery')}
+              className="bg-purple-600 hover:bg-purple-700 text-white gap-2"
+            >
+              <Search className="w-4 h-4" /> Advanced Discovery
             </Button>
           </div>
         </DialogContent>
