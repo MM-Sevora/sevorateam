@@ -149,7 +149,6 @@ import SystemConfigPage from "./pages/systems/SystemConfigPage";
 
 // IT Admin Module
 import ITAdminHub from "./pages/it-admin/ITAdminHub";
-import ToolsCredentials from "./pages/it-admin/ToolsCredentials";
 
 // Finance Admin
 import BudgetPlanning from "./pages/finance/BudgetPlanning";
@@ -464,7 +463,7 @@ function AppRoutes() {
 
             {/* IT Admin Module Routes (Access & Credential Management) */}
             <Route path="/it-admin" element={<ProtectedRoute requiredModule="admin"><ITAdminHub /></ProtectedRoute>} />
-            <Route path="/it-admin/credentials" element={<ProtectedRoute requiredModule="admin"><ToolsCredentials /></ProtectedRoute>} />
+            <Route path="/it-admin/credentials" element={<ProtectedRoute requiredModule="admin"><ITAdminHub defaultTab="credentials" /></ProtectedRoute>} />
             <Route path="/it-admin/*" element={<ProtectedRoute requiredModule="admin"><ITAdminHub /></ProtectedRoute>} />
 
             {/* Finance Admin Routes */}
