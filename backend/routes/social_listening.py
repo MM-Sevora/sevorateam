@@ -716,7 +716,7 @@ async def get_crawl_status(
             "news_rss": {
                 "configured": True,
                 "status": "active",
-                "description": "News aggregation via RSS (General, Tech, Industry - 16 sources)"
+                "description": "News aggregation via RSS (60+ industry-specific sources)"
             }
         },
         "news_sources": {
@@ -724,13 +724,28 @@ async def get_crawl_status(
             "tech": ["TechCrunch", "The Verge", "Wired", "Ars Technica", "VentureBeat", 
                      "MIT Tech Review", "ZDNet", "Engadget", "Mashable", "TechRadar"],
             "business": ["Reuters Business", "Bloomberg", "Forbes", "Business Insider", 
-                        "Fast Company", "Harvard Business Review"]
+                        "Fast Company", "Harvard Business Review"],
+            "finance": ["CNBC", "MarketWatch", "Seeking Alpha", "Finextra", "PaymentsSource", "The Motley Fool"],
+            "healthcare": ["STAT News", "FiercePharma", "Healthcare IT News", "MedCity News", 
+                          "Becker's Health IT", "Healthcare Dive"],
+            "ai": ["AI News", "VentureBeat AI", "The Gradient", "Import AI", "Synced AI", "AI Trends"],
+            "cybersecurity": ["Dark Reading", "Krebs on Security", "The Hacker News", 
+                             "Threatpost", "SC Media", "Security Week"],
+            "startups": ["Crunchbase News", "TechStartups", "EU-Startups", "SaaStr", "Both Sides of the Table"],
+            "marketing": ["AdAge", "Marketing Week", "Digiday", "MarTech", "Social Media Today", "CMI"],
+            "ecommerce": ["Retail Dive", "Practical Ecommerce", "eMarketer", "Digital Commerce 360", "Modern Retail"],
+            "crypto": ["CoinDesk", "The Block", "Decrypt", "Cointelegraph", "Bitcoin Magazine"],
+            "enterprise": ["Enterprise Times", "CIO", "InfoWorld", "ComputerWorld", "TechTarget"],
+            "legal": ["Above the Law", "JD Supra", "Lexology"],
+            "energy": ["GreenBiz", "CleanTechnica", "Utility Dive", "Energy Monitor"],
+            "hr": ["HR Dive", "SHRM", "HR Executive", "People Matters"]
         },
         "sentiment_analysis": {
             "primary_method": "VADER (ML-based, optimized for social media)",
             "fallback_method": "TextBlob (general NLP)",
             "features": ["compound score", "confidence level", "positive/negative/neutral breakdown"]
         },
+        "total_feed_count": 60,
         "active_keywords": active_keywords,
         "last_crawl": last_crawl,
         "mentions_by_source": source_counts,

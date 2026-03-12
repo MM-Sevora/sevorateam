@@ -72,7 +72,7 @@ TECH_NEWS_FEEDS = [
 ]
 
 # Business & Industry Publications
-INDUSTRY_NEWS_FEEDS = [
+BUSINESS_NEWS_FEEDS = [
     {"name": "Reuters Business", "url": "https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best", "category": "business", "search_in_content": True},
     {"name": "Bloomberg", "url": "https://feeds.bloomberg.com/markets/news.rss", "category": "business", "search_in_content": True},
     {"name": "Forbes", "url": "https://www.forbes.com/innovation/feed/", "category": "business", "search_in_content": True},
@@ -81,8 +81,154 @@ INDUSTRY_NEWS_FEEDS = [
     {"name": "Harvard Business Review", "url": "https://hbr.org/rss/topic/technology", "category": "business", "search_in_content": True},
 ]
 
-# All feeds combined
-ALL_RSS_FEEDS = GENERAL_NEWS_FEEDS + TECH_NEWS_FEEDS + INDUSTRY_NEWS_FEEDS
+# ============== INDUSTRY-SPECIFIC FEEDS ==============
+
+# Finance & Fintech
+FINANCE_FEEDS = [
+    {"name": "CNBC", "url": "https://www.cnbc.com/id/100003114/device/rss/rss.html", "category": "finance", "search_in_content": True},
+    {"name": "MarketWatch", "url": "https://feeds.marketwatch.com/marketwatch/topstories/", "category": "finance", "search_in_content": True},
+    {"name": "Seeking Alpha", "url": "https://seekingalpha.com/feed.xml", "category": "finance", "search_in_content": True},
+    {"name": "Finextra", "url": "https://www.finextra.com/rss/headlines.aspx", "category": "finance", "search_in_content": True},
+    {"name": "PaymentsSource", "url": "https://www.paymentssource.com/feed", "category": "finance", "search_in_content": True},
+    {"name": "The Motley Fool", "url": "https://www.fool.com/feeds/index.aspx", "category": "finance", "search_in_content": True},
+]
+
+# Healthcare & Biotech
+HEALTHCARE_FEEDS = [
+    {"name": "STAT News", "url": "https://www.statnews.com/feed/", "category": "healthcare", "search_in_content": True},
+    {"name": "FiercePharma", "url": "https://www.fiercepharma.com/rss/xml", "category": "healthcare", "search_in_content": True},
+    {"name": "Healthcare IT News", "url": "https://www.healthcareitnews.com/feed", "category": "healthcare", "search_in_content": True},
+    {"name": "MedCity News", "url": "https://medcitynews.com/feed/", "category": "healthcare", "search_in_content": True},
+    {"name": "Becker's Health IT", "url": "https://www.beckershospitalreview.com/healthcare-information-technology.feed", "category": "healthcare", "search_in_content": True},
+    {"name": "Healthcare Dive", "url": "https://www.healthcaredive.com/feeds/news/", "category": "healthcare", "search_in_content": True},
+]
+
+# AI & Machine Learning
+AI_ML_FEEDS = [
+    {"name": "AI News", "url": "https://www.artificialintelligence-news.com/feed/", "category": "ai", "search_in_content": True},
+    {"name": "VentureBeat AI", "url": "https://venturebeat.com/category/ai/feed/", "category": "ai", "search_in_content": True},
+    {"name": "The Gradient", "url": "https://thegradient.pub/rss/", "category": "ai", "search_in_content": True},
+    {"name": "Import AI", "url": "https://jack-clark.net/feed/", "category": "ai", "search_in_content": True},
+    {"name": "Synced AI", "url": "https://syncedreview.com/feed/", "category": "ai", "search_in_content": True},
+    {"name": "AI Trends", "url": "https://www.aitrends.com/feed/", "category": "ai", "search_in_content": True},
+]
+
+# Cybersecurity
+CYBERSECURITY_FEEDS = [
+    {"name": "Dark Reading", "url": "https://www.darkreading.com/rss.xml", "category": "cybersecurity", "search_in_content": True},
+    {"name": "Krebs on Security", "url": "https://krebsonsecurity.com/feed/", "category": "cybersecurity", "search_in_content": True},
+    {"name": "The Hacker News", "url": "https://feeds.feedburner.com/TheHackersNews", "category": "cybersecurity", "search_in_content": True},
+    {"name": "Threatpost", "url": "https://threatpost.com/feed/", "category": "cybersecurity", "search_in_content": True},
+    {"name": "SC Media", "url": "https://www.scmagazine.com/feed", "category": "cybersecurity", "search_in_content": True},
+    {"name": "Security Week", "url": "https://feeds.feedburner.com/securityweek", "category": "cybersecurity", "search_in_content": True},
+]
+
+# Startups & Venture Capital
+STARTUP_FEEDS = [
+    {"name": "Crunchbase News", "url": "https://news.crunchbase.com/feed/", "category": "startups", "search_in_content": True},
+    {"name": "TechStartups", "url": "https://techstartups.com/feed/", "category": "startups", "search_in_content": True},
+    {"name": "EU-Startups", "url": "https://www.eu-startups.com/feed/", "category": "startups", "search_in_content": True},
+    {"name": "SaaStr", "url": "https://www.saastr.com/feed/", "category": "startups", "search_in_content": True},
+    {"name": "Both Sides of the Table", "url": "https://bothsidesofthetable.com/feed", "category": "startups", "search_in_content": True},
+]
+
+# Marketing & Advertising
+MARKETING_FEEDS = [
+    {"name": "AdAge", "url": "https://adage.com/rss/all", "category": "marketing", "search_in_content": True},
+    {"name": "Marketing Week", "url": "https://www.marketingweek.com/feed/", "category": "marketing", "search_in_content": True},
+    {"name": "Digiday", "url": "https://digiday.com/feed/", "category": "marketing", "search_in_content": True},
+    {"name": "MarTech", "url": "https://martech.org/feed/", "category": "marketing", "search_in_content": True},
+    {"name": "Social Media Today", "url": "https://www.socialmediatoday.com/rss.xml", "category": "marketing", "search_in_content": True},
+    {"name": "Content Marketing Institute", "url": "https://contentmarketinginstitute.com/feed/", "category": "marketing", "search_in_content": True},
+]
+
+# E-commerce & Retail
+ECOMMERCE_FEEDS = [
+    {"name": "Retail Dive", "url": "https://www.retaildive.com/feeds/news/", "category": "ecommerce", "search_in_content": True},
+    {"name": "Practical Ecommerce", "url": "https://www.practicalecommerce.com/feed", "category": "ecommerce", "search_in_content": True},
+    {"name": "eMarketer", "url": "https://www.insiderintelligence.com/rss/", "category": "ecommerce", "search_in_content": True},
+    {"name": "Digital Commerce 360", "url": "https://www.digitalcommerce360.com/feed/", "category": "ecommerce", "search_in_content": True},
+    {"name": "Modern Retail", "url": "https://www.modernretail.co/feed/", "category": "ecommerce", "search_in_content": True},
+]
+
+# Crypto & Blockchain
+CRYPTO_FEEDS = [
+    {"name": "CoinDesk", "url": "https://www.coindesk.com/arc/outboundfeeds/rss/", "category": "crypto", "search_in_content": True},
+    {"name": "The Block", "url": "https://www.theblock.co/rss.xml", "category": "crypto", "search_in_content": True},
+    {"name": "Decrypt", "url": "https://decrypt.co/feed", "category": "crypto", "search_in_content": True},
+    {"name": "Cointelegraph", "url": "https://cointelegraph.com/rss", "category": "crypto", "search_in_content": True},
+    {"name": "Bitcoin Magazine", "url": "https://bitcoinmagazine.com/feed", "category": "crypto", "search_in_content": True},
+]
+
+# Enterprise & SaaS
+ENTERPRISE_FEEDS = [
+    {"name": "Enterprise Times", "url": "https://www.enterprisetimes.co.uk/feed/", "category": "enterprise", "search_in_content": True},
+    {"name": "CIO", "url": "https://www.cio.com/index.rss", "category": "enterprise", "search_in_content": True},
+    {"name": "InfoWorld", "url": "https://www.infoworld.com/index.rss", "category": "enterprise", "search_in_content": True},
+    {"name": "ComputerWorld", "url": "https://www.computerworld.com/index.rss", "category": "enterprise", "search_in_content": True},
+    {"name": "TechTarget", "url": "https://www.techtarget.com/rss/", "category": "enterprise", "search_in_content": True},
+]
+
+# Legal & Compliance
+LEGAL_FEEDS = [
+    {"name": "Above the Law", "url": "https://abovethelaw.com/feed/", "category": "legal", "search_in_content": True},
+    {"name": "JD Supra", "url": "https://www.jdsupra.com/resources/syndication/", "category": "legal", "search_in_content": True},
+    {"name": "Lexology", "url": "https://www.lexology.com/rss/", "category": "legal", "search_in_content": True},
+]
+
+# Energy & Sustainability
+ENERGY_FEEDS = [
+    {"name": "GreenBiz", "url": "https://www.greenbiz.com/rss.xml", "category": "energy", "search_in_content": True},
+    {"name": "CleanTechnica", "url": "https://cleantechnica.com/feed/", "category": "energy", "search_in_content": True},
+    {"name": "Utility Dive", "url": "https://www.utilitydive.com/feeds/news/", "category": "energy", "search_in_content": True},
+    {"name": "Energy Monitor", "url": "https://www.energymonitor.ai/feed/", "category": "energy", "search_in_content": True},
+]
+
+# HR & Workforce
+HR_FEEDS = [
+    {"name": "HR Dive", "url": "https://www.hrdive.com/feeds/news/", "category": "hr", "search_in_content": True},
+    {"name": "SHRM", "url": "https://www.shrm.org/rss/pages/rss.aspx", "category": "hr", "search_in_content": True},
+    {"name": "HR Executive", "url": "https://hrexecutive.com/feed/", "category": "hr", "search_in_content": True},
+    {"name": "People Matters", "url": "https://www.peoplematters.in/rss", "category": "hr", "search_in_content": True},
+]
+
+# All feeds combined (60+ sources)
+ALL_RSS_FEEDS = (
+    GENERAL_NEWS_FEEDS + 
+    TECH_NEWS_FEEDS + 
+    BUSINESS_NEWS_FEEDS +
+    FINANCE_FEEDS +
+    HEALTHCARE_FEEDS +
+    AI_ML_FEEDS +
+    CYBERSECURITY_FEEDS +
+    STARTUP_FEEDS +
+    MARKETING_FEEDS +
+    ECOMMERCE_FEEDS +
+    CRYPTO_FEEDS +
+    ENTERPRISE_FEEDS +
+    LEGAL_FEEDS +
+    ENERGY_FEEDS +
+    HR_FEEDS
+)
+
+# Category metadata for UI
+FEED_CATEGORIES = {
+    "general": {"label": "General News", "color": "#6B7280", "count": len(GENERAL_NEWS_FEEDS)},
+    "tech": {"label": "Tech & Blogs", "color": "#8B5CF6", "count": len(TECH_NEWS_FEEDS)},
+    "business": {"label": "Business", "color": "#3B82F6", "count": len(BUSINESS_NEWS_FEEDS)},
+    "finance": {"label": "Finance & Fintech", "color": "#10B981", "count": len(FINANCE_FEEDS)},
+    "healthcare": {"label": "Healthcare & Biotech", "color": "#EF4444", "count": len(HEALTHCARE_FEEDS)},
+    "ai": {"label": "AI & Machine Learning", "color": "#F59E0B", "count": len(AI_ML_FEEDS)},
+    "cybersecurity": {"label": "Cybersecurity", "color": "#1F2937", "count": len(CYBERSECURITY_FEEDS)},
+    "startups": {"label": "Startups & VC", "color": "#EC4899", "count": len(STARTUP_FEEDS)},
+    "marketing": {"label": "Marketing & Ads", "color": "#14B8A6", "count": len(MARKETING_FEEDS)},
+    "ecommerce": {"label": "E-commerce & Retail", "color": "#F97316", "count": len(ECOMMERCE_FEEDS)},
+    "crypto": {"label": "Crypto & Blockchain", "color": "#6366F1", "count": len(CRYPTO_FEEDS)},
+    "enterprise": {"label": "Enterprise & SaaS", "color": "#0EA5E9", "count": len(ENTERPRISE_FEEDS)},
+    "legal": {"label": "Legal & Compliance", "color": "#78716C", "count": len(LEGAL_FEEDS)},
+    "energy": {"label": "Energy & Sustainability", "color": "#22C55E", "count": len(ENERGY_FEEDS)},
+    "hr": {"label": "HR & Workforce", "color": "#A855F7", "count": len(HR_FEEDS)},
+}
 
 
 class MLSentimentAnalyzer:

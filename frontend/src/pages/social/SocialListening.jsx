@@ -42,6 +42,18 @@ const SOURCE_CATEGORIES = {
   tech: { label: 'Tech', color: 'bg-purple-100 text-purple-700' },
   business: { label: 'Business', color: 'bg-blue-100 text-blue-700' },
   general: { label: 'General', color: 'bg-gray-100 text-gray-700' },
+  finance: { label: 'Finance', color: 'bg-emerald-100 text-emerald-700' },
+  healthcare: { label: 'Healthcare', color: 'bg-red-100 text-red-700' },
+  ai: { label: 'AI/ML', color: 'bg-amber-100 text-amber-700' },
+  cybersecurity: { label: 'Security', color: 'bg-slate-100 text-slate-700' },
+  startups: { label: 'Startups', color: 'bg-pink-100 text-pink-700' },
+  marketing: { label: 'Marketing', color: 'bg-teal-100 text-teal-700' },
+  ecommerce: { label: 'E-commerce', color: 'bg-orange-100 text-orange-700' },
+  crypto: { label: 'Crypto', color: 'bg-indigo-100 text-indigo-700' },
+  enterprise: { label: 'Enterprise', color: 'bg-sky-100 text-sky-700' },
+  legal: { label: 'Legal', color: 'bg-stone-100 text-stone-700' },
+  energy: { label: 'Energy', color: 'bg-lime-100 text-lime-700' },
+  hr: { label: 'HR', color: 'bg-violet-100 text-violet-700' },
 };
 
 const SENTIMENTS = {
@@ -618,35 +630,31 @@ export default function SocialListening() {
           {/* News Sources Breakdown */}
           {crawlerStatus?.news_sources && (
             <div className="bg-white border border-[#E8D5C4] rounded-xl p-4">
-              <h4 className="font-medium text-[#4A3728] mb-3">News Sources (16 Total)</h4>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <p className="text-xs font-medium text-gray-500 mb-2 uppercase">General News</p>
-                  <div className="space-y-1">
-                    {crawlerStatus.news_sources.general?.map(source => (
-                      <span key={source} className="block text-sm text-[#4A3728]">{source}</span>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-purple-500 mb-2 uppercase">Tech Blogs</p>
-                  <div className="space-y-1">
-                    {crawlerStatus.news_sources.tech?.slice(0, 5).map(source => (
-                      <span key={source} className="block text-sm text-[#4A3728]">{source}</span>
-                    ))}
-                    {crawlerStatus.news_sources.tech?.length > 5 && (
-                      <span className="text-xs text-[#8B7355]">+{crawlerStatus.news_sources.tech.length - 5} more</span>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-blue-500 mb-2 uppercase">Business</p>
-                  <div className="space-y-1">
-                    {crawlerStatus.news_sources.business?.map(source => (
-                      <span key={source} className="block text-sm text-[#4A3728]">{source}</span>
-                    ))}
-                  </div>
-                </div>
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="font-medium text-[#4A3728]">Industry-Specific News Sources</h4>
+                <span className="text-sm text-emerald-600 font-medium">
+                  {crawlerStatus.total_feed_count || 60}+ Sources
+                </span>
+              </div>
+              <div className="grid grid-cols-5 gap-4">
+                {Object.entries(crawlerStatus.news_sources || {}).map(([category, sources]) => {
+                  const catConfig = SOURCE_CATEGORIES[category] || { label: category, color: 'bg-gray-100 text-gray-700' };
+                  return (
+                    <div key={category} className="min-w-0">
+                      <p className={`text-[10px] font-medium mb-2 uppercase px-2 py-1 rounded ${catConfig.color}`}>
+                        {catConfig.label}
+                      </p>
+                      <div className="space-y-0.5">
+                        {sources?.slice(0, 3).map(source => (
+                          <span key={source} className="block text-xs text-[#4A3728] truncate">{source}</span>
+                        ))}
+                        {sources?.length > 3 && (
+                          <span className="text-[10px] text-[#8B7355]">+{sources.length - 3} more</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
