@@ -212,7 +212,6 @@ class CategoryCreate(BaseModel):
 
 
 class ProposalCreate(BaseModel):
-    requirement_id: str
     vendor_id: str
     amount: float
     currency: str = "INR"
