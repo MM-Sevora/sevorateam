@@ -1,3 +1,59 @@
+## March 12, 2026 - Navigation Restructure & Publications Pipeline ✅
+
+### Sidebar Navigation Restructure
+
+**What was changed:**
+Reorganized Marketing Ops sidebar to have dedicated sub-menus for Influencer and Publication management.
+
+**New Navigation Structure:**
+```
+Marketing Ops
+├── Insights & Analytics
+├── Influencer (expandable)
+│   ├── Database
+│   └── Pipeline
+├── Publication (expandable)
+│   ├── Database
+│   └── Pipeline
+├── Campaign Hub
+├── Digital Ads
+├── Creative Assets
+├── Content Production
+├── UGC Promotion
+├── Budget Management
+└── AI Tools
+```
+
+### Publications Pipeline (NEW)
+
+**Feature Implemented:**
+Kanban-style PR pipeline to track pitches to publications and journalists through various stages.
+
+**Pipeline Stages:**
+1. Pitched - Initial outreach sent
+2. Interested - Publication showed interest  
+3. Interview/Meeting - Scheduled call/meeting
+4. Content Review - Story under review
+5. Approved - Story approved for publication
+6. Published - Story published
+7. Declined - Pitch rejected
+
+**API Endpoints:**
+- `GET /api/marketing/v3/publications/pitches` - List all pitches
+- `POST /api/marketing/v3/publications/pitches` - Create new pitch
+- `PUT /api/marketing/v3/publications/pitches/{id}` - Update pitch
+- `DELETE /api/marketing/v3/publications/pitches/{id}` - Delete pitch
+
+**Frontend:**
+- `/marketing/publications/pipeline` - Pipeline board page
+- Stats: Total Pitches, Awaiting Response, In Progress, Published, Success Rate
+- New Pitch dialog with publication selection, pitch type, priority
+
+**Bug Fixed:**
+- Route ordering conflict between `/publications/pitches` and `/publications/{publication_id}` resolved by reordering router includes.
+
+---
+
 ## March 12, 2026 - Marketing Budget Management Module COMPLETE ✅
 
 ### Phase 3 - Budget Allocation & Tracking System

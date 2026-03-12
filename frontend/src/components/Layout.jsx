@@ -123,10 +123,25 @@ const DEPARTMENT_CONFIG = {
         requiredModule: 'marketing_ops',
         routes: [
             { path: '/marketing', name: 'Insights & Analytics', icon: BarChart3 },
-            { path: '/marketing/influencers', name: 'Influencers', icon: Users },
-            { path: '/marketing/publications', name: 'Publications', icon: Building2 },
+            { 
+                name: 'Influencer', 
+                icon: Users, 
+                isGroup: true, 
+                children: [
+                    { path: '/marketing/influencers', name: 'Database', icon: Database },
+                    { path: '/marketing/pipeline', name: 'Pipeline', icon: Briefcase },
+                ]
+            },
+            { 
+                name: 'Publication', 
+                icon: Building2, 
+                isGroup: true, 
+                children: [
+                    { path: '/marketing/publications', name: 'Database', icon: Database },
+                    { path: '/marketing/publications/pipeline', name: 'Pipeline', icon: Briefcase },
+                ]
+            },
             { path: '/marketing/campaigns', name: 'Campaign Hub', icon: Target },
-            { path: '/marketing/pipeline', name: 'Pipeline', icon: Briefcase },
             { path: '/marketing/ads', name: 'Digital Ads', icon: Megaphone },
             { path: '/marketing/assets', name: 'Creative Assets', icon: Image },
             { path: '/marketing/content', name: 'Content Production', icon: Cog },
@@ -311,7 +326,33 @@ export const Layout = ({ children }) => {
     const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [expandedDepts, setExpandedDepts] = useState(['analytics', 'goals', 'meetings', 'projects', 'tasks', 'marketing', 'sales', 'social', 'hr', 'sourcing', 'admin', 'systems']);
-    const [expandedSubgroups, setExpandedSubgroups] = useState([]);
+    
+    // Auto-expand subgroups based on current path
+    const getDefaultExpandedSubgroups = () => {
+        const path = location.pathname;
+        const groups = [];
+        
+        // Marketing Ops subgroups
+        if (path.includes('/marketing/influencers') || path.includes('/marketing/pipeline')) {
+            groups.push('marketing-Influencer');
+        }
+        if (path.includes('/marketing/publications')) {
+            groups.push('marketing-Publication');
+        }
+        
+        return groups;
+    };
+    
+    const [expandedSubgroups, setExpandedSubgroups] = useState(getDefaultExpandedSubgroups);
+
+    // Auto-expand subgroups when path changes
+    useEffect(() => {
+        const newGroups = getDefaultExpandedSubgroups();
+        setExpandedSubgroups(prev => {
+            const combined = [...new Set([...prev, ...newGroups])];
+            return combined;
+        });
+    }, [location.pathname]);
 
     const toggleDepartment = (dept) => {
         setExpandedDepts(prev => 

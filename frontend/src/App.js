@@ -44,6 +44,9 @@ import ContentPromotionPage from "./pages/marketing/ContentPromotionPage";
 // Marketing V3 Pages (Phase 3 - Budget Management)
 import BudgetManagementPage from "./pages/marketing/BudgetManagementPage";
 
+// Marketing V3 Pages - Publications Pipeline
+import PublicationsPipelinePage from "./pages/marketing/PublicationsPipelinePage";
+
 // Sales Pages
 import { SalesDashboard } from "./pages/sales/Dashboard";
 import { LeadsPage } from "./pages/sales/Leads";
@@ -392,6 +395,7 @@ function AppRoutes() {
             <Route path="/marketing/pr" element={<Navigate to="/marketing/publications" replace />} />
             {/* Publications (PR equivalent of Influencers) */}
             <Route path="/marketing/publications" element={<ProtectedRoute requiredModule="marketing_ops"><PublicationsListPage /></ProtectedRoute>} />
+            <Route path="/marketing/publications/pipeline" element={<ProtectedRoute requiredModule="marketing_ops"><PublicationsPipelinePage /></ProtectedRoute>} />
             <Route path="/marketing/publication/:publicationId" element={<ProtectedRoute requiredModule="marketing_ops"><PublicationDetailPage /></ProtectedRoute>} />
             {/* Unified Campaign Hub (List + Calendar + Timeline) */}
             <Route path="/marketing/campaigns" element={<ProtectedRoute requiredModule="marketing_ops"><CampaignHubPage /></ProtectedRoute>} />

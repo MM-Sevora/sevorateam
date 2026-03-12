@@ -41,9 +41,17 @@ from .content_promotion import router as promotion_router
 # Phase 3: Budget Management (NEW)
 from .budget_management import router as budget_router
 
+# Publications Pipeline (NEW)
+from .publications_pipeline import router as publications_pipeline_router
+
 # Include completed sub-routers
 marketing_modular_router.include_router(contacts_router)
+
+# Publications Pipeline MUST be included BEFORE publications_router
+# to avoid route conflicts (/publications/pitches vs /publications/{id})
+marketing_modular_router.include_router(publications_pipeline_router)
 marketing_modular_router.include_router(publications_router)
+
 marketing_modular_router.include_router(campaigns_router)
 marketing_modular_router.include_router(deals_router)
 
