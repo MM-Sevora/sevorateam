@@ -250,6 +250,7 @@ async def update_user_module_access(
     granted_modules: List[str],
     denied_modules: List[str] = [],
     sub_module_access: Dict[str, List[str]] = {},
+    module_permissions: Dict[str, dict] = {},
     user: dict = Depends(require_admin())
 ):
     """
@@ -257,6 +258,10 @@ async def update_user_module_access(
     - granted_modules: Modules to grant (in addition to role-based)
     - denied_modules: Modules to explicitly deny (overrides role-based)
     - sub_module_access: Dict of module_code -> list of allowed sub_module_codes
+    - module_permissions: Dict of module_code -> permission object with:
+        - create, read, update, delete (CRUD)
+        - data_scope: all | team | own_assigned | own_only
+        - can_edit_others, can_delete_others
     """
     target_user = await db.users.find_one({"id": user_id}, {"_id": 0})
     if not target_user:
@@ -278,6 +283,7 @@ async def update_user_module_access(
             "granted_modules": granted_modules,
             "denied_modules": denied_modules,
             "sub_module_access": sub_module_access,
+            "module_permissions": module_permissions,
             "updated_at": datetime.now(timezone.utc).isoformat(),
             "updated_by": user.get("id")
         }},
@@ -300,17 +306,24 @@ async def update_user_module_access(
     default_modules = get_default_modules()
     final_access.update(default_modules)
     
-    # Update user document with both module and sub-module access
+    # Update user document with module access, sub-module access, and permissions
     await db.users.update_one(
         {"id": user_id},
         {"$set": {
             "merged_module_access": list(final_access),
             "sub_module_access": sub_module_access,
+            "module_permissions": module_permissions,
             "updated_at": datetime.now(timezone.utc).isoformat()
         }}
     )
     
-    return {"success": True, "message": "User module access updated", "merged_access": list(final_access), "sub_module_access": sub_module_access}
+    return {
+        "success": True, 
+        "message": "User module access updated", 
+        "merged_access": list(final_access), 
+        "sub_module_access": sub_module_access,
+        "module_permissions": module_permissions
+    }
 
 
 # ============== DEPARTMENTS & TEAMS ==============

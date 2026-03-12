@@ -191,11 +191,27 @@ MODULE_DEFINITIONS = {
 
 # ============== MODULE PERMISSIONS ==============
 
+class DataScope(str, Enum):
+    """Data visibility scope for a module"""
+    ALL = "all"              # See all records
+    TEAM = "team"            # See team/department records
+    OWN_ASSIGNED = "own_assigned"  # See own + assigned records
+    OWN_ONLY = "own_only"    # See only own records
+
+
 class ModulePermissions(BaseModel):
+    # CRUD permissions (Dimension 1)
     create: bool = True
     read: bool = True
     update: bool = True
     delete: bool = True
+    
+    # Data scope (Dimension 3)
+    data_scope: str = "all"  # all | team | own_assigned | own_only
+    
+    # Others' data permissions (Dimension 2 - override for admins)
+    can_edit_others: bool = False   # Can edit data created by others
+    can_delete_others: bool = False  # Can delete data created by others
 
 
 # ============== CUSTOM ROLE MODELS ==============
