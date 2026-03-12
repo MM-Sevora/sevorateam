@@ -243,19 +243,20 @@ const BrandsPage = () => {
                 <TableHead>Stage</TableHead>
                 <TableHead>Contact</TableHead>
                 <TableHead>Score</TableHead>
+                <TableHead>Added by</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
+                  <TableCell colSpan={8} className="text-center py-8">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-600 mx-auto"></div>
                   </TableCell>
                 </TableRow>
               ) : brands.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={8} className="text-center py-8 text-gray-500">
                     No brands found. Add your first brand to get started.
                   </TableCell>
                 </TableRow>
@@ -289,6 +290,14 @@ const BrandsPage = () => {
                     <TableCell>
                       <div className={`font-medium ${brand.fit_score >= 70 ? 'text-green-600' : brand.fit_score >= 50 ? 'text-amber-600' : 'text-gray-500'}`}>
                         {brand.fit_score || '-'}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm text-gray-600">
+                        {brand.created_by_name || (brand.ai_discovered ? 'AI Discovery' : '-')}
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        {brand.created_at ? new Date(brand.created_at).toLocaleDateString() : ''}
                       </div>
                     </TableCell>
                     <TableCell className="text-right">

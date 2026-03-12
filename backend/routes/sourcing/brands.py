@@ -159,6 +159,15 @@ def create_brands_router(db, get_current_user: Callable):
             ]
         
         brands = await db.sourcing_brands.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(length=limit)
+        
+        # Populate creator names
+        user_ids = list(set([b.get("created_by") for b in brands if b.get("created_by")]))
+        if user_ids:
+            users = await db.users.find({"id": {"$in": user_ids}}, {"_id": 0, "id": 1, "name": 1}).to_list(100)
+            user_map = {u["id"]: u.get("name", "Unknown") for u in users}
+            for brand in brands:
+                brand["created_by_name"] = user_map.get(brand.get("created_by"), "Unknown")
+        
         return brands
 
     @router.get("/paginated")
@@ -190,6 +199,14 @@ def create_brands_router(db, get_current_user: Callable):
         skip = (page - 1) * page_size
         
         brands = await db.sourcing_brands.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(page_size).to_list(length=page_size)
+        
+        # Populate creator names
+        user_ids = list(set([b.get("created_by") for b in brands if b.get("created_by")]))
+        if user_ids:
+            users = await db.users.find({"id": {"$in": user_ids}}, {"_id": 0, "id": 1, "name": 1}).to_list(100)
+            user_map = {u["id"]: u.get("name", "Unknown") for u in users}
+            for brand in brands:
+                brand["created_by_name"] = user_map.get(brand.get("created_by"), "Unknown")
         
         return {
             "brands": brands,

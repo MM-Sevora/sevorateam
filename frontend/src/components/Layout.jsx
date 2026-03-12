@@ -122,14 +122,14 @@ const DEPARTMENT_CONFIG = {
         textColor: 'text-amber-800',
         requiredModule: 'marketing_ops',
         routes: [
-            { path: '/marketing', name: 'Insights & Analytics', icon: BarChart3 },
+            { path: '/marketing', name: 'Insights & Analytics', icon: BarChart3, subModuleCode: 'mkt_insights' },
             { 
                 name: 'Influencer', 
                 icon: Users, 
                 isGroup: true, 
                 children: [
-                    { path: '/marketing/influencers', name: 'Database', icon: Database },
-                    { path: '/marketing/pipeline', name: 'Pipeline', icon: Briefcase },
+                    { path: '/marketing/influencers', name: 'Database', icon: Database, subModuleCode: 'mkt_influencer_db' },
+                    { path: '/marketing/pipeline', name: 'Pipeline', icon: Briefcase, subModuleCode: 'mkt_influencer_pipeline' },
                 ]
             },
             { 
@@ -137,18 +137,18 @@ const DEPARTMENT_CONFIG = {
                 icon: Building2, 
                 isGroup: true, 
                 children: [
-                    { path: '/marketing/publications', name: 'Database', icon: Database },
-                    { path: '/marketing/publications/pipeline', name: 'Pipeline', icon: Briefcase },
+                    { path: '/marketing/publications', name: 'Database', icon: Database, subModuleCode: 'mkt_publication_db' },
+                    { path: '/marketing/publications/pipeline', name: 'Pipeline', icon: Briefcase, subModuleCode: 'mkt_publication_pipeline' },
                 ]
             },
-            { path: '/marketing/campaigns', name: 'Campaign Hub', icon: Target },
-            { path: '/marketing/ads', name: 'Digital Ads', icon: Megaphone },
-            { path: '/marketing/assets', name: 'Creative Assets', icon: Image },
-            { path: '/marketing/content', name: 'Content Production', icon: Cog },
-            { path: '/marketing/content-promotion', name: 'UGC Promotion', icon: Zap },
-            { path: '/marketing/budget-management', name: 'Budget Management', icon: DollarSign },
-            { path: '/marketing/ai-tools', name: 'AI Tools', icon: Sparkles },
-            { path: '/marketing/settings', name: 'Settings', icon: Settings },
+            { path: '/marketing/campaigns', name: 'Campaign Hub', icon: Target, subModuleCode: 'mkt_campaigns' },
+            { path: '/marketing/ads', name: 'Digital Ads', icon: Megaphone, subModuleCode: 'mkt_digital_ads' },
+            { path: '/marketing/assets', name: 'Creative Assets', icon: Image, subModuleCode: 'mkt_assets' },
+            { path: '/marketing/content', name: 'Content Production', icon: Cog, subModuleCode: 'mkt_content' },
+            { path: '/marketing/content-promotion', name: 'UGC Promotion', icon: Zap, subModuleCode: 'mkt_ugc' },
+            { path: '/marketing/budget-management', name: 'Budget Management', icon: DollarSign, subModuleCode: 'mkt_budget' },
+            { path: '/marketing/ai-tools', name: 'AI Tools', icon: Sparkles, subModuleCode: 'mkt_ai_tools' },
+            { path: '/marketing/settings', name: 'Settings', icon: Settings, subModuleCode: 'mkt_settings' },
         ]
     },
     sales: {
@@ -157,16 +157,16 @@ const DEPARTMENT_CONFIG = {
         color: 'from-stone-600 to-stone-700',
         bgColor: 'bg-stone-50',
         textColor: 'text-stone-700',
-        requiredModule: 'sales',  // NEW: Dedicated module
+        requiredModule: 'sales',
         routes: [
-            { path: '/sales', name: 'Dashboard', icon: LayoutDashboard },
-            { path: '/sales/leads', name: 'Leads', icon: UserPlus },
-            { path: '/sales/customers', name: 'Customers', icon: Users },
-            { path: '/sales/pipeline', name: 'Pipeline', icon: Target },
-            { path: '/sales/wedding-planner', name: 'Wedding Planner', icon: Calendar },
-            { path: '/sales/qrcodes', name: 'QR Codes', icon: QrCode },
-            { path: '/sales/partners', name: 'Partners', icon: Building2 },
-            { path: '/sales/analytics', name: 'Analytics', icon: BarChart3 },
+            { path: '/sales', name: 'Dashboard', icon: LayoutDashboard, subModuleCode: 'sales_dashboard' },
+            { path: '/sales/leads', name: 'Leads', icon: UserPlus, subModuleCode: 'sales_leads' },
+            { path: '/sales/customers', name: 'Customers', icon: Users, subModuleCode: 'sales_customers' },
+            { path: '/sales/pipeline', name: 'Pipeline', icon: Target, subModuleCode: 'sales_pipeline' },
+            { path: '/sales/wedding-planner', name: 'Wedding Planner', icon: Calendar, subModuleCode: 'sales_wedding' },
+            { path: '/sales/qrcodes', name: 'QR Codes', icon: QrCode, subModuleCode: 'sales_qr' },
+            { path: '/sales/partners', name: 'Partners', icon: Building2, subModuleCode: 'sales_partners' },
+            { path: '/sales/analytics', name: 'Analytics', icon: BarChart3, subModuleCode: 'sales_analytics' },
         ]
     },
     social: {
@@ -177,19 +177,19 @@ const DEPARTMENT_CONFIG = {
         textColor: 'text-rose-700',
         requiredModule: 'social',
         routes: [
-            { path: '/social', name: 'Dashboard & Analytics', icon: BarChart3 },
-            { path: '/social/inbox', name: 'Inbox', icon: MessageSquare },
-            { path: '/social/messages', name: 'Direct Messages', icon: Send },
-            { path: '/social/listening', name: 'Social Listening', icon: Search },
-            { path: '/social/integrations', name: 'Platform Integrations', icon: Plug },
-            { path: '/social/engagement', name: 'Engagement Tracker', icon: Activity },
-            { path: '/social/campaigns', name: 'Campaigns', icon: Target },
-            { path: '/social/studio', name: 'Content Studio', icon: PenTool },
-            { path: '/social/posts', name: 'Posts & Schedule', icon: Clock },
-            { path: '/social/queues', name: 'Posting Queues', icon: Calendar },
-            { path: '/social/auto-reply', name: 'Auto-Reply Rules', icon: Zap },
-            { path: '/social/workflows', name: 'Approval Workflows', icon: CheckCircle },
-            { path: '/social/library', name: 'Content Library', icon: Image },
+            { path: '/social', name: 'Dashboard & Analytics', icon: BarChart3, subModuleCode: 'social_dashboard' },
+            { path: '/social/inbox', name: 'Inbox', icon: MessageSquare, subModuleCode: 'social_inbox' },
+            { path: '/social/messages', name: 'Direct Messages', icon: Send, subModuleCode: 'social_dms' },
+            { path: '/social/listening', name: 'Social Listening', icon: Search, subModuleCode: 'social_listening' },
+            { path: '/social/integrations', name: 'Platform Integrations', icon: Plug, subModuleCode: 'social_integrations' },
+            { path: '/social/engagement', name: 'Engagement Tracker', icon: Activity, subModuleCode: 'social_engagement' },
+            { path: '/social/campaigns', name: 'Campaigns', icon: Target, subModuleCode: 'social_campaigns' },
+            { path: '/social/studio', name: 'Content Studio', icon: PenTool, subModuleCode: 'social_studio' },
+            { path: '/social/posts', name: 'Posts & Schedule', icon: Clock, subModuleCode: 'social_posts' },
+            { path: '/social/queues', name: 'Posting Queues', icon: Calendar, subModuleCode: 'social_queues' },
+            { path: '/social/auto-reply', name: 'Auto-Reply Rules', icon: Zap, subModuleCode: 'social_autoreply' },
+            { path: '/social/workflows', name: 'Approval Workflows', icon: CheckCircle, subModuleCode: 'social_workflows' },
+            { path: '/social/library', name: 'Content Library', icon: Image, subModuleCode: 'social_library' },
         ]
     },
     hr: {
@@ -198,9 +198,9 @@ const DEPARTMENT_CONFIG = {
         color: 'from-emerald-600 to-emerald-700',
         bgColor: 'bg-emerald-50',
         textColor: 'text-emerald-700',
-        requiredModule: 'expense',  // NEW: Dedicated expense module
+        requiredModule: 'expense',
         routes: [
-            { path: '/hr/expenses', name: 'Expenses & Reimbursement', icon: DollarSign },
+            { path: '/hr/expenses', name: 'Expenses & Reimbursement', icon: DollarSign, subModuleCode: 'hr_expenses' },
         ]
     },
     sourcing: {
@@ -209,16 +209,16 @@ const DEPARTMENT_CONFIG = {
         color: 'from-orange-600 to-orange-700',
         bgColor: 'bg-orange-50',
         textColor: 'text-orange-700',
-        requiredModule: 'sourcing',  // NEW: Dedicated module
+        requiredModule: 'sourcing',
         routes: [
-            { path: '/sourcing', name: 'Dashboard', icon: LayoutDashboard },
+            { path: '/sourcing', name: 'Dashboard', icon: LayoutDashboard, subModuleCode: 'src_dashboard' },
             { 
                 name: 'Brands', 
                 icon: Building2,
                 isGroup: true,
                 children: [
-                    { path: '/sourcing/brands', name: 'Database', icon: Database },
-                    { path: '/sourcing/brands/pipeline', name: 'Pipeline', icon: Target },
+                    { path: '/sourcing/brands', name: 'Database', icon: Database, subModuleCode: 'src_brands_db' },
+                    { path: '/sourcing/brands/pipeline', name: 'Pipeline', icon: Target, subModuleCode: 'src_brands_pipeline' },
                 ]
             },
             { 
@@ -226,8 +226,8 @@ const DEPARTMENT_CONFIG = {
                 icon: Package,
                 isGroup: true,
                 children: [
-                    { path: '/sourcing/suppliers', name: 'Database', icon: Database },
-                    { path: '/sourcing/suppliers/pipeline', name: 'Pipeline', icon: Target },
+                    { path: '/sourcing/suppliers', name: 'Database', icon: Database, subModuleCode: 'src_suppliers_db' },
+                    { path: '/sourcing/suppliers/pipeline', name: 'Pipeline', icon: Target, subModuleCode: 'src_suppliers_pipeline' },
                 ]
             },
             { 
@@ -235,15 +235,15 @@ const DEPARTMENT_CONFIG = {
                 icon: Factory,
                 isGroup: true,
                 children: [
-                    { path: '/sourcing/manufacturers', name: 'Database', icon: Database },
-                    { path: '/sourcing/manufacturers/pipeline', name: 'Pipeline', icon: Target },
-                    { path: '/sourcing/samples', name: 'Samples', icon: FlaskConical },
+                    { path: '/sourcing/manufacturers', name: 'Database', icon: Database, subModuleCode: 'src_mfg_db' },
+                    { path: '/sourcing/manufacturers/pipeline', name: 'Pipeline', icon: Target, subModuleCode: 'src_mfg_pipeline' },
+                    { path: '/sourcing/samples', name: 'Samples', icon: FlaskConical, subModuleCode: 'src_samples' },
                 ]
             },
-            { path: '/sourcing/discovery', name: 'AI Discovery', icon: Sparkles },
-            { path: '/sourcing/campaigns', name: 'Email Campaigns', icon: Mail },
-            { path: '/sourcing/calendar', name: 'Follow-up Calendar', icon: CalendarDays },
-            { path: '/sourcing/settings', name: 'Settings', icon: Settings },
+            { path: '/sourcing/discovery', name: 'AI Discovery', icon: Sparkles, subModuleCode: 'src_ai_discovery' },
+            { path: '/sourcing/campaigns', name: 'Email Campaigns', icon: Mail, subModuleCode: 'src_campaigns' },
+            { path: '/sourcing/calendar', name: 'Follow-up Calendar', icon: CalendarDays, subModuleCode: 'src_calendar' },
+            { path: '/sourcing/settings', name: 'Settings', icon: Settings, subModuleCode: 'src_settings' },
         ]
     },
     admin: {
@@ -611,7 +611,15 @@ export const Layout = ({ children }) => {
                                                         </button>
                                                         {isGroupExpanded && (
                                                             <div className="ml-4 pl-3 border-l border-[#D4BBA6]/50 space-y-1">
-                                                                {route.children.map(child => {
+                                                                {route.children
+                                                                    .filter(child => {
+                                                                        // Check sub-module access for children
+                                                                        if (child.subModuleCode && dept.requiredModule) {
+                                                                            return hasSubModuleAccess(dept.requiredModule, child.subModuleCode);
+                                                                        }
+                                                                        return true;
+                                                                    })
+                                                                    .map(child => {
                                                                     const ChildIcon = child.icon;
                                                                     const isChildActive = location.pathname === child.path;
                                                                     return (
