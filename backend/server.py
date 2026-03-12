@@ -571,6 +571,14 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
                 user['merged_module_access'] = []
                 user['custom_role_names'] = []
         
+        # Ensure sub_module_access is included (if not already in user doc)
+        if not user.get('sub_module_access'):
+            user_access = await db.user_module_access.find_one({"user_id": user_id}, {"_id": 0})
+            if user_access:
+                user['sub_module_access'] = user_access.get('sub_module_access', {})
+            else:
+                user['sub_module_access'] = {}
+        
         return user
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")

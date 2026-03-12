@@ -80,11 +80,11 @@ const DEPARTMENT_CONFIG = {
         textColor: 'text-violet-700',
         requiredModule: 'communication_hub',
         routes: [
-            { path: '/meetings', name: 'Meetings', icon: CalendarDays, requiredModule: 'meetings' },
-            { path: '/meetings/new', name: 'Schedule Meeting', icon: Plus, requiredModule: 'meetings' },
-            { path: '/teams/calendar', name: 'Teams Calendar', icon: Calendar },
-            { path: '/teams/chat', name: 'Teams Chat', icon: MessageSquare },
-            { path: '/mail/inbox', name: 'Inbox', icon: Mail, requiredModule: 'mail' },
+            { path: '/meetings', name: 'Meetings', icon: CalendarDays, subModuleCode: 'comm_meetings' },
+            { path: '/meetings/new', name: 'Schedule Meeting', icon: Plus, subModuleCode: 'comm_schedule' },
+            { path: '/teams/calendar', name: 'Teams Calendar', icon: Calendar, subModuleCode: 'comm_calendar' },
+            { path: '/teams/chat', name: 'Teams Chat', icon: MessageSquare, subModuleCode: 'comm_chat' },
+            { path: '/mail/inbox', name: 'Inbox', icon: Mail, subModuleCode: 'comm_inbox' },
         ]
     },
     projects: {
@@ -321,7 +321,7 @@ const ROLE_LABELS = {
 };
 
 export const Layout = ({ children }) => {
-    const { user, logout, hasAccessToDepartment, hasModuleAccess, api } = useAuth();
+    const { user, logout, hasAccessToDepartment, hasModuleAccess, hasSubModuleAccess, api } = useAuth();
     const location = useLocation();
     const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -515,8 +515,13 @@ export const Layout = ({ children }) => {
                                     <div className="ml-4 pl-4 border-l border-[#D4BBA6] space-y-1">
                                         {dept.routes
                                             .filter(route => {
-                                                if (route.requiredModule) {
-                                                    return hasModuleAccess(route.requiredModule);
+                                                // Check module-level access
+                                                if (route.requiredModule && !hasModuleAccess(route.requiredModule)) {
+                                                    return false;
+                                                }
+                                                // Check sub-module access if specified
+                                                if (route.subModuleCode && dept.requiredModule) {
+                                                    return hasSubModuleAccess(dept.requiredModule, route.subModuleCode);
                                                 }
                                                 return true;
                                             })

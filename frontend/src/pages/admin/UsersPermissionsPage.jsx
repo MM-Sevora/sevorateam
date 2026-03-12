@@ -457,7 +457,8 @@ const UsersPermissionsPage = () => {
       await api.put(`/access/users/${selectedUser.id}/roles`, { custom_role_ids: userPermForm.role_ids });
       await api.put(`/system-modules/user/${selectedUser.id}/access`, {
         granted_modules: userPermForm.module_access,
-        denied_modules: []
+        denied_modules: [],
+        sub_module_access: userPermForm.sub_module_access
       });
       toast.success('Permissions saved');
       setUserPanelOpen(false);

@@ -249,12 +249,14 @@ async def update_user_module_access(
     user_id: str,
     granted_modules: List[str],
     denied_modules: List[str] = [],
+    sub_module_access: Dict[str, List[str]] = {},
     user: dict = Depends(require_admin())
 ):
     """
     Update direct module access for a user.
     - granted_modules: Modules to grant (in addition to role-based)
     - denied_modules: Modules to explicitly deny (overrides role-based)
+    - sub_module_access: Dict of module_code -> list of allowed sub_module_codes
     """
     target_user = await db.users.find_one({"id": user_id}, {"_id": 0})
     if not target_user:
@@ -275,6 +277,7 @@ async def update_user_module_access(
             "user_id": user_id,
             "granted_modules": granted_modules,
             "denied_modules": denied_modules,
+            "sub_module_access": sub_module_access,
             "updated_at": datetime.now(timezone.utc).isoformat(),
             "updated_by": user.get("id")
         }},
@@ -297,16 +300,17 @@ async def update_user_module_access(
     default_modules = get_default_modules()
     final_access.update(default_modules)
     
-    # Update user document
+    # Update user document with both module and sub-module access
     await db.users.update_one(
         {"id": user_id},
         {"$set": {
             "merged_module_access": list(final_access),
+            "sub_module_access": sub_module_access,
             "updated_at": datetime.now(timezone.utc).isoformat()
         }}
     )
     
-    return {"success": True, "message": "User module access updated", "merged_access": list(final_access)}
+    return {"success": True, "message": "User module access updated", "merged_access": list(final_access), "sub_module_access": sub_module_access}
 
 
 # ============== DEPARTMENTS & TEAMS ==============

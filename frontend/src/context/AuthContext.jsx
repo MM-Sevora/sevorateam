@@ -255,6 +255,27 @@ export const AuthProvider = ({ children }) => {
         return false;
     };
 
+    // Check if user has access to a specific sub-module
+    const hasSubModuleAccess = (moduleKey, subModuleCode) => {
+        if (!user) return false;
+        
+        // Super admin always has access
+        if (user.role === 'super_admin') return true;
+        
+        // First check if user has access to the parent module
+        if (!hasModuleAccess(moduleKey)) return false;
+        
+        // If no sub_module_access defined, user has access to all sub-modules of granted modules
+        const subModuleAccess = user.sub_module_access || {};
+        if (!subModuleAccess[moduleKey] || subModuleAccess[moduleKey].length === 0) {
+            // No restrictions = access to all sub-modules
+            return true;
+        }
+        
+        // Check if specific sub-module is in the allowed list
+        return subModuleAccess[moduleKey].includes(subModuleCode);
+    };
+
     // Check if user has specific permission for a module action
     // Usage: hasPermission('marketing', 'influencers', 'create')
     const hasPermission = (department, module, action) => {
@@ -382,6 +403,7 @@ export const AuthProvider = ({ children }) => {
         logout,
         hasAccessToDepartment,
         hasModuleAccess,
+        hasSubModuleAccess,
         hasPermission,
         getUserDepartments,
         ROLE_DEPARTMENTS,
