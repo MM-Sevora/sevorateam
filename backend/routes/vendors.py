@@ -444,10 +444,21 @@ async def list_vendors(
 async def list_recurring_work(
     vendor_id: Optional[str] = None,
     department: Optional[str] = None,
+    status: Optional[str] = None,
     user: dict = Depends(get_current_user_dep)
 ):
     """List recurring vendor work"""
-    query = {"is_active": True}
+    query = {}
+    
+    # Status filter - default to showing active only, but allow 'all' or 'paused'
+    if status == "paused":
+        query["is_active"] = False
+    elif status == "all":
+        pass  # No filter on is_active
+    else:
+        # Default: show active only
+        query["is_active"] = True
+    
     if vendor_id:
         query["vendor_id"] = vendor_id
     if department:
@@ -455,7 +466,7 @@ async def list_recurring_work(
     
     recurring = await db.vendor_recurring.find(query, {"_id": 0}).sort("next_due_date", 1).to_list(50)
     
-    # Mark items due soon
+    # Mark items due soon and add execution count
     now = datetime.now(timezone.utc)
     for r in recurring:
         next_due_str = r.get("next_due_date", "")
@@ -470,8 +481,9 @@ async def list_recurring_work(
         except (ValueError, TypeError):
             days_until_due = 0
         r["days_until_due"] = days_until_due
-        r["is_overdue"] = days_until_due < 0
-        r["is_due_soon"] = 0 <= days_until_due <= 7
+        r["is_overdue"] = days_until_due < 0 and r.get("is_active", True)
+        r["is_due_soon"] = 0 <= days_until_due <= 7 and r.get("is_active", True)
+        r["executions"] = len(r.get("work_orders_created", []))
     
     return {"recurring_work": recurring}
 

@@ -48,7 +48,7 @@ const RecurringWork = () => {
     try {
       setLoading(true);
       const [schedulesRes, vendorsRes] = await Promise.all([
-        api.get('/vendors/recurring'),
+        api.get('/vendors/recurring?status=all'),
         api.get('/vendors')
       ]);
       setSchedules(schedulesRes.data.recurring_work || schedulesRes.data.recurring || []);
@@ -161,6 +161,7 @@ const RecurringWork = () => {
     if (filters.status) {
       if (filters.status === 'active') result = result.filter(s => s.is_active !== false);
       else if (filters.status === 'paused') result = result.filter(s => s.is_active === false);
+      else if (filters.status === 'overdue') result = result.filter(s => s.is_overdue === true);
     }
     if (filters.frequency) result = result.filter(s => s.frequency === filters.frequency);
     result.sort((a, b) => {
@@ -290,7 +291,7 @@ const RecurringWork = () => {
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="paused">Paused</SelectItem>
-                <SelectItem value="expired">Expired</SelectItem>
+                <SelectItem value="overdue">Overdue</SelectItem>
               </SelectContent>
             </Select>
             <Select value={filters.frequency || "all"} onValueChange={(v) => setFilters(f => ({...f, frequency: v === "all" ? "" : v}))}>
