@@ -2,6 +2,7 @@
 Marketing Routes - Unified Contacts Hub, Digital PR, Events, Content & Assets
 """
 
+import os
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from typing import List, Optional
 import uuid
@@ -1133,6 +1134,353 @@ async def get_influencer_growth_chart(
         "contact_name": contact.get("name"),
         **chart_data
     }
+
+
+# ============== INFLUENCER DISCOVERY & COMPARISON ==============
+
+@marketing_v2_router.get("/influencers/discover")
+async def discover_influencers(
+    niche: Optional[str] = Query(None, description="Industry/niche filter"),
+    tier: Optional[str] = Query(None, description="nano, micro, macro, mega, celebrity"),
+    min_followers: Optional[int] = Query(None, description="Minimum follower count"),
+    max_followers: Optional[int] = Query(None, description="Maximum follower count"),
+    min_engagement: Optional[float] = Query(None, description="Minimum engagement rate"),
+    platform: Optional[str] = Query(None, description="instagram, youtube"),
+    city: Optional[str] = Query(None, description="City filter"),
+    verified_only: bool = Query(False, description="Only show verified profiles"),
+    sort_by: str = Query("followers", description="followers, engagement_rate, score"),
+    limit: int = Query(20, le=100),
+    user: dict = Depends(get_marketing_auth())
+):
+    """
+    Discover influencers from your database with advanced filters.
+    Search by niche, tier, engagement rate, location, and more.
+    """
+    db = get_db()
+    
+    query = {"contact_type": "influencer"}
+    
+    if niche:
+        query["industry"] = {"$regex": niche, "$options": "i"}
+    
+    if tier:
+        query["tier"] = tier
+    
+    if min_followers:
+        query["followers"] = {"$gte": min_followers}
+    
+    if max_followers:
+        if "followers" in query:
+            query["followers"]["$lte"] = max_followers
+        else:
+            query["followers"] = {"$lte": max_followers}
+    
+    if min_engagement:
+        query["engagement_rate"] = {"$gte": min_engagement}
+    
+    if platform:
+        query["primary_platform"] = platform
+    
+    if city:
+        query["city"] = {"$regex": city, "$options": "i"}
+    
+    if verified_only:
+        query["$or"] = [
+            {"instagram_verified": True},
+            {"youtube_verified": True}
+        ]
+    
+    # Determine sort field
+    sort_field = "followers"
+    if sort_by == "engagement_rate":
+        sort_field = "engagement_rate"
+    elif sort_by == "score":
+        sort_field = "score"
+    
+    influencers = await db.contacts.find(
+        query,
+        {"_id": 0}
+    ).sort(sort_field, -1).limit(limit).to_list(limit)
+    
+    return {
+        "influencers": influencers,
+        "total": len(influencers),
+        "filters_applied": {
+            "niche": niche,
+            "tier": tier,
+            "min_followers": min_followers,
+            "max_followers": max_followers,
+            "min_engagement": min_engagement,
+            "platform": platform,
+            "city": city,
+            "verified_only": verified_only
+        }
+    }
+
+
+@marketing_v2_router.post("/influencers/ai-discover")
+async def ai_discover_influencers(
+    data: dict,
+    user: dict = Depends(get_marketing_auth())
+):
+    """
+    AI-powered influencer discovery using GPT.
+    Describe what you're looking for and get recommendations.
+    
+    Request body:
+    {
+        "query": "Find fashion influencers in Mumbai with high engagement for a luxury brand campaign",
+        "budget_range": "50000-100000",  # optional
+        "campaign_type": "product_launch"  # optional
+    }
+    """
+    db = get_db()
+    
+    user_query = data.get("query", "")
+    budget_range = data.get("budget_range")
+    campaign_type = data.get("campaign_type")
+    
+    if not user_query:
+        raise HTTPException(status_code=400, detail="Query is required")
+    
+    # Get existing influencers from database for context
+    all_influencers = await db.contacts.find(
+        {"contact_type": "influencer"},
+        {"_id": 0, "id": 1, "name": 1, "instagram_handle": 1, "youtube_handle": 1,
+         "followers": 1, "engagement_rate": 1, "tier": 1, "industry": 1, "city": 1,
+         "rate_per_post": 1, "rate_per_reel": 1, "bio": 1, "style_tags": 1,
+         "audience_age_18_24": 1, "audience_age_25_34": 1, "audience_gender_female": 1}
+    ).limit(100).to_list(100)
+    
+    # Build context for AI
+    influencer_context = "\n".join([
+        f"- {inf.get('name')} (@{inf.get('instagram_handle') or inf.get('youtube_handle')}): "
+        f"{inf.get('followers', 0):,} followers, {inf.get('engagement_rate', 0)}% engagement, "
+        f"Tier: {inf.get('tier')}, Industry: {inf.get('industry')}, City: {inf.get('city')}, "
+        f"Rate: ₹{inf.get('rate_per_post', 'N/A')}/post"
+        for inf in all_influencers[:50]
+    ])
+    
+    prompt = f"""You are an influencer marketing expert. Based on the following database of influencers, recommend the best matches for this query:
+
+USER QUERY: {user_query}
+{f"BUDGET RANGE: ₹{budget_range}" if budget_range else ""}
+{f"CAMPAIGN TYPE: {campaign_type}" if campaign_type else ""}
+
+AVAILABLE INFLUENCERS:
+{influencer_context}
+
+Please recommend 5-10 influencers that best match the query. For each recommendation, explain:
+1. Why they're a good fit
+2. Their key strengths
+3. Estimated cost if available
+4. Any potential concerns
+
+Format your response as JSON with this structure:
+{{
+    "recommendations": [
+        {{
+            "name": "Influencer Name",
+            "handle": "@handle",
+            "match_score": 85,
+            "reasoning": "Why they're recommended",
+            "strengths": ["strength1", "strength2"],
+            "estimated_cost": "₹X-Y per post",
+            "concerns": ["any concerns"]
+        }}
+    ],
+    "search_insights": "Overall insights about the search",
+    "alternative_suggestions": "Any suggestions for broadening or refining the search"
+}}
+"""
+    
+    try:
+        # Use OpenAI for AI discovery
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        
+        chat = LlmChat(
+            api_key=os.environ.get("EMERGENT_LLM_KEY"),
+            session_id=f"influencer-discovery-{datetime.now().timestamp()}",
+            system_message="You are an influencer marketing expert. Return responses as valid JSON."
+        ).with_model("openai", "gpt-4o")
+        
+        message = UserMessage(text=prompt)
+        response = await chat.send_message(message)
+        
+        import json
+        # Try to parse JSON from response
+        response_text = response.strip() if isinstance(response, str) else str(response)
+        
+        # Clean up markdown code blocks
+        if response_text.startswith("```"):
+            response_text = response_text.split("```")[1]
+            if response_text.startswith("json"):
+                response_text = response_text[4:]
+        response_text = response_text.strip()
+        
+        # Find JSON in response
+        json_start = response_text.find('{')
+        json_end = response_text.rfind('}') + 1
+        if json_start >= 0 and json_end > json_start:
+            result = json.loads(response_text[json_start:json_end])
+        else:
+            result = {"recommendations": [], "search_insights": response_text}
+        
+        # Enrich with actual influencer IDs
+        for rec in result.get("recommendations", []):
+            handle = rec.get("handle", "").replace("@", "")
+            matching = next(
+                (inf for inf in all_influencers 
+                 if inf.get("instagram_handle") == handle or inf.get("youtube_handle") == handle),
+                None
+            )
+            if matching:
+                rec["influencer_id"] = matching.get("id")
+                rec["followers"] = matching.get("followers")
+                rec["engagement_rate"] = matching.get("engagement_rate")
+        
+        return {
+            "success": True,
+            "query": user_query,
+            **result
+        }
+        
+    except Exception as e:
+        logger.error(f"AI discovery error: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "fallback_results": all_influencers[:10]
+        }
+
+
+@marketing_v2_router.post("/influencers/compare")
+async def compare_influencers(
+    data: dict,
+    user: dict = Depends(get_marketing_auth())
+):
+    """
+    Compare multiple influencers side-by-side.
+    
+    Request body:
+    {
+        "influencer_ids": ["id1", "id2", "id3"]
+    }
+    """
+    db = get_db()
+    
+    influencer_ids = data.get("influencer_ids", [])
+    
+    if not influencer_ids or len(influencer_ids) < 2:
+        raise HTTPException(status_code=400, detail="At least 2 influencer IDs required")
+    
+    if len(influencer_ids) > 10:
+        raise HTTPException(status_code=400, detail="Maximum 10 influencers can be compared")
+    
+    influencers = await db.contacts.find(
+        {"id": {"$in": influencer_ids}, "contact_type": "influencer"},
+        {"_id": 0}
+    ).to_list(len(influencer_ids))
+    
+    if len(influencers) < 2:
+        raise HTTPException(status_code=404, detail="Not enough influencers found")
+    
+    # Calculate comparison metrics
+    comparison = {
+        "influencers": [],
+        "metrics_comparison": {
+            "followers": {},
+            "engagement_rate": {},
+            "estimated_reach": {},
+            "cost_per_follower": {}
+        },
+        "winner_by_metric": {},
+        "overall_recommendation": None
+    }
+    
+    max_followers = 0
+    max_engagement = 0
+    best_value = None
+    best_value_score = float('inf')
+    
+    for inf in influencers:
+        inf_id = inf.get("id")
+        followers = inf.get("followers", 0)
+        engagement = inf.get("engagement_rate", 0)
+        rate = inf.get("rate_per_post", 0) or 0
+        
+        # Calculate cost per 1000 followers
+        cost_per_k = (rate / followers * 1000) if followers > 0 and rate > 0 else None
+        
+        # Calculate estimated reach (followers * engagement rate)
+        estimated_reach = int(followers * (engagement / 100)) if engagement > 0 else 0
+        
+        comparison["influencers"].append({
+            "id": inf_id,
+            "name": inf.get("name"),
+            "handle": inf.get("instagram_handle") or inf.get("youtube_handle"),
+            "platform": inf.get("primary_platform"),
+            "tier": inf.get("tier"),
+            "followers": followers,
+            "engagement_rate": engagement,
+            "estimated_reach": estimated_reach,
+            "rate_per_post": rate,
+            "cost_per_1k_followers": round(cost_per_k, 2) if cost_per_k else None,
+            "industry": inf.get("industry"),
+            "city": inf.get("city"),
+            "audience_demographics": {
+                "age_18_24": inf.get("audience_age_18_24"),
+                "age_25_34": inf.get("audience_age_25_34"),
+                "gender_female": inf.get("audience_gender_female"),
+                "top_locations": inf.get("audience_top_locations")
+            },
+            "verified": inf.get("instagram_verified") or inf.get("youtube_verified", False)
+        })
+        
+        comparison["metrics_comparison"]["followers"][inf_id] = followers
+        comparison["metrics_comparison"]["engagement_rate"][inf_id] = engagement
+        comparison["metrics_comparison"]["estimated_reach"][inf_id] = estimated_reach
+        comparison["metrics_comparison"]["cost_per_follower"][inf_id] = cost_per_k
+        
+        # Track winners
+        if followers > max_followers:
+            max_followers = followers
+            comparison["winner_by_metric"]["followers"] = inf_id
+        
+        if engagement > max_engagement:
+            max_engagement = engagement
+            comparison["winner_by_metric"]["engagement_rate"] = inf_id
+        
+        # Best value = lowest cost per 1000 followers
+        if cost_per_k and cost_per_k < best_value_score:
+            best_value_score = cost_per_k
+            best_value = inf_id
+    
+    if best_value:
+        comparison["winner_by_metric"]["best_value"] = best_value
+    
+    # Calculate radar chart data (normalized 0-100)
+    max_vals = {
+        "followers": max(inf.get("followers", 0) for inf in influencers) or 1,
+        "engagement": max(inf.get("engagement_rate", 0) for inf in influencers) or 1,
+        "reach": max(comparison["metrics_comparison"]["estimated_reach"].values()) or 1
+    }
+    
+    comparison["radar_chart_data"] = []
+    for inf in comparison["influencers"]:
+        comparison["radar_chart_data"].append({
+            "id": inf["id"],
+            "name": inf["name"],
+            "data": {
+                "followers": round(inf["followers"] / max_vals["followers"] * 100),
+                "engagement": round(inf["engagement_rate"] / max_vals["engagement"] * 100),
+                "reach": round(inf["estimated_reach"] / max_vals["reach"] * 100),
+                "value": round(100 - (inf["cost_per_1k_followers"] or 100) / (best_value_score or 1) * 10) if inf["cost_per_1k_followers"] else 50
+            }
+        })
+    
+    return comparison
+
 
 @marketing_v2_router.get("/publications", response_model=List[PublicationResponse])
 async def get_publications(

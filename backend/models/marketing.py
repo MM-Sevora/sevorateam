@@ -128,6 +128,24 @@ class ContactUpdate(BaseModel):
     avg_likes: Optional[int] = None
     avg_comments: Optional[int] = None
     
+    # Audience Demographics (manual entry)
+    audience_age_13_17: Optional[float] = None  # percentage
+    audience_age_18_24: Optional[float] = None
+    audience_age_25_34: Optional[float] = None
+    audience_age_35_44: Optional[float] = None
+    audience_age_45_plus: Optional[float] = None
+    audience_gender_male: Optional[float] = None  # percentage
+    audience_gender_female: Optional[float] = None
+    audience_top_locations: Optional[List[str]] = None  # e.g., ["Mumbai 25%", "Delhi 18%"]
+    audience_interests: Optional[List[str]] = None  # e.g., ["Fashion", "Beauty", "Lifestyle"]
+    
+    # Content Performance Metrics
+    avg_reel_views: Optional[int] = None
+    avg_story_views: Optional[int] = None
+    posting_frequency: Optional[str] = None  # e.g., "3x per week"
+    best_posting_time: Optional[str] = None  # e.g., "6-9 PM IST"
+    content_style: Optional[List[str]] = None  # e.g., ["UGC", "Product Reviews", "Tutorials"]
+    
     # Deliverables / Rate cards
     deliverables: Optional[List[dict]] = None
     

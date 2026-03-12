@@ -1,3 +1,52 @@
+## March 12, 2026 - Influencer Discovery & Demographics COMPLETE ✅
+
+### Enhanced Influencer API Features
+
+**1. Manual Audience Demographics Fields Added:**
+- Age brackets: 13-17, 18-24, 25-34, 35-44, 45+
+- Gender split: Male %, Female %
+- Top locations (array)
+- Audience interests (array)
+- Content performance: avg_reel_views, avg_story_views
+- Posting frequency, best posting time, content style
+
+**2. Influencer Discovery Endpoint** (`GET /api/marketing/v2/influencers/discover`)
+- Filter by: niche, tier, followers range, engagement rate, platform, city
+- Sort by: followers, engagement_rate, score
+- Verified-only filter
+
+**3. AI-Powered Discovery** (`POST /api/marketing/v2/influencers/ai-discover`)
+- Natural language queries: "Find fashion influencers in Mumbai with high engagement"
+- Budget-aware recommendations
+- Returns: match_score, reasoning, strengths, concerns
+- Uses GPT-4o via Emergent LLM
+
+**4. Competitor Comparison** (`POST /api/marketing/v2/influencers/compare`)
+- Compare 2-10 influencers side-by-side
+- Metrics: followers, engagement, estimated reach, cost per 1K followers
+- Winner by metric tracking
+- Radar chart data for visualization
+- Audience demographics comparison
+
+### Instagram Token Refresh
+- Exchanged short-lived token → 60-day long-lived token
+- Configured META_APP_ID and META_APP_SECRET for auto-refresh
+- Token expires: ~May 11, 2026
+
+### Files Modified:
+- `/app/backend/models/marketing.py` - Added demographics fields
+- `/app/backend/routes/marketing_v2.py` - Added 3 new endpoints (~350 lines)
+- `/app/backend/.env` - Added Meta App credentials
+
+### Testing:
+- Discovery endpoint: ✅ Working
+- AI Discovery: ✅ Working (3 recommendations returned)
+- Comparison: ✅ Working (side-by-side metrics)
+- Instagram fetch: ✅ Working (287 followers for shopsevora)
+
+---
+
+
 ## March 12, 2026 - Influencer Metrics Enhancement COMPLETE ✅
 
 ### Full Influencer Data Management Suite
