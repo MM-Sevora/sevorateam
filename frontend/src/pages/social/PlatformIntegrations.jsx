@@ -82,6 +82,10 @@ export default function PlatformIntegrations() {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [publishing, setPublishing] = useState(false);
+    
+    // Token status state
+    const [tokenStatus, setTokenStatus] = useState(null);
+    const [refreshingToken, setRefreshingToken] = useState(null);
 
     // Publish dialog state
     const [showPublishDialog, setShowPublishDialog] = useState(false);
@@ -109,23 +113,50 @@ export default function PlatformIntegrations() {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [platformsRes, connectionsRes, historyRes, statsRes] = await Promise.all([
+            const [platformsRes, connectionsRes, historyRes, statsRes, tokenStatusRes] = await Promise.all([
                 api.get('/social/integrations/platforms'),
                 api.get('/social/integrations/connections'),
                 api.get('/social/integrations/history?limit=20'),
                 api.get('/social/integrations/stats'),
+                api.get('/social/integrations/tokens/status').catch(() => ({ data: null })),
             ]);
 
             setPlatforms(platformsRes.data.platforms || []);
             setConnections(connectionsRes.data.connections || []);
             setHistory(historyRes.data.history || []);
             setStats(statsRes.data);
+            setTokenStatus(tokenStatusRes.data);
         } catch (error) {
             console.error('Failed to fetch integration data:', error);
             toast.error('Failed to load integration data');
         } finally {
             setLoading(false);
         }
+    };
+    
+    const handleRefreshToken = async (platform) => {
+        setRefreshingToken(platform);
+        try {
+            const response = await api.post(`/social/integrations/tokens/${platform}/refresh`);
+            if (response.data.success) {
+                toast.success(`${platform} token refreshed successfully! Valid for 60 days.`);
+                fetchData(); // Refresh all data
+            } else {
+                toast.error(response.data.error || 'Failed to refresh token');
+            }
+        } catch (error) {
+            const errorMsg = error.response?.data?.detail || 'Failed to refresh token';
+            toast.error(errorMsg);
+        } finally {
+            setRefreshingToken(null);
+        }
+    };
+    
+    const getTokenWarning = (platformId) => {
+        if (!tokenStatus?.platforms) return null;
+        const status = tokenStatus.platforms[platformId];
+        if (!status) return null;
+        return status;
     };
 
     const handleConnect = async (platform) => {
@@ -384,6 +415,29 @@ export default function PlatformIntegrations() {
 
                 {/* Connections Tab */}
                 <TabsContent value="connections">
+                    {/* Token Expiry Alert Banner */}
+                    {tokenStatus?.summary?.needs_attention && (
+                        <Card className="mb-4 border-red-200 bg-red-50">
+                            <CardContent className="p-4">
+                                <div className="flex items-start gap-3">
+                                    <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+                                    <div className="flex-1">
+                                        <h3 className="font-medium text-red-800">Token Expiry Warning</h3>
+                                        <p className="text-sm text-red-700 mt-1">
+                                            {tokenStatus.summary.critical_expiry > 0 && (
+                                                <span className="font-semibold">{tokenStatus.summary.critical_expiry} token(s) expiring soon! </span>
+                                            )}
+                                            {tokenStatus.summary.warning_expiry > 0 && (
+                                                <span>{tokenStatus.summary.warning_expiry} token(s) need attention. </span>
+                                            )}
+                                            Refresh tokens below to maintain connectivity.
+                                        </p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+                    
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {platforms.map(platform => {
                             const PlatformIcon = PLATFORM_ICONS[platform.id] || Globe;
@@ -391,11 +445,13 @@ export default function PlatformIntegrations() {
                             const connInfo = getConnectionInfo(platform.id);
                             const isConnected = status === 'connected';
                             const isTesting = testingPlatform === platform.id;
+                            const tokenWarning = getTokenWarning(platform.id);
+                            const isRefreshing = refreshingToken === platform.id;
 
                             return (
                                 <Card 
                                     key={platform.id}
-                                    className={`relative overflow-hidden ${isConnected ? 'ring-2 ring-green-500/20' : ''}`}
+                                    className={`relative overflow-hidden ${isConnected ? 'ring-2 ring-green-500/20' : ''} ${tokenWarning?.warning_level === 'critical' ? 'ring-2 ring-red-500/40' : ''}`}
                                     data-testid={`platform-card-${platform.id}`}
                                 >
                                     {/* Color bar */}
@@ -434,6 +490,48 @@ export default function PlatformIntegrations() {
                                     </CardHeader>
 
                                     <CardContent className="space-y-4">
+                                        {/* Token Expiry Warning */}
+                                        {isConnected && tokenWarning && (tokenWarning.warning_level === 'critical' || tokenWarning.warning_level === 'warning') && (
+                                            <div className={`p-2 rounded-lg flex items-center gap-2 ${
+                                                tokenWarning.warning_level === 'critical' 
+                                                    ? 'bg-red-50 border border-red-200' 
+                                                    : 'bg-amber-50 border border-amber-200'
+                                            }`}>
+                                                <Clock className={`w-4 h-4 ${
+                                                    tokenWarning.warning_level === 'critical' ? 'text-red-600' : 'text-amber-600'
+                                                }`} />
+                                                <div className="flex-1">
+                                                    <p className={`text-xs font-medium ${
+                                                        tokenWarning.warning_level === 'critical' ? 'text-red-700' : 'text-amber-700'
+                                                    }`}>
+                                                        {tokenWarning.is_expired 
+                                                            ? 'Token Expired!' 
+                                                            : `Expires in ${tokenWarning.days_remaining} day${tokenWarning.days_remaining !== 1 ? 's' : ''}`
+                                                        }
+                                                    </p>
+                                                </div>
+                                                {tokenWarning.can_refresh && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className={`h-6 text-xs ${
+                                                            tokenWarning.warning_level === 'critical' 
+                                                                ? 'border-red-300 text-red-700 hover:bg-red-100' 
+                                                                : 'border-amber-300 text-amber-700 hover:bg-amber-100'
+                                                        }`}
+                                                        onClick={() => handleRefreshToken(platform.id)}
+                                                        disabled={isRefreshing}
+                                                    >
+                                                        {isRefreshing ? (
+                                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                                        ) : (
+                                                            <><RefreshCw className="w-3 h-3 mr-1" /> Refresh</>
+                                                        )}
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        )}
+                                        
                                         {/* Account Info */}
                                         {isConnected && connInfo?.account_name && (
                                             <div className="p-3 rounded-lg bg-gray-50">
@@ -475,6 +573,13 @@ export default function PlatformIntegrations() {
                                                             <p className="text-[10px] text-gray-500">Views</p>
                                                         </div>
                                                     </div>
+                                                )}
+                                                {/* Token Expiry Info (for OK status) */}
+                                                {tokenWarning?.days_remaining && tokenWarning.warning_level === 'ok' && (
+                                                    <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
+                                                        <CheckCircle2 className="w-3 h-3" />
+                                                        Token valid for {tokenWarning.days_remaining} days
+                                                    </p>
                                                 )}
                                                 {connInfo.connected_at && (
                                                     <p className="text-xs text-gray-500 mt-2">

@@ -1866,8 +1866,120 @@ async def upload_video_to_youtube(
     return result
 
 
+# ============== TOKEN MANAGEMENT ENDPOINTS ==============
 
-@router.post("/publish")
+@router.get("/tokens/status")
+async def get_all_tokens_status(user: dict = Depends(get_current_user)):
+    """
+    Get token expiry status for all connected platforms.
+    Returns warning levels: critical (<=3 days), warning (<=7 days), caution (<=14 days), ok
+    """
+    from services.token_manager import TokenManagerService
+    
+    async with TokenManagerService(db) as manager:
+        return await manager.get_all_token_status()
+
+
+@router.get("/tokens/{platform}/status")
+async def get_platform_token_status(
+    platform: str,
+    user: dict = Depends(get_current_user)
+):
+    """Get token status for a specific platform"""
+    from services.token_manager import TokenManagerService
+    
+    async with TokenManagerService(db) as manager:
+        all_status = await manager.get_all_token_status()
+        platform_status = all_status.get("platforms", {}).get(platform)
+        
+        if not platform_status:
+            return {
+                "platform": platform,
+                "connected": False,
+                "message": f"{platform} not connected"
+            }
+        
+        return {
+            "platform": platform,
+            "connected": True,
+            **platform_status
+        }
+
+
+@router.post("/tokens/{platform}/refresh")
+async def refresh_platform_token(
+    platform: str,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Refresh OAuth token for a platform.
+    Currently supports: instagram, facebook (Meta tokens)
+    
+    Meta tokens can be refreshed before expiry to extend validity by 60 days.
+    Requires META_APP_ID and META_APP_SECRET in .env
+    """
+    from services.token_manager import TokenManagerService
+    
+    if platform not in ["instagram", "facebook"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Token refresh not supported for {platform}. Only Meta platforms (instagram, facebook) support token refresh."
+        )
+    
+    async with TokenManagerService(db) as manager:
+        result = await manager.refresh_platform_token(platform)
+        
+        if not result.get("success"):
+            raise HTTPException(
+                status_code=400,
+                detail=result.get("error", "Token refresh failed")
+            )
+        
+        return result
+
+
+@router.post("/tokens/{platform}/validate")
+async def validate_platform_token(
+    platform: str,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Validate a platform's access token and get its details.
+    Returns validity, scopes, expiry date, and days remaining.
+    """
+    from services.token_manager import TokenManagerService
+    
+    # Get the token
+    if platform == "instagram":
+        token = os.environ.get("INSTAGRAM_ACCESS_TOKEN")
+    elif platform == "facebook":
+        token = os.environ.get("FACEBOOK_PAGE_ACCESS_TOKEN")
+    else:
+        # Try database
+        if db is not None:
+            conn = await db.social_platform_connections.find_one(
+                {"platform": platform, "status": "connected"}
+            )
+            token = conn.get("access_token") if conn else None
+        else:
+            token = None
+    
+    if not token:
+        return {
+            "platform": platform,
+            "valid": False,
+            "error": f"No token found for {platform}"
+        }
+    
+    async with TokenManagerService(db) as manager:
+        result = await manager.check_token_validity(token)
+        return {
+            "platform": platform,
+            **result
+        }
+
+
+
 async def publish_to_platform(
     request: PublishRequest,
     background_tasks: BackgroundTasks,
