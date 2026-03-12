@@ -298,33 +298,127 @@ const VendorDetails = () => {
         {/* Work Orders Tab */}
         <TabsContent value="work-orders" className="mt-4">
           {vendor.work_orders?.length > 0 ? (
-            <div className="space-y-3">
-              {vendor.work_orders.map((wo) => (
-                <Card key={wo.id} className="bg-white border-[#E8D5C4] hover:shadow-sm transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-[#4A3728]">{wo.work_order_id}</span>
-                          {getWorkOrderStatusBadge(wo.status)}
-                        </div>
-                        <p className="text-sm text-[#8B7355] line-clamp-1">{wo.work_description}</p>
-                        <p className="text-xs text-[#8B7355] mt-1">
-                          {wo.department} • Created: {formatDate(wo.created_at)}
-                        </p>
-                      </div>
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        onClick={() => navigate(`/vendors/work-orders`)}
-                        className="text-[#8B7355]"
-                      >
-                        View <ExternalLink className="w-3 h-3 ml-1" />
-                      </Button>
+            <div className="space-y-4">
+              {/* Summary Card */}
+              <Card className="bg-gradient-to-r from-[#4A3728] to-[#5D4A3A] border-0">
+                <CardContent className="p-4">
+                  <div className="grid grid-cols-4 gap-4 text-white">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold">{vendor.work_orders.length}</p>
+                      <p className="text-xs text-white/70">Total Orders</p>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    <div className="text-center">
+                      <p className="text-2xl font-bold">
+                        {formatCurrency(vendor.work_orders.reduce((sum, wo) => sum + (wo.agreed_amount || 0), 0))}
+                      </p>
+                      <p className="text-xs text-white/70">Total Order Value</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-emerald-300">
+                        {formatCurrency(vendor.work_orders.reduce((sum, wo) => {
+                          const paid = wo.payments?.filter(p => p.status === 'paid').reduce((s, p) => s + (p.amount || 0), 0) || 0;
+                          return sum + paid;
+                        }, 0))}
+                      </p>
+                      <p className="text-xs text-white/70">Total Paid</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-amber-300">
+                        {formatCurrency(vendor.work_orders.reduce((sum, wo) => {
+                          const paid = wo.payments?.filter(p => p.status === 'paid').reduce((s, p) => s + (p.amount || 0), 0) || 0;
+                          return sum + ((wo.agreed_amount || 0) - paid);
+                        }, 0))}
+                      </p>
+                      <p className="text-xs text-white/70">Pending</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Work Orders List */}
+              {vendor.work_orders.map((wo) => {
+                const totalPaid = wo.payments?.filter(p => p.status === 'paid').reduce((s, p) => s + (p.amount || 0), 0) || 0;
+                const totalPending = wo.payments?.filter(p => p.status === 'pending').reduce((s, p) => s + (p.amount || 0), 0) || 0;
+                const orderAmount = wo.agreed_amount || 0;
+                const remaining = orderAmount - totalPaid;
+
+                return (
+                  <Card key={wo.id} className="bg-white border-[#E8D5C4] hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                        {/* Order Info */}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
+                            <span className="font-semibold text-[#4A3728]">{wo.work_order_id}</span>
+                            {getWorkOrderStatusBadge(wo.status)}
+                            {wo.payments?.length > 0 && (
+                              <Badge variant="outline" className="border-blue-300 text-blue-600">
+                                {wo.payments.length} payment{wo.payments.length > 1 ? 's' : ''}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-[#8B7355] mb-1">{wo.work_description}</p>
+                          <p className="text-xs text-[#8B7355]">
+                            {wo.department} • Created: {formatDate(wo.created_at)}
+                          </p>
+                        </div>
+
+                        {/* Amount Summary */}
+                        <div className="flex flex-col gap-2 min-w-[200px]">
+                          <div className="grid grid-cols-3 gap-2 p-3 bg-[#F5EDE5] rounded-lg text-center">
+                            <div>
+                              <p className="text-xs text-[#8B7355]">Order</p>
+                              <p className="font-bold text-[#4A3728]">{formatCurrency(orderAmount)}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-emerald-600">Paid</p>
+                              <p className="font-bold text-emerald-600">{formatCurrency(totalPaid)}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-amber-600">Balance</p>
+                              <p className="font-bold text-amber-600">{formatCurrency(remaining > 0 ? remaining : 0)}</p>
+                            </div>
+                          </div>
+
+                          {/* Payment History */}
+                          {wo.payments?.length > 0 && (
+                            <div className="space-y-1">
+                              <p className="text-xs text-[#8B7355] font-medium">Payment History:</p>
+                              {wo.payments.map((p, idx) => (
+                                <div key={idx} className="flex items-center justify-between text-xs p-2 bg-gray-50 rounded">
+                                  <div className="flex items-center gap-2">
+                                    <Badge className={`text-[10px] px-1.5 py-0 ${
+                                      p.status === 'paid' ? 'bg-emerald-100 text-emerald-700' :
+                                      p.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                                      'bg-gray-100 text-gray-600'
+                                    }`}>
+                                      {p.status}
+                                    </Badge>
+                                    <span className="text-[#8B7355] capitalize">{p.payment_type?.replace(/_/g, ' ')}</span>
+                                  </div>
+                                  <span className={`font-medium ${p.status === 'paid' ? 'text-emerald-600' : 'text-[#4A3728]'}`}>
+                                    {formatCurrency(p.amount)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* View Button */}
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          onClick={() => navigate(`/vendors/work-orders`)}
+                          className="text-[#8B7355] self-start"
+                        >
+                          View <ExternalLink className="w-3 h-3 ml-1" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           ) : (
             <Card className="bg-white border-[#E8D5C4]">

@@ -1040,6 +1040,14 @@ async def get_vendor(vendor_id: str, user: dict = Depends(get_current_user_dep))
         {"_id": 0}
     ).sort("created_at", -1).to_list(100)
     
+    # Get payments for each work order
+    for wo in work_orders:
+        wo_payments = await db.finance_payment_requests.find(
+            {"linked_work_order_id": wo.get("id"), "is_active": True},
+            {"_id": 0, "id": 1, "payment_type": 1, "amount": 1, "currency": 1, "status": 1, "created_at": 1}
+        ).to_list(20)
+        wo["payments"] = wo_payments
+    
     # Get proposals submitted by this vendor
     proposals = await db.vendor_proposals.find(
         {"vendor_id": vendor_id, "is_active": True},
@@ -1068,9 +1076,8 @@ async def get_vendor(vendor_id: str, user: dict = Depends(get_current_user_dep))
     # Calculate total payments
     total_payments = 0
     for wo in work_orders:
-        payments = wo.get("payment_requests", [])
-        for p in payments:
-            if p.get("status") == "completed":
+        for p in wo.get("payments", []):
+            if p.get("status") == "paid":
                 total_payments += p.get("amount", 0)
     
     vendor["work_orders"] = work_orders
