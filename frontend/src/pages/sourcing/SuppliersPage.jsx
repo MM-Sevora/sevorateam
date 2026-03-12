@@ -201,16 +201,17 @@ const SuppliersPage = () => {
                 <TableHead>Stage</TableHead>
                 <TableHead>MOQ</TableHead>
                 <TableHead>Lead Time</TableHead>
+                <TableHead>Added by</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8">
+                <TableRow><TableCell colSpan={8} className="text-center py-8">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
                 </TableCell></TableRow>
               ) : suppliers.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-gray-500">No suppliers found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-8 text-gray-500">No suppliers found.</TableCell></TableRow>
               ) : suppliers.map((s) => (
                 <TableRow key={s.id} className="hover:bg-gray-50">
                   <TableCell>
@@ -225,6 +226,10 @@ const SuppliersPage = () => {
                   <TableCell><Badge className={getStageColor(s.pipeline_stage)}>{s.pipeline_stage}</Badge></TableCell>
                   <TableCell>{s.moq_meters ? `${s.moq_meters}m` : '-'}</TableCell>
                   <TableCell>{s.lead_time_days ? `${s.lead_time_days} days` : '-'}</TableCell>
+                  <TableCell>
+                    <div className="text-sm text-gray-600">{s.created_by_name || '-'}</div>
+                    <div className="text-xs text-gray-400">{s.created_at ? new Date(s.created_at).toLocaleDateString() : ''}</div>
+                  </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild><Button variant="ghost" size="sm"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>

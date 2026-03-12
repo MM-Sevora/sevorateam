@@ -201,16 +201,17 @@ const ManufacturersPage = () => {
                 <TableHead>Stage</TableHead>
                 <TableHead>MOQ</TableHead>
                 <TableHead>Lead Time</TableHead>
+                <TableHead>Added by</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8">
+                <TableRow><TableCell colSpan={8} className="text-center py-8">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600 mx-auto"></div>
                 </TableCell></TableRow>
               ) : manufacturers.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-gray-500">No manufacturers found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-8 text-gray-500">No manufacturers found.</TableCell></TableRow>
               ) : manufacturers.map((m) => (
                 <TableRow key={m.id} className="hover:bg-gray-50">
                   <TableCell>
@@ -225,6 +226,10 @@ const ManufacturersPage = () => {
                   <TableCell><Badge className={getStageColor(m.pipeline_stage)}>{m.pipeline_stage}</Badge></TableCell>
                   <TableCell>{m.moq ? `${m.moq} ${m.moq_unit || 'pcs'}` : '-'}</TableCell>
                   <TableCell>{m.lead_time_days ? `${m.lead_time_days} days` : '-'}</TableCell>
+                  <TableCell>
+                    <div className="text-sm text-gray-600">{m.created_by_name || '-'}</div>
+                    <div className="text-xs text-gray-400">{m.created_at ? new Date(m.created_at).toLocaleDateString() : ''}</div>
+                  </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild><Button variant="ghost" size="sm"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>

@@ -3654,6 +3654,8 @@ async def create_pr_campaign(
         "pitch_count": 0,
         "coverage_count": 0,
         "response_rate": 0.0,
+        "created_by": user.get("id"),
+        "created_by_name": user.get("name"),
         "created_at": now,
         "updated_at": now,
     }

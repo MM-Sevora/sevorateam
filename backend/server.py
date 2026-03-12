@@ -1668,6 +1668,8 @@ async def create_lead(lead: LeadCreate, user: dict = Depends(require_department(
         "notes": lead.notes,
         "assigned_to": None,
         "assigned_to_name": None,
+        "created_by": user.get("id"),
+        "created_by_name": user.get("name"),
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
@@ -1685,6 +1687,8 @@ async def get_lead(lead_id: str, user: dict = Depends(require_department(["sales
 async def update_lead(lead_id: str, update: dict, user: dict = Depends(require_department(["sales"]))):
     update_data = {k: v for k, v in update.items() if v is not None}
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    update_data["updated_by"] = user.get("id")
+    update_data["updated_by_name"] = user.get("name")
     
     await db.leads.update_one({"id": lead_id}, {"$set": update_data})
     updated = await db.leads.find_one({"id": lead_id}, {"_id": 0})
@@ -1719,6 +1723,8 @@ async def create_customer(customer: CustomerCreate, user: dict = Depends(require
         **customer.model_dump(),
         "total_orders": 0,
         "total_spent": 0,
+        "created_by": user.get("id"),
+        "created_by_name": user.get("name"),
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.customers.insert_one(customer_doc)

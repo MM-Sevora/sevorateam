@@ -93,7 +93,17 @@ def create_suppliers_router(db, get_current_user: Callable):
                 {"name": {"$regex": search, "$options": "i"}},
                 {"city": {"$regex": search, "$options": "i"}}
             ]
-        return await db.sourcing_suppliers.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(length=limit)
+        return await populate_creator_names(db, await db.sourcing_suppliers.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(length=limit))
+
+    async def populate_creator_names(db, items):
+        """Helper to populate created_by_name for a list of items"""
+        user_ids = list(set([i.get("created_by") for i in items if i.get("created_by")]))
+        if user_ids:
+            users = await db.users.find({"id": {"$in": user_ids}}, {"_id": 0, "id": 1, "name": 1}).to_list(100)
+            user_map = {u["id"]: u.get("name", "Unknown") for u in users}
+            for item in items:
+                item["created_by_name"] = user_map.get(item.get("created_by"), "Unknown")
+        return items
 
     @router.get("/metadata")
     async def get_supplier_metadata(current_user: dict = Depends(get_current_user)):

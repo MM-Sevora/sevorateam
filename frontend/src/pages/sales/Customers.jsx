@@ -350,6 +350,11 @@ const CustomersPage = () => {
               <div className="text-muted-foreground">
                 <span className="font-semibold text-foreground">{formatCurrency(customer.total_spent)}</span> spent
               </div>
+              {customer.created_by_name && (
+                <div className="text-xs text-muted-foreground">
+                  Added by {customer.created_by_name}
+                </div>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                   <Button variant="ghost" size="sm" className="h-8 w-8 p-0">

@@ -296,6 +296,11 @@ export const LeadsPage = () => {
                                             <Calendar className="w-3 h-3" />
                                             {formatDate(lead.created_at)}
                                         </span>
+                                        {lead.created_by_name && (
+                                            <span className="text-[#8B7355] text-xs">
+                                                by {lead.created_by_name}
+                                            </span>
+                                        )}
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
                                                 <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
