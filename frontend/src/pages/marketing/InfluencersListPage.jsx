@@ -552,6 +552,20 @@ const InfluencersListPage = () => {
     if (sortBy === 'score') return multiplier * ((a.score || 0) - (b.score || 0));
     if (sortBy === 'followers') return multiplier * ((a.followers || 0) - (b.followers || 0));
     if (sortBy === 'engagement') return multiplier * ((a.engagement_rate || 0) - (b.engagement_rate || 0));
+    if (sortBy === 'name') {
+      return multiplier * (a.name || '').localeCompare(b.name || '');
+    }
+    if (sortBy === 'industry') {
+      return multiplier * (a.industry || '').localeCompare(b.industry || '');
+    }
+    if (sortBy === 'tier') {
+      const tierOrder = { nano: 1, micro: 2, mid: 3, macro: 4, mega: 5, celebrity: 6 };
+      return multiplier * ((tierOrder[a.tier] || 0) - (tierOrder[b.tier] || 0));
+    }
+    if (sortBy === 'status') {
+      const statusOrder = { identified: 1, contacted: 2, interested: 3, negotiation: 4, confirmed: 5, completed: 6 };
+      return multiplier * ((statusOrder[a.pipeline_status] || 0) - (statusOrder[b.pipeline_status] || 0));
+    }
     if (sortBy === 'updated') {
       const dateA = new Date(a.updated_at || 0);
       const dateB = new Date(b.updated_at || 0);
@@ -572,9 +586,24 @@ const InfluencersListPage = () => {
   const SortIcon = ({ field }) => {
     if (sortBy !== field) return <ChevronUp className="w-3 h-3 text-gray-300" />;
     return sortOrder === 'desc' ? 
-      <ChevronDown className="w-3 h-3 text-gray-600" /> : 
-      <ChevronUp className="w-3 h-3 text-gray-600" />;
+      <ChevronDown className="w-3 h-3 text-amber-600" /> : 
+      <ChevronUp className="w-3 h-3 text-amber-600" />;
   };
+  
+  // Sortable column header component
+  const SortableHeader = ({ field, children, className = "" }) => (
+    <th 
+      className={`text-left p-4 text-xs font-semibold uppercase tracking-wider cursor-pointer transition-colors
+        ${sortBy === field ? 'text-amber-700 bg-amber-50' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}
+        ${className}`}
+      onClick={() => toggleSort(field)}
+    >
+      <span className="flex items-center gap-1">
+        {children}
+        <SortIcon field={field} />
+      </span>
+    </th>
+  );
 
   const modalTabs = [
     { id: 'basic', label: 'Basic', icon: User },
@@ -1395,10 +1424,11 @@ const InfluencersListPage = () => {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="pl-10 bg-white border-gray-200"
+              data-testid="influencer-search-input"
             />
           </div>
           <Select value={filterPlatform} onValueChange={setFilterPlatform}>
-            <SelectTrigger className="w-36 bg-white">
+            <SelectTrigger className={`w-36 bg-white ${filterPlatform !== 'all' ? 'border-amber-400 ring-1 ring-amber-200' : ''}`} data-testid="filter-platform">
               <SelectValue placeholder="Platform" />
             </SelectTrigger>
             <SelectContent>
@@ -1412,7 +1442,7 @@ const InfluencersListPage = () => {
             </SelectContent>
           </Select>
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-36 bg-white">
+            <SelectTrigger className={`w-36 bg-white ${filterStatus !== 'all' ? 'border-amber-400 ring-1 ring-amber-200' : ''}`} data-testid="filter-status">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -1426,7 +1456,7 @@ const InfluencersListPage = () => {
             </SelectContent>
           </Select>
           <Select value={filterTier} onValueChange={setFilterTier}>
-            <SelectTrigger className="w-36 bg-white">
+            <SelectTrigger className={`w-36 bg-white ${filterTier !== 'all' ? 'border-amber-400 ring-1 ring-amber-200' : ''}`} data-testid="filter-tier">
               <SelectValue placeholder="Tier" />
             </SelectTrigger>
             <SelectContent>
@@ -1436,10 +1466,11 @@ const InfluencersListPage = () => {
               <SelectItem value="mid">Mid (100K-500K)</SelectItem>
               <SelectItem value="macro">Macro (500K-1M)</SelectItem>
               <SelectItem value="mega">Mega (1M+)</SelectItem>
+              <SelectItem value="celebrity">Celebrity (10M+)</SelectItem>
             </SelectContent>
           </Select>
           <Select value={filterIndustry} onValueChange={setFilterIndustry}>
-            <SelectTrigger className="w-36 bg-white">
+            <SelectTrigger className={`w-36 bg-white ${filterIndustry !== 'all' ? 'border-amber-400 ring-1 ring-amber-200' : ''}`} data-testid="filter-industry">
               <SelectValue placeholder="Industry" />
             </SelectTrigger>
             <SelectContent>
@@ -1451,6 +1482,9 @@ const InfluencersListPage = () => {
               <SelectItem value="food">Food</SelectItem>
               <SelectItem value="travel">Travel</SelectItem>
               <SelectItem value="fitness">Fitness</SelectItem>
+              <SelectItem value="entertainment">Entertainment</SelectItem>
+              <SelectItem value="gaming">Gaming</SelectItem>
+              <SelectItem value="sports">Sports</SelectItem>
             </SelectContent>
           </Select>
           <Button 
@@ -1458,9 +1492,27 @@ const InfluencersListPage = () => {
             size="sm"
             onClick={() => setShowFilters(!showFilters)}
             className={showFilters ? 'bg-amber-50 border-amber-300 text-amber-700' : ''}
+            data-testid="more-filters-btn"
           >
-            <Filter className="w-4 h-4 mr-1" /> More
+            <Filter className="w-4 h-4 mr-1" /> 
+            More
+            {(filterCampaign !== 'all' || filterEngagement !== 'all' || filterScore !== 'all') && (
+              <Badge className="ml-1 h-5 w-5 p-0 flex items-center justify-center bg-amber-500 text-white text-[10px]">
+                {[filterCampaign, filterEngagement, filterScore].filter(f => f !== 'all').length}
+              </Badge>
+            )}
           </Button>
+          {hasActiveFilters && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={clearAllFilters}
+              className="text-gray-500 hover:text-gray-700"
+              data-testid="clear-filters-btn"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          )}
         </div>
         
         {/* Advanced Filters Row */}
@@ -1561,27 +1613,35 @@ const InfluencersListPage = () => {
       <div className="flex items-center justify-between text-sm px-1">
         <span className="text-gray-600">
           Showing <span className="font-medium text-gray-900">{filteredInfluencers.length}</span> of {influencers.length} influencers
+          {hasActiveFilters && <span className="text-amber-600 ml-2">(filtered)</span>}
         </span>
-        <div className="flex items-center gap-4 text-gray-600">
-          <span>Sort by:</span>
-          <button 
-            onClick={() => toggleSort('score')} 
-            className={`font-medium transition-colors ${sortBy === 'score' ? 'text-[#c4a35a]' : 'text-gray-500 hover:text-gray-700'}`}
-          >
-            Score
-          </button>
-          <button 
-            onClick={() => toggleSort('followers')} 
-            className={`font-medium transition-colors ${sortBy === 'followers' ? 'text-[#c4a35a]' : 'text-gray-500 hover:text-gray-700'}`}
-          >
-            Followers
-          </button>
-          <button 
-            onClick={() => toggleSort('engagement')} 
-            className={`font-medium transition-colors ${sortBy === 'engagement' ? 'text-[#c4a35a]' : 'text-gray-500 hover:text-gray-700'}`}
-          >
-            Engagement
-          </button>
+        <div className="flex items-center gap-2 text-gray-600">
+          <span className="text-xs uppercase tracking-wide">Sort:</span>
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+            {[
+              { field: 'score', label: 'Score' },
+              { field: 'followers', label: 'Followers' },
+              { field: 'engagement', label: 'Eng %' },
+              { field: 'name', label: 'Name' },
+              { field: 'updated', label: 'Updated' }
+            ].map(({ field, label }) => (
+              <button 
+                key={field}
+                onClick={() => toggleSort(field)} 
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                  sortBy === field 
+                    ? 'bg-white text-amber-700 shadow-sm' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+                data-testid={`sort-${field}`}
+              >
+                {label}
+                {sortBy === field && (
+                  <span className="ml-1">{sortOrder === 'desc' ? '↓' : '↑'}</span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -1598,36 +1658,20 @@ const InfluencersListPage = () => {
                   }}
                 />
               </th>
-              <th className="text-left p-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Influencer
-              </th>
+              <SortableHeader field="name">Influencer</SortableHeader>
               <th className="text-left p-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Platform
               </th>
-              <th className="text-left p-4 text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:text-gray-900" onClick={() => toggleSort('followers')}>
-                <span className="flex items-center gap-1">Followers <SortIcon field="followers" /></span>
-              </th>
-              <th className="text-left p-4 text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:text-gray-900" onClick={() => toggleSort('engagement')}>
-                <span className="flex items-center gap-1">Engagement <SortIcon field="engagement" /></span>
-              </th>
-              <th className="text-left p-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Industry
-              </th>
-              <th className="text-left p-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Tier
-              </th>
-              <th className="text-left p-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Status
-              </th>
+              <SortableHeader field="followers">Followers</SortableHeader>
+              <SortableHeader field="engagement">Engagement</SortableHeader>
+              <SortableHeader field="industry">Industry</SortableHeader>
+              <SortableHeader field="tier">Tier</SortableHeader>
+              <SortableHeader field="status">Status</SortableHeader>
               <th className="text-left p-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Campaign
               </th>
-              <th className="text-left p-4 text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:text-gray-900" onClick={() => toggleSort('score')}>
-                <span className="flex items-center gap-1">Score <SortIcon field="score" /></span>
-              </th>
-              <th className="text-left p-4 text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:text-gray-900" onClick={() => toggleSort('updated')}>
-                <span className="flex items-center gap-1">Updated <SortIcon field="updated" /></span>
-              </th>
+              <SortableHeader field="score">Score</SortableHeader>
+              <SortableHeader field="updated">Updated</SortableHeader>
               <th className="w-12 p-4"></th>
             </tr>
           </thead>
