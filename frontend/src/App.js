@@ -159,6 +159,7 @@ import OnboardingManagement from "./pages/it-admin/OnboardingManagement";
 // Finance Admin
 import BudgetPlanning from "./pages/finance/BudgetPlanning";
 import PaymentRequests from "./pages/finance/PaymentRequests";
+import PaymentCategorySettings from "./pages/finance/PaymentCategorySettings";
 
 // Vendor Management
 import VendorDashboard from "./pages/vendors/VendorDashboard";
@@ -478,6 +479,7 @@ function AppRoutes() {
             {/* Finance Admin Routes */}
             <Route path="/finance/budgets" element={<ProtectedRoute requiredModule="finance"><BudgetPlanning /></ProtectedRoute>} />
             <Route path="/finance/payments" element={<ProtectedRoute requiredModule="finance"><PaymentRequests /></ProtectedRoute>} />
+            <Route path="/finance/payment-categories" element={<ProtectedRoute requiredModule="finance"><PaymentCategorySettings /></ProtectedRoute>} />
 
             {/* Vendor Management Routes */}
             <Route path="/vendors" element={<ProtectedRoute requiredModule="finance"><VendorDashboard /></ProtectedRoute>} />

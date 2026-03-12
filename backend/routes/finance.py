@@ -59,8 +59,8 @@ class ApprovalLevel(str, Enum):
     finance = "finance"
     director = "director"
 
-# Payment Type to Module Mapping
-PAYMENT_TYPE_MODULE_MAP = {
+# Default Payment Type to Module Mapping (used as fallback)
+DEFAULT_PAYMENT_TYPE_MAP = {
     "rent": {"module": "finance", "sub_module": "facilities", "requires_approval": True, "approval_levels": ["manager", "finance"]},
     "utilities": {"module": "finance", "sub_module": "facilities", "requires_approval": True, "approval_levels": ["manager", "finance"]},
     "payroll": {"module": "hr", "sub_module": "payroll", "requires_approval": True, "approval_levels": ["manager", "finance", "director"]},
@@ -77,6 +77,13 @@ PAYMENT_TYPE_MODULE_MAP = {
     "vendor": {"module": "vendors", "sub_module": "payments", "requires_approval": True, "approval_levels": ["manager", "finance"]},
     "other": {"module": "finance", "sub_module": "misc", "requires_approval": True, "approval_levels": ["manager", "finance"]}
 }
+
+async def get_payment_type_config(category: str) -> dict:
+    """Get payment type config from DB or fallback to default"""
+    config = await db.payment_categories.find_one({"key": category, "is_active": True}, {"_id": 0})
+    if config:
+        return config
+    return DEFAULT_PAYMENT_TYPE_MAP.get(category, DEFAULT_PAYMENT_TYPE_MAP["other"])
 
 
 # ============== MODELS ==============
@@ -134,6 +141,158 @@ class PaymentStatusUpdate(BaseModel):
     payment_date: Optional[str] = None
     payment_method: Optional[str] = None
     comments: Optional[str] = None
+
+class PaymentCategoryCreate(BaseModel):
+    key: str  # unique identifier like 'rent', 'utilities'
+    label: str  # display name
+    icon: Optional[str] = "FileText"
+    color: Optional[str] = "bg-gray-100 text-gray-700"
+    module: str  # finance, hr, it, operations, vendors
+    sub_module: Optional[str] = None
+    requires_approval: bool = True
+    approval_levels: List[str] = ["manager", "finance"]
+    link_path: Optional[str] = None  # path to linked module
+
+class PaymentCategoryUpdate(BaseModel):
+    label: Optional[str] = None
+    icon: Optional[str] = None
+    color: Optional[str] = None
+    module: Optional[str] = None
+    sub_module: Optional[str] = None
+    requires_approval: Optional[bool] = None
+    approval_levels: Optional[List[str]] = None
+    link_path: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+# ============== PAYMENT CATEGORY CONTROLLER ==============
+
+@router.get("/payment-categories")
+async def list_payment_categories(user: dict = Depends(get_current_user_dep)):
+    """List all payment categories (from DB + defaults)"""
+    # Get categories from DB
+    db_categories = await db.payment_categories.find({"is_active": True}, {"_id": 0}).to_list(50)
+    db_keys = {c["key"] for c in db_categories}
+    
+    # Add defaults that aren't in DB
+    result = list(db_categories)
+    for key, config in DEFAULT_PAYMENT_TYPE_MAP.items():
+        if key not in db_keys:
+            result.append({
+                "key": key,
+                "label": key.replace("_", " ").title(),
+                "icon": "FileText",
+                "color": "bg-gray-100 text-gray-700",
+                "is_default": True,
+                **config
+            })
+    
+    return {"categories": sorted(result, key=lambda x: x.get("label", x.get("key")))}
+
+
+@router.post("/payment-categories")
+async def create_payment_category(
+    category: PaymentCategoryCreate,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Create a new payment category"""
+    # Check if key already exists
+    existing = await db.payment_categories.find_one({"key": category.key})
+    if existing:
+        raise HTTPException(status_code=400, detail="Category key already exists")
+    
+    category_doc = {
+        "id": str(uuid.uuid4()),
+        "key": category.key.lower().replace(" ", "_"),
+        "label": category.label,
+        "icon": category.icon,
+        "color": category.color,
+        "module": category.module,
+        "sub_module": category.sub_module,
+        "requires_approval": category.requires_approval,
+        "approval_levels": category.approval_levels,
+        "link_path": category.link_path,
+        "is_default": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_by": user.get("id"),
+        "is_active": True
+    }
+    
+    await db.payment_categories.insert_one(category_doc)
+    del category_doc["_id"]
+    return category_doc
+
+
+@router.put("/payment-categories/{category_key}")
+async def update_payment_category(
+    category_key: str,
+    update: PaymentCategoryUpdate,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Update a payment category"""
+    # Check if exists in DB
+    existing = await db.payment_categories.find_one({"key": category_key})
+    
+    update_data = {k: v for k, v in update.dict().items() if v is not None}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    update_data["updated_by"] = user.get("id")
+    
+    if existing:
+        await db.payment_categories.update_one({"key": category_key}, {"$set": update_data})
+    else:
+        # Create from default
+        default = DEFAULT_PAYMENT_TYPE_MAP.get(category_key)
+        if not default:
+            raise HTTPException(status_code=404, detail="Category not found")
+        
+        category_doc = {
+            "id": str(uuid.uuid4()),
+            "key": category_key,
+            "label": update.label or category_key.replace("_", " ").title(),
+            "icon": update.icon or "FileText",
+            "color": update.color or "bg-gray-100 text-gray-700",
+            "module": update.module or default["module"],
+            "sub_module": update.sub_module or default.get("sub_module"),
+            "requires_approval": update.requires_approval if update.requires_approval is not None else default["requires_approval"],
+            "approval_levels": update.approval_levels or default["approval_levels"],
+            "link_path": update.link_path,
+            "is_default": False,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_by": user.get("id"),
+            "is_active": update.is_active if update.is_active is not None else True
+        }
+        await db.payment_categories.insert_one(category_doc)
+    
+    return {"message": "Category updated successfully"}
+
+
+@router.delete("/payment-categories/{category_key}")
+async def delete_payment_category(
+    category_key: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Soft delete a payment category"""
+    result = await db.payment_categories.update_one(
+        {"key": category_key},
+        {"$set": {"is_active": False, "deleted_at": datetime.now(timezone.utc).isoformat(), "deleted_by": user.get("id")}}
+    )
+    
+    if result.modified_count == 0:
+        # It's a default category, create a disabled entry
+        default = DEFAULT_PAYMENT_TYPE_MAP.get(category_key)
+        if default:
+            await db.payment_categories.insert_one({
+                "id": str(uuid.uuid4()),
+                "key": category_key,
+                "label": category_key.replace("_", " ").title(),
+                "is_active": False,
+                "is_default": True,
+                **default,
+                "deleted_at": datetime.now(timezone.utc).isoformat(),
+                "deleted_by": user.get("id")
+            })
+    
+    return {"message": "Category deleted"}
 
 
 # ============== BUDGET PLANNING ==============
@@ -346,8 +505,8 @@ async def create_payment_request(
     user: dict = Depends(get_current_user_dep)
 ):
     """Create a new payment request with approval workflow"""
-    # Get type mapping for approval configuration
-    type_config = PAYMENT_TYPE_MODULE_MAP.get(request.category, PAYMENT_TYPE_MODULE_MAP["other"])
+    # Get type mapping for approval configuration (from DB or default)
+    type_config = await get_payment_type_config(request.category)
     
     request_doc = {
         "id": str(uuid.uuid4()),
@@ -370,8 +529,8 @@ async def create_payment_request(
         "source_id": request.source_id,
         "source_reference": request.source_reference,
         # Linked module
-        "linked_module": request.linked_module or type_config["module"],
-        "linked_sub_module": type_config["sub_module"],
+        "linked_module": request.linked_module or type_config.get("module", "finance"),
+        "linked_sub_module": type_config.get("sub_module"),
         "linked_record_id": request.linked_record_id,
         # Requester (can be different from creator)
         "requested_by_id": request.requested_by_id or user.get("id"),
@@ -382,11 +541,11 @@ async def create_payment_request(
         "requester_name": user.get("name"),
         "requester_department": request.department or user.get("department"),
         # Approval workflow
-        "requires_approval": type_config["requires_approval"],
-        "approval_levels": type_config["approval_levels"],
+        "requires_approval": type_config.get("requires_approval", True),
+        "approval_levels": type_config.get("approval_levels", ["manager", "finance"]),
         "current_approval_level": None,
         "approvals": [],  # [{level, approver_id, approver_name, status, comments, timestamp}]
-        "approval_status": "pending" if type_config["requires_approval"] else "not_required",
+        "approval_status": "pending" if type_config.get("requires_approval", True) else "not_required",
         # Payment tracking
         "payment_status": "unpaid",
         "payment_reference": None,

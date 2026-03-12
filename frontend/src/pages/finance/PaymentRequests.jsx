@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -13,7 +14,7 @@ import {
   CreditCard, Plus, Clock, CheckCircle, XCircle, DollarSign, Search,
   Building2, FileText, Send, Loader2, ArrowUpDown, ArrowUp, ArrowDown,
   X, Eye, Home, Zap, Users, Wrench, Receipt, Briefcase, Car, ShoppingCart,
-  GraduationCap, Heart, Wifi, Package, AlertCircle, Banknote, History, ExternalLink
+  GraduationCap, Heart, Wifi, Package, AlertCircle, Banknote, History, ExternalLink, Settings
 } from 'lucide-react';
 
 // Payment categories with module mapping
@@ -46,6 +47,7 @@ const DEPARTMENTS = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance', 'Oper
 
 const PaymentRequests = () => {
   const { api, user } = useAuth();
+  const navigate = useNavigate();
   const [requests, setRequests] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -312,9 +314,14 @@ const PaymentRequests = () => {
           <h1 className="text-2xl font-bold text-[#4A3728]">Payment Requests</h1>
           <p className="text-[#8B7355]">{filteredAndSortedRequests.length} of {requests.length} requests</p>
         </div>
-        <Button onClick={() => { resetForm(); setShowCreateDialog(true); }} className="bg-[#4A3728] hover:bg-[#5D4A3A] text-white" data-testid="create-payment-btn">
-          <Plus className="w-4 h-4 mr-2" /> New Payment Request
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => navigate('/finance/payment-categories')} className="border-[#D4BBA6] text-[#4A3728]">
+            <Settings className="w-4 h-4 mr-2" /> Categories
+          </Button>
+          <Button onClick={() => { resetForm(); setShowCreateDialog(true); }} className="bg-[#4A3728] hover:bg-[#5D4A3A] text-white" data-testid="create-payment-btn">
+            <Plus className="w-4 h-4 mr-2" /> New Payment Request
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
