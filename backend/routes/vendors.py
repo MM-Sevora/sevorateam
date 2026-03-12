@@ -1951,6 +1951,104 @@ async def approval_action(
     return {"message": f"Approval {action.action}d at {current_level} level"}
 
 
+# ============== CONVERT WORK REQUEST TO WORK ORDER ==============
+
+@router.post("/requirements/{requirement_id}/convert-to-order")
+async def convert_request_to_work_order(
+    requirement_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Convert an approved work request into a work order"""
+    req = await db.vendor_requirements.find_one({"id": requirement_id})
+    if not req:
+        raise HTTPException(status_code=404, detail="Work request not found")
+    
+    # Check if request has been approved
+    if req.get("approval_status") != "approved":
+        raise HTTPException(status_code=400, detail="Work request must be approved before converting to work order")
+    
+    # Check if vendor is selected
+    if not req.get("selected_vendor_id"):
+        raise HTTPException(status_code=400, detail="No vendor selected for this request")
+    
+    # Check if already converted
+    if req.get("work_order_id"):
+        raise HTTPException(status_code=400, detail="Work request already converted to work order")
+    
+    # Get selected proposal
+    proposals = req.get("proposals", [])
+    selected_proposal = next((p for p in proposals if p.get("status") == "selected"), None)
+    
+    # Get vendor details
+    vendor = await db.vendors.find_one({"id": req["selected_vendor_id"]}, {"name": 1, "vendor_type": 1})
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Selected vendor not found")
+    
+    # Generate work order ID
+    count = await db.vendor_work_orders.count_documents({})
+    wo_id = f"WO-{str(count + 1).zfill(5)}"
+    
+    # Create work order document
+    order_doc = {
+        "id": str(uuid.uuid4()),
+        "work_order_id": wo_id,
+        "vendor_id": req["selected_vendor_id"],
+        "vendor_name": vendor.get("name"),
+        "vendor_type": vendor.get("vendor_type", "vendor"),
+        "requirement_id": requirement_id,
+        "department": req.get("department"),
+        "work_description": req.get("description"),
+        "campaign_project": None,
+        "deliverable_type": None,
+        "assigned_owner_id": req.get("assigned_owner_id") or user.get("id"),
+        "assigned_owner_name": req.get("assigned_owner_name") or user.get("name"),
+        "start_date": datetime.now(timezone.utc).isoformat().split('T')[0],
+        "expected_completion_date": req.get("expected_completion_date"),
+        "actual_completion_date": None,
+        "attachments": req.get("attachments", []),
+        "deliverables": [],
+        "status": WorkOrderStatus.assigned.value,
+        "agreed_amount": selected_proposal.get("amount") if selected_proposal else None,
+        "agreed_currency": selected_proposal.get("currency", "INR") if selected_proposal else "INR",
+        "agreed_delivery_days": selected_proposal.get("delivery_days") if selected_proposal else None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_by": user.get("id"),
+        "created_by_name": user.get("name"),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "is_active": True
+    }
+    
+    await db.vendor_work_orders.insert_one(order_doc)
+    
+    # Update vendor work order count
+    await db.vendors.update_one(
+        {"id": req["selected_vendor_id"]},
+        {"$inc": {"total_work_orders": 1}}
+    )
+    
+    # Update requirement status and link to work order
+    await db.vendor_requirements.update_one(
+        {"id": requirement_id},
+        {"$set": {
+            "status": RequirementStatus.work_in_progress.value,
+            "work_order_id": order_doc["id"],
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    await log_vendor_audit(
+        db, "request_converted_to_order", "requirement", requirement_id,
+        req.get("title"), user.get("id"), user.get("name"),
+        {"work_order_id": wo_id, "vendor": vendor.get("name")}
+    )
+    
+    del order_doc["_id"]
+    return {
+        "message": "Work request converted to work order successfully",
+        "work_order": order_doc
+    }
+
+
 # ============== ADVANCE/UPFRONT PAYMENTS ==============
 
 @router.post("/work-orders/{order_id}/payments")
