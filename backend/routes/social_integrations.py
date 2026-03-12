@@ -886,7 +886,7 @@ async def initiate_platform_connection(platform: str, user: dict = Depends(get_c
                 "success": True,
                 "requires_oauth": True,
                 "auth_url": auth_url,
-                "message": f"Please authorize LinkedIn access. Redirect to the auth_url.",
+                "message": "Please authorize LinkedIn access. Redirect to the auth_url.",
                 "note": "User should be redirected to auth_url to complete OAuth flow"
             }
     
@@ -918,7 +918,7 @@ async def initiate_platform_connection(platform: str, user: dict = Depends(get_c
                 "success": True,
                 "requires_oauth": True,
                 "auth_url": auth_url,
-                "message": f"Please authorize YouTube access. Redirect to the auth_url.",
+                "message": "Please authorize YouTube access. Redirect to the auth_url.",
                 "note": "User should be redirected to auth_url to complete OAuth flow"
             }
     
@@ -987,6 +987,213 @@ async def disconnect_platform(platform: str, user: dict = Depends(get_current_us
         "message": f"Disconnected from {PLATFORM_CONFIGS[platform]['name']}",
         "platform": platform
     }
+
+
+# ============== INSTAGRAM REAL API ENDPOINTS ==============
+
+@router.get("/instagram/account")
+async def get_instagram_account_info(user: dict = Depends(get_current_user)):
+    """Get connected Instagram Business Account information"""
+    from services.meta_instagram import MetaInstagramService
+    
+    async with MetaInstagramService() as service:
+        if not service.is_configured():
+            return {
+                "success": False,
+                "configured": False,
+                "message": "Instagram credentials not configured. Add INSTAGRAM_ACCESS_TOKEN and INSTAGRAM_BUSINESS_ACCOUNT_ID to .env"
+            }
+        
+        result = await service.get_account_info()
+        return {
+            "configured": True,
+            **result
+        }
+
+
+@router.get("/instagram/media")
+async def get_instagram_recent_media(
+    limit: int = 25,
+    user: dict = Depends(get_current_user)
+):
+    """Get recent media posts from Instagram"""
+    from services.meta_instagram import MetaInstagramService
+    
+    async with MetaInstagramService() as service:
+        if not service.is_configured():
+            return {"success": False, "message": "Instagram not configured"}
+        
+        return await service.get_recent_media(limit=limit)
+
+
+@router.get("/instagram/media/{media_id}/insights")
+async def get_instagram_media_insights(
+    media_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Get insights for a specific Instagram post"""
+    from services.meta_instagram import MetaInstagramService
+    
+    async with MetaInstagramService() as service:
+        if not service.is_configured():
+            return {"success": False, "message": "Instagram not configured"}
+        
+        return await service.get_media_insights(media_id)
+
+
+@router.get("/instagram/media/{media_id}/comments")
+async def get_instagram_media_comments(
+    media_id: str,
+    limit: int = 50,
+    user: dict = Depends(get_current_user)
+):
+    """Get comments on an Instagram post"""
+    from services.meta_instagram import MetaInstagramService
+    
+    async with MetaInstagramService() as service:
+        if not service.is_configured():
+            return {"success": False, "message": "Instagram not configured"}
+        
+        return await service.get_media_comments(media_id, limit=limit)
+
+
+@router.post("/instagram/comments/{comment_id}/reply")
+async def reply_to_instagram_comment(
+    comment_id: str,
+    message: str,
+    user: dict = Depends(get_current_user)
+):
+    """Reply to an Instagram comment"""
+    from services.meta_instagram import MetaInstagramService
+    
+    async with MetaInstagramService() as service:
+        if not service.is_configured():
+            return {"success": False, "message": "Instagram not configured"}
+        
+        return await service.reply_to_comment(comment_id, message)
+
+
+@router.get("/instagram/insights")
+async def get_instagram_account_insights(
+    period: str = "day",
+    user: dict = Depends(get_current_user)
+):
+    """Get Instagram account-level insights"""
+    from services.meta_instagram import MetaInstagramService
+    
+    async with MetaInstagramService() as service:
+        if not service.is_configured():
+            return {"success": False, "message": "Instagram not configured"}
+        
+        return await service.get_account_insights(period=period)
+
+
+@router.post("/instagram/publish/image")
+async def publish_instagram_image(
+    image_url: str,
+    caption: str = "",
+    user: dict = Depends(get_current_user)
+):
+    """
+    Publish a single image to Instagram.
+    
+    Args:
+        image_url: Public URL to the image (must be accessible from internet)
+        caption: Post caption (max 2200 characters)
+    """
+    from services.meta_instagram import MetaInstagramService
+    
+    async with MetaInstagramService() as service:
+        if not service.is_configured():
+            return {"success": False, "message": "Instagram not configured"}
+        
+        result = await service.publish_image(image_url=image_url, caption=caption)
+        
+        # Log the publish action
+        if db is not None and result.get("success"):
+            await db.social_publish_logs.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": user["id"],
+                "platform": "instagram",
+                "post_type": "image",
+                "post_id": result.get("post_id"),
+                "caption": caption[:100] + "..." if len(caption) > 100 else caption,
+                "status": "published",
+                "published_at": datetime.now(timezone.utc).isoformat()
+            })
+        
+        return result
+
+
+@router.post("/instagram/publish/carousel")
+async def publish_instagram_carousel(
+    image_urls: List[str],
+    caption: str = "",
+    user: dict = Depends(get_current_user)
+):
+    """
+    Publish a carousel (2-10 images) to Instagram.
+    
+    Args:
+        image_urls: List of public image URLs (2-10 images)
+        caption: Post caption
+    """
+    from services.meta_instagram import MetaInstagramService
+    
+    async with MetaInstagramService() as service:
+        if not service.is_configured():
+            return {"success": False, "message": "Instagram not configured"}
+        
+        result = await service.publish_carousel(image_urls=image_urls, caption=caption)
+        
+        if db is not None and result.get("success"):
+            await db.social_publish_logs.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": user["id"],
+                "platform": "instagram",
+                "post_type": "carousel",
+                "post_id": result.get("post_id"),
+                "image_count": len(image_urls),
+                "status": "published",
+                "published_at": datetime.now(timezone.utc).isoformat()
+            })
+        
+        return result
+
+
+@router.post("/instagram/publish/reel")
+async def publish_instagram_reel(
+    video_url: str,
+    caption: str = "",
+    user: dict = Depends(get_current_user)
+):
+    """
+    Publish a Reel to Instagram.
+    
+    Args:
+        video_url: Public URL to the video
+        caption: Reel caption
+    """
+    from services.meta_instagram import MetaInstagramService
+    
+    async with MetaInstagramService() as service:
+        if not service.is_configured():
+            return {"success": False, "message": "Instagram not configured"}
+        
+        result = await service.publish_reel(video_url=video_url, caption=caption)
+        
+        if db is not None and result.get("success"):
+            await db.social_publish_logs.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": user["id"],
+                "platform": "instagram",
+                "post_type": "reel",
+                "post_id": result.get("post_id"),
+                "status": "published",
+                "published_at": datetime.now(timezone.utc).isoformat()
+            })
+        
+        return result
 
 
 @router.post("/publish")
@@ -1303,7 +1510,7 @@ async def test_platform_connection(platform: str, user: dict = Depends(get_curre
                                 },
                                 "note": "Real LinkedIn API connection verified!"
                             }
-                    except Exception as e:
+                    except Exception:
                         pass
             
             # Credentials exist but user needs to authorize
