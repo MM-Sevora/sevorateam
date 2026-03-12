@@ -127,7 +127,20 @@ export default function SocialAnalyticsDashboard() {
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#5D4A3A] mb-1">SOCIAL MEDIA</p>
           <h1 className="text-2xl font-bold text-[#4A3728] tracking-tight">Analytics Dashboard</h1>
-          <p className="text-sm text-[#5D4A3A] mt-1">Track your social media performance</p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-sm text-[#5D4A3A]">Track your social media performance</p>
+            {overview?.data_source === 'live' && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded-full">
+                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                Live Data
+              </span>
+            )}
+          </div>
+          {overview?.connected_platforms?.length > 0 && (
+            <p className="text-xs text-[#9ca3af] mt-1">
+              Connected: {overview.connected_platforms.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(', ')}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <select
@@ -474,14 +487,20 @@ export default function SocialAnalyticsDashboard() {
             {comparison.platforms.map(p => {
               const platform = PLATFORMS[p.platform];
               const Icon = platform?.icon || BarChart3;
+              const isLive = p.data_source === 'live';
               return (
-                <div key={p.platform} className="bg-white border border-[#E8D5C4] rounded-xl p-5">
+                <div key={p.platform} className={`bg-white border rounded-xl p-5 ${isLive ? 'border-green-300' : 'border-[#E8D5C4]'}`}>
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${platform?.color}15` }}>
                       <Icon className="w-5 h-5" style={{ color: platform?.color }} />
                     </div>
-                    <div>
-                      <p className="font-semibold text-[#4A3728]">{platform?.label}</p>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-[#4A3728]">{platform?.label}</p>
+                        {isLive && (
+                          <span className="w-1.5 h-1.5 bg-green-500 rounded-full" title="Live Data" />
+                        )}
+                      </div>
                       <p className={`text-xs ${p.metrics.growth_rate > 0 ? 'text-green-600' : 'text-red-500'}`}>
                         {p.metrics.growth_rate > 0 ? '+' : ''}{p.metrics.growth_rate}% growth
                       </p>
@@ -505,6 +524,9 @@ export default function SocialAnalyticsDashboard() {
                       <span className="font-medium text-[#4A3728]">{p.metrics.engagement_rate}%</span>
                     </div>
                   </div>
+                  {!isLive && (
+                    <p className="text-[10px] text-[#9ca3af] mt-3 text-center">Simulated data</p>
+                  )}
                 </div>
               );
             })}
