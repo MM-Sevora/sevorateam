@@ -31,22 +31,29 @@ class SocialInboxService:
         pass
     
     async def _load_credentials(self):
-        """Load credentials from database"""
+        """Load credentials from database or environment"""
+        import os
+        
+        # Try loading from environment first
+        self.access_token = os.environ.get('INSTAGRAM_ACCESS_TOKEN')
+        self.instagram_account_id = os.environ.get('INSTAGRAM_ACCOUNT_ID')
+        self.page_id = os.environ.get('FACEBOOK_PAGE_ID')
+        
+        # Also try from database
         if self.db is not None:
             settings = await self.db.social_settings.find_one(
                 {"setting_type": "instagram_integration"},
                 {"_id": 0}
             )
             if settings:
-                self.access_token = settings.get("access_token")
-                self.page_id = settings.get("page_id")
-                self.instagram_account_id = settings.get("instagram_account_id")
+                self.access_token = settings.get("access_token") or self.access_token
+                self.page_id = settings.get("page_id") or self.page_id
+                self.instagram_account_id = settings.get("instagram_account_id") or self.instagram_account_id
     
     def has_messaging_permissions(self) -> bool:
-        """Check if we have messaging permissions (would need to verify via API)"""
-        # In production, this would check actual permissions
-        # For now, returns False to use mock data
-        return False
+        """Check if we have messaging permissions"""
+        # Return True if we have a token - we'll try the API and fall back to mock if it fails
+        return bool(self.access_token)
     
     async def get_instagram_conversations(self, limit: int = 20) -> Dict[str, Any]:
         """Fetch Instagram DM conversations"""
