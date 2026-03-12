@@ -331,21 +331,39 @@ export default function PlatformIntegrations() {
                 </div>
             </div>
 
-            {/* Structure Ready Notice */}
-            <Card className="mb-6 border-amber-200 bg-amber-50">
-                <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                        <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
-                        <div>
-                            <h3 className="font-medium text-amber-800">Structure-Ready Mode</h3>
-                            <p className="text-sm text-amber-700 mt-1">
-                                Platform connections are simulated. When you're ready to go live, provide your API 
-                                credentials for each platform and the system will publish directly to your accounts.
-                            </p>
+            {/* Live Connection Status */}
+            {connectedCount > 0 && (
+                <Card className="mb-6 border-green-200 bg-green-50">
+                    <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                            <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5" />
+                            <div>
+                                <h3 className="font-medium text-green-800">Live Connections Active</h3>
+                                <p className="text-sm text-green-700 mt-1">
+                                    {connectedCount} platform{connectedCount > 1 ? 's' : ''} connected. 
+                                    Posts will be published directly to your accounts.
+                                </p>
+                            </div>
                         </div>
-                    </div>
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
+            )}
+            
+            {connectedCount === 0 && (
+                <Card className="mb-6 border-amber-200 bg-amber-50">
+                    <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                            <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
+                            <div>
+                                <h3 className="font-medium text-amber-800">No Platforms Connected</h3>
+                                <p className="text-sm text-amber-700 mt-1">
+                                    Connect your social media accounts to start publishing content directly.
+                                </p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -419,9 +437,47 @@ export default function PlatformIntegrations() {
                                         {/* Account Info */}
                                         {isConnected && connInfo?.account_name && (
                                             <div className="p-3 rounded-lg bg-gray-50">
-                                                <p className="text-sm font-medium">{connInfo.account_name}</p>
+                                                <div className="flex items-center gap-2">
+                                                    {connInfo.profile_image && (
+                                                        <img 
+                                                            src={connInfo.profile_image} 
+                                                            alt={connInfo.account_name}
+                                                            className="w-8 h-8 rounded-full"
+                                                        />
+                                                    )}
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium truncate">{connInfo.account_name}</p>
+                                                        {connInfo.profile_url && (
+                                                            <a 
+                                                                href={connInfo.profile_url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                                                            >
+                                                                View Profile <ExternalLink className="w-3 h-3" />
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                {/* Channel Stats for YouTube */}
+                                                {connInfo.channel_stats && (
+                                                    <div className="flex gap-3 mt-2 pt-2 border-t">
+                                                        <div className="text-center">
+                                                            <p className="text-xs font-semibold">{Number(connInfo.channel_stats.subscribers || 0).toLocaleString()}</p>
+                                                            <p className="text-[10px] text-gray-500">Subscribers</p>
+                                                        </div>
+                                                        <div className="text-center">
+                                                            <p className="text-xs font-semibold">{Number(connInfo.channel_stats.videos || 0).toLocaleString()}</p>
+                                                            <p className="text-[10px] text-gray-500">Videos</p>
+                                                        </div>
+                                                        <div className="text-center">
+                                                            <p className="text-xs font-semibold">{Number(connInfo.channel_stats.views || 0).toLocaleString()}</p>
+                                                            <p className="text-[10px] text-gray-500">Views</p>
+                                                        </div>
+                                                    </div>
+                                                )}
                                                 {connInfo.connected_at && (
-                                                    <p className="text-xs text-gray-500 mt-1">
+                                                    <p className="text-xs text-gray-500 mt-2">
                                                         Connected {new Date(connInfo.connected_at).toLocaleDateString()}
                                                     </p>
                                                 )}

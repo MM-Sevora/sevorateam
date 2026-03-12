@@ -400,7 +400,7 @@ async def publish_to_instagram(content: str, media_urls: List[str], post_type: s
         }
 
 
-async def get_youtube_channel_info() -> Dict[str, Any]:
+async def get_youtube_channel_info_public() -> Dict[str, Any]:
     """
     Get YouTube channel information using the Data API.
     Note: YouTube API Key only allows reading. Uploading requires OAuth.
@@ -791,10 +791,48 @@ async def get_user_connections(user: dict = Depends(get_current_user)):
             "available_platforms": list(PLATFORM_CONFIGS.keys())
         }
     
+    # Get connections from database (either by user or system-level)
     connections = await db.social_platform_connections.find(
-        {"user_id": user["id"]},
-        {"_id": 0}
-    ).to_list(10)
+        {"$or": [{"user_id": user["id"]}, {"user_id": "unknown"}]},
+        {"_id": 0, "access_token": 0, "refresh_token": 0}  # Don't expose tokens
+    ).to_list(20)
+    
+    # Also check for Instagram/Facebook which might be configured via .env
+    connected_platforms = {c["platform"] for c in connections}
+    
+    # Check Instagram connection via .env
+    if "instagram" not in connected_platforms:
+        instagram_token = os.environ.get("INSTAGRAM_ACCESS_TOKEN")
+        instagram_account = os.environ.get("INSTAGRAM_BUSINESS_ACCOUNT_ID")
+        if instagram_token and instagram_account:
+            connections.append({
+                "id": "conn-instagram-env",
+                "user_id": user["id"],
+                "platform": "instagram",
+                "status": "connected",
+                "account_name": "Instagram Business",
+                "account_id": instagram_account,
+                "permissions": ["publish", "read"],
+                "connected_at": None,
+                "connection_type": "env_configured"
+            })
+    
+    # Check Facebook connection via .env
+    if "facebook" not in connected_platforms:
+        fb_token = os.environ.get("FACEBOOK_PAGE_ACCESS_TOKEN")
+        fb_page_id = os.environ.get("FACEBOOK_PAGE_ID")
+        if fb_token and fb_page_id:
+            connections.append({
+                "id": "conn-facebook-env",
+                "user_id": user["id"],
+                "platform": "facebook",
+                "status": "connected",
+                "account_name": "Facebook Page",
+                "account_id": fb_page_id,
+                "permissions": ["publish", "read"],
+                "connected_at": None,
+                "connection_type": "env_configured"
+            })
     
     # Add any platforms not yet connected
     connected_platforms = {c["platform"] for c in connections}
@@ -1498,6 +1536,335 @@ async def delete_facebook_post(
             return {"success": False, "message": "Facebook Page not configured"}
         
         return await service.delete_post(post_id)
+
+
+
+# ============== YOUTUBE REAL API ENDPOINTS ==============
+
+@router.get("/youtube/channel")
+async def get_youtube_channel_info(user: dict = Depends(get_current_user)):
+    """Get connected YouTube channel information"""
+    # Check for stored connection
+    connection = None
+    if db is not None:
+        connection = await db.social_platform_connections.find_one(
+            {"platform": "youtube", "status": "connected"},
+            {"_id": 0}
+        )
+    
+    if not connection or not connection.get("access_token"):
+        return {
+            "success": False,
+            "connected": False,
+            "message": "YouTube not connected. Please authenticate first."
+        }
+    
+    # Get fresh channel info using stored token
+    access_token = connection.get("access_token")
+    channel_info = await get_youtube_channel(access_token)
+    
+    if "error" in channel_info:
+        # Token might be expired
+        return {
+            "success": False,
+            "connected": True,
+            "token_valid": False,
+            "message": f"Could not fetch channel info: {channel_info['error']}",
+            "stored_info": {
+                "account_name": connection.get("account_name"),
+                "account_id": connection.get("account_id"),
+                "connected_at": connection.get("connected_at")
+            }
+        }
+    
+    return {
+        "success": True,
+        "connected": True,
+        "token_valid": True,
+        "channel": {
+            "id": channel_info.get("id"),
+            "title": channel_info.get("title"),
+            "description": channel_info.get("description"),
+            "thumbnail": channel_info.get("thumbnail"),
+            "profile_url": f"https://www.youtube.com/channel/{channel_info.get('id')}",
+            "statistics": {
+                "subscribers": channel_info.get("subscriberCount"),
+                "videos": channel_info.get("videoCount"),
+                "total_views": channel_info.get("viewCount")
+            }
+        },
+        "connected_at": connection.get("connected_at")
+    }
+
+
+@router.get("/youtube/videos")
+async def get_youtube_videos(
+    limit: int = 25,
+    user: dict = Depends(get_current_user)
+):
+    """Get recent videos from connected YouTube channel"""
+    # Check for stored connection
+    connection = None
+    if db is not None:
+        connection = await db.social_platform_connections.find_one(
+            {"platform": "youtube", "status": "connected"},
+            {"_id": 0}
+        )
+    
+    if not connection or not connection.get("access_token"):
+        return {"success": False, "message": "YouTube not connected"}
+    
+    access_token = connection.get("access_token")
+    
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            # Get uploads playlist ID
+            channel_response = await client.get(
+                "https://www.googleapis.com/youtube/v3/channels",
+                params={
+                    "part": "contentDetails",
+                    "mine": "true"
+                },
+                headers={"Authorization": f"Bearer {access_token}"}
+            )
+            channel_data = channel_response.json()
+            
+            if "items" not in channel_data or len(channel_data["items"]) == 0:
+                return {"success": False, "message": "Could not get channel info"}
+            
+            uploads_playlist_id = channel_data["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
+            
+            # Get videos from uploads playlist
+            videos_response = await client.get(
+                "https://www.googleapis.com/youtube/v3/playlistItems",
+                params={
+                    "part": "snippet,contentDetails",
+                    "playlistId": uploads_playlist_id,
+                    "maxResults": min(limit, 50)
+                },
+                headers={"Authorization": f"Bearer {access_token}"}
+            )
+            videos_data = videos_response.json()
+            
+            if "items" not in videos_data:
+                return {"success": True, "videos": [], "total": 0}
+            
+            # Get video statistics
+            video_ids = [item["contentDetails"]["videoId"] for item in videos_data["items"]]
+            
+            stats_response = await client.get(
+                "https://www.googleapis.com/youtube/v3/videos",
+                params={
+                    "part": "statistics,contentDetails",
+                    "id": ",".join(video_ids)
+                },
+                headers={"Authorization": f"Bearer {access_token}"}
+            )
+            stats_data = stats_response.json()
+            
+            # Build stats lookup
+            stats_lookup = {}
+            if "items" in stats_data:
+                for item in stats_data["items"]:
+                    stats_lookup[item["id"]] = item.get("statistics", {})
+            
+            videos = []
+            for item in videos_data["items"]:
+                video_id = item["contentDetails"]["videoId"]
+                snippet = item["snippet"]
+                stats = stats_lookup.get(video_id, {})
+                
+                videos.append({
+                    "id": video_id,
+                    "title": snippet.get("title"),
+                    "description": snippet.get("description", "")[:200],
+                    "thumbnail": snippet.get("thumbnails", {}).get("medium", {}).get("url"),
+                    "published_at": snippet.get("publishedAt"),
+                    "url": f"https://www.youtube.com/watch?v={video_id}",
+                    "statistics": {
+                        "views": stats.get("viewCount", 0),
+                        "likes": stats.get("likeCount", 0),
+                        "comments": stats.get("commentCount", 0)
+                    }
+                })
+            
+            return {
+                "success": True,
+                "videos": videos,
+                "total": len(videos)
+            }
+            
+    except Exception as e:
+        logger.error(f"YouTube videos fetch error: {e}")
+        return {"success": False, "message": str(e)}
+
+
+@router.get("/youtube/videos/{video_id}/analytics")
+async def get_youtube_video_analytics(
+    video_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Get analytics for a specific YouTube video"""
+    connection = None
+    if db is not None:
+        connection = await db.social_platform_connections.find_one(
+            {"platform": "youtube", "status": "connected"},
+            {"_id": 0}
+        )
+    
+    if not connection or not connection.get("access_token"):
+        return {"success": False, "message": "YouTube not connected"}
+    
+    access_token = connection.get("access_token")
+    
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(
+                "https://www.googleapis.com/youtube/v3/videos",
+                params={
+                    "part": "snippet,statistics,contentDetails",
+                    "id": video_id
+                },
+                headers={"Authorization": f"Bearer {access_token}"}
+            )
+            data = response.json()
+            
+            if "items" not in data or len(data["items"]) == 0:
+                return {"success": False, "message": "Video not found"}
+            
+            video = data["items"][0]
+            snippet = video.get("snippet", {})
+            stats = video.get("statistics", {})
+            content = video.get("contentDetails", {})
+            
+            return {
+                "success": True,
+                "video": {
+                    "id": video_id,
+                    "title": snippet.get("title"),
+                    "description": snippet.get("description"),
+                    "thumbnail": snippet.get("thumbnails", {}).get("high", {}).get("url"),
+                    "published_at": snippet.get("publishedAt"),
+                    "duration": content.get("duration"),
+                    "url": f"https://www.youtube.com/watch?v={video_id}"
+                },
+                "analytics": {
+                    "views": int(stats.get("viewCount", 0)),
+                    "likes": int(stats.get("likeCount", 0)),
+                    "dislikes": int(stats.get("dislikeCount", 0)),
+                    "comments": int(stats.get("commentCount", 0)),
+                    "favorites": int(stats.get("favoriteCount", 0))
+                }
+            }
+            
+    except Exception as e:
+        logger.error(f"YouTube video analytics error: {e}")
+        return {"success": False, "message": str(e)}
+
+
+@router.get("/youtube/status")
+async def get_youtube_connection_status(user: dict = Depends(get_current_user)):
+    """Check YouTube connection status"""
+    connection = None
+    if db is not None:
+        connection = await db.social_platform_connections.find_one(
+            {"platform": "youtube", "status": "connected"},
+            {"_id": 0}
+        )
+    
+    if not connection:
+        return {
+            "connected": False,
+            "message": "YouTube not connected"
+        }
+    
+    # Check if token is still valid
+    expires_at = connection.get("expires_at")
+    token_expired = False
+    if expires_at:
+        try:
+            expiry = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+            token_expired = datetime.now(timezone.utc) > expiry
+        except:
+            pass
+    
+    return {
+        "connected": True,
+        "token_expired": token_expired,
+        "account_name": connection.get("account_name"),
+        "account_id": connection.get("account_id"),
+        "profile_url": connection.get("profile_url"),
+        "profile_image": connection.get("profile_image"),
+        "channel_stats": connection.get("channel_stats", {}),
+        "connected_at": connection.get("connected_at"),
+        "expires_at": expires_at,
+        "permissions": connection.get("permissions", [])
+    }
+
+
+@router.delete("/youtube/disconnect")
+async def disconnect_youtube(user: dict = Depends(get_current_user)):
+    """Disconnect YouTube account"""
+    if db is None:
+        return {"success": False, "message": "Database not available"}
+    
+    result = await db.social_platform_connections.delete_one(
+        {"platform": "youtube"}
+    )
+    
+    if result.deleted_count > 0:
+        return {"success": True, "message": "YouTube disconnected successfully"}
+    else:
+        return {"success": False, "message": "YouTube was not connected"}
+
+
+class YouTubeVideoUpload(BaseModel):
+    video_url: str = Field(..., description="URL of the video to upload")
+    title: str = Field(..., max_length=100)
+    description: str = Field(default="", max_length=5000)
+    privacy: str = Field(default="public", description="public, unlisted, or private")
+
+
+@router.post("/youtube/upload")
+async def upload_video_to_youtube(
+    data: YouTubeVideoUpload,
+    user: dict = Depends(get_current_user)
+):
+    """Upload a video to YouTube channel"""
+    connection = None
+    if db is not None:
+        connection = await db.social_platform_connections.find_one(
+            {"platform": "youtube", "status": "connected"},
+            {"_id": 0}
+        )
+    
+    if not connection or not connection.get("access_token"):
+        return {"success": False, "message": "YouTube not connected"}
+    
+    access_token = connection.get("access_token")
+    
+    result = await upload_youtube_video(
+        access_token=access_token,
+        video_url=data.video_url,
+        title=data.title,
+        description=data.description,
+        privacy=data.privacy
+    )
+    
+    if db is not None and result.get("success"):
+        await db.social_publish_logs.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": user["id"],
+            "platform": "youtube",
+            "post_type": "video",
+            "post_id": result.get("platform_post_id"),
+            "video_url": result.get("platform_url"),
+            "status": "published",
+            "published_at": datetime.now(timezone.utc).isoformat()
+        })
+    
+    return result
+
 
 
 @router.post("/publish")
