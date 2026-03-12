@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -10,7 +11,7 @@ import { Textarea } from '../../components/ui/textarea';
 import { toast } from 'sonner';
 import {
   RefreshCw, Plus, Clock, Building2, Calendar, User, Loader2, Play,
-  AlertTriangle, CheckCircle, DollarSign
+  AlertTriangle, CheckCircle, DollarSign, ArrowLeft
 } from 'lucide-react';
 
 const DEPARTMENTS = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance', 'Operations', 'Admin', 'Production'];
@@ -23,6 +24,7 @@ const FREQUENCIES = [
 ];
 
 const RecurringWork = () => {
+  const navigate = useNavigate();
   const { api, user } = useAuth();
   const [recurring, setRecurring] = useState([]);
   const [vendors, setVendors] = useState([]);
@@ -137,6 +139,11 @@ const RecurringWork = () => {
 
   return (
     <div className="p-6 space-y-6 bg-[#FDF8F3] min-h-screen" data-testid="recurring-work">
+      {/* Back Button */}
+      <Button variant="ghost" onClick={() => navigate('/vendors')} className="text-[#8B7355] hover:text-[#4A3728]" data-testid="back-btn">
+        <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
+      </Button>
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>

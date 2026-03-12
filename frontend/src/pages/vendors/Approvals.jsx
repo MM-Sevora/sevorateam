@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -8,10 +9,11 @@ import { Textarea } from '../../components/ui/textarea';
 import { toast } from 'sonner';
 import {
   CheckCircle, XCircle, Clock, AlertCircle, Loader2, DollarSign,
-  Building2, User, ArrowRight, MessageSquare, RefreshCw, FileText
+  Building2, User, ArrowRight, ArrowLeft, MessageSquare, RefreshCw, FileText
 } from 'lucide-react';
 
 const Approvals = () => {
+  const navigate = useNavigate();
   const { api, user } = useAuth();
   const [approvals, setApprovals] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -83,6 +85,11 @@ const Approvals = () => {
 
   return (
     <div className="p-6 space-y-6 bg-[#FDF8F3] min-h-screen" data-testid="approvals">
+      {/* Back Button */}
+      <Button variant="ghost" onClick={() => navigate('/vendors')} className="text-[#8B7355] hover:text-[#4A3728]" data-testid="back-btn">
+        <ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard
+      </Button>
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
