@@ -360,14 +360,14 @@ const SystemModulesPage = () => {
             <div className="space-y-2">
               <Label>Department</Label>
               <Select 
-                value={editForm.department} 
-                onValueChange={(val) => setEditForm(prev => ({ ...prev, department: val }))}
+                value={editForm.department || "_none"} 
+                onValueChange={(val) => setEditForm(prev => ({ ...prev, department: val === "_none" ? '' : val }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select department (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="_none">None</SelectItem>
                   {departments.map(dept => (
                     <SelectItem key={dept.id} value={dept.name}>{dept.name}</SelectItem>
                   ))}
@@ -379,14 +379,14 @@ const SystemModulesPage = () => {
             <div className="space-y-2">
               <Label>Team</Label>
               <Select 
-                value={editForm.team} 
-                onValueChange={(val) => setEditForm(prev => ({ ...prev, team: val }))}
+                value={editForm.team || "_none"} 
+                onValueChange={(val) => setEditForm(prev => ({ ...prev, team: val === "_none" ? '' : val }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select team (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="_none">None</SelectItem>
                   {teams.map(team => (
                     <SelectItem key={team.id} value={team.name}>{team.name}</SelectItem>
                   ))}
