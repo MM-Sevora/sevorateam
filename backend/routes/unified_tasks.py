@@ -37,11 +37,10 @@ async def get_current_user_dep(credentials: HTTPAuthorizationCredentials = Depen
 def can_delete_record(record: dict, current_user: dict) -> bool:
     """
     Check if current user can delete a record.
-    Rules:
-    - Super admins can delete anything
-    - Users with can_manage_users permission can delete anything
-    - Record creator can delete their own record
-    - Assigned user can delete their assigned record
+    
+    SIMPLE RULE:
+    - Admin/Super Admin: Can delete anything
+    - Regular User: Can ONLY delete records they CREATED
     """
     user_id = current_user.get("id")
     user_role = current_user.get("role", "")
@@ -51,19 +50,11 @@ def can_delete_record(record: dict, current_user: dict) -> bool:
         return True
     
     # User has admin capabilities
-    if current_user.get("can_manage_users") or current_user.get("can_manage_employees"):
+    if current_user.get("can_manage_users") or current_user.get("can_manage_roles"):
         return True
     
-    # Creator can delete
+    # SIMPLE RULE: Only creator can delete their own data
     if record.get("created_by") == user_id:
-        return True
-    
-    # Assigned user can delete
-    if record.get("assigned_to") == user_id:
-        return True
-    
-    # Owner can delete
-    if record.get("owner_id") == user_id:
         return True
     
     return False
@@ -190,6 +181,14 @@ async def get_tasks(
     
     tasks = await db.unified_tasks.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(length=limit)
     total = await db.unified_tasks.count_documents(query)
+    
+    # Add permission info to each task
+    for task in tasks:
+        task["_permissions"] = {
+            "can_edit": task.get("created_by") == user_id or task.get("assigned_to") == user_id or is_admin,
+            "can_delete": task.get("created_by") == user_id or is_admin,
+            "is_owner": task.get("created_by") == user_id,
+        }
     
     return {
         "tasks": tasks,
