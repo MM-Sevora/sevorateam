@@ -186,6 +186,8 @@ class WorkOrderCreate(BaseModel):
     work_description: str
     campaign_project: Optional[str] = None  # For creator/freelancer work
     deliverable_type: Optional[str] = None  # For creator/freelancer work
+    order_type: Optional[str] = "one_time"  # one_time, recurring, project
+    agreed_amount: Optional[float] = None
     start_date: Optional[str] = None
     expected_completion_date: Optional[str] = None
     attachments: Optional[List[str]] = []
@@ -195,6 +197,8 @@ class WorkOrderUpdate(BaseModel):
     work_description: Optional[str] = None
     campaign_project: Optional[str] = None
     deliverable_type: Optional[str] = None
+    order_type: Optional[str] = None
+    agreed_amount: Optional[float] = None
     assigned_owner_id: Optional[str] = None
     start_date: Optional[str] = None
     expected_completion_date: Optional[str] = None
@@ -1308,6 +1312,9 @@ async def create_work_order(
         "work_description": order.work_description,
         "campaign_project": order.campaign_project,  # For creator work
         "deliverable_type": order.deliverable_type,  # For creator work
+        "order_type": order.order_type or "one_time",  # one_time, recurring, project
+        "agreed_amount": order.agreed_amount,
+        "agreed_currency": "INR",
         "assigned_owner_id": user.get("id"),
         "assigned_owner_name": user.get("name"),
         "start_date": order.start_date,
