@@ -16,11 +16,11 @@ import os
 
 from models.marketing_content import (
     ContentType, ContentPlatform, ProjectStatus, TaskStatus, TaskType,
-    ReviewStatus, Priority,
+    ReviewStatus, Priority, ProjectType,
     ContentProjectCreate, ContentProjectUpdate, ContentProjectResponse,
     ContentTaskCreate, ContentTaskUpdate, ContentTaskResponse,
     ContentReviewCreate, ContentReviewUpdate, ContentReviewResponse,
-    ContentProductionStats, DEFAULT_WORKFLOWS
+    ContentProductionStats, DEFAULT_WORKFLOWS, WORKFLOWS_BY_PROJECT_TYPE
 )
 
 router = APIRouter(prefix="/content", tags=["Marketing - Content Production"])
@@ -97,6 +97,7 @@ async def create_content_project(project: ContentProjectCreate, user_id: Optiona
     
     project_doc = project.model_dump()
     project_doc["_id"] = str(uuid.uuid4())
+    project_doc["project_type"] = project.project_type.value
     project_doc["content_type"] = project.content_type.value
     project_doc["platform"] = project.platform.value
     project_doc["status"] = project.status.value
@@ -111,6 +112,12 @@ async def create_content_project(project: ContentProjectCreate, user_id: Optiona
     project_doc["created_at"] = datetime.utcnow()
     project_doc["task_count"] = 0
     project_doc["completed_tasks"] = 0
+    
+    # If this is a derivative project, get source project title
+    if project_doc.get("source_project_id"):
+        source = db.marketing_content_projects.find_one({"_id": project_doc["source_project_id"]})
+        if source:
+            project_doc["source_project_title"] = source.get("title")
     
     db.marketing_content_projects.insert_one(project_doc)
     
@@ -191,15 +198,24 @@ async def delete_content_project(project_id: str):
 
 @router.post("/projects/{project_id}/generate-tasks")
 async def generate_project_tasks(project_id: str):
-    """Generate default workflow tasks for a project based on content type"""
+    """Generate default workflow tasks for a project based on project type and content type"""
     db = get_db()
     
     project = db.marketing_content_projects.find_one({"_id": project_id})
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
+    # Determine workflow based on project type
+    project_type = ProjectType(project.get("project_type", "original_production"))
     content_type = ContentType(project.get("content_type", "video"))
-    workflow = DEFAULT_WORKFLOWS.get(content_type, DEFAULT_WORKFLOWS[ContentType.VIDEO])
+    
+    # Get appropriate workflow
+    if project_type == ProjectType.ORIGINAL_PRODUCTION:
+        # Use content-type specific workflow
+        workflow = DEFAULT_WORKFLOWS.get(content_type, DEFAULT_WORKFLOWS[ContentType.VIDEO])
+    else:
+        # Use project-type specific workflow
+        workflow = WORKFLOWS_BY_PROJECT_TYPE.get(project_type, WORKFLOWS_BY_PROJECT_TYPE[ProjectType.ADAPTATION])
     
     created_tasks = []
     for step in workflow:
@@ -220,6 +236,7 @@ async def generate_project_tasks(project_id: str):
     
     return {
         "project_id": project_id,
+        "project_type": project_type.value,
         "tasks_created": len(created_tasks),
         "tasks": created_tasks
     }
@@ -483,10 +500,29 @@ async def get_content_stats():
 
 @router.get("/workflow-templates")
 async def get_workflow_templates():
-    """Get available workflow templates"""
-    templates = {}
+    """Get available workflow templates by project type"""
+    result = {
+        "by_project_type": {},
+        "by_content_type": {}
+    }
+    
+    # Workflows by project type
+    for project_type, steps in WORKFLOWS_BY_PROJECT_TYPE.items():
+        if steps:  # Skip None (original_production uses content type workflows)
+            result["by_project_type"][project_type.value] = [
+                {
+                    "order": s.order,
+                    "task_type": s.task_type.value,
+                    "title": s.title,
+                    "estimated_hours": s.estimated_hours,
+                    "requires_approval": s.requires_approval
+                }
+                for s in steps
+            ]
+    
+    # Workflows by content type (for original production)
     for content_type, steps in DEFAULT_WORKFLOWS.items():
-        templates[content_type.value] = [
+        result["by_content_type"][content_type.value] = [
             {
                 "order": s.order,
                 "task_type": s.task_type.value,
@@ -497,4 +533,20 @@ async def get_workflow_templates():
             for s in steps
         ]
     
-    return templates
+    return result
+
+
+@router.get("/projects/sources")
+async def get_available_sources():
+    """Get list of projects that can be used as source for adaptation/delivery"""
+    db = get_db()
+    
+    # Get published or approved projects that can be sources
+    projects = list(
+        db.marketing_content_projects.find(
+            {"status": {"$in": ["published", "approved"]}},
+            {"_id": 1, "title": 1, "content_type": 1, "platform": 1}
+        ).sort("created_at", -1).limit(50)
+    )
+    
+    return [serialize_doc(p) for p in projects]

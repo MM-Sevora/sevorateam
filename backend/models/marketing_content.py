@@ -28,6 +28,13 @@ class ContentType(str, Enum):
     OTHER = "other"
 
 
+class ProjectType(str, Enum):
+    ORIGINAL_PRODUCTION = "original_production"  # Full workflow with shoot
+    ADAPTATION = "adaptation"  # Repurpose existing content, no shoot
+    DELIVERY_ONLY = "delivery_only"  # Just format/export for different platform
+    GRAPHICS = "graphics"  # Static design work
+
+
 class ContentPlatform(str, Enum):
     INSTAGRAM = "instagram"
     FACEBOOK = "facebook"
@@ -97,8 +104,16 @@ class Priority(str, Enum):
 class ContentProjectBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=300)
     description: Optional[str] = None
+    
+    # Project type determines workflow
+    project_type: ProjectType = ProjectType.ORIGINAL_PRODUCTION
     content_type: ContentType
     platform: ContentPlatform
+    
+    # Source content (for adaptation/delivery projects)
+    source_project_id: Optional[str] = None  # Link to parent project
+    source_asset_id: Optional[str] = None  # Link to existing asset
+    
     campaign_id: Optional[str] = None
     influencer_id: Optional[str] = None  # If influencer collaboration
     
@@ -146,8 +161,11 @@ class ContentProjectCreate(ContentProjectBase):
 class ContentProjectUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
+    project_type: Optional[ProjectType] = None
     content_type: Optional[ContentType] = None
     platform: Optional[ContentPlatform] = None
+    source_project_id: Optional[str] = None
+    source_asset_id: Optional[str] = None
     campaign_id: Optional[str] = None
     influencer_id: Optional[str] = None
     brief_date: Optional[date] = None
@@ -180,6 +198,7 @@ class ContentProjectResponse(ContentProjectBase):
     updated_at: Optional[datetime] = None
     task_count: int = 0
     completed_tasks: int = 0
+    source_project_title: Optional[str] = None  # For displaying linked project
     
     class Config:
         from_attributes = True
@@ -324,5 +343,38 @@ DEFAULT_WORKFLOWS = {
         WorkflowStep(order=2, task_type=TaskType.GRAPHICS, title="Design Graphic", estimated_hours=3),
         WorkflowStep(order=3, task_type=TaskType.REVIEW, title="Review & Approval", requires_approval=True),
         WorkflowStep(order=4, task_type=TaskType.EXPORT, title="Export Versions", estimated_hours=1),
+    ],
+}
+
+# Workflows by Project Type
+WORKFLOWS_BY_PROJECT_TYPE = {
+    # Original Production - Full workflow with shoot (uses DEFAULT_WORKFLOWS based on content type)
+    ProjectType.ORIGINAL_PRODUCTION: None,  # Will use DEFAULT_WORKFLOWS
+    
+    # Adaptation - No shoot, start from editing
+    ProjectType.ADAPTATION: [
+        WorkflowStep(order=1, task_type=TaskType.BRIEFING, title="Create Brief", estimated_hours=1),
+        WorkflowStep(order=2, task_type=TaskType.OTHER, title="Select Source Content", estimated_hours=0.5),
+        WorkflowStep(order=3, task_type=TaskType.EDITING, title="Edit & Adapt", estimated_hours=4),
+        WorkflowStep(order=4, task_type=TaskType.COLOR_GRADE, title="Color/Sound Adjustments", estimated_hours=1),
+        WorkflowStep(order=5, task_type=TaskType.REVIEW, title="Review & Approval", requires_approval=True),
+        WorkflowStep(order=6, task_type=TaskType.EXPORT, title="Export Final", estimated_hours=1),
+    ],
+    
+    # Delivery Only - Just format and export
+    ProjectType.DELIVERY_ONLY: [
+        WorkflowStep(order=1, task_type=TaskType.OTHER, title="Select Source Content", estimated_hours=0.5),
+        WorkflowStep(order=2, task_type=TaskType.EDITING, title="Resize/Format", estimated_hours=1),
+        WorkflowStep(order=3, task_type=TaskType.REVIEW, title="Quick Review", requires_approval=True),
+        WorkflowStep(order=4, task_type=TaskType.EXPORT, title="Export for Platform", estimated_hours=0.5),
+    ],
+    
+    # Graphics - Design workflow, no video
+    ProjectType.GRAPHICS: [
+        WorkflowStep(order=1, task_type=TaskType.BRIEFING, title="Create Brief", estimated_hours=1),
+        WorkflowStep(order=2, task_type=TaskType.GRAPHICS, title="Design", estimated_hours=3),
+        WorkflowStep(order=3, task_type=TaskType.REVIEW, title="Review & Approval", requires_approval=True),
+        WorkflowStep(order=4, task_type=TaskType.REVISIONS, title="Revisions (if needed)", estimated_hours=1),
+        WorkflowStep(order=5, task_type=TaskType.EXPORT, title="Export All Sizes", estimated_hours=1),
     ],
 }
