@@ -302,7 +302,7 @@ const WorkOrders = () => {
                   <TableHead>Employee</TableHead>
                   <SortHeader column="status" label="Status" />
                   <SortHeader column="agreed_amount" label="Amount" />
-                  <TableHead>Payments</TableHead>
+                  <TableHead>Payment Status</TableHead>
                   <SortHeader column="created_at" label="Created" />
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -330,9 +330,18 @@ const WorkOrders = () => {
                     <TableCell>{getStatusBadge(order.status)}</TableCell>
                     <TableCell className="font-semibold text-[#4A3728]">{formatCurrency(order.agreed_amount)}</TableCell>
                     <TableCell>
-                      {order.payment_requests?.length > 0 ? (
-                        <Badge variant="outline" className="border-blue-300 text-blue-600">{order.payment_requests.length}</Badge>
-                      ) : '-'}
+                      {order.payment_status === 'paid' ? (
+                        <Badge className="bg-emerald-100 text-emerald-700">Paid</Badge>
+                      ) : order.payment_status === 'partial' ? (
+                        <div>
+                          <Badge className="bg-amber-100 text-amber-700">Partial</Badge>
+                          <div className="text-xs text-[#8B7355] mt-0.5">{formatCurrency(order.total_paid)}/{formatCurrency(order.total_requested)}</div>
+                        </div>
+                      ) : order.payment_status === 'pending' ? (
+                        <Badge className="bg-blue-100 text-blue-700">Pending</Badge>
+                      ) : (
+                        <span className="text-[#8B7355] text-sm">-</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-xs text-[#8B7355]">{formatDate(order.created_at)}</TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>

@@ -559,6 +559,41 @@ async def list_work_orders_v2(
     orders = await db.vendor_work_orders.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
     total = await db.vendor_work_orders.count_documents(query)
     
+    # Calculate payment status for each order
+    for order in orders:
+        payment_requests = order.get("payment_requests", [])
+        agreed_amount = order.get("agreed_amount", 0) or 0
+        
+        if not payment_requests:
+            order["payment_status"] = "no_payments"
+            order["total_paid"] = 0
+            order["total_requested"] = 0
+        else:
+            # Fetch actual payment statuses
+            payment_ids = [p.get("id") for p in payment_requests if p.get("id")]
+            if payment_ids:
+                payments = await db.finance_payment_requests.find(
+                    {"id": {"$in": payment_ids}}, {"_id": 0, "amount": 1, "status": 1}
+                ).to_list(None)
+                total_requested = sum(p.get("amount", 0) for p in payments)
+                total_paid = sum(p.get("amount", 0) for p in payments if p.get("status") == "completed")
+                
+                order["total_paid"] = total_paid
+                order["total_requested"] = total_requested
+                
+                if total_paid == 0:
+                    order["payment_status"] = "pending"
+                elif agreed_amount > 0 and total_paid >= agreed_amount:
+                    order["payment_status"] = "paid"
+                elif total_paid >= total_requested:
+                    order["payment_status"] = "paid"
+                else:
+                    order["payment_status"] = "partial"
+            else:
+                order["payment_status"] = "pending"
+                order["total_paid"] = 0
+                order["total_requested"] = sum(p.get("amount", 0) for p in payment_requests)
+    
     return {
         "work_orders": orders,
         "total": total,
@@ -1383,6 +1418,41 @@ async def list_work_orders(
     
     orders = await db.vendor_work_orders.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
     total = await db.vendor_work_orders.count_documents(query)
+    
+    # Calculate payment status for each order
+    for order in orders:
+        payment_requests = order.get("payment_requests", [])
+        agreed_amount = order.get("agreed_amount", 0) or 0
+        
+        if not payment_requests:
+            order["payment_status"] = "no_payments"
+            order["total_paid"] = 0
+            order["total_requested"] = 0
+        else:
+            # Fetch actual payment statuses
+            payment_ids = [p.get("id") for p in payment_requests if p.get("id")]
+            if payment_ids:
+                payments = await db.finance_payment_requests.find(
+                    {"id": {"$in": payment_ids}}, {"_id": 0, "amount": 1, "status": 1}
+                ).to_list(None)
+                total_requested = sum(p.get("amount", 0) for p in payments)
+                total_paid = sum(p.get("amount", 0) for p in payments if p.get("status") == "completed")
+                
+                order["total_paid"] = total_paid
+                order["total_requested"] = total_requested
+                
+                if total_paid == 0:
+                    order["payment_status"] = "pending"
+                elif agreed_amount > 0 and total_paid >= agreed_amount:
+                    order["payment_status"] = "paid"
+                elif total_paid >= total_requested:
+                    order["payment_status"] = "paid"
+                else:
+                    order["payment_status"] = "partial"
+            else:
+                order["payment_status"] = "pending"
+                order["total_paid"] = 0
+                order["total_requested"] = sum(p.get("amount", 0) for p in payment_requests)
     
     return {
         "work_orders": orders,
