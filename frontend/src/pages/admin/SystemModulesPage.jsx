@@ -101,7 +101,9 @@ const SystemModulesPage = () => {
       department: module.department || '',
       team: module.team || '',
       tags: module.tags || [],
-      is_active: module.is_active !== false
+      is_active: module.is_active !== false,
+      category: module.category || 'general',
+      is_default: module.is_default || false
     });
     setTagInput('');
     setEditDialog({ open: true, module });
@@ -126,7 +128,9 @@ const SystemModulesPage = () => {
         department: editForm.department || null,
         team: editForm.team || null,
         tags: editForm.tags,
-        is_active: editForm.is_active
+        is_active: editForm.is_active,
+        category: editForm.category,
+        is_default: editForm.is_default
       });
       toast.success(`Module "${editDialog.module.name}" updated`);
       setEditDialog({ open: false, module: null });
@@ -354,6 +358,37 @@ const SystemModulesPage = () => {
                 checked={editForm.is_active} 
                 onCheckedChange={(checked) => setEditForm(prev => ({ ...prev, is_active: checked }))}
               />
+            </div>
+
+            {/* Default Module Toggle */}
+            <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div>
+                <Label className="text-green-800">Default Module</Label>
+                <p className="text-xs text-green-600">Everyone gets access automatically</p>
+              </div>
+              <Switch 
+                checked={editForm.is_default} 
+                onCheckedChange={(checked) => setEditForm(prev => ({ ...prev, is_default: checked }))}
+              />
+            </div>
+
+            {/* Category */}
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select 
+                value={editForm.category} 
+                onValueChange={(val) => setEditForm(prev => ({ ...prev, category: val }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="general">General - Everyone gets access</SelectItem>
+                  <SelectItem value="operations">Operations - Team-based access</SelectItem>
+                  <SelectItem value="business">Business - Department-based access</SelectItem>
+                  <SelectItem value="admin">Administration - Admin-only access</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Department */}

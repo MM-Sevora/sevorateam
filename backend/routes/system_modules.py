@@ -38,6 +38,8 @@ class ModuleMetadataUpdate(BaseModel):
     team: Optional[str] = None
     tags: List[str] = []
     is_active: bool = True
+    category: Optional[str] = None  # general, operations, business, admin
+    is_default: Optional[bool] = None  # Whether everyone gets access by default
 
 
 class SubModuleToggle(BaseModel):
@@ -78,8 +80,9 @@ async def get_all_modules(user: dict = Depends(get_current_user_dep())):
             "name": base_module["name"],
             "description": base_module["description"],
             "icon": base_module["icon"],
-            "category": base_module["category"],
-            "is_default": base_module["is_default"],
+            # Allow custom overrides for category and is_default
+            "category": custom.get("category", base_module["category"]) if custom else base_module["category"],
+            "is_default": custom.get("is_default", base_module["is_default"]) if custom else base_module["is_default"],
             "sub_modules": base_module["sub_modules"],
             # Override with custom metadata if exists
             "department": custom.get("department") if custom else None,
@@ -129,8 +132,8 @@ async def get_module(module_code: str, user: dict = Depends(get_current_user_dep
         "name": base_module["name"],
         "description": base_module["description"],
         "icon": base_module["icon"],
-        "category": base_module["category"],
-        "is_default": base_module["is_default"],
+        "category": custom.get("category", base_module["category"]) if custom else base_module["category"],
+        "is_default": custom.get("is_default", base_module["is_default"]) if custom else base_module["is_default"],
         "sub_modules": base_module["sub_modules"],
         "department": custom.get("department") if custom else None,
         "team": custom.get("team") if custom else None,
@@ -145,9 +148,11 @@ async def update_module_metadata(
     data: ModuleMetadataUpdate,
     user: dict = Depends(require_admin())
 ):
-    """Update module metadata (department, team, tags)"""
+    """Update module metadata (department, team, tags, category, is_default)"""
     if module_code not in SYSTEM_MODULES:
         raise HTTPException(status_code=404, detail="Module not found")
+    
+    base_module = SYSTEM_MODULES[module_code]
     
     update_data = {
         "code": module_code,
@@ -155,6 +160,9 @@ async def update_module_metadata(
         "team": data.team,
         "tags": data.tags,
         "is_active": data.is_active,
+        # Allow overriding category and is_default
+        "category": data.category if data.category else base_module["category"],
+        "is_default": data.is_default if data.is_default is not None else base_module["is_default"],
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "updated_by": user.get("id")
     }
