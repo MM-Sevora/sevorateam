@@ -81,7 +81,8 @@ const ITAdminHub = () => {
         api.get('/acms/audit-logs?limit=50')
       ]);
       setTools(toolsRes.data.tools || []);
-      setUsers(usersRes.data.users || []);
+      // /admin/users returns array directly, not { users: [] }
+      setUsers(Array.isArray(usersRes.data) ? usersRes.data : usersRes.data.users || []);
       setRequests(requestsRes.data.requests || []);
       setCredentials(credsRes.data.credentials || []);
       setLogs(logsRes.data.logs || []);
