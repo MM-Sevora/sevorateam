@@ -147,11 +147,8 @@ import SystemsPage from "./pages/systems/SystemsPage";
 import IntegrationsPage from "./pages/systems/IntegrationsPage";
 import SystemConfigPage from "./pages/systems/SystemConfigPage";
 
-// IT Admin Module (Access & Credential Management)
-import ToolsAndAccess from "./pages/it-admin/ToolsAndAccess";
-import AccessRequests from "./pages/it-admin/AccessRequests";
-import CredentialVault from "./pages/it-admin/CredentialVault";
-import AuditLogs from "./pages/it-admin/AuditLogs";
+// IT Admin Module - Single Hub
+import ITAdminHub from "./pages/it-admin/ITAdminHub";
 
 // Finance Admin
 import BudgetPlanning from "./pages/finance/BudgetPlanning";
@@ -465,12 +462,8 @@ function AppRoutes() {
             <Route path="/systems/config" element={<ProtectedRoute requiredModule="systems"><SystemConfigPage /></ProtectedRoute>} />
 
             {/* IT Admin Module Routes (Access & Credential Management) */}
-            <Route path="/it-admin" element={<ProtectedRoute requiredModule="admin"><ToolsAndAccess /></ProtectedRoute>} />
-            <Route path="/it-admin/tools" element={<ProtectedRoute requiredModule="admin"><ToolsAndAccess /></ProtectedRoute>} />
-            <Route path="/it-admin/access" element={<ProtectedRoute requiredModule="admin"><ToolsAndAccess /></ProtectedRoute>} />
-            <Route path="/it-admin/requests" element={<ProtectedRoute><AccessRequests /></ProtectedRoute>} />
-            <Route path="/it-admin/credentials" element={<ProtectedRoute requiredModule="admin"><CredentialVault /></ProtectedRoute>} />
-            <Route path="/it-admin/audit-logs" element={<ProtectedRoute requiredModule="admin"><AuditLogs /></ProtectedRoute>} />
+            <Route path="/it-admin" element={<ProtectedRoute requiredModule="admin"><ITAdminHub /></ProtectedRoute>} />
+            <Route path="/it-admin/*" element={<ProtectedRoute requiredModule="admin"><ITAdminHub /></ProtectedRoute>} />
 
             {/* Finance Admin Routes */}
             <Route path="/finance/budgets" element={<ProtectedRoute requiredModule="finance"><BudgetPlanning /></ProtectedRoute>} />
