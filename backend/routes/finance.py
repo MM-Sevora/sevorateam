@@ -86,6 +86,12 @@ class PaymentRequestCreate(BaseModel):
     payment_method: Optional[str] = None
     account_details: Optional[str] = None
     reference_number: Optional[str] = None
+    # New fields
+    source_type: Optional[str] = None  # work_order, direct, reimbursement
+    source_id: Optional[str] = None  # work_order_id if linked
+    source_reference: Optional[str] = None  # WO-00015, etc.
+    requested_by_id: Optional[str] = None  # employee id
+    requested_by_name: Optional[str] = None  # employee name
 
 class PaymentRequestAction(BaseModel):
     action: str  # approve, reject, process, complete, cancel
@@ -317,6 +323,14 @@ async def create_payment_request(
         "payment_method": request.payment_method,
         "account_details": request.account_details,
         "reference_number": request.reference_number,
+        # Source tracking
+        "source_type": request.source_type or "direct",
+        "source_id": request.source_id,
+        "source_reference": request.source_reference,
+        # Requester (can be different from creator)
+        "requested_by_id": request.requested_by_id or user.get("id"),
+        "requested_by_name": request.requested_by_name or user.get("name"),
+        # Creator info
         "status": PaymentStatus.pending.value,
         "requester_id": user.get("id"),
         "requester_name": user.get("name"),

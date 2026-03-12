@@ -36,6 +36,13 @@ const PAYMENT_CATEGORIES = [
   { value: 'other', label: 'Other', icon: FileText, color: 'bg-gray-100 text-gray-700' }
 ];
 
+const SOURCE_TYPES = [
+  { value: 'direct', label: 'Direct Request' },
+  { value: 'work_order', label: 'Vendor Work Order' },
+  { value: 'reimbursement', label: 'Employee Reimbursement' },
+  { value: 'recurring', label: 'Recurring Payment' }
+];
+
 const DEPARTMENTS = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance', 'Operations', 'Admin', 'Production', 'IT'];
 
 const PaymentRequests = () => {
@@ -50,25 +57,32 @@ const PaymentRequests = () => {
   const [actionType, setActionType] = useState('');
   const [actionComments, setActionComments] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [filters, setFilters] = useState({ status: '', category: '', department: '' });
+  const [filters, setFilters] = useState({ status: '', category: '', department: '', source_type: '' });
   const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
   const [formData, setFormData] = useState({
     title: '', vendor_name: '', amount: '', currency: 'INR', category: '',
     description: '', due_date: '', invoice_number: '', department: '',
-    payment_method: '', account_details: '', reference_number: ''
+    payment_method: '', account_details: '', reference_number: '',
+    source_type: 'direct', source_reference: '', requested_by_id: '', requested_by_name: ''
   });
+  const [employees, setEmployees] = useState([]);
+  const [workOrders, setWorkOrders] = useState([]);
 
   useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [requestsRes, statsRes] = await Promise.all([
+      const [requestsRes, statsRes, employeesRes, workOrdersRes] = await Promise.all([
         api.get('/finance/payment-requests'),
-        api.get('/finance/payment-requests/summary/stats')
+        api.get('/finance/payment-requests/summary/stats'),
+        api.get('/employees').catch(() => ({ data: { employees: [] } })),
+        api.get('/vendors/work-orders').catch(() => ({ data: { work_orders: [] } }))
       ]);
       setRequests(requestsRes.data.requests || []);
       setStats(statsRes.data);
+      setEmployees(employeesRes.data.employees || []);
+      setWorkOrders(workOrdersRes.data.work_orders || []);
     } catch (error) {
       console.error('Failed to fetch payment requests:', error);
       toast.error('Failed to load payment requests');
@@ -128,7 +142,8 @@ const PaymentRequests = () => {
     setFormData({
       title: '', vendor_name: '', amount: '', currency: 'INR', category: '',
       description: '', due_date: '', invoice_number: '', department: '',
-      payment_method: '', account_details: '', reference_number: ''
+      payment_method: '', account_details: '', reference_number: '',
+      source_type: 'direct', source_reference: '', requested_by_id: '', requested_by_name: ''
     });
   };
 
@@ -150,6 +165,7 @@ const PaymentRequests = () => {
     if (filters.status) result = result.filter(r => r.status === filters.status);
     if (filters.category) result = result.filter(r => r.category === filters.category);
     if (filters.department) result = result.filter(r => r.requester_department === filters.department);
+    if (filters.source_type) result = result.filter(r => r.source_type === filters.source_type);
     
     result.sort((a, b) => {
       let aVal = a[sortConfig.key]; let bVal = b[sortConfig.key];
@@ -195,6 +211,22 @@ const PaymentRequests = () => {
 
   const formatDate = (dateStr) => dateStr ? new Date(dateStr).toLocaleDateString() : '-';
 
+  const getSourceBadge = (sourceType, sourceRef) => {
+    const styles = {
+      direct: 'bg-gray-100 text-gray-600',
+      work_order: 'bg-blue-100 text-blue-700',
+      reimbursement: 'bg-orange-100 text-orange-700',
+      recurring: 'bg-purple-100 text-purple-700'
+    };
+    const labels = { direct: 'Direct', work_order: 'Work Order', reimbursement: 'Reimbursement', recurring: 'Recurring' };
+    return (
+      <div>
+        <Badge className={styles[sourceType] || 'bg-gray-100'}>{labels[sourceType] || sourceType || 'Direct'}</Badge>
+        {sourceRef && <div className="text-xs text-[#8B7355] mt-0.5">{sourceRef}</div>}
+      </div>
+    );
+  };
+
   const SortHeader = ({ column, label }) => (
     <TableHead className="cursor-pointer hover:bg-[#F5EDE5] select-none" onClick={() => handleSort(column)}>
       <div className="flex items-center gap-1">
@@ -204,8 +236,8 @@ const PaymentRequests = () => {
     </TableHead>
   );
 
-  const clearFilters = () => { setFilters({ status: '', category: '', department: '' }); setSearchQuery(''); };
-  const hasActiveFilters = filters.status || filters.category || filters.department || searchQuery;
+  const clearFilters = () => { setFilters({ status: '', category: '', department: '', source_type: '' }); setSearchQuery(''); };
+  const hasActiveFilters = filters.status || filters.category || filters.department || filters.source_type || searchQuery;
 
   const isOverdue = (dueDate) => {
     if (!dueDate) return false;
@@ -299,6 +331,13 @@ const PaymentRequests = () => {
                 {DEPARTMENTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
               </SelectContent>
             </Select>
+            <Select value={filters.source_type || "all"} onValueChange={(v) => setFilters(f => ({...f, source_type: v === "all" ? "" : v}))}>
+              <SelectTrigger className="w-[140px] bg-white border-[#D4BBA6]"><SelectValue placeholder="Source" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sources</SelectItem>
+                {SOURCE_TYPES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
             {hasActiveFilters && <Button variant="ghost" size="sm" onClick={clearFilters} className="text-[#8B7355]"><X className="w-4 h-4 mr-1" /> Clear</Button>}
           </div>
         </CardContent>
@@ -316,13 +355,13 @@ const PaymentRequests = () => {
               <TableHeader className="bg-[#F5EDE5]">
                 <TableRow>
                   <SortHeader column="title" label="Request" />
+                  <TableHead>Source</TableHead>
                   <TableHead>Category</TableHead>
                   <SortHeader column="vendor_name" label="Payee" />
-                  <SortHeader column="requester_name" label="Requested By" />
+                  <SortHeader column="requested_by_name" label="Requester" />
                   <SortHeader column="amount" label="Amount" />
                   <SortHeader column="due_date" label="Due Date" />
                   <SortHeader column="status" label="Status" />
-                  <SortHeader column="created_at" label="Created" />
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -333,23 +372,23 @@ const PaymentRequests = () => {
                       <div className="font-medium text-[#4A3728]">{req.title}</div>
                       {req.invoice_number && <div className="text-xs text-[#8B7355]">#{req.invoice_number}</div>}
                     </TableCell>
+                    <TableCell>{getSourceBadge(req.source_type, req.source_reference)}</TableCell>
                     <TableCell>{getCategoryBadge(req.category)}</TableCell>
                     <TableCell className="text-[#8B7355]">{req.vendor_name || '-'}</TableCell>
                     <TableCell>
-                      <div className="text-sm text-[#4A3728]">{req.requester_name}</div>
+                      <div className="text-sm text-[#4A3728]">{req.requested_by_name || req.requester_name}</div>
                       <div className="text-xs text-[#8B7355]">{req.requester_department}</div>
                     </TableCell>
                     <TableCell className="font-semibold text-[#4A3728]">{formatCurrency(req.amount, req.currency)}</TableCell>
                     <TableCell>
                       {req.due_date ? (
-                        <div className={`flex items-center gap-1 ${isOverdue(req.due_date) && req.status !== 'completed' ? 'text-red-600' : 'text-[#8B7355]'}`}>
+                        <div className={`flex items-center gap-1 text-sm ${isOverdue(req.due_date) && req.status !== 'completed' ? 'text-red-600' : 'text-[#8B7355]'}`}>
                           {isOverdue(req.due_date) && req.status !== 'completed' && <AlertCircle className="w-3 h-3" />}
                           {formatDate(req.due_date)}
                         </div>
                       ) : '-'}
                     </TableCell>
                     <TableCell>{getStatusBadge(req.status)}</TableCell>
-                    <TableCell className="text-xs text-[#8B7355]">{formatDate(req.created_at)}</TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-end gap-1">
                         <Button size="sm" variant="ghost" onClick={() => openViewDialog(req)} title="View"><Eye className="w-4 h-4 text-[#8B7355]" /></Button>
@@ -380,6 +419,78 @@ const PaymentRequests = () => {
         <DialogContent className="bg-white max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle className="text-[#4A3728]">New Payment Request</DialogTitle></DialogHeader>
           <div className="space-y-4">
+            {/* Source & Requester */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-[#4A3728]">Request Source *</label>
+                <Select value={formData.source_type} onValueChange={(v) => setFormData(f => ({...f, source_type: v, source_reference: ''}))}>
+                  <SelectTrigger className="bg-white border-[#D4BBA6]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {SOURCE_TYPES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-[#4A3728]">
+                  {formData.source_type === 'work_order' ? 'Work Order' : 'Reference'}
+                </label>
+                {formData.source_type === 'work_order' ? (
+                  <Select value={formData.source_reference || "placeholder"} onValueChange={(v) => {
+                    if (v !== "placeholder") {
+                      const wo = workOrders.find(w => w.work_order_id === v);
+                      setFormData(f => ({
+                        ...f, 
+                        source_reference: v, 
+                        vendor_name: wo?.vendor_name || f.vendor_name,
+                        amount: wo?.agreed_amount || f.amount,
+                        category: 'vendor'
+                      }));
+                    }
+                  }}>
+                    <SelectTrigger className="bg-white border-[#D4BBA6]"><SelectValue placeholder="Select WO" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="placeholder" disabled>Select Work Order</SelectItem>
+                      {workOrders.filter(wo => wo.status !== 'completed').map(wo => (
+                        <SelectItem key={wo.work_order_id} value={wo.work_order_id}>{wo.work_order_id} - {wo.vendor_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input value={formData.source_reference} onChange={(e) => setFormData(f => ({...f, source_reference: e.target.value}))} className="bg-white border-[#D4BBA6]" placeholder="Optional reference" />
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-[#4A3728]">Requester</label>
+                <Select value={formData.requested_by_id || "self"} onValueChange={(v) => {
+                  if (v === "self") {
+                    setFormData(f => ({...f, requested_by_id: '', requested_by_name: ''}));
+                  } else {
+                    const emp = employees.find(e => e.id === v);
+                    setFormData(f => ({...f, requested_by_id: v, requested_by_name: emp?.name || ''}));
+                  }
+                }}>
+                  <SelectTrigger className="bg-white border-[#D4BBA6]"><SelectValue placeholder="Self" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="self">Self (Me)</SelectItem>
+                    {employees.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-[#4A3728]">Department</label>
+                <Select value={formData.department || "placeholder"} onValueChange={(v) => setFormData(f => ({...f, department: v === "placeholder" ? "" : v}))}>
+                  <SelectTrigger className="bg-white border-[#D4BBA6]"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="placeholder" disabled>Select</SelectItem>
+                    {DEPARTMENTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
             <div>
               <label className="text-sm font-medium text-[#4A3728]">Payment Type *</label>
               <Select value={formData.category || "placeholder"} onValueChange={(v) => setFormData(f => ({...f, category: v === "placeholder" ? "" : v}))}>
@@ -427,14 +538,8 @@ const PaymentRequests = () => {
                 <Input value={formData.vendor_name} onChange={(e) => setFormData(f => ({...f, vendor_name: e.target.value}))} className="bg-white border-[#D4BBA6]" placeholder="Payee name" />
               </div>
               <div>
-                <label className="text-sm font-medium text-[#4A3728]">Department</label>
-                <Select value={formData.department || "placeholder"} onValueChange={(v) => setFormData(f => ({...f, department: v === "placeholder" ? "" : v}))}>
-                  <SelectTrigger className="bg-white border-[#D4BBA6]"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="placeholder" disabled>Select</SelectItem>
-                    {DEPARTMENTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <label className="text-sm font-medium text-[#4A3728]">Invoice/Reference #</label>
+                <Input value={formData.invoice_number} onChange={(e) => setFormData(f => ({...f, invoice_number: e.target.value}))} className="bg-white border-[#D4BBA6]" placeholder="INV-001" />
               </div>
             </div>
 
@@ -444,25 +549,20 @@ const PaymentRequests = () => {
                 <Input type="date" value={formData.due_date} onChange={(e) => setFormData(f => ({...f, due_date: e.target.value}))} className="bg-white border-[#D4BBA6]" />
               </div>
               <div>
-                <label className="text-sm font-medium text-[#4A3728]">Invoice/Reference #</label>
-                <Input value={formData.invoice_number} onChange={(e) => setFormData(f => ({...f, invoice_number: e.target.value}))} className="bg-white border-[#D4BBA6]" placeholder="INV-001" />
+                <label className="text-sm font-medium text-[#4A3728]">Payment Method</label>
+                <Select value={formData.payment_method || "placeholder"} onValueChange={(v) => setFormData(f => ({...f, payment_method: v === "placeholder" ? "" : v}))}>
+                  <SelectTrigger className="bg-white border-[#D4BBA6]"><SelectValue placeholder="Select method" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="placeholder" disabled>Select method</SelectItem>
+                    <SelectItem value="bank_transfer">Bank Transfer (NEFT/RTGS)</SelectItem>
+                    <SelectItem value="upi">UPI</SelectItem>
+                    <SelectItem value="cheque">Cheque</SelectItem>
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="credit_card">Credit Card</SelectItem>
+                    <SelectItem value="wire">Wire Transfer</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-[#4A3728]">Payment Method</label>
-              <Select value={formData.payment_method || "placeholder"} onValueChange={(v) => setFormData(f => ({...f, payment_method: v === "placeholder" ? "" : v}))}>
-                <SelectTrigger className="bg-white border-[#D4BBA6]"><SelectValue placeholder="Select method" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="placeholder" disabled>Select method</SelectItem>
-                  <SelectItem value="bank_transfer">Bank Transfer (NEFT/RTGS)</SelectItem>
-                  <SelectItem value="upi">UPI</SelectItem>
-                  <SelectItem value="cheque">Cheque</SelectItem>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="credit_card">Credit Card</SelectItem>
-                  <SelectItem value="wire">Wire Transfer</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
 
             <div>
