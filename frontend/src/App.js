@@ -54,6 +54,7 @@ import CampaignDetail from "./pages/social/CampaignDetail";
 import ApprovalWorkflows from "./pages/social/ApprovalWorkflows";
 import PostingQueues from "./pages/social/PostingQueues";
 import SocialInbox from "./pages/social/SocialInbox";
+import DirectMessages from "./pages/social/DirectMessages";
 import AutoReplyRules from "./pages/social/AutoReplyRules";
 import SocialAnalyticsDashboard from "./pages/social/SocialAnalyticsDashboard";
 import SocialListening from "./pages/social/SocialListening";
@@ -428,6 +429,7 @@ function AppRoutes() {
             <Route path="/social/workflows" element={<ProtectedRoute requiredModule="social"><ApprovalWorkflows /></ProtectedRoute>} />
             <Route path="/social/queues" element={<ProtectedRoute requiredModule="social"><PostingQueues /></ProtectedRoute>} />
             <Route path="/social/inbox" element={<ProtectedRoute requiredModule="social"><SocialInbox /></ProtectedRoute>} />
+            <Route path="/social/messages" element={<ProtectedRoute requiredModule="social"><DirectMessages /></ProtectedRoute>} />
             <Route path="/social/auto-reply" element={<ProtectedRoute requiredModule="social"><AutoReplyRules /></ProtectedRoute>} />
             <Route path="/social/listening" element={<ProtectedRoute requiredModule="social"><SocialListening /></ProtectedRoute>} />
             <Route path="/social/integrations" element={<ProtectedRoute requiredModule="social"><PlatformIntegrations /></ProtectedRoute>} />

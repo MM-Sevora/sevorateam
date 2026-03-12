@@ -161,6 +161,7 @@ const DEPARTMENT_CONFIG = {
         routes: [
             { path: '/social', name: 'Dashboard & Analytics', icon: BarChart3 },
             { path: '/social/inbox', name: 'Inbox', icon: MessageSquare },
+            { path: '/social/messages', name: 'Direct Messages', icon: Send },
             { path: '/social/listening', name: 'Social Listening', icon: Search },
             { path: '/social/integrations', name: 'Platform Integrations', icon: Plug },
             { path: '/social/engagement', name: 'Engagement Tracker', icon: Activity },
