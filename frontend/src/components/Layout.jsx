@@ -240,6 +240,7 @@ const DEPARTMENT_CONFIG = {
                 requiredModule: 'admin',
                 items: [
                     { path: '/it-admin', name: 'Tools & Access', icon: Package },
+                    { path: '/it-admin/credentials', name: 'Tools Credentials', icon: Lock },
                 ]
             },
             {
