@@ -9,6 +9,10 @@ Strategy: Progressive migration
 Phase 1 Modules (NEW):
 - Digital Ads Management (/marketing/v3/ads)
 - Creative Asset Management (/marketing/v3/assets)
+
+Phase 2 Modules (NEW):
+- Content Production (/marketing/v3/content)
+- Content Promotion (/marketing/v3/content-promotion)
 """
 
 from fastapi import APIRouter
@@ -27,6 +31,10 @@ from .deals import router as deals_router
 from .ads import router as ads_router
 from .assets_v2 import router as assets_v2_router
 
+# Phase 2: Content Production & Promotion (NEW)
+from .content_production import router as content_router
+from .content_promotion import router as promotion_router
+
 # Include completed sub-routers
 marketing_modular_router.include_router(contacts_router)
 marketing_modular_router.include_router(publications_router)
@@ -36,6 +44,10 @@ marketing_modular_router.include_router(deals_router)
 # Phase 1 routes
 marketing_modular_router.include_router(ads_router)
 marketing_modular_router.include_router(assets_v2_router)
+
+# Phase 2 routes
+marketing_modular_router.include_router(content_router)
+marketing_modular_router.include_router(promotion_router)
 
 # The following routers are stubs - routes still served by marketing_v2.py
 # from .pipeline import router as pipeline_router

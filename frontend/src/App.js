@@ -37,6 +37,10 @@ import UnifiedPipeline from "./pages/marketing/UnifiedPipeline";
 import DigitalAdsPage from "./pages/marketing/DigitalAdsPage";
 import CreativeAssetsPage from "./pages/marketing/CreativeAssetsPage";
 
+// Marketing V3 Pages (Phase 2 - Content Production & Promotion)
+import ContentProductionPage from "./pages/marketing/ContentProductionPage";
+import ContentPromotionPage from "./pages/marketing/ContentPromotionPage";
+
 // Sales Pages
 import { SalesDashboard } from "./pages/sales/Dashboard";
 import { LeadsPage } from "./pages/sales/Leads";
@@ -399,6 +403,9 @@ function AppRoutes() {
             <Route path="/marketing/assets" element={<ProtectedRoute requiredModule="marketing_ops"><CreativeAssetsPage /></ProtectedRoute>} />
             {/* Legacy redirect */}
             <Route path="/marketing/creative-assets" element={<Navigate to="/marketing/assets" replace />} />
+            {/* Phase 2: Content Production & Promotion */}
+            <Route path="/marketing/content" element={<ProtectedRoute requiredModule="marketing_ops"><ContentProductionPage /></ProtectedRoute>} />
+            <Route path="/marketing/content-promotion" element={<ProtectedRoute requiredModule="marketing_ops"><ContentPromotionPage /></ProtectedRoute>} />
             {/* Budget now linked from Influencer Finance tab, keeping standalone for overview */}
             <Route path="/marketing/budget" element={<ProtectedRoute requiredModule="marketing_ops"><BudgetPage /></ProtectedRoute>} />
             {/* AI Tools with Influencer Discovery */}

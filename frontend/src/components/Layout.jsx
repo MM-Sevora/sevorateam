@@ -129,6 +129,8 @@ const DEPARTMENT_CONFIG = {
             { path: '/marketing/pipeline', name: 'Pipeline', icon: Briefcase },
             { path: '/marketing/ads', name: 'Digital Ads', icon: Megaphone },
             { path: '/marketing/assets', name: 'Creative Assets', icon: Image },
+            { path: '/marketing/content', name: 'Content Production', icon: Cog },
+            { path: '/marketing/content-promotion', name: 'UGC Promotion', icon: Zap },
             { path: '/marketing/budget', name: 'Budget Overview', icon: DollarSign },
             { path: '/marketing/ai-tools', name: 'AI Tools', icon: Sparkles },
         ]
