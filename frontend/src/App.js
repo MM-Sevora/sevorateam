@@ -394,10 +394,11 @@ function AppRoutes() {
             {/* Redirect old contacts routes to influencers */}
             <Route path="/marketing/contacts" element={<Navigate to="/marketing/influencers" replace />} />
             <Route path="/marketing/contacts/:contactId" element={<Navigate to="/marketing/influencers" replace />} />
-            <Route path="/marketing/assets" element={<ProtectedRoute requiredModule="marketing_ops"><ContentAssetsPage /></ProtectedRoute>} />
             {/* Phase 1: Digital Ads & Creative Assets */}
             <Route path="/marketing/ads" element={<ProtectedRoute requiredModule="marketing_ops"><DigitalAdsPage /></ProtectedRoute>} />
-            <Route path="/marketing/creative-assets" element={<ProtectedRoute requiredModule="marketing_ops"><CreativeAssetsPage /></ProtectedRoute>} />
+            <Route path="/marketing/assets" element={<ProtectedRoute requiredModule="marketing_ops"><CreativeAssetsPage /></ProtectedRoute>} />
+            {/* Legacy redirect */}
+            <Route path="/marketing/creative-assets" element={<Navigate to="/marketing/assets" replace />} />
             {/* Budget now linked from Influencer Finance tab, keeping standalone for overview */}
             <Route path="/marketing/budget" element={<ProtectedRoute requiredModule="marketing_ops"><BudgetPage /></ProtectedRoute>} />
             {/* AI Tools with Influencer Discovery */}
