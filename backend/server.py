@@ -4392,6 +4392,14 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Admin V2 routes: {e}")
 
+# Load Marketing V3 Modular routes (Digital Ads + Creative Assets)
+try:
+    from routes.marketing import marketing_modular_router
+    api_router.include_router(marketing_modular_router)
+    logger.info("Marketing V3 Modular routes loaded successfully (Ads + Assets)")
+except Exception as e:
+    logger.error(f"Failed to load Marketing V3 Modular routes: {e}")
+
 app.include_router(api_router)
 
 # ============== WEBSOCKET FOR REAL-TIME NOTIFICATIONS ==============

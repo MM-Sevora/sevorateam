@@ -13,7 +13,7 @@ import {
     HelpCircle, Award, Network, Shield, Flag, CalendarDays, RefreshCw, Plus, Globe,
     TrendingUp, PieChart, Activity, FileText, Package, Factory, FlaskConical, Search, Database,
     Server, Plug, Bell, ClipboardList, Bot, Cog, CheckCircle, MessageCircle, Key, Lock, Receipt,
-    CreditCard
+    CreditCard, Megaphone, FileImage
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -127,7 +127,9 @@ const DEPARTMENT_CONFIG = {
             { path: '/marketing/publications', name: 'Publications', icon: Building2 },
             { path: '/marketing/campaigns', name: 'Campaign Hub', icon: Target },
             { path: '/marketing/pipeline', name: 'Pipeline', icon: Briefcase },
-            { path: '/marketing/assets', name: 'Content & Assets', icon: Image },
+            { path: '/marketing/ads', name: 'Digital Ads', icon: Megaphone },
+            { path: '/marketing/creative-assets', name: 'Creative Assets', icon: Image },
+            { path: '/marketing/assets', name: 'Content & Assets', icon: FileImage },
             { path: '/marketing/budget', name: 'Budget Overview', icon: DollarSign },
             { path: '/marketing/ai-tools', name: 'AI Tools', icon: Sparkles },
         ]
