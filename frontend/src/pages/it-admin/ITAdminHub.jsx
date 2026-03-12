@@ -19,6 +19,16 @@ import {
 } from 'lucide-react';
 
 const CATEGORIES = ['Marketing', 'Design', 'Development', 'Finance', 'HR', 'Sales', 'Operations', 'Communication', 'Analytics', 'Security', 'Other'];
+const CURRENCIES = [
+  { value: 'USD', label: 'USD ($)', symbol: '$' },
+  { value: 'EUR', label: 'EUR (€)', symbol: '€' },
+  { value: 'GBP', label: 'GBP (£)', symbol: '£' },
+  { value: 'INR', label: 'INR (₹)', symbol: '₹' },
+  { value: 'AUD', label: 'AUD (A$)', symbol: 'A$' },
+  { value: 'CAD', label: 'CAD (C$)', symbol: 'C$' },
+  { value: 'JPY', label: 'JPY (¥)', symbol: '¥' },
+  { value: 'SGD', label: 'SGD (S$)', symbol: 'S$' }
+];
 const SUBSCRIPTION_TYPES = [
   { value: 'free', label: 'Free', color: 'bg-green-100 text-green-700' },
   { value: 'monthly', label: 'Monthly', color: 'bg-blue-100 text-blue-700' },
@@ -65,7 +75,7 @@ const ITAdminHub = ({ defaultTab = 'tools' }) => {
   const [editingTool, setEditingTool] = useState(null);
   const [toolForm, setToolForm] = useState({
     name: '', url: '', category: 'Other', description: '',
-    subscription_type: 'free', monthly_cost: '', annual_cost: '',
+    subscription_type: 'free', currency: 'USD', monthly_cost: '', annual_cost: '',
     license_count: '', renewal_date: '', vendor_contact: ''
   });
   
@@ -120,7 +130,12 @@ const ITAdminHub = ({ defaultTab = 'tools' }) => {
       return { ...access, tool_name: tool?.name || 'Unknown', tool_category: tool?.category };
     });
   };
-  const formatCurrency = (amount) => amount ? `$${parseFloat(amount).toLocaleString()}` : '-';
+  const getCurrencySymbol = (code) => CURRENCIES.find(c => c.value === code)?.symbol || '$';
+  const formatCurrency = (amount, currency = 'USD') => {
+    if (!amount) return '-';
+    const symbol = getCurrencySymbol(currency);
+    return `${symbol}${parseFloat(amount).toLocaleString()}`;
+  };
   const totalMonthlyCost = tools.reduce((sum, t) => sum + (parseFloat(t.monthly_cost) || 0), 0);
 
   // Tool CRUD
@@ -142,7 +157,7 @@ const ITAdminHub = ({ defaultTab = 'tools' }) => {
   };
 
   const resetToolForm = () => {
-    setToolForm({ name: '', url: '', category: 'Other', description: '', subscription_type: 'free', monthly_cost: '', annual_cost: '', license_count: '', renewal_date: '', vendor_contact: '' });
+    setToolForm({ name: '', url: '', category: 'Other', description: '', subscription_type: 'free', currency: 'USD', monthly_cost: '', annual_cost: '', license_count: '', renewal_date: '', vendor_contact: '' });
     setEditingTool(null);
   };
 
@@ -160,7 +175,7 @@ const ITAdminHub = ({ defaultTab = 'tools' }) => {
     setToolForm({
       name: tool.name || '', url: tool.url || '', category: tool.category || 'Other',
       description: tool.description || '', subscription_type: tool.subscription_type || 'free',
-      monthly_cost: tool.monthly_cost || '', annual_cost: tool.annual_cost || '',
+      currency: tool.currency || 'USD', monthly_cost: tool.monthly_cost || '', annual_cost: tool.annual_cost || '',
       license_count: tool.license_count || '', renewal_date: tool.renewal_date || '',
       vendor_contact: tool.vendor_contact || ''
     });
@@ -346,7 +361,7 @@ const ITAdminHub = ({ defaultTab = 'tools' }) => {
                             </div>
                             <div className="flex items-center gap-4 text-xs text-[#8B7355] mt-1">
                               <span><Users className="w-3 h-3 inline mr-1" />{toolAccess.length} users</span>
-                              {tool.monthly_cost && <span><DollarSign className="w-3 h-3 inline" />{tool.monthly_cost}/mo</span>}
+                              {tool.monthly_cost && <span><DollarSign className="w-3 h-3 inline" />{formatCurrency(tool.monthly_cost, tool.currency)}/mo</span>}
                               {tool.license_count && <span><Key className="w-3 h-3 inline mr-1" />{tool.license_count} licenses</span>}
                             </div>
                           </div>
@@ -368,11 +383,11 @@ const ITAdminHub = ({ defaultTab = 'tools' }) => {
                             <div className="grid grid-cols-2 gap-2 text-sm">
                               <div className="bg-[#F5EDE5] p-2 rounded">
                                 <p className="text-xs text-[#8B7355]">Monthly Cost</p>
-                                <p className="font-medium text-[#4A3728]">{formatCurrency(tool.monthly_cost)}</p>
+                                <p className="font-medium text-[#4A3728]">{formatCurrency(tool.monthly_cost, tool.currency)}</p>
                               </div>
                               <div className="bg-[#F5EDE5] p-2 rounded">
                                 <p className="text-xs text-[#8B7355]">Annual Cost</p>
-                                <p className="font-medium text-[#4A3728]">{formatCurrency(tool.annual_cost)}</p>
+                                <p className="font-medium text-[#4A3728]">{formatCurrency(tool.annual_cost, tool.currency)}</p>
                               </div>
                               <div className="bg-[#F5EDE5] p-2 rounded">
                                 <p className="text-xs text-[#8B7355]">Licenses</p>
@@ -624,8 +639,11 @@ const ITAdminHub = ({ defaultTab = 'tools' }) => {
             <div><Label>Subscription Type</Label>
               <Select value={toolForm.subscription_type} onValueChange={(v) => setToolForm(f => ({ ...f, subscription_type: v }))}><SelectTrigger className="bg-white border-[#D4BBA6]"><SelectValue /></SelectTrigger><SelectContent>{SUBSCRIPTION_TYPES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent></Select>
             </div>
-            <div><Label>Monthly Cost ($)</Label><Input type="number" value={toolForm.monthly_cost} onChange={(e) => setToolForm(f => ({ ...f, monthly_cost: e.target.value }))} className="bg-white border-[#D4BBA6]" /></div>
-            <div><Label>Annual Cost ($)</Label><Input type="number" value={toolForm.annual_cost} onChange={(e) => setToolForm(f => ({ ...f, annual_cost: e.target.value }))} className="bg-white border-[#D4BBA6]" /></div>
+            <div><Label>Currency</Label>
+              <Select value={toolForm.currency} onValueChange={(v) => setToolForm(f => ({ ...f, currency: v }))}><SelectTrigger className="bg-white border-[#D4BBA6]"><SelectValue /></SelectTrigger><SelectContent>{CURRENCIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent></Select>
+            </div>
+            <div><Label>Monthly Cost</Label><Input type="number" value={toolForm.monthly_cost} onChange={(e) => setToolForm(f => ({ ...f, monthly_cost: e.target.value }))} className="bg-white border-[#D4BBA6]" /></div>
+            <div><Label>Annual Cost</Label><Input type="number" value={toolForm.annual_cost} onChange={(e) => setToolForm(f => ({ ...f, annual_cost: e.target.value }))} className="bg-white border-[#D4BBA6]" /></div>
             <div><Label>License Count</Label><Input type="number" value={toolForm.license_count} onChange={(e) => setToolForm(f => ({ ...f, license_count: e.target.value }))} className="bg-white border-[#D4BBA6]" /></div>
             <div><Label>Renewal Date</Label><Input type="date" value={toolForm.renewal_date} onChange={(e) => setToolForm(f => ({ ...f, renewal_date: e.target.value }))} className="bg-white border-[#D4BBA6]" /></div>
             <div className="col-span-2"><Label>Vendor Contact</Label><Input value={toolForm.vendor_contact} onChange={(e) => setToolForm(f => ({ ...f, vendor_contact: e.target.value }))} className="bg-white border-[#D4BBA6]" placeholder="support@vendor.com" /></div>
