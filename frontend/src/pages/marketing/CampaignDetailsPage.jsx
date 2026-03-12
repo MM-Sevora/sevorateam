@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -11,8 +12,6 @@ import {
   Megaphone, Image, Building2, TrendingUp, Clock, CheckCircle,
   AlertTriangle, Target, ExternalLink, Eye, Edit, Plus, BarChart3
 } from 'lucide-react';
-
-const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 const STATUS_CONFIG = {
   draft: { label: 'Draft', color: 'bg-gray-500' },
@@ -49,6 +48,7 @@ const formatDate = (dateStr) => {
 export default function CampaignDetailsPage() {
   const { campaignId } = useParams();
   const navigate = useNavigate();
+  const { api } = useAuth();
   const [loading, setLoading] = useState(true);
   const [campaign, setCampaign] = useState(null);
   const [activeTab, setActiveTab] = useState('content');
@@ -70,9 +70,9 @@ export default function CampaignDetailsPage() {
       
       // Try regular campaigns endpoint first
       try {
-        const campaignRes = await fetch(`${API_URL}/api/marketing/campaigns/${campaignId}`);
-        if (campaignRes.ok) {
-          campaignData = await campaignRes.json();
+        const campaignRes = await api.get(`/marketing/campaigns/${campaignId}`);
+        if (campaignRes.data) {
+          campaignData = campaignRes.data;
           campaignData.campaign_source = 'influencer';
         }
       } catch (e) {
@@ -82,9 +82,9 @@ export default function CampaignDetailsPage() {
       // Try PR campaigns endpoint if not found
       if (!campaignData) {
         try {
-          const prRes = await fetch(`${API_URL}/api/marketing/v2/pr/campaigns/${campaignId}`);
-          if (prRes.ok) {
-            campaignData = await prRes.json();
+          const prRes = await api.get(`/marketing/v2/pr/campaigns/${campaignId}`);
+          if (prRes.data) {
+            campaignData = prRes.data;
             campaignData.type = 'pr';
             campaignData.campaign_source = 'pr';
           }
@@ -103,26 +103,34 @@ export default function CampaignDetailsPage() {
 
       // Fetch related content projects
       try {
-        const contentRes = await fetch(`${API_URL}/api/marketing/v3/content/projects?campaign_id=${campaignId}&limit=50`);
-        if (contentRes.ok) {
-          setContentProjects(await contentRes.json());
+        const contentRes = await api.get(`/marketing/v3/content/projects?campaign_id=${campaignId}&limit=50`);
+        if (contentRes.data) {
+          setContentProjects(contentRes.data);
         }
       } catch (e) {}
 
       // Fetch related ad campaigns
       try {
-        const adsRes = await fetch(`${API_URL}/api/marketing/v3/ads/campaigns?marketing_campaign_id=${campaignId}`);
-        if (adsRes.ok) {
-          setAdCampaigns(await adsRes.json());
+        const adsRes = await api.get(`/marketing/v3/ads/campaigns?marketing_campaign_id=${campaignId}`);
+        if (adsRes.data) {
+          setAdCampaigns(adsRes.data);
         }
       } catch (e) {}
 
       // Fetch influencer deals for this campaign
       try {
-        const influencerRes = await fetch(`${API_URL}/api/marketing/v2/deals?campaign_id=${campaignId}&limit=50`);
-        if (influencerRes.ok) {
-          const dealsData = await influencerRes.json();
+        const influencerRes = await api.get(`/marketing/v2/deals?campaign_id=${campaignId}&limit=50`);
+        if (influencerRes.data) {
+          const dealsData = influencerRes.data;
           setInfluencers(dealsData.deals || dealsData || []);
+        }
+      } catch (e) {}
+
+      // Fetch PR publication pitches for PR campaigns
+      try {
+        const pitchesRes = await api.get(`/marketing/publications/pitches?campaign_id=${campaignId}&limit=50`);
+        if (pitchesRes.data) {
+          setPublications(pitchesRes.data.pitches || pitchesRes.data || []);
         }
       } catch (e) {}
       
@@ -132,7 +140,7 @@ export default function CampaignDetailsPage() {
     } finally {
       setLoading(false);
     }
-  }, [campaignId, navigate]);
+  }, [campaignId, navigate, api]);
 
   useEffect(() => {
     fetchCampaignData();
@@ -156,7 +164,54 @@ export default function CampaignDetailsPage() {
 
   const campaignType = campaign.type || 'mixed';
   const typeConfig = CAMPAIGN_TYPE_CONFIG[campaignType] || CAMPAIGN_TYPE_CONFIG.mixed;
-  const availableTabs = typeConfig.tabs;
+  
+  // Dynamic tab visibility based on campaign type AND available data
+  // Show tab if: campaign type supports it AND (has data OR is a core tab)
+  const getVisibleTabs = () => {
+    const typeTabs = typeConfig.tabs;
+    const visibleTabs = [];
+    
+    // Content tab - always shown if type supports it (core tab)
+    if (typeTabs.includes('content')) {
+      visibleTabs.push({ key: 'content', count: contentProjects.length, alwaysShow: true });
+    }
+    
+    // Ads tab - only show if type supports AND has data (or is digital/mixed type)
+    if (typeTabs.includes('ads')) {
+      const showAds = adCampaigns.length > 0 || campaignType === 'digital' || campaignType === 'mixed';
+      if (showAds) visibleTabs.push({ key: 'ads', count: adCampaigns.length, alwaysShow: false });
+    }
+    
+    // Assets tab - always show if type supports (core tab)
+    if (typeTabs.includes('assets')) {
+      visibleTabs.push({ key: 'assets', count: assets.length, alwaysShow: true });
+    }
+    
+    // Influencers tab - only show if type supports AND has data (or is influencer type)
+    if (typeTabs.includes('influencers')) {
+      const showInfluencers = influencers.length > 0 || campaignType === 'influencer' || campaignType === 'mixed';
+      if (showInfluencers) visibleTabs.push({ key: 'influencers', count: influencers.length, alwaysShow: false });
+    }
+    
+    // Publications tab - only show if type supports AND has data (or is PR type)
+    if (typeTabs.includes('publications')) {
+      const showPubs = publications.length > 0 || campaignType === 'pr' || campaignType === 'mixed';
+      if (showPubs) visibleTabs.push({ key: 'publications', count: publications.length, alwaysShow: false });
+    }
+    
+    // Budget tab - always show if type supports (core tab)
+    if (typeTabs.includes('budget')) {
+      visibleTabs.push({ key: 'budget', count: null, alwaysShow: true });
+    }
+    
+    return visibleTabs;
+  };
+  
+  const visibleTabs = getVisibleTabs();
+  const tabKeys = visibleTabs.map(t => t.key);
+  
+  // Auto-select first available tab if current tab is not visible
+  const effectiveActiveTab = tabKeys.includes(activeTab) ? activeTab : (tabKeys[0] || 'content');
 
   // Calculate budget utilization
   const totalBudget = campaign.budget || 0;
@@ -298,40 +353,40 @@ export default function CampaignDetailsPage() {
         </Card>
       )}
 
-      {/* Tabs - Only show relevant tabs based on campaign type */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      {/* Tabs - Only show relevant tabs based on campaign type and data */}
+      <Tabs value={effectiveActiveTab} onValueChange={setActiveTab}>
         <TabsList>
-          {availableTabs.includes('content') && (
+          {tabKeys.includes('content') && (
             <TabsTrigger value="content" className="flex items-center gap-2">
               <FileText className="w-4 h-4" />
               Content ({contentProjects.length})
             </TabsTrigger>
           )}
-          {availableTabs.includes('ads') && (
+          {tabKeys.includes('ads') && (
             <TabsTrigger value="ads" className="flex items-center gap-2">
               <Megaphone className="w-4 h-4" />
               Ads ({adCampaigns.length})
             </TabsTrigger>
           )}
-          {availableTabs.includes('assets') && (
+          {tabKeys.includes('assets') && (
             <TabsTrigger value="assets" className="flex items-center gap-2">
               <Image className="w-4 h-4" />
               Assets ({assets.length})
             </TabsTrigger>
           )}
-          {availableTabs.includes('influencers') && (
+          {tabKeys.includes('influencers') && (
             <TabsTrigger value="influencers" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
               Influencers ({influencers.length})
             </TabsTrigger>
           )}
-          {availableTabs.includes('publications') && (
+          {tabKeys.includes('publications') && (
             <TabsTrigger value="publications" className="flex items-center gap-2">
               <Building2 className="w-4 h-4" />
               Publications ({publications.length})
             </TabsTrigger>
           )}
-          {availableTabs.includes('budget') && (
+          {tabKeys.includes('budget') && (
             <TabsTrigger value="budget" className="flex items-center gap-2">
               <DollarSign className="w-4 h-4" />
               Budget

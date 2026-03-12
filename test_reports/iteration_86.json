@@ -1,0 +1,80 @@
+{
+  "summary": "Campaign Details page and Content Production dynamic dropdowns - All features tested and working. Campaign Details page now loads correctly for both Mixed and PR campaigns without redirecting. PR campaigns correctly show only Content/Assets/Publications/Budget tabs (no Ads/Influencers). Mixed campaigns show all 6 tabs. Content Production form dynamic dropdowns load from config API.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "console_warnings": [
+      {"component": "CreateProjectForm", "issue": "Select is changing from uncontrolled to controlled warning - minor React warning, not blocking functionality"}
+    ]
+  },
+  "test_results": {
+    "campaign_details_mixed": {
+      "url": "/marketing/campaign/c5c6645c-6d42-4234-9a0f-6f46f3020365",
+      "page_loads": "PASS - No redirect, page loads correctly",
+      "campaign_name": "Post launch Campaigm",
+      "badge": "Mixed Campaign",
+      "tabs_visible": ["Content (0)", "Ads (0)", "Assets (0)", "Influencers (0)", "Publications (0)", "Budget"],
+      "tabs_count": 6,
+      "status": "PASS"
+    },
+    "campaign_details_pr": {
+      "url": "/marketing/campaign/509d767d-5aa3-4d7a-b24a-6fa0e329df1a",
+      "page_loads": "PASS - No redirect, page loads correctly", 
+      "campaign_name": "Q1 Product Launch PR",
+      "badge": "PR Campaign",
+      "tabs_visible": ["Content (0)", "Assets (0)", "Publications (0)", "Budget"],
+      "tabs_hidden": ["Ads", "Influencers"],
+      "tabs_count": 4,
+      "status": "PASS - Correctly shows only PR-relevant tabs"
+    },
+    "content_production": {
+      "page_loads": "PASS - /marketing/content",
+      "new_project_button": "PASS - Opens dialog",
+      "dynamic_dropdowns": {
+        "project_type": "PASS - Options: Original Production, Editing/Post Production, Adaptation/Repurpose, Graphics/Design, Delivery/Formatting, AI Generation",
+        "content_category": "PASS - Options: Written Content, Product Content, Social Content, Video Content, Marketing Content",
+        "content_subtype": "PASS - Options load based on category (Blog Article, Website Page, Landing Page, Email/Newsletter, Case Study, Press Release for Written)",
+        "medium": "PASS - Options: Website, Instagram, Facebook, YouTube, TikTok, LinkedIn, Email, Ads (Meta/Google), Print/Offline, WhatsApp"
+      },
+      "config_api": "PASS - /api/marketing/v3/config/all returns dynamic options from database"
+    }
+  },
+  "features_verified": [
+    "Campaign Details page loads for Mixed campaign without redirect ✓",
+    "Campaign Details page loads for PR campaign without redirect ✓",
+    "Mixed Campaign shows all 6 tabs (Content, Ads, Assets, Influencers, Publications, Budget) ✓",
+    "PR Campaign shows only 4 tabs (Content, Assets, Publications, Budget) - no Ads/Influencers ✓",
+    "Content Production page loads at /marketing/content ✓",
+    "Create Content Project dialog opens with New Project button ✓",
+    "Project Type dropdown loads dynamic options from config API ✓",
+    "Content Category dropdown loads dynamic options from config API ✓",
+    "Content Sub-Type dropdown loads dynamic options based on selected category ✓",
+    "Medium dropdown loads dynamic options from config API ✓",
+    "All form inputs have proper data-testid attributes ✓"
+  ],
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "test_credentials": {
+    "email": "superadmin@sevora.com",
+    "password": "superadmin123"
+  },
+  "seed_data_creation": "None - used existing campaigns",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Campaign Details page fix verified - now uses api.get() from useAuth() for authenticated API calls. PR campaigns show only relevant tabs (Content/Assets/Publications/Budget), Mixed campaigns show all tabs. Content Production form loads dynamic dropdown options from /api/marketing/v3/config/all endpoint. Campaign URLs use /marketing/campaign/:id format (not /campaigns/:id).",
+  "campaign_test_ids": {
+    "mixed_campaign": "c5c6645c-6d42-4234-9a0f-6f46f3020365",
+    "pr_campaign": "509d767d-5aa3-4d7a-b24a-6fa0e329df1a"
+  }
+}
