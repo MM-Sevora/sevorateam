@@ -166,8 +166,17 @@ const ToolsAccessTable = ({ defaultTab = 'tools' }) => {
   }, [tools, searchTerm, categoryFilter, subscriptionFilter, sortConfig, accessRecords]);
 
   const usersWithAccess = useMemo(() => {
-    return users.filter(u => accessRecords.some(a => a.user_id === u.id));
-  }, [users, accessRecords]);
+    let result = users.filter(u => accessRecords.some(a => a.user_id === u.id));
+    // Apply search filter for users tab
+    if (searchTerm && activeTab === 'users') {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(u => 
+        u.name?.toLowerCase().includes(term) || 
+        u.email?.toLowerCase().includes(term)
+      );
+    }
+    return result;
+  }, [users, accessRecords, searchTerm, activeTab]);
 
   const filteredLogs = useMemo(() => {
     if (logFilter === 'all') return logs;
@@ -477,7 +486,12 @@ const ToolsAccessTable = ({ defaultTab = 'tools' }) => {
                           <span className="font-medium text-[#4A3728]">{cred.tool_name}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-[#8B7355]">{cred.login_email || '-'}</TableCell>
+                      <TableCell className="text-[#8B7355]">
+                        <div className="flex items-center gap-1">
+                          <span>{cred.login_email || '-'}</span>
+                          {cred.login_email && <Button variant="ghost" size="sm" onClick={() => copyToClipboard(cred.login_email)} title="Copy email"><Copy className="w-3 h-3 text-[#8B7355]" /></Button>}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <code className="bg-[#F5EDE5] px-2 py-1 rounded text-sm">{revealedPasswords[cred.id] || '••••••••'}</code>
@@ -506,6 +520,14 @@ const ToolsAccessTable = ({ defaultTab = 'tools' }) => {
 
         {/* ========== USERS TAB ========== */}
         <TabsContent value="users" className="space-y-4">
+          <Card className="bg-white border-[#E8D5C4]">
+            <CardContent className="p-4">
+              <div className="relative max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8B7355]" />
+                <Input placeholder="Search users..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 bg-white border-[#D4BBA6]" />
+              </div>
+            </CardContent>
+          </Card>
           <Card className="bg-white border-[#E8D5C4]">
             <CardContent className="p-0">
               <Table>
@@ -603,7 +625,18 @@ const ToolsAccessTable = ({ defaultTab = 'tools' }) => {
                       </TableCell>
                       <TableCell className="text-[#4A3728]">{log.user_name || '-'}</TableCell>
                       <TableCell className="text-[#8B7355]">{log.entity_name || '-'}</TableCell>
-                      <TableCell className="text-sm text-[#8B7355] max-w-[200px] truncate">{typeof log.details === 'object' ? JSON.stringify(log.details) : (log.details || '-')}</TableCell>
+                      <TableCell className="text-sm text-[#8B7355] max-w-[250px]">
+                        {typeof log.details === 'object' ? (
+                          <div className="space-y-1">
+                            {Object.entries(log.details).map(([key, val]) => (
+                              <div key={key} className="flex gap-1">
+                                <span className="font-medium text-[#4A3728]">{key}:</span>
+                                <span className="truncate">{typeof val === 'object' ? JSON.stringify(val) : String(val)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (log.details || '-')}
+                      </TableCell>
                       <TableCell className="text-sm text-[#8B7355]">{log.timestamp ? new Date(log.timestamp).toLocaleString() : '-'}</TableCell>
                     </TableRow>
                   ))}
