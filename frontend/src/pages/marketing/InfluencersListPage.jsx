@@ -79,6 +79,7 @@ const InfluencersListPage = () => {
     audience_focus: 'unisex', email: '', phone: '', bio: '', style_tags: '',
     instagram_handle: '', youtube_handle: '', primary_platform: 'instagram',
     followers: '', engagement_rate: '', avg_likes: '', avg_comments: '',
+    youtube_subscribers: '', youtube_total_views: '', youtube_videos_count: '', youtube_avg_views: '',
     manager_name: '', manager_email: '', manager_phone: '', agency: '',
     turnaround_days: '', payment_terms: 'not_specified', exclusivity_terms: '',
     accepts_barter: false, notes: '',
@@ -264,11 +265,13 @@ const InfluencersListPage = () => {
             setVerified(prev => ({ ...prev, youtube: true }));
             setNewInfluencer(prev => ({
               ...prev,
-              followers: metrics.subscribers?.toString() || prev.followers,
-              name: data.name || prev.name,
+              name: prev.name || data.name,  // Don't overwrite if Instagram already set name
               tier: data.tier || prev.tier,
               youtube_channel_id: data.channel_id || prev.youtube_channel_id,
-              youtube_profile_pic: data.profile_picture || prev.youtube_profile_pic
+              youtube_profile_pic: data.profile_picture || prev.youtube_profile_pic,
+              youtube_subscribers: metrics.subscribers?.toString() || prev.youtube_subscribers,
+              youtube_total_views: metrics.total_views?.toString() || prev.youtube_total_views,
+              youtube_videos_count: metrics.videos?.toString() || prev.youtube_videos_count,
             }));
             toast.success(`YouTube verified! ${metrics.subscribers?.toLocaleString()} subscribers`);
           } else {
@@ -346,6 +349,10 @@ const InfluencersListPage = () => {
         tier: newInfluencer.tier || 'micro',
         followers: parseInt(newInfluencer.followers) || 0,
         engagement_rate: parseFloat(newInfluencer.engagement_rate) || 0,
+        youtube_subscribers: parseInt(newInfluencer.youtube_subscribers) || null,
+        youtube_total_views: parseInt(newInfluencer.youtube_total_views) || null,
+        youtube_videos_count: parseInt(newInfluencer.youtube_videos_count) || null,
+        youtube_avg_views: parseInt(newInfluencer.youtube_avg_views) || null,
         rate_per_post: newInfluencer.rate_per_post ? parseFloat(newInfluencer.rate_per_post) : null,
         rate_per_reel: newInfluencer.rate_per_reel ? parseFloat(newInfluencer.rate_per_reel) : null,
         notes: newInfluencer.notes || null,
@@ -359,6 +366,7 @@ const InfluencersListPage = () => {
         audience_focus: 'unisex', email: '', phone: '', bio: '', style_tags: '',
         instagram_handle: '', youtube_handle: '', primary_platform: 'instagram',
         followers: '', engagement_rate: '', avg_likes: '', avg_comments: '',
+        youtube_subscribers: '', youtube_total_views: '', youtube_videos_count: '', youtube_avg_views: '',
         rate_per_post: '', rate_per_reel: '', rate_per_story: '', rate_per_youtube: '',
         manager_name: '', manager_email: '', manager_phone: '', agency: '',
         turnaround_days: '', payment_terms: 'not_specified', exclusivity_terms: '',
@@ -889,49 +897,120 @@ const InfluencersListPage = () => {
                         />
                       </div>
                     </div>
-                    <div className="grid grid-cols-4 gap-4">
-                      <div>
-                        <Label className="text-xs uppercase tracking-wider text-gray-500">FOLLOWERS</Label>
-                        <Input 
-                          type="number"
-                          placeholder="50000"
-                          value={newInfluencer.followers}
-                          onChange={e => setNewInfluencer({...newInfluencer, followers: e.target.value})}
-                          className="mt-1"
-                        />
+                    
+                    {/* Instagram Metrics */}
+                    {(verified.instagram || newInfluencer.instagram_handle) && (
+                      <div className="border border-pink-200 bg-pink-50/30 rounded-lg p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Instagram className="w-4 h-4 text-pink-500" />
+                          <span className="font-medium text-sm text-pink-700">Instagram Metrics</span>
+                          {verified.instagram && <BadgeCheck className="w-4 h-4 text-green-500" />}
+                        </div>
+                        <div className="grid grid-cols-4 gap-4">
+                          <div>
+                            <Label className="text-xs uppercase tracking-wider text-gray-500">FOLLOWERS</Label>
+                            <Input 
+                              type="number"
+                              placeholder="50000"
+                              value={newInfluencer.followers}
+                              onChange={e => setNewInfluencer({...newInfluencer, followers: e.target.value})}
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs uppercase tracking-wider text-gray-500">ENGAGEMENT %</Label>
+                            <Input 
+                              type="number"
+                              step="0.1"
+                              placeholder="4.5"
+                              value={newInfluencer.engagement_rate}
+                              onChange={e => setNewInfluencer({...newInfluencer, engagement_rate: e.target.value})}
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs uppercase tracking-wider text-gray-500">AVG LIKES</Label>
+                            <Input 
+                              type="number"
+                              placeholder="2500"
+                              value={newInfluencer.avg_likes}
+                              onChange={e => setNewInfluencer({...newInfluencer, avg_likes: e.target.value})}
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs uppercase tracking-wider text-gray-500">AVG COMMENTS</Label>
+                            <Input 
+                              type="number"
+                              placeholder="100"
+                              value={newInfluencer.avg_comments}
+                              onChange={e => setNewInfluencer({...newInfluencer, avg_comments: e.target.value})}
+                              className="mt-1"
+                            />
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <Label className="text-xs uppercase tracking-wider text-gray-500">ENGAGEMENT %</Label>
-                        <Input 
-                          type="number"
-                          step="0.1"
-                          placeholder="4.5"
-                          value={newInfluencer.engagement_rate}
-                          onChange={e => setNewInfluencer({...newInfluencer, engagement_rate: e.target.value})}
-                          className="mt-1"
-                        />
+                    )}
+                    
+                    {/* YouTube Metrics */}
+                    {(verified.youtube || newInfluencer.youtube_handle) && (
+                      <div className="border border-red-200 bg-red-50/30 rounded-lg p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Youtube className="w-4 h-4 text-red-500" />
+                          <span className="font-medium text-sm text-red-700">YouTube Metrics</span>
+                          {verified.youtube && <BadgeCheck className="w-4 h-4 text-green-500" />}
+                        </div>
+                        <div className="grid grid-cols-4 gap-4">
+                          <div>
+                            <Label className="text-xs uppercase tracking-wider text-gray-500">SUBSCRIBERS</Label>
+                            <Input 
+                              type="number"
+                              placeholder="100000"
+                              value={newInfluencer.youtube_subscribers}
+                              onChange={e => setNewInfluencer({...newInfluencer, youtube_subscribers: e.target.value})}
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs uppercase tracking-wider text-gray-500">TOTAL VIEWS</Label>
+                            <Input 
+                              type="number"
+                              placeholder="5000000"
+                              value={newInfluencer.youtube_total_views}
+                              onChange={e => setNewInfluencer({...newInfluencer, youtube_total_views: e.target.value})}
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs uppercase tracking-wider text-gray-500">VIDEOS</Label>
+                            <Input 
+                              type="number"
+                              placeholder="150"
+                              value={newInfluencer.youtube_videos_count}
+                              onChange={e => setNewInfluencer({...newInfluencer, youtube_videos_count: e.target.value})}
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs uppercase tracking-wider text-gray-500">AVG VIEWS/VIDEO</Label>
+                            <Input 
+                              type="number"
+                              placeholder="35000"
+                              value={newInfluencer.youtube_avg_views}
+                              onChange={e => setNewInfluencer({...newInfluencer, youtube_avg_views: e.target.value})}
+                              className="mt-1"
+                            />
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <Label className="text-xs uppercase tracking-wider text-gray-500">AVG LIKES</Label>
-                        <Input 
-                          type="number"
-                          placeholder="2500"
-                          value={newInfluencer.avg_likes}
-                          onChange={e => setNewInfluencer({...newInfluencer, avg_likes: e.target.value})}
-                          className="mt-1"
-                        />
+                    )}
+                    
+                    {/* Show default metrics if no platform selected */}
+                    {!verified.instagram && !verified.youtube && !newInfluencer.instagram_handle && !newInfluencer.youtube_handle && (
+                      <div className="text-center py-6 text-gray-500">
+                        <p className="text-sm">Enter Instagram or YouTube handle above to fetch metrics</p>
                       </div>
-                      <div>
-                        <Label className="text-xs uppercase tracking-wider text-gray-500">AVG COMMENTS</Label>
-                        <Input 
-                          type="number"
-                          placeholder="100"
-                          value={newInfluencer.avg_comments}
-                          onChange={e => setNewInfluencer({...newInfluencer, avg_comments: e.target.value})}
-                          className="mt-1"
-                        />
-                      </div>
-                    </div>
+                    )}
                   </div>
                 )}
 
