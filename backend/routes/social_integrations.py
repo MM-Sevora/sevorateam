@@ -1211,6 +1211,295 @@ async def publish_instagram_reel(
         return result
 
 
+# ============== FACEBOOK PAGE REAL API ENDPOINTS ==============
+
+@router.get("/facebook/page")
+async def get_facebook_page_info(user: dict = Depends(get_current_user)):
+    """Get connected Facebook Page information"""
+    from services.meta_facebook import FacebookPageService
+    
+    async with FacebookPageService() as service:
+        if not service.is_configured():
+            return {
+                "success": False,
+                "configured": False,
+                "message": "Facebook Page credentials not configured"
+            }
+        
+        result = await service.get_page_info()
+        return {"configured": True, **result}
+
+
+@router.get("/facebook/posts")
+async def get_facebook_page_posts(
+    limit: int = 25,
+    user: dict = Depends(get_current_user)
+):
+    """Get recent posts from Facebook Page"""
+    from services.meta_facebook import FacebookPageService
+    
+    async with FacebookPageService() as service:
+        if not service.is_configured():
+            return {"success": False, "message": "Facebook Page not configured"}
+        
+        return await service.get_page_posts(limit=limit)
+
+
+@router.get("/facebook/posts/{post_id}/insights")
+async def get_facebook_post_insights(
+    post_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Get insights for a specific Facebook post"""
+    from services.meta_facebook import FacebookPageService
+    
+    async with FacebookPageService() as service:
+        if not service.is_configured():
+            return {"success": False, "message": "Facebook Page not configured"}
+        
+        return await service.get_post_insights(post_id)
+
+
+@router.get("/facebook/posts/{post_id}/comments")
+async def get_facebook_post_comments(
+    post_id: str,
+    limit: int = 50,
+    user: dict = Depends(get_current_user)
+):
+    """Get comments on a Facebook post"""
+    from services.meta_facebook import FacebookPageService
+    
+    async with FacebookPageService() as service:
+        if not service.is_configured():
+            return {"success": False, "message": "Facebook Page not configured"}
+        
+        return await service.get_post_comments(post_id, limit=limit)
+
+
+@router.post("/facebook/comments/{comment_id}/reply")
+async def reply_to_facebook_comment(
+    comment_id: str,
+    message: str,
+    user: dict = Depends(get_current_user)
+):
+    """Reply to a Facebook comment"""
+    from services.meta_facebook import FacebookPageService
+    
+    async with FacebookPageService() as service:
+        if not service.is_configured():
+            return {"success": False, "message": "Facebook Page not configured"}
+        
+        return await service.reply_to_comment(comment_id, message)
+
+
+@router.get("/facebook/insights")
+async def get_facebook_page_insights(
+    period: str = "day",
+    user: dict = Depends(get_current_user)
+):
+    """Get Facebook Page-level insights"""
+    from services.meta_facebook import FacebookPageService
+    
+    async with FacebookPageService() as service:
+        if not service.is_configured():
+            return {"success": False, "message": "Facebook Page not configured"}
+        
+        return await service.get_page_insights(period=period)
+
+
+class FacebookTextPost(BaseModel):
+    """Request body for Facebook text post"""
+    message: str
+
+
+class FacebookLinkPost(BaseModel):
+    """Request body for Facebook link post"""
+    message: str
+    link: str
+
+
+class FacebookPhotoPost(BaseModel):
+    """Request body for Facebook photo post"""
+    photo_url: str
+    caption: str = ""
+
+
+class FacebookVideoPost(BaseModel):
+    """Request body for Facebook video post"""
+    video_url: str
+    title: str = ""
+    description: str = ""
+
+
+class FacebookMultiPhotoPost(BaseModel):
+    """Request body for Facebook multi-photo post"""
+    photo_urls: List[str]
+    message: str = ""
+
+
+@router.post("/facebook/publish/text")
+async def publish_facebook_text_post(
+    data: FacebookTextPost,
+    user: dict = Depends(get_current_user)
+):
+    """Publish a text-only post to Facebook Page"""
+    from services.meta_facebook import FacebookPageService
+    
+    async with FacebookPageService() as service:
+        if not service.is_configured():
+            return {"success": False, "message": "Facebook Page not configured"}
+        
+        result = await service.publish_text_post(message=data.message)
+        
+        if db is not None and result.get("success"):
+            await db.social_publish_logs.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": user["id"],
+                "platform": "facebook",
+                "post_type": "text",
+                "post_id": result.get("post_id"),
+                "status": "published",
+                "published_at": datetime.now(timezone.utc).isoformat()
+            })
+        
+        return result
+
+
+@router.post("/facebook/publish/link")
+async def publish_facebook_link_post(
+    data: FacebookLinkPost,
+    user: dict = Depends(get_current_user)
+):
+    """Publish a link post to Facebook Page"""
+    from services.meta_facebook import FacebookPageService
+    
+    async with FacebookPageService() as service:
+        if not service.is_configured():
+            return {"success": False, "message": "Facebook Page not configured"}
+        
+        result = await service.publish_link_post(message=data.message, link=data.link)
+        
+        if db is not None and result.get("success"):
+            await db.social_publish_logs.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": user["id"],
+                "platform": "facebook",
+                "post_type": "link",
+                "post_id": result.get("post_id"),
+                "status": "published",
+                "published_at": datetime.now(timezone.utc).isoformat()
+            })
+        
+        return result
+
+
+@router.post("/facebook/publish/photo")
+async def publish_facebook_photo(
+    data: FacebookPhotoPost,
+    user: dict = Depends(get_current_user)
+):
+    """Publish a photo to Facebook Page"""
+    from services.meta_facebook import FacebookPageService
+    
+    async with FacebookPageService() as service:
+        if not service.is_configured():
+            return {"success": False, "message": "Facebook Page not configured"}
+        
+        result = await service.publish_photo(photo_url=data.photo_url, caption=data.caption)
+        
+        if db is not None and result.get("success"):
+            await db.social_publish_logs.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": user["id"],
+                "platform": "facebook",
+                "post_type": "photo",
+                "post_id": result.get("post_id"),
+                "status": "published",
+                "published_at": datetime.now(timezone.utc).isoformat()
+            })
+        
+        return result
+
+
+@router.post("/facebook/publish/video")
+async def publish_facebook_video(
+    data: FacebookVideoPost,
+    user: dict = Depends(get_current_user)
+):
+    """Publish a video to Facebook Page"""
+    from services.meta_facebook import FacebookPageService
+    
+    async with FacebookPageService() as service:
+        if not service.is_configured():
+            return {"success": False, "message": "Facebook Page not configured"}
+        
+        result = await service.publish_video(
+            video_url=data.video_url,
+            title=data.title,
+            description=data.description
+        )
+        
+        if db is not None and result.get("success"):
+            await db.social_publish_logs.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": user["id"],
+                "platform": "facebook",
+                "post_type": "video",
+                "post_id": result.get("video_id"),
+                "status": "published",
+                "published_at": datetime.now(timezone.utc).isoformat()
+            })
+        
+        return result
+
+
+@router.post("/facebook/publish/multi-photo")
+async def publish_facebook_multi_photo(
+    data: FacebookMultiPhotoPost,
+    user: dict = Depends(get_current_user)
+):
+    """Publish multiple photos as a single post to Facebook Page"""
+    from services.meta_facebook import FacebookPageService
+    
+    async with FacebookPageService() as service:
+        if not service.is_configured():
+            return {"success": False, "message": "Facebook Page not configured"}
+        
+        result = await service.publish_multi_photo(
+            photo_urls=data.photo_urls,
+            message=data.message
+        )
+        
+        if db is not None and result.get("success"):
+            await db.social_publish_logs.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": user["id"],
+                "platform": "facebook",
+                "post_type": "multi_photo",
+                "post_id": result.get("post_id"),
+                "photo_count": len(data.photo_urls),
+                "status": "published",
+                "published_at": datetime.now(timezone.utc).isoformat()
+            })
+        
+        return result
+
+
+@router.delete("/facebook/posts/{post_id}")
+async def delete_facebook_post(
+    post_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Delete a Facebook post"""
+    from services.meta_facebook import FacebookPageService
+    
+    async with FacebookPageService() as service:
+        if not service.is_configured():
+            return {"success": False, "message": "Facebook Page not configured"}
+        
+        return await service.delete_post(post_id)
+
+
 @router.post("/publish")
 async def publish_to_platform(
     request: PublishRequest,
