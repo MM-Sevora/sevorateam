@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -27,6 +27,7 @@ const PAYMENT_TYPES = [
 
 const WorkOrders = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { api, user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [vendors, setVendors] = useState([]);
@@ -67,6 +68,19 @@ const WorkOrders = () => {
   useEffect(() => {
     fetchData();
   }, [filter]);
+
+  // Handle view query parameter to auto-open work order dialog
+  useEffect(() => {
+    const viewOrderId = searchParams.get('view');
+    if (viewOrderId && orders.length > 0 && !showViewDialog) {
+      const orderToView = orders.find(o => o.id === viewOrderId);
+      if (orderToView) {
+        openViewDialog(orderToView);
+        // Clear the query param after opening
+        setSearchParams({});
+      }
+    }
+  }, [orders, searchParams]);
 
   const fetchData = async () => {
     try {

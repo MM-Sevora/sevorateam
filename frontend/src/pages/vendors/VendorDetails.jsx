@@ -408,9 +408,12 @@ const VendorDetails = () => {
                         {/* View Button */}
                         <Button 
                           size="sm" 
-                          variant="ghost" 
-                          onClick={() => navigate(`/vendors/work-orders`)}
-                          className="text-[#8B7355] self-start"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/vendors/work-orders?view=${wo.id}`);
+                          }}
+                          className="bg-[#4A3728] hover:bg-[#5D4A3A] text-white self-start"
+                          data-testid={`view-order-${wo.work_order_id}`}
                         >
                           View <ExternalLink className="w-3 h-3 ml-1" />
                         </Button>
