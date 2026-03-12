@@ -1088,10 +1088,27 @@ async def get_instagram_account_insights(
         return await service.get_account_insights(period=period)
 
 
+class InstagramImagePublish(BaseModel):
+    """Request body for Instagram image publishing"""
+    image_url: str
+    caption: str = ""
+
+
+class InstagramCarouselPublish(BaseModel):
+    """Request body for Instagram carousel publishing"""
+    image_urls: List[str]
+    caption: str = ""
+
+
+class InstagramReelPublish(BaseModel):
+    """Request body for Instagram reel publishing"""
+    video_url: str
+    caption: str = ""
+
+
 @router.post("/instagram/publish/image")
 async def publish_instagram_image(
-    image_url: str,
-    caption: str = "",
+    data: InstagramImagePublish,
     user: dict = Depends(get_current_user)
 ):
     """
@@ -1107,7 +1124,7 @@ async def publish_instagram_image(
         if not service.is_configured():
             return {"success": False, "message": "Instagram not configured"}
         
-        result = await service.publish_image(image_url=image_url, caption=caption)
+        result = await service.publish_image(image_url=data.image_url, caption=data.caption)
         
         # Log the publish action
         if db is not None and result.get("success"):
@@ -1117,7 +1134,7 @@ async def publish_instagram_image(
                 "platform": "instagram",
                 "post_type": "image",
                 "post_id": result.get("post_id"),
-                "caption": caption[:100] + "..." if len(caption) > 100 else caption,
+                "caption": data.caption[:100] + "..." if len(data.caption) > 100 else data.caption,
                 "status": "published",
                 "published_at": datetime.now(timezone.utc).isoformat()
             })
@@ -1127,8 +1144,7 @@ async def publish_instagram_image(
 
 @router.post("/instagram/publish/carousel")
 async def publish_instagram_carousel(
-    image_urls: List[str],
-    caption: str = "",
+    data: InstagramCarouselPublish,
     user: dict = Depends(get_current_user)
 ):
     """
@@ -1144,7 +1160,7 @@ async def publish_instagram_carousel(
         if not service.is_configured():
             return {"success": False, "message": "Instagram not configured"}
         
-        result = await service.publish_carousel(image_urls=image_urls, caption=caption)
+        result = await service.publish_carousel(image_urls=data.image_urls, caption=data.caption)
         
         if db is not None and result.get("success"):
             await db.social_publish_logs.insert_one({
@@ -1153,7 +1169,7 @@ async def publish_instagram_carousel(
                 "platform": "instagram",
                 "post_type": "carousel",
                 "post_id": result.get("post_id"),
-                "image_count": len(image_urls),
+                "image_count": len(data.image_urls),
                 "status": "published",
                 "published_at": datetime.now(timezone.utc).isoformat()
             })
@@ -1163,8 +1179,7 @@ async def publish_instagram_carousel(
 
 @router.post("/instagram/publish/reel")
 async def publish_instagram_reel(
-    video_url: str,
-    caption: str = "",
+    data: InstagramReelPublish,
     user: dict = Depends(get_current_user)
 ):
     """
@@ -1180,7 +1195,7 @@ async def publish_instagram_reel(
         if not service.is_configured():
             return {"success": False, "message": "Instagram not configured"}
         
-        result = await service.publish_reel(video_url=video_url, caption=caption)
+        result = await service.publish_reel(video_url=data.video_url, caption=data.caption)
         
         if db is not None and result.get("success"):
             await db.social_publish_logs.insert_one({
