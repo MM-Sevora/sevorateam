@@ -235,6 +235,14 @@ const DEPARTMENT_CONFIG = {
         requiredModule: 'admin',
         routes: [
             {
+                groupName: 'IT Admin',
+                groupIcon: Server,
+                requiredModule: 'admin',
+                items: [
+                    { path: '/it-admin/tools-access', name: 'Tools Access', icon: Package },
+                ]
+            },
+            {
                 groupName: 'HR Admin',
                 groupIcon: Users,
                 requiredModule: 'hr',
