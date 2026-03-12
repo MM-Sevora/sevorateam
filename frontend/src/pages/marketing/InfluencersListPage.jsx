@@ -227,9 +227,12 @@ const InfluencersListPage = () => {
               instagram_profile_pic: data.profile_picture || prev.instagram_profile_pic
             }));
             toast.success(`Instagram verified! ${metrics.followers?.toLocaleString()} followers`);
+          } else {
+            // Show error for unsuccessful fetch
+            toast.error(data.error || 'Instagram account not found or not a Business/Creator account');
           }
         } catch (error) {
-          // Silent fail for auto-fetch
+          toast.error('Failed to verify Instagram handle');
           console.log('Auto-fetch failed:', error);
         } finally {
           setFetching(prev => ({ ...prev, instagram: false }));
@@ -268,8 +271,11 @@ const InfluencersListPage = () => {
               youtube_profile_pic: data.profile_picture || prev.youtube_profile_pic
             }));
             toast.success(`YouTube verified! ${metrics.subscribers?.toLocaleString()} subscribers`);
+          } else {
+            toast.error(data.error || 'YouTube channel not found');
           }
         } catch (error) {
+          toast.error('Failed to verify YouTube handle');
           console.log('Auto-fetch failed:', error);
         } finally {
           setFetching(prev => ({ ...prev, youtube: false }));
