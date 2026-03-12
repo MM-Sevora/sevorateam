@@ -13,6 +13,9 @@ Phase 1 Modules (NEW):
 Phase 2 Modules (NEW):
 - Content Production (/marketing/v3/content)
 - Content Promotion (/marketing/v3/content-promotion)
+
+Phase 3 Modules (NEW):
+- Budget Management (/marketing/v3/budgets)
 """
 
 from fastapi import APIRouter
@@ -35,6 +38,9 @@ from .assets_v2 import router as assets_v2_router
 from .content_production import router as content_router
 from .content_promotion import router as promotion_router
 
+# Phase 3: Budget Management (NEW)
+from .budget_management import router as budget_router
+
 # Include completed sub-routers
 marketing_modular_router.include_router(contacts_router)
 marketing_modular_router.include_router(publications_router)
@@ -48,6 +54,9 @@ marketing_modular_router.include_router(assets_v2_router)
 # Phase 2 routes
 marketing_modular_router.include_router(content_router)
 marketing_modular_router.include_router(promotion_router)
+
+# Phase 3 routes
+marketing_modular_router.include_router(budget_router)
 
 # The following routers are stubs - routes still served by marketing_v2.py
 # from .pipeline import router as pipeline_router

@@ -131,7 +131,7 @@ const DEPARTMENT_CONFIG = {
             { path: '/marketing/assets', name: 'Creative Assets', icon: Image },
             { path: '/marketing/content', name: 'Content Production', icon: Cog },
             { path: '/marketing/content-promotion', name: 'UGC Promotion', icon: Zap },
-            { path: '/marketing/budget', name: 'Budget Overview', icon: DollarSign },
+            { path: '/marketing/budget-management', name: 'Budget Management', icon: DollarSign },
             { path: '/marketing/ai-tools', name: 'AI Tools', icon: Sparkles },
         ]
     },

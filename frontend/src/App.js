@@ -41,6 +41,9 @@ import CreativeAssetsPage from "./pages/marketing/CreativeAssetsPage";
 import ContentProductionPage from "./pages/marketing/ContentProductionPage";
 import ContentPromotionPage from "./pages/marketing/ContentPromotionPage";
 
+// Marketing V3 Pages (Phase 3 - Budget Management)
+import BudgetManagementPage from "./pages/marketing/BudgetManagementPage";
+
 // Sales Pages
 import { SalesDashboard } from "./pages/sales/Dashboard";
 import { LeadsPage } from "./pages/sales/Leads";
@@ -406,7 +409,9 @@ function AppRoutes() {
             {/* Phase 2: Content Production & Promotion */}
             <Route path="/marketing/content" element={<ProtectedRoute requiredModule="marketing_ops"><ContentProductionPage /></ProtectedRoute>} />
             <Route path="/marketing/content-promotion" element={<ProtectedRoute requiredModule="marketing_ops"><ContentPromotionPage /></ProtectedRoute>} />
-            {/* Budget now linked from Influencer Finance tab, keeping standalone for overview */}
+            {/* Phase 3: Budget Management */}
+            <Route path="/marketing/budget-management" element={<ProtectedRoute requiredModule="marketing_ops"><BudgetManagementPage /></ProtectedRoute>} />
+            {/* Legacy Budget page */}
             <Route path="/marketing/budget" element={<ProtectedRoute requiredModule="marketing_ops"><BudgetPage /></ProtectedRoute>} />
             {/* AI Tools with Influencer Discovery */}
             <Route path="/marketing/ai-tools" element={<ProtectedRoute requiredModule="marketing_ops"><AIToolsPage /></ProtectedRoute>} />
