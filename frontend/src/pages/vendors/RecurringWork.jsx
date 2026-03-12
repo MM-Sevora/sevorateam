@@ -38,8 +38,8 @@ const RecurringWork = () => {
   const [filters, setFilters] = useState({ status: '', frequency: '' });
   const [sortConfig, setSortConfig] = useState({ key: 'next_due_date', direction: 'asc' });
   const [formData, setFormData] = useState({
-    name: '', vendor_id: '', description: '', frequency: 'monthly',
-    amount: '', currency: 'INR', start_date: '', end_date: '', notes: ''
+    name: '', vendor_id: '', department: '', description: '', frequency: 'monthly',
+    estimated_amount: '', currency: 'INR', start_date: '', end_date: '', notes: ''
   });
 
   useEffect(() => { fetchData(); }, []);
@@ -51,7 +51,7 @@ const RecurringWork = () => {
         api.get('/vendors/recurring'),
         api.get('/vendors')
       ]);
-      setSchedules(schedulesRes.data.recurring || []);
+      setSchedules(schedulesRes.data.recurring_work || schedulesRes.data.recurring || []);
       setVendors(vendorsRes.data.vendors || []);
     } catch (error) {
       toast.error('Failed to load recurring work schedules');
@@ -62,12 +62,15 @@ const RecurringWork = () => {
 
   const handleCreate = async () => {
     try {
-      if (!formData.name || !formData.vendor_id || !formData.frequency) {
+      if (!formData.name || !formData.vendor_id || !formData.department || !formData.description || !formData.frequency || !formData.start_date) {
         toast.error('Please fill in all required fields');
         return;
       }
       const payload = { ...formData };
-      if (formData.amount) payload.amount = parseFloat(formData.amount);
+      if (formData.estimated_amount) payload.estimated_amount = parseFloat(formData.estimated_amount);
+      delete payload.currency;
+      delete payload.end_date;
+      delete payload.notes;
       await api.post('/vendors/recurring', payload);
       toast.success('Recurring schedule created');
       setShowCreateDialog(false);
@@ -104,9 +107,9 @@ const RecurringWork = () => {
 
   const handleToggleStatus = async (schedule) => {
     try {
-      const newStatus = schedule.status === 'active' ? 'paused' : 'active';
-      await api.put(`/vendors/recurring/${schedule.id}`, { status: newStatus });
-      toast.success(`Schedule ${newStatus === 'active' ? 'resumed' : 'paused'}`);
+      const newIsActive = !schedule.is_active;
+      await api.put(`/vendors/recurring/${schedule.id}`, { is_active: newIsActive });
+      toast.success(`Schedule ${newIsActive ? 'resumed' : 'paused'}`);
       fetchData();
     } catch (error) {
       toast.error('Failed to update status');
@@ -117,8 +120,9 @@ const RecurringWork = () => {
     setSelectedSchedule(schedule);
     setFormData({
       name: schedule.name || '', vendor_id: schedule.vendor_id || '',
-      description: schedule.description || '', frequency: schedule.frequency || 'monthly',
-      amount: schedule.amount?.toString() || '', currency: schedule.currency || 'INR',
+      department: schedule.department || '', description: schedule.description || '', 
+      frequency: schedule.frequency || 'monthly',
+      estimated_amount: schedule.estimated_amount?.toString() || '', currency: schedule.currency || 'INR',
       start_date: schedule.start_date?.split('T')[0] || '', end_date: schedule.end_date?.split('T')[0] || '',
       notes: schedule.notes || ''
     });
@@ -131,7 +135,7 @@ const RecurringWork = () => {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', vendor_id: '', description: '', frequency: 'monthly', amount: '', currency: 'INR', start_date: '', end_date: '', notes: '' });
+    setFormData({ name: '', vendor_id: '', department: '', description: '', frequency: 'monthly', estimated_amount: '', currency: 'INR', start_date: '', end_date: '', notes: '' });
   };
 
   const handleSort = (key) => {
@@ -144,7 +148,10 @@ const RecurringWork = () => {
       const q = searchQuery.toLowerCase();
       result = result.filter(s => s.name?.toLowerCase().includes(q) || s.vendor_name?.toLowerCase().includes(q) || s.description?.toLowerCase().includes(q));
     }
-    if (filters.status) result = result.filter(s => s.status === filters.status);
+    if (filters.status) {
+      if (filters.status === 'active') result = result.filter(s => s.is_active !== false);
+      else if (filters.status === 'paused') result = result.filter(s => s.is_active === false);
+    }
     if (filters.frequency) result = result.filter(s => s.frequency === filters.frequency);
     result.sort((a, b) => {
       let aVal = a[sortConfig.key]; let bVal = b[sortConfig.key];
@@ -157,14 +164,11 @@ const RecurringWork = () => {
     return result;
   }, [schedules, searchQuery, filters, sortConfig]);
 
-  const getStatusBadge = (status) => {
-    const styles = {
-      active: 'bg-emerald-100 text-emerald-700',
-      paused: 'bg-amber-100 text-amber-700',
-      expired: 'bg-gray-100 text-gray-600',
-      cancelled: 'bg-red-100 text-red-700'
-    };
-    return <Badge className={styles[status] || 'bg-gray-100'}>{status}</Badge>;
+  const getStatusBadge = (schedule) => {
+    if (schedule.is_active === false) {
+      return <Badge className="bg-amber-100 text-amber-700">paused</Badge>;
+    }
+    return <Badge className="bg-emerald-100 text-emerald-700">active</Badge>;
   };
 
   const getFrequencyBadge = (frequency) => {
@@ -205,13 +209,13 @@ const RecurringWork = () => {
   const hasActiveFilters = filters.status || filters.frequency || searchQuery;
 
   // Summary stats
-  const activeCount = schedules.filter(s => s.status === 'active').length;
-  const dueSoonCount = schedules.filter(s => s.status === 'active' && isDueSoon(s.next_due_date)).length;
-  const overdueCount = schedules.filter(s => s.status === 'active' && isOverdue(s.next_due_date)).length;
-  const totalMonthlyValue = schedules.filter(s => s.status === 'active').reduce((sum, s) => {
-    if (!s.amount) return sum;
+  const activeCount = schedules.filter(s => s.is_active !== false).length;
+  const dueSoonCount = schedules.filter(s => s.is_active !== false && isDueSoon(s.next_due_date)).length;
+  const overdueCount = schedules.filter(s => s.is_active !== false && isOverdue(s.next_due_date)).length;
+  const totalMonthlyValue = schedules.filter(s => s.is_active !== false).reduce((sum, s) => {
+    if (!s.estimated_amount) return sum;
     const multiplier = { daily: 30, weekly: 4, bi_weekly: 2, monthly: 1, quarterly: 0.33, yearly: 0.083 };
-    return sum + (s.amount * (multiplier[s.frequency] || 1));
+    return sum + (s.estimated_amount * (multiplier[s.frequency] || 1));
   }, 0);
 
   return (
@@ -330,14 +334,14 @@ const RecurringWork = () => {
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell className="font-semibold text-[#4A3728]">{formatCurrency(schedule.amount, schedule.currency)}</TableCell>
-                    <TableCell>{getStatusBadge(schedule.status)}</TableCell>
+                    <TableCell className="font-semibold text-[#4A3728]">{formatCurrency(schedule.estimated_amount, schedule.currency)}</TableCell>
+                    <TableCell>{getStatusBadge(schedule)}</TableCell>
                     <TableCell className="text-center text-[#8B7355]">{schedule.executions || 0}</TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-end gap-1">
                         <Button size="sm" variant="ghost" onClick={() => openViewDialog(schedule)}><Eye className="w-4 h-4 text-[#8B7355]" /></Button>
                         <Button size="sm" variant="ghost" onClick={() => handleToggleStatus(schedule)}>
-                          {schedule.status === 'active' ? <Pause className="w-4 h-4 text-amber-600" /> : <Play className="w-4 h-4 text-emerald-600" />}
+                          {schedule.is_active !== false ? <Pause className="w-4 h-4 text-amber-600" /> : <Play className="w-4 h-4 text-emerald-600" />}
                         </Button>
                         <Button size="sm" variant="ghost" onClick={() => openEditDialog(schedule)}><Edit className="w-4 h-4 text-blue-600" /></Button>
                         <Button size="sm" variant="ghost" onClick={() => handleDelete(schedule)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
@@ -357,11 +361,21 @@ const RecurringWork = () => {
           <DialogHeader><DialogTitle className="text-[#4A3728]">New Recurring Schedule</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div><label className="text-sm font-medium text-[#4A3728]">Name *</label><Input value={formData.name} onChange={(e) => setFormData(f => ({...f, name: e.target.value}))} className="bg-white border-[#D4BBA6]" placeholder="e.g., Monthly Server Maintenance" /></div>
-            <div><label className="text-sm font-medium text-[#4A3728]">Vendor *</label>
-              <Select value={formData.vendor_id || "placeholder"} onValueChange={(v) => setFormData(f => ({...f, vendor_id: v === "placeholder" ? "" : v}))}>
-                <SelectTrigger className="bg-white border-[#D4BBA6]"><SelectValue placeholder="Select vendor" /></SelectTrigger>
-                <SelectContent><SelectItem value="placeholder" disabled>Select vendor</SelectItem>{vendors.filter(v => v.status === 'active').map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}</SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div><label className="text-sm font-medium text-[#4A3728]">Vendor *</label>
+                <Select value={formData.vendor_id || "placeholder"} onValueChange={(v) => setFormData(f => ({...f, vendor_id: v === "placeholder" ? "" : v}))}>
+                  <SelectTrigger className="bg-white border-[#D4BBA6]"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent><SelectItem value="placeholder" disabled>Select</SelectItem>{vendors.filter(v => v.status === 'active').map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div><label className="text-sm font-medium text-[#4A3728]">Department *</label>
+                <Select value={formData.department || "placeholder"} onValueChange={(v) => setFormData(f => ({...f, department: v === "placeholder" ? "" : v}))}>
+                  <SelectTrigger className="bg-white border-[#D4BBA6]"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent><SelectItem value="placeholder" disabled>Select</SelectItem>
+                    {['Engineering', 'Marketing', 'Sales', 'HR', 'Finance', 'Operations', 'Admin', 'Production'].map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div><label className="text-sm font-medium text-[#4A3728]">Frequency *</label>
               <Select value={formData.frequency} onValueChange={(v) => setFormData(f => ({...f, frequency: v}))}>
@@ -369,21 +383,12 @@ const RecurringWork = () => {
                 <SelectContent>{FREQUENCIES.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
               </Select>
             </div>
+            <div><label className="text-sm font-medium text-[#4A3728]">Estimated Amount</label><Input type="number" value={formData.estimated_amount} onChange={(e) => setFormData(f => ({...f, estimated_amount: e.target.value}))} className="bg-white border-[#D4BBA6]" placeholder="0.00" /></div>
             <div className="grid grid-cols-2 gap-4">
-              <div><label className="text-sm font-medium text-[#4A3728]">Amount</label><Input type="number" value={formData.amount} onChange={(e) => setFormData(f => ({...f, amount: e.target.value}))} className="bg-white border-[#D4BBA6]" placeholder="0.00" /></div>
-              <div><label className="text-sm font-medium text-[#4A3728]">Currency</label>
-                <Select value={formData.currency} onValueChange={(v) => setFormData(f => ({...f, currency: v}))}>
-                  <SelectTrigger className="bg-white border-[#D4BBA6]"><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="INR">INR</SelectItem><SelectItem value="USD">USD</SelectItem><SelectItem value="EUR">EUR</SelectItem></SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><label className="text-sm font-medium text-[#4A3728]">Start Date</label><Input type="date" value={formData.start_date} onChange={(e) => setFormData(f => ({...f, start_date: e.target.value}))} className="bg-white border-[#D4BBA6]" /></div>
+              <div><label className="text-sm font-medium text-[#4A3728]">Start Date *</label><Input type="date" value={formData.start_date} onChange={(e) => setFormData(f => ({...f, start_date: e.target.value}))} className="bg-white border-[#D4BBA6]" /></div>
               <div><label className="text-sm font-medium text-[#4A3728]">End Date</label><Input type="date" value={formData.end_date} onChange={(e) => setFormData(f => ({...f, end_date: e.target.value}))} className="bg-white border-[#D4BBA6]" /></div>
             </div>
-            <div><label className="text-sm font-medium text-[#4A3728]">Description</label><Textarea value={formData.description} onChange={(e) => setFormData(f => ({...f, description: e.target.value}))} className="bg-white border-[#D4BBA6]" rows={2} /></div>
-            <div><label className="text-sm font-medium text-[#4A3728]">Notes</label><Textarea value={formData.notes} onChange={(e) => setFormData(f => ({...f, notes: e.target.value}))} className="bg-white border-[#D4BBA6]" rows={2} /></div>
+            <div><label className="text-sm font-medium text-[#4A3728]">Description *</label><Textarea value={formData.description} onChange={(e) => setFormData(f => ({...f, description: e.target.value}))} className="bg-white border-[#D4BBA6]" rows={2} placeholder="Describe the recurring work..." /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreateDialog(false)} className="border-[#D4BBA6]">Cancel</Button>
@@ -398,11 +403,21 @@ const RecurringWork = () => {
           <DialogHeader><DialogTitle className="text-[#4A3728]">Edit Schedule</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div><label className="text-sm font-medium text-[#4A3728]">Name *</label><Input value={formData.name} onChange={(e) => setFormData(f => ({...f, name: e.target.value}))} className="bg-white border-[#D4BBA6]" /></div>
-            <div><label className="text-sm font-medium text-[#4A3728]">Vendor *</label>
-              <Select value={formData.vendor_id || "placeholder"} onValueChange={(v) => setFormData(f => ({...f, vendor_id: v === "placeholder" ? "" : v}))}>
-                <SelectTrigger className="bg-white border-[#D4BBA6]"><SelectValue placeholder="Select vendor" /></SelectTrigger>
-                <SelectContent><SelectItem value="placeholder" disabled>Select vendor</SelectItem>{vendors.filter(v => v.status === 'active').map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}</SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div><label className="text-sm font-medium text-[#4A3728]">Vendor *</label>
+                <Select value={formData.vendor_id || "placeholder"} onValueChange={(v) => setFormData(f => ({...f, vendor_id: v === "placeholder" ? "" : v}))}>
+                  <SelectTrigger className="bg-white border-[#D4BBA6]"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent><SelectItem value="placeholder" disabled>Select</SelectItem>{vendors.filter(v => v.status === 'active').map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div><label className="text-sm font-medium text-[#4A3728]">Department *</label>
+                <Select value={formData.department || "placeholder"} onValueChange={(v) => setFormData(f => ({...f, department: v === "placeholder" ? "" : v}))}>
+                  <SelectTrigger className="bg-white border-[#D4BBA6]"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent><SelectItem value="placeholder" disabled>Select</SelectItem>
+                    {['Engineering', 'Marketing', 'Sales', 'HR', 'Finance', 'Operations', 'Admin', 'Production'].map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div><label className="text-sm font-medium text-[#4A3728]">Frequency *</label>
               <Select value={formData.frequency} onValueChange={(v) => setFormData(f => ({...f, frequency: v}))}>
@@ -410,21 +425,12 @@ const RecurringWork = () => {
                 <SelectContent>{FREQUENCIES.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
               </Select>
             </div>
+            <div><label className="text-sm font-medium text-[#4A3728]">Estimated Amount</label><Input type="number" value={formData.estimated_amount} onChange={(e) => setFormData(f => ({...f, estimated_amount: e.target.value}))} className="bg-white border-[#D4BBA6]" /></div>
             <div className="grid grid-cols-2 gap-4">
-              <div><label className="text-sm font-medium text-[#4A3728]">Amount</label><Input type="number" value={formData.amount} onChange={(e) => setFormData(f => ({...f, amount: e.target.value}))} className="bg-white border-[#D4BBA6]" /></div>
-              <div><label className="text-sm font-medium text-[#4A3728]">Currency</label>
-                <Select value={formData.currency} onValueChange={(v) => setFormData(f => ({...f, currency: v}))}>
-                  <SelectTrigger className="bg-white border-[#D4BBA6]"><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="INR">INR</SelectItem><SelectItem value="USD">USD</SelectItem><SelectItem value="EUR">EUR</SelectItem></SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><label className="text-sm font-medium text-[#4A3728]">Start Date</label><Input type="date" value={formData.start_date} onChange={(e) => setFormData(f => ({...f, start_date: e.target.value}))} className="bg-white border-[#D4BBA6]" /></div>
+              <div><label className="text-sm font-medium text-[#4A3728]">Start Date *</label><Input type="date" value={formData.start_date} onChange={(e) => setFormData(f => ({...f, start_date: e.target.value}))} className="bg-white border-[#D4BBA6]" /></div>
               <div><label className="text-sm font-medium text-[#4A3728]">End Date</label><Input type="date" value={formData.end_date} onChange={(e) => setFormData(f => ({...f, end_date: e.target.value}))} className="bg-white border-[#D4BBA6]" /></div>
             </div>
-            <div><label className="text-sm font-medium text-[#4A3728]">Description</label><Textarea value={formData.description} onChange={(e) => setFormData(f => ({...f, description: e.target.value}))} className="bg-white border-[#D4BBA6]" rows={2} /></div>
-            <div><label className="text-sm font-medium text-[#4A3728]">Notes</label><Textarea value={formData.notes} onChange={(e) => setFormData(f => ({...f, notes: e.target.value}))} className="bg-white border-[#D4BBA6]" rows={2} /></div>
+            <div><label className="text-sm font-medium text-[#4A3728]">Description *</label><Textarea value={formData.description} onChange={(e) => setFormData(f => ({...f, description: e.target.value}))} className="bg-white border-[#D4BBA6]" rows={2} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowEditDialog(false)} className="border-[#D4BBA6]">Cancel</Button>
@@ -445,7 +451,7 @@ const RecurringWork = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-[#F5EDE5] p-3 rounded-lg"><p className="text-xs text-[#8B7355]">Vendor</p><p className="font-semibold text-[#4A3728]">{selectedSchedule.vendor_name}</p></div>
-                <div className="bg-[#F5EDE5] p-3 rounded-lg"><p className="text-xs text-[#8B7355]">Amount</p><p className="font-semibold text-[#4A3728]">{formatCurrency(selectedSchedule.amount, selectedSchedule.currency)}</p></div>
+                <div className="bg-[#F5EDE5] p-3 rounded-lg"><p className="text-xs text-[#8B7355]">Amount</p><p className="font-semibold text-[#4A3728]">{formatCurrency(selectedSchedule.estimated_amount)}</p></div>
                 <div className="bg-[#F5EDE5] p-3 rounded-lg"><p className="text-xs text-[#8B7355]">Next Due</p><p className={`font-semibold ${isOverdue(selectedSchedule.next_due_date) ? 'text-red-600' : 'text-[#4A3728]'}`}>{formatDate(selectedSchedule.next_due_date)}</p></div>
                 <div className="bg-[#F5EDE5] p-3 rounded-lg"><p className="text-xs text-[#8B7355]">Executions</p><p className="font-semibold text-[#4A3728]">{selectedSchedule.executions || 0}</p></div>
               </div>
@@ -454,7 +460,7 @@ const RecurringWork = () => {
               <div className="flex gap-2 pt-2">
                 <Button size="sm" onClick={() => { setShowViewDialog(false); openEditDialog(selectedSchedule); }} className="flex-1 bg-[#4A3728] hover:bg-[#5D4A3A] text-white"><Edit className="w-4 h-4 mr-1" /> Edit</Button>
                 <Button size="sm" onClick={() => { handleToggleStatus(selectedSchedule); setShowViewDialog(false); }} variant="outline" className="flex-1 border-[#D4BBA6]">
-                  {selectedSchedule.status === 'active' ? <><Pause className="w-4 h-4 mr-1" /> Pause</> : <><Play className="w-4 h-4 mr-1" /> Resume</>}
+                  {selectedSchedule.is_active !== false ? <><Pause className="w-4 h-4 mr-1" /> Pause</> : <><Play className="w-4 h-4 mr-1" /> Resume</>}
                 </Button>
               </div>
             </div>
