@@ -712,6 +712,21 @@ const WorkRequests = () => {
 
                       {selectedRequest.approval_status && (
                         <div className="space-y-6">
+                          {/* Pending Approval Message */}
+                          {selectedRequest.approval_status === 'pending' && (
+                            <div className="p-5 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl border border-amber-200">
+                              <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+                                  <Clock className="w-6 h-6 text-amber-600" />
+                                </div>
+                                <div className="flex-1">
+                                  <p className="font-semibold text-amber-800">Awaiting Approval</p>
+                                  <p className="text-sm text-amber-600">This request is pending approval from the approval chain. Please wait for reviewers to process.</p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
                           {/* Approval Workflow Visual */}
                           <div className="p-6 bg-[#F5EDE5] rounded-xl">
                             <div className="flex items-center justify-between">
