@@ -21,7 +21,10 @@ import {
   Calendar,
   Heart,
   ClipboardList,
-  MoreVertical
+  MoreVertical,
+  Edit2,
+  Trash2,
+  Eye
 } from 'lucide-react';
 import CreateTaskDialog from '../../components/shared/CreateTaskDialog';
 import EntityIntegrationCheck from '../../components/shared/EntityIntegrationCheck';
@@ -63,6 +66,18 @@ const CustomersPage = () => {
   const handleCreateTask = (customer) => {
     setTaskCustomer(customer);
     setShowCreateTask(true);
+  };
+
+  const handleDeleteCustomer = async (customer, e) => {
+    e?.stopPropagation();
+    if (!window.confirm(`Are you sure you want to delete customer "${customer.name}"?`)) return;
+    try {
+      await api.delete(`/sales/customers/${customer.id}`);
+      toast.success('Customer deleted');
+      fetchCustomers();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to delete customer');
+    }
   };
 
   useEffect(() => {
@@ -362,10 +377,32 @@ const CustomersPage = () => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSelectedCustomer(customer); }}>
+                    <Eye className="w-4 h-4 mr-2" />
+                    View Details
+                  </DropdownMenuItem>
+                  {customer._permissions?.can_edit !== false && (
+                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); /* Edit handler */ }}>
+                      <Edit2 className="w-4 h-4 mr-2" />
+                      Edit
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleCreateTask(customer); }}>
                     <ClipboardList className="w-4 h-4 mr-2" />
                     Create Task
                   </DropdownMenuItem>
+                  {customer._permissions?.can_delete ? (
+                    <DropdownMenuItem onClick={(e) => handleDeleteCustomer(customer, e)} className="text-red-600">
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem disabled className="text-gray-400 cursor-not-allowed">
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete
+                      <span className="ml-1 text-xs">(Owner only)</span>
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

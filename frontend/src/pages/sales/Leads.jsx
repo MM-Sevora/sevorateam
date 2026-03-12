@@ -8,7 +8,7 @@ import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
 import { Label } from '../../components/ui/label';
 import { toast } from 'sonner';
-import { Search, Plus, Phone, Mail, MapPin, Calendar, UserPlus, ClipboardList, MoreVertical } from 'lucide-react';
+import { Search, Plus, Phone, Mail, MapPin, Calendar, UserPlus, ClipboardList, MoreVertical, Edit2, Trash2, Eye } from 'lucide-react';
 import CreateTaskDialog from '../../components/shared/CreateTaskDialog';
 import EntityIntegrationCheck from '../../components/shared/EntityIntegrationCheck';
 import {
@@ -60,6 +60,17 @@ export const LeadsPage = () => {
     const handleCreateTask = (lead) => {
         setSelectedLead(lead);
         setShowCreateTask(true);
+    };
+
+    const handleDeleteLead = async (lead) => {
+        if (!window.confirm(`Are you sure you want to delete lead "${lead.name}"?`)) return;
+        try {
+            await salesAPI.deleteLead(lead.id);
+            toast.success('Lead deleted');
+            fetchLeads();
+        } catch (error) {
+            toast.error(error.response?.data?.detail || 'Failed to delete lead');
+        }
     };
 
     const fetchLeads = async () => {
@@ -308,10 +319,32 @@ export const LeadsPage = () => {
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onClick={() => window.location.href = `/sales/leads/${lead.id}`}>
+                                                    <Eye className="w-4 h-4 mr-2" />
+                                                    View Details
+                                                </DropdownMenuItem>
+                                                {lead._permissions?.can_edit !== false && (
+                                                    <DropdownMenuItem onClick={() => window.location.href = `/sales/leads/${lead.id}/edit`}>
+                                                        <Edit2 className="w-4 h-4 mr-2" />
+                                                        Edit
+                                                    </DropdownMenuItem>
+                                                )}
                                                 <DropdownMenuItem onClick={() => handleCreateTask(lead)}>
                                                     <ClipboardList className="w-4 h-4 mr-2" />
                                                     Create Task
                                                 </DropdownMenuItem>
+                                                {lead._permissions?.can_delete ? (
+                                                    <DropdownMenuItem onClick={() => handleDeleteLead(lead)} className="text-red-600">
+                                                        <Trash2 className="w-4 h-4 mr-2" />
+                                                        Delete
+                                                    </DropdownMenuItem>
+                                                ) : (
+                                                    <DropdownMenuItem disabled className="text-gray-400 cursor-not-allowed">
+                                                        <Trash2 className="w-4 h-4 mr-2" />
+                                                        Delete
+                                                        <span className="ml-1 text-xs">(Owner only)</span>
+                                                    </DropdownMenuItem>
+                                                )}
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </div>

@@ -63,6 +63,8 @@ const ProjectCard = ({ project, onEdit, onDelete, onView, onScheduleMeeting }) =
                         project.progress >= 25 ? 'bg-amber-500' : 'bg-stone-400';
 
   const isPrivate = project.visibility === 'private';
+  const canEdit = project._permissions?.can_edit !== false;
+  const canDelete = project._permissions?.can_delete;
 
   return (
     <Card 
@@ -106,15 +108,24 @@ const ProjectCard = ({ project, onEdit, onDelete, onView, onScheduleMeeting }) =
               <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onScheduleMeeting(project); }} className="text-[#4A3728] cursor-pointer">
                 <CalendarPlus className="w-4 h-4 mr-2" /> Schedule Meeting
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(project); }} className="text-[#4A3728] cursor-pointer">
-                <Edit className="w-4 h-4 mr-2" /> Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={(e) => { e.stopPropagation(); onDelete(project); }}
-                className="text-red-600 cursor-pointer"
-              >
-                <Trash2 className="w-4 h-4 mr-2" /> Delete
-              </DropdownMenuItem>
+              {canEdit && (
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(project); }} className="text-[#4A3728] cursor-pointer">
+                  <Edit className="w-4 h-4 mr-2" /> Edit
+                </DropdownMenuItem>
+              )}
+              {canDelete ? (
+                <DropdownMenuItem 
+                  onClick={(e) => { e.stopPropagation(); onDelete(project); }}
+                  className="text-red-600 cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" /> Delete
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem disabled className="text-gray-400 cursor-not-allowed">
+                  <Trash2 className="w-4 h-4 mr-2" /> Delete
+                  <span className="ml-1 text-xs">(Owner only)</span>
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -282,12 +293,21 @@ const ProjectListView = ({ projects, onEdit, onDelete, onView, onScheduleMeeting
                       <DropdownMenuItem onClick={() => onScheduleMeeting && onScheduleMeeting(project)} className="text-[#4A3728] cursor-pointer">
                         <CalendarPlus className="w-4 h-4 mr-2" /> Schedule Meeting
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onEdit(project)} className="text-[#4A3728] cursor-pointer">
-                        <Edit className="w-4 h-4 mr-2" /> Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onDelete(project)} className="text-red-600 cursor-pointer">
-                        <Trash2 className="w-4 h-4 mr-2" /> Delete
-                      </DropdownMenuItem>
+                      {project._permissions?.can_edit !== false && (
+                        <DropdownMenuItem onClick={() => onEdit(project)} className="text-[#4A3728] cursor-pointer">
+                          <Edit className="w-4 h-4 mr-2" /> Edit
+                        </DropdownMenuItem>
+                      )}
+                      {project._permissions?.can_delete ? (
+                        <DropdownMenuItem onClick={() => onDelete(project)} className="text-red-600 cursor-pointer">
+                          <Trash2 className="w-4 h-4 mr-2" /> Delete
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem disabled className="text-gray-400 cursor-not-allowed">
+                          <Trash2 className="w-4 h-4 mr-2" /> Delete
+                          <span className="ml-1 text-xs">(Owner only)</span>
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </td>
@@ -1173,6 +1193,10 @@ const ProjectsList = () => {
   }, []);
 
   const handleDelete = async (project) => {
+    if (!project._permissions?.can_delete) {
+      toast.error('You can only delete projects you created');
+      return;
+    }
     if (!window.confirm(`Delete project "${project.name}"? This will also delete all tasks.`)) return;
 
     try {
@@ -1182,11 +1206,14 @@ const ProjectsList = () => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
-      if (!response.ok) throw new Error('Failed to delete');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to delete');
+      }
       toast.success('Project deleted');
       fetchData();
     } catch (error) {
-      toast.error('Failed to delete project');
+      toast.error(error.message || 'Failed to delete project');
     }
   };
 

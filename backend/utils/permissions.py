@@ -1,9 +1,15 @@
 """
 Permission utilities for ownership-based access control
 
-SIMPLE RULE:
+PERMISSION RULES:
+| Action | Own Data | Assigned to Me | Others         |
+|--------|----------|----------------|----------------|
+| View   | ✅       | ✅             | ✅ (with module access) |
+| Edit   | ✅       | ✅             | ❌ (Admin only) |
+| Delete | ✅       | ❌             | ❌ (Admin only) |
+
 - Users can DELETE only their OWN data (created_by = user_id)
-- Users can EDIT data assigned to them
+- Users can EDIT data assigned to them OR that they own
 - Admins can do everything
 """
 
@@ -11,9 +17,9 @@ def can_delete_record(record: dict, current_user: dict) -> bool:
     """
     Check if current user can delete a record.
     
-    SIMPLE RULE:
+    RULE: Only creator OR admin can delete
     - Admin/Super Admin: Can delete anything
-    - Regular User: Can ONLY delete records they CREATED
+    - Regular User: Can ONLY delete records they CREATED (not assigned)
     """
     user_id = current_user.get("id")
     user_role = current_user.get("role", "")
@@ -43,11 +49,11 @@ def can_edit_record(record: dict, current_user: dict) -> bool:
     """
     Check if current user can edit a record.
     
-    RULE:
+    RULE: Creator OR assigned OR admin can edit
     - Admin: Can edit anything
     - Creator: Can edit their own records
     - Assigned User: Can edit records assigned to them
-    - Owner/Manager: Can edit records they own/manage
+    - Owner/Manager/Team Member: Can edit records they own/manage/are part of
     """
     user_id = current_user.get("id")
     user_role = current_user.get("role", "")
@@ -70,6 +76,10 @@ def can_edit_record(record: dict, current_user: dict) -> bool:
     
     # Assigned user can edit
     if record.get("assigned_to") == user_id:
+        return True
+    
+    # Project Manager can edit
+    if record.get("project_manager_id") == user_id:
         return True
     
     # Team member can edit

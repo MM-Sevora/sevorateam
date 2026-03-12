@@ -491,7 +491,7 @@ async def get_personal_project(
     return personal_project
 
 
-@router.get("/list", response_model=List[ProjectResponse])
+@router.get("/list")
 async def list_projects(
     module_id: Optional[str] = None,
     department_id: Optional[str] = None,
@@ -635,6 +635,20 @@ async def list_projects(
                     project["linked_objective_title"] = objective.get("title")
             except Exception:
                 pass
+        
+        # Add permissions for frontend
+        # Rule: Edit = Own + PM + Team Member; Delete = Own only (+ Admin for both)
+        is_owner = project.get("created_by") == user_id or project.get("owner_id") == user_id
+        is_pm = project.get("project_manager_id") == user_id
+        is_team_member = user_id in project.get("team_members", [])
+        project["_permissions"] = {
+            "can_view": True,
+            "can_edit": is_owner or is_pm or is_team_member or is_admin,
+            "can_delete": is_owner or is_admin,  # Only owner can delete
+            "is_owner": is_owner,
+            "is_pm": is_pm,
+            "is_team_member": is_team_member,
+        }
     
     return filtered_projects
 

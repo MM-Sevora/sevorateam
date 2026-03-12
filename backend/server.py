@@ -1677,11 +1677,16 @@ async def get_leads(
     leads = await db.leads.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
     
     # Add permissions to each lead
+    # Rule: Edit = Own + Assigned; Delete = Own only (+ Admin for both)
     for lead in leads:
+        is_owner = lead.get("created_by") == user_id
+        is_assigned = lead.get("assigned_to") == user_id
         lead["_permissions"] = {
-            "can_edit": lead.get("created_by") == user_id or lead.get("assigned_to") == user_id or is_admin,
-            "can_delete": lead.get("created_by") == user_id or is_admin,
-            "is_owner": lead.get("created_by") == user_id,
+            "can_view": True,
+            "can_edit": is_owner or is_assigned or is_admin,
+            "can_delete": is_owner or is_admin,  # Only owner can delete (not assigned)
+            "is_owner": is_owner,
+            "is_assigned": is_assigned,
         }
     
     return leads
@@ -1771,11 +1776,16 @@ async def get_customers(search: Optional[str] = None, include_my_customers: bool
     customers = await db.customers.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
     
     # Add permissions
+    # Rule: Edit = Own + Assigned; Delete = Own only (+ Admin for both)
     for customer in customers:
+        is_owner = customer.get("created_by") == user_id
+        is_assigned = customer.get("assigned_to") == user_id
         customer["_permissions"] = {
-            "can_edit": customer.get("created_by") == user_id or is_admin,
-            "can_delete": customer.get("created_by") == user_id or is_admin,
-            "is_owner": customer.get("created_by") == user_id,
+            "can_view": True,
+            "can_edit": is_owner or is_assigned or is_admin,
+            "can_delete": is_owner or is_admin,  # Only owner can delete (not assigned)
+            "is_owner": is_owner,
+            "is_assigned": is_assigned,
         }
     
     return customers
@@ -1794,6 +1804,27 @@ async def create_customer(customer: CustomerCreate, user: dict = Depends(require
     }
     await db.customers.insert_one(customer_doc)
     return CustomerResponse(**{k: v for k, v in customer_doc.items() if k != "_id"})
+
+
+@sales_router.delete("/customers/{customer_id}")
+async def delete_customer(customer_id: str, user: dict = Depends(require_department(["sales"]))):
+    """Delete a customer - only creator or admin can delete"""
+    customer = await db.customers.find_one({"id": customer_id})
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    
+    user_id = user.get("id")
+    user_role = user.get("role", "")
+    is_admin = user_role in ["super_admin", "admin"] or user.get("can_manage_users")
+    
+    # Only creator or admin can delete
+    if customer.get("created_by") != user_id and not is_admin:
+        creator_name = customer.get("created_by_name") or "another user"
+        raise HTTPException(status_code=403, detail=f"You cannot delete this customer. It was created by {creator_name}. Only the creator or an admin can delete it.")
+    
+    await db.customers.delete_one({"id": customer_id})
+    return {"message": "Customer deleted"}
+
 
 # Sales QR Codes
 @sales_router.get("/qrcodes", response_model=List[QRCodeResponse])
