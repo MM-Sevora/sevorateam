@@ -98,6 +98,7 @@ import EmployeeDatabase from "./pages/admin/EmployeeDatabase";
 import AccessControlPage from "./pages/admin/AccessControlPage";
 import WebsiteSettings from "./pages/admin/WebsiteSettings";
 import SystemModulesPage from "./pages/admin/SystemModulesPage";
+import UsersPermissionsPage from "./pages/admin/UsersPermissionsPage";
 
 // Settings Pages
 import AutomationSettings from "./pages/settings/AutomationSettings";
@@ -487,10 +488,11 @@ function AppRoutes() {
             <Route path="/social/avatar" element={<Navigate to="/social" replace />} />
 
             {/* Admin Routes */}
-            <Route path="/admin/users" element={<ProtectedRoute requiredModule="admin"><UserManagementPage /></ProtectedRoute>} />
+            <Route path="/admin/users-permissions" element={<ProtectedRoute requiredModule="admin"><UsersPermissionsPage /></ProtectedRoute>} />
+            <Route path="/admin/users" element={<Navigate to="/admin/users-permissions" replace />} />
             <Route path="/admin/employees" element={<ProtectedRoute requiredModule="admin"><EmployeeDatabase /></ProtectedRoute>} />
-            <Route path="/admin/access-control" element={<ProtectedRoute requiredModule="admin"><AccessControlPage /></ProtectedRoute>} />
-            <Route path="/admin/system-modules" element={<ProtectedRoute requiredModule="admin"><SystemModulesPage /></ProtectedRoute>} />
+            <Route path="/admin/access-control" element={<Navigate to="/admin/users-permissions" replace />} />
+            <Route path="/admin/system-modules" element={<Navigate to="/admin/users-permissions" replace />} />
             <Route path="/admin/organization" element={<ProtectedRoute requiredModule="admin"><OrganizationManagement /></ProtectedRoute>} />
             {/* /admin/org-structure merged into /admin/organization */}
             <Route path="/admin/org-structure" element={<Navigate to="/admin/organization" replace />} />

@@ -1,0 +1,111 @@
+{
+  "summary": "Tested Users & Permissions consolidated page - All 4 tabs (Users, Modules, Roles, Categories) working. User permissions side panel opens correctly with roles and module access tree. Create User, Create Role, and Create Category dialogs work. Old routes (/admin/users, /admin/access-control, /admin/system-modules) correctly redirect to /admin/users-permissions.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "console_warnings": [
+      {"component": "AuthContext", "issue": "DEPRECATED: getUserDepartments() called. Use merged_module_access instead - deprecation warning", "priority": "LOW"},
+      {"component": "WebSocket", "issue": "WebSocket connection closing before established - notification polling fallback is working", "priority": "LOW"}
+    ]
+  },
+  "test_results": {
+    "page_structure": {
+      "page_url": "/admin/users-permissions",
+      "data_testid": "PASS - users-permissions-page data-testid found",
+      "page_title": "PASS - 'Users & Permissions' title with Shield icon",
+      "subtitle": "PASS - 'Manage users, roles, modules, and access control'"
+    },
+    "stats_cards": {
+      "total_users": "PASS - 59 Total Users (46 active)",
+      "roles": "PASS - 11 Roles",
+      "modules": "PASS - 15 Modules",
+      "categories": "PASS - 8 Categories"
+    },
+    "tabs": {
+      "users_tab": "PASS - Found and visible",
+      "modules_tab": "PASS - Found and visible",
+      "roles_tab": "PASS - Found and visible",
+      "categories_tab": "PASS - Found and visible"
+    },
+    "users_tab_features": {
+      "table_headers": "PASS - User, Status, HR Status, Roles, Created, Actions columns present",
+      "user_rows": "PASS - 59 user rows displayed",
+      "create_user_btn": "PASS - data-testid='create-user-btn' found",
+      "create_user_dialog": "PASS - Dialog opens with Create User title",
+      "action_buttons": "PASS - Activate/deactivate, password, edit, delete buttons per row"
+    },
+    "permissions_panel": {
+      "opens_on_row_click": "PASS - Side panel opens when clicking user row",
+      "panel_title": "PASS - 'User Permissions' title",
+      "user_info": "PASS - Shows user name, email, status badge",
+      "assigned_roles": "PASS - Roles section with checkboxes (Super Admin, HR Admin, Marketing Manager, etc.)",
+      "module_access": "PASS - Module Access tree with 15 modules grouped by category",
+      "role_toggles": "PASS - Role checkboxes are toggleable",
+      "save_button": "PASS - Save Permissions button present"
+    },
+    "modules_tab_features": {
+      "grouped_by_category": "PASS - Modules grouped by General, Operations, Business categories",
+      "module_cards": "PASS - Each module shows name, description, sub-modules count, edit button",
+      "edit_button": "PASS - 15 module edit buttons found",
+      "default_badges": "PASS - Default modules marked (Sevora Pulse, Project Management, etc.)"
+    },
+    "roles_tab_features": {
+      "create_role_btn": "PASS - Create Role button visible",
+      "create_role_dialog": "PASS - Dialog opens with Role Name, Code, Description, Admin Capabilities, Module Access",
+      "table_columns": "PASS - Name, Code, Description, Modules, Users, Actions",
+      "roles_displayed": "PASS - 11 roles listed (Super Admin, HR Admin, Marketing Manager, etc.)"
+    },
+    "categories_tab_features": {
+      "create_category_btn": "PASS - Create Category button visible",
+      "create_category_dialog": "PASS - Dialog with Category Name, Description, Color picker, Access Type dropdown",
+      "table_columns": "PASS - Color, Name, Description, Access Type, Modules, Type, Actions",
+      "categories_displayed": "PASS - 8 categories (General, Operations, Business, Administration, Finance, HR & Admin, Leadership, Manager)",
+      "color_picker": "PASS - 10 color options available"
+    },
+    "old_route_redirects": {
+      "admin_users": "PASS - /admin/users -> /admin/users-permissions",
+      "admin_access_control": "PASS - /admin/access-control -> /admin/users-permissions",
+      "admin_system_modules": "PASS - /admin/system-modules -> /admin/users-permissions"
+    },
+    "sidebar_navigation": {
+      "administration_section": "PASS - Administration section visible in sidebar",
+      "users_permissions_link": "PASS - Available under General Admin group"
+    }
+  },
+  "features_verified": [
+    "Users tab - User list displays with Status, HR Status, Roles columns ✓",
+    "Users tab - Click user row opens permissions side panel ✓",
+    "Users tab - Create User button and dialog work ✓",
+    "Users tab - User action buttons (activate/deactivate, password, edit, delete) present ✓",
+    "Permissions panel - Shows user info, roles selection, module access tree ✓",
+    "Permissions panel - Can toggle roles and modules ✓",
+    "Modules tab - Lists all modules grouped by category ✓",
+    "Modules tab - Edit button present for module configuration ✓",
+    "Roles tab - Lists all roles with modules and user counts ✓",
+    "Roles tab - Create Role button and dialog work ✓",
+    "Categories tab - Lists all categories with color and access type ✓",
+    "Categories tab - Create Category button works ✓",
+    "Old routes redirect to new page (/admin/users, /admin/access-control, /admin/system-modules) ✓"
+  ],
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A - Frontend only testing",
+    "frontend": "100%"
+  },
+  "test_credentials": {
+    "email": "superadmin@sevora.com",
+    "password": "superadmin123"
+  },
+  "seed_data_creation": "None - used existing data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Users & Permissions consolidated page at /admin/users-permissions is fully functional. All 4 tabs (Users, Modules, Roles, Categories) work correctly. User permissions side panel opens when clicking a user row and allows toggling roles and module access. Create dialogs for User, Role, and Category all work. Old routes properly redirect to the new consolidated page."
+}

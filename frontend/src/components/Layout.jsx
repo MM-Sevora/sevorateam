@@ -288,9 +288,7 @@ const DEPARTMENT_CONFIG = {
                 groupIcon: Shield,
                 requiredModule: 'admin',
                 items: [
-                    { path: '/admin/users', name: 'User Management', icon: Users },
-                    { path: '/admin/access-control', name: 'User Permissions', icon: Key },
-                    { path: '/admin/system-modules', name: 'System Modules', icon: Server },
+                    { path: '/admin/users-permissions', name: 'Users & Permissions', icon: Shield },
                 ]
             },
         ]
