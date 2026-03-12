@@ -2365,6 +2365,8 @@ async def create_work_order_from_recurring(
         "recurring_id": recurring_id,
         "department": recurring["department"],
         "work_description": recurring["description"],
+        "order_type": "recurring",
+        "agreed_amount": recurring.get("estimated_amount"),
         "assigned_owner_id": recurring.get("assigned_owner_id") or user.get("id"),
         "assigned_owner_name": recurring.get("assigned_owner_name") or user.get("name"),
         "start_date": datetime.now(timezone.utc).isoformat(),

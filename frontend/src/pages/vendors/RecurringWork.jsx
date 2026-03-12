@@ -116,6 +116,16 @@ const RecurringWork = () => {
     }
   };
 
+  const handleGenerateWorkOrder = async (schedule) => {
+    try {
+      await api.post(`/vendors/recurring/${schedule.id}/create-work-order`);
+      toast.success('Work Order created successfully');
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to create work order');
+    }
+  };
+
   const openEditDialog = (schedule) => {
     setSelectedSchedule(schedule);
     setFormData({
@@ -339,12 +349,17 @@ const RecurringWork = () => {
                     <TableCell className="text-center text-[#8B7355]">{schedule.executions || 0}</TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-end gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => openViewDialog(schedule)}><Eye className="w-4 h-4 text-[#8B7355]" /></Button>
-                        <Button size="sm" variant="ghost" onClick={() => handleToggleStatus(schedule)}>
+                        <Button size="sm" variant="ghost" onClick={() => openViewDialog(schedule)} title="View Details"><Eye className="w-4 h-4 text-[#8B7355]" /></Button>
+                        {schedule.is_active !== false && (
+                          <Button size="sm" variant="ghost" onClick={() => handleGenerateWorkOrder(schedule)} title="Generate Work Order" className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50">
+                            <Plus className="w-4 h-4" />
+                          </Button>
+                        )}
+                        <Button size="sm" variant="ghost" onClick={() => handleToggleStatus(schedule)} title={schedule.is_active !== false ? "Pause" : "Resume"}>
                           {schedule.is_active !== false ? <Pause className="w-4 h-4 text-amber-600" /> : <Play className="w-4 h-4 text-emerald-600" />}
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => openEditDialog(schedule)}><Edit className="w-4 h-4 text-blue-600" /></Button>
-                        <Button size="sm" variant="ghost" onClick={() => handleDelete(schedule)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => openEditDialog(schedule)} title="Edit"><Edit className="w-4 h-4 text-blue-600" /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => handleDelete(schedule)} title="Delete"><Trash2 className="w-4 h-4 text-red-500" /></Button>
                       </div>
                     </TableCell>
                   </TableRow>
