@@ -1,3 +1,71 @@
+## March 12, 2026 - Influencer Analytics APIs (Instagram & YouTube) COMPLETE ✅
+
+### Social Media Analytics Integration for Marketing Ops Influencer Module
+
+Implemented live Instagram and YouTube analytics APIs to fetch real influencer metrics.
+
+### Backend Service (`/app/backend/services/influencer_analytics.py`):
+
+**Instagram Graph API (Business Discovery)**
+- Fetch profile metrics: followers, following, posts count
+- Calculate engagement rate from recent media (likes + comments / followers)
+- Get recent posts with thumbnails, likes, comments
+- Auto-calculate influencer tier based on followers
+- Handle URL/username parsing (@handle, instagram.com/user)
+
+**YouTube Data API v3**
+- Fetch channel metrics: subscribers, total views, video count
+- Support multiple identifier formats: channel ID, @handle, custom URL, username
+- Get recent videos with views, likes, comments
+- Calculate average engagement across videos
+
+### New API Endpoints:
+
+1. `GET /api/marketing/v2/influencer-analytics/instagram/{username}`
+   - Returns: followers, engagement_rate, avg_likes, recent_media, tier
+
+2. `GET /api/marketing/v2/influencer-analytics/youtube/{channel_id}`
+   - Returns: subscribers, total_views, videos, channel_url, tier
+
+3. `GET /api/marketing/v2/influencer-analytics/youtube/{channel_id}/videos`
+   - Returns: recent videos with metrics, averages
+
+4. `POST /api/marketing/v2/contacts/{contact_id}/fetch-metrics`
+   - Fetches metrics from all social handles and updates contact record
+   - Auto-updates: followers, engagement_rate, tier, platform-specific fields
+
+5. `POST /api/marketing/v2/contacts/bulk-fetch-metrics`
+   - Bulk refresh for up to 10 contacts (rate limit protection)
+
+### Frontend Updates:
+
+1. **Add Influencer Modal**
+   - "Fetch" buttons now use real analytics APIs
+   - Auto-populates: name, bio, followers, engagement_rate, tier
+
+2. **Influencer Row Dropdown**
+   - New "Refresh Metrics" option added
+   - Shows loading spinner during fetch
+   - Updates list after successful refresh
+
+### Real Test Results:
+- Instagram @shopsevora: 287 followers, 8.04% engagement rate
+- YouTube @MrBeast: 470M subscribers, 114B total views, 951 videos
+
+### Files Created/Modified:
+- `/app/backend/services/influencer_analytics.py` - New service (~400 lines)
+- `/app/backend/routes/marketing_v2.py` - Added 5 analytics endpoints (~230 lines)
+- `/app/frontend/src/pages/marketing/InfluencersListPage.jsx` - Updated fetch handlers
+
+### Testing:
+- 17/17 backend tests passed (100%)
+- Frontend integration verified
+- Test report: `/app/test_reports/iteration_80.json`
+- Bug fixed: null-safety in fetch_contact_metrics endpoint
+
+---
+
+
 ## March 12, 2026 - Token Expiry Warnings & Refresh Mechanism COMPLETE ✅
 
 ### Token Management for Social Platform Integrations
