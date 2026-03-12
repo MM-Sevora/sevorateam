@@ -908,12 +908,35 @@ async def fetch_contact_metrics(
         {"$set": update_data}
     )
     
+    # Record metrics history for tracking growth
+    from services.metrics_history import get_metrics_history_service
+    history_service = get_metrics_history_service(db)
+    
+    ig_data = results.get("instagram") if results else None
+    if ig_data and isinstance(ig_data, dict) and ig_data.get("success"):
+        await history_service.record_metrics_snapshot(
+            contact_id=contact_id,
+            platform="instagram",
+            metrics=ig_data["metrics"],
+            source="api_fetch"
+        )
+    
+    yt_data = results.get("youtube") if results else None
+    if yt_data and isinstance(yt_data, dict) and yt_data.get("success"):
+        await history_service.record_metrics_snapshot(
+            contact_id=contact_id,
+            platform="youtube",
+            metrics=yt_data["metrics"],
+            source="api_fetch"
+        )
+    
     return {
         "success": True,
         "contact_id": contact_id,
         "results": results,
         "updated_fields": list(update_data.keys()),
-        "message": "Metrics fetched and contact updated successfully"
+        "message": "Metrics fetched and contact updated successfully",
+        "history_recorded": True
     }
 
 
@@ -1020,7 +1043,96 @@ async def bulk_fetch_contact_metrics(
     return results
 
 
-# ============== PUBLICATIONS (PR equivalent of Influencers) ==============
+# ============== INFLUENCER METRICS HISTORY ==============
+
+@marketing_v2_router.get("/contacts/{contact_id}/metrics-history")
+async def get_influencer_metrics_history(
+    contact_id: str,
+    platform: Optional[str] = None,
+    days: int = Query(default=30, le=365),
+    user: dict = Depends(get_marketing_auth())
+):
+    """
+    Get metrics history for an influencer.
+    Returns daily snapshots of followers, engagement, etc.
+    """
+    db = get_db()
+    from services.metrics_history import get_metrics_history_service
+    
+    # Verify contact exists
+    contact = await db.contacts.find_one({"id": contact_id}, {"_id": 0, "name": 1})
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    service = get_metrics_history_service(db)
+    history = await service.get_metrics_history(contact_id, platform, days)
+    
+    return {
+        "contact_id": contact_id,
+        "contact_name": contact.get("name"),
+        "platform": platform,
+        "period_days": days,
+        "history": history,
+        "total_snapshots": len(history)
+    }
+
+
+@marketing_v2_router.get("/contacts/{contact_id}/growth-analytics")
+async def get_influencer_growth_analytics(
+    contact_id: str,
+    platform: str = Query(..., description="instagram or youtube"),
+    days: int = Query(default=30, le=365),
+    user: dict = Depends(get_marketing_auth())
+):
+    """
+    Get growth analytics for an influencer.
+    Returns: growth rate, trend direction, follower change.
+    """
+    db = get_db()
+    from services.metrics_history import get_metrics_history_service
+    
+    # Verify contact exists
+    contact = await db.contacts.find_one({"id": contact_id}, {"_id": 0, "name": 1})
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    service = get_metrics_history_service(db)
+    growth = await service.calculate_growth(contact_id, platform, days)
+    
+    return {
+        "contact_id": contact_id,
+        "contact_name": contact.get("name"),
+        **growth
+    }
+
+
+@marketing_v2_router.get("/contacts/{contact_id}/growth-chart")
+async def get_influencer_growth_chart(
+    contact_id: str,
+    platform: str = Query(..., description="instagram or youtube"),
+    days: int = Query(default=30, le=365),
+    user: dict = Depends(get_marketing_auth())
+):
+    """
+    Get chart data for rendering follower growth visualization.
+    Returns: dates[], followers[], engagement[] arrays.
+    """
+    db = get_db()
+    from services.metrics_history import get_metrics_history_service
+    
+    # Verify contact exists
+    contact = await db.contacts.find_one({"id": contact_id}, {"_id": 0, "name": 1})
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    service = get_metrics_history_service(db)
+    chart_data = await service.get_growth_chart_data(contact_id, platform, days)
+    
+    return {
+        "contact_id": contact_id,
+        "contact_name": contact.get("name"),
+        **chart_data
+    }
 
 @marketing_v2_router.get("/publications", response_model=List[PublicationResponse])
 async def get_publications(

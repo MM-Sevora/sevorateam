@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent } from '../../components/ui/card';
@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { 
   RefreshCw, Plus, Search, Filter, Instagram, Youtube, 
   MoreHorizontal, Users, Sparkles, ChevronUp, ChevronDown, Download, User, AtSign, DollarSign, Building, X,
-  TrendingUp, Heart, Target, Eye, Send, Trash2, Edit, ExternalLink
+  TrendingUp, Heart, Target, Eye, Send, Trash2, Edit, ExternalLink, BadgeCheck, Loader2
 } from 'lucide-react';
 
 const InfluencersListPage = () => {
@@ -50,6 +50,13 @@ const InfluencersListPage = () => {
   
   // Metrics refresh state
   const [refreshingMetrics, setRefreshingMetrics] = useState(null);
+  
+  // Verification state
+  const [verified, setVerified] = useState({ instagram: false, youtube: false });
+  
+  // Auto-fetch debounce refs
+  const instagramDebounceRef = useRef(null);
+  const youtubeDebounceRef = useRef(null);
   
   // Check if any filters are active
   const hasActiveFilters = filterPlatform !== 'all' || filterStatus !== 'all' || filterTier !== 'all' || 
@@ -143,8 +150,12 @@ const InfluencersListPage = () => {
       
       if (!data.success) {
         toast.error(data.error || `Failed to fetch ${platform} data`);
+        setVerified(prev => ({ ...prev, [platform]: false }));
         return;
       }
+      
+      // Mark as verified since we got real data
+      setVerified(prev => ({ ...prev, [platform]: true }));
       
       if (platform === 'instagram') {
         const metrics = data.metrics || {};
@@ -156,24 +167,114 @@ const InfluencersListPage = () => {
           avg_comments: metrics.avg_comments?.toString() || prev.avg_comments,
           bio: data.bio || prev.bio,
           name: data.name || prev.name,
-          tier: data.tier || prev.tier
+          tier: data.tier || prev.tier,
+          instagram_profile_pic: data.profile_picture || prev.instagram_profile_pic
         }));
-        toast.success(`Instagram data fetched! ${metrics.followers?.toLocaleString()} followers`);
+        toast.success(`Instagram verified! ${metrics.followers?.toLocaleString()} followers`);
       } else {
         const metrics = data.metrics || {};
         setNewInfluencer(prev => ({
           ...prev,
           followers: metrics.subscribers?.toString() || prev.followers,
           name: data.name || prev.name,
-          tier: data.tier || prev.tier
+          tier: data.tier || prev.tier,
+          youtube_channel_id: data.channel_id || prev.youtube_channel_id,
+          youtube_profile_pic: data.profile_picture || prev.youtube_profile_pic
         }));
-        toast.success(`YouTube data fetched! ${metrics.subscribers?.toLocaleString()} subscribers`);
+        toast.success(`YouTube verified! ${metrics.subscribers?.toLocaleString()} subscribers`);
       }
     } catch (error) {
       const errorMsg = error.response?.data?.error || error.response?.data?.detail || 'Failed to fetch data';
       toast.error(errorMsg);
+      setVerified(prev => ({ ...prev, [platform]: false }));
     } finally {
       setFetching(prev => ({ ...prev, [platform]: false }));
+    }
+  };
+  
+  // Auto-fetch when handle changes (with debounce)
+  const handleInstagramHandleChange = (value) => {
+    setNewInfluencer(prev => ({ ...prev, instagram_handle: value }));
+    setVerified(prev => ({ ...prev, instagram: false }));
+    
+    // Clear previous timeout
+    if (instagramDebounceRef.current) {
+      clearTimeout(instagramDebounceRef.current);
+    }
+    
+    // Auto-fetch after 1.5 seconds of no typing
+    if (value && value.length >= 3) {
+      instagramDebounceRef.current = setTimeout(async () => {
+        // Fetch directly with the value since state might not be updated
+        setFetching(prev => ({ ...prev, instagram: true }));
+        try {
+          const endpoint = `/marketing/v2/influencer-analytics/instagram/${encodeURIComponent(value.replace('@', ''))}`;
+          const response = await api.get(endpoint);
+          const data = response.data;
+          
+          if (data.success) {
+            const metrics = data.metrics || {};
+            setVerified(prev => ({ ...prev, instagram: true }));
+            setNewInfluencer(prev => ({
+              ...prev,
+              followers: metrics.followers?.toString() || prev.followers,
+              engagement_rate: metrics.engagement_rate?.toString() || prev.engagement_rate,
+              avg_likes: metrics.avg_likes?.toString() || prev.avg_likes,
+              avg_comments: metrics.avg_comments?.toString() || prev.avg_comments,
+              bio: data.bio || prev.bio,
+              name: data.name || prev.name,
+              tier: data.tier || prev.tier,
+              instagram_profile_pic: data.profile_picture || prev.instagram_profile_pic
+            }));
+            toast.success(`Instagram verified! ${metrics.followers?.toLocaleString()} followers`);
+          }
+        } catch (error) {
+          // Silent fail for auto-fetch
+          console.log('Auto-fetch failed:', error);
+        } finally {
+          setFetching(prev => ({ ...prev, instagram: false }));
+        }
+      }, 1500);
+    }
+  };
+  
+  const handleYoutubeHandleChange = (value) => {
+    setNewInfluencer(prev => ({ ...prev, youtube_handle: value }));
+    setVerified(prev => ({ ...prev, youtube: false }));
+    
+    // Clear previous timeout
+    if (youtubeDebounceRef.current) {
+      clearTimeout(youtubeDebounceRef.current);
+    }
+    
+    // Auto-fetch after 1.5 seconds of no typing
+    if (value && value.length >= 3) {
+      youtubeDebounceRef.current = setTimeout(async () => {
+        setFetching(prev => ({ ...prev, youtube: true }));
+        try {
+          const endpoint = `/marketing/v2/influencer-analytics/youtube/${encodeURIComponent(value.replace('@', ''))}`;
+          const response = await api.get(endpoint);
+          const data = response.data;
+          
+          if (data.success) {
+            const metrics = data.metrics || {};
+            setVerified(prev => ({ ...prev, youtube: true }));
+            setNewInfluencer(prev => ({
+              ...prev,
+              followers: metrics.subscribers?.toString() || prev.followers,
+              name: data.name || prev.name,
+              tier: data.tier || prev.tier,
+              youtube_channel_id: data.channel_id || prev.youtube_channel_id,
+              youtube_profile_pic: data.profile_picture || prev.youtube_profile_pic
+            }));
+            toast.success(`YouTube verified! ${metrics.subscribers?.toLocaleString()} subscribers`);
+          }
+        } catch (error) {
+          console.log('Auto-fetch failed:', error);
+        } finally {
+          setFetching(prev => ({ ...prev, youtube: false }));
+        }
+      }, 1500);
     }
   };
 
@@ -258,6 +359,7 @@ const InfluencersListPage = () => {
         accepts_barter: false, notes: ''
       });
       setAddModalTab('basic');
+      setVerified({ instagram: false, youtube: false });
       fetchInfluencers();
     } catch (error) {
       console.error('Add influencer error:', error);
@@ -518,13 +620,23 @@ const InfluencersListPage = () => {
                   <div>
                     <Label className="text-xs uppercase tracking-wider text-gray-600 flex items-center gap-1">
                       <Instagram className="w-3 h-3 text-pink-500" /> INSTAGRAM HANDLE
+                      {verified.instagram && <BadgeCheck className="w-3 h-3 text-blue-500 ml-1" title="Verified" />}
                     </Label>
                     <div className="flex gap-2 mt-1">
-                      <Input 
-                        placeholder="@nike" 
-                        value={newInfluencer.instagram_handle}
-                        onChange={e => setNewInfluencer({...newInfluencer, instagram_handle: e.target.value})}
-                      />
+                      <div className="relative flex-1">
+                        <Input 
+                          placeholder="@nike or instagram.com/nike" 
+                          value={newInfluencer.instagram_handle}
+                          onChange={e => handleInstagramHandleChange(e.target.value)}
+                          className={verified.instagram ? 'border-green-400 pr-8' : ''}
+                        />
+                        {fetching.instagram && (
+                          <Loader2 className="w-4 h-4 animate-spin absolute right-2 top-1/2 -translate-y-1/2 text-pink-500" />
+                        )}
+                        {verified.instagram && !fetching.instagram && (
+                          <BadgeCheck className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 text-green-500" />
+                        )}
+                      </div>
                       <Button 
                         size="sm"
                         onClick={() => handleFetchSocial('instagram')}
@@ -534,17 +646,32 @@ const InfluencersListPage = () => {
                         {fetching.instagram ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Fetch'}
                       </Button>
                     </div>
+                    {verified.instagram && newInfluencer.followers && (
+                      <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                        <BadgeCheck className="w-3 h-3" /> Verified: {Number(newInfluencer.followers).toLocaleString()} followers
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label className="text-xs uppercase tracking-wider text-gray-600 flex items-center gap-1">
                       <Youtube className="w-3 h-3 text-red-500" /> YOUTUBE HANDLE
+                      {verified.youtube && <BadgeCheck className="w-3 h-3 text-blue-500 ml-1" title="Verified" />}
                     </Label>
                     <div className="flex gap-2 mt-1">
-                      <Input 
-                        placeholder="@mkbhd" 
-                        value={newInfluencer.youtube_handle}
-                        onChange={e => setNewInfluencer({...newInfluencer, youtube_handle: e.target.value})}
-                      />
+                      <div className="relative flex-1">
+                        <Input 
+                          placeholder="@mkbhd or channel URL" 
+                          value={newInfluencer.youtube_handle}
+                          onChange={e => handleYoutubeHandleChange(e.target.value)}
+                          className={verified.youtube ? 'border-green-400 pr-8' : ''}
+                        />
+                        {fetching.youtube && (
+                          <Loader2 className="w-4 h-4 animate-spin absolute right-2 top-1/2 -translate-y-1/2 text-red-500" />
+                        )}
+                        {verified.youtube && !fetching.youtube && (
+                          <BadgeCheck className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 text-green-500" />
+                        )}
+                      </div>
                       <Button 
                         size="sm"
                         onClick={() => handleFetchSocial('youtube')}
@@ -554,6 +681,11 @@ const InfluencersListPage = () => {
                         {fetching.youtube ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Fetch'}
                       </Button>
                     </div>
+                    {verified.youtube && newInfluencer.followers && (
+                      <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                        <BadgeCheck className="w-3 h-3" /> Verified: {Number(newInfluencer.followers).toLocaleString()} subscribers
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1458,9 +1590,19 @@ const InfluencersListPage = () => {
                           <PlatformIcon className={`w-5 h-5 ${inf.primary_platform === 'youtube' ? 'text-red-600' : 'text-pink-600'}`} />
                         </div>
                         <div>
-                          <div className="font-semibold text-gray-900 group-hover:text-[#c4a35a] transition-colors">{inf.name}</div>
-                          <div className="text-sm text-gray-500">
+                          <div className="font-semibold text-gray-900 group-hover:text-[#c4a35a] transition-colors flex items-center gap-1">
+                            {inf.name}
+                            {(inf.instagram_verified || inf.youtube_verified) && (
+                              <BadgeCheck className="w-4 h-4 text-blue-500" title="Verified Profile" />
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-500 flex items-center gap-1">
                             @{inf.instagram_handle || inf.youtube_handle || 'unknown'} • {inf.city || 'Unknown'}
+                            {inf.metrics_fetched_at && (
+                              <span className="text-xs text-green-500 ml-1" title={`Last updated: ${new Date(inf.metrics_fetched_at).toLocaleDateString()}`}>
+                                (Live)
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
