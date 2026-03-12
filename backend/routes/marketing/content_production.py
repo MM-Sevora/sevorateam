@@ -99,7 +99,8 @@ async def get_available_sources():
     projects = list(
         db.marketing_content_projects.find(
             {"status": {"$in": ["published", "approved"]}},
-            {"_id": 1, "title": 1, "content_type": 1, "platform": 1}
+            {"_id": 1, "title": 1, "content_type": 1, "content_category": 1, 
+             "content_sub_type": 1, "medium": 1, "platform": 1}
         ).sort("created_at", -1).limit(50)
     )
     
@@ -113,14 +114,29 @@ async def create_content_project(project: ContentProjectCreate, user_id: Optiona
     
     project_doc = project.model_dump()
     project_doc["_id"] = str(uuid.uuid4())
-    project_doc["project_type"] = project.project_type.value
-    project_doc["content_type"] = project.content_type.value
-    project_doc["platform"] = project.platform.value
-    project_doc["status"] = project.status.value
-    project_doc["priority"] = project.priority.value
+    
+    # Handle project_type - now a string slug from config
+    if project_doc.get("project_type"):
+        # Already a string slug
+        pass
+    else:
+        project_doc["project_type"] = "original_production"
+    
+    # Handle new content classification fields
+    # content_category, content_sub_type, medium are stored as string slugs
+    
+    # Handle legacy fields - convert enums if present
+    if project.content_type:
+        project_doc["content_type"] = project.content_type.value
+    if project.platform:
+        project_doc["platform"] = project.platform.value
+    
+    # Handle status and priority enums
+    project_doc["status"] = project.status.value if hasattr(project.status, 'value') else project.status
+    project_doc["priority"] = project.priority.value if hasattr(project.priority, 'value') else project.priority
     
     # Convert dates
-    for date_field in ["brief_date", "shoot_date", "edit_deadline", "publish_date"]:
+    for date_field in ["brief_date", "shoot_date", "due_date", "edit_deadline", "publish_date"]:
         if project_doc.get(date_field):
             project_doc[date_field] = project_doc[date_field].isoformat()
     

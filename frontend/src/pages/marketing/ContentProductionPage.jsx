@@ -559,21 +559,85 @@ function CreateProjectForm({ onSubmit, onCancel }) {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    project_type: 'original_production',
-    content_type: 'video',
-    platform: 'instagram',
+    project_type: '',
+    content_category: '',
+    content_sub_type: '',
+    medium: '',
+    campaign_id: '',
     priority: 'medium',
     source_project_id: '',
     shoot_date: '',
     publish_date: '',
-    concept: ''
+    due_date: '',
+    brief: ''
   });
+  
+  const [config, setConfig] = useState({
+    project_types: [],
+    content_categories: [],
+    content_subtypes: [],
+    mediums: []
+  });
+  const [campaigns, setCampaigns] = useState([]);
   const [sourceProjects, setSourceProjects] = useState([]);
+  const [loadingConfig, setLoadingConfig] = useState(true);
   const [loadingSources, setLoadingSources] = useState(false);
 
+  // Load configuration options
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const [configRes, campaignsRes] = await Promise.all([
+          fetch(`${API_URL}/api/marketing/v3/config/all`),
+          fetch(`${API_URL}/api/marketing/v2/unified-campaigns?limit=50`)
+        ]);
+        
+        if (configRes.ok) {
+          const data = await configRes.json();
+          setConfig(data);
+          // Set defaults from first options
+          if (data.project_types.length > 0) {
+            setFormData(prev => ({ ...prev, project_type: data.project_types[0].slug }));
+          }
+          if (data.content_categories.length > 0) {
+            setFormData(prev => ({ ...prev, content_category: data.content_categories[0].slug }));
+          }
+          if (data.mediums.length > 0) {
+            setFormData(prev => ({ ...prev, medium: data.mediums[0].slug }));
+          }
+        }
+        
+        if (campaignsRes.ok) {
+          const campaignsData = await campaignsRes.json();
+          setCampaigns(campaignsData.campaigns || campaignsData || []);
+        }
+      } catch (error) {
+        console.error('Error loading config:', error);
+      } finally {
+        setLoadingConfig(false);
+      }
+    };
+    fetchConfig();
+  }, []);
+
   // Determine if this project type needs source content
-  const needsSourceContent = ['adaptation', 'delivery_only'].includes(formData.project_type);
+  const needsSourceContent = ['adaptation', 'delivery'].includes(formData.project_type);
   const showShootDate = formData.project_type === 'original_production';
+
+  // Get available subtypes for selected category
+  const availableSubtypes = config.content_subtypes.filter(
+    s => s.category_slug === formData.content_category
+  );
+
+  // Auto-select first subtype when category changes
+  useEffect(() => {
+    if (formData.content_category && availableSubtypes.length > 0) {
+      const currentSubtype = availableSubtypes.find(s => s.slug === formData.content_sub_type);
+      if (!currentSubtype) {
+        setFormData(prev => ({ ...prev, content_sub_type: availableSubtypes[0].slug }));
+      }
+    }
+  }, [formData.content_category, availableSubtypes]);
 
   // Load available source projects when needed
   useEffect(() => {
@@ -593,52 +657,67 @@ function CreateProjectForm({ onSubmit, onCancel }) {
       toast.error('Please enter a project title');
       return;
     }
+    if (!formData.project_type || !formData.content_category || !formData.medium) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
     
     const submitData = { ...formData };
     if (!submitData.shoot_date) delete submitData.shoot_date;
     if (!submitData.publish_date) delete submitData.publish_date;
+    if (!submitData.due_date) delete submitData.due_date;
     if (!submitData.source_project_id) delete submitData.source_project_id;
+    if (!submitData.campaign_id) delete submitData.campaign_id;
     
     onSubmit(submitData);
   };
 
-  const selectedProjectType = PROJECT_TYPES.find(pt => pt.value === formData.project_type);
+  const selectedProjectType = config.project_types.find(pt => pt.slug === formData.project_type);
+  const selectedCategory = config.content_categories.find(c => c.slug === formData.content_category);
+
+  if (loadingConfig) {
+    return <div className="py-8 text-center text-gray-500">Loading configuration...</div>;
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
+        {/* Project Title */}
         <div className="col-span-2 space-y-2">
           <Label>Project Title *</Label>
           <Input
             value={formData.title}
             onChange={(e) => setFormData({...formData, title: e.target.value})}
-            placeholder="e.g., Summer Collection Launch Video"
+            placeholder="e.g., Summer Collection Lookbook Shoot"
             data-testid="project-title-input"
           />
         </div>
 
-        {/* Project Type Selector */}
+        {/* HOW - Project Type */}
         <div className="col-span-2 space-y-2">
-          <Label>Project Type *</Label>
+          <Label className="flex items-center gap-2">
+            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">HOW</span>
+            Project Type *
+          </Label>
           <Select 
-            value={formData.project_type} 
+            value={formData.project_type || undefined} 
             onValueChange={(v) => setFormData({...formData, project_type: v, source_project_id: ''})}
           >
             <SelectTrigger data-testid="project-type-select">
-              <SelectValue />
+              <SelectValue placeholder="Select production type" />
             </SelectTrigger>
             <SelectContent>
-              {PROJECT_TYPES.map(type => (
-                <SelectItem key={type.value} value={type.value}>
-                  <div>
-                    <span className="font-medium">{type.label}</span>
+              {config.project_types.map(type => (
+                <SelectItem key={type.id} value={type.slug}>
+                  <span className="font-medium">{type.name}</span>
+                  {type.description && (
                     <span className="text-xs text-gray-500 ml-2">- {type.description}</span>
-                  </div>
+                  )}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          {selectedProjectType && (
+          {selectedProjectType?.description && (
             <p className="text-xs text-gray-500">{selectedProjectType.description}</p>
           )}
         </div>
@@ -646,7 +725,7 @@ function CreateProjectForm({ onSubmit, onCancel }) {
         {/* Source Content Picker - only for adaptation/delivery */}
         {needsSourceContent && (
           <div className="col-span-2 space-y-2">
-            <Label>Source Content {formData.project_type === 'delivery_only' ? '*' : '(Optional)'}</Label>
+            <Label>Source Content {formData.project_type === 'delivery' ? '*' : '(Optional)'}</Label>
             <Select 
               value={formData.source_project_id} 
               onValueChange={(v) => setFormData({...formData, source_project_id: v})}
@@ -660,46 +739,74 @@ function CreateProjectForm({ onSubmit, onCancel }) {
                 ) : (
                   sourceProjects.map(project => (
                     <SelectItem key={project.id} value={project.id}>
-                      {project.title} ({project.content_type} - {project.platform})
+                      {project.title} ({project.content_sub_type || project.content_type})
                     </SelectItem>
                   ))
                 )}
               </SelectContent>
             </Select>
-            <p className="text-xs text-gray-500">
-              Select an existing project to repurpose or adapt
-            </p>
+            <p className="text-xs text-gray-500">Select an existing project to repurpose or adapt</p>
           </div>
         )}
 
+        {/* WHAT - Content Category */}
         <div className="space-y-2">
-          <Label>Content Type *</Label>
-          <Select value={formData.content_type} onValueChange={(v) => setFormData({...formData, content_type: v})}>
-            <SelectTrigger data-testid="content-type-select">
-              <SelectValue />
+          <Label className="flex items-center gap-2">
+            <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">WHAT</span>
+            Category *
+          </Label>
+          <Select 
+            value={formData.content_category || undefined} 
+            onValueChange={(v) => setFormData({...formData, content_category: v, content_sub_type: ''})}
+          >
+            <SelectTrigger data-testid="content-category-select">
+              <SelectValue placeholder="Select category" />
             </SelectTrigger>
             <SelectContent>
-              {CONTENT_TYPES.map(type => (
-                <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+              {config.content_categories.map(cat => (
+                <SelectItem key={cat.id} value={cat.slug}>{cat.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
 
+        {/* WHAT - Content Sub-Type */}
         <div className="space-y-2">
-          <Label>Platform *</Label>
-          <Select value={formData.platform} onValueChange={(v) => setFormData({...formData, platform: v})}>
-            <SelectTrigger data-testid="platform-select">
-              <SelectValue />
+          <Label>Sub-Type *</Label>
+          <Select 
+            value={formData.content_sub_type || undefined} 
+            onValueChange={(v) => setFormData({...formData, content_sub_type: v})}
+          >
+            <SelectTrigger data-testid="content-subtype-select">
+              <SelectValue placeholder="Select type" />
             </SelectTrigger>
             <SelectContent>
-              {PLATFORMS.map(p => (
-                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+              {availableSubtypes.map(sub => (
+                <SelectItem key={sub.id} value={sub.slug}>{sub.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
 
+        {/* WHERE - Medium */}
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2">
+            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">WHERE</span>
+            Medium *
+          </Label>
+          <Select value={formData.medium || undefined} onValueChange={(v) => setFormData({...formData, medium: v})}>
+            <SelectTrigger data-testid="medium-select">
+              <SelectValue placeholder="Select medium" />
+            </SelectTrigger>
+            <SelectContent>
+              {config.mediums.map(med => (
+                <SelectItem key={med.id} value={med.slug}>{med.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Priority */}
         <div className="space-y-2">
           <Label>Priority</Label>
           <Select value={formData.priority} onValueChange={(v) => setFormData({...formData, priority: v})}>
@@ -715,7 +822,26 @@ function CreateProjectForm({ onSubmit, onCancel }) {
           </Select>
         </div>
 
-        {/* Shoot Date - only for original production */}
+        {/* Campaign (Optional) */}
+        <div className="col-span-2 space-y-2">
+          <Label>Link to Campaign (Optional)</Label>
+          <Select 
+            value={formData.campaign_id || "none"} 
+            onValueChange={(v) => setFormData({...formData, campaign_id: v === "none" ? "" : v})}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select campaign" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No Campaign</SelectItem>
+              {campaigns.map(camp => (
+                <SelectItem key={camp.id} value={camp.id}>{camp.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Dates */}
         {showShootDate && (
           <div className="space-y-2">
             <Label>Shoot Date</Label>
@@ -728,6 +854,15 @@ function CreateProjectForm({ onSubmit, onCancel }) {
         )}
 
         <div className="space-y-2">
+          <Label>Due Date</Label>
+          <Input
+            type="date"
+            value={formData.due_date}
+            onChange={(e) => setFormData({...formData, due_date: e.target.value})}
+          />
+        </div>
+
+        <div className="space-y-2">
           <Label>Publish Date</Label>
           <Input
             type="date"
@@ -736,6 +871,7 @@ function CreateProjectForm({ onSubmit, onCancel }) {
           />
         </div>
 
+        {/* Description */}
         <div className="col-span-2 space-y-2">
           <Label>Description</Label>
           <Textarea
@@ -746,14 +882,14 @@ function CreateProjectForm({ onSubmit, onCancel }) {
           />
         </div>
 
-        {/* Concept - only show for original/graphics */}
+        {/* Brief - only show for original/graphics */}
         {['original_production', 'graphics'].includes(formData.project_type) && (
           <div className="col-span-2 space-y-2">
-            <Label>Concept / Brief</Label>
+            <Label>Brief / Requirements</Label>
             <Textarea
-              value={formData.concept}
-              onChange={(e) => setFormData({...formData, concept: e.target.value})}
-              placeholder="Detailed concept, key messages, creative direction..."
+              value={formData.brief}
+              onChange={(e) => setFormData({...formData, brief: e.target.value})}
+              placeholder="Key messages, target audience, do's and don'ts, deliverable specs..."
               rows={3}
             />
           </div>

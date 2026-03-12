@@ -24,7 +24,7 @@ import BudgetPage from "./pages/marketing/Budget";
 import ContentAssetsPage from "./pages/marketing/ContentAssetsPage";
 import InfluencersListPage from "./pages/marketing/InfluencersListPage";
 import InfluencerDetailPage from "./pages/marketing/InfluencerDetailPage";
-import CampaignDetailPage from "./pages/marketing/CampaignDetailPage";
+import CampaignDetailPage from "./pages/marketing/CampaignDetailsPage"; // Enhanced version with cross-module tabs
 import CampaignHubPage from "./pages/marketing/CampaignHubPage";
 import MarketingInsightsPage from "./pages/marketing/MarketingInsightsPage";
 import AIDiscoveryPage from "./pages/marketing/AIDiscoveryPage";
@@ -49,6 +49,9 @@ import PublicationsPipelinePage from "./pages/marketing/PublicationsPipelinePage
 
 // Marketing V3 Pages - Settings
 import MarketingSettingsPage from "./pages/marketing/MarketingSettingsPage";
+
+// Marketing V3 Pages - Campaign Details
+import CampaignDetailsPage from "./pages/marketing/CampaignDetailsPage";
 
 // Sales Pages
 import { SalesDashboard } from "./pages/sales/Dashboard";

@@ -105,10 +105,19 @@ class ContentProjectBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=300)
     description: Optional[str] = None
     
-    # Project type determines workflow
-    project_type: ProjectType = ProjectType.ORIGINAL_PRODUCTION
-    content_type: ContentType
-    platform: ContentPlatform
+    # Project type determines workflow (HOW)
+    project_type: Optional[str] = None  # Now uses config slug
+    
+    # Content classification (WHAT) - NEW
+    content_category: Optional[str] = None  # e.g., "written", "product", "social"
+    content_sub_type: Optional[str] = None  # e.g., "blog_article", "product_images"
+    
+    # Legacy content_type for backward compatibility
+    content_type: Optional[ContentType] = None
+    
+    # Publishing medium (WHERE) - replaces platform
+    medium: Optional[str] = None  # e.g., "website", "instagram"
+    platform: Optional[ContentPlatform] = None  # Legacy, keep for compatibility
     
     # Source content (for adaptation/delivery projects)
     source_project_id: Optional[str] = None  # Link to parent project
@@ -120,6 +129,7 @@ class ContentProjectBase(BaseModel):
     # Dates
     brief_date: Optional[date] = None
     shoot_date: Optional[date] = None
+    due_date: Optional[date] = None  # NEW
     edit_deadline: Optional[date] = None
     publish_date: Optional[date] = None
     
@@ -131,6 +141,7 @@ class ContentProjectBase(BaseModel):
     
     # Details
     concept: Optional[str] = None
+    brief: Optional[str] = None  # NEW - replaces concept
     script: Optional[str] = None
     shot_list: Optional[str] = None
     location: Optional[str] = None
@@ -161,15 +172,19 @@ class ContentProjectCreate(ContentProjectBase):
 class ContentProjectUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
-    project_type: Optional[ProjectType] = None
-    content_type: Optional[ContentType] = None
-    platform: Optional[ContentPlatform] = None
+    project_type: Optional[str] = None  # Changed to str for config slug
+    content_category: Optional[str] = None  # NEW
+    content_sub_type: Optional[str] = None  # NEW
+    content_type: Optional[ContentType] = None  # Legacy
+    medium: Optional[str] = None  # NEW
+    platform: Optional[ContentPlatform] = None  # Legacy
     source_project_id: Optional[str] = None
     source_asset_id: Optional[str] = None
     campaign_id: Optional[str] = None
     influencer_id: Optional[str] = None
     brief_date: Optional[date] = None
     shoot_date: Optional[date] = None
+    due_date: Optional[date] = None  # NEW
     edit_deadline: Optional[date] = None
     publish_date: Optional[date] = None
     producer_id: Optional[str] = None
@@ -177,6 +192,7 @@ class ContentProjectUpdate(BaseModel):
     editor_id: Optional[str] = None
     assigned_to: Optional[List[str]] = None
     concept: Optional[str] = None
+    brief: Optional[str] = None  # NEW
     script: Optional[str] = None
     shot_list: Optional[str] = None
     location: Optional[str] = None
