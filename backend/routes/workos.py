@@ -576,6 +576,133 @@ async def get_user_team(user_id: str, current_user: dict = Depends(get_current_u
     return user
 
 
+# ============== PASSWORD MANAGEMENT ==============
+
+import secrets
+import string
+import bcrypt
+
+def generate_secure_password(length: int = 12) -> str:
+    """Generate a secure random password"""
+    alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+    password = ''.join(secrets.choice(alphabet) for _ in range(length))
+    # Ensure at least one of each type
+    password = (
+        secrets.choice(string.ascii_uppercase) +
+        secrets.choice(string.ascii_lowercase) +
+        secrets.choice(string.digits) +
+        secrets.choice("!@#$%^&*") +
+        password[4:]
+    )
+    return password
+
+
+@workos_router.post("/users/{user_id}/generate-password")
+async def generate_user_password(user_id: str, current_user: dict = Depends(require_admin())):
+    """Generate a new password for a user (admin only)"""
+    db = get_db()
+    
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Generate new password
+    new_password = generate_secure_password()
+    hashed_password = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+    
+    # Update user with new password and mark as temporary
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {
+            "password": hashed_password,
+            "hashed_password": hashed_password,  # Support both field names
+            "temp_password": new_password,  # Store temporarily for admin viewing
+            "password_must_change": True,
+            "password_generated_at": datetime.now(timezone.utc).isoformat(),
+            "password_generated_by": current_user.get("id"),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {
+        "success": True,
+        "password": new_password,
+        "message": "Password generated successfully. User will be prompted to change it on first login."
+    }
+
+
+@workos_router.get("/users/{user_id}/temp-password")
+async def get_temp_password(user_id: str, current_user: dict = Depends(require_admin())):
+    """Get the temporary password for a user (admin only) - only available until user logs in"""
+    db = get_db()
+    
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "temp_password": 1, "password_generated_at": 1, "name": 1, "email": 1})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    temp_password = user.get("temp_password")
+    if not temp_password:
+        return {
+            "has_temp_password": False,
+            "message": "No temporary password available. Generate a new one if needed."
+        }
+    
+    return {
+        "has_temp_password": True,
+        "password": temp_password,
+        "generated_at": user.get("password_generated_at"),
+        "user_name": user.get("name"),
+        "user_email": user.get("email")
+    }
+
+
+@workos_router.post("/users/{user_id}/set-password")
+async def set_user_password(user_id: str, data: dict, current_user: dict = Depends(require_admin())):
+    """Set a specific password for a user (admin only)"""
+    db = get_db()
+    
+    password = data.get("password")
+    if not password or len(password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    hashed_password = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {
+            "password": hashed_password,
+            "hashed_password": hashed_password,
+            "temp_password": password,  # Store for admin viewing
+            "password_must_change": data.get("must_change", False),
+            "password_generated_at": datetime.now(timezone.utc).isoformat(),
+            "password_generated_by": current_user.get("id"),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {
+        "success": True,
+        "message": "Password set successfully"
+    }
+
+
+@workos_router.delete("/users/{user_id}/temp-password")
+async def clear_temp_password(user_id: str, current_user: dict = Depends(require_admin())):
+    """Clear the temporary password (called after user successfully logs in)"""
+    db = get_db()
+    
+    await db.users.update_one(
+        {"id": user_id},
+        {"$unset": {"temp_password": ""}, "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"success": True, "message": "Temporary password cleared"}
+
+
 # ============== ORGANIZATION SETTINGS ==============
 
 @workos_router.get("/organization/settings")

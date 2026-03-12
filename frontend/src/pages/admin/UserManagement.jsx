@@ -65,6 +65,13 @@ const UserManagementPage = () => {
   const [deleteDialog, setDeleteDialog] = useState({ open: false, user: null });
   const [showPassword, setShowPassword] = useState(false);
   
+  // Password management state
+  const [passwordDialog, setPasswordDialog] = useState({ open: false, user: null });
+  const [generatedPassword, setGeneratedPassword] = useState(null);
+  const [customPassword, setCustomPassword] = useState('');
+  const [showGeneratedPassword, setShowGeneratedPassword] = useState(false);
+  const [generatingPassword, setGeneratingPassword] = useState(false);
+  
   // Onboarding state
   const [showOnboardModal, setShowOnboardModal] = useState(false);
   const [selectedUserForOnboard, setSelectedUserForOnboard] = useState(null);
@@ -247,6 +254,69 @@ const UserManagementPage = () => {
       fetchEmployees();
     } catch (error) {
       toast.error('Failed to update user status');
+    }
+  };
+
+  // Password Management
+  const openPasswordDialog = async (user) => {
+    setPasswordDialog({ open: true, user });
+    setGeneratedPassword(null);
+    setCustomPassword('');
+    setShowGeneratedPassword(false);
+    
+    // Check if user has a temp password
+    try {
+      const res = await api.get(`/workos/users/${user.id}/temp-password`);
+      if (res.data.has_temp_password) {
+        setGeneratedPassword(res.data.password);
+      }
+    } catch (error) {
+      // No temp password available
+    }
+  };
+
+  const generatePassword = async () => {
+    if (!passwordDialog.user) return;
+    setGeneratingPassword(true);
+    try {
+      const res = await api.post(`/workos/users/${passwordDialog.user.id}/generate-password`);
+      setGeneratedPassword(res.data.password);
+      setShowGeneratedPassword(true);
+      toast.success('Password generated! Share this with the user.');
+    } catch (error) {
+      toast.error('Failed to generate password');
+    } finally {
+      setGeneratingPassword(false);
+    }
+  };
+
+  const setCustomPasswordForUser = async () => {
+    if (!passwordDialog.user || !customPassword) return;
+    if (customPassword.length < 8) {
+      toast.error('Password must be at least 8 characters');
+      return;
+    }
+    setGeneratingPassword(true);
+    try {
+      await api.post(`/workos/users/${passwordDialog.user.id}/set-password`, {
+        password: customPassword,
+        must_change: true
+      });
+      setGeneratedPassword(customPassword);
+      setShowGeneratedPassword(true);
+      setCustomPassword('');
+      toast.success('Password set successfully!');
+    } catch (error) {
+      toast.error('Failed to set password');
+    } finally {
+      setGeneratingPassword(false);
+    }
+  };
+
+  const copyPassword = () => {
+    if (generatedPassword) {
+      navigator.clipboard.writeText(generatedPassword);
+      toast.success('Password copied to clipboard');
     }
   };
 
@@ -641,6 +711,15 @@ const UserManagementPage = () => {
                         <Button
                           variant="outline"
                           size="icon"
+                          onClick={() => openPasswordDialog(user)}
+                          className="border-amber-200 text-amber-600 hover:bg-amber-50"
+                          title="Manage Password"
+                        >
+                          <Key className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
                           onClick={() => openEditDialog(user)}
                           className="border-[#E8D5C4]"
                         >
@@ -1030,6 +1109,109 @@ const UserManagementPage = () => {
             >
               {saving ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Shield className="h-4 w-4 mr-2" />}
               Save Roles
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Password Management Dialog */}
+      <Dialog open={passwordDialog.open} onOpenChange={(open) => !open && setPasswordDialog({ open: false, user: null })}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[#4A3728] flex items-center gap-2">
+              <Key className="h-5 w-5" />
+              Password Management
+            </DialogTitle>
+            <DialogDescription>
+              Generate or set password for {passwordDialog.user?.name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* User Info */}
+            <div className="bg-[#F5EDE5] p-3 rounded-lg">
+              <p className="font-medium text-[#4A3728]">{passwordDialog.user?.name}</p>
+              <p className="text-sm text-[#5D4A3A]">{passwordDialog.user?.email}</p>
+            </div>
+
+            {/* Generated Password Display */}
+            {generatedPassword && (
+              <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
+                <Label className="text-green-800 font-medium mb-2 block">Current Password</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type={showGeneratedPassword ? 'text' : 'password'}
+                    value={generatedPassword}
+                    readOnly
+                    className="font-mono bg-white"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setShowGeneratedPassword(!showGeneratedPassword)}
+                  >
+                    {showGeneratedPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={copyPassword}
+                    className="border-green-300 text-green-600"
+                  >
+                    <Key className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-green-700 mt-2">Share this password securely with the user.</p>
+              </div>
+            )}
+
+            {/* Generate Random Password */}
+            <div className="border border-[#E8D5C4] p-4 rounded-lg">
+              <Label className="text-[#4A3728] font-medium mb-2 block">Generate Random Password</Label>
+              <Button
+                onClick={generatePassword}
+                disabled={generatingPassword}
+                className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                {generatingPassword ? (
+                  <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Key className="h-4 w-4 mr-2" />
+                )}
+                Generate Secure Password
+              </Button>
+            </div>
+
+            {/* Set Custom Password */}
+            <div className="border border-[#E8D5C4] p-4 rounded-lg">
+              <Label className="text-[#4A3728] font-medium mb-2 block">Set Custom Password</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  value={customPassword}
+                  onChange={(e) => setCustomPassword(e.target.value)}
+                  placeholder="Enter custom password (min 8 chars)"
+                  className="border-[#E8D5C4]"
+                />
+                <Button
+                  onClick={setCustomPasswordForUser}
+                  disabled={generatingPassword || !customPassword || customPassword.length < 8}
+                  variant="outline"
+                  className="border-[#E8D5C4]"
+                >
+                  Set
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setPasswordDialog({ open: false, user: null })} 
+              className="border-[#E8D5C4]"
+            >
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

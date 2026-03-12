@@ -1,3 +1,30 @@
+## March 12, 2026 - User Management Tasks 1 & 2 Complete ✅
+
+### Task 1: Password Generation/Viewing for Admin ✅
+
+**Backend Endpoints Added** (`/app/backend/routes/workos.py`):
+- `POST /api/workos/users/{user_id}/generate-password` - Generate random secure password
+- `GET /api/workos/users/{user_id}/temp-password` - View temporary password
+- `POST /api/workos/users/{user_id}/set-password` - Set custom password
+- `DELETE /api/workos/users/{user_id}/temp-password` - Clear temp password after use
+
+**Frontend Updates** (`/app/frontend/src/pages/admin/UserManagement.jsx`):
+- Added Key icon button (amber) in user row actions
+- Password Management dialog with:
+  - Generate Random Password button
+  - Set Custom Password option
+  - View/Copy generated password
+  - Show/Hide password toggle
+
+### Task 2: Block Inactive Users from Login ✅
+
+**Already Implemented** in `/app/backend/routes/auth.py`:
+- Email/Password login (line 227-232): Checks `user.status` - blocks `inactive` and `pending`
+- Azure AD login (line 296-301): Same check for Microsoft SSO users
+- Error messages: "Your account has been deactivated/pending activation. Please contact an administrator."
+
+---
+
 ## March 12, 2026 - System Modules Management (User Management Task 3 & 4) ✅
 
 ### What Was Built
