@@ -77,7 +77,12 @@ const ToolsAccessTable = ({ defaultTab = 'tools' }) => {
   const [accessForm, setAccessForm] = useState({ user_id: '', access_level: 'viewer' });
   
   const [showCredDialog, setShowCredDialog] = useState(false);
+  const [editingCred, setEditingCred] = useState(null);
   const [credForm, setCredForm] = useState({ tool_id: '', login_email: '', password: '', notes: '' });
+  
+  // Credential History Dialog
+  const [showCredHistoryDialog, setShowCredHistoryDialog] = useState(false);
+  const [credHistory, setCredHistory] = useState([]);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -236,14 +241,55 @@ const ToolsAccessTable = ({ defaultTab = 'tools' }) => {
   };
 
   const handleSaveCredential = async () => {
-    if (!credForm.tool_id || !credForm.password) { toast.error('Tool and password required'); return; }
+    if (!credForm.tool_id || (!editingCred && !credForm.password)) { 
+      toast.error('Tool and password required'); 
+      return; 
+    }
     try {
-      await api.post('/acms/credentials', credForm);
-      toast.success('Credential saved');
+      if (editingCred) {
+        // Update existing credential
+        const updateData = { ...credForm };
+        if (!updateData.password) delete updateData.password; // Don't send empty password
+        await api.put(`/acms/credentials/${editingCred.id}`, updateData);
+        toast.success('Credential updated');
+      } else {
+        // Create new credential
+        await api.post('/acms/credentials', credForm);
+        toast.success('Credential saved');
+      }
       setShowCredDialog(false);
+      setEditingCred(null);
       setCredForm({ tool_id: '', login_email: '', password: '', notes: '' });
       fetchData();
-    } catch { toast.error('Failed'); }
+    } catch { toast.error('Failed to save credential'); }
+  };
+
+  const openEditCredential = (cred) => {
+    setEditingCred(cred);
+    setCredForm({
+      tool_id: cred.tool_id || '',
+      login_email: cred.login_email || '',
+      password: '', // Don't pre-fill password for security
+      notes: cred.notes || ''
+    });
+    setShowCredDialog(true);
+  };
+
+  const resetCredForm = () => {
+    setEditingCred(null);
+    setCredForm({ tool_id: '', login_email: '', password: '', notes: '' });
+  };
+
+  const viewCredentialHistory = async (cred) => {
+    try {
+      // Filter logs for this credential
+      const credLogs = logs.filter(l => 
+        l.entity_id === cred.id || 
+        (l.entity_name && l.entity_name.includes(cred.tool_name))
+      );
+      setCredHistory(credLogs);
+      setShowCredHistoryDialog(true);
+    } catch { toast.error('Failed to load history'); }
   };
 
   const handleDeleteCredential = async (cred) => {
@@ -404,7 +450,7 @@ const ToolsAccessTable = ({ defaultTab = 'tools' }) => {
         {/* ========== CREDENTIALS TAB ========== */}
         <TabsContent value="credentials" className="space-y-4">
           <div className="flex justify-end">
-            <Button onClick={() => setShowCredDialog(true)} className="bg-[#4A3728] hover:bg-[#5D4A3A] text-white">
+            <Button onClick={() => { resetCredForm(); setShowCredDialog(true); }} className="bg-[#4A3728] hover:bg-[#5D4A3A] text-white">
               <Plus className="w-4 h-4 mr-2" /> Add Credential
             </Button>
           </div>
@@ -417,7 +463,7 @@ const ToolsAccessTable = ({ defaultTab = 'tools' }) => {
                     <TableHead>Login Email</TableHead>
                     <TableHead>Password</TableHead>
                     <TableHead>Notes</TableHead>
-                    <TableHead>Created</TableHead>
+                    <TableHead>Last Updated</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -442,9 +488,13 @@ const ToolsAccessTable = ({ defaultTab = 'tools' }) => {
                         </div>
                       </TableCell>
                       <TableCell className="text-sm text-[#8B7355] max-w-[200px] truncate">{cred.notes || '-'}</TableCell>
-                      <TableCell className="text-sm text-[#8B7355]">{cred.created_at ? new Date(cred.created_at).toLocaleDateString() : '-'}</TableCell>
+                      <TableCell className="text-sm text-[#8B7355]">{cred.updated_at ? new Date(cred.updated_at).toLocaleDateString() : (cred.created_at ? new Date(cred.created_at).toLocaleDateString() : '-')}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" onClick={() => handleDeleteCredential(cred)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => viewCredentialHistory(cred)} title="View History"><Clock className="w-4 h-4 text-blue-600" /></Button>
+                          <Button variant="ghost" size="sm" onClick={() => openEditCredential(cred)} title="Edit"><Edit className="w-4 h-4 text-amber-600" /></Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleDeleteCredential(cred)} title="Delete"><Trash2 className="w-4 h-4 text-red-500" /></Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -598,17 +648,66 @@ const ToolsAccessTable = ({ defaultTab = 'tools' }) => {
         </DialogContent>
       </Dialog>
 
-      {/* Add Credential Dialog */}
-      <Dialog open={showCredDialog} onOpenChange={setShowCredDialog}>
+      {/* Add/Edit Credential Dialog */}
+      <Dialog open={showCredDialog} onOpenChange={(open) => { if (!open) resetCredForm(); setShowCredDialog(open); }}>
         <DialogContent className="bg-white max-w-md">
-          <DialogHeader><DialogTitle className="text-[#4A3728]">Add Credential</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="text-[#4A3728]">{editingCred ? 'Edit Credential' : 'Add Credential'}</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div><Label>Tool *</Label><Select value={credForm.tool_id || "placeholder"} onValueChange={(v) => setCredForm(f => ({ ...f, tool_id: v === "placeholder" ? "" : v }))}><SelectTrigger className="bg-white border-[#D4BBA6]"><SelectValue placeholder="Select tool" /></SelectTrigger><SelectContent><SelectItem value="placeholder" disabled>Select tool</SelectItem>{tools.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent></Select></div>
-            <div><Label>Login Email</Label><Input value={credForm.login_email} onChange={(e) => setCredForm(f => ({ ...f, login_email: e.target.value }))} className="bg-white border-[#D4BBA6]" /></div>
-            <div><Label>Password *</Label><Input type="password" value={credForm.password} onChange={(e) => setCredForm(f => ({ ...f, password: e.target.value }))} className="bg-white border-[#D4BBA6]" /></div>
-            <div><Label>Notes</Label><Textarea value={credForm.notes} onChange={(e) => setCredForm(f => ({ ...f, notes: e.target.value }))} className="bg-white border-[#D4BBA6]" rows={2} /></div>
+            <div><Label>Tool *</Label>
+              <Select value={credForm.tool_id || "placeholder"} onValueChange={(v) => setCredForm(f => ({ ...f, tool_id: v === "placeholder" ? "" : v }))} disabled={!!editingCred}>
+                <SelectTrigger className="bg-white border-[#D4BBA6]"><SelectValue placeholder="Select tool" /></SelectTrigger>
+                <SelectContent><SelectItem value="placeholder" disabled>Select tool</SelectItem>{tools.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div><Label>Login Email</Label><Input value={credForm.login_email} onChange={(e) => setCredForm(f => ({ ...f, login_email: e.target.value }))} className="bg-white border-[#D4BBA6]" placeholder="admin@company.com" /></div>
+            <div>
+              <Label>{editingCred ? 'New Password (leave empty to keep current)' : 'Password *'}</Label>
+              <Input type="password" value={credForm.password} onChange={(e) => setCredForm(f => ({ ...f, password: e.target.value }))} className="bg-white border-[#D4BBA6]" placeholder={editingCred ? '••••••••' : ''} />
+            </div>
+            <div><Label>Notes</Label><Textarea value={credForm.notes} onChange={(e) => setCredForm(f => ({ ...f, notes: e.target.value }))} className="bg-white border-[#D4BBA6]" rows={2} placeholder="Additional notes..." /></div>
           </div>
-          <DialogFooter><Button variant="outline" onClick={() => setShowCredDialog(false)} className="border-[#D4BBA6]">Cancel</Button><Button onClick={handleSaveCredential} className="bg-[#4A3728] text-white"><Shield className="w-4 h-4 mr-2" />Save</Button></DialogFooter>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { resetCredForm(); setShowCredDialog(false); }} className="border-[#D4BBA6]">Cancel</Button>
+            <Button onClick={handleSaveCredential} className="bg-[#4A3728] text-white"><Shield className="w-4 h-4 mr-2" />{editingCred ? 'Update' : 'Save'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Credential History Dialog */}
+      <Dialog open={showCredHistoryDialog} onOpenChange={setShowCredHistoryDialog}>
+        <DialogContent className="bg-white max-w-lg max-h-[80vh]">
+          <DialogHeader><DialogTitle className="text-[#4A3728]">Credential History</DialogTitle></DialogHeader>
+          <div className="space-y-2 max-h-[400px] overflow-y-auto">
+            {credHistory.length === 0 ? (
+              <p className="text-center py-8 text-[#8B7355]">No history available</p>
+            ) : (
+              credHistory.map((log, i) => (
+                <div key={i} className="flex items-start gap-3 p-3 bg-[#F5EDE5] rounded">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    log.action?.includes('created') ? 'bg-emerald-100' :
+                    log.action?.includes('updated') ? 'bg-blue-100' :
+                    log.action?.includes('viewed') ? 'bg-amber-100' :
+                    log.action?.includes('deleted') ? 'bg-red-100' : 'bg-gray-100'
+                  }`}>
+                    <FileText className={`w-4 h-4 ${
+                      log.action?.includes('created') ? 'text-emerald-600' :
+                      log.action?.includes('updated') ? 'text-blue-600' :
+                      log.action?.includes('viewed') ? 'text-amber-600' :
+                      log.action?.includes('deleted') ? 'text-red-600' : 'text-gray-600'
+                    }`} />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-[#4A3728]">{log.action?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</p>
+                    <p className="text-sm text-[#8B7355]">by {log.user_name || 'System'}</p>
+                    <p className="text-xs text-[#8B7355]">{log.timestamp ? new Date(log.timestamp).toLocaleString() : '-'}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCredHistoryDialog(false)} className="border-[#D4BBA6]">Close</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
