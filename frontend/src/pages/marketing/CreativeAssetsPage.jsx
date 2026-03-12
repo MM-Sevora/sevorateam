@@ -225,9 +225,9 @@ export default function CreativeAssetsPage() {
           {storageStatus && (
             <Badge variant="outline" className={storageStatus.configured ? 'text-green-600' : 'text-red-600'}>
               {storageStatus.configured ? (
-                <><Cloud className="w-3 h-3 mr-1" /> OneDrive Connected</>
+                <><Cloud className="w-3 h-3 mr-1" /> SharePoint Connected</>
               ) : (
-                <><CloudOff className="w-3 h-3 mr-1" /> OneDrive Not Connected</>
+                <><CloudOff className="w-3 h-3 mr-1" /> SharePoint Not Connected</>
               )}
             </Badge>
           )}

@@ -79,20 +79,30 @@ def get_onedrive_service():
 
 @router.get("/storage/status")
 async def get_storage_status():
-    """Check OneDrive storage configuration status"""
+    """Check SharePoint storage configuration status"""
     try:
         service = get_onedrive_service()
         is_configured = service.is_configured()
         
-        return {
-            "provider": "onedrive",
-            "configured": is_configured,
-            "root_folder": service.root_folder if is_configured else None,
-            "message": "OneDrive is ready" if is_configured else "OneDrive credentials not configured"
-        }
+        if is_configured:
+            storage_info = service.get_storage_info()
+            return {
+                "provider": "sharepoint",
+                "configured": True,
+                "site_url": service.SHAREPOINT_SITE_URL,
+                "root_folder": service.root_folder,
+                "message": "SharePoint is ready",
+                **storage_info
+            }
+        else:
+            return {
+                "provider": "sharepoint",
+                "configured": False,
+                "message": "SharePoint credentials not configured"
+            }
     except Exception as e:
         return {
-            "provider": "onedrive",
+            "provider": "sharepoint",
             "configured": False,
             "error": str(e)
         }

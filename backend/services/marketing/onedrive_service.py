@@ -1,8 +1,8 @@
 """
-OneDrive Storage Service - Microsoft Graph API integration for marketing assets
+SharePoint Storage Service - Microsoft Graph API integration for marketing assets
 
 Handles:
-- File uploads (simple and chunked)
+- File uploads (simple and chunked) to SharePoint
 - File downloads
 - Folder management
 - File listing with pagination
@@ -20,22 +20,29 @@ logger = logging.getLogger(__name__)
 
 
 class OneDriveService:
-    """Service for managing files in OneDrive via Microsoft Graph API"""
+    """Service for managing files in SharePoint via Microsoft Graph API"""
     
     GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0"
     CHUNK_SIZE = 320 * 1024 * 10  # 3.2 MB chunks (must be multiple of 320 KB)
     SIMPLE_UPLOAD_LIMIT = 4 * 1024 * 1024  # 4 MB
     
+    # SharePoint configuration
+    SHAREPOINT_SITE_URL = "https://sevorateam.sharepoint.com/sites/Sevora-ContentHub"
+    SHAREPOINT_HOSTNAME = "sevorateam.sharepoint.com"
+    SHAREPOINT_SITE_PATH = "/sites/Sevora-ContentHub"
+    
     def __init__(self):
         self.client_id = os.environ.get("AZURE_CLIENT_ID")
         self.tenant_id = os.environ.get("AZURE_TENANT_ID")
         self.client_secret = os.environ.get("AZURE_CLIENT_SECRET")
-        self.root_folder = os.environ.get("ONEDRIVE_ROOT_FOLDER", "marketing_assets")
+        self.root_folder = os.environ.get("SHAREPOINT_ROOT_FOLDER", "Marketing Assets")
         self._access_token = None
         self._token_expires_at = None
+        self._site_id = None
+        self._drive_id = None
     
     def is_configured(self) -> bool:
-        """Check if OneDrive is properly configured"""
+        """Check if SharePoint is properly configured"""
         return all([self.client_id, self.tenant_id, self.client_secret])
     
     def _get_access_token(self) -> str:
@@ -44,7 +51,7 @@ class OneDriveService:
             return self._access_token
         
         if not self.is_configured():
-            raise ValueError("OneDrive credentials not configured")
+            raise ValueError("SharePoint credentials not configured")
         
         credential = ClientSecretCredential(
             tenant_id=self.tenant_id,
@@ -65,8 +72,46 @@ class OneDriveService:
             "Content-Type": "application/json"
         }
     
+    def _get_site_id(self) -> str:
+        """Get SharePoint site ID"""
+        if self._site_id:
+            return self._site_id
+        
+        url = f"{self.GRAPH_BASE_URL}/sites/{self.SHAREPOINT_HOSTNAME}:{self.SHAREPOINT_SITE_PATH}"
+        response = requests.get(url, headers=self._get_headers())
+        
+        if response.status_code == 200:
+            data = response.json()
+            self._site_id = data.get("id")
+            return self._site_id
+        else:
+            logger.error(f"Failed to get site ID: {response.status_code} - {response.text}")
+            raise Exception(f"Failed to get SharePoint site: {response.text}")
+    
+    def _get_drive_id(self) -> str:
+        """Get the default document library drive ID"""
+        if self._drive_id:
+            return self._drive_id
+        
+        site_id = self._get_site_id()
+        url = f"{self.GRAPH_BASE_URL}/sites/{site_id}/drive"
+        response = requests.get(url, headers=self._get_headers())
+        
+        if response.status_code == 200:
+            data = response.json()
+            self._drive_id = data.get("id")
+            return self._drive_id
+        else:
+            logger.error(f"Failed to get drive ID: {response.status_code} - {response.text}")
+            raise Exception(f"Failed to get SharePoint drive: {response.text}")
+    
+    def _get_drive_url(self) -> str:
+        """Get the base URL for drive operations"""
+        site_id = self._get_site_id()
+        return f"{self.GRAPH_BASE_URL}/sites/{site_id}/drive"
+    
     def _build_path(self, *parts: str) -> str:
-        """Build OneDrive path from parts"""
+        """Build SharePoint path from parts"""
         cleaned = [p.strip("/") for p in parts if p]
         return "/" + "/".join(cleaned)
     
@@ -74,7 +119,7 @@ class OneDriveService:
     
     def create_folder(self, folder_name: str, parent_path: Optional[str] = None) -> Dict[str, Any]:
         """
-        Create a folder in OneDrive
+        Create a folder in SharePoint
         
         Args:
             folder_name: Name of the folder
@@ -91,7 +136,8 @@ class OneDriveService:
         # Ensure parent exists by creating root if needed
         self._ensure_root_folder()
         
-        url = f"{self.GRAPH_BASE_URL}/me/drive/root:{full_parent_path}:/children"
+        drive_url = self._get_drive_url()
+        url = f"{drive_url}/root:{full_parent_path}:/children"
         
         payload = {
             "name": folder_name,
@@ -115,15 +161,16 @@ class OneDriveService:
             raise Exception(f"Failed to create folder: {response.text}")
     
     def _ensure_root_folder(self):
-        """Ensure the root marketing_assets folder exists"""
-        url = f"{self.GRAPH_BASE_URL}/me/drive/root:/marketing_assets"
+        """Ensure the root Marketing Assets folder exists in SharePoint"""
+        drive_url = self._get_drive_url()
+        url = f"{drive_url}/root:/{self.root_folder}"
         response = requests.get(url, headers=self._get_headers())
         
         if response.status_code == 404:
             # Create root folder
-            create_url = f"{self.GRAPH_BASE_URL}/me/drive/root/children"
+            create_url = f"{drive_url}/root/children"
             payload = {
-                "name": "marketing_assets",
+                "name": self.root_folder,
                 "folder": {},
                 "@microsoft.graph.conflictBehavior": "rename"
             }
@@ -167,7 +214,8 @@ class OneDriveService:
         else:
             full_path = self._build_path(self.root_folder)
         
-        url = f"{self.GRAPH_BASE_URL}/me/drive/root:{full_path}:/children"
+        drive_url = self._get_drive_url()
+        url = f"{drive_url}/root:{full_path}:/children"
         params = {"$filter": "folder ne null", "$select": "id,name,folder,webUrl,createdDateTime"}
         
         response = requests.get(url, headers=self._get_headers(), params=params)
@@ -212,7 +260,8 @@ class OneDriveService:
         else:
             full_path = self._build_path(self.root_folder, filename)
         
-        url = f"{self.GRAPH_BASE_URL}/me/drive/root:{full_path}:/content"
+        drive_url = self._get_drive_url()
+        url = f"{drive_url}/root:{full_path}:/content"
         
         headers = self._get_headers()
         headers["Content-Type"] = "application/octet-stream"
@@ -249,7 +298,8 @@ class OneDriveService:
         else:
             full_path = self._build_path(self.root_folder, filename)
         
-        url = f"{self.GRAPH_BASE_URL}/me/drive/root:{full_path}:/createUploadSession"
+        drive_url = self._get_drive_url()
+        url = f"{drive_url}/root:{full_path}:/createUploadSession"
         
         payload = {
             "item": {
@@ -353,7 +403,8 @@ class OneDriveService:
     
     def get_file_info(self, file_id: str) -> Dict[str, Any]:
         """Get file metadata by ID"""
-        url = f"{self.GRAPH_BASE_URL}/me/drive/items/{file_id}"
+        drive_url = self._get_drive_url()
+        url = f"{drive_url}/items/{file_id}"
         params = {"$select": "id,name,size,webUrl,createdDateTime,lastModifiedDateTime,@microsoft.graph.downloadUrl"}
         
         response = requests.get(url, headers=self._get_headers(), params=params)
@@ -395,7 +446,8 @@ class OneDriveService:
         download_url = file_info.get("download_url")
         if not download_url:
             # Fallback to content endpoint
-            url = f"{self.GRAPH_BASE_URL}/me/drive/items/{file_id}/content"
+            drive_url = self._get_drive_url()
+            url = f"{drive_url}/items/{file_id}/content"
             response = requests.get(url, headers=self._get_headers())
         else:
             response = requests.get(download_url)
@@ -425,7 +477,8 @@ class OneDriveService:
         else:
             full_path = self._build_path(self.root_folder)
         
-        url = f"{self.GRAPH_BASE_URL}/me/drive/root:{full_path}:/children"
+        drive_url = self._get_drive_url()
+        url = f"{drive_url}/root:{full_path}:/children"
         
         params = {
             "$top": str(top),
@@ -482,11 +535,12 @@ class OneDriveService:
         Returns:
             List of matching files
         """
+        drive_url = self._get_drive_url()
         if folder_path:
             full_path = self._build_path(self.root_folder, folder_path)
-            url = f"{self.GRAPH_BASE_URL}/me/drive/root:{full_path}:/search(q='{query}')"
+            url = f"{drive_url}/root:{full_path}:/search(q='{query}')"
         else:
-            url = f"{self.GRAPH_BASE_URL}/me/drive/root:/{self.root_folder}:/search(q='{query}')"
+            url = f"{drive_url}/root:/{self.root_folder}:/search(q='{query}')"
         
         response = requests.get(url, headers=self._get_headers())
         
@@ -510,7 +564,8 @@ class OneDriveService:
     
     def delete_file(self, file_id: str) -> bool:
         """Delete a file (moves to recycle bin)"""
-        url = f"{self.GRAPH_BASE_URL}/me/drive/items/{file_id}"
+        drive_url = self._get_drive_url()
+        url = f"{drive_url}/items/{file_id}"
         
         response = requests.delete(url, headers=self._get_headers())
         
@@ -519,6 +574,36 @@ class OneDriveService:
     def delete_folder(self, folder_id: str) -> bool:
         """Delete a folder and its contents (moves to recycle bin)"""
         return self.delete_file(folder_id)
+    
+    def get_storage_info(self) -> Dict[str, Any]:
+        """Get SharePoint storage information"""
+        try:
+            site_id = self._get_site_id()
+            drive_url = self._get_drive_url()
+            
+            # Get drive quota
+            response = requests.get(drive_url, headers=self._get_headers())
+            
+            if response.status_code == 200:
+                data = response.json()
+                quota = data.get("quota", {})
+                return {
+                    "provider": "sharepoint",
+                    "site_url": self.SHAREPOINT_SITE_URL,
+                    "root_folder": self.root_folder,
+                    "total_space": quota.get("total", 0),
+                    "used_space": quota.get("used", 0),
+                    "remaining_space": quota.get("remaining", 0),
+                    "state": quota.get("state", "normal")
+                }
+        except Exception as e:
+            logger.error(f"Failed to get storage info: {e}")
+        
+        return {
+            "provider": "sharepoint",
+            "site_url": self.SHAREPOINT_SITE_URL,
+            "root_folder": self.root_folder
+        }
 
 
 # Singleton instance
