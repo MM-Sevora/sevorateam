@@ -270,7 +270,7 @@ async def azure_login(request: AzureTokenRequest):
     azure_id = azure_user.get('id')
     
     # Allowed Microsoft domains (Sevora organization)
-    ALLOWED_DOMAINS = ['sevora.com', 'shopsevora.com']
+    ALLOWED_DOMAINS = ['sevora.com']
     email_domain = email.lower().split('@')[-1] if '@' in email else ''
     is_sevora_domain = email_domain in ALLOWED_DOMAINS
     
