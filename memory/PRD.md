@@ -1,3 +1,44 @@
+## March 12, 2026 - Campaign Details Page Fix & Conditional Tabs ✅
+
+### Campaign Details Page Authentication Fix
+
+**Issue Fixed:**
+Campaign Details page was redirecting back to campaign list due to 401 Unauthorized errors. The page was using raw `fetch()` calls without authentication headers.
+
+**Solution:**
+- Added `useAuth()` hook to get the authenticated `api` object
+- Replaced all `fetch()` calls with `api.get()` calls which automatically include Authorization header
+- Now correctly loads both regular/mixed campaigns AND PR campaigns
+
+### Conditional Tabs Implementation
+
+**Feature Implemented:**
+Campaign Details page now shows only relevant tabs based on campaign type:
+
+**Tab Visibility Rules:**
+| Tab | PR Campaign | Mixed/Influencer Campaign |
+|-----|-------------|---------------------------|
+| Content | ✅ | ✅ |
+| Ads | ❌ | ✅ |
+| Assets | ✅ | ✅ |
+| Influencers | ❌ | ✅ |
+| Publications | ✅ | ✅ |
+| Budget | ✅ | ✅ |
+
+**Technical Implementation:**
+- `getVisibleTabs()` function determines visible tabs based on campaign type
+- Core tabs (Content, Assets, Budget) always shown if type supports them
+- Data-dependent tabs (Ads, Influencers, Publications) shown if campaign type matches
+
+**Files Modified:**
+- `/app/frontend/src/pages/marketing/CampaignDetailsPage.jsx`
+
+**Test Results:**
+- Regular Campaign (c5c6645c-6d42-4234-9a0f-6f46f3020365): Shows all 6 tabs ✅
+- PR Campaign (509d767d-5aa3-4d7a-b24a-6fa0e329df1a): Shows 4 tabs (no Ads/Influencers) ✅
+
+---
+
 ## March 12, 2026 - Marketing Settings/Config Page COMPLETE ✅
 
 ### Admin Configuration for Content Production Dropdowns
