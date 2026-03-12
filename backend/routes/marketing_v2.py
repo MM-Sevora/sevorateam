@@ -806,6 +806,121 @@ async def get_youtube_channel_videos(
         return await service.get_youtube_recent_videos(real_channel_id, limit)
 
 
+# ============== CONTENT PERFORMANCE ANALYSIS ==============
+
+@marketing_v2_router.get("/influencer-analytics/instagram/{username}/content-performance")
+async def get_instagram_content_performance(
+    username: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """
+    Deep content performance analysis for an Instagram account.
+    Returns: best posts, engagement by type, posting frequency, peak times.
+    """
+    from services.influencer_analytics import InfluencerAnalyticsService
+    
+    async with InfluencerAnalyticsService() as service:
+        return await service.analyze_instagram_content(username)
+
+
+@marketing_v2_router.get("/influencer-analytics/youtube/{channel_id}/content-performance")
+async def get_youtube_content_performance(
+    channel_id: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """
+    Deep content performance analysis for a YouTube channel.
+    Returns: best videos, engagement patterns, upload frequency.
+    """
+    from services.influencer_analytics import InfluencerAnalyticsService
+    
+    async with InfluencerAnalyticsService() as service:
+        return await service.analyze_youtube_content(channel_id)
+
+
+@marketing_v2_router.get("/contacts/{contact_id}/content-performance")
+async def get_contact_content_performance(
+    contact_id: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """
+    Get comprehensive content performance for an influencer contact.
+    Analyzes both Instagram and YouTube if handles are available.
+    """
+    db = get_db()
+    from services.influencer_analytics import InfluencerAnalyticsService
+    
+    contact = await db.contacts.find_one({"id": contact_id}, {"_id": 0})
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    instagram_handle = contact.get("instagram_handle")
+    youtube_handle = contact.get("youtube_handle")
+    
+    if not instagram_handle and not youtube_handle:
+        raise HTTPException(
+            status_code=400,
+            detail="Contact has no Instagram or YouTube handle"
+        )
+    
+    results = {
+        "contact_id": contact_id,
+        "contact_name": contact.get("name"),
+        "instagram": None,
+        "youtube": None
+    }
+    
+    async with InfluencerAnalyticsService() as service:
+        if instagram_handle:
+            results["instagram"] = await service.analyze_instagram_content(instagram_handle)
+        
+        if youtube_handle:
+            results["youtube"] = await service.analyze_youtube_content(youtube_handle)
+    
+    # Generate overall content insights
+    insights = []
+    recommendations = []
+    
+    if results["instagram"] and results["instagram"].get("success"):
+        ig = results["instagram"]
+        
+        # Best content type
+        content_types = ig.get("engagement_by_content_type", {})
+        if content_types:
+            best_type = max(content_types.items(), key=lambda x: x[1].get("avg_engagement_rate", 0))
+            insights.append(f"Instagram: {best_type[0].upper()} content performs best ({best_type[1].get('avg_engagement_rate')}% avg engagement)")
+        
+        # Posting frequency recommendation
+        freq = ig.get("posting_frequency", {})
+        if freq.get("consistency_score", 0) < 60:
+            recommendations.append("Increase Instagram posting frequency for better consistency")
+        
+        # Peak time
+        peak = ig.get("peak_engagement_times", {})
+        if peak.get("recommendation"):
+            recommendations.append(f"Instagram: {peak['recommendation']}")
+    
+    if results["youtube"] and results["youtube"].get("success"):
+        yt = results["youtube"]
+        
+        # Upload frequency
+        freq = yt.get("upload_frequency", {})
+        if freq.get("videos_per_week"):
+            insights.append(f"YouTube: Uploads {freq['videos_per_week']} videos/week")
+        
+        if freq.get("consistency_score", 0) < 60:
+            recommendations.append("Increase YouTube upload frequency for better audience retention")
+        
+        peak = yt.get("peak_upload_times", {})
+        if peak.get("recommendation"):
+            recommendations.append(f"YouTube: {peak['recommendation']}")
+    
+    results["insights"] = insights
+    results["recommendations"] = recommendations
+    
+    return results
+
+
 @marketing_v2_router.post("/contacts/{contact_id}/fetch-metrics")
 async def fetch_contact_metrics(
     contact_id: str,

@@ -1,0 +1,106 @@
+{
+  "summary": "Content Performance Analysis endpoints testing complete - 16/16 backend tests passed. All three endpoints working correctly: Instagram content-performance (shopsevora), YouTube content-performance (MrBeast), and Contact content-performance (combined analysis).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_content_performance.py",
+    "/app/test_reports/pytest/pytest_content_performance.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_content_performance.py (created - 16 test cases)"
+  ],
+  "success_rate": {
+    "backend": "100% (16/16 tests passed)",
+    "frontend": "N/A - backend only testing requested"
+  },
+  "test_credentials": {
+    "email": "superadmin@sevora.com",
+    "password": "superadmin123"
+  },
+  "seed_data_creation": "TEST_ prefixed contacts created and cleaned up during test execution",
+  "mocked_api": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": []
+  },
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Content Performance Analysis endpoints fully working. Test with shopsevora (Instagram) and MrBeast (YouTube) as reference handles.",
+  "features_tested": {
+    "GET /api/marketing/v2/influencer-analytics/instagram/{username}/content-performance": {
+      "status": "PASS",
+      "details": "Returns best_performing_posts, engagement_by_content_type (IMAGE, VIDEO, CAROUSEL_ALBUM), posting_frequency with consistency_score (0-100), peak_engagement_times with best_hours/best_days/recommendation",
+      "sample_data": {
+        "shopsevora": {
+          "followers": 287,
+          "total_posts_analyzed": 25,
+          "engagement_by_content_type": {
+            "image": {"count": 8, "avg_engagement_rate": 3.61},
+            "video": {"count": 13, "avg_engagement_rate": 13.51},
+            "carousel_album": {"count": 4, "avg_engagement_rate": 8.01}
+          },
+          "posting_frequency": {"posts_per_week": 5.1, "consistency_score": 95, "consistency_rating": "Excellent"},
+          "peak_engagement_times": {"best_hours": ["11:00", "6:00", "12:00"], "best_days": ["Wednesday", "Monday", "Thursday"]}
+        }
+      }
+    },
+    "GET /api/marketing/v2/influencer-analytics/youtube/{channel_id}/content-performance": {
+      "status": "PASS",
+      "details": "Returns best_performing_videos, upload_frequency with consistency_score (0-100), peak_upload_times with best_hours/best_days/recommendation",
+      "sample_data": {
+        "MrBeast": {
+          "channel_id": "UCX6OQ3DkcsbYNE6H8uQQuVA",
+          "subscribers": 470000000,
+          "total_videos_analyzed": 25,
+          "upload_frequency": {"videos_per_week": 1.9, "consistency_score": 75, "consistency_rating": "Good"},
+          "peak_upload_times": {"best_hours": ["17:00", "20:00", "19:00"], "best_days": ["Saturday", "Friday", "Tuesday"]}
+        }
+      }
+    },
+    "GET /api/marketing/v2/contacts/{contact_id}/content-performance": {
+      "status": "PASS",
+      "details": "Returns combined Instagram+YouTube analysis with insights and recommendations. Requires contact with social handles, returns 400 if no handles, 404 if contact not found.",
+      "response_structure": {
+        "contact_id": "string",
+        "contact_name": "string",
+        "instagram": "Instagram analysis object or null",
+        "youtube": "YouTube analysis object or null",
+        "insights": ["Generated insights based on data"],
+        "recommendations": ["Action recommendations"]
+      }
+    },
+    "engagement_by_content_type structure": {
+      "status": "PASS",
+      "details": "Contains IMAGE, VIDEO, CAROUSEL_ALBUM keys with count, avg_engagement_rate, max_engagement_rate, min_engagement_rate"
+    },
+    "posting_frequency/upload_frequency structure": {
+      "status": "PASS", 
+      "details": "Contains posts_per_week/videos_per_week, consistency_score (0-100), consistency_rating (Excellent/Good/Needs Improvement/Unknown)"
+    },
+    "peak_engagement_times/peak_upload_times structure": {
+      "status": "PASS",
+      "details": "Contains best_hours (array of 'HH:00' strings), best_days (array of day names), recommendation (string)"
+    },
+    "Authentication requirements": {
+      "status": "PASS",
+      "details": "All three endpoints require marketing auth (401/403 without token)"
+    },
+    "Error handling": {
+      "status": "PASS",
+      "details": "Invalid usernames/channels return {success: false, error: 'message'}, non-existent contacts return 404, contacts without handles return 400"
+    }
+  },
+  "observations": {
+    "instagram_video_highest_engagement": "VIDEO content type has highest avg engagement rate (13.51%) for shopsevora",
+    "youtube_upload_frequency": "MrBeast uploads 1.9 videos/week with 75% consistency score",
+    "insights_generation": "Contact content-performance auto-generates insights like 'Instagram: VIDEO content performs best' and recommendations like 'Post on Wednesday around 11:00'"
+  }
+}
