@@ -242,37 +242,109 @@ const InfluencerDetailPage = () => {
     
     toast.info(`Fetching ${platform} data...`);
     try {
-      const response = await api.get(`/social-api/${platform}/${platform === 'instagram' ? 'profile' : 'channel'}/${handle}`);
+      // Use the new influencer analytics endpoints
+      const endpoint = platform === 'instagram' 
+        ? `/marketing/v2/influencer-analytics/instagram/${encodeURIComponent(handle.replace('@', ''))}`
+        : `/marketing/v2/influencer-analytics/youtube/${encodeURIComponent(handle.replace('@', ''))}`;
+      
+      const response = await api.get(endpoint);
       const data = response.data;
       
+      if (!data.success) {
+        toast.error(data.error || `Failed to fetch ${platform} data`);
+        return;
+      }
+      
       if (platform === 'instagram') {
+        const metrics = data.metrics || {};
         setForm(prev => ({
           ...prev,
-          followers: data.followers || prev.followers,
-          engagement_rate: data.engagement_rate || prev.engagement_rate,
-          avg_likes: data.avg_likes || prev.avg_likes,
-          avg_comments: data.avg_comments || prev.avg_comments,
-          bio: data.bio || prev.bio
+          followers: metrics.followers || prev.followers,
+          engagement_rate: metrics.engagement_rate || prev.engagement_rate,
+          avg_likes: metrics.avg_likes || prev.avg_likes,
+          avg_comments: metrics.avg_comments || prev.avg_comments,
+          bio: data.bio || prev.bio,
+          name: data.name || prev.name,
+          tier: data.tier || prev.tier,
+          instagram_verified: true
         }));
+        toast.success(`Instagram verified! ${metrics.followers?.toLocaleString()} followers`);
       } else {
+        const metrics = data.metrics || {};
         setForm(prev => ({
           ...prev,
-          youtube_subscribers: data.subscribers || prev.youtube_subscribers,
-          youtube_avg_views: data.avg_views || prev.youtube_avg_views,
-          youtube_total_videos: data.video_count || prev.youtube_total_videos
+          youtube_subscribers: metrics.subscribers || prev.youtube_subscribers,
+          youtube_total_views: metrics.total_views || prev.youtube_total_views,
+          youtube_total_videos: metrics.videos || prev.youtube_total_videos,
+          youtube_channel_id: data.channel_id || prev.youtube_channel_id,
+          name: data.name || prev.name,
+          tier: data.tier || prev.tier,
+          youtube_verified: true
         }));
+        toast.success(`YouTube verified! ${metrics.subscribers?.toLocaleString()} subscribers`);
       }
       setHasChanges(true);
-      toast.success(`${platform} data fetched!`);
     } catch (error) {
-      toast.error(`Failed to fetch ${platform} data. API may not be configured.`);
+      const errorMsg = error.response?.data?.error || error.response?.data?.detail || `Failed to fetch ${platform} data`;
+      toast.error(errorMsg);
     }
   };
 
   const handleRefreshData = async () => {
+    if (!form.instagram_handle && !form.youtube_handle) {
+      toast.error('No social handles to refresh');
+      return;
+    }
+    
     toast.info('Refreshing all social data...');
-    if (form.instagram_handle) await handleFetchSocial('instagram');
-    if (form.youtube_handle) await handleFetchSocial('youtube');
+    
+    try {
+      // Use the consolidated fetch-metrics endpoint (records history)
+      const response = await api.post(`/marketing/v2/contacts/${influencerId}/fetch-metrics`);
+      
+      if (response.data.success) {
+        const results = response.data.results;
+        
+        // Update form with fresh data
+        if (results?.instagram?.success) {
+          const ig = results.instagram;
+          const metrics = ig.metrics || {};
+          setForm(prev => ({
+            ...prev,
+            followers: metrics.followers || prev.followers,
+            engagement_rate: metrics.engagement_rate || prev.engagement_rate,
+            avg_likes: metrics.avg_likes || prev.avg_likes,
+            avg_comments: metrics.avg_comments || prev.avg_comments,
+            bio: ig.bio || prev.bio,
+            instagram_verified: true
+          }));
+        }
+        
+        if (results?.youtube?.success) {
+          const yt = results.youtube;
+          const metrics = yt.metrics || {};
+          setForm(prev => ({
+            ...prev,
+            youtube_subscribers: metrics.subscribers || prev.youtube_subscribers,
+            youtube_total_views: metrics.total_views || prev.youtube_total_views,
+            youtube_total_videos: metrics.videos || prev.youtube_total_videos,
+            youtube_channel_id: yt.channel_id || prev.youtube_channel_id,
+            youtube_verified: true
+          }));
+        }
+        
+        setHasChanges(true);
+        
+        const igStatus = results?.instagram?.success ? `IG: ${results.instagram.metrics?.followers?.toLocaleString()}` : '';
+        const ytStatus = results?.youtube?.success ? `YT: ${results.youtube.metrics?.subscribers?.toLocaleString()}` : '';
+        toast.success(`Metrics refreshed! ${[igStatus, ytStatus].filter(Boolean).join(', ')}`);
+      } else {
+        toast.error('Failed to refresh metrics');
+      }
+    } catch (error) {
+      const errorMsg = error.response?.data?.detail || 'Failed to refresh metrics';
+      toast.error(errorMsg);
+    }
   };
 
   const handleSave = async () => {
