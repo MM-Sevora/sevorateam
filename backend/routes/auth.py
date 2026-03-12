@@ -262,18 +262,30 @@ async def login(credentials: UserLogin):
 
 @router.post("/azure", response_model=TokenResponse)
 async def azure_login(request: AzureTokenRequest):
-    """Login with Azure AD token"""
+    """Login with Azure AD token - Only allows Sevora domain or pre-created users"""
     azure_user = await verify_azure_token(request.azure_token)
     
     email = azure_user.get('mail') or azure_user.get('userPrincipalName')
     name = azure_user.get('displayName', email.split('@')[0])
     azure_id = azure_user.get('id')
     
+    # Allowed Microsoft domains (Sevora organization)
+    ALLOWED_DOMAINS = ['sevora.com', 'shopsevora.com']
+    email_domain = email.lower().split('@')[-1] if '@' in email else ''
+    is_sevora_domain = email_domain in ALLOWED_DOMAINS
+    
     # Check if user exists
     user = await db.users.find_one({"$or": [{"azure_id": azure_id}, {"email": email}]}, {"_id": 0})
     
     if not user:
-        # Create new user with PENDING status (Azure AD sync workflow)
+        # Only allow auto-creation for Sevora domain emails
+        if not is_sevora_domain:
+            raise HTTPException(
+                status_code=403, 
+                detail="Access denied. Only users with Sevora organization email or pre-registered accounts can sign in. Please contact an administrator."
+            )
+        
+        # Auto-create and activate user for Sevora domain
         user_id = str(uuid.uuid4())
         user = {
             "id": user_id,
@@ -282,16 +294,13 @@ async def azure_login(request: AzureTokenRequest):
             "name": name,
             "department": "sales",
             "role": "viewer",
-            "status": "pending",
+            "status": "active",  # Auto-activated for Sevora domain
             "avatar_url": None,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "source": "azure_ad"
         }
         await db.users.insert_one(user)
-        raise HTTPException(
-            status_code=403, 
-            detail="Your account has been created but is pending activation. Please contact an administrator."
-        )
+        logger.info(f"Auto-created Sevora user from Microsoft login: {email}")
     else:
         # Check if user is active
         user_status = user.get('status', 'active')
