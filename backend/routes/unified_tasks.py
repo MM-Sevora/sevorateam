@@ -34,6 +34,47 @@ async def get_current_user_dep(credentials: HTTPAuthorizationCredentials = Depen
     return await _get_current_user_func(credentials)
 
 
+def can_delete_record(record: dict, current_user: dict) -> bool:
+    """
+    Check if current user can delete a record.
+    Rules:
+    - Super admins can delete anything
+    - Users with can_manage_users permission can delete anything
+    - Record creator can delete their own record
+    - Assigned user can delete their assigned record
+    """
+    user_id = current_user.get("id")
+    user_role = current_user.get("role", "")
+    
+    # Super admin or admin can delete anything
+    if user_role in ["super_admin", "admin"]:
+        return True
+    
+    # User has admin capabilities
+    if current_user.get("can_manage_users") or current_user.get("can_manage_employees"):
+        return True
+    
+    # Creator can delete
+    if record.get("created_by") == user_id:
+        return True
+    
+    # Assigned user can delete
+    if record.get("assigned_to") == user_id:
+        return True
+    
+    # Owner can delete
+    if record.get("owner_id") == user_id:
+        return True
+    
+    return False
+
+
+def get_delete_error_message(record: dict) -> str:
+    """Generate helpful error message for delete permission denial"""
+    creator_name = record.get("created_by_name") or "another user"
+    return f"You cannot delete this item. It was created by {creator_name}. Only the creator or an admin can delete it."
+
+
 # ============== MODELS ==============
 
 class TaskCreate(BaseModel):
@@ -622,10 +663,14 @@ async def delete_task(
     background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user_dep)
 ):
-    """Delete a task"""
+    """Delete a task - only creator, assigned user, or admin can delete"""
     task = await db.unified_tasks.find_one({"id": task_id})
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+    
+    # Check delete permission
+    if not can_delete_record(task, current_user):
+        raise HTTPException(status_code=403, detail=get_delete_error_message(task))
     
     await db.unified_tasks.delete_one({"id": task_id})
     

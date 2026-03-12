@@ -64,6 +64,54 @@ async def get_current_user_dep(credentials: HTTPAuthorizationCredentials = Depen
     return await _get_current_user_func(credentials)
 
 
+def can_delete_record(record: dict, current_user: dict) -> bool:
+    """
+    Check if current user can delete a record.
+    Rules:
+    - Super admins can delete anything
+    - Users with admin capabilities can delete anything
+    - Record creator can delete their own record
+    - Project owner/manager can delete
+    - Assigned user can delete their assigned item
+    """
+    user_id = current_user.get("id")
+    user_role = current_user.get("role", "")
+    
+    # Super admin or admin can delete anything
+    if user_role in ["super_admin", "admin"]:
+        return True
+    
+    # User has admin capabilities
+    if current_user.get("can_manage_users") or current_user.get("can_manage_employees"):
+        return True
+    
+    # Creator can delete
+    if record.get("created_by") == user_id:
+        return True
+    
+    # Owner/Manager can delete
+    if record.get("owner_id") == user_id or record.get("manager_id") == user_id:
+        return True
+    
+    # Assigned user can delete
+    if record.get("assigned_to") == user_id:
+        return True
+    
+    # Team member with specific role can delete (for projects)
+    team_members = record.get("team_members", [])
+    for member in team_members:
+        if member.get("user_id") == user_id and member.get("role") in ["owner", "manager"]:
+            return True
+    
+    return False
+
+
+def get_delete_error_message(record: dict) -> str:
+    """Generate helpful error message for delete permission denial"""
+    creator_name = record.get("created_by_name") or "another user"
+    return f"You cannot delete this item. It was created by {creator_name}. Only the creator, owner, or an admin can delete it."
+
+
 # ============== HELPER FUNCTIONS ==============
 
 async def get_user_name(user_id: str) -> str:
@@ -1739,10 +1787,14 @@ async def delete_project(
     project_id: str,
     user: dict = Depends(get_current_user_dep)
 ):
-    """Delete a project and all its tasks"""
+    """Delete a project and all its tasks - only creator, owner, or admin can delete"""
     project = await db.pm_projects.find_one({"id": project_id})
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Check delete permission
+    if not can_delete_record(project, user):
+        raise HTTPException(status_code=403, detail=get_delete_error_message(project))
     
     # Delete all related data
     task_ids = [t["id"] async for t in db.pm_tasks.find({"project_id": project_id}, {"id": 1})]
@@ -2389,10 +2441,14 @@ async def delete_task(
     task_id: str,
     user: dict = Depends(get_current_user_dep)
 ):
-    """Delete a task and all its subtasks, checklists, comments"""
+    """Delete a task and all its subtasks, checklists, comments - only creator, assigned user, or admin can delete"""
     task = await db.pm_tasks.find_one({"id": task_id})
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+    
+    # Check delete permission
+    if not can_delete_record(task, user):
+        raise HTTPException(status_code=403, detail=get_delete_error_message(task))
     
     # Delete related data
     await db.pm_subtasks.delete_many({"parent_task_id": task_id})
@@ -2500,10 +2556,14 @@ async def delete_subtask(
     subtask_id: str,
     user: dict = Depends(get_current_user_dep)
 ):
-    """Delete a subtask"""
+    """Delete a subtask - only creator, assigned user, or admin can delete"""
     subtask = await db.pm_subtasks.find_one({"id": subtask_id})
     if not subtask:
         raise HTTPException(status_code=404, detail="Subtask not found")
+    
+    # Check delete permission
+    if not can_delete_record(subtask, user):
+        raise HTTPException(status_code=403, detail=get_delete_error_message(subtask))
     
     await db.pm_subtasks.delete_one({"id": subtask_id})
     await log_activity("subtask", subtask_id, subtask.get("name"), "deleted", user["id"])

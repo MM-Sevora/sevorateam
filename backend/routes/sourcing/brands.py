@@ -7,6 +7,8 @@ from typing import List, Optional, Callable
 from datetime import datetime, timezone
 import uuid
 
+from utils.permissions import can_delete_record, get_delete_error_message
+
 
 def create_brands_router(db, get_current_user: Callable):
     """Factory function to create brands router with dependencies"""
@@ -292,10 +294,14 @@ def create_brands_router(db, get_current_user: Callable):
 
     @router.delete("/{brand_id}")
     async def delete_brand(brand_id: str, current_user: dict = Depends(get_current_user)):
-        """Delete a brand"""
+        """Delete a brand - only creator or admin can delete"""
         existing = await db.sourcing_brands.find_one({"id": brand_id})
         if not existing:
             raise HTTPException(status_code=404, detail="Brand not found")
+        
+        # Check delete permission
+        if not can_delete_record(existing, current_user):
+            raise HTTPException(status_code=403, detail=get_delete_error_message(existing))
         
         await db.sourcing_brands.delete_one({"id": brand_id})
         await db.sourcing_contacts.delete_many({"brand_id": brand_id})
@@ -305,16 +311,24 @@ def create_brands_router(db, get_current_user: Callable):
 
     @router.post("/bulk-delete")
     async def bulk_delete_brands(data: dict, current_user: dict = Depends(get_current_user)):
-        """Bulk delete brands"""
+        """Bulk delete brands - only items user can delete"""
         brand_ids = data.get("brand_ids", [])
         if not brand_ids:
             raise HTTPException(status_code=400, detail="No brand IDs provided")
         
-        result = await db.sourcing_brands.delete_many({"id": {"$in": brand_ids}})
-        await db.sourcing_contacts.delete_many({"brand_id": {"$in": brand_ids}})
-        await db.sourcing_brand_notes.delete_many({"brand_id": {"$in": brand_ids}})
+        # Check permissions for each brand
+        brands = await db.sourcing_brands.find({"id": {"$in": brand_ids}}).to_list(len(brand_ids))
+        allowed_ids = [b["id"] for b in brands if can_delete_record(b, current_user)]
+        denied_count = len(brand_ids) - len(allowed_ids)
         
-        return {"success": True, "deleted_count": result.deleted_count}
+        if not allowed_ids:
+            raise HTTPException(status_code=403, detail="You don't have permission to delete any of these brands")
+        
+        result = await db.sourcing_brands.delete_many({"id": {"$in": allowed_ids}})
+        await db.sourcing_contacts.delete_many({"brand_id": {"$in": allowed_ids}})
+        await db.sourcing_brand_notes.delete_many({"brand_id": {"$in": allowed_ids}})
+        
+        return {"success": True, "deleted_count": result.deleted_count, "denied_count": denied_count}
 
     # Brand Notes
     @router.post("/{brand_id}/notes")

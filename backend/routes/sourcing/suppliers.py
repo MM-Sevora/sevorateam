@@ -7,6 +7,8 @@ from typing import List, Optional, Callable
 from datetime import datetime, timezone
 import uuid
 
+from utils.permissions import can_delete_record, get_delete_error_message
+
 
 def create_suppliers_router(db, get_current_user: Callable):
     """Factory function to create suppliers router"""
@@ -152,9 +154,16 @@ def create_suppliers_router(db, get_current_user: Callable):
 
     @router.delete("/{supplier_id}")
     async def delete_supplier(supplier_id: str, current_user: dict = Depends(get_current_user)):
-        result = await db.sourcing_suppliers.delete_one({"id": supplier_id})
-        if result.deleted_count == 0:
+        """Delete a supplier - only creator or admin can delete"""
+        existing = await db.sourcing_suppliers.find_one({"id": supplier_id})
+        if not existing:
             raise HTTPException(status_code=404, detail="Supplier not found")
+        
+        # Check delete permission
+        if not can_delete_record(existing, current_user):
+            raise HTTPException(status_code=403, detail=get_delete_error_message(existing))
+        
+        await db.sourcing_suppliers.delete_one({"id": supplier_id})
         return {"success": True, "message": "Supplier deleted"}
 
     @router.get("/analytics/summary")
