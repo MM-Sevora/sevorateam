@@ -297,7 +297,6 @@ const AccessControlPage = () => {
 
   const tabs = [
     { id: 'users', label: 'User Permissions', icon: Users, count: users.length },
-    { id: 'roles', label: 'Custom Roles', icon: Shield, count: roles.length },
   ];
 
   return (

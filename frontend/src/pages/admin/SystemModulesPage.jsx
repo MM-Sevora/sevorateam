@@ -4,13 +4,15 @@ import {
   Activity, TrendingUp, Flag, CalendarDays, FolderKanban, ClipboardList,
   ShoppingBag, PenTool, Bell, HelpCircle, Zap, ChevronDown, ChevronRight,
   Edit, Save, X, Tag, Building2, UsersRound, RefreshCw, Check, Plus, Trash2,
-  Folder, Palette, GripVertical
+  Folder, Palette, GripVertical, Key
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { Textarea } from '../../components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Checkbox } from '../../components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -81,6 +83,10 @@ const SystemModulesPage = () => {
   const [loading, setLoading] = useState(true);
   const [expandedModules, setExpandedModules] = useState([]);
   
+  // Roles state
+  const [roles, setRoles] = useState([]);
+  const [loadingRoles, setLoadingRoles] = useState(false);
+  
   // Edit module dialog state
   const [editDialog, setEditDialog] = useState({ open: false, module: null });
   const [editForm, setEditForm] = useState({ department: '', team: '', tags: [], is_active: true, category: 'general', is_default: false });
@@ -91,19 +97,30 @@ const SystemModulesPage = () => {
   const [categoryDialog, setCategoryDialog] = useState({ open: false, category: null, mode: 'create' });
   const [categoryForm, setCategoryForm] = useState({ name: '', description: '', color: 'blue', access_type: 'department' });
 
+  // Role dialog state
+  const [roleDialog, setRoleDialog] = useState({ open: false, role: null, mode: 'create' });
+  const [roleForm, setRoleForm] = useState({
+    name: '', code: '', description: '',
+    module_access: [], module_permissions: {},
+    can_manage_users: false, can_manage_employees: false, can_manage_roles: false
+  });
+  const [deleteRoleDialog, setDeleteRoleDialog] = useState({ open: false, role: null });
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [modulesRes, categoriesRes, deptsRes, teamsRes] = await Promise.all([
+      const [modulesRes, categoriesRes, deptsRes, teamsRes, rolesRes] = await Promise.all([
         api.get('/system-modules/'),
         api.get('/module-categories/'),
         api.get('/system-modules/config/departments'),
         api.get('/system-modules/config/teams'),
+        api.get('/access/roles'),
       ]);
       setModules(modulesRes.data || []);
       setCategories(categoriesRes.data || []);
       setDepartments(deptsRes.data || []);
       setTeams(teamsRes.data || []);
+      setRoles(rolesRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to fetch data');
@@ -221,6 +238,106 @@ const SystemModulesPage = () => {
     }
   };
 
+  // Role CRUD functions
+  const resetRoleForm = () => {
+    setRoleForm({
+      name: '', code: '', description: '',
+      module_access: [], module_permissions: {},
+      can_manage_users: false, can_manage_employees: false, can_manage_roles: false
+    });
+  };
+
+  const openCreateRoleDialog = () => {
+    resetRoleForm();
+    setRoleDialog({ open: true, role: null, mode: 'create' });
+  };
+
+  const openEditRoleDialog = (role) => {
+    setRoleForm({
+      name: role.name,
+      code: role.code,
+      description: role.description || '',
+      module_access: role.module_access || [],
+      module_permissions: role.module_permissions || {},
+      can_manage_users: role.can_manage_users || false,
+      can_manage_employees: role.can_manage_employees || false,
+      can_manage_roles: role.can_manage_roles || false
+    });
+    setRoleDialog({ open: true, role, mode: 'edit' });
+  };
+
+  const toggleRoleModule = (moduleCode) => {
+    setRoleForm(prev => {
+      const isSelected = prev.module_access.includes(moduleCode);
+      if (isSelected) {
+        const newPerms = { ...prev.module_permissions };
+        delete newPerms[moduleCode];
+        return {
+          ...prev,
+          module_access: prev.module_access.filter(m => m !== moduleCode),
+          module_permissions: newPerms
+        };
+      } else {
+        return {
+          ...prev,
+          module_access: [...prev.module_access, moduleCode],
+          module_permissions: {
+            ...prev.module_permissions,
+            [moduleCode]: { create: true, read: true, update: true, delete: true }
+          }
+        };
+      }
+    });
+  };
+
+  const toggleRolePermission = (moduleCode, perm) => {
+    setRoleForm(prev => ({
+      ...prev,
+      module_permissions: {
+        ...prev.module_permissions,
+        [moduleCode]: {
+          ...(prev.module_permissions[moduleCode] || {}),
+          [perm]: !(prev.module_permissions[moduleCode]?.[perm])
+        }
+      }
+    }));
+  };
+
+  const saveRole = async () => {
+    if (!roleForm.name.trim() || !roleForm.code.trim()) {
+      toast.error('Name and code are required');
+      return;
+    }
+    setSaving(true);
+    try {
+      if (roleDialog.mode === 'create') {
+        await api.post('/access/roles', roleForm);
+        toast.success('Role created');
+      } else {
+        await api.put(`/access/roles/${roleDialog.role.id}`, roleForm);
+        toast.success('Role updated');
+      }
+      setRoleDialog({ open: false, role: null, mode: 'create' });
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to save role');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteRole = async () => {
+    if (!deleteRoleDialog.role) return;
+    try {
+      await api.delete(`/access/roles/${deleteRoleDialog.role.id}`);
+      toast.success('Role deleted');
+      setDeleteRoleDialog({ open: false, role: null });
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to delete role');
+    }
+  };
+
   // Helper to get category config from dynamic categories
   const getCategoryConfig = (code) => {
     const cat = categories.find(c => c.code === code);
@@ -307,28 +424,17 @@ const SystemModulesPage = () => {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg"><Building2 className="h-5 w-5 text-purple-600" /></div>
+              <div className="p-2 bg-purple-100 rounded-lg"><Shield className="h-5 w-5 text-purple-600" /></div>
               <div>
-                <p className="text-2xl font-bold">{modules.filter(m => m.department).length}</p>
-                <p className="text-sm text-gray-500">With Department</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-amber-100 rounded-lg"><Tag className="h-5 w-5 text-amber-600" /></div>
-              <div>
-                <p className="text-2xl font-bold">{modules.filter(m => m.tags?.length > 0).length}</p>
-                <p className="text-sm text-gray-500">With Tags</p>
+                <p className="text-2xl font-bold">{roles.length}</p>
+                <p className="text-sm text-gray-500">Custom Roles</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Tabs for Modules and Categories */}
+      {/* Tabs for Modules, Categories, and Roles */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="modules" className="flex items-center gap-2">
@@ -336,6 +442,9 @@ const SystemModulesPage = () => {
           </TabsTrigger>
           <TabsTrigger value="categories" className="flex items-center gap-2">
             <Folder className="h-4 w-4" /> Categories ({categories.length})
+          </TabsTrigger>
+          <TabsTrigger value="roles" className="flex items-center gap-2">
+            <Shield className="h-4 w-4" /> Roles ({roles.length})
           </TabsTrigger>
         </TabsList>
 
@@ -524,6 +633,75 @@ const SystemModulesPage = () => {
                       </TableRow>
                     );
                   })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Roles Tab */}
+        <TabsContent value="roles" className="space-y-4 mt-4">
+          <div className="flex justify-end">
+            <Button onClick={openCreateRoleDialog} className="bg-purple-600 hover:bg-purple-700">
+              <Plus className="h-4 w-4 mr-2" /> Create Role
+            </Button>
+          </div>
+          
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Code</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="text-center">Modules</TableHead>
+                    <TableHead className="text-center">Users</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {roles.map(role => (
+                    <TableRow key={role.id}>
+                      <TableCell className="font-medium">{role.name}</TableCell>
+                      <TableCell>
+                        <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">{role.code}</code>
+                      </TableCell>
+                      <TableCell className="text-gray-500 max-w-xs truncate">{role.description}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="secondary">{role.module_access?.length || 0}</Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline">{role.user_count || 0}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditRoleDialog(role)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => setDeleteRoleDialog({ open: true, role })}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {roles.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-gray-400">
+                        No custom roles created yet
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -754,6 +932,165 @@ const SystemModulesPage = () => {
             </Button>
             <Button onClick={saveCategory} disabled={saving || !categoryForm.name.trim()}>
               {saving ? 'Saving...' : categoryDialog.mode === 'create' ? 'Create Category' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create/Edit Role Dialog */}
+      <Dialog open={roleDialog.open} onOpenChange={(open) => !open && setRoleDialog({ open: false, role: null, mode: 'create' })}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              {roleDialog.mode === 'create' ? 'Create Role' : 'Edit Role'}
+            </DialogTitle>
+            <DialogDescription>
+              {roleDialog.mode === 'create' 
+                ? 'Create a new role with specific module permissions'
+                : `Edit ${roleDialog.role?.name} role permissions`
+              }
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Basic Info */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Role Name *</Label>
+                <Input 
+                  value={roleForm.name}
+                  onChange={(e) => setRoleForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g., Marketing Manager"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Code *</Label>
+                <Input 
+                  value={roleForm.code}
+                  onChange={(e) => setRoleForm(prev => ({ ...prev, code: e.target.value.toLowerCase().replace(/\s/g, '_') }))}
+                  placeholder="e.g., marketing_manager"
+                  disabled={roleDialog.mode === 'edit'}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea 
+                value={roleForm.description}
+                onChange={(e) => setRoleForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Describe what this role is for..."
+                rows={2}
+              />
+            </div>
+
+            {/* Admin Permissions */}
+            <div className="space-y-2">
+              <Label>Admin Capabilities</Label>
+              <div className="flex flex-wrap gap-4 p-3 bg-gray-50 rounded-lg">
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox 
+                    checked={roleForm.can_manage_users}
+                    onCheckedChange={(checked) => setRoleForm(prev => ({ ...prev, can_manage_users: checked }))}
+                  />
+                  Manage Users
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox 
+                    checked={roleForm.can_manage_employees}
+                    onCheckedChange={(checked) => setRoleForm(prev => ({ ...prev, can_manage_employees: checked }))}
+                  />
+                  Manage Employees
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox 
+                    checked={roleForm.can_manage_roles}
+                    onCheckedChange={(checked) => setRoleForm(prev => ({ ...prev, can_manage_roles: checked }))}
+                  />
+                  Manage Roles
+                </label>
+              </div>
+            </div>
+
+            {/* Module Access */}
+            <div className="space-y-2">
+              <Label>Module Access ({roleForm.module_access.length} selected)</Label>
+              <div className="border rounded-lg max-h-64 overflow-y-auto">
+                {categories.map(cat => {
+                  const catModules = modules.filter(m => m.category === cat.code);
+                  if (catModules.length === 0) return null;
+                  const colorOpt = COLOR_OPTIONS.find(c => c.value === cat.color) || COLOR_OPTIONS[0];
+                  
+                  return (
+                    <div key={cat.code} className="border-b last:border-0">
+                      <div className={`px-3 py-2 ${colorOpt.badge} text-xs font-medium`}>
+                        {cat.name}
+                      </div>
+                      <div className="p-2 space-y-1">
+                        {catModules.map(mod => {
+                          const isSelected = roleForm.module_access.includes(mod.code);
+                          return (
+                            <div key={mod.code} className="flex items-center justify-between py-1 px-2 hover:bg-gray-50 rounded">
+                              <label className="flex items-center gap-2 text-sm cursor-pointer flex-1">
+                                <Checkbox 
+                                  checked={isSelected}
+                                  onCheckedChange={() => toggleRoleModule(mod.code)}
+                                />
+                                {mod.name}
+                              </label>
+                              {isSelected && (
+                                <div className="flex items-center gap-2 text-xs">
+                                  {['create', 'read', 'update', 'delete'].map(perm => (
+                                    <label key={perm} className="flex items-center gap-1 cursor-pointer">
+                                      <Checkbox 
+                                        checked={roleForm.module_permissions[mod.code]?.[perm]}
+                                        onCheckedChange={() => toggleRolePermission(mod.code, perm)}
+                                        className="h-3 w-3"
+                                      />
+                                      <span className="text-gray-500 uppercase">{perm[0]}</span>
+                                    </label>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRoleDialog({ open: false, role: null, mode: 'create' })}>
+              Cancel
+            </Button>
+            <Button onClick={saveRole} disabled={saving || !roleForm.name.trim() || !roleForm.code.trim()}>
+              {saving ? 'Saving...' : roleDialog.mode === 'create' ? 'Create Role' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Role Confirmation */}
+      <Dialog open={deleteRoleDialog.open} onOpenChange={(open) => !open && setDeleteRoleDialog({ open: false, role: null })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Delete Role</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete the role "{deleteRoleDialog.role?.name}"? 
+              This action cannot be undone and will remove this role from all users.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteRoleDialog({ open: false, role: null })}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={deleteRole}>
+              Delete Role
             </Button>
           </DialogFooter>
         </DialogContent>
