@@ -21,16 +21,6 @@ const VENDOR_TYPES = [
   { value: 'influencer', label: 'Influencer' }
 ];
 
-const PLATFORMS = [
-  { value: 'instagram', label: 'Instagram' },
-  { value: 'youtube', label: 'YouTube' },
-  { value: 'twitter', label: 'Twitter' },
-  { value: 'linkedin', label: 'LinkedIn' },
-  { value: 'facebook', label: 'Facebook' },
-  { value: 'tiktok', label: 'TikTok' },
-  { value: 'other', label: 'Other' }
-];
-
 const VendorDatabase = () => {
   const navigate = useNavigate();
   const { api } = useAuth();
@@ -52,13 +42,7 @@ const VendorDatabase = () => {
     email: '',
     address: '',
     gst_tax_id: '',
-    notes: '',
-    // Creator fields
-    platform: '',
-    handle: '',
-    creator_category: '',
-    followers: '',
-    rate_card: ''
+    notes: ''
   });
   const [newCategory, setNewCategory] = useState('');
 
@@ -96,8 +80,7 @@ const VendorDatabase = () => {
       }
       const payload = {
         ...formData,
-        services: formData.services ? formData.services.split(',').map(s => s.trim()) : [],
-        followers: formData.followers ? parseInt(formData.followers) : null
+        services: formData.services ? formData.services.split(',').map(s => s.trim()) : []
       };
       await api.post('/vendors', payload);
       toast.success('Vendor created successfully');
@@ -113,8 +96,7 @@ const VendorDatabase = () => {
     try {
       const payload = {
         ...formData,
-        services: formData.services ? formData.services.split(',').map(s => s.trim()) : [],
-        followers: formData.followers ? parseInt(formData.followers) : null
+        services: formData.services ? formData.services.split(',').map(s => s.trim()) : []
       };
       await api.put(`/vendors/${selectedVendor.id}`, payload);
       toast.success('Vendor updated');
@@ -162,12 +144,7 @@ const VendorDatabase = () => {
       email: vendor.email || '',
       address: vendor.address || '',
       gst_tax_id: vendor.gst_tax_id || '',
-      notes: vendor.notes || '',
-      platform: vendor.platform || '',
-      handle: vendor.handle || '',
-      creator_category: vendor.creator_category || '',
-      followers: vendor.followers?.toString() || '',
-      rate_card: vendor.rate_card || ''
+      notes: vendor.notes || ''
     });
     setShowCreateDialog(true);
   };
@@ -188,12 +165,7 @@ const VendorDatabase = () => {
       email: '',
       address: '',
       gst_tax_id: '',
-      notes: '',
-      platform: '',
-      handle: '',
-      creator_category: '',
-      followers: '',
-      rate_card: ''
+      notes: ''
     });
   };
 
@@ -381,7 +353,6 @@ const VendorDatabase = () => {
               </CardContent>
             </Card>
           )})}
-          ))}
         </div>
       )}
 
@@ -430,79 +401,15 @@ const VendorDatabase = () => {
               </div>
             </div>
 
-            {/* Creator-specific fields */}
-            {(formData.vendor_type === 'freelancer' || formData.vendor_type === 'influencer') && (
-              <>
-                <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
-                  <p className="text-sm font-medium text-purple-700 mb-3">Creator Information</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs text-purple-600">Platform</label>
-                      <Select value={formData.platform || "placeholder"} onValueChange={(v) => setFormData(f => ({...f, platform: v === "placeholder" ? "" : v}))}>
-                        <SelectTrigger className="bg-white border-purple-200">
-                          <SelectValue placeholder="Select platform" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="placeholder" disabled>Select platform</SelectItem>
-                          {PLATFORMS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <label className="text-xs text-purple-600">Handle/Profile</label>
-                      <Input
-                        value={formData.handle}
-                        onChange={(e) => setFormData(f => ({...f, handle: e.target.value}))}
-                        className="bg-white border-purple-200"
-                        placeholder="@username"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 mt-3">
-                    <div>
-                      <label className="text-xs text-purple-600">Creator Category</label>
-                      <Input
-                        value={formData.creator_category}
-                        onChange={(e) => setFormData(f => ({...f, creator_category: e.target.value}))}
-                        className="bg-white border-purple-200"
-                        placeholder="e.g., Fashion, Tech"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-purple-600">Followers</label>
-                      <Input
-                        type="number"
-                        value={formData.followers}
-                        onChange={(e) => setFormData(f => ({...f, followers: e.target.value}))}
-                        className="bg-white border-purple-200"
-                        placeholder="e.g., 50000"
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-3">
-                    <label className="text-xs text-purple-600">Rate Card</label>
-                    <Input
-                      value={formData.rate_card}
-                      onChange={(e) => setFormData(f => ({...f, rate_card: e.target.value}))}
-                      className="bg-white border-purple-200"
-                      placeholder="e.g., ₹25,000 per reel"
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-
-            {formData.vendor_type === 'vendor' && (
-              <div>
-                <label className="text-sm text-[#8B7355]">Services (comma-separated)</label>
-                <Input
-                  value={formData.services}
-                  onChange={(e) => setFormData(f => ({...f, services: e.target.value}))}
-                  className="bg-white border-[#D4BBA6]"
-                  placeholder="e.g., Printing, Packaging, Design"
-                />
-              </div>
-            )}
+            <div>
+              <label className="text-sm text-[#8B7355]">Services (comma-separated)</label>
+              <Input
+                value={formData.services}
+                onChange={(e) => setFormData(f => ({...f, services: e.target.value}))}
+                className="bg-white border-[#D4BBA6]"
+                placeholder="e.g., Printing, Packaging, Design"
+              />
+            </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
