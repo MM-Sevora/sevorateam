@@ -311,12 +311,21 @@ const BrandsPage = () => {
                           <DropdownMenuItem onClick={() => navigate(`/sourcing/brands/${brand.id}`)}>
                             <Eye className="h-4 w-4 mr-2" /> View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => navigate(`/sourcing/brands/${brand.id}/edit`)}>
-                            <Edit2 className="h-4 w-4 mr-2" /> Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDeleteBrand(brand.id)} className="text-red-600">
-                            <Trash2 className="h-4 w-4 mr-2" /> Delete
-                          </DropdownMenuItem>
+                          {brand._permissions?.can_edit !== false && (
+                            <DropdownMenuItem onClick={() => navigate(`/sourcing/brands/${brand.id}/edit`)}>
+                              <Edit2 className="h-4 w-4 mr-2" /> Edit
+                            </DropdownMenuItem>
+                          )}
+                          {brand._permissions?.can_delete !== false ? (
+                            <DropdownMenuItem onClick={() => handleDeleteBrand(brand.id)} className="text-red-600">
+                              <Trash2 className="h-4 w-4 mr-2" /> Delete
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem disabled className="text-gray-400 cursor-not-allowed">
+                              <Trash2 className="h-4 w-4 mr-2" /> Delete
+                              <span className="ml-1 text-xs">(Owner only)</span>
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

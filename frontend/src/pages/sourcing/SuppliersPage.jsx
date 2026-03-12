@@ -235,8 +235,14 @@ const SuppliersPage = () => {
                       <DropdownMenuTrigger asChild><Button variant="ghost" size="sm"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => navigate(`/sourcing/suppliers/${s.id}`)}><Eye className="h-4 w-4 mr-2" /> View</DropdownMenuItem>
-                        <DropdownMenuItem><Edit2 className="h-4 w-4 mr-2" /> Edit</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDeleteSupplier(s.id)} className="text-red-600"><Trash2 className="h-4 w-4 mr-2" /> Delete</DropdownMenuItem>
+                        {s._permissions?.can_edit !== false && (
+                          <DropdownMenuItem><Edit2 className="h-4 w-4 mr-2" /> Edit</DropdownMenuItem>
+                        )}
+                        {s._permissions?.can_delete !== false ? (
+                          <DropdownMenuItem onClick={() => handleDeleteSupplier(s.id)} className="text-red-600"><Trash2 className="h-4 w-4 mr-2" /> Delete</DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem disabled className="text-gray-400"><Trash2 className="h-4 w-4 mr-2" /> Delete (Owner only)</DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
