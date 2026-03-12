@@ -239,13 +239,10 @@ const DEPARTMENT_CONFIG = {
                 groupIcon: Server,
                 requiredModule: 'admin',
                 items: [
-                    { path: '/it-admin', name: 'Dashboard', icon: LayoutDashboard },
-                    { path: '/it-admin/tools', name: 'Tool Registry', icon: Package },
-                    { path: '/it-admin/access', name: 'Access Management', icon: Key },
+                    { path: '/it-admin', name: 'Tools & Access', icon: Package },
                     { path: '/it-admin/requests', name: 'Access Requests', icon: ClipboardList },
                     { path: '/it-admin/credentials', name: 'Credential Vault', icon: Lock },
                     { path: '/it-admin/audit-logs', name: 'Audit Logs', icon: FileText },
-                    { path: '/it-admin/onboarding', name: 'Onboarding', icon: UserPlus },
                 ]
             },
             {

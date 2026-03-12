@@ -148,13 +148,10 @@ import IntegrationsPage from "./pages/systems/IntegrationsPage";
 import SystemConfigPage from "./pages/systems/SystemConfigPage";
 
 // IT Admin Module (Access & Credential Management)
-import ITAdminDashboard from "./pages/it-admin/ITAdminDashboard";
-import ToolRegistry from "./pages/it-admin/ToolRegistry";
-import AccessManagement from "./pages/it-admin/AccessManagement";
+import ToolsAndAccess from "./pages/it-admin/ToolsAndAccess";
 import AccessRequests from "./pages/it-admin/AccessRequests";
 import CredentialVault from "./pages/it-admin/CredentialVault";
 import AuditLogs from "./pages/it-admin/AuditLogs";
-import OnboardingManagement from "./pages/it-admin/OnboardingManagement";
 
 // Finance Admin
 import BudgetPlanning from "./pages/finance/BudgetPlanning";
@@ -468,13 +465,12 @@ function AppRoutes() {
             <Route path="/systems/config" element={<ProtectedRoute requiredModule="systems"><SystemConfigPage /></ProtectedRoute>} />
 
             {/* IT Admin Module Routes (Access & Credential Management) */}
-            <Route path="/it-admin" element={<ProtectedRoute requiredModule="admin"><ITAdminDashboard /></ProtectedRoute>} />
-            <Route path="/it-admin/tools" element={<ProtectedRoute requiredModule="admin"><ToolRegistry /></ProtectedRoute>} />
-            <Route path="/it-admin/access" element={<ProtectedRoute requiredModule="admin"><AccessManagement /></ProtectedRoute>} />
+            <Route path="/it-admin" element={<ProtectedRoute requiredModule="admin"><ToolsAndAccess /></ProtectedRoute>} />
+            <Route path="/it-admin/tools" element={<ProtectedRoute requiredModule="admin"><ToolsAndAccess /></ProtectedRoute>} />
+            <Route path="/it-admin/access" element={<ProtectedRoute requiredModule="admin"><ToolsAndAccess /></ProtectedRoute>} />
             <Route path="/it-admin/requests" element={<ProtectedRoute><AccessRequests /></ProtectedRoute>} />
             <Route path="/it-admin/credentials" element={<ProtectedRoute requiredModule="admin"><CredentialVault /></ProtectedRoute>} />
             <Route path="/it-admin/audit-logs" element={<ProtectedRoute requiredModule="admin"><AuditLogs /></ProtectedRoute>} />
-            <Route path="/it-admin/onboarding" element={<ProtectedRoute requiredModule="admin"><OnboardingManagement /></ProtectedRoute>} />
 
             {/* Finance Admin Routes */}
             <Route path="/finance/budgets" element={<ProtectedRoute requiredModule="finance"><BudgetPlanning /></ProtectedRoute>} />
