@@ -46,7 +46,7 @@ const MODULE_OPTIONS = [
   { value: 'vendors', label: 'Vendors' }
 ];
 
-const APPROVAL_LEVELS = ['manager', 'finance', 'director'];
+// Employee-based approvers are now used instead of fixed roles
 
 const COLOR_OPTIONS = [
   { value: 'bg-blue-100 text-blue-700', label: 'Blue' },
@@ -425,23 +425,37 @@ const PaymentCategorySettings = () => {
 
               {formData.requires_approval && (
                 <div>
-                  <p className="text-sm font-medium text-[#4A3728] mb-2">Approval Levels</p>
-                  <div className="flex gap-2">
-                    {APPROVAL_LEVELS.map(level => (
-                      <Button
-                        key={level}
-                        type="button"
-                        size="sm"
-                        variant={formData.approval_levels.includes(level) ? "default" : "outline"}
-                        onClick={() => toggleApprovalLevel(level)}
-                        className={formData.approval_levels.includes(level) ? "bg-[#4A3728]" : "border-[#D4BBA6]"}
-                      >
-                        {level}
-                      </Button>
-                    ))}
+                  <p className="text-sm font-medium text-[#4A3728] mb-2">Approvers (in order)</p>
+                  <div className="space-y-2">
+                    {/* Selected Approvers */}
+                    {formData.approvers.length > 0 && (
+                      <div className="flex flex-wrap gap-2 p-2 bg-white rounded border border-[#D4BBA6]">
+                        {formData.approvers.map((approver, idx) => (
+                          <Badge key={approver.id} variant="secondary" className="bg-[#F5EDE5] text-[#4A3728] pr-1">
+                            <span className="text-xs text-[#8B7355] mr-1">{idx + 1}.</span>
+                            {approver.name}
+                            <button type="button" onClick={() => removeApprover(approver.id)} className="ml-1 hover:text-red-500">
+                              <X className="w-3 h-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                    {/* Add Approver Select */}
+                    <Select value="placeholder" onValueChange={addApprover}>
+                      <SelectTrigger className="bg-white border-[#D4BBA6]">
+                        <SelectValue placeholder="+ Add approver..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="placeholder" disabled>Select an employee</SelectItem>
+                        {employees.filter(e => !formData.approvers.find(a => a.id === e.id)).map(emp => (
+                          <SelectItem key={emp.id} value={emp.id}>{emp.name} {emp.department ? `(${emp.department})` : ''}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <p className="text-xs text-[#8B7355] mt-2">
-                    Approval order: {formData.approval_levels.join(' → ') || 'None'}
+                    Approval order: {formData.approvers.map(a => a.name).join(' → ') || 'Add approvers above'}
                   </p>
                 </div>
               )}

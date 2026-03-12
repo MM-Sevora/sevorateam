@@ -150,7 +150,8 @@ class PaymentCategoryCreate(BaseModel):
     module: str  # finance, hr, it, operations, vendors
     sub_module: Optional[str] = None
     requires_approval: bool = True
-    approval_levels: List[str] = ["manager", "finance"]
+    approval_levels: List[str] = ["manager", "finance"]  # Employee IDs for approvers
+    approver_names: Optional[List[str]] = None  # Employee names for display
     link_path: Optional[str] = None  # path to linked module
 
 class PaymentCategoryUpdate(BaseModel):
@@ -160,7 +161,8 @@ class PaymentCategoryUpdate(BaseModel):
     module: Optional[str] = None
     sub_module: Optional[str] = None
     requires_approval: Optional[bool] = None
-    approval_levels: Optional[List[str]] = None
+    approval_levels: Optional[List[str]] = None  # Employee IDs for approvers
+    approver_names: Optional[List[str]] = None  # Employee names for display
     link_path: Optional[str] = None
     is_active: Optional[bool] = None
 
@@ -211,6 +213,7 @@ async def create_payment_category(
         "sub_module": category.sub_module,
         "requires_approval": category.requires_approval,
         "approval_levels": category.approval_levels,
+        "approver_names": category.approver_names or [],
         "link_path": category.link_path,
         "is_default": False,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -255,6 +258,7 @@ async def update_payment_category(
             "sub_module": update.sub_module or default.get("sub_module"),
             "requires_approval": update.requires_approval if update.requires_approval is not None else default["requires_approval"],
             "approval_levels": update.approval_levels or default["approval_levels"],
+            "approver_names": update.approver_names or [],
             "link_path": update.link_path,
             "is_default": False,
             "created_at": datetime.now(timezone.utc).isoformat(),

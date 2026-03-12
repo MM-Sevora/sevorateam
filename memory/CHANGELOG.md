@@ -2,6 +2,11 @@
 
 ## March 12, 2026
 
+### Payment Category UI/UX Updates
+- **Employee-based Approvers**: Payment categories can now have specific employees as approvers instead of fixed roles (manager, finance, director). Select employees from a searchable dropdown.
+- **Back Button**: Added back arrow button to Payment Category Settings page for easier navigation to Payment Requests.
+- **New Table Columns**: Added "Requested By" and "Due Date" columns to Payment Requests table for better at-a-glance information.
+
 ### Payment Requests Module Redesign
 - Converted to sortable/filterable table view
 - Added 15 payment categories: Rent, Utilities, Payroll, Tools, Reimbursement, Software, Services, Travel, Supplies, Training, Insurance, Telecom, Maintenance, Vendor, Other

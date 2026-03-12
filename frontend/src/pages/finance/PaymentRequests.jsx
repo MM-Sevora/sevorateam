@@ -426,6 +426,8 @@ const PaymentRequests = () => {
                   <TableHead>Category</TableHead>
                   <SortHeader column="vendor_name" label="Payee" />
                   <SortHeader column="amount" label="Amount" />
+                  <SortHeader column="requester_name" label="Requested By" />
+                  <SortHeader column="due_date" label="Due Date" />
                   <TableHead>Approval</TableHead>
                   <TableHead>Payment</TableHead>
                   <SortHeader column="status" label="Status" />
@@ -443,6 +445,10 @@ const PaymentRequests = () => {
                     <TableCell>{getCategoryBadge(req.category)}</TableCell>
                     <TableCell className="text-[#8B7355] text-sm">{req.vendor_name || '-'}</TableCell>
                     <TableCell className="font-semibold text-[#4A3728]">{formatCurrency(req.amount, req.currency)}</TableCell>
+                    <TableCell className="text-sm text-[#8B7355]">{req.requested_by_name || req.requester_name || '-'}</TableCell>
+                    <TableCell className={`text-sm ${isOverdue(req.due_date) && req.status !== 'completed' && req.status !== 'paid' ? 'text-red-600 font-medium' : 'text-[#8B7355]'}`}>
+                      {req.due_date ? formatDate(req.due_date) : '-'}
+                    </TableCell>
                     <TableCell>{getApprovalBadge(req)}</TableCell>
                     <TableCell>{getPaymentStatusBadge(req.payment_status)}</TableCell>
                     <TableCell>{getStatusBadge(req.status)}</TableCell>
