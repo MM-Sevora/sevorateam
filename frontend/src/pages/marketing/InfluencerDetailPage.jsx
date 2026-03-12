@@ -18,9 +18,10 @@ import {
   Instagram, Youtube, Download, Users, TrendingUp, Heart, Star,
   Globe, Image, Film, Clock, DollarSign, Sparkles, Plus, Trash2,
   Send, Mail, MessageSquare, Target, Calendar, Phone, User,
-  BarChart3, Package, History, Edit3, ExternalLink, Building2, Briefcase, ClipboardList
+  BarChart3, Package, History, Edit3, ExternalLink, Building2, Briefcase, ClipboardList, Loader2
 } from 'lucide-react';
 import CreateTaskDialog from '../../components/shared/CreateTaskDialog';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Area, AreaChart } from 'recharts';
 
 const InfluencerDetailPage = () => {
   const { influencerId } = useParams();
@@ -55,6 +56,11 @@ const InfluencerDetailPage = () => {
   const [campaigns, setCampaigns] = useState([]);
   const [assignedCampaign, setAssignedCampaign] = useState('');
   
+  // Growth Chart
+  const [growthChartData, setGrowthChartData] = useState(null);
+  const [growthChartLoading, setGrowthChartLoading] = useState(false);
+  const [growthChartPlatform, setGrowthChartPlatform] = useState('instagram');
+  const [growthChartDays, setGrowthChartDays] = useState(30);
   // Outreach Modal
   const [showOutreachModal, setShowOutreachModal] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
@@ -186,12 +192,51 @@ const InfluencerDetailPage = () => {
     }
   }, [api, influencerId]);
 
+  // Fetch growth chart data
+  const fetchGrowthChart = useCallback(async (platform, days) => {
+    setGrowthChartLoading(true);
+    try {
+      const response = await api.get(`/marketing/v2/contacts/${influencerId}/growth-chart`, {
+        params: { platform, days }
+      });
+      
+      if (response.data.has_data && response.data.dates?.length > 0) {
+        // Transform data for recharts
+        const chartData = response.data.dates.map((date, idx) => ({
+          date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          fullDate: date,
+          followers: response.data.followers[idx] || 0,
+          engagement: response.data.engagement[idx] || 0
+        }));
+        setGrowthChartData({
+          data: chartData,
+          totalPoints: response.data.total_points,
+          platform: response.data.platform
+        });
+      } else {
+        setGrowthChartData({ data: [], totalPoints: 0, platform });
+      }
+    } catch (error) {
+      console.log('No growth chart data available');
+      setGrowthChartData({ data: [], totalPoints: 0, platform });
+    } finally {
+      setGrowthChartLoading(false);
+    }
+  }, [api, influencerId]);
+
   useEffect(() => {
     fetchInfluencer();
     fetchCampaigns();
     fetchHistory();
     fetchPayments();
   }, [fetchInfluencer, fetchCampaigns, fetchHistory, fetchPayments]);
+
+  // Fetch growth chart when metrics tab is active or platform/days changes
+  useEffect(() => {
+    if (activeTab === 'metrics' && influencerId) {
+      fetchGrowthChart(growthChartPlatform, growthChartDays);
+    }
+  }, [activeTab, influencerId, growthChartPlatform, growthChartDays, fetchGrowthChart]);
 
   // Build activities when history data changes
   useEffect(() => {
@@ -1397,6 +1442,155 @@ const InfluencerDetailPage = () => {
         {/* Core Metrics Tab */}
         <TabsContent value="metrics">
         <div className="space-y-6">
+          {/* Growth Chart */}
+          <Card className="bg-white border-gray-200">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-green-500" /> Growth Trends
+                </CardTitle>
+                <div className="flex items-center gap-3">
+                  <Select value={growthChartPlatform} onValueChange={setGrowthChartPlatform}>
+                    <SelectTrigger className="w-32 h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="instagram">
+                        <span className="flex items-center gap-2">
+                          <Instagram className="w-3 h-3 text-pink-500" /> Instagram
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="youtube">
+                        <span className="flex items-center gap-2">
+                          <Youtube className="w-3 h-3 text-red-500" /> YouTube
+                        </span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={String(growthChartDays)} onValueChange={v => setGrowthChartDays(Number(v))}>
+                    <SelectTrigger className="w-28 h-8 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="7">Last 7 days</SelectItem>
+                      <SelectItem value="30">Last 30 days</SelectItem>
+                      <SelectItem value="90">Last 90 days</SelectItem>
+                      <SelectItem value="180">Last 6 months</SelectItem>
+                      <SelectItem value="365">Last year</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => fetchGrowthChart(growthChartPlatform, growthChartDays)}
+                    disabled={growthChartLoading}
+                  >
+                    {growthChartLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {growthChartLoading ? (
+                <div className="h-64 flex items-center justify-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+                </div>
+              ) : growthChartData?.data?.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={growthChartData.data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="colorFollowers" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                          </linearGradient>
+                          <linearGradient id="colorEngagement" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis 
+                          dataKey="date" 
+                          tick={{ fontSize: 11, fill: '#6b7280' }}
+                          tickLine={false}
+                          axisLine={{ stroke: '#e5e7eb' }}
+                        />
+                        <YAxis 
+                          yAxisId="left"
+                          tick={{ fontSize: 11, fill: '#6b7280' }}
+                          tickLine={false}
+                          axisLine={false}
+                          tickFormatter={(value) => {
+                            if (value >= 1000000) return `${(value/1000000).toFixed(1)}M`;
+                            if (value >= 1000) return `${(value/1000).toFixed(0)}K`;
+                            return value;
+                          }}
+                        />
+                        <YAxis 
+                          yAxisId="right" 
+                          orientation="right"
+                          tick={{ fontSize: 11, fill: '#6b7280' }}
+                          tickLine={false}
+                          axisLine={false}
+                          domain={[0, 10]}
+                          tickFormatter={(value) => `${value}%`}
+                        />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: 'white', 
+                            border: '1px solid #e5e7eb',
+                            borderRadius: '8px',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                          }}
+                          formatter={(value, name) => {
+                            if (name === 'followers') {
+                              return [value.toLocaleString(), growthChartPlatform === 'youtube' ? 'Subscribers' : 'Followers'];
+                            }
+                            return [`${value.toFixed(2)}%`, 'Engagement'];
+                          }}
+                        />
+                        <Legend 
+                          wrapperStyle={{ paddingTop: '10px' }}
+                          formatter={(value) => {
+                            if (value === 'followers') return growthChartPlatform === 'youtube' ? 'Subscribers' : 'Followers';
+                            return 'Engagement %';
+                          }}
+                        />
+                        <Area 
+                          yAxisId="left"
+                          type="monotone" 
+                          dataKey="followers" 
+                          stroke="#f59e0b" 
+                          strokeWidth={2}
+                          fill="url(#colorFollowers)"
+                        />
+                        <Area 
+                          yAxisId="right"
+                          type="monotone" 
+                          dataKey="engagement" 
+                          stroke="#10b981" 
+                          strokeWidth={2}
+                          fill="url(#colorEngagement)"
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <p className="text-xs text-gray-500 text-center">
+                    {growthChartData.totalPoints} data point{growthChartData.totalPoints !== 1 ? 's' : ''} tracked
+                  </p>
+                </div>
+              ) : (
+                <div className="h-64 flex flex-col items-center justify-center text-gray-400">
+                  <TrendingUp className="w-12 h-12 mb-3 opacity-30" />
+                  <p className="text-sm font-medium">No growth data available</p>
+                  <p className="text-xs mt-1">Historical metrics will appear after refreshing social data over time</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* YouTube Metrics */}
           <Card className="bg-white border-l-4 border-l-red-300 border-gray-200">
             <CardHeader className="bg-red-50/50">
