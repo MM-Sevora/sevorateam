@@ -50,7 +50,7 @@ const WorkOrders = () => {
   const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
   const [activeTab, setActiveTab] = useState('details');
   const [formData, setFormData] = useState({
-    vendor_id: '', department: '', work_description: '', campaign_project: '', deliverable_type: '',
+    vendor_id: '', vendor_type_filter: '', department: '', work_description: '', campaign_project: '', deliverable_type: '',
     start_date: '', expected_completion_date: '', order_type: 'one_time', agreed_amount: ''
   });
   const [paymentForm, setPaymentForm] = useState({ payment_type: 'full', amount: '', description: '', po_number: '', invoice_number: '' });
@@ -169,7 +169,7 @@ const WorkOrders = () => {
   };
 
   const resetForm = () => {
-    setFormData({ vendor_id: '', department: '', work_description: '', campaign_project: '', deliverable_type: '', start_date: '', expected_completion_date: '', order_type: 'one_time', agreed_amount: '' });
+    setFormData({ vendor_id: '', vendor_type_filter: '', department: '', work_description: '', campaign_project: '', deliverable_type: '', start_date: '', expected_completion_date: '', order_type: 'one_time', agreed_amount: '' });
   };
 
   const handleSort = (key) => {
@@ -365,11 +365,33 @@ const WorkOrders = () => {
         <DialogContent className="bg-white max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle className="text-[#4A3728]">New Work Order</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div><label className="text-sm font-medium text-[#4A3728]">Vendor *</label>
-              <Select value={formData.vendor_id || "placeholder"} onValueChange={(v) => setFormData(f => ({...f, vendor_id: v === "placeholder" ? "" : v}))}>
-                <SelectTrigger className="bg-white border-[#D4BBA6]"><SelectValue placeholder="Select vendor" /></SelectTrigger>
-                <SelectContent><SelectItem value="placeholder" disabled>Select vendor</SelectItem>{vendors.filter(v => v.status === 'active').map(v => <SelectItem key={v.id} value={v.id}>{v.name} <span className="text-gray-500">({v.vendor_type})</span></SelectItem>)}</SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div><label className="text-sm font-medium text-[#4A3728]">Vendor Type *</label>
+                <Select value={formData.vendor_type_filter || "placeholder"} onValueChange={(v) => setFormData(f => ({...f, vendor_type_filter: v === "placeholder" ? "" : v, vendor_id: ''}))}>
+                  <SelectTrigger className="bg-white border-[#D4BBA6]"><SelectValue placeholder="Select type" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="placeholder" disabled>Select type</SelectItem>
+                    <SelectItem value="vendor">Vendor</SelectItem>
+                    <SelectItem value="freelancer">Freelancer</SelectItem>
+                    <SelectItem value="influencer">Influencer</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div><label className="text-sm font-medium text-[#4A3728]">Vendor *</label>
+                <Select 
+                  value={formData.vendor_id || "placeholder"} 
+                  onValueChange={(v) => setFormData(f => ({...f, vendor_id: v === "placeholder" ? "" : v}))}
+                  disabled={!formData.vendor_type_filter}
+                >
+                  <SelectTrigger className="bg-white border-[#D4BBA6]"><SelectValue placeholder={formData.vendor_type_filter ? "Select vendor" : "Select type first"} /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="placeholder" disabled>Select vendor</SelectItem>
+                    {vendors
+                      .filter(v => v.status === 'active' && v.vendor_type === formData.vendor_type_filter)
+                      .map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div><label className="text-sm font-medium text-[#4A3728]">Department *</label>
