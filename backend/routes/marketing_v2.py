@@ -3320,6 +3320,53 @@ async def get_marketing_dashboard_stats():
 
 # ============== PHASE 2: AI DISCOVERY ==============
 
+# ---- External AI-Powered Influencer Discovery with API Verification ----
+@marketing_v2_router.post("/ai/external-discover")
+async def ai_external_discover_influencers(
+    request: dict,
+    user: dict = Depends(get_marketing_auth())
+):
+    """
+    AI-powered external influencer discovery with real API verification.
+    Uses GPT-4o to suggest influencers, then verifies with Instagram/YouTube APIs.
+    Returns only verified influencers with real metrics.
+    """
+    from services.ai_influencer_discovery import get_discovery_service
+    
+    discovery_service = get_discovery_service()
+    
+    result = await discovery_service.discover_influencers(
+        industry=request.get("industry", "Fashion"),
+        platform=request.get("platform", "instagram"),
+        objective=request.get("objective", "brand_awareness"),
+        city=request.get("city"),
+        follower_range=request.get("follower_range"),
+        additional_requirements=request.get("additional_requirements", ""),
+        limit=request.get("limit", 10)
+    )
+    
+    # Save discovery session
+    db = get_db()
+    session_id = str(uuid.uuid4())
+    session_doc = {
+        "id": session_id,
+        "type": "external_influencer_discovery",
+        "request": request,
+        "result_count": len(result.get("influencers", [])),
+        "user_id": user.get("id"),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.discovery_sessions.insert_one(session_doc)
+    
+    return {
+        "session_id": session_id,
+        "success": result.get("success", False),
+        "message": result.get("message", ""),
+        "ai_suggestions_count": result.get("ai_suggestions_count", 0),
+        "verified_count": result.get("verified_count", 0),
+        "influencers": result.get("influencers", [])
+    }
+
 # ---- Influencer AI Discovery ----
 @marketing_v2_router.post("/ai/discover-influencers")
 async def ai_discover_influencers(

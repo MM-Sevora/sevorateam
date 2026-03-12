@@ -59,67 +59,41 @@ export const AIToolsPage = () => {
     target_audience: ''
   });
 
-  // Handle Influencer Discovery - Search database first, then AI rank
+  // Handle Influencer Discovery - External AI + API Verification
   const handleInfluencerDiscovery = useCallback(async () => {
     setInfLoading(true);
+    setInfResults([]);
+    
     try {
-      // First, search the database with filters
-      const searchParams = new URLSearchParams();
-      if (infBrief.industry && infBrief.industry !== 'All') {
-        searchParams.append('industry', infBrief.industry.toLowerCase());
-      }
-      if (infBrief.platform && infBrief.platform !== 'Both') {
-        searchParams.append('platform', infBrief.platform.toLowerCase());
-      }
-      if (infBrief.city && infBrief.city !== 'All Cities') {
-        searchParams.append('city', infBrief.city);
-      }
-      searchParams.append('min_followers', infBrief.follower_min);
-      searchParams.append('max_followers', infBrief.follower_max);
-      searchParams.append('min_engagement', infBrief.engagement_min);
-      searchParams.append('max_engagement', infBrief.engagement_max);
-      searchParams.append('limit', 20);
+      // Use external AI discovery with API verification
+      const response = await api.post('/marketing/v2/ai/external-discover', {
+        industry: infBrief.industry,
+        platform: infBrief.platform.toLowerCase(),
+        objective: infBrief.objective,
+        city: infBrief.city !== 'All Cities' ? infBrief.city : undefined,
+        follower_range: { 
+          min: infBrief.follower_min, 
+          max: infBrief.follower_max 
+        },
+        additional_requirements: infBrief.description,
+        limit: 15
+      });
       
-      const dbResponse = await api.get(`/marketing/v2/influencers/discover?${searchParams.toString()}`);
-      
-      if (dbResponse.data.influencers?.length > 0) {
-        // We have database results - format them as recommendations
-        const dbResults = dbResponse.data.influencers.map(inf => ({
-          id: inf.id,
-          name: inf.name,
-          instagram_handle: inf.instagram_handle,
-          youtube_handle: inf.youtube_handle,
-          followers: inf.followers || 0,
-          engagement_rate: inf.engagement_rate || 0,
-          industry: inf.industry,
-          city: inf.city,
-          tier: inf.tier,
-          platform: inf.primary_platform || 'instagram',
-          match_score: Math.floor(70 + Math.random() * 25), // Calculate match score
-          reason: `${inf.tier || 'Micro'} influencer in ${inf.industry || 'Fashion'} with ${formatNumber(inf.followers)} followers and ${(inf.engagement_rate || 0).toFixed(1)}% engagement`
+      if (response.data.success && response.data.influencers?.length > 0) {
+        // Format results for display
+        const results = response.data.influencers.map(inf => ({
+          ...inf,
+          match_score: inf.match_score || 80,
+          reason: inf.ai_reason || `Verified ${inf.platform} account with ${formatNumber(inf.followers)} followers`
         }));
         
-        setInfResults(dbResults);
-        toast.success(`Found ${dbResults.length} influencers matching your criteria!`);
+        setInfResults(results);
+        toast.success(
+          `Found ${response.data.verified_count} verified influencers! ` +
+          `(AI suggested ${response.data.ai_suggestions_count}, verified ${response.data.verified_count})`
+        );
       } else {
-        // No database results - try AI discovery
-        const aiResponse = await api.post('/marketing/v2/ai/discover-influencers', {
-          industry: infBrief.industry,
-          platform: infBrief.platform.toLowerCase(),
-          objective: infBrief.objective,
-          city: infBrief.city !== 'All Cities' ? infBrief.city : undefined,
-          follower_range: { min: infBrief.follower_min, max: infBrief.follower_max },
-          additional_requirements: infBrief.description,
-          limit: 15
-        });
-        
-        setInfResults(aiResponse.data.recommendations || []);
-        
-        if (aiResponse.data.recommendations?.length > 0) {
-          toast.success(`AI found ${aiResponse.data.recommendations.length} recommendations!`);
-        } else {
-          toast.info('No matching influencers found. Try adjusting your criteria.');
-        }
+        toast.info(response.data.message || 'No verified influencers found. Try different criteria.');
       }
     } catch (error) {
       console.error('Discovery error:', error);
@@ -362,8 +336,15 @@ export const AIToolsPage = () => {
                 <Card className="p-12">
                   <div className="text-center">
                     <Loader2 className="w-12 h-12 animate-spin mx-auto text-amber-500 mb-4" />
-                    <p className="text-gray-600 font-medium">Analyzing your requirements...</p>
-                    <p className="text-sm text-gray-400 mt-1">Finding the best influencer matches</p>
+                    <p className="text-gray-600 font-medium">AI is searching for influencers...</p>
+                    <p className="text-sm text-gray-400 mt-1">GPT-4o suggests → Instagram/YouTube APIs verify → Real data returned</p>
+                    <div className="flex items-center justify-center gap-2 mt-4 text-xs text-gray-500">
+                      <span className="flex items-center gap-1"><Wand2 className="w-3 h-3" /> AI Suggesting</span>
+                      <span>→</span>
+                      <span className="flex items-center gap-1"><Search className="w-3 h-3" /> Verifying</span>
+                      <span>→</span>
+                      <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Real Data</span>
+                    </div>
                   </div>
                 </Card>
               ) : infResults.length === 0 ? (
@@ -381,18 +362,31 @@ export const AIToolsPage = () => {
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center gap-3">
-                            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                              rec.platform === 'youtube' ? 'bg-red-100' : 'bg-gradient-to-br from-pink-100 to-purple-100'
-                            }`}>
-                              {rec.platform === 'youtube' ? 
-                                <Youtube className="w-6 h-6 text-red-600" /> : 
-                                <Instagram className="w-6 h-6 text-pink-600" />
-                              }
-                            </div>
+                            {rec.profile_picture ? (
+                              <img 
+                                src={rec.profile_picture} 
+                                alt={rec.name}
+                                className="w-12 h-12 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                                rec.platform === 'youtube' ? 'bg-red-100' : 'bg-gradient-to-br from-pink-100 to-purple-100'
+                              }`}>
+                                {rec.platform === 'youtube' ? 
+                                  <Youtube className="w-6 h-6 text-red-600" /> : 
+                                  <Instagram className="w-6 h-6 text-pink-600" />
+                                }
+                              </div>
+                            )}
                             <div>
-                              <h4 className="font-semibold text-gray-900">{rec.name}</h4>
+                              <div className="flex items-center gap-1">
+                                <h4 className="font-semibold text-gray-900">{rec.name}</h4>
+                                {rec.verified && (
+                                  <CheckCircle className="w-4 h-4 text-blue-500" title="Verified via API" />
+                                )}
+                              </div>
                               <p className="text-xs text-gray-500">
-                                @{rec.instagram_handle || rec.youtube_handle || 'N/A'}
+                                @{rec.handle || rec.instagram_handle || rec.youtube_handle || 'N/A'}
                               </p>
                             </div>
                           </div>
@@ -403,48 +397,57 @@ export const AIToolsPage = () => {
                           )}
                         </div>
                         
+                        {rec.bio && (
+                          <p className="text-xs text-gray-500 mb-2 line-clamp-2">{rec.bio}</p>
+                        )}
+                        
                         <p className="text-sm text-gray-600 mb-3 line-clamp-2">{rec.reason}</p>
                         
-                        <div className="grid grid-cols-2 gap-2 mb-3">
+                        <div className="grid grid-cols-3 gap-2 mb-3">
                           <div className="bg-gray-50 rounded-lg p-2 text-center">
-                            <p className="text-xs text-gray-500">Followers</p>
-                            <p className="font-semibold text-gray-900">{formatNumber(rec.followers)}</p>
+                            <p className="text-[10px] text-gray-500 uppercase">Followers</p>
+                            <p className="font-bold text-gray-900">{formatNumber(rec.followers)}</p>
                           </div>
                           <div className="bg-gray-50 rounded-lg p-2 text-center">
-                            <p className="text-xs text-gray-500">Engagement</p>
-                            <p className="font-semibold text-green-600">{(rec.engagement_rate || 0).toFixed(1)}%</p>
+                            <p className="text-[10px] text-gray-500 uppercase">Engagement</p>
+                            <p className="font-bold text-green-600">{(rec.engagement_rate || 0).toFixed(1)}%</p>
+                          </div>
+                          <div className="bg-gray-50 rounded-lg p-2 text-center">
+                            <p className="text-[10px] text-gray-500 uppercase">{rec.platform === 'youtube' ? 'Videos' : 'Posts'}</p>
+                            <p className="font-bold text-gray-900">{rec.posts || rec.videos || 0}</p>
                           </div>
                         </div>
                         
-                        <div className="flex items-center gap-2 text-xs text-gray-500 mb-3 flex-wrap">
-                          {rec.tier && <Badge variant="outline" className="text-xs capitalize">{rec.tier}</Badge>}
-                          {rec.industry && <Badge variant="outline" className="text-xs">{rec.industry}</Badge>}
-                          {rec.city && (
-                            <span className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3" /> {rec.city}
-                            </span>
-                          )}
-                        </div>
+                        {rec.data_source && (
+                          <div className="flex items-center gap-1 mb-3">
+                            <Badge variant="outline" className="text-[10px] text-green-600 border-green-300">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Verified via {rec.data_source === 'instagram_api' ? 'Instagram API' : 'YouTube API'}
+                            </Badge>
+                          </div>
+                        )}
                         
                         <div className="flex gap-2">
-                          {rec.id ? (
-                            <Button 
-                              size="sm"
-                              onClick={() => navigate(`/marketing/influencer/${rec.id}`)}
-                              className="flex-1 gap-1 bg-amber-600 hover:bg-amber-700 text-white"
-                            >
-                              <Eye className="w-3 h-3" /> View Profile
-                            </Button>
-                          ) : (
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => handleAddInfluencer(rec)}
-                              className="flex-1 gap-1"
-                            >
-                              <Plus className="w-3 h-3" /> Add to Database
-                            </Button>
-                          )}
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleAddInfluencer(rec)}
+                            className="flex-1 gap-1"
+                          >
+                            <Plus className="w-3 h-3" /> Add to Database
+                          </Button>
+                          <Button 
+                            size="sm"
+                            onClick={() => window.open(
+                              rec.platform === 'youtube' 
+                                ? `https://youtube.com/channel/${rec.channel_id}`
+                                : `https://instagram.com/${rec.handle}`,
+                              '_blank'
+                            )}
+                            className="flex-1 gap-1 bg-amber-600 hover:bg-amber-700 text-white"
+                          >
+                            <ExternalLink className="w-3 h-3" /> View Profile
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
