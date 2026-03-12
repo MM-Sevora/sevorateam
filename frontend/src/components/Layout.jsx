@@ -148,6 +148,7 @@ const DEPARTMENT_CONFIG = {
             { path: '/marketing/content-promotion', name: 'UGC Promotion', icon: Zap },
             { path: '/marketing/budget-management', name: 'Budget Management', icon: DollarSign },
             { path: '/marketing/ai-tools', name: 'AI Tools', icon: Sparkles },
+            { path: '/marketing/settings', name: 'Settings', icon: Settings },
         ]
     },
     sales: {

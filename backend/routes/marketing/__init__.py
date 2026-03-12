@@ -44,6 +44,9 @@ from .budget_management import router as budget_router
 # Publications Pipeline (NEW)
 from .publications_pipeline import router as publications_pipeline_router
 
+# Configuration Settings (NEW)
+from .config import router as config_router
+
 # Include completed sub-routers
 marketing_modular_router.include_router(contacts_router)
 
@@ -65,6 +68,9 @@ marketing_modular_router.include_router(promotion_router)
 
 # Phase 3 routes
 marketing_modular_router.include_router(budget_router)
+
+# Configuration routes (admin settings)
+marketing_modular_router.include_router(config_router)
 
 # The following routers are stubs - routes still served by marketing_v2.py
 # from .pipeline import router as pipeline_router

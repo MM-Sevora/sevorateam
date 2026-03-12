@@ -47,6 +47,9 @@ import BudgetManagementPage from "./pages/marketing/BudgetManagementPage";
 // Marketing V3 Pages - Publications Pipeline
 import PublicationsPipelinePage from "./pages/marketing/PublicationsPipelinePage";
 
+// Marketing V3 Pages - Settings
+import MarketingSettingsPage from "./pages/marketing/MarketingSettingsPage";
+
 // Sales Pages
 import { SalesDashboard } from "./pages/sales/Dashboard";
 import { LeadsPage } from "./pages/sales/Leads";
@@ -420,6 +423,8 @@ function AppRoutes() {
             {/* AI Tools with Influencer Discovery */}
             <Route path="/marketing/ai-tools" element={<ProtectedRoute requiredModule="marketing_ops"><AIToolsPage /></ProtectedRoute>} />
             <Route path="/marketing/ai-discovery" element={<ProtectedRoute requiredModule="marketing_ops"><AIDiscoveryPage /></ProtectedRoute>} />
+            {/* Marketing Settings/Config */}
+            <Route path="/marketing/settings" element={<ProtectedRoute requiredModule="marketing_ops"><MarketingSettingsPage /></ProtectedRoute>} />
             {/* Legacy Marketing Routes - kept for backward compatibility */}
             <Route path="/marketing/outreach" element={<ProtectedRoute requiredModule="marketing_ops"><OutreachPage /></ProtectedRoute>} />
             <Route path="/marketing/negotiations" element={<ProtectedRoute requiredModule="marketing_ops"><NegotiationsPage /></ProtectedRoute>} />
