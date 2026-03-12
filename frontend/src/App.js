@@ -156,8 +156,10 @@ import BrandDetailPage from "./pages/sourcing/BrandDetailPage";
 import BrandPipeline from "./pages/sourcing/BrandPipeline";
 import SuppliersPage from "./pages/sourcing/SuppliersPage";
 import SupplierDetailPage from "./pages/sourcing/SupplierDetailPage";
+import SupplierPipeline from "./pages/sourcing/SupplierPipeline";
 import ManufacturersPage from "./pages/sourcing/ManufacturersPage";
 import ManufacturerDetailPage from "./pages/sourcing/ManufacturerDetailPage";
+import ManufacturerPipeline from "./pages/sourcing/ManufacturerPipeline";
 import SamplesPage from "./pages/sourcing/SamplesPage";
 import SourcingAIDiscoveryPage from "./pages/sourcing/AIDiscoveryPage";
 import EmailCampaignsPage from "./pages/sourcing/EmailCampaignsPage";
@@ -574,14 +576,14 @@ function AppRoutes() {
             {/* Buying & Sourcing Routes */}
             <Route path="/sourcing" element={<ProtectedRoute requiredModule="project_management"><SourcingDashboard /></ProtectedRoute>} />
             <Route path="/sourcing/brands" element={<ProtectedRoute requiredModule="project_management"><BrandsPage /></ProtectedRoute>} />
-            <Route path="/sourcing/brands/:id" element={<ProtectedRoute requiredModule="project_management"><BrandDetailPage /></ProtectedRoute>} />
             <Route path="/sourcing/brands/pipeline" element={<ProtectedRoute requiredModule="project_management"><BrandPipeline /></ProtectedRoute>} />
+            <Route path="/sourcing/brands/:id" element={<ProtectedRoute requiredModule="project_management"><BrandDetailPage /></ProtectedRoute>} />
             <Route path="/sourcing/suppliers" element={<ProtectedRoute requiredModule="project_management"><SuppliersPage /></ProtectedRoute>} />
+            <Route path="/sourcing/suppliers/pipeline" element={<ProtectedRoute requiredModule="project_management"><SupplierPipeline /></ProtectedRoute>} />
             <Route path="/sourcing/suppliers/:id" element={<ProtectedRoute requiredModule="project_management"><SupplierDetailPage /></ProtectedRoute>} />
-            <Route path="/sourcing/suppliers/pipeline" element={<ProtectedRoute requiredModule="project_management"><SuppliersPage /></ProtectedRoute>} />
             <Route path="/sourcing/manufacturers" element={<ProtectedRoute requiredModule="project_management"><ManufacturersPage /></ProtectedRoute>} />
+            <Route path="/sourcing/manufacturers/pipeline" element={<ProtectedRoute requiredModule="project_management"><ManufacturerPipeline /></ProtectedRoute>} />
             <Route path="/sourcing/manufacturers/:id" element={<ProtectedRoute requiredModule="project_management"><ManufacturerDetailPage /></ProtectedRoute>} />
-            <Route path="/sourcing/manufacturers/pipeline" element={<ProtectedRoute requiredModule="project_management"><ManufacturersPage /></ProtectedRoute>} />
             <Route path="/sourcing/samples" element={<ProtectedRoute requiredModule="project_management"><SamplesPage /></ProtectedRoute>} />
             <Route path="/sourcing/discovery" element={<ProtectedRoute requiredModule="project_management"><SourcingAIDiscoveryPage /></ProtectedRoute>} />
             <Route path="/sourcing/campaigns" element={<ProtectedRoute requiredModule="project_management"><EmailCampaignsPage /></ProtectedRoute>} />

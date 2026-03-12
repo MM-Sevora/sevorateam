@@ -1,3 +1,34 @@
+## March 12, 2026 - Supplier & Manufacturer Pipeline Fix ✅
+
+### Issue Fixed
+The Supplier Pipeline and Manufacturer Pipeline navigation links were pointing to the wrong components (Database pages instead of Pipeline pages).
+
+### What Was Created
+1. **SupplierPipeline.jsx** - Kanban-style pipeline board for suppliers
+   - 7 stages: Discovery, Contacted, Sampling, Evaluation, Negotiation, Active, Inactive
+   - Analytics showing Total, Active, and Sampling counts
+   - Drag-to-move functionality with chevron buttons
+   - Click-to-view supplier details
+
+2. **ManufacturerPipeline.jsx** - Kanban-style pipeline board for manufacturers
+   - 7 stages: Discovery, Contacted, Factory Visit, Sampling, Production Trial, Active, Inactive
+   - Analytics showing Total, Active, and Sampling counts
+   - MOQ display on cards
+   - Click-to-view manufacturer details
+
+### Route Updates (App.js)
+- Fixed route ordering: `/pipeline` routes now come before `/:id` routes to prevent incorrect matching
+- Updated imports to include new pipeline components
+
+### Files Created
+- `/app/frontend/src/pages/sourcing/SupplierPipeline.jsx`
+- `/app/frontend/src/pages/sourcing/ManufacturerPipeline.jsx`
+
+### Files Modified
+- `/app/frontend/src/App.js` - Added imports and fixed route order
+
+---
+
 ## March 12, 2026 - Campaign Details Page Fix & Conditional Tabs ✅
 
 ### Campaign Details Page Authentication Fix
