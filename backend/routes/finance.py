@@ -46,12 +46,37 @@ class BudgetStatus(str, Enum):
 
 class PaymentStatus(str, Enum):
     draft = "draft"
-    pending = "pending"
+    pending_approval = "pending_approval"
     approved = "approved"
     rejected = "rejected"
     processing = "processing"
+    paid = "paid"
     completed = "completed"
     cancelled = "cancelled"
+
+class ApprovalLevel(str, Enum):
+    manager = "manager"
+    finance = "finance"
+    director = "director"
+
+# Payment Type to Module Mapping
+PAYMENT_TYPE_MODULE_MAP = {
+    "rent": {"module": "finance", "sub_module": "facilities", "requires_approval": True, "approval_levels": ["manager", "finance"]},
+    "utilities": {"module": "finance", "sub_module": "facilities", "requires_approval": True, "approval_levels": ["manager", "finance"]},
+    "payroll": {"module": "hr", "sub_module": "payroll", "requires_approval": True, "approval_levels": ["manager", "finance", "director"]},
+    "tools": {"module": "operations", "sub_module": "procurement", "requires_approval": True, "approval_levels": ["manager", "finance"]},
+    "reimbursement": {"module": "hr", "sub_module": "reimbursement", "requires_approval": True, "approval_levels": ["manager", "finance"]},
+    "software": {"module": "it", "sub_module": "subscriptions", "requires_approval": True, "approval_levels": ["manager", "finance"]},
+    "services": {"module": "operations", "sub_module": "services", "requires_approval": True, "approval_levels": ["manager", "finance"]},
+    "travel": {"module": "hr", "sub_module": "travel", "requires_approval": True, "approval_levels": ["manager"]},
+    "supplies": {"module": "operations", "sub_module": "procurement", "requires_approval": False, "approval_levels": ["manager"]},
+    "training": {"module": "hr", "sub_module": "learning", "requires_approval": True, "approval_levels": ["manager", "finance"]},
+    "insurance": {"module": "finance", "sub_module": "insurance", "requires_approval": True, "approval_levels": ["finance", "director"]},
+    "telecom": {"module": "it", "sub_module": "telecom", "requires_approval": True, "approval_levels": ["manager"]},
+    "maintenance": {"module": "operations", "sub_module": "facilities", "requires_approval": True, "approval_levels": ["manager"]},
+    "vendor": {"module": "vendors", "sub_module": "payments", "requires_approval": True, "approval_levels": ["manager", "finance"]},
+    "other": {"module": "finance", "sub_module": "misc", "requires_approval": True, "approval_levels": ["manager", "finance"]}
+}
 
 
 # ============== MODELS ==============
@@ -86,15 +111,28 @@ class PaymentRequestCreate(BaseModel):
     payment_method: Optional[str] = None
     account_details: Optional[str] = None
     reference_number: Optional[str] = None
-    # New fields
-    source_type: Optional[str] = None  # work_order, direct, reimbursement
+    # Source tracking
+    source_type: Optional[str] = None  # work_order, direct, reimbursement, recurring
     source_id: Optional[str] = None  # work_order_id if linked
     source_reference: Optional[str] = None  # WO-00015, etc.
-    requested_by_id: Optional[str] = None  # employee id
-    requested_by_name: Optional[str] = None  # employee name
+    requested_by_id: Optional[str] = None
+    requested_by_name: Optional[str] = None
+    # Linked module reference
+    linked_module: Optional[str] = None
+    linked_record_id: Optional[str] = None
 
 class PaymentRequestAction(BaseModel):
-    action: str  # approve, reject, process, complete, cancel
+    action: str  # submit, approve, reject, process, mark_paid, complete, cancel
+    comments: Optional[str] = None
+    level: Optional[str] = None  # manager, finance, director
+    payment_reference: Optional[str] = None  # UTR, check number, etc.
+    payment_date: Optional[str] = None
+
+class PaymentStatusUpdate(BaseModel):
+    status: str
+    payment_reference: Optional[str] = None
+    payment_date: Optional[str] = None
+    payment_method: Optional[str] = None
     comments: Optional[str] = None
 
 
@@ -307,9 +345,13 @@ async def create_payment_request(
     background_tasks: BackgroundTasks,
     user: dict = Depends(get_current_user_dep)
 ):
-    """Create a new payment request"""
+    """Create a new payment request with approval workflow"""
+    # Get type mapping for approval configuration
+    type_config = PAYMENT_TYPE_MODULE_MAP.get(request.category, PAYMENT_TYPE_MODULE_MAP["other"])
+    
     request_doc = {
         "id": str(uuid.uuid4()),
+        "request_number": f"PR-{datetime.now().strftime('%Y%m')}-{str(uuid.uuid4())[:4].upper()}",
         "title": request.title,
         "vendor_name": request.vendor_name or request.category,
         "amount": request.amount,
@@ -327,21 +369,47 @@ async def create_payment_request(
         "source_type": request.source_type or "direct",
         "source_id": request.source_id,
         "source_reference": request.source_reference,
+        # Linked module
+        "linked_module": request.linked_module or type_config["module"],
+        "linked_sub_module": type_config["sub_module"],
+        "linked_record_id": request.linked_record_id,
         # Requester (can be different from creator)
         "requested_by_id": request.requested_by_id or user.get("id"),
         "requested_by_name": request.requested_by_name or user.get("name"),
         # Creator info
-        "status": PaymentStatus.pending.value,
+        "status": PaymentStatus.draft.value,
         "requester_id": user.get("id"),
         "requester_name": user.get("name"),
         "requester_department": request.department or user.get("department"),
+        # Approval workflow
+        "requires_approval": type_config["requires_approval"],
+        "approval_levels": type_config["approval_levels"],
+        "current_approval_level": None,
+        "approvals": [],  # [{level, approver_id, approver_name, status, comments, timestamp}]
+        "approval_status": "pending" if type_config["requires_approval"] else "not_required",
+        # Payment tracking
+        "payment_status": "unpaid",
+        "payment_reference": None,
+        "payment_date": None,
+        "paid_amount": 0,
+        "paid_by_id": None,
+        "paid_by_name": None,
+        # Timestamps
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
-        "approver_id": None,
+        "submitted_at": None,
         "approved_at": None,
         "processed_at": None,
+        "paid_at": None,
         "completed_at": None,
-        "comments": [],
+        # Activity log
+        "activity_log": [{
+            "action": "created",
+            "user_id": user.get("id"),
+            "user_name": user.get("name"),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "details": f"Payment request created for {request.category}"
+        }],
         "is_active": True
     }
     
@@ -395,61 +463,182 @@ async def payment_request_action(
     action: PaymentRequestAction,
     user: dict = Depends(get_current_user_dep)
 ):
-    """Perform action on payment request"""
+    """Perform action on payment request with full workflow support"""
     request = await db.finance_payment_requests.find_one({"id": request_id})
     if not request:
         raise HTTPException(status_code=404, detail="Payment request not found")
     
     now = datetime.now(timezone.utc).isoformat()
     update_data = {"updated_at": now}
+    activity_entry = {
+        "action": action.action,
+        "user_id": user.get("id"),
+        "user_name": user.get("name"),
+        "timestamp": now,
+        "details": action.comments or ""
+    }
     
-    if action.action == "approve":
-        update_data["status"] = PaymentStatus.approved.value
-        update_data["approver_id"] = user.get("id")
-        update_data["approver_name"] = user.get("name")
-        update_data["approved_at"] = now
+    if action.action == "submit":
+        # Submit for approval
+        approval_levels = request.get("approval_levels", ["manager", "finance"])
+        update_data["status"] = PaymentStatus.pending_approval.value
+        update_data["submitted_at"] = now
+        update_data["current_approval_level"] = approval_levels[0] if approval_levels else None
+        activity_entry["details"] = f"Submitted for approval (Level: {approval_levels[0] if approval_levels else 'N/A'})"
+    
+    elif action.action == "approve":
+        # Approve at current level
+        current_level = action.level or request.get("current_approval_level", "manager")
+        approval_levels = request.get("approval_levels", ["manager", "finance"])
+        approvals = request.get("approvals", [])
         
-        # Update budget spent amount if linked
-        if request.get("budget_id"):
-            await db.finance_budgets.update_one(
-                {"id": request["budget_id"]},
-                {"$inc": {"spent_amount": request["amount"], "remaining_amount": -request["amount"]}}
-            )
+        # Add approval record
+        approval_record = {
+            "level": current_level,
+            "approver_id": user.get("id"),
+            "approver_name": user.get("name"),
+            "status": "approved",
+            "comments": action.comments,
+            "timestamp": now
+        }
+        approvals.append(approval_record)
+        update_data["approvals"] = approvals
+        
+        # Check if all levels approved
+        approved_levels = [a["level"] for a in approvals if a["status"] == "approved"]
+        pending_levels = [l for l in approval_levels if l not in approved_levels]
+        
+        if not pending_levels:
+            # All levels approved
+            update_data["status"] = PaymentStatus.approved.value
+            update_data["approval_status"] = "approved"
+            update_data["approved_at"] = now
+            update_data["current_approval_level"] = None
+            activity_entry["details"] = f"Final approval granted by {user.get('name')} ({current_level})"
+            
+            # Update budget spent amount if linked
+            if request.get("budget_id"):
+                await db.finance_budgets.update_one(
+                    {"id": request["budget_id"]},
+                    {"$inc": {"spent_amount": request["amount"], "remaining_amount": -request["amount"]}}
+                )
+        else:
+            # Move to next approval level
+            update_data["current_approval_level"] = pending_levels[0]
+            activity_entry["details"] = f"Approved by {user.get('name')} ({current_level}). Next: {pending_levels[0]}"
     
     elif action.action == "reject":
+        current_level = action.level or request.get("current_approval_level", "manager")
+        approvals = request.get("approvals", [])
+        approvals.append({
+            "level": current_level,
+            "approver_id": user.get("id"),
+            "approver_name": user.get("name"),
+            "status": "rejected",
+            "comments": action.comments,
+            "timestamp": now
+        })
+        update_data["approvals"] = approvals
         update_data["status"] = PaymentStatus.rejected.value
-        update_data["rejected_by"] = user.get("id")
+        update_data["approval_status"] = "rejected"
+        update_data["rejected_by_id"] = user.get("id")
+        update_data["rejected_by_name"] = user.get("name")
         update_data["rejected_at"] = now
+        activity_entry["details"] = f"Rejected by {user.get('name')} ({current_level}): {action.comments or 'No reason provided'}"
     
     elif action.action == "process":
         update_data["status"] = PaymentStatus.processing.value
         update_data["processed_at"] = now
+        update_data["processed_by_id"] = user.get("id")
+        update_data["processed_by_name"] = user.get("name")
+        activity_entry["details"] = f"Payment processing started by {user.get('name')}"
+    
+    elif action.action == "mark_paid":
+        update_data["status"] = PaymentStatus.paid.value
+        update_data["payment_status"] = "paid"
+        update_data["paid_at"] = now
+        update_data["paid_by_id"] = user.get("id")
+        update_data["paid_by_name"] = user.get("name")
+        update_data["paid_amount"] = request.get("amount", 0)
+        if action.payment_reference:
+            update_data["payment_reference"] = action.payment_reference
+        if action.payment_date:
+            update_data["payment_date"] = action.payment_date
+        activity_entry["details"] = f"Payment marked as paid. Ref: {action.payment_reference or 'N/A'}"
     
     elif action.action == "complete":
         update_data["status"] = PaymentStatus.completed.value
         update_data["completed_at"] = now
+        activity_entry["details"] = f"Payment request completed by {user.get('name')}"
     
     elif action.action == "cancel":
         update_data["status"] = PaymentStatus.cancelled.value
         update_data["cancelled_at"] = now
+        update_data["cancelled_by_id"] = user.get("id")
+        update_data["cancelled_by_name"] = user.get("name")
+        activity_entry["details"] = f"Cancelled by {user.get('name')}: {action.comments or 'No reason'}"
     
-    # Add comment if provided
-    if action.comments:
-        comment = {
-            "user_id": user.get("id"),
-            "user_name": user.get("name"),
-            "action": action.action,
-            "comment": action.comments,
-            "timestamp": now
-        }
-        await db.finance_payment_requests.update_one(
-            {"id": request_id},
-            {"$push": {"comments": comment}}
-        )
+    # Add to activity log
+    await db.finance_payment_requests.update_one(
+        {"id": request_id},
+        {"$push": {"activity_log": activity_entry}}
+    )
     
     await db.finance_payment_requests.update_one({"id": request_id}, {"$set": update_data})
     
-    return {"message": f"Payment request {action.action}d", "status": update_data.get("status")}
+    return {"message": f"Payment request {action.action} successful", "status": update_data.get("status")}
+
+
+@router.put("/payment-requests/{request_id}/payment-status")
+async def update_payment_status(
+    request_id: str,
+    status_update: PaymentStatusUpdate,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Update payment status directly (for marking payments as paid/completed)"""
+    request = await db.finance_payment_requests.find_one({"id": request_id})
+    if not request:
+        raise HTTPException(status_code=404, detail="Payment request not found")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    update_data = {
+        "updated_at": now,
+        "payment_status": status_update.status
+    }
+    
+    if status_update.status == "paid":
+        update_data["status"] = PaymentStatus.paid.value
+        update_data["paid_at"] = now
+        update_data["paid_by_id"] = user.get("id")
+        update_data["paid_by_name"] = user.get("name")
+        update_data["paid_amount"] = request.get("amount", 0)
+        if status_update.payment_reference:
+            update_data["payment_reference"] = status_update.payment_reference
+        if status_update.payment_date:
+            update_data["payment_date"] = status_update.payment_date
+        if status_update.payment_method:
+            update_data["payment_method"] = status_update.payment_method
+    
+    activity_entry = {
+        "action": f"payment_status_{status_update.status}",
+        "user_id": user.get("id"),
+        "user_name": user.get("name"),
+        "timestamp": now,
+        "details": status_update.comments or f"Payment status updated to {status_update.status}"
+    }
+    
+    await db.finance_payment_requests.update_one(
+        {"id": request_id},
+        {"$set": update_data, "$push": {"activity_log": activity_entry}}
+    )
+    
+    return {"message": f"Payment status updated to {status_update.status}"}
+
+
+@router.get("/payment-requests/type-mapping")
+async def get_payment_type_mapping(user: dict = Depends(get_current_user_dep)):
+    """Get payment type to module mapping configuration"""
+    return {"mapping": PAYMENT_TYPE_MODULE_MAP}
 
 
 @router.get("/payment-requests/summary/stats")

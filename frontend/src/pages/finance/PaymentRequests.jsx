@@ -8,32 +8,31 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Textarea } from '../../components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { toast } from 'sonner';
 import {
   CreditCard, Plus, Clock, CheckCircle, XCircle, DollarSign, Search,
-  Building2, FileText, Calendar, Send, Loader2, ArrowUpDown, ArrowUp, ArrowDown,
+  Building2, FileText, Send, Loader2, ArrowUpDown, ArrowUp, ArrowDown,
   X, Eye, Home, Zap, Users, Wrench, Receipt, Briefcase, Car, ShoppingCart,
-  GraduationCap, Heart, Phone, Wifi, Package, AlertCircle
+  GraduationCap, Heart, Wifi, Package, AlertCircle, Banknote, History, ExternalLink
 } from 'lucide-react';
 
-// Expanded categories with icons
+// Payment categories with module mapping
 const PAYMENT_CATEGORIES = [
-  { value: 'rent', label: 'Rent', icon: Home, color: 'bg-blue-100 text-blue-700' },
-  { value: 'utilities', label: 'Utilities (Electricity/Water/Gas)', icon: Zap, color: 'bg-amber-100 text-amber-700' },
-  { value: 'payroll', label: 'Payroll', icon: Users, color: 'bg-emerald-100 text-emerald-700' },
-  { value: 'tools', label: 'Tools & Equipment', icon: Wrench, color: 'bg-purple-100 text-purple-700' },
-  { value: 'reimbursement', label: 'Reimbursement', icon: Receipt, color: 'bg-orange-100 text-orange-700' },
-  { value: 'software', label: 'Software & Subscriptions', icon: Package, color: 'bg-indigo-100 text-indigo-700' },
-  { value: 'services', label: 'Professional Services', icon: Briefcase, color: 'bg-teal-100 text-teal-700' },
-  { value: 'travel', label: 'Travel & Transport', icon: Car, color: 'bg-pink-100 text-pink-700' },
-  { value: 'supplies', label: 'Office Supplies', icon: ShoppingCart, color: 'bg-cyan-100 text-cyan-700' },
-  { value: 'training', label: 'Training & Education', icon: GraduationCap, color: 'bg-violet-100 text-violet-700' },
-  { value: 'insurance', label: 'Insurance', icon: Heart, color: 'bg-rose-100 text-rose-700' },
-  { value: 'telecom', label: 'Telecom & Internet', icon: Wifi, color: 'bg-sky-100 text-sky-700' },
-  { value: 'maintenance', label: 'Maintenance & Repairs', icon: Wrench, color: 'bg-slate-100 text-slate-700' },
-  { value: 'vendor', label: 'Vendor Payment', icon: Building2, color: 'bg-stone-100 text-stone-700' },
-  { value: 'other', label: 'Other', icon: FileText, color: 'bg-gray-100 text-gray-700' }
+  { value: 'rent', label: 'Rent', icon: Home, color: 'bg-blue-100 text-blue-700', module: 'finance' },
+  { value: 'utilities', label: 'Utilities', icon: Zap, color: 'bg-amber-100 text-amber-700', module: 'finance' },
+  { value: 'payroll', label: 'Payroll', icon: Users, color: 'bg-emerald-100 text-emerald-700', module: 'hr' },
+  { value: 'tools', label: 'Tools & Equipment', icon: Wrench, color: 'bg-purple-100 text-purple-700', module: 'operations' },
+  { value: 'reimbursement', label: 'Reimbursement', icon: Receipt, color: 'bg-orange-100 text-orange-700', module: 'hr', linkPath: '/hr/reimbursements' },
+  { value: 'software', label: 'Software', icon: Package, color: 'bg-indigo-100 text-indigo-700', module: 'it' },
+  { value: 'services', label: 'Services', icon: Briefcase, color: 'bg-teal-100 text-teal-700', module: 'operations' },
+  { value: 'travel', label: 'Travel', icon: Car, color: 'bg-pink-100 text-pink-700', module: 'hr' },
+  { value: 'supplies', label: 'Supplies', icon: ShoppingCart, color: 'bg-cyan-100 text-cyan-700', module: 'operations' },
+  { value: 'training', label: 'Training', icon: GraduationCap, color: 'bg-violet-100 text-violet-700', module: 'hr' },
+  { value: 'insurance', label: 'Insurance', icon: Heart, color: 'bg-rose-100 text-rose-700', module: 'finance' },
+  { value: 'telecom', label: 'Telecom', icon: Wifi, color: 'bg-sky-100 text-sky-700', module: 'it' },
+  { value: 'maintenance', label: 'Maintenance', icon: Wrench, color: 'bg-slate-100 text-slate-700', module: 'operations' },
+  { value: 'vendor', label: 'Vendor Payment', icon: Building2, color: 'bg-stone-100 text-stone-700', module: 'vendors', linkPath: '/vendors/work-orders' },
+  { value: 'other', label: 'Other', icon: FileText, color: 'bg-gray-100 text-gray-700', module: 'finance' }
 ];
 
 const SOURCE_TYPES = [
@@ -53,9 +52,11 @@ const PaymentRequests = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [showActionDialog, setShowActionDialog] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [actionType, setActionType] = useState('');
   const [actionComments, setActionComments] = useState('');
+  const [paymentDetails, setPaymentDetails] = useState({ payment_reference: '', payment_date: '', payment_method: '' });
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({ status: '', category: '', department: '', source_type: '' });
   const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
@@ -113,17 +114,48 @@ const PaymentRequests = () => {
 
   const handleAction = async () => {
     try {
-      await api.post(`/finance/payment-requests/${selectedRequest.id}/action`, {
+      const payload = {
         action: actionType,
+        comments: actionComments,
+        level: selectedRequest?.current_approval_level
+      };
+      
+      // Include payment details for mark_paid action
+      if (actionType === 'mark_paid') {
+        payload.payment_reference = paymentDetails.payment_reference;
+        payload.payment_date = paymentDetails.payment_date;
+      }
+      
+      await api.post(`/finance/payment-requests/${selectedRequest.id}/action`, payload);
+      toast.success(`Request ${actionType.replace('_', ' ')} successful`);
+      setShowActionDialog(false);
+      setShowPaymentDialog(false);
+      setSelectedRequest(null);
+      setActionComments('');
+      setPaymentDetails({ payment_reference: '', payment_date: '', payment_method: '' });
+      fetchData();
+    } catch (error) {
+      toast.error(`Failed to ${actionType.replace('_', ' ')} request`);
+    }
+  };
+
+  const handleMarkAsPaid = async () => {
+    try {
+      await api.put(`/finance/payment-requests/${selectedRequest.id}/payment-status`, {
+        status: 'paid',
+        payment_reference: paymentDetails.payment_reference,
+        payment_date: paymentDetails.payment_date,
+        payment_method: paymentDetails.payment_method,
         comments: actionComments
       });
-      toast.success(`Request ${actionType}d successfully`);
-      setShowActionDialog(false);
+      toast.success('Payment marked as paid');
+      setShowPaymentDialog(false);
       setSelectedRequest(null);
+      setPaymentDetails({ payment_reference: '', payment_date: '', payment_method: '' });
       setActionComments('');
       fetchData();
     } catch (error) {
-      toast.error(`Failed to ${actionType} request`);
+      toast.error('Failed to update payment status');
     }
   };
 
@@ -135,7 +167,11 @@ const PaymentRequests = () => {
   const openActionDialog = (request, action) => {
     setSelectedRequest(request);
     setActionType(action);
-    setShowActionDialog(true);
+    if (action === 'mark_paid') {
+      setShowPaymentDialog(true);
+    } else {
+      setShowActionDialog(true);
+    }
   };
 
   const resetForm = () => {
@@ -185,13 +221,37 @@ const PaymentRequests = () => {
     const styles = {
       draft: 'bg-gray-100 text-gray-700',
       pending: 'bg-amber-100 text-amber-700',
+      pending_approval: 'bg-amber-100 text-amber-700',
       approved: 'bg-emerald-100 text-emerald-700',
       rejected: 'bg-red-100 text-red-700',
       processing: 'bg-blue-100 text-blue-700',
+      paid: 'bg-green-100 text-green-800',
       completed: 'bg-purple-100 text-purple-700',
       cancelled: 'bg-slate-100 text-slate-700'
     };
-    return <Badge className={styles[status] || 'bg-gray-100'}>{status}</Badge>;
+    const labels = {
+      pending_approval: 'Pending Approval',
+      draft: 'Draft'
+    };
+    return <Badge className={styles[status] || 'bg-gray-100'}>{labels[status] || status}</Badge>;
+  };
+
+  const getPaymentStatusBadge = (paymentStatus) => {
+    const styles = {
+      unpaid: 'bg-red-50 text-red-600 border border-red-200',
+      partial: 'bg-amber-50 text-amber-600 border border-amber-200',
+      paid: 'bg-green-50 text-green-600 border border-green-200'
+    };
+    return <Badge className={styles[paymentStatus] || 'bg-gray-100'}>{paymentStatus || 'unpaid'}</Badge>;
+  };
+
+  const getApprovalBadge = (req) => {
+    if (!req.requires_approval) return <Badge className="bg-gray-50 text-gray-500">N/A</Badge>;
+    const approved = req.approvals?.filter(a => a.status === 'approved').length || 0;
+    const total = req.approval_levels?.length || 0;
+    if (req.approval_status === 'approved') return <Badge className="bg-green-50 text-green-600">{approved}/{total}</Badge>;
+    if (req.approval_status === 'rejected') return <Badge className="bg-red-50 text-red-600">Rejected</Badge>;
+    return <Badge className="bg-amber-50 text-amber-600">{approved}/{total}</Badge>;
   };
 
   const getCategoryBadge = (categoryValue) => {
@@ -358,9 +418,9 @@ const PaymentRequests = () => {
                   <TableHead>Source</TableHead>
                   <TableHead>Category</TableHead>
                   <SortHeader column="vendor_name" label="Payee" />
-                  <SortHeader column="requested_by_name" label="Requester" />
                   <SortHeader column="amount" label="Amount" />
-                  <SortHeader column="due_date" label="Due Date" />
+                  <TableHead>Approval</TableHead>
+                  <TableHead>Payment</TableHead>
                   <SortHeader column="status" label="Status" />
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -370,38 +430,31 @@ const PaymentRequests = () => {
                   <TableRow key={req.id} className="hover:bg-[#FDF8F3] cursor-pointer" onClick={() => openViewDialog(req)}>
                     <TableCell>
                       <div className="font-medium text-[#4A3728]">{req.title}</div>
-                      {req.invoice_number && <div className="text-xs text-[#8B7355]">#{req.invoice_number}</div>}
+                      {req.request_number && <div className="text-xs text-[#8B7355]">{req.request_number}</div>}
                     </TableCell>
                     <TableCell>{getSourceBadge(req.source_type, req.source_reference)}</TableCell>
                     <TableCell>{getCategoryBadge(req.category)}</TableCell>
-                    <TableCell className="text-[#8B7355]">{req.vendor_name || '-'}</TableCell>
-                    <TableCell>
-                      <div className="text-sm text-[#4A3728]">{req.requested_by_name || req.requester_name}</div>
-                      <div className="text-xs text-[#8B7355]">{req.requester_department}</div>
-                    </TableCell>
+                    <TableCell className="text-[#8B7355] text-sm">{req.vendor_name || '-'}</TableCell>
                     <TableCell className="font-semibold text-[#4A3728]">{formatCurrency(req.amount, req.currency)}</TableCell>
-                    <TableCell>
-                      {req.due_date ? (
-                        <div className={`flex items-center gap-1 text-sm ${isOverdue(req.due_date) && req.status !== 'completed' ? 'text-red-600' : 'text-[#8B7355]'}`}>
-                          {isOverdue(req.due_date) && req.status !== 'completed' && <AlertCircle className="w-3 h-3" />}
-                          {formatDate(req.due_date)}
-                        </div>
-                      ) : '-'}
-                    </TableCell>
+                    <TableCell>{getApprovalBadge(req)}</TableCell>
+                    <TableCell>{getPaymentStatusBadge(req.payment_status)}</TableCell>
                     <TableCell>{getStatusBadge(req.status)}</TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-end gap-1">
                         <Button size="sm" variant="ghost" onClick={() => openViewDialog(req)} title="View"><Eye className="w-4 h-4 text-[#8B7355]" /></Button>
-                        {req.status === 'pending' && (
+                        {req.status === 'draft' && (
+                          <Button size="sm" variant="ghost" onClick={() => openActionDialog(req, 'submit')} title="Submit for Approval"><Send className="w-4 h-4 text-blue-600" /></Button>
+                        )}
+                        {req.status === 'pending_approval' && (
                           <>
-                            <Button size="sm" variant="ghost" onClick={() => openActionDialog(req, 'approve')} title="Approve"><CheckCircle className="w-4 h-4 text-emerald-600" /></Button>
+                            <Button size="sm" variant="ghost" onClick={() => openActionDialog(req, 'approve')} title={`Approve (${req.current_approval_level})`}><CheckCircle className="w-4 h-4 text-emerald-600" /></Button>
                             <Button size="sm" variant="ghost" onClick={() => openActionDialog(req, 'reject')} title="Reject"><XCircle className="w-4 h-4 text-red-600" /></Button>
                           </>
                         )}
-                        {req.status === 'approved' && (
-                          <Button size="sm" variant="ghost" onClick={() => openActionDialog(req, 'process')} title="Process"><Send className="w-4 h-4 text-blue-600" /></Button>
+                        {(req.status === 'approved' || req.status === 'processing') && req.payment_status !== 'paid' && (
+                          <Button size="sm" variant="ghost" onClick={() => openActionDialog(req, 'mark_paid')} title="Mark as Paid"><Banknote className="w-4 h-4 text-green-600" /></Button>
                         )}
-                        {req.status === 'processing' && (
+                        {req.status === 'paid' && (
                           <Button size="sm" variant="ghost" onClick={() => openActionDialog(req, 'complete')} title="Complete"><CheckCircle className="w-4 h-4 text-purple-600" /></Button>
                         )}
                       </div>
@@ -623,14 +676,50 @@ const PaymentRequests = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-[#F5EDE5] p-3 rounded-lg">
                   <p className="text-xs text-[#8B7355]">Requested By</p>
-                  <p className="font-medium text-[#4A3728]">{selectedRequest.requester_name}</p>
+                  <p className="font-medium text-[#4A3728]">{selectedRequest.requested_by_name || selectedRequest.requester_name}</p>
                   <p className="text-xs text-[#8B7355]">{selectedRequest.requester_department}</p>
                 </div>
                 <div className="bg-[#F5EDE5] p-3 rounded-lg">
-                  <p className="text-xs text-[#8B7355]">Created</p>
-                  <p className="font-medium text-[#4A3728]">{formatDate(selectedRequest.created_at)}</p>
+                  <p className="text-xs text-[#8B7355]">Payment Status</p>
+                  <div className="mt-1">{getPaymentStatusBadge(selectedRequest.payment_status)}</div>
+                  {selectedRequest.payment_reference && (
+                    <p className="text-xs text-[#8B7355] mt-1">Ref: {selectedRequest.payment_reference}</p>
+                  )}
                 </div>
               </div>
+
+              {/* Approval Status */}
+              {selectedRequest.requires_approval && (
+                <div className="bg-[#F5EDE5] p-3 rounded-lg">
+                  <p className="text-xs text-[#8B7355] mb-2">Approval Progress</p>
+                  <div className="flex gap-2">
+                    {selectedRequest.approval_levels?.map((level, i) => {
+                      const approval = selectedRequest.approvals?.find(a => a.level === level);
+                      return (
+                        <div key={level} className={`flex-1 p-2 rounded text-center text-xs ${approval?.status === 'approved' ? 'bg-green-100 text-green-700' : approval?.status === 'rejected' ? 'bg-red-100 text-red-700' : selectedRequest.current_approval_level === level ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>
+                          <p className="font-medium capitalize">{level}</p>
+                          {approval && <p className="text-[10px] mt-1">{approval.approver_name}</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Module Link */}
+              {selectedRequest.source_reference && (
+                <div className="bg-blue-50 p-3 rounded-lg flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-blue-600">Linked Source</p>
+                    <p className="font-medium text-blue-700">{selectedRequest.source_reference}</p>
+                  </div>
+                  {PAYMENT_CATEGORIES.find(c => c.value === selectedRequest.category)?.linkPath && (
+                    <Button size="sm" variant="outline" className="text-blue-600 border-blue-300" onClick={() => window.open(PAYMENT_CATEGORIES.find(c => c.value === selectedRequest.category)?.linkPath, '_blank')}>
+                      <ExternalLink className="w-3 h-3 mr-1" /> View
+                    </Button>
+                  )}
+                </div>
+              )}
 
               {selectedRequest.description && (
                 <div className="bg-[#F5EDE5] p-3 rounded-lg">
@@ -639,14 +728,15 @@ const PaymentRequests = () => {
                 </div>
               )}
 
-              {selectedRequest.comments?.length > 0 && (
+              {/* Activity Log */}
+              {selectedRequest.activity_log?.length > 0 && (
                 <div className="bg-[#F5EDE5] p-3 rounded-lg">
-                  <p className="text-xs text-[#8B7355] mb-2">Activity</p>
-                  <div className="space-y-2">
-                    {selectedRequest.comments.map((c, i) => (
+                  <p className="text-xs text-[#8B7355] mb-2 flex items-center gap-1"><History className="w-3 h-3" /> Activity Log</p>
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {selectedRequest.activity_log.slice().reverse().map((a, i) => (
                       <div key={i} className="text-sm border-l-2 border-[#D4BBA6] pl-2">
-                        <p className="text-[#4A3728]">{c.text}</p>
-                        <p className="text-xs text-[#8B7355]">{c.user_name} - {formatDate(c.timestamp)}</p>
+                        <p className="text-[#4A3728]">{a.details || a.action}</p>
+                        <p className="text-xs text-[#8B7355]">{a.user_name} - {formatDate(a.timestamp)}</p>
                       </div>
                     ))}
                   </div>
@@ -654,22 +744,27 @@ const PaymentRequests = () => {
               )}
 
               <div className="flex gap-2 pt-2">
-                {selectedRequest.status === 'pending' && (
+                {selectedRequest.status === 'draft' && (
+                  <Button onClick={() => { setShowViewDialog(false); openActionDialog(selectedRequest, 'submit'); }} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
+                    <Send className="w-4 h-4 mr-2" /> Submit for Approval
+                  </Button>
+                )}
+                {selectedRequest.status === 'pending_approval' && (
                   <>
                     <Button onClick={() => { setShowViewDialog(false); openActionDialog(selectedRequest, 'approve'); }} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white">
-                      <CheckCircle className="w-4 h-4 mr-2" /> Approve
+                      <CheckCircle className="w-4 h-4 mr-2" /> Approve ({selectedRequest.current_approval_level})
                     </Button>
                     <Button onClick={() => { setShowViewDialog(false); openActionDialog(selectedRequest, 'reject'); }} variant="outline" className="flex-1 border-red-300 text-red-600 hover:bg-red-50">
                       <XCircle className="w-4 h-4 mr-2" /> Reject
                     </Button>
                   </>
                 )}
-                {selectedRequest.status === 'approved' && (
-                  <Button onClick={() => { setShowViewDialog(false); openActionDialog(selectedRequest, 'process'); }} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
-                    <Send className="w-4 h-4 mr-2" /> Process Payment
+                {(selectedRequest.status === 'approved' || selectedRequest.status === 'processing') && selectedRequest.payment_status !== 'paid' && (
+                  <Button onClick={() => { setShowViewDialog(false); openActionDialog(selectedRequest, 'mark_paid'); }} className="flex-1 bg-green-600 hover:bg-green-700 text-white">
+                    <Banknote className="w-4 h-4 mr-2" /> Mark as Paid
                   </Button>
                 )}
-                {selectedRequest.status === 'processing' && (
+                {selectedRequest.status === 'paid' && (
                   <Button onClick={() => { setShowViewDialog(false); openActionDialog(selectedRequest, 'complete'); }} className="flex-1 bg-purple-600 hover:bg-purple-700 text-white">
                     <CheckCircle className="w-4 h-4 mr-2" /> Mark Complete
                   </Button>
@@ -683,10 +778,11 @@ const PaymentRequests = () => {
       {/* Action Dialog */}
       <Dialog open={showActionDialog} onOpenChange={setShowActionDialog}>
         <DialogContent className="bg-white max-w-sm">
-          <DialogHeader><DialogTitle className="text-[#4A3728] capitalize">{actionType} Payment Request</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="text-[#4A3728] capitalize">{actionType?.replace('_', ' ')} Payment Request</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-[#8B7355]">
-              {actionType === 'approve' && 'This will approve the payment request for processing.'}
+              {actionType === 'submit' && 'This will submit the request for approval.'}
+              {actionType === 'approve' && `This will approve at ${selectedRequest?.current_approval_level} level.`}
               {actionType === 'reject' && 'This will reject the payment request.'}
               {actionType === 'process' && 'This will mark the payment as being processed.'}
               {actionType === 'complete' && 'This will mark the payment as completed.'}
@@ -695,6 +791,9 @@ const PaymentRequests = () => {
               <div className="p-3 bg-[#F5EDE5] rounded-lg">
                 <p className="font-medium text-[#4A3728]">{selectedRequest.title}</p>
                 <p className="text-lg font-bold text-[#4A3728]">{formatCurrency(selectedRequest.amount, selectedRequest.currency)}</p>
+                {selectedRequest.current_approval_level && (
+                  <p className="text-xs text-[#8B7355] mt-1">Current Level: {selectedRequest.current_approval_level}</p>
+                )}
               </div>
             )}
             <div>
@@ -705,7 +804,66 @@ const PaymentRequests = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowActionDialog(false)} className="border-[#D4BBA6]">Cancel</Button>
             <Button onClick={handleAction} className={actionType === 'reject' ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-[#4A3728] hover:bg-[#5D4A3A] text-white'}>
-              {actionType.charAt(0).toUpperCase() + actionType.slice(1)}
+              {actionType?.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mark as Paid Dialog */}
+      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+        <DialogContent className="bg-white max-w-md">
+          <DialogHeader><DialogTitle className="text-[#4A3728]">Mark Payment as Paid</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            {selectedRequest && (
+              <div className="p-3 bg-[#F5EDE5] rounded-lg">
+                <p className="font-medium text-[#4A3728]">{selectedRequest.title}</p>
+                <p className="text-lg font-bold text-[#4A3728]">{formatCurrency(selectedRequest.amount, selectedRequest.currency)}</p>
+                <p className="text-xs text-[#8B7355]">Payee: {selectedRequest.vendor_name}</p>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-[#4A3728]">Payment Reference *</label>
+                <Input 
+                  value={paymentDetails.payment_reference} 
+                  onChange={(e) => setPaymentDetails(p => ({...p, payment_reference: e.target.value}))} 
+                  className="bg-white border-[#D4BBA6]" 
+                  placeholder="UTR/Check #" 
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-[#4A3728]">Payment Date</label>
+                <Input 
+                  type="date" 
+                  value={paymentDetails.payment_date} 
+                  onChange={(e) => setPaymentDetails(p => ({...p, payment_date: e.target.value}))} 
+                  className="bg-white border-[#D4BBA6]" 
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-[#4A3728]">Payment Method</label>
+              <Select value={paymentDetails.payment_method || "placeholder"} onValueChange={(v) => setPaymentDetails(p => ({...p, payment_method: v === "placeholder" ? "" : v}))}>
+                <SelectTrigger className="bg-white border-[#D4BBA6]"><SelectValue placeholder="Select method" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="placeholder" disabled>Select method</SelectItem>
+                  <SelectItem value="bank_transfer">Bank Transfer (NEFT/RTGS)</SelectItem>
+                  <SelectItem value="upi">UPI</SelectItem>
+                  <SelectItem value="cheque">Cheque</SelectItem>
+                  <SelectItem value="cash">Cash</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm text-[#8B7355]">Notes (optional)</label>
+              <Textarea value={actionComments} onChange={(e) => setActionComments(e.target.value)} className="bg-white border-[#D4BBA6]" placeholder="Add payment notes..." rows={2} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPaymentDialog(false)} className="border-[#D4BBA6]">Cancel</Button>
+            <Button onClick={handleMarkAsPaid} className="bg-green-600 hover:bg-green-700 text-white">
+              <Banknote className="w-4 h-4 mr-2" /> Mark as Paid
             </Button>
           </DialogFooter>
         </DialogContent>
