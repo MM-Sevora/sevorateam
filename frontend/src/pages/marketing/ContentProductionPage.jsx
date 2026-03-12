@@ -39,6 +39,13 @@ const PLATFORMS = [
   { value: 'multi', label: 'Multi-Platform' },
 ];
 
+const PROJECT_TYPES = [
+  { value: 'original_production', label: 'Original Production', description: 'Full workflow with shoot' },
+  { value: 'adaptation', label: 'Adaptation / Repurpose', description: 'Edit existing content for new platform' },
+  { value: 'delivery_only', label: 'Delivery Only', description: 'Just resize/format existing content' },
+  { value: 'graphics', label: 'Graphics / Design', description: 'Static design work' },
+];
+
 const STATUS_CONFIG = {
   idea: { label: 'Idea', color: 'bg-gray-500', step: 1 },
   briefing: { label: 'Briefing', color: 'bg-blue-400', step: 2 },
@@ -339,11 +346,11 @@ export default function ContentProductionPage() {
                   <thead className="bg-gray-50 border-b">
                     <tr>
                       <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Project</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Type</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Project Type</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Content</th>
                       <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Platform</th>
                       <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Status</th>
                       <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Progress</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Dates</th>
                       <th className="px-4 py-3 text-center text-sm font-medium text-gray-500">Actions</th>
                     </tr>
                   </thead>
@@ -358,6 +365,7 @@ export default function ContentProductionPage() {
                       filteredProjects.map(project => {
                         const TypeIcon = CONTENT_TYPES.find(t => t.value === project.content_type)?.icon || FileText;
                         const progress = project.task_count > 0 ? (project.completed_tasks / project.task_count) * 100 : 0;
+                        const projectTypeLabel = PROJECT_TYPES.find(pt => pt.value === project.project_type)?.label || 'Original';
                         
                         return (
                           <tr key={project.id} className="hover:bg-gray-50">
@@ -367,7 +375,15 @@ export default function ContentProductionPage() {
                                 {project.description && (
                                   <p className="text-sm text-gray-500 truncate max-w-[200px]">{project.description}</p>
                                 )}
+                                {project.source_project_title && (
+                                  <p className="text-xs text-blue-500">↳ From: {project.source_project_title}</p>
+                                )}
                               </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <Badge variant="secondary" className="text-xs">
+                                {projectTypeLabel}
+                              </Badge>
                             </td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2">
@@ -389,16 +405,6 @@ export default function ContentProductionPage() {
                                 <p className="text-xs text-gray-500 mt-1">
                                   {project.completed_tasks}/{project.task_count} tasks
                                 </p>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-sm">
-                              <div className="space-y-1">
-                                {project.shoot_date && (
-                                  <p className="text-gray-500">Shoot: {formatDate(project.shoot_date)}</p>
-                                )}
-                                {project.publish_date && (
-                                  <p className="text-gray-500">Publish: {formatDate(project.publish_date)}</p>
-                                )}
                               </div>
                             </td>
                             <td className="px-4 py-3">
@@ -553,13 +559,33 @@ function CreateProjectForm({ onSubmit, onCancel }) {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
+    project_type: 'original_production',
     content_type: 'video',
     platform: 'instagram',
     priority: 'medium',
+    source_project_id: '',
     shoot_date: '',
     publish_date: '',
     concept: ''
   });
+  const [sourceProjects, setSourceProjects] = useState([]);
+  const [loadingSources, setLoadingSources] = useState(false);
+
+  // Determine if this project type needs source content
+  const needsSourceContent = ['adaptation', 'delivery_only'].includes(formData.project_type);
+  const showShootDate = formData.project_type === 'original_production';
+
+  // Load available source projects when needed
+  useEffect(() => {
+    if (needsSourceContent) {
+      setLoadingSources(true);
+      fetch(`${API_URL}/api/marketing/v3/content/projects/sources`)
+        .then(res => res.json())
+        .then(data => setSourceProjects(data))
+        .catch(err => console.error('Error loading sources:', err))
+        .finally(() => setLoadingSources(false));
+    }
+  }, [needsSourceContent]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -571,9 +597,12 @@ function CreateProjectForm({ onSubmit, onCancel }) {
     const submitData = { ...formData };
     if (!submitData.shoot_date) delete submitData.shoot_date;
     if (!submitData.publish_date) delete submitData.publish_date;
+    if (!submitData.source_project_id) delete submitData.source_project_id;
     
     onSubmit(submitData);
   };
+
+  const selectedProjectType = PROJECT_TYPES.find(pt => pt.value === formData.project_type);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -584,13 +613,69 @@ function CreateProjectForm({ onSubmit, onCancel }) {
             value={formData.title}
             onChange={(e) => setFormData({...formData, title: e.target.value})}
             placeholder="e.g., Summer Collection Launch Video"
+            data-testid="project-title-input"
           />
         </div>
+
+        {/* Project Type Selector */}
+        <div className="col-span-2 space-y-2">
+          <Label>Project Type *</Label>
+          <Select 
+            value={formData.project_type} 
+            onValueChange={(v) => setFormData({...formData, project_type: v, source_project_id: ''})}
+          >
+            <SelectTrigger data-testid="project-type-select">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PROJECT_TYPES.map(type => (
+                <SelectItem key={type.value} value={type.value}>
+                  <div>
+                    <span className="font-medium">{type.label}</span>
+                    <span className="text-xs text-gray-500 ml-2">- {type.description}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {selectedProjectType && (
+            <p className="text-xs text-gray-500">{selectedProjectType.description}</p>
+          )}
+        </div>
+
+        {/* Source Content Picker - only for adaptation/delivery */}
+        {needsSourceContent && (
+          <div className="col-span-2 space-y-2">
+            <Label>Source Content {formData.project_type === 'delivery_only' ? '*' : '(Optional)'}</Label>
+            <Select 
+              value={formData.source_project_id} 
+              onValueChange={(v) => setFormData({...formData, source_project_id: v})}
+            >
+              <SelectTrigger data-testid="source-project-select">
+                <SelectValue placeholder={loadingSources ? "Loading..." : "Select source project"} />
+              </SelectTrigger>
+              <SelectContent>
+                {sourceProjects.length === 0 ? (
+                  <div className="px-2 py-4 text-sm text-gray-500 text-center">No published projects available</div>
+                ) : (
+                  sourceProjects.map(project => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.title} ({project.content_type} - {project.platform})
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-gray-500">
+              Select an existing project to repurpose or adapt
+            </p>
+          </div>
+        )}
 
         <div className="space-y-2">
           <Label>Content Type *</Label>
           <Select value={formData.content_type} onValueChange={(v) => setFormData({...formData, content_type: v})}>
-            <SelectTrigger>
+            <SelectTrigger data-testid="content-type-select">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -604,7 +689,7 @@ function CreateProjectForm({ onSubmit, onCancel }) {
         <div className="space-y-2">
           <Label>Platform *</Label>
           <Select value={formData.platform} onValueChange={(v) => setFormData({...formData, platform: v})}>
-            <SelectTrigger>
+            <SelectTrigger data-testid="platform-select">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -630,14 +715,17 @@ function CreateProjectForm({ onSubmit, onCancel }) {
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label>Shoot Date</Label>
-          <Input
-            type="date"
-            value={formData.shoot_date}
-            onChange={(e) => setFormData({...formData, shoot_date: e.target.value})}
-          />
-        </div>
+        {/* Shoot Date - only for original production */}
+        {showShootDate && (
+          <div className="space-y-2">
+            <Label>Shoot Date</Label>
+            <Input
+              type="date"
+              value={formData.shoot_date}
+              onChange={(e) => setFormData({...formData, shoot_date: e.target.value})}
+            />
+          </div>
+        )}
 
         <div className="space-y-2">
           <Label>Publish Date</Label>
@@ -658,20 +746,23 @@ function CreateProjectForm({ onSubmit, onCancel }) {
           />
         </div>
 
-        <div className="col-span-2 space-y-2">
-          <Label>Concept / Brief</Label>
-          <Textarea
-            value={formData.concept}
-            onChange={(e) => setFormData({...formData, concept: e.target.value})}
-            placeholder="Detailed concept, key messages, creative direction..."
-            rows={3}
-          />
-        </div>
+        {/* Concept - only show for original/graphics */}
+        {['original_production', 'graphics'].includes(formData.project_type) && (
+          <div className="col-span-2 space-y-2">
+            <Label>Concept / Brief</Label>
+            <Textarea
+              value={formData.concept}
+              onChange={(e) => setFormData({...formData, concept: e.target.value})}
+              placeholder="Detailed concept, key messages, creative direction..."
+              rows={3}
+            />
+          </div>
+        )}
       </div>
 
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button type="submit">Create Project</Button>
+        <Button type="submit" data-testid="create-project-submit">Create Project</Button>
       </DialogFooter>
     </form>
   );

@@ -90,6 +90,22 @@ async def list_content_projects(
     return [serialize_doc(p) for p in projects]
 
 
+@router.get("/projects/sources")
+async def get_available_sources():
+    """Get list of projects that can be used as source for adaptation/delivery"""
+    db = get_db()
+    
+    # Get published or approved projects that can be sources
+    projects = list(
+        db.marketing_content_projects.find(
+            {"status": {"$in": ["published", "approved"]}},
+            {"_id": 1, "title": 1, "content_type": 1, "platform": 1}
+        ).sort("created_at", -1).limit(50)
+    )
+    
+    return [serialize_doc(p) for p in projects]
+
+
 @router.post("/projects", response_model=ContentProjectResponse)
 async def create_content_project(project: ContentProjectCreate, user_id: Optional[str] = None):
     """Create a new content project"""
@@ -534,19 +550,3 @@ async def get_workflow_templates():
         ]
     
     return result
-
-
-@router.get("/projects/sources")
-async def get_available_sources():
-    """Get list of projects that can be used as source for adaptation/delivery"""
-    db = get_db()
-    
-    # Get published or approved projects that can be sources
-    projects = list(
-        db.marketing_content_projects.find(
-            {"status": {"$in": ["published", "approved"]}},
-            {"_id": 1, "title": 1, "content_type": 1, "platform": 1}
-        ).sort("created_at", -1).limit(50)
-    )
-    
-    return [serialize_doc(p) for p in projects]
