@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import {
   FileText, Plus, Search, Loader2, ArrowLeft, ArrowUpDown, ArrowUp, ArrowDown,
   X, Eye, Send, DollarSign, Star, CheckCircle, Clock, Scale, Package,
-  ArrowRight, ArrowUpRight, Sparkles, ClipboardList, CheckCircle2, XCircle, AlertCircle
+  ArrowRight, ArrowUpRight, Sparkles, ClipboardList, CheckCircle2, XCircle, AlertCircle, User
 } from 'lucide-react';
 
 const DEPARTMENTS = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance', 'Operations', 'Admin', 'Production'];
@@ -162,6 +162,38 @@ const WorkRequests = () => {
     }
   };
 
+  const handleUpdateStatus = async (requestId, status) => {
+    try {
+      await api.put(`/vendors/requirements/${requestId}`, { status });
+      toast.success('Status updated');
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to update status');
+    }
+  };
+
+  const handleSubmitForApprovalDirect = async (requestId) => {
+    try {
+      await api.post(`/vendors/requirements/${requestId}/submit-for-approval`);
+      toast.success('Submitted for approval');
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to submit for approval');
+    }
+  };
+
+  const handleConvertDirect = async (requestId) => {
+    try {
+      await api.post(`/vendors/requirements/${requestId}/convert-to-order`);
+      toast.success('Work request converted to work order!', {
+        action: { label: 'View Order', onClick: () => navigate('/vendors/work-orders') }
+      });
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to convert to work order');
+    }
+  };
+
   const handleSort = (key) => {
     setSortConfig(prev => ({ key, direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc' }));
   };
@@ -305,6 +337,7 @@ const WorkRequests = () => {
                   <SortHeader column="requirement_id" label="ID" />
                   <SortHeader column="title" label="Title" />
                   <SortHeader column="department" label="Department" />
+                  <TableHead>Employee</TableHead>
                   <SortHeader column="status" label="Status" />
                   <TableHead>Approval</TableHead>
                   <TableHead>Proposals</TableHead>
@@ -319,9 +352,19 @@ const WorkRequests = () => {
                     <TableCell className="font-mono text-xs text-[#8B7355]">{req.requirement_id}</TableCell>
                     <TableCell>
                       <div className="font-medium text-[#4A3728]">{req.title}</div>
-                      <div className="text-xs text-[#8B7355] truncate max-w-[200px]">{req.description}</div>
+                      <div className="text-xs text-[#8B7355] truncate max-w-[180px]">{req.description}</div>
                     </TableCell>
                     <TableCell className="text-[#8B7355]">{req.department}</TableCell>
+                    <TableCell>
+                      <div className="text-xs">
+                        <div className="text-[#4A3728]">{req.requested_by_name}</div>
+                        {req.assigned_owner_name && (
+                          <div className="text-blue-600 flex items-center gap-1">
+                            <User className="w-3 h-3" /> {req.assigned_owner_name}
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>{getStatusBadge(req.status)}</TableCell>
                     <TableCell>{getApprovalBadge(req.approval_status)}</TableCell>
                     <TableCell>
@@ -329,10 +372,42 @@ const WorkRequests = () => {
                         <Badge variant="outline" className="border-purple-300 text-purple-600">{req.proposals.length}</Badge>
                       ) : '-'}
                     </TableCell>
-                    <TableCell className="text-[#8B7355] text-sm">{req.selected_vendor_name || '-'}</TableCell>
+                    <TableCell>
+                      {(() => {
+                        const selectedProposal = req.proposals?.find(p => p.status === 'selected');
+                        if (selectedProposal) {
+                          return (
+                            <div className="text-xs">
+                              <div className="font-medium text-[#4A3728]">{selectedProposal.vendor_name}</div>
+                              <div className="text-emerald-600">{formatCurrency(selectedProposal.amount, selectedProposal.currency)}</div>
+                            </div>
+                          );
+                        }
+                        return <span className="text-[#8B7355]">-</span>;
+                      })()}
+                    </TableCell>
                     <TableCell className="text-xs text-[#8B7355]">{formatDate(req.created_at)}</TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                      <Button size="sm" variant="ghost" onClick={() => openViewDialog(req)}><Eye className="w-4 h-4 text-[#8B7355]" /></Button>
+                      <div className="flex justify-end gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => openViewDialog(req)} title="View Details">
+                          <Eye className="w-4 h-4 text-[#8B7355]" />
+                        </Button>
+                        {req.status === 'draft' && (
+                          <Button size="sm" variant="ghost" onClick={() => handleUpdateStatus(req.id, 'proposal_requested')} title="Request Proposals">
+                            <Send className="w-4 h-4 text-indigo-600" />
+                          </Button>
+                        )}
+                        {req.status === 'vendor_selected' && !req.approval_id && (
+                          <Button size="sm" variant="ghost" onClick={() => handleSubmitForApprovalDirect(req.id)} title="Submit for Approval">
+                            <CheckCircle className="w-4 h-4 text-blue-600" />
+                          </Button>
+                        )}
+                        {req.approval_status === 'approved' && !req.work_order_id && (
+                          <Button size="sm" variant="ghost" onClick={() => handleConvertDirect(req.id)} title="Convert to Order">
+                            <Package className="w-4 h-4 text-emerald-600" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
