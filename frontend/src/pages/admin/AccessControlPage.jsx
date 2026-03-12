@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
-  Shield, Plus, Edit, Trash2, RefreshCw, Settings, Lock, Key, Layers, Users, Search, Save
+  Shield, Plus, Edit, Trash2, RefreshCw, Settings, Lock, Key, Layers, Users, Search, Save, ExternalLink
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -41,6 +42,7 @@ import { useAuth } from '../../context/AuthContext';
 
 const AccessControlPage = () => {
   const { api } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('users');
   
   // Roles state
@@ -90,12 +92,24 @@ const AccessControlPage = () => {
     }
   }, [api]);
 
-  // Fetch modules
+  // Fetch modules from new system-modules endpoint
   const fetchModules = useCallback(async () => {
     try {
-      const response = await api.get('/access/modules');
-      setModules(response.data?.modules || {});
-      setModuleKeys(response.data?.module_keys || []);
+      const response = await api.get('/system-modules/');
+      // Convert to the format expected by this page
+      const modulesData = {};
+      const keys = [];
+      (response.data || []).forEach(mod => {
+        modulesData[mod.code] = {
+          name: mod.name,
+          description: mod.description,
+          default_access: mod.is_default,
+          category: mod.category
+        };
+        keys.push(mod.code);
+      });
+      setModules(modulesData);
+      setModuleKeys(keys);
     } catch (error) {
       console.error('Failed to fetch modules:', error);
     }
@@ -284,7 +298,6 @@ const AccessControlPage = () => {
   const tabs = [
     { id: 'users', label: 'User Permissions', icon: Users, count: users.length },
     { id: 'roles', label: 'Custom Roles', icon: Shield, count: roles.length },
-    { id: 'modules', label: 'System Modules', icon: Layers, count: moduleKeys.length },
   ];
 
   return (
@@ -306,11 +319,16 @@ const AccessControlPage = () => {
             <p className="text-xs text-[#5D4A3A]">Custom Roles</p>
           </CardContent>
         </Card>
-        <Card className="border-[#E8D5C4]">
+        <Card 
+          className="border-[#E8D5C4] cursor-pointer hover:border-blue-400 hover:shadow-md transition-all"
+          onClick={() => navigate('/admin/system-modules')}
+        >
           <CardContent className="p-4 text-center">
             <Layers className="h-8 w-8 mx-auto text-blue-600 mb-2" />
             <p className="text-2xl font-bold text-[#4A3728]">{moduleKeys.length}</p>
-            <p className="text-xs text-[#5D4A3A]">System Modules</p>
+            <p className="text-xs text-[#5D4A3A] flex items-center justify-center gap-1">
+              System Modules <ExternalLink className="h-3 w-3" />
+            </p>
           </CardContent>
         </Card>
         <Card className="border-[#E8D5C4]">
@@ -588,41 +606,6 @@ const AccessControlPage = () => {
               </Table>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        {/* Modules Tab */}
-        <TabsContent value="modules" className="space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold text-[#4A3728] mb-4">System Modules</h2>
-            <p className="text-sm text-[#5D4A3A] mb-4">
-              These are the available modules that can be assigned to roles for access control.
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {moduleKeys.map((key) => {
-              const module = modules[key] || {};
-              return (
-                <Card key={key} className="border-[#E8D5C4]">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Layers className="h-5 w-5 text-[#8B7355]" />
-                        <h4 className="font-medium text-[#4A3728]">{module.name || key}</h4>
-                      </div>
-                      {module.default_access && (
-                        <Badge variant="outline" className="text-xs">Default</Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-[#5D4A3A] mb-3">{module.description || 'No description'}</p>
-                    <div className="text-xs text-[#8B7355]">
-                      Key: <code className="bg-[#F5EDE5] px-1 rounded">{key}</code>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
         </TabsContent>
       </Tabs>
 
