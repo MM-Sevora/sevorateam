@@ -1,3 +1,62 @@
+## March 12, 2026 - Token Expiry Warnings & Refresh Mechanism COMPLETE ✅
+
+### Token Management for Social Platform Integrations
+
+Implemented comprehensive token expiry tracking and Meta token refresh capability.
+
+### Backend Features:
+
+1. **Token Status Service** (`/app/backend/services/token_manager.py`)
+   - TokenManagerService class for managing OAuth tokens
+   - Calculates expiry status: critical (≤3 days), warning (≤7 days), caution (≤14 days), ok
+   - Provides refresh capability for Meta (Facebook/Instagram) tokens
+   - Token validation via Meta Graph API debug_token endpoint
+
+2. **New API Endpoints:**
+   - `GET /api/social/integrations/tokens/status` - All platform token status
+   - `GET /api/social/integrations/tokens/{platform}/status` - Single platform status
+   - `POST /api/social/integrations/tokens/{platform}/refresh` - Refresh Meta tokens
+   - `POST /api/social/integrations/tokens/{platform}/validate` - Validate token details
+
+### Frontend Features:
+
+1. **Token Expiry Warnings in Platform Cards:**
+   - Critical (red): ≤3 days remaining - shows "Expires in X days!" with Refresh button
+   - Warning (amber): ≤7 days remaining - shows warning with Refresh button
+   - OK (green): Shows "Token valid for X days" checkmark
+
+2. **Global Warning Banner:**
+   - Shows when any token needs attention
+   - Displays count of critical and warning tokens
+
+3. **Refresh Button:**
+   - Appears only when token is expiring (critical/warning)
+   - Calls refresh endpoint for Meta platforms
+   - Shows loading state during refresh
+
+### Token Refresh Requirements:
+- Requires `META_APP_ID` and `META_APP_SECRET` in `.env`
+- Meta tokens can be refreshed before expiry to extend by 60 days
+- Currently shows graceful error message when credentials not configured
+
+### Files Created/Modified:
+- `/app/backend/services/token_manager.py` - New service (~300 lines)
+- `/app/backend/routes/social_integrations.py` - Added 4 token endpoints (~110 lines)
+- `/app/frontend/src/pages/social/PlatformIntegrations.jsx` - Token warning UI
+
+### Testing:
+- 22/22 backend tests passed (100%)
+- Frontend verification complete
+- Test report: `/app/test_reports/iteration_79.json`
+
+### Current Token Status:
+- LinkedIn: Token valid for 58 days (expires 2026-05-10)
+- Instagram/Facebook: No expiry date (mock tokens)
+- Twitter/YouTube: No expiry date
+
+---
+
+
 ## March 12, 2026 - YouTube Integration Enhancement COMPLETE ✅
 
 ### Full YouTube Management Endpoints via YouTube Data API
