@@ -700,7 +700,10 @@ const RecurringTasks = () => {
         fetch(`${API}/api/users`, { headers: { 'Authorization': `Bearer ${token}` }})
       ]);
       if (projectsRes.ok) setProjects(await projectsRes.json());
-      if (usersRes.ok) setUsers(await usersRes.json());
+      if (usersRes.ok) {
+        const allUsers = await usersRes.json();
+        setUsers(allUsers.filter(u => u.status === 'active'));
+      }
     } catch (error) {
       console.error('Error fetching metadata:', error);
     }

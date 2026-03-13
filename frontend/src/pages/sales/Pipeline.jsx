@@ -40,7 +40,8 @@ const PipelinePage = () => {
       ]);
       // Filter out closed lost from pipeline view
       setLeads(leadsRes.data.filter(l => l.stage !== 'Closed Lost'));
-      setUsers(usersRes.data);
+      // Filter to show only active users
+      setUsers((usersRes.data || []).filter(u => u.status === 'active'));
     } catch (error) {
       toast.error('Failed to fetch data');
     } finally {

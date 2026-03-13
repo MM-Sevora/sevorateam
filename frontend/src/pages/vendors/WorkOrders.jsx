@@ -76,7 +76,9 @@ const WorkOrders = () => {
       ]);
       setOrders(ordersRes.data.work_orders || []);
       setVendors(vendorsRes.data.vendors || []);
-      setUsers(Array.isArray(usersRes.data) ? usersRes.data : usersRes.data.users || []);
+      // Filter to show only active users
+      const allUsers = Array.isArray(usersRes.data) ? usersRes.data : usersRes.data.users || [];
+      setUsers(allUsers.filter(u => u.status === 'active'));
     } catch (error) {
       toast.error('Failed to load work orders');
     } finally {

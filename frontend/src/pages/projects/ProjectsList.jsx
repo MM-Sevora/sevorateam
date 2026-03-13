@@ -1172,7 +1172,9 @@ const ProjectsList = () => {
       setProjects(projectsData);
       setModules(modulesData);
       setDepartments(deptsData);
-      setUsers(usersData.users || usersData || []);
+      // Filter to show only active users
+      const allUsers = usersData.users || usersData || [];
+      setUsers(allUsers.filter(u => u.status === 'active'));
       
       // Fetch all tasks for Gantt view
       const tasksRes = await fetch(`${API}/api/projects/tasks/all`, { headers });

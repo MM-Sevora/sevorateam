@@ -920,7 +920,9 @@ const ProjectDetail = () => {
 
       setProject(projectData);
       setTasks(tasksData);
-      setUsers(usersData.users || usersData || []);
+      // Filter to show only active users
+      const allUsers = usersData.users || usersData || [];
+      setUsers(allUsers.filter(u => u.status === 'active'));
       setProjectLabels(labelsData);
     } catch (error) {
       console.error('Error:', error);

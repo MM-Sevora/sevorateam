@@ -109,7 +109,9 @@ export default function UnifiedTasksPage() {
     const fetchUsers = async () => {
         try {
             const response = await api.get('/users');
-            setUsers(response.data || []);
+            const allUsers = response.data || [];
+            // Filter to show only active users
+            setUsers(allUsers.filter(u => u.status === 'active'));
         } catch (error) {
             console.error('Failed to fetch users:', error);
         }

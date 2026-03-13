@@ -197,7 +197,8 @@ export default function StrategicGoals() {
       });
       if (res.ok) {
         const data = await res.json();
-        setUsers(data);
+        // Filter to show only active users
+        setUsers(data.filter(u => u.status === 'active'));
       }
     } catch (error) {
       console.error('Failed to fetch users:', error);

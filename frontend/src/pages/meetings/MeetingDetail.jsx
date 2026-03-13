@@ -201,7 +201,10 @@ const MeetingDetail = () => {
         fetch(`${API}/api/strategic-goals`, { headers })
       ]);
 
-      if (usersRes.ok) setUsers(await usersRes.json());
+      if (usersRes.ok) {
+        const allUsers = await usersRes.json();
+        setUsers(allUsers.filter(u => u.status === 'active'));
+      }
       if (projectsRes.ok) setProjects(await projectsRes.json());
       if (goalsRes.ok) setGoals(await goalsRes.json());
     } catch (error) {

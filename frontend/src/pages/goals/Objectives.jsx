@@ -246,7 +246,10 @@ export default function Objectives() {
         }
       }
       if (goalsRes.ok) setGoals(await goalsRes.json());
-      if (usersRes.ok) setUsers(await usersRes.json());
+      if (usersRes.ok) {
+        const allUsers = await usersRes.json();
+        setUsers(allUsers.filter(u => u.status === 'active'));
+      }
       if (deptsRes.ok) setDepartments(await deptsRes.json());
     } catch (error) {
       console.error('Failed to fetch reference data:', error);

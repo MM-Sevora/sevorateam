@@ -190,7 +190,9 @@ const CreateMeeting = () => {
         const usersRes = await fetch(`${API}/api/admin/users`, { headers });
         if (usersRes.ok) {
           const usersData = await usersRes.json();
-          setUsers(Array.isArray(usersData) ? usersData : []);
+          const allUsers = Array.isArray(usersData) ? usersData : [];
+          // Filter to show only active users
+          setUsers(allUsers.filter(u => u.status === 'active'));
         }
       } catch (error) {
         console.error('Error fetching options:', error);
