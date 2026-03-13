@@ -7,7 +7,7 @@ import {
   Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, RefreshCw,
   Loader2, Clock, MapPin, Users, Video, MoreVertical, Trash2, Edit,
   CalendarDays, List, LayoutGrid, LogIn, LogOut, ChevronDown, X,
-  Bell, Repeat, Eye, Tag, Lock, UserPlus
+  Bell, Repeat, Eye, Tag, Lock, UserPlus, Check
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
@@ -85,6 +85,30 @@ export default function TeamsCalendar() {
   // Delete confirmation
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingEvent, setDeletingEvent] = useState(null);
+
+  // Shared Mailbox Calendar support
+  const [sharedMailboxes, setSharedMailboxes] = useState([]);
+  const [activeCalendar, setActiveCalendar] = useState(null); // null = personal, or shared mailbox email
+  const [loadingMailboxes, setLoadingMailboxes] = useState(false);
+
+  // Fetch shared mailboxes from backend
+  const fetchSharedMailboxes = useCallback(async () => {
+    try {
+      setLoadingMailboxes(true);
+      const token = localStorage.getItem('sevora_token');
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/shared-mailboxes/my-mailboxes`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setSharedMailboxes(data || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch shared mailboxes:', error);
+    } finally {
+      setLoadingMailboxes(false);
+    }
+  }, []);
 
   // Check calendar connection
   useEffect(() => {
@@ -204,7 +228,12 @@ export default function TeamsCalendar() {
         endDate.setHours(23, 59, 59, 999);
       }
 
-      const url = `/me/calendarView?startDateTime=${startDate.toISOString()}&endDateTime=${endDate.toISOString()}&$top=100&$orderby=start/dateTime&$select=id,subject,start,end,location,bodyPreview,isOnlineMeeting,onlineMeetingUrl,organizer,attendees,categories,isAllDay`;
+      // Build URL based on whether viewing personal or shared calendar
+      const calendarPath = activeCalendar 
+        ? `/users/${activeCalendar}/calendarView`
+        : `/me/calendarView`;
+      
+      const url = `${calendarPath}?startDateTime=${startDate.toISOString()}&endDateTime=${endDate.toISOString()}&$top=100&$orderby=start/dateTime&$select=id,subject,start,end,location,bodyPreview,isOnlineMeeting,onlineMeetingUrl,organizer,attendees,categories,isAllDay`;
 
       const data = await callGraphAPI(url);
       setEvents(data?.value || []);
@@ -215,13 +244,20 @@ export default function TeamsCalendar() {
     } finally {
       setLoading(false);
     }
-  }, [connected, currentDate, view, callGraphAPI]);
+  }, [connected, currentDate, view, callGraphAPI, activeCalendar]);
+
+  // Fetch shared mailboxes when connected
+  useEffect(() => {
+    if (connected) {
+      fetchSharedMailboxes();
+    }
+  }, [connected, fetchSharedMailboxes]);
 
   useEffect(() => {
     if (connected) {
       fetchEvents();
     }
-  }, [connected, fetchEvents]);
+  }, [connected, fetchEvents, activeCalendar]);
 
   // Handle Microsoft login
   const handleMicrosoftLogin = async () => {
@@ -928,26 +964,72 @@ export default function TeamsCalendar() {
           <p className="text-[#6B5D52] mt-1">Manage your Outlook calendar events</p>
         </div>
         <div className="flex items-center gap-3">
-          {/* User info */}
+          {/* Calendar Selector - Personal & Shared */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="border-[#D4BBA6] gap-2">
                 <div className="w-6 h-6 bg-gradient-to-br from-violet-500 to-violet-700 rounded-full flex items-center justify-center">
                   <span className="text-white text-xs font-medium">
-                    {account?.name?.charAt(0) || 'U'}
+                    {activeCalendar ? activeCalendar.charAt(0).toUpperCase() : (account?.name?.charAt(0) || 'U')}
                   </span>
                 </div>
-                <span className="text-sm text-[#4A3728] max-w-32 truncate hidden sm:block">
-                  {account?.username || 'User'}
+                <span className="text-sm text-[#4A3728] max-w-40 truncate hidden sm:block">
+                  {activeCalendar 
+                    ? sharedMailboxes.find(m => m.email === activeCalendar)?.display_name || activeCalendar
+                    : (account?.username || 'Personal')}
                 </span>
                 <ChevronDown className="w-4 h-4 text-[#6B5D52]" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-white border-[#D4BBA6]">
-              <div className="px-3 py-2 border-b">
-                <p className="font-medium text-[#4A3728]">{account?.name || 'Microsoft User'}</p>
-                <p className="text-sm text-[#6B5D52]">{account?.username}</p>
-              </div>
+            <DropdownMenuContent align="end" className="bg-white border-[#D4BBA6] min-w-[220px]">
+              {/* Personal Calendar */}
+              <DropdownMenuItem 
+                onClick={() => setActiveCalendar(null)}
+                className={!activeCalendar ? 'bg-violet-50' : ''}
+              >
+                <div className="flex items-center gap-2 w-full">
+                  <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-violet-700 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs font-medium">
+                      {account?.name?.charAt(0) || 'U'}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-[#4A3728] text-sm">{account?.name || 'Personal'}</p>
+                    <p className="text-xs text-[#6B5D52] truncate">{account?.username}</p>
+                  </div>
+                  {!activeCalendar && <Check className="w-4 h-4 text-violet-600" />}
+                </div>
+              </DropdownMenuItem>
+              
+              {/* Shared Mailbox Calendars */}
+              {sharedMailboxes.length > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <div className="px-2 py-1.5">
+                    <p className="text-xs font-medium text-[#6B5D52] uppercase tracking-wide">Shared Calendars</p>
+                  </div>
+                  {sharedMailboxes.map(mailbox => (
+                    <DropdownMenuItem 
+                      key={mailbox.id}
+                      onClick={() => setActiveCalendar(mailbox.email)}
+                      className={activeCalendar === mailbox.email ? 'bg-violet-50' : ''}
+                    >
+                      <div className="flex items-center gap-2 w-full">
+                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-700 rounded-full flex items-center justify-center">
+                          <Users className="w-4 h-4 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-[#4A3728] text-sm">{mailbox.display_name}</p>
+                          <p className="text-xs text-[#6B5D52] truncate">{mailbox.email}</p>
+                        </div>
+                        {activeCalendar === mailbox.email && <Check className="w-4 h-4 text-violet-600" />}
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              )}
+              
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleMicrosoftLogout} className="text-red-600">
                 <LogOut className="w-4 h-4 mr-2" />
                 Disconnect
