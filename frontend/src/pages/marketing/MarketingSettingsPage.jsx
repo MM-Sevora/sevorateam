@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../..
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
+import { Textarea } from '../../components/ui/textarea';
 import { Badge } from '../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../components/ui/dialog';
@@ -39,6 +40,143 @@ const PLATFORM_TYPES = [
   { value: 'ads', label: 'Advertising' },
   { value: 'print', label: 'Print / Offline' },
 ];
+
+// Email Settings Tab Component
+function EmailSettingsTab() {
+  const [emailSettings, setEmailSettings] = useState({
+    fromName: 'Sevora Marketing Team',
+    fromEmail: 'marketing@sevora.com',
+    replyTo: 'marketing@sevora.com',
+    subjectPrefix: '[Sevora] ',
+    signature: 'Best regards,\nSevora Marketing Team'
+  });
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchEmailSettings();
+  }, []);
+
+  const fetchEmailSettings = async () => {
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API_URL}/api/marketing/v2/settings/email`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.email) {
+          setEmailSettings(data.email);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch email settings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveEmailSettings = async () => {
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API_URL}/api/marketing/v2/settings/email`, {
+        method: 'PUT',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email: emailSettings })
+      });
+      if (res.ok) {
+        toast.success('Email settings saved');
+      } else {
+        toast.error('Failed to save settings');
+      }
+    } catch (error) {
+      toast.error('Error saving settings');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="flex justify-center p-8"><RefreshCw className="w-6 h-6 animate-spin" /></div>;
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="w-5 h-5" />
+            Email Configuration
+          </CardTitle>
+          <CardDescription>Default settings for influencer and publication outreach emails</CardDescription>
+        </div>
+        <Button onClick={saveEmailSettings} disabled={saving}>
+          {saving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+          Save Changes
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>From Name</Label>
+            <Input
+              value={emailSettings.fromName}
+              onChange={(e) => setEmailSettings(prev => ({ ...prev, fromName: e.target.value }))}
+              placeholder="Sevora Marketing Team"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>From Email</Label>
+            <Input
+              type="email"
+              value={emailSettings.fromEmail}
+              onChange={(e) => setEmailSettings(prev => ({ ...prev, fromEmail: e.target.value }))}
+              placeholder="marketing@sevora.com"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Reply-To Email</Label>
+            <Input
+              type="email"
+              value={emailSettings.replyTo}
+              onChange={(e) => setEmailSettings(prev => ({ ...prev, replyTo: e.target.value }))}
+              placeholder="marketing@sevora.com"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Subject Prefix</Label>
+            <Input
+              value={emailSettings.subjectPrefix}
+              onChange={(e) => setEmailSettings(prev => ({ ...prev, subjectPrefix: e.target.value }))}
+              placeholder="[Sevora] "
+            />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label>Default Email Signature</Label>
+          <textarea
+            className="w-full h-24 p-3 border rounded-md text-sm"
+            value={emailSettings.signature}
+            onChange={(e) => setEmailSettings(prev => ({ ...prev, signature: e.target.value }))}
+            placeholder="Best regards,&#10;Sevora Marketing Team"
+          />
+        </div>
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <p className="text-sm text-amber-800">
+            <strong>Note:</strong> These settings apply to outreach emails sent to influencers and publications. 
+            Make sure your email domain is verified with SendGrid for successful delivery.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function MarketingSettingsPage() {
   const [loading, setLoading] = useState(true);
@@ -221,7 +359,7 @@ export default function MarketingSettingsPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-4 w-full max-w-2xl">
+        <TabsList className="grid grid-cols-5 w-full max-w-3xl">
           <TabsTrigger value="project-types" className="flex items-center gap-2">
             <Layers className="w-4 h-4" />
             Project Types
@@ -237,6 +375,10 @@ export default function MarketingSettingsPage() {
           <TabsTrigger value="mediums" className="flex items-center gap-2">
             <Monitor className="w-4 h-4" />
             Mediums
+          </TabsTrigger>
+          <TabsTrigger value="email" className="flex items-center gap-2">
+            <Mail className="w-4 h-4" />
+            Email
           </TabsTrigger>
         </TabsList>
 
@@ -436,6 +578,11 @@ export default function MarketingSettingsPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Email Settings Tab */}
+        <TabsContent value="email" className="space-y-4">
+          <EmailSettingsTab />
         </TabsContent>
       </Tabs>
 
