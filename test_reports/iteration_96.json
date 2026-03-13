@@ -1,0 +1,111 @@
+{
+  "summary": "Tested Shared Mailboxes Admin API and Entity Links API for Marketing Operations Platform. Found and fixed 1 bug in entity_links.py (singular to plural type mapping). All 22 backend tests passed 100%.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "bugs_fixed": [
+    {
+      "file": "/app/backend/routes/entity_links.py",
+      "issue": "Entity type grouping was broken - singular types (influencer, lead, email) not mapping to plural keys (influencers, leads, emails) in /campaign/{id}/linked-entities response",
+      "fix": "Added type_to_key mapping to convert singular entity types to plural group keys"
+    }
+  ],
+  "test_results": {
+    "backend_api_tests": {
+      "status": "PASS (100%)",
+      "passed": 22,
+      "failed": 0,
+      "test_file": "/app/backend/tests/test_shared_mailboxes_entity_links.py",
+      "test_categories": {
+        "TestAuthentication": {
+          "test_login_success": "PASS - Login with superadmin@sevora.com works"
+        },
+        "TestSharedMailboxesCRUD": {
+          "test_list_shared_mailboxes": "PASS - GET /api/shared-mailboxes returns list",
+          "test_create_shared_mailbox_success": "PASS - POST /api/shared-mailboxes creates mailbox",
+          "test_create_and_verify_persistence": "PASS - Create->GET persistence verified",
+          "test_update_shared_mailbox": "PASS - PUT /api/shared-mailboxes/{id} updates mailbox",
+          "test_delete_shared_mailbox": "PASS - DELETE /api/shared-mailboxes/{id} removes mailbox",
+          "test_delete_nonexistent_returns_404": "PASS - 404 for non-existent mailbox",
+          "test_create_duplicate_email_returns_400": "PASS - 400 for duplicate email",
+          "test_get_my_mailboxes": "PASS - GET /api/shared-mailboxes/my-mailboxes returns accessible mailboxes"
+        },
+        "TestEntityLinksCRUD": {
+          "test_list_entity_links": "PASS - GET /api/entity-links returns list",
+          "test_get_available_campaigns": "PASS - GET /api/entity-links/campaigns returns campaigns for linking",
+          "test_create_entity_link_success": "PASS - POST /api/entity-links creates link",
+          "test_create_and_verify_persistence": "PASS - Create->GET persistence verified",
+          "test_get_links_for_entity": "PASS - GET /api/entity-links/for-entity/{type}/{id} returns links",
+          "test_get_campaign_linked_entities": "PASS - GET /api/entity-links/campaign/{id}/linked-entities returns grouped entities (after fix)",
+          "test_delete_entity_link": "PASS - DELETE /api/entity-links/{id} removes link",
+          "test_delete_nonexistent_returns_404": "PASS - 404 for non-existent link",
+          "test_create_duplicate_link_returns_400": "PASS - 400 for duplicate link",
+          "test_list_with_filters": "PASS - Query parameters work correctly"
+        },
+        "TestUnauthorizedAccess": {
+          "test_shared_mailboxes_unauthorized": "PASS - Requires auth",
+          "test_entity_links_unauthorized": "PASS - Requires auth",
+          "test_campaigns_endpoint_unauthorized": "PASS - Requires auth"
+        }
+      }
+    }
+  },
+  "features_verified": [
+    "1. Shared Mailboxes API - GET /api/shared-mailboxes - lists all shared mailboxes (admin sees all)",
+    "2. Shared Mailboxes API - POST /api/shared-mailboxes - creates new shared mailbox (admin only)",
+    "3. Shared Mailboxes API - PUT /api/shared-mailboxes/{id} - updates mailbox (admin only)",
+    "4. Shared Mailboxes API - DELETE /api/shared-mailboxes/{id} - deletes mailbox (admin only)",
+    "5. Shared Mailboxes API - GET /api/shared-mailboxes/{id} - get specific mailbox with access check",
+    "6. Shared Mailboxes API - GET /api/shared-mailboxes/my-mailboxes - user's accessible mailboxes",
+    "7. Shared mailbox access control via allowed_users, allowed_roles, allowed_departments",
+    "8. Entity Links API - GET /api/entity-links - list links with optional filters",
+    "9. Entity Links API - POST /api/entity-links - create link between entity and campaign",
+    "10. Entity Links API - DELETE /api/entity-links/{id} - remove link",
+    "11. Entity Links API - GET /api/entity-links/campaigns - get available campaigns for linking",
+    "12. Entity Links API - GET /api/entity-links/for-entity/{type}/{id} - get links for specific entity",
+    "13. Entity Links API - GET /api/entity-links/campaign/{id}/linked-entities - get grouped entities for campaign",
+    "14. Duplicate prevention - shared mailbox emails and entity links must be unique",
+    "15. All endpoints require authentication (return 401 without token)"
+  ],
+  "api_endpoints_tested": [
+    "GET /api/shared-mailboxes",
+    "POST /api/shared-mailboxes",
+    "PUT /api/shared-mailboxes/{id}",
+    "DELETE /api/shared-mailboxes/{id}",
+    "GET /api/shared-mailboxes/{id}",
+    "GET /api/shared-mailboxes/my-mailboxes",
+    "GET /api/entity-links",
+    "POST /api/entity-links",
+    "DELETE /api/entity-links/{id}",
+    "GET /api/entity-links/campaigns",
+    "GET /api/entity-links/for-entity/{type}/{id}",
+    "GET /api/entity-links/campaign/{id}/linked-entities"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_shared_mailboxes_entity_links.py",
+    "/app/test_reports/pytest/pytest_shared_mailboxes_entity_links.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_shared_mailboxes_entity_links.py",
+    "/app/backend/routes/entity_links.py"
+  ],
+  "success_rate": {
+    "backend": "100% (22/22 tests passed)"
+  },
+  "test_credentials": {
+    "email": "superadmin@sevora.com",
+    "password": "superadmin123"
+  },
+  "seed_data_creation": "Test data prefixed with TEST_ created and cleaned up during tests",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Shared Mailboxes and Entity Links APIs fully functional. MongoDB collections: shared_mailboxes, entity_links. Key behaviors: 1) Shared mailboxes support role/department/user-based access control, 2) Empty allowed_* arrays = accessible to everyone, 3) Entity links connect source entities (influencer, lead, email, contact, brand) to target campaigns, 4) /campaign/{id}/linked-entities returns grouped entities by type (influencers, leads, emails, contacts, brands, other), 5) Duplicate link prevention (same source+target returns 400). Frontend components: SharedMailboxesPage.jsx (/admin/shared-mailboxes), LinkToCampaign.jsx (reusable component), exportUtils.jsx (client-side export). Note: Export functionality is client-side only (no backend API needed)."
+}

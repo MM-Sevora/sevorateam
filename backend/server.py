@@ -4690,6 +4690,16 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Email Features routes: {e}")
 
+# Entity Links routes (Link to Campaign feature)
+try:
+    from routes.entity_links import router as entity_links_router, create_router as create_entity_links_router, init_entity_links
+    init_entity_links(db)
+    entity_links_router = create_entity_links_router(get_current_user)
+    api_router.include_router(entity_links_router)
+    logger.info("Entity Links routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Entity Links routes: {e}")
+
 app.include_router(api_router)
 
 # ============== WEBSOCKET FOR REAL-TIME NOTIFICATIONS ==============

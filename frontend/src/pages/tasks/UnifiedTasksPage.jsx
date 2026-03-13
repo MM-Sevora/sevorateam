@@ -23,6 +23,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu';
+import { ExportButton } from '../../lib/exportUtils';
 
 const priorityColors = {
     urgent: 'bg-red-100 text-red-700 border-red-200',
@@ -248,14 +249,31 @@ export default function UnifiedTasksPage() {
                     <h1 className="text-2xl font-bold text-[#5C4033]">Operational Tasks</h1>
                     <p className="text-[#8B7355]">Cross-module task tracking and follow-ups</p>
                 </div>
-                <Button 
-                    onClick={() => setShowCreateDialog(true)}
-                    className="bg-[#8B7355] hover:bg-[#5C4033] text-white"
-                    data-testid="create-task-btn"
-                >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Task
-                </Button>
+                <div className="flex items-center gap-2">
+                    <ExportButton 
+                        data={tasks}
+                        filename="tasks-export"
+                        columns={[
+                            { key: 'title', label: 'Title' },
+                            { key: 'description', label: 'Description' },
+                            { key: 'status', label: 'Status' },
+                            { key: 'priority', label: 'Priority' },
+                            { key: 'module', label: 'Module' },
+                            { key: 'assigned_to_name', label: 'Assigned To' },
+                            { key: 'due_date', label: 'Due Date' },
+                            { key: 'created_by_name', label: 'Created By' },
+                            { key: 'created_at', label: 'Created At' },
+                        ]}
+                    />
+                    <Button 
+                        onClick={() => setShowCreateDialog(true)}
+                        className="bg-[#8B7355] hover:bg-[#5C4033] text-white"
+                        data-testid="create-task-btn"
+                    >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create Task
+                    </Button>
+                </div>
             </div>
 
             {/* Stats Cards */}

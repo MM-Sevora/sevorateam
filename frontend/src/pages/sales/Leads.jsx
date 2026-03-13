@@ -22,6 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu';
+import { ExportButton } from '../../lib/exportUtils';
 
 const STAGE_COLORS = {
     'New Lead': 'bg-blue-500',
@@ -187,13 +188,28 @@ export const LeadsPage = () => {
                     <h1 className="text-2xl font-bold text-[#4A3728]">Leads</h1>
                     <p className="text-[#5D4A3A] mt-1">Manage your sales leads</p>
                 </div>
-                <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-                    <DialogTrigger asChild>
-                        <Button className="bg-stone-600 hover:bg-stone-700" data-testid="add-lead-btn">
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add Lead
-                        </Button>
-                    </DialogTrigger>
+                <div className="flex items-center gap-2">
+                    <ExportButton 
+                        data={leads}
+                        filename="leads-export"
+                        columns={[
+                            { key: 'name', label: 'Name' },
+                            { key: 'email', label: 'Email' },
+                            { key: 'phone', label: 'Phone' },
+                            { key: 'source', label: 'Source' },
+                            { key: 'stage', label: 'Stage' },
+                            { key: 'city', label: 'City' },
+                            { key: 'created_by_name', label: 'Created By' },
+                            { key: 'created_at', label: 'Created At' },
+                        ]}
+                    />
+                    <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+                        <DialogTrigger asChild>
+                            <Button className="bg-stone-600 hover:bg-stone-700" data-testid="add-lead-btn">
+                                <Plus className="w-4 h-4 mr-2" />
+                                Add Lead
+                            </Button>
+                        </DialogTrigger>
                     <DialogContent className="bg-white border-[#E8D5C4] text-[#4A3728] max-w-lg">
                         <DialogHeader>
                             <DialogTitle>Add New Lead</DialogTitle>
@@ -287,6 +303,7 @@ export const LeadsPage = () => {
                         </div>
                     </DialogContent>
                 </Dialog>
+                </div>
             </div>
 
             {/* Search & Filters */}

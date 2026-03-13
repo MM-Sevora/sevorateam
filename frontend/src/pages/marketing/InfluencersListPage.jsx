@@ -15,8 +15,10 @@ import { toast } from 'sonner';
 import { 
   RefreshCw, Plus, Search, Filter, Instagram, Youtube, 
   MoreHorizontal, Users, Sparkles, ChevronUp, ChevronDown, Download, User, AtSign, DollarSign, Building, X,
-  TrendingUp, Heart, Target, Eye, Send, Trash2, Edit, ExternalLink, BadgeCheck, Loader2, GitCompare, Wand2
+  TrendingUp, Heart, Target, Eye, Send, Trash2, Edit, ExternalLink, BadgeCheck, Loader2, GitCompare, Wand2, Link2
 } from 'lucide-react';
+import { ExportButton } from '../../lib/exportUtils';
+import LinkToCampaign from '../../lib/LinkToCampaign';
 
 const InfluencersListPage = () => {
   const { api } = useAuth();
@@ -769,6 +771,23 @@ const InfluencersListPage = () => {
               <Button variant="outline" onClick={handleRefreshAll} className="gap-2">
                 <RefreshCw className="w-4 h-4" /> Refresh
               </Button>
+              <ExportButton 
+                data={influencers}
+                filename="influencers-export"
+                columns={[
+                  { key: 'name', label: 'Name' },
+                  { key: 'instagram_handle', label: 'Instagram' },
+                  { key: 'youtube_handle', label: 'YouTube' },
+                  { key: 'email', label: 'Email' },
+                  { key: 'city', label: 'City' },
+                  { key: 'status', label: 'Status' },
+                  { key: 'tier', label: 'Tier' },
+                  { key: 'score', label: 'Score' },
+                  { key: 'instagram_followers', label: 'IG Followers' },
+                  { key: 'instagram_engagement_rate', label: 'IG Engagement %' },
+                  { key: 'youtube_subscribers', label: 'YT Subscribers' },
+                ]}
+              />
               <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
                 <DialogTrigger asChild>
                   <Button className="bg-[#c4a35a] hover:bg-[#b39349] text-white gap-2">
@@ -2078,6 +2097,22 @@ const InfluencersListPage = () => {
                             className="cursor-pointer"
                           >
                             <ExternalLink className="w-4 h-4 mr-2" /> View Social Profile
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={(e) => e.preventDefault()}
+                            className="cursor-pointer p-0"
+                          >
+                            <div className="w-full">
+                              <LinkToCampaign 
+                                entityType="influencer"
+                                entityId={inf.id}
+                                entityName={inf.name}
+                                variant="ghost"
+                                size="sm"
+                                className="w-full justify-start px-2 py-1.5 h-auto font-normal"
+                              />
+                            </div>
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem 

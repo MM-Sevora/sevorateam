@@ -100,6 +100,7 @@ import WebsiteSettings from "./pages/admin/WebsiteSettings";
 import SystemModulesPage from "./pages/admin/SystemModulesPage";
 import UsersPermissionsPage from "./pages/admin/UsersPermissionsPage";
 import DataImportPage from "./pages/admin/DataImportPage";
+import SharedMailboxesPage from "./pages/admin/SharedMailboxesPage";
 
 // Settings Pages
 import AutomationSettings from "./pages/settings/AutomationSettings";
@@ -499,6 +500,7 @@ function AppRoutes() {
             <Route path="/admin/org-structure" element={<Navigate to="/admin/organization" replace />} />
             <Route path="/admin/website-settings" element={<ProtectedRoute requiredModule="admin"><WebsiteSettings /></ProtectedRoute>} />
             <Route path="/admin/data-import" element={<ProtectedRoute requiredModule="admin"><DataImportPage /></ProtectedRoute>} />
+            <Route path="/admin/shared-mailboxes" element={<ProtectedRoute requiredModule="admin"><SharedMailboxesPage /></ProtectedRoute>} />
             {/* /admin/team removed - use Team Dashboard under Analytics & Insights instead */}
 
             {/* Systems Module Routes */}
