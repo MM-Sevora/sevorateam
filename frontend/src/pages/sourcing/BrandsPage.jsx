@@ -25,10 +25,33 @@ import EntityIntegrationCheck from '../../components/shared/EntityIntegrationChe
 const DIVISIONS = ['Apparel', 'Accessories', 'Footwear', 'Home & Living', 'Beauty'];
 const SEGMENTS = ['Mass', 'Mass Premium', 'Bridge to Luxury', 'Affordable Luxury', 'Premium', 'Luxury'];
 const PIPELINE_STAGES = ['Discovery', 'Contacted', 'Qualified', 'Interested', 'Negotiation', 'Onboarded', 'Lost'];
-const CATEGORIES = [
-  'Indian / Ethnic Wear', 'Western', 'Indo-Western', 'Festive Wear', 'Party Wear', 'Casual Wear',
-  'Formal Wear', 'Bridal Wear', 'Sarees', 'Kurta Sets', 'Dresses', 'Suits'
-];
+
+// Division-specific categories
+const CATEGORIES_BY_DIVISION = {
+  'Apparel': [
+    'Indian / Ethnic Wear', 'Western', 'Indo-Western', 'Festive Wear', 'Party Wear', 'Casual Wear',
+    'Formal Wear', 'Bridal Wear', 'Sarees', 'Kurta Sets', 'Dresses', 'Suits', 'Loungewear', 'Activewear'
+  ],
+  'Accessories': [
+    'Bags & Handbags', 'Jewelry', 'Watches', 'Belts', 'Scarves & Stoles', 'Sunglasses', 'Wallets',
+    'Hair Accessories', 'Hats & Caps', 'Ties & Bowties', 'Cufflinks', 'Brooches'
+  ],
+  'Footwear': [
+    'Heels', 'Flats', 'Sneakers', 'Boots', 'Sandals', 'Loafers', 'Formal Shoes', 'Ethnic Footwear',
+    'Sports Shoes', 'Wedges', 'Mules', 'Slippers'
+  ],
+  'Home & Living': [
+    'Bedding', 'Cushions & Throws', 'Curtains', 'Rugs & Carpets', 'Table Linen', 'Bath Linen',
+    'Decor', 'Candles & Fragrances', 'Kitchenware', 'Storage & Organization'
+  ],
+  'Beauty': [
+    'Skincare', 'Makeup', 'Haircare', 'Fragrances', 'Nail Care', 'Bath & Body', 
+    'Men\'s Grooming', 'Tools & Accessories', 'Organic & Natural', 'Luxury Beauty'
+  ]
+};
+
+// Default categories (for backwards compatibility)
+const CATEGORIES = CATEGORIES_BY_DIVISION['Apparel'];
 const GENDERS = ['Women', 'Men', 'Unisex'];
 const CITIES = [
   'Delhi', 'Mumbai', 'Bengaluru', 'Jaipur', 'Kolkata', 'Chennai', 'Hyderabad',
@@ -429,7 +452,14 @@ const BrandsPage = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label className="text-xs text-gray-500 uppercase tracking-wider">Division *</Label>
-                <Select value={newBrand.division} onValueChange={(v) => setNewBrand(prev => ({ ...prev, division: v }))}>
+                <Select 
+                  value={newBrand.division} 
+                  onValueChange={(v) => setNewBrand(prev => ({ 
+                    ...prev, 
+                    division: v, 
+                    categories: [] // Clear categories when division changes
+                  }))}
+                >
                   <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {DIVISIONS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
@@ -447,11 +477,11 @@ const BrandsPage = () => {
               </div>
             </div>
 
-            {/* Categories */}
+            {/* Categories - Dynamic based on Division */}
             <div>
               <Label className="text-xs text-gray-500 uppercase tracking-wider mb-2 block">Categories (Select Multiple)</Label>
               <div className="grid grid-cols-3 gap-2">
-                {CATEGORIES.map(cat => (
+                {(CATEGORIES_BY_DIVISION[newBrand.division] || CATEGORIES).map(cat => (
                   <div key={cat} className="flex items-center gap-2">
                     <Checkbox
                       id={`cat-${cat}`}
