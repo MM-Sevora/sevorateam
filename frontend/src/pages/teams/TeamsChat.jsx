@@ -3,7 +3,7 @@ import { useMsal, useIsAuthenticated } from '@azure/msal-react';
 import { InteractionRequiredAuthError } from '@azure/msal-browser';
 import { 
   MessageSquare, Users, Search, Send, Plus, RefreshCw, 
-  CheckCircle, XCircle, Loader2, ChevronLeft, Settings,
+  CheckCircle, Loader2, ChevronLeft, Settings,
   User, AtSign, MoreVertical, Phone, Video, Info, ListTodo,
   Calendar, Flag, FolderKanban, CalendarPlus, Clock, MapPin, Target,
   LogOut, ChevronDown
@@ -864,20 +864,6 @@ export default function TeamsChat() {
             ))
           )}
         </ScrollArea>
-        
-        {/* Footer */}
-        <div className="p-2 border-t border-[#E8D5C4] bg-white">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={handleMicrosoftLogout}
-            className="w-full text-red-500 hover:text-red-600 hover:bg-red-50 text-[10px] h-7"
-            data-testid="disconnect-teams-btn"
-          >
-            <XCircle className="w-3 h-3 mr-1" />
-            Disconnect
-          </Button>
-        </div>
       </div>
       
       {/* Chat View */}
