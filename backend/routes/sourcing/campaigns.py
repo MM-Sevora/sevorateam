@@ -380,6 +380,49 @@ def create_campaigns_router(db, get_current_user: Callable):
             {"_id": 0}
         ).sort("delay_days", 1).to_list(length=50)
     
+    @router.get("/follow-ups")
+    async def get_all_follow_ups(
+        current_user: dict = Depends(get_current_user)
+    ):
+        """Get all upcoming follow-ups for calendar integration"""
+        # Get follow-ups from campaigns
+        campaign_follow_ups = await db.sourcing_follow_ups.find(
+            {},
+            {"_id": 0}
+        ).to_list(length=100)
+        
+        # Get brands/contacts with follow_up_date set
+        brands_with_followup = await db.sourcing_brands.find(
+            {"follow_up_date": {"$exists": True, "$ne": None}},
+            {"_id": 0, "id": 1, "name": 1, "follow_up_date": 1}
+        ).to_list(length=100)
+        
+        results = []
+        
+        # Add campaign follow-ups
+        for f in campaign_follow_ups:
+            results.append({
+                "id": f.get("id"),
+                "entity_type": "campaign",
+                "entity_id": f.get("campaign_id"),
+                "entity_name": f.get("subject", "Follow-up"),
+                "follow_up_date": f.get("scheduled_date") or f.get("created_at"),
+                "delay_days": f.get("delay_days"),
+                "condition": f.get("condition")
+            })
+        
+        # Add brand follow-ups
+        for b in brands_with_followup:
+            results.append({
+                "id": f"brand-{b.get('id')}",
+                "entity_type": "brand",
+                "entity_id": b.get("id"),
+                "entity_name": b.get("name"),
+                "follow_up_date": b.get("follow_up_date")
+            })
+        
+        return results
+    
     # =====================
     # QUICK SEND FROM BRAND
     # =====================

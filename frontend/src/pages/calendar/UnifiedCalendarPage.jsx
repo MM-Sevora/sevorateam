@@ -157,7 +157,7 @@ const UnifiedCalendarPage = () => {
       // 4. Fetch Sourcing Follow-ups
       if (visibleSources.sourcing) {
         try {
-          const response = await api.get('/sourcing/follow-ups');
+          const response = await api.get('/sourcing/campaigns/follow-ups');
           (response.data || []).forEach(followUp => {
             if (followUp.follow_up_date) {
               allEvents.push({

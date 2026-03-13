@@ -1,3 +1,48 @@
+## March 13, 2026 - Calendar Sync & Unified Calendar View ✅
+
+### What Was Built
+1. **Internal Meetings → Outlook Sync**: Auto-create Outlook calendar events when creating internal meetings
+2. **Unified Calendar Page**: Single view showing all events from different modules
+
+### Internal Meetings → Outlook Sync
+- When `sync_to_outlook` is enabled during meeting creation, the meeting is automatically synced to Outlook
+- Creates Outlook event with attendees, agenda, meeting link
+- Stores `outlook_event_id` back in meeting record for future sync
+- New PATCH endpoint `/api/meetings/{id}` for partial updates
+
+### Unified Calendar View (`/calendar`)
+| Source | Endpoint | Color |
+|--------|----------|-------|
+| Outlook Calendar | Microsoft Graph API | Blue |
+| Internal Meetings | `/api/meetings` | Violet |
+| Marketing Campaigns | `/api/marketing/v2/unified-campaigns` | Pink |
+| Sourcing Follow-ups | `/api/sourcing/campaigns/follow-ups` | Emerald |
+| Task Deadlines | `/api/tasks/paginated` | Amber |
+
+### Features
+- Filter events by source (toggle visibility)
+- Click event to navigate to detail page
+- Side panel shows events for selected date
+- Color-coded event chips by source
+- Month view with day grid
+
+### New Files Created
+| File | Purpose |
+|------|---------|
+| `/app/frontend/src/pages/calendar/UnifiedCalendarPage.jsx` | Unified calendar component |
+
+### Files Modified
+| File | Changes |
+|------|---------|
+| `/app/frontend/src/pages/meetings/CreateMeeting.jsx` | Added `syncMeetingToOutlook` function |
+| `/app/backend/routes/meetings.py` | Added PATCH endpoint |
+| `/app/backend/routes/sourcing/campaigns.py` | Added follow-ups endpoint |
+
+### Testing
+- Backend tests: 16/16 passed (100%)
+
+---
+
 ## March 13, 2026 - Admin UI, Link to Campaign & Export Features ✅
 
 ### What Was Built
