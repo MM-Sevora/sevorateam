@@ -7,6 +7,7 @@ import os
 import json
 import logging
 import aiohttp
+import uuid
 from typing import List, Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
@@ -54,32 +55,49 @@ class AIInfluencerDiscoveryService:
                 "influencers": []
             }
         
-        # Step 2: Verify each suggestion with real APIs
-        verified_influencers = []
+        # Step 2: Verify each suggestion with real APIs IN PARALLEL
+        import asyncio
         
-        for suggestion in ai_suggestions:
+        async def verify_single(suggestion, platform_type):
+            """Verify a single suggestion"""
             handle = suggestion.get("handle", "").replace("@", "").strip()
             if not handle:
-                continue
+                return None
                 
-            # Verify based on platform
-            if platform.lower() in ["instagram", "both"]:
+            verified = None
+            if platform_type == "instagram":
                 verified = await self._verify_instagram_handle(handle)
-                if verified:
-                    verified["ai_reason"] = suggestion.get("reason", "")
-                    verified["match_score"] = suggestion.get("match_score", 75)
-                    verified_influencers.append(verified)
-                    
-            if platform.lower() in ["youtube", "both"]:
+            elif platform_type == "youtube":
                 verified = await self._verify_youtube_channel(handle)
-                if verified:
-                    verified["ai_reason"] = suggestion.get("reason", "")
-                    verified["match_score"] = suggestion.get("match_score", 75)
-                    verified_influencers.append(verified)
             
-            # Stop if we have enough
-            if len(verified_influencers) >= limit:
-                break
+            if verified:
+                verified["ai_reason"] = suggestion.get("reason", "")
+                verified["match_score"] = suggestion.get("match_score", 75)
+            return verified
+        
+        # Create verification tasks for all suggestions in parallel
+        tasks = []
+        for suggestion in ai_suggestions:
+            if platform.lower() in ["instagram", "both"]:
+                tasks.append(verify_single(suggestion, "instagram"))
+            if platform.lower() in ["youtube", "both"]:
+                tasks.append(verify_single(suggestion, "youtube"))
+        
+        # Run all verifications in parallel (limit concurrency to avoid rate limits)
+        verified_influencers = []
+        if tasks:
+            # Process in batches of 5 to avoid overwhelming APIs
+            batch_size = 5
+            for i in range(0, len(tasks), batch_size):
+                batch = tasks[i:i + batch_size]
+                results = await asyncio.gather(*batch, return_exceptions=True)
+                for result in results:
+                    if result and not isinstance(result, Exception):
+                        verified_influencers.append(result)
+                    if len(verified_influencers) >= limit:
+                        break
+                if len(verified_influencers) >= limit:
+                    break
         
         return {
             "success": True,
@@ -141,13 +159,15 @@ Return JSON array with this format:
 Only return the JSON array, no other text."""
 
             llm = LlmChat(
-                api_key=os.environ.get("EMERGENT_API_KEY") or os.environ.get("OPENAI_API_KEY"),
-                model="gpt-4o"
-            )
-            response = await llm.chat([UserMessage(content=prompt)])
+                api_key=os.environ.get("EMERGENT_LLM_KEY") or os.environ.get("EMERGENT_API_KEY") or os.environ.get("OPENAI_API_KEY"),
+                session_id=f"influencer_discovery_{uuid.uuid4()}",
+                system_message="You are an influencer marketing expert who helps brands discover relevant influencers."
+            ).with_model("openai", "gpt-4o")
             
-            # Parse JSON from response
-            content = response.message.strip()
+            response = await llm.send_message(UserMessage(text=prompt))
+            
+            # Parse JSON from response (response is a string directly)
+            content = response.strip() if isinstance(response, str) else str(response).strip()
             # Handle markdown code blocks
             if "```json" in content:
                 content = content.split("```json")[1].split("```")[0]
