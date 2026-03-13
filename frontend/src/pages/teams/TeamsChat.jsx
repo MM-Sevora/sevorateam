@@ -44,6 +44,100 @@ const stripHtml = (html) => {
   return decodeHtml(html.replace(/<[^>]*>/g, ''));
 };
 
+// Process message content to handle images with authentication
+const processMessageContent = async (content, accessToken) => {
+  if (!content) return '';
+  
+  // Find all img tags with src containing graph.microsoft.com
+  const imgRegex = /<img[^>]+src="([^"]*graph\.microsoft\.com[^"]*)"[^>]*>/gi;
+  let processedContent = content;
+  let match;
+  
+  // Collect all image URLs that need processing
+  const imageUrls = [];
+  while ((match = imgRegex.exec(content)) !== null) {
+    imageUrls.push({ fullMatch: match[0], url: match[1] });
+  }
+  
+  // Also check for hosted content URLs
+  const hostedRegex = /<img[^>]+src="([^"]*hostedContents[^"]*)"[^>]*>/gi;
+  while ((match = hostedRegex.exec(content)) !== null) {
+    if (!imageUrls.some(img => img.url === match[1])) {
+      imageUrls.push({ fullMatch: match[0], url: match[1] });
+    }
+  }
+  
+  // Process each image URL
+  for (const img of imageUrls) {
+    try {
+      // Fetch the image with authentication
+      const response = await fetch(img.url, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        // Replace the original URL with the blob URL
+        processedContent = processedContent.replace(
+          img.url, 
+          objectUrl
+        );
+      }
+    } catch (error) {
+      console.error('Failed to load image:', error);
+    }
+  }
+  
+  return processedContent;
+};
+
+// MessageContent component for handling images in chat messages
+const MessageContent = ({ content, messageId, getAccessToken }) => {
+  const [processedContent, setProcessedContent] = React.useState(content);
+  const [isProcessing, setIsProcessing] = React.useState(false);
+
+  React.useEffect(() => {
+    const hasGraphImages = content && (
+      content.includes('graph.microsoft.com') || 
+      content.includes('hostedContents') ||
+      content.includes('$value')
+    );
+
+    if (hasGraphImages) {
+      setIsProcessing(true);
+      getAccessToken().then(async (token) => {
+        if (token) {
+          const processed = await processMessageContent(content, token);
+          setProcessedContent(processed);
+        }
+        setIsProcessing(false);
+      }).catch(() => {
+        setIsProcessing(false);
+      });
+    } else {
+      setProcessedContent(content);
+    }
+  }, [content, messageId, getAccessToken]);
+
+  if (isProcessing) {
+    return (
+      <div className="text-[13px] leading-relaxed">
+        <div className="animate-pulse bg-gray-200 rounded h-32 w-48 flex items-center justify-center">
+          <span className="text-gray-500 text-xs">Loading image...</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div 
+      className="text-[13px] leading-relaxed [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-2"
+      dangerouslySetInnerHTML={{ __html: processedContent }}
+    />
+  );
+};
+
 export default function TeamsChat() {
   const { instance, accounts, inProgress } = useMsal();
   const isAuthenticated = useIsAuthenticated();
@@ -72,6 +166,9 @@ export default function TeamsChat() {
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editMessageContent, setEditMessageContent] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
+  
+  // Processed message content cache (for images)
+  const [processedMessages, setProcessedMessages] = useState({});
   
   // Task creation state
   const [showTaskModal, setShowTaskModal] = useState(false);
@@ -1038,11 +1135,10 @@ export default function TeamsChat() {
                                   autoFocus
                                 />
                               ) : (
-                                <div 
-                                  className="text-[13px] leading-relaxed"
-                                  dangerouslySetInnerHTML={{ 
-                                    __html: message.body?.content || '' 
-                                  }}
+                                <MessageContent 
+                                  content={message.body?.content || ''} 
+                                  messageId={message.id}
+                                  getAccessToken={getAccessToken}
                                 />
                               )}
                             </div>
