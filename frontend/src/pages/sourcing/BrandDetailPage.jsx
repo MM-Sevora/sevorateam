@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -9,26 +9,57 @@ import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
+import { Checkbox } from '../../components/ui/checkbox';
 import { toast } from 'sonner';
 import { 
   ArrowLeft, Edit2, Trash2, Sparkles, Phone, Mail, Globe, MapPin,
   Calendar, Clock, Users, Plus, ExternalLink, MessageSquare, History,
-  Building2, User, Send, ClipboardList
+  Building2, User, Send, ClipboardList, Save, X
 } from 'lucide-react';
 import EmailComposer from '../../components/sourcing/EmailComposer';
 import CreateTaskDialog from '../../components/shared/CreateTaskDialog';
 
 const PIPELINE_STAGES = ['Discovery', 'Contacted', 'Qualified', 'Interested', 'Negotiation', 'Onboarded', 'Lost'];
+const DIVISIONS = ['Apparel', 'Accessories', 'Footwear', 'Home & Living', 'Beauty'];
+const SEGMENTS = ['Mass', 'Mass Premium', 'Bridge to Luxury', 'Affordable Luxury', 'Premium', 'Luxury'];
 
-const BrandDetailPage = () => {
+// Division-specific categories
+const CATEGORIES_BY_DIVISION = {
+  'Apparel': [
+    'Indian / Ethnic Wear', 'Western', 'Indo-Western', 'Festive Wear', 'Party Wear', 'Casual Wear',
+    'Formal Wear', 'Bridal Wear', 'Sarees', 'Kurta Sets', 'Dresses', 'Suits', 'Loungewear', 'Activewear'
+  ],
+  'Accessories': [
+    'Bags & Handbags', 'Jewelry', 'Watches', 'Belts', 'Scarves & Stoles', 'Sunglasses', 'Wallets',
+    'Hair Accessories', 'Hats & Caps', 'Ties & Bowties', 'Cufflinks', 'Brooches'
+  ],
+  'Footwear': [
+    'Heels', 'Flats', 'Sneakers', 'Boots', 'Sandals', 'Loafers', 'Formal Shoes', 'Ethnic Footwear',
+    'Sports Shoes', 'Wedges', 'Mules', 'Slippers'
+  ],
+  'Home & Living': [
+    'Bedding', 'Cushions & Throws', 'Curtains', 'Rugs & Carpets', 'Table Linen', 'Bath Linen',
+    'Decor', 'Candles & Fragrances', 'Kitchenware', 'Storage & Organization'
+  ],
+  'Beauty': [
+    'Skincare', 'Makeup', 'Haircare', 'Fragrances', 'Nail Care', 'Bath & Body', 
+    'Men\'s Grooming', 'Tools & Accessories', 'Organic & Natural', 'Luxury Beauty'
+  ]
+};
+
+const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { api } = useAuth();
   const [brand, setBrand] = useState(null);
+  const [editedBrand, setEditedBrand] = useState(null);
+  const [isEditMode, setIsEditMode] = useState(initialEditMode || location.pathname.endsWith('/edit'));
   const [contacts, setContacts] = useState([]);
   const [notes, setNotes] = useState([]);
   const [activityLogs, setActivityLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [showAddContact, setShowAddContact] = useState(false);
   const [showEmailComposer, setShowEmailComposer] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
@@ -39,6 +70,18 @@ const BrandDetailPage = () => {
   useEffect(() => {
     fetchBrandDetails();
   }, [id]);
+
+  useEffect(() => {
+    // Update edit mode based on URL
+    setIsEditMode(location.pathname.endsWith('/edit'));
+  }, [location.pathname]);
+
+  useEffect(() => {
+    // Initialize edited brand when entering edit mode
+    if (isEditMode && brand && !editedBrand) {
+      setEditedBrand({ ...brand });
+    }
+  }, [isEditMode, brand]);
 
   const fetchBrandDetails = async () => {
     setLoading(true);
@@ -59,6 +102,29 @@ const BrandDetailPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSaveBrand = async () => {
+    if (!editedBrand.name) {
+      toast.error('Brand name is required');
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.put(`/sourcing/brands/${id}`, editedBrand);
+      setBrand(editedBrand);
+      toast.success('Brand updated successfully');
+      navigate(`/sourcing/brands/${id}`);
+    } catch (error) {
+      toast.error('Failed to update brand');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditedBrand(null);
+    navigate(`/sourcing/brands/${id}`);
   };
 
   const handleUpdateStage = async (newStage) => {
@@ -121,6 +187,207 @@ const BrandDetailPage = () => {
 
   if (!brand) return null;
 
+  // Edit Mode Render
+  if (isEditMode && editedBrand) {
+    return (
+      <div className="p-6 space-y-6" data-testid="brand-edit-page">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <button onClick={handleCancelEdit} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 mb-2">
+              <ArrowLeft className="h-4 w-4" /> Back to Brand
+            </button>
+            <h1 className="text-3xl font-serif text-gray-900">Edit Brand</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={handleCancelEdit}>
+              <X className="h-4 w-4 mr-2" /> Cancel
+            </Button>
+            <Button onClick={handleSaveBrand} disabled={saving} className="bg-green-600 hover:bg-green-700">
+              <Save className="h-4 w-4 mr-2" /> {saving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
+        </div>
+
+        {/* Edit Form */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Brand Information</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Basic Info */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Brand Name *</Label>
+                <Input
+                  value={editedBrand.name || ''}
+                  onChange={(e) => setEditedBrand(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Brand name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Website</Label>
+                <Input
+                  value={editedBrand.website || ''}
+                  onChange={(e) => setEditedBrand(prev => ({ ...prev, website: e.target.value }))}
+                  placeholder="https://example.com"
+                />
+              </div>
+            </div>
+
+            {/* Division, Segment, Stage */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Division</Label>
+                <Select 
+                  value={editedBrand.division || 'Apparel'} 
+                  onValueChange={(v) => setEditedBrand(prev => ({ ...prev, division: v, categories: [] }))}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {DIVISIONS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Segment</Label>
+                <Select 
+                  value={editedBrand.segment || ''} 
+                  onValueChange={(v) => setEditedBrand(prev => ({ ...prev, segment: v }))}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select segment" /></SelectTrigger>
+                  <SelectContent>
+                    {SEGMENTS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Pipeline Stage</Label>
+                <Select 
+                  value={editedBrand.pipeline_stage || 'Discovery'} 
+                  onValueChange={(v) => setEditedBrand(prev => ({ ...prev, pipeline_stage: v }))}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {PIPELINE_STAGES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Categories */}
+            <div className="space-y-2">
+              <Label>Categories</Label>
+              <div className="grid grid-cols-4 gap-2">
+                {(CATEGORIES_BY_DIVISION[editedBrand.division] || CATEGORIES_BY_DIVISION['Apparel']).map(cat => (
+                  <div key={cat} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`edit-cat-${cat}`}
+                      checked={(editedBrand.categories || []).includes(cat)}
+                      onCheckedChange={(checked) => {
+                        const categories = editedBrand.categories || [];
+                        if (checked) {
+                          setEditedBrand(prev => ({ ...prev, categories: [...categories, cat] }));
+                        } else {
+                          setEditedBrand(prev => ({ ...prev, categories: categories.filter(c => c !== cat) }));
+                        }
+                      }}
+                    />
+                    <label htmlFor={`edit-cat-${cat}`} className="text-sm cursor-pointer">{cat}</label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Contact Info */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Contact Email</Label>
+                <Input
+                  type="email"
+                  value={editedBrand.email || ''}
+                  onChange={(e) => setEditedBrand(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="contact@brand.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Phone</Label>
+                <Input
+                  value={editedBrand.phone || ''}
+                  onChange={(e) => setEditedBrand(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="+91 98765 43210"
+                />
+              </div>
+            </div>
+
+            {/* Founder Info */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Founder Name</Label>
+                <Input
+                  value={editedBrand.founder_name || ''}
+                  onChange={(e) => setEditedBrand(prev => ({ ...prev, founder_name: e.target.value }))}
+                  placeholder="Founder name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>City</Label>
+                <Input
+                  value={editedBrand.city || ''}
+                  onChange={(e) => setEditedBrand(prev => ({ ...prev, city: e.target.value }))}
+                  placeholder="City"
+                />
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea
+                value={editedBrand.description || ''}
+                onChange={(e) => setEditedBrand(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Brand description..."
+                rows={4}
+              />
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label>Internal Notes</Label>
+              <Textarea
+                value={editedBrand.notes || ''}
+                onChange={(e) => setEditedBrand(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Internal notes about this brand..."
+                rows={3}
+              />
+            </div>
+
+            {/* Social Links */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Instagram Handle</Label>
+                <Input
+                  value={editedBrand.instagram || ''}
+                  onChange={(e) => setEditedBrand(prev => ({ ...prev, instagram: e.target.value }))}
+                  placeholder="@brandhandle"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>LinkedIn</Label>
+                <Input
+                  value={editedBrand.linkedin || ''}
+                  onChange={(e) => setEditedBrand(prev => ({ ...prev, linkedin: e.target.value }))}
+                  placeholder="LinkedIn URL"
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Detail Mode Render
   return (
     <div className="p-6 space-y-6" data-testid="brand-detail-page">
       {/* Header */}

@@ -584,6 +584,7 @@ function AppRoutes() {
             <Route path="/sourcing/brands" element={<ProtectedRoute requiredModule="project_management"><BrandsPage /></ProtectedRoute>} />
             <Route path="/sourcing/brands/pipeline" element={<ProtectedRoute requiredModule="project_management"><BrandPipeline /></ProtectedRoute>} />
             <Route path="/sourcing/brands/:id" element={<ProtectedRoute requiredModule="project_management"><BrandDetailPage /></ProtectedRoute>} />
+            <Route path="/sourcing/brands/:id/edit" element={<ProtectedRoute requiredModule="project_management"><BrandDetailPage editMode={true} /></ProtectedRoute>} />
             <Route path="/sourcing/suppliers" element={<ProtectedRoute requiredModule="project_management"><SuppliersPage /></ProtectedRoute>} />
             <Route path="/sourcing/suppliers/pipeline" element={<ProtectedRoute requiredModule="project_management"><SupplierPipeline /></ProtectedRoute>} />
             <Route path="/sourcing/suppliers/:id" element={<ProtectedRoute requiredModule="project_management"><SupplierDetailPage /></ProtectedRoute>} />
