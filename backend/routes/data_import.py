@@ -54,6 +54,46 @@ ALLOWED_COLLECTIONS = {
 }
 
 
+@router.get("/export/{collection_name}")
+async def export_collection_data(
+    collection_name: str,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Export collection data as JSON
+    """
+    import json
+    from fastapi.responses import Response
+    
+    # Check admin permission
+    if user.get("role") not in ["Super Admin", "Admin", "super_admin", "admin"]:
+        raise HTTPException(status_code=403, detail="Only admins can export data")
+    
+    # Validate collection name
+    if collection_name not in ALLOWED_COLLECTIONS:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid collection. Allowed: {list(ALLOWED_COLLECTIONS.keys())}"
+        )
+    
+    collection = db[ALLOWED_COLLECTIONS[collection_name]]
+    
+    # Get all documents
+    docs = await collection.find({}, {"_id": 0}).to_list(None)
+    
+    # Convert to JSON
+    json_data = json.dumps(docs, indent=2, default=str)
+    
+    # Return as downloadable file
+    return Response(
+        content=json_data,
+        media_type="application/json",
+        headers={
+            "Content-Disposition": f"attachment; filename={collection_name}_export.json"
+        }
+    )
+
+
 @router.get("/collections")
 async def get_importable_collections(user: dict = Depends(get_current_user)):
     """Get list of collections that can be imported"""
