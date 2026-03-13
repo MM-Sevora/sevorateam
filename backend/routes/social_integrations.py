@@ -8,6 +8,7 @@ Easy to swap for real APIs when developer credentials are available.
 
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any, Callable
 from datetime import datetime, timezone, timedelta
@@ -2446,6 +2447,74 @@ async def start_linkedin_oauth(user: dict = Depends(get_current_user)):
     }
 
 
+@router.get("/oauth/facebook/start")
+async def start_facebook_oauth(user: dict = Depends(get_current_user)):
+    """
+    Start Facebook OAuth flow for connecting Facebook Page and Instagram.
+    Returns URL to redirect user for authorization.
+    
+    Required permissions:
+    - pages_show_list: List pages the user manages
+    - pages_read_engagement: Read page insights
+    - pages_manage_posts: Post to pages
+    - instagram_basic: Basic Instagram access
+    - instagram_content_publish: Publish to Instagram
+    - instagram_manage_insights: Read Instagram analytics
+    - business_management: Manage business settings
+    """
+    app_id = os.environ.get("META_APP_ID") or os.environ.get("FACEBOOK_APP_ID")
+    
+    if not app_id:
+        raise HTTPException(status_code=500, detail="META_APP_ID not configured")
+    
+    base_url = os.environ.get("BACKEND_URL", "https://sevora-hub.preview.emergentagent.com")
+    redirect_uri = f"{base_url}/api/social/integrations/callback/facebook"
+    state = f"{user['id']}_{uuid.uuid4().hex[:8]}"
+    
+    # Required permissions for full functionality
+    scopes = [
+        "pages_show_list",
+        "pages_read_engagement", 
+        "pages_manage_posts",
+        "instagram_basic",
+        "instagram_content_publish",
+        "instagram_manage_comments",
+        "instagram_manage_insights",
+        "instagram_manage_messages",
+        "business_management",
+        "public_profile"
+    ]
+    
+    auth_url = (
+        f"https://www.facebook.com/v21.0/dialog/oauth?"
+        f"client_id={app_id}&"
+        f"redirect_uri={redirect_uri}&"
+        f"state={state}&"
+        f"scope={','.join(scopes)}&"
+        f"response_type=code"
+    )
+    
+    # Store state in DB for verification
+    if db is not None:
+        await db.oauth_states.update_one(
+            {"user_id": user["id"], "platform": "facebook"},
+            {"$set": {
+                "state": state,
+                "user_id": user["id"],
+                "platform": "facebook",
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }},
+            upsert=True
+        )
+    
+    return {
+        "auth_url": auth_url,
+        "state": state,
+        "redirect_uri": redirect_uri,
+        "message": "Redirect user to auth_url to authorize Facebook/Instagram access"
+    }
+
+
 # ============== OAUTH CALLBACK HANDLERS ==============
 
 @router.get("/callback/linkedin")
@@ -2531,8 +2600,202 @@ async def instagram_callback(code: str):
 
 @router.get("/callback/facebook")
 async def facebook_callback(code: str, state: str):
-    """Handle Facebook OAuth callback"""
-    return {"message": "Facebook OAuth callback - structure ready", "code": code[:10] + "..."}
+    """Handle Facebook OAuth callback - exchange code for long-lived token"""
+    import aiohttp
+    
+    # Verify state and get user info
+    user_id = None
+    if db is not None:
+        state_doc = await db.oauth_states.find_one({"state": state})
+        if state_doc:
+            user_id = state_doc["user_id"]
+            await db.oauth_states.delete_one({"state": state})
+        else:
+            logger.warning(f"Facebook OAuth: Invalid state parameter")
+    
+    # Get app credentials
+    app_id = os.environ.get("META_APP_ID") or os.environ.get("FACEBOOK_APP_ID")
+    app_secret = os.environ.get("META_APP_SECRET") or os.environ.get("FACEBOOK_APP_SECRET")
+    
+    if not app_id or not app_secret:
+        return {"success": False, "error": "Meta App credentials not configured"}
+    
+    # Determine redirect URI (must match the one used in initial auth request)
+    preview_url = os.environ.get("BACKEND_URL") or "https://sevora-hub.preview.emergentagent.com"
+    redirect_uri = f"{preview_url}/api/social/integrations/callback/facebook"
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            # Step 1: Exchange code for short-lived access token
+            token_url = f"https://graph.facebook.com/v21.0/oauth/access_token"
+            params = {
+                "client_id": app_id,
+                "client_secret": app_secret,
+                "redirect_uri": redirect_uri,
+                "code": code
+            }
+            
+            async with session.get(token_url, params=params) as response:
+                token_data = await response.json()
+                
+                if "error" in token_data:
+                    logger.error(f"Facebook OAuth token exchange error: {token_data}")
+                    return {
+                        "success": False,
+                        "error": token_data.get("error", {}).get("message", "Token exchange failed")
+                    }
+                
+                short_lived_token = token_data.get("access_token")
+                
+            # Step 2: Exchange for long-lived access token (60 days)
+            long_token_url = f"https://graph.facebook.com/v21.0/oauth/access_token"
+            long_params = {
+                "grant_type": "fb_exchange_token",
+                "client_id": app_id,
+                "client_secret": app_secret,
+                "fb_exchange_token": short_lived_token
+            }
+            
+            async with session.get(long_token_url, params=long_params) as response:
+                long_token_data = await response.json()
+                
+                if "error" in long_token_data:
+                    logger.error(f"Facebook long-lived token exchange error: {long_token_data}")
+                    # Fall back to short-lived token
+                    access_token = short_lived_token
+                    expires_in = token_data.get("expires_in", 3600)
+                else:
+                    access_token = long_token_data.get("access_token")
+                    expires_in = long_token_data.get("expires_in", 5184000)  # 60 days default
+            
+            # Step 3: Get user info
+            me_url = f"https://graph.facebook.com/v21.0/me"
+            async with session.get(me_url, params={"access_token": access_token, "fields": "id,name"}) as response:
+                user_data = await response.json()
+            
+            # Step 4: Get pages the user manages (needed for Page Access Token)
+            pages_url = f"https://graph.facebook.com/v21.0/me/accounts"
+            async with session.get(pages_url, params={"access_token": access_token}) as response:
+                pages_data = await response.json()
+            
+            pages = pages_data.get("data", [])
+            page_info = None
+            page_access_token = None
+            ig_business_account_id = None
+            
+            # Find the Sevora page or use first page
+            for page in pages:
+                if "sevora" in page.get("name", "").lower() or page.get("id") == os.environ.get("FACEBOOK_PAGE_ID"):
+                    page_info = page
+                    page_access_token = page.get("access_token")
+                    break
+            
+            if not page_info and pages:
+                page_info = pages[0]
+                page_access_token = page_info.get("access_token")
+            
+            # Step 5: Get Instagram Business Account linked to page
+            if page_info:
+                ig_url = f"https://graph.facebook.com/v21.0/{page_info['id']}"
+                async with session.get(ig_url, params={
+                    "fields": "instagram_business_account",
+                    "access_token": access_token
+                }) as response:
+                    ig_data = await response.json()
+                    ig_business_account_id = ig_data.get("instagram_business_account", {}).get("id")
+            
+            # Calculate expiry
+            expires_at = (datetime.now(timezone.utc) + timedelta(seconds=expires_in)).isoformat()
+            
+            # Store connection in database
+            connection_id = str(uuid.uuid4())
+            connection_doc = {
+                "id": connection_id,
+                "user_id": user_id or "system",
+                "platform": "facebook",
+                "status": "connected",
+                "account_id": user_data.get("id"),
+                "account_name": user_data.get("name"),
+                "page_id": page_info.get("id") if page_info else None,
+                "page_name": page_info.get("name") if page_info else None,
+                "instagram_business_account_id": ig_business_account_id,
+                "access_token": access_token,
+                "page_access_token": page_access_token,
+                "expires_at": expires_at,
+                "expires_in_days": expires_in // 86400,
+                "connected_at": datetime.now(timezone.utc).isoformat(),
+                "oauth_connected": True
+            }
+            
+            if db is not None:
+                await db.social_platform_connections.update_one(
+                    {"platform": "facebook", "user_id": user_id or "system"},
+                    {"$set": connection_doc},
+                    upsert=True
+                )
+                
+                # Also update the token_configs collection for the token status panel
+                await db.token_configs.update_one(
+                    {"platform": "facebook"},
+                    {"$set": {
+                        "platform": "facebook",
+                        "access_token": access_token,
+                        "page_access_token": page_access_token,
+                        "page_id": page_info.get("id") if page_info else None,
+                        "ig_business_account_id": ig_business_account_id,
+                        "expires_at": expires_at,
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    }},
+                    upsert=True
+                )
+            
+            # Log for manual .env update if needed
+            logger.info(f"Facebook OAuth Success! User: {user_data.get('name')}")
+            logger.info(f"Long-lived token expires in {expires_in // 86400} days")
+            logger.info(f"Page: {page_info.get('name') if page_info else 'None'}")
+            logger.info(f"Instagram Business Account: {ig_business_account_id}")
+            
+            # Redirect to frontend with success message
+            frontend_url = os.environ.get("FRONTEND_URL", "https://teams.sevora.com")
+            
+            # Return HTML redirect with success message
+            return HTMLResponse(content=f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Facebook Connected</title>
+                <style>
+                    body {{ font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f0f2f5; }}
+                    .card {{ background: white; padding: 40px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; max-width: 500px; }}
+                    .success {{ color: #22c55e; font-size: 48px; margin-bottom: 20px; }}
+                    h1 {{ color: #1a1a1a; margin: 0 0 10px 0; }}
+                    p {{ color: #666; margin: 5px 0; }}
+                    .token-info {{ background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: left; font-size: 14px; }}
+                    .btn {{ background: #1877f2; color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; text-decoration: none; display: inline-block; margin-top: 20px; }}
+                    .btn:hover {{ background: #166fe5; }}
+                </style>
+            </head>
+            <body>
+                <div class="card">
+                    <div class="success">✓</div>
+                    <h1>Facebook Connected!</h1>
+                    <p>Successfully authenticated with Facebook</p>
+                    <div class="token-info">
+                        <p><strong>Account:</strong> {user_data.get('name', 'Unknown')}</p>
+                        <p><strong>Page:</strong> {page_info.get('name') if page_info else 'No page found'}</p>
+                        <p><strong>Instagram:</strong> {'Connected' if ig_business_account_id else 'Not linked'}</p>
+                        <p><strong>Token Valid:</strong> {expires_in // 86400} days</p>
+                    </div>
+                    <p style="color: #888; font-size: 12px;">Token stored in database. You can close this window.</p>
+                    <a href="{frontend_url}/admin/settings" class="btn">Go to Settings</a>
+                </div>
+            </body>
+            </html>
+            """, status_code=200)
+            
+    except Exception as e:
+        logger.error(f"Facebook OAuth error: {e}")
+        return {"success": False, "error": str(e)}
 
 @router.get("/callback/youtube")
 async def youtube_callback(code: str, state: str):

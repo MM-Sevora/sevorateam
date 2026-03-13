@@ -47,6 +47,7 @@ const TokenStatusPanel = ({ showAlertOnly = false, onStatusChange }) => {
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState({});
+  const [connecting, setConnecting] = useState(false);
 
   const fetchTokenStatus = async () => {
     try {
@@ -72,6 +73,35 @@ const TokenStatusPanel = ({ showAlertOnly = false, onStatusChange }) => {
     const interval = setInterval(fetchTokenStatus, 30 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleConnectFacebook = async () => {
+    setConnecting(true);
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/social/integrations/oauth/facebook/start`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      
+      if (res.ok && data.auth_url) {
+        // Open OAuth flow in new window
+        window.open(data.auth_url, '_blank', 'width=600,height=700');
+        toast.info('Facebook authorization opened in new window. Complete the authorization and this page will update.');
+        // Poll for status update
+        const pollInterval = setInterval(async () => {
+          await fetchTokenStatus();
+        }, 5000);
+        // Stop polling after 5 minutes
+        setTimeout(() => clearInterval(pollInterval), 300000);
+      } else {
+        toast.error(data.detail || 'Failed to start Facebook OAuth');
+      }
+    } catch (error) {
+      toast.error('Error connecting to Facebook');
+    } finally {
+      setConnecting(false);
+    }
+  };
 
   const handleRefresh = async (platform) => {
     setRefreshing(prev => ({ ...prev, [platform]: true }));
@@ -231,17 +261,19 @@ const TokenStatusPanel = ({ showAlertOnly = false, onStatusChange }) => {
                   {canRefresh && (
                     <Button
                       size="sm"
-                      variant={isExpired ? "destructive" : "outline"}
-                      onClick={() => handleRefresh(platformName)}
-                      disabled={refreshing[platformName]}
+                      variant={isExpired || platformStatus.needs_reauth ? "destructive" : "outline"}
+                      onClick={() => isExpired || platformStatus.needs_reauth 
+                        ? handleConnectFacebook() 
+                        : handleRefresh(platformName)}
+                      disabled={refreshing[platformName] || connecting}
                       className="text-xs"
                     >
-                      {refreshing[platformName] ? (
+                      {refreshing[platformName] || connecting ? (
                         <RefreshCw className="w-3 h-3 animate-spin" />
                       ) : (
                         <>
                           <RefreshCw className="w-3 h-3 mr-1" />
-                          {isExpired ? 'Reconnect' : 'Refresh'}
+                          {isExpired || platformStatus.needs_reauth ? 'Reconnect' : 'Refresh'}
                         </>
                       )}
                     </Button>
@@ -280,6 +312,25 @@ const TokenStatusPanel = ({ showAlertOnly = false, onStatusChange }) => {
             <li><strong>YouTube:</strong> Uses OAuth refresh tokens - typically auto-refreshes.</li>
             <li><strong>Critical:</strong> 3 days or less | <strong>Warning:</strong> 7 days or less</li>
           </ul>
+        </div>
+
+        {/* Connect Facebook Button */}
+        <div className="pt-3 border-t">
+          <Button 
+            onClick={handleConnectFacebook}
+            disabled={connecting}
+            className="w-full bg-blue-600 hover:bg-blue-700"
+          >
+            {connecting ? (
+              <RefreshCw className="w-4 h-4 animate-spin mr-2" />
+            ) : (
+              <Facebook className="w-4 h-4 mr-2" />
+            )}
+            {connecting ? 'Connecting...' : 'Connect Facebook & Instagram'}
+          </Button>
+          <p className="text-xs text-gray-500 mt-2 text-center">
+            Connect your Facebook Page to automatically link Instagram Business and get a long-lived token (60 days).
+          </p>
         </div>
       </CardContent>
     </Card>
