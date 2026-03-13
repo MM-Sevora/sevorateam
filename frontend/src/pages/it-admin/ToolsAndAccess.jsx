@@ -53,7 +53,8 @@ const ToolsAndAccess = () => {
         api.get('/admin/users?limit=200')
       ]);
       setTools(toolsRes.data.tools || []);
-      setUsers(usersRes.data.users || []);
+      const allUsers = usersRes.data.users || [];
+      setUsers(allUsers.filter(u => u.status === 'active'));
     } catch (error) {
       console.error('Error:', error);
     } finally {

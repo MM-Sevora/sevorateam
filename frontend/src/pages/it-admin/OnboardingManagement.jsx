@@ -30,7 +30,8 @@ const OnboardingManagement = () => {
   const fetchUsers = async () => {
     try {
       const response = await api.get('/admin/users?limit=200');
-      setUsers(response.data.users || []);
+      const allUsers = response.data.users || [];
+      setUsers(allUsers.filter(u => u.status === 'active'));
     } catch (error) {
       console.error('Error fetching users:', error);
     } finally {

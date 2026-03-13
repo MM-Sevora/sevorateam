@@ -50,7 +50,8 @@ const AccessManagement = () => {
       
       setAccessRecords(accessRes.data.access_records || []);
       setTools(toolsRes.data.tools || []);
-      setUsers(usersRes.data.users || []);
+      const allUsers = usersRes.data.users || [];
+      setUsers(allUsers.filter(u => u.status === 'active'));
       setMyTools(myToolsRes.data.tools || []);
     } catch (error) {
       console.error('Error fetching data:', error);

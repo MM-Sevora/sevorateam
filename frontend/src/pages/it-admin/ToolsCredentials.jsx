@@ -52,7 +52,8 @@ const ToolsCredentials = () => {
         api.get('/acms/access?limit=500')
       ]);
       setTools(toolsRes.data.tools || []);
-      setUsers(Array.isArray(usersRes.data) ? usersRes.data : usersRes.data.users || []);
+      const allUsers = Array.isArray(usersRes.data) ? usersRes.data : usersRes.data.users || [];
+      setUsers(allUsers.filter(u => u.status === 'active'));
       setCredentials(credsRes.data.credentials || []);
       setAccessRecords(accessRes.data.access_records || []);
     } catch (error) {
