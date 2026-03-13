@@ -1639,40 +1639,28 @@ async def get_leads(
     include_my_leads: bool = True,
     user: dict = Depends(require_department(["sales"]))
 ):
-    """Get leads with filters. Always includes leads assigned to or created by current user."""
+    """Get leads with filters. Respects data_scope from user's module_permissions."""
+    from utils.permissions import get_data_scope_query
+    
     user_id = user.get("id")
     user_role = user.get("role", "")
     is_admin = user_role in ["super_admin", "admin"] or user.get("can_manage_users")
     
-    query = {}
+    # Start with search/filter query
+    filter_query = {}
     if source:
-        query["source"] = source
+        filter_query["source"] = source
     if stage:
-        query["stage"] = stage
+        filter_query["stage"] = stage
     if search:
-        query["$or"] = [
+        filter_query["$or"] = [
             {"name": {"$regex": search, "$options": "i"}},
             {"phone": {"$regex": search, "$options": "i"}}
         ]
     
-    # Non-admins see: their leads + assigned to them + filtered
-    if not is_admin and include_my_leads:
-        if query:
-            original_query = dict(query)
-            query = {
-                "$or": [
-                    {"assigned_to": user_id},
-                    {"created_by": user_id},
-                    original_query
-                ]
-            }
-        else:
-            query = {
-                "$or": [
-                    {"assigned_to": user_id},
-                    {"created_by": user_id}
-                ]
-            }
+    # Apply data scope filtering based on user's module_permissions
+    # This respects the 3D permission system: all/team/own_assigned/own_only
+    query = get_data_scope_query(user, "leads", filter_query)
     
     leads = await db.leads.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
     
@@ -1757,21 +1745,23 @@ async def delete_lead(lead_id: str, user: dict = Depends(require_department(["sa
 # Sales Customers
 @sales_router.get("/customers")
 async def get_customers(search: Optional[str] = None, include_my_customers: bool = True, user: dict = Depends(require_department(["sales"]))):
-    """Get customers with filters. Always includes customers created by current user."""
+    """Get customers with filters. Respects data_scope from user's module_permissions."""
+    from utils.permissions import get_data_scope_query
+    
     user_id = user.get("id")
     user_role = user.get("role", "")
     is_admin = user_role in ["super_admin", "admin"] or user.get("can_manage_users")
     
-    query = {}
+    # Start with search/filter query
+    filter_query = {}
     if search:
-        query["$or"] = [
+        filter_query["$or"] = [
             {"name": {"$regex": search, "$options": "i"}},
             {"phone": {"$regex": search, "$options": "i"}}
         ]
     
-    # Non-admins see their own + filtered
-    if not is_admin and include_my_customers and not search:
-        query = {"created_by": user_id}
+    # Apply data scope filtering based on user's module_permissions
+    query = get_data_scope_query(user, "customers", filter_query)
     
     customers = await db.customers.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
     

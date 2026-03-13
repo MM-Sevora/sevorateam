@@ -1452,7 +1452,7 @@ const ProjectsList = () => {
                 onEdit={(p) => setEditingProject(p)}
                 onDelete={handleDelete}
                 onView={(p) => navigate(`/projects/${p.id}`)}
-                onScheduleMeeting={(p) => navigate(`/meetings/new?project_id=${p.id}&type=project_review`)}
+                onScheduleMeeting={(p) => navigate(`/meetings/new?project_id=${p.id}&project_name=${encodeURIComponent(p.name)}&type=project_review`)}
               />
             ))}
           </div>

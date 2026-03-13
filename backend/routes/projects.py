@@ -504,30 +504,32 @@ async def list_projects(
     search: Optional[str] = None,
     user: dict = Depends(get_current_user_dep)
 ):
-    """List all projects with filters, respecting visibility settings"""
+    """List all projects with filters, respecting visibility settings and data_scope permissions"""
+    from utils.permissions import get_data_scope_query
+    
     user_id = user["id"]
     
     # Build base query
-    query = {}
+    filter_query = {}
     
     if module_id:
-        query["module_id"] = module_id
+        filter_query["module_id"] = module_id
     if department_id:
-        query["department_id"] = department_id
+        filter_query["department_id"] = department_id
     if project_type:
-        query["project_type"] = project_type.value
+        filter_query["project_type"] = project_type.value
     if status:
-        query["status"] = status.value
+        filter_query["status"] = status.value
     if owner_id:
-        query["owner_id"] = owner_id
+        filter_query["owner_id"] = owner_id
     if priority:
-        query["priority"] = priority.value
+        filter_query["priority"] = priority.value
     if visibility:
-        query["visibility"] = visibility
+        filter_query["visibility"] = visibility
     if linked_objective_id:
-        query["linked_objective_id"] = linked_objective_id
+        filter_query["linked_objective_id"] = linked_objective_id
     if search:
-        query["$or"] = [
+        filter_query["$or"] = [
             {"name": {"$regex": search, "$options": "i"}},
             {"description": {"$regex": search, "$options": "i"}},
             {"project_id": {"$regex": search, "$options": "i"}}
@@ -537,6 +539,9 @@ async def list_projects(
     user_role = user.get("role", "viewer")
     role_level = user.get("role_level", 10)
     is_admin = role_level >= 80 or user_role in ["super_admin", "admin"]
+    
+    # Apply data scope filtering based on user's module_permissions
+    query = get_data_scope_query(user, "project_management", filter_query)
     
     projects = await db.pm_projects.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
     

@@ -124,10 +124,26 @@ const CreateMeeting = () => {
     const goalId = searchParams.get('goal_id');
     const objectiveId = searchParams.get('objective_id');
     const meetingType = searchParams.get('type');
+    const taskId = searchParams.get('task_id');
+    const taskName = searchParams.get('task_name');
+    const projectName = searchParams.get('project_name');
     
-    if (projectId || goalId || objectiveId || meetingType) {
+    if (projectId || goalId || objectiveId || meetingType || taskId) {
+      // Build auto-generated title based on context
+      let autoTitle = '';
+      if (taskName) {
+        autoTitle = `Task Discussion: ${decodeURIComponent(taskName)}`;
+      } else if (projectName) {
+        autoTitle = `Project Review: ${decodeURIComponent(projectName)}`;
+      } else if (meetingType === 'project_review') {
+        autoTitle = 'Project Review Meeting';
+      } else if (meetingType === 'task_discussion') {
+        autoTitle = 'Task Discussion Meeting';
+      }
+      
       setFormData(prev => ({
         ...prev,
+        title: autoTitle || prev.title,
         linked_project_id: projectId || '',
         linked_goal_id: goalId || '',
         linked_objective_id: objectiveId || '',

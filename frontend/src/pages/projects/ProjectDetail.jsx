@@ -1091,7 +1091,7 @@ const ProjectDetail = () => {
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  onClick={() => navigate(`/meetings/new?project_id=${project.id}&type=project_review`)}
+                  onClick={() => navigate(`/meetings/new?project_id=${project.id}&project_name=${encodeURIComponent(project.name)}&type=project_review`)}
                   className="border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0]"
                   data-testid="schedule-meeting-btn"
                 >
@@ -1515,7 +1515,7 @@ const ProjectDetail = () => {
             </CardTitle>
             <Button
               size="sm"
-              onClick={() => navigate(`/meetings/new?project_id=${project.id}&type=project_review`)}
+              onClick={() => navigate(`/meetings/new?project_id=${project.id}&project_name=${encodeURIComponent(project.name)}&type=project_review`)}
               className="bg-rose-600 hover:bg-rose-700 text-white"
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -1533,7 +1533,7 @@ const ProjectDetail = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => navigate(`/meetings/new?project_id=${project.id}&type=project_review`)}
+                onClick={() => navigate(`/meetings/new?project_id=${project.id}&project_name=${encodeURIComponent(project.name)}&type=project_review`)}
                 className="mt-3 border-[#D4BBA6]"
               >
                 <Plus className="w-4 h-4 mr-2" />
