@@ -60,6 +60,51 @@ export const AuthProvider = ({ children }) => {
         }
     }, []);
 
+    // Refresh token to extend session
+    const refreshToken = useCallback(async () => {
+        const currentToken = localStorage.getItem('sevora_token');
+        if (!currentToken) return null;
+        
+        try {
+            const response = await axios.post(`${API}/auth/refresh`, {}, {
+                headers: { Authorization: `Bearer ${currentToken}` }
+            });
+            const newToken = response.data.access_token;
+            localStorage.setItem('sevora_token', newToken);
+            setToken(newToken);
+            console.log('Token refreshed successfully');
+            return newToken;
+        } catch (error) {
+            console.error('Token refresh failed:', error);
+            // If refresh fails, don't logout immediately - let the user continue until actual auth fails
+            return null;
+        }
+    }, []);
+
+    // Auto-refresh token every 6 hours to prevent session expiry
+    useEffect(() => {
+        if (!token || !user) return;
+        
+        // Refresh token every 6 hours (21600000 ms)
+        const refreshInterval = setInterval(() => {
+            console.log('Auto-refreshing token...');
+            refreshToken();
+        }, 6 * 60 * 60 * 1000);
+        
+        // Also refresh on visibility change (when user returns to tab)
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && token) {
+                refreshToken();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        
+        return () => {
+            clearInterval(refreshInterval);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [token, user, refreshToken]);
+
     // Process Azure token and login to backend
     const processAzureToken = useCallback(async (account, forceProcess = false) => {
         if (azureLoginProcessed.current && !forceProcess) return null;

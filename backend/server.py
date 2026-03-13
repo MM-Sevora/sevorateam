@@ -33,7 +33,7 @@ db = client[os.environ['DB_NAME']]
 # JWT Settings
 JWT_SECRET = os.environ.get('JWT_SECRET', 'sevora-team-secret-2024')
 JWT_ALGORITHM = 'HS256'
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get('ACCESS_TOKEN_EXPIRE_MINUTES', 1440))
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get('ACCESS_TOKEN_EXPIRE_MINUTES', 10080))  # 7 days default
 
 # Azure AD Settings
 AZURE_CLIENT_ID = os.environ.get('AZURE_CLIENT_ID')
@@ -836,6 +836,32 @@ async def login(credentials: UserLogin):
             merged_module_access=merged_module_access
         )
     )
+
+
+@auth_router.post("/refresh")
+async def refresh_token(current_user: dict = Depends(get_current_user)):
+    """
+    Refresh the access token.
+    Call this endpoint periodically to extend user session.
+    Returns a new token valid for 7 days.
+    """
+    user = await db.users.find_one({"id": current_user.get("id")}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    
+    # Check if user is still active
+    if user.get('status') == 'inactive':
+        raise HTTPException(status_code=403, detail="Account deactivated")
+    
+    # Create new token
+    token = create_access_token({
+        "sub": user['id'], 
+        "email": user['email'], 
+        "role": user.get('role', 'viewer')
+    })
+    
+    return {"access_token": token, "token_type": "bearer"}
+
 
 @auth_router.post("/azure", response_model=TokenResponse)
 async def azure_login(request: AzureTokenRequest):
