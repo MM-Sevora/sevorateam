@@ -1,3 +1,54 @@
+## March 13, 2026 - Role-Centric Permission System (Industry Best Practice) ✅
+
+### What Was Built
+Refactored the permission system to follow industry best practices (similar to Salesforce, AWS IAM):
+- **Permissions configured in Roles tab** (not per-user)
+- **Users inherit permissions from assigned roles**
+- **User panel simplified to role assignments** with optional overrides
+
+### Implementation Details
+
+**1. Roles Tab Enhancement**
+- Create/Edit Role dialog now has full 3D permissions per module:
+  - **CRUD checkboxes**: Create, Read, Update, Delete
+  - **Data Visibility Scope dropdown**: All / Team / Own+Assigned / Own Only
+  - **Others' Data checkboxes**: Can Edit Others, Can Delete Others
+- Quick CRUD indicators (C R U D in green/gray) and data scope badge on module rows
+- Expandable modules show full permission controls
+
+**2. User Permissions Panel (Simplified)**
+- Shows role assignments with checkboxes
+- Displays "Users inherit all permissions from their assigned roles"
+- Shows merged permissions preview from assigned roles
+- **Advanced: User-Level Overrides** collapsible section for exceptions
+- Info box explaining how permissions work
+
+**3. Backend Updates**
+- Role schema stores `module_permissions` with full 3D structure
+- Users inherit permissions when roles are assigned
+- API tests verify role CRUD and permission inheritance
+
+### Files Modified
+- `/app/frontend/src/pages/admin/UsersPermissionsPage.jsx` - Role dialog with 3D permissions, simplified User panel
+- `/app/backend/routes/access_control.py` - Role module_permissions handling
+- `/app/backend/utils/permissions.py` - Permission utility functions
+
+### Testing
+- Backend: 12/12 tests passed
+- Frontend: Code review verified (SSO blocks Playwright testing)
+- Test report: `/app/test_reports/iteration_91.json`
+
+### Industry Alignment
+| Feature | Implemented | Best Practice |
+|---------|-------------|---------------|
+| Role-based permissions | ✅ | Salesforce Profiles |
+| Module-level CRUD | ✅ | AWS IAM Actions |
+| Data visibility scope | ✅ | Salesforce OWD |
+| User inherits from roles | ✅ | RBAC Standard |
+| Optional user overrides | ✅ | Salesforce Permission Sets |
+
+---
+
 ## March 12, 2026 - 3-Dimensional Permission System ✅
 
 ### What Was Built
