@@ -1,3 +1,43 @@
+## March 13, 2026 - Auto-Generate Teams Meeting Link + Two-Way Calendar Sync ✅
+
+### What Was Built
+1. **Auto-Generate Teams Meeting on Save**: When "Sync to Outlook" is enabled and no meeting link exists, the system automatically creates a Teams meeting when saving
+2. **Two-Way Calendar Sync**: New "Sync from Outlook" button to pull changes from Outlook back to internal meetings
+3. **Manual Teams Link Generation**: "Teams Link" button for on-demand Teams meeting creation
+
+### Auto-Generate Teams Link
+- Triggers automatically when creating a new meeting with "Sync to Outlook" enabled
+- Only generates if no meeting link already exists
+- Shows toast notifications during the process
+
+### Two-Way Calendar Sync Features
+| Change Type | Synced Fields |
+|-------------|---------------|
+| Title change | `subject` → `title` |
+| Time change | `start`/`end` → `start_time`/`end_time` |
+| Location change | `location.displayName` → `location` |
+| Cancellation | `isCancelled` → `status: cancelled` |
+| Deletion | Event deleted → `status: cancelled` |
+
+### New Backend Endpoints
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/meetings/ms-calendar/sync-from-outlook` | POST | Pull changes from Outlook |
+| `/api/meetings/ms-calendar/outlook-events` | GET | Fetch Outlook events for date range |
+
+### Files Modified
+| File | Changes |
+|------|---------|
+| `/app/backend/routes/meetings.py` | Added sync-from-outlook and outlook-events endpoints |
+| `/app/frontend/src/pages/meetings/CreateMeeting.jsx` | Auto-generate Teams link on save |
+| `/app/frontend/src/pages/meetings/MeetingList.jsx` | Added "Sync from Outlook" button |
+
+### UI Changes
+- "Sync from Outlook" button in Meetings header (only visible when Outlook connected)
+- Auto Teams link generation with progress toast notifications
+
+---
+
 ## March 13, 2026 - Auto-Generate Teams Meeting Link ✅
 
 ### What Was Built

@@ -250,6 +250,7 @@ const MeetingList = () => {
   const [msCalendarStatus, setMsCalendarStatus] = useState(null);
   const [showMsCalendarModal, setShowMsCalendarModal] = useState(false);
   const [connectingToMs, setConnectingToMs] = useState(false);
+  const [syncingFromOutlook, setSyncingFromOutlook] = useState(false);
   
   // Bulk selection state
   const [selectedMeetings, setSelectedMeetings] = useState(new Set());
@@ -419,6 +420,50 @@ const MeetingList = () => {
       }
     } catch (error) {
       toast.error('Error disconnecting');
+    }
+  };
+
+  const handleSyncFromOutlook = async () => {
+    if (!msCalendarStatus?.is_connected) {
+      toast.error('Please connect your Outlook calendar first');
+      return;
+    }
+    
+    setSyncingFromOutlook(true);
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/meetings/ms-calendar/sync-from-outlook`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      const data = await res.json();
+      
+      if (data.status === 'success') {
+        if (data.synced_count > 0) {
+          toast.success(`Synced ${data.synced_count} meeting(s) from Outlook`);
+          // Show changes in detail
+          data.changes.forEach(change => {
+            console.log(`Meeting "${change.meeting_title}":`, change.changes);
+          });
+          // Refresh meetings list
+          fetchMeetings();
+          fetchDashboard();
+        } else {
+          toast.info('All meetings are already in sync');
+        }
+        // Update last sync time
+        fetchMsCalendarStatus();
+      } else if (data.error === 'token_expired') {
+        toast.error('Microsoft token expired. Please reconnect your Outlook calendar.');
+      } else {
+        toast.error(data.message || 'Failed to sync from Outlook');
+      }
+    } catch (error) {
+      console.error('Error syncing from Outlook:', error);
+      toast.error('Error syncing from Outlook');
+    } finally {
+      setSyncingFromOutlook(false);
     }
   };
 
@@ -768,6 +813,24 @@ const MeetingList = () => {
             <FileText className="w-4 h-4 mr-2" />
             Templates
           </Button>
+          {/* Sync from Outlook Button */}
+          {msCalendarStatus?.is_connected && (
+            <Button 
+              variant="outline"
+              size="sm"
+              onClick={handleSyncFromOutlook}
+              disabled={syncingFromOutlook}
+              className="border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0]"
+              data-testid="sync-outlook-btn"
+            >
+              {syncingFromOutlook ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-2" />
+              )}
+              Sync from Outlook
+            </Button>
+          )}
           <Button 
             variant="outline"
             size="sm"

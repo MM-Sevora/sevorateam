@@ -516,6 +516,40 @@ const CreateMeeting = () => {
       const startDateTime = startDate.toISOString();
       const endDateTime = endDate.toISOString();
 
+      // Auto-generate Teams meeting link if Sync to Outlook is enabled and no link exists
+      let meetingLink = formData.meeting_link;
+      if (formData.sync_to_outlook && !meetingLink && msCalendarStatus.is_connected && !isEditMode) {
+        try {
+          toast.info('Generating Teams meeting link...');
+          const attendees = participants
+            .filter(p => p.email)
+            .map(p => ({ email: p.email, name: p.name || p.email }));
+
+          const teamsRes = await fetch(`${API}/api/meetings/ms-calendar/create-teams-meeting`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              subject: formData.title,
+              start_time: startDateTime,
+              end_time: endDateTime,
+              attendees
+            })
+          });
+
+          const teamsData = await teamsRes.json();
+          if (teamsData.status === 'success' && teamsData.join_url) {
+            meetingLink = teamsData.join_url;
+            toast.success('Teams meeting link generated!');
+          }
+        } catch (teamsError) {
+          console.error('Failed to auto-generate Teams link:', teamsError);
+          // Continue without Teams link - don't block meeting creation
+        }
+      }
+
       const payload = {
         title: formData.title,
         meeting_type: formData.meeting_type,
@@ -524,7 +558,7 @@ const CreateMeeting = () => {
         end_time: endDateTime,
         timezone: formData.timezone,
         location: formData.location || null,
-        meeting_link: formData.meeting_link || null,
+        meeting_link: meetingLink || null,
         department_id: formData.department_id || null,
         linked_goal_id: formData.linked_goal_id || null,
         linked_objective_id: formData.linked_objective_id || null,

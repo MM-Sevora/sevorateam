@@ -1164,6 +1164,273 @@ async def create_teams_meeting(
         }
 
 
+@router.post("/ms-calendar/sync-from-outlook")
+async def sync_from_outlook(
+    user: dict = Depends(get_current_user_dep)
+):
+    """Two-way sync: Fetch Outlook events and sync changes back to internal meetings
+    
+    This endpoint:
+    1. Fetches all events from user's Outlook calendar that have outlook_event_id in our meetings
+    2. Compares with internal meetings and updates if Outlook has changes
+    3. Returns a summary of synced changes
+    """
+    import httpx
+    
+    # Check connection
+    connection = await db.ms_calendar_connections.find_one(
+        {"user_id": user.get("id"), "is_connected": True}, {"_id": 0}
+    )
+    
+    if not connection:
+        raise HTTPException(
+            status_code=400,
+            detail="Microsoft Calendar not connected"
+        )
+    
+    # Get all internal meetings with outlook_event_id for this user
+    meetings_with_outlook = await db.meetings.find(
+        {
+            "outlook_event_id": {"$exists": True, "$ne": None},
+            "$or": [
+                {"created_by": user.get("id")},
+                {"organizer_id": user.get("id")},
+                {"participants.user_id": user.get("id")}
+            ]
+        },
+        {"_id": 0}
+    ).to_list(500)
+    
+    if not meetings_with_outlook:
+        return {
+            "status": "success",
+            "message": "No meetings to sync",
+            "synced_count": 0,
+            "changes": []
+        }
+    
+    changes = []
+    synced_count = 0
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            for meeting in meetings_with_outlook:
+                outlook_id = meeting.get("outlook_event_id")
+                if not outlook_id:
+                    continue
+                
+                # Fetch the event from Outlook
+                response = await client.get(
+                    f"https://graph.microsoft.com/v1.0/me/events/{outlook_id}",
+                    headers={
+                        "Authorization": f"Bearer {connection.get('access_token')}",
+                        "Content-Type": "application/json"
+                    }
+                )
+                
+                if response.status_code == 200:
+                    outlook_event = response.json()
+                    
+                    # Compare and update if needed
+                    updates = {}
+                    change_details = []
+                    
+                    # Check title
+                    if outlook_event.get("subject") != meeting.get("title"):
+                        updates["title"] = outlook_event.get("subject")
+                        change_details.append(f"Title: '{meeting.get('title')}' → '{outlook_event.get('subject')}'")
+                    
+                    # Check start time
+                    outlook_start = outlook_event.get("start", {}).get("dateTime")
+                    if outlook_start:
+                        # Normalize the datetime format
+                        outlook_start_normalized = outlook_start.replace("Z", "+00:00")
+                        if not outlook_start_normalized.endswith("+00:00") and "+" not in outlook_start_normalized:
+                            outlook_start_normalized += "+00:00"
+                        
+                        meeting_start = meeting.get("start_time", "")
+                        if meeting_start and not meeting_start.startswith(outlook_start[:16]):
+                            updates["start_time"] = outlook_start
+                            change_details.append(f"Start time updated")
+                    
+                    # Check end time
+                    outlook_end = outlook_event.get("end", {}).get("dateTime")
+                    if outlook_end:
+                        outlook_end_normalized = outlook_end.replace("Z", "+00:00")
+                        if not outlook_end_normalized.endswith("+00:00") and "+" not in outlook_end_normalized:
+                            outlook_end_normalized += "+00:00"
+                        
+                        meeting_end = meeting.get("end_time", "")
+                        if meeting_end and not meeting_end.startswith(outlook_end[:16]):
+                            updates["end_time"] = outlook_end
+                            change_details.append(f"End time updated")
+                    
+                    # Check location
+                    outlook_location = outlook_event.get("location", {}).get("displayName", "")
+                    if outlook_location != (meeting.get("location") or ""):
+                        updates["location"] = outlook_location if outlook_location else None
+                        change_details.append(f"Location: '{meeting.get('location') or ''}' → '{outlook_location}'")
+                    
+                    # Check if cancelled
+                    if outlook_event.get("isCancelled"):
+                        updates["status"] = "cancelled"
+                        change_details.append("Meeting cancelled in Outlook")
+                    
+                    # Apply updates if any
+                    if updates:
+                        updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+                        updates["last_outlook_sync"] = datetime.now(timezone.utc).isoformat()
+                        
+                        await db.meetings.update_one(
+                            {"id": meeting.get("id")},
+                            {"$set": updates}
+                        )
+                        
+                        synced_count += 1
+                        changes.append({
+                            "meeting_id": meeting.get("id"),
+                            "meeting_title": meeting.get("title"),
+                            "changes": change_details
+                        })
+                
+                elif response.status_code == 404:
+                    # Event was deleted in Outlook
+                    await db.meetings.update_one(
+                        {"id": meeting.get("id")},
+                        {
+                            "$set": {
+                                "status": "cancelled",
+                                "outlook_deleted": True,
+                                "updated_at": datetime.now(timezone.utc).isoformat()
+                            }
+                        }
+                    )
+                    synced_count += 1
+                    changes.append({
+                        "meeting_id": meeting.get("id"),
+                        "meeting_title": meeting.get("title"),
+                        "changes": ["Meeting deleted in Outlook - marked as cancelled"]
+                    })
+                
+                elif response.status_code == 401:
+                    return {
+                        "status": "error",
+                        "error": "token_expired",
+                        "message": "Microsoft token expired. Please reconnect your Outlook calendar.",
+                        "synced_count": synced_count,
+                        "changes": changes
+                    }
+        
+        # Update last sync time
+        await db.ms_calendar_connections.update_one(
+            {"user_id": user.get("id")},
+            {"$set": {"last_sync_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        
+        return {
+            "status": "success",
+            "message": f"Synced {synced_count} meeting(s) from Outlook",
+            "synced_count": synced_count,
+            "changes": changes
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "message": "Error syncing from Outlook",
+            "synced_count": synced_count,
+            "changes": changes
+        }
+
+
+@router.get("/ms-calendar/outlook-events")
+async def get_outlook_events(
+    start_date: str = Query(..., description="Start date in ISO format"),
+    end_date: str = Query(..., description="End date in ISO format"),
+    user: dict = Depends(get_current_user_dep)
+):
+    """Fetch events directly from Outlook calendar for comparison/display
+    
+    Returns events from the user's Outlook calendar within the date range.
+    """
+    import httpx
+    
+    connection = await db.ms_calendar_connections.find_one(
+        {"user_id": user.get("id"), "is_connected": True}, {"_id": 0}
+    )
+    
+    if not connection:
+        raise HTTPException(
+            status_code=400,
+            detail="Microsoft Calendar not connected"
+        )
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            # Use calendar view to get events in date range
+            response = await client.get(
+                f"https://graph.microsoft.com/v1.0/me/calendarView",
+                params={
+                    "startDateTime": start_date,
+                    "endDateTime": end_date,
+                    "$select": "id,subject,start,end,location,isOnlineMeeting,onlineMeetingUrl,isCancelled,organizer,attendees",
+                    "$orderby": "start/dateTime",
+                    "$top": 100
+                },
+                headers={
+                    "Authorization": f"Bearer {connection.get('access_token')}",
+                    "Content-Type": "application/json",
+                    "Prefer": 'outlook.timezone="UTC"'
+                }
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                events = data.get("value", [])
+                
+                # Map to simpler format
+                formatted_events = []
+                for event in events:
+                    formatted_events.append({
+                        "outlook_id": event.get("id"),
+                        "subject": event.get("subject"),
+                        "start": event.get("start", {}).get("dateTime"),
+                        "end": event.get("end", {}).get("dateTime"),
+                        "location": event.get("location", {}).get("displayName"),
+                        "is_online": event.get("isOnlineMeeting"),
+                        "meeting_url": event.get("onlineMeetingUrl"),
+                        "is_cancelled": event.get("isCancelled"),
+                        "organizer": event.get("organizer", {}).get("emailAddress", {}).get("name")
+                    })
+                
+                return {
+                    "status": "success",
+                    "events": formatted_events,
+                    "count": len(formatted_events)
+                }
+            
+            elif response.status_code == 401:
+                return {
+                    "status": "error",
+                    "error": "token_expired",
+                    "message": "Microsoft token expired. Please reconnect your Outlook calendar."
+                }
+            else:
+                return {
+                    "status": "error",
+                    "message": f"Failed to fetch Outlook events: {response.status_code}",
+                    "details": response.text
+                }
+                
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "message": "Error fetching Outlook events"
+        }
+
+
 # ============== MEETING DETAIL ROUTES (Dynamic {meeting_id}) ==============
 
 @router.post("/{meeting_id}/sync-to-outlook")
