@@ -359,6 +359,23 @@ def create_brands_router(db, get_current_user: Callable):
             "created_at": now
         })
         
+        # Trigger automation for stage change
+        old_stage = existing.get("pipeline_stage")
+        if new_stage and old_stage != new_stage:
+            try:
+                from services.automation_triggers import trigger_brand_stage_changed
+                import asyncio
+                asyncio.create_task(trigger_brand_stage_changed(
+                    brand_id=brand_id,
+                    brand_name=existing.get("name", "Brand"),
+                    old_stage=old_stage or "new",
+                    new_stage=new_stage,
+                    changed_by_id=current_user.get("id"),
+                    changed_by_name=current_user.get("name", "User")
+                ))
+            except Exception:
+                pass  # Don't fail the request if notification fails
+        
         updated = await db.sourcing_brands.find_one({"id": brand_id}, {"_id": 0})
         return updated
 

@@ -1831,6 +1831,13 @@ async def get_lead(lead_id: str, user: dict = Depends(require_department(["sales
 
 @sales_router.put("/leads/{lead_id}", response_model=LeadResponse)
 async def update_lead(lead_id: str, update: dict, user: dict = Depends(require_department(["sales"]))):
+    # Get existing lead to check for stage change
+    existing = await db.leads.find_one({"id": lead_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    
+    old_stage = existing.get("stage")
+    
     update_data = {k: v for k, v in update.items() if v is not None}
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     update_data["updated_by"] = user.get("id")
@@ -1838,8 +1845,24 @@ async def update_lead(lead_id: str, update: dict, user: dict = Depends(require_d
     
     await db.leads.update_one({"id": lead_id}, {"$set": update_data})
     updated = await db.leads.find_one({"id": lead_id}, {"_id": 0})
-    if not updated:
-        raise HTTPException(status_code=404, detail="Lead not found")
+    
+    # Trigger automation for stage change
+    new_stage = update_data.get("stage")
+    if new_stage and old_stage != new_stage:
+        try:
+            from services.automation_triggers import trigger_lead_stage_changed
+            import asyncio
+            asyncio.create_task(trigger_lead_stage_changed(
+                lead_id=lead_id,
+                lead_name=existing.get("name", "Lead"),
+                old_stage=old_stage or "New Lead",
+                new_stage=new_stage,
+                changed_by_id=user.get("id"),
+                changed_by_name=user.get("name", "User")
+            ))
+        except Exception as e:
+            pass  # Don't fail the request if notification fails
+    
     return LeadResponse(**updated)
 
 @sales_router.delete("/leads/{lead_id}")
@@ -5818,6 +5841,42 @@ async def execute_automation_action(action_type: str, data: dict, user: dict = D
         # Just log the dismissal
         result = {"success": True, "message": "Action dismissed"}
     
+    elif action_type == "run_daily_jobs":
+        # Manually trigger all daily automation jobs
+        try:
+            from services.scheduled_automation import run_all_daily_jobs
+            job_results = await run_all_daily_jobs()
+            result = {"success": True, "message": "Daily jobs executed", "details": job_results}
+        except Exception as e:
+            result = {"success": False, "message": f"Daily jobs failed: {str(e)}"}
+    
+    elif action_type == "run_weekly_jobs":
+        # Manually trigger all weekly automation jobs
+        try:
+            from services.scheduled_automation import run_all_weekly_jobs
+            job_results = await run_all_weekly_jobs()
+            result = {"success": True, "message": "Weekly jobs executed", "details": job_results}
+        except Exception as e:
+            result = {"success": False, "message": f"Weekly jobs failed: {str(e)}"}
+    
+    elif action_type == "run_stale_lead_check":
+        # Manually trigger stale lead check
+        try:
+            from services.scheduled_automation import run_daily_stale_lead_check
+            job_result = await run_daily_stale_lead_check()
+            result = {"success": True, "message": "Stale lead check executed", "details": job_result}
+        except Exception as e:
+            result = {"success": False, "message": f"Stale lead check failed: {str(e)}"}
+    
+    elif action_type == "run_deadline_check":
+        # Manually trigger deadline check
+        try:
+            from services.scheduled_automation import run_daily_deadline_check
+            job_result = await run_daily_deadline_check()
+            result = {"success": True, "message": "Deadline check executed", "details": job_result}
+        except Exception as e:
+            result = {"success": False, "message": f"Deadline check failed: {str(e)}"}
+    
     # Log the action
     await db.automation_logs.insert_one({
         "id": str(uuid.uuid4()),
@@ -5892,6 +5951,22 @@ async def start_scheduler():
         logger.info("Automation service initialized")
     except Exception as e:
         logger.warning(f"Automation service init failed (non-fatal): {e}")
+    
+    # Initialize cross-module automation triggers
+    try:
+        from services.automation_triggers import init_automation_triggers
+        init_automation_triggers(db)
+        logger.info("Automation triggers service initialized")
+    except Exception as e:
+        logger.warning(f"Automation triggers init failed (non-fatal): {e}")
+    
+    # Initialize scheduled automation jobs
+    try:
+        from services.scheduled_automation import init_scheduled_automation
+        init_scheduled_automation(db)
+        logger.info("Scheduled automation service initialized")
+    except Exception as e:
+        logger.warning(f"Scheduled automation init failed (non-fatal): {e}")
     
     # Run scheduled posts check every 5 minutes
     scheduler.add_job(process_scheduled_posts, IntervalTrigger(minutes=5), id="process_scheduled_posts", replace_existing=True)
@@ -5971,8 +6046,60 @@ async def start_scheduler():
     
     scheduler.add_job(weekly_report_job, CronTrigger(day_of_week='mon', hour=9, minute=0), id="weekly_progress_report", replace_existing=True)
     
+    # === PHASE 3 CROSS-MODULE AUTOMATIONS ===
+    
+    # Daily stale lead check - 8:30 AM UTC
+    async def stale_lead_check_job():
+        try:
+            from services.scheduled_automation import run_daily_stale_lead_check
+            await run_daily_stale_lead_check()
+        except Exception as e:
+            logger.error(f"Stale lead check error: {e}")
+    
+    scheduler.add_job(stale_lead_check_job, CronTrigger(hour=8, minute=30), id="stale_lead_check", replace_existing=True)
+    
+    # Daily deadline check - 7 AM UTC (before work starts)
+    async def deadline_check_job():
+        try:
+            from services.scheduled_automation import run_daily_deadline_check
+            await run_daily_deadline_check()
+        except Exception as e:
+            logger.error(f"Deadline check error: {e}")
+    
+    scheduler.add_job(deadline_check_job, CronTrigger(hour=7, minute=0), id="deadline_check", replace_existing=True)
+    
+    # Daily lead follow-up check - 8 AM UTC
+    async def lead_followup_check_job():
+        try:
+            from services.scheduled_automation import run_daily_lead_followup_check
+            await run_daily_lead_followup_check()
+        except Exception as e:
+            logger.error(f"Lead follow-up check error: {e}")
+    
+    scheduler.add_job(lead_followup_check_job, CronTrigger(hour=8, minute=0), id="lead_followup_check", replace_existing=True)
+    
+    # Daily task digest - 7:30 AM UTC
+    async def daily_task_digest_job():
+        try:
+            from services.scheduled_automation import run_daily_task_digest
+            await run_daily_task_digest()
+        except Exception as e:
+            logger.error(f"Daily task digest error: {e}")
+    
+    scheduler.add_job(daily_task_digest_job, CronTrigger(hour=7, minute=30), id="daily_task_digest", replace_existing=True)
+    
+    # Weekly campaign digest - Monday 10 AM UTC
+    async def weekly_campaign_digest_job():
+        try:
+            from services.scheduled_automation import run_weekly_campaign_digest
+            await run_weekly_campaign_digest()
+        except Exception as e:
+            logger.error(f"Weekly campaign digest error: {e}")
+    
+    scheduler.add_job(weekly_campaign_digest_job, CronTrigger(day_of_week='mon', hour=10, minute=0), id="weekly_campaign_digest", replace_existing=True)
+    
     scheduler.start()
-    logger.info("Automation scheduler started with Phase 1 & Phase 2 automations")
+    logger.info("Automation scheduler started with Phase 1, Phase 2 & Phase 3 automations")
 
 @app.on_event("shutdown")
 async def stop_scheduler():

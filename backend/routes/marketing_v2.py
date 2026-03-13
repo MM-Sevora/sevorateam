@@ -2358,6 +2358,25 @@ async def update_deal_status(deal_id: str, status: str, note: Optional[str] = No
         except Exception as e:
             print(f"Pulse integration error (deal_closed): {e}")
     
+    # Trigger comprehensive deal status notification for all status changes
+    if old_status != status:
+        try:
+            from services.automation_triggers import trigger_influencer_deal_status_changed
+            import asyncio
+            contact = await db.contacts.find_one({"id": deal.get("contact_id")}, {"name": 1})
+            campaign = await db.campaigns.find_one({"id": deal.get("campaign_id")}, {"name": 1})
+            asyncio.create_task(trigger_influencer_deal_status_changed(
+                deal_id=deal_id,
+                influencer_name=contact.get("name", "Influencer") if contact else "Influencer",
+                campaign_name=campaign.get("name", "Campaign") if campaign else "Campaign",
+                old_status=old_status or "new",
+                new_status=status,
+                changed_by_id=deal.get("created_by", ""),
+                changed_by_name=deal.get("created_by_name", "System")
+            ))
+        except Exception as e:
+            pass  # Don't fail the request if notification fails
+    
     return {"message": f"Deal status updated to {status}", "contact_synced": True}
 
 # ============== CONTRACTS ==============

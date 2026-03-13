@@ -127,6 +127,7 @@ def create_samples_router(db, get_current_user: Callable):
         if new_status not in SAMPLE_STATUSES:
             raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {SAMPLE_STATUSES}")
         
+        old_status = existing.get("status", "Requested")
         now = datetime.now(timezone.utc).isoformat()
         update_data = {"status": new_status, "updated_at": now}
         
@@ -149,6 +150,25 @@ def create_samples_router(db, get_current_user: Callable):
             update_data["tracking_number"] = status_data["tracking_number"]
         
         await db.sourcing_samples.update_one({"id": sample_id}, {"$set": update_data})
+        
+        # Trigger automation for status change
+        if old_status != new_status:
+            try:
+                from services.automation_triggers import trigger_sample_status_changed
+                import asyncio
+                asyncio.create_task(trigger_sample_status_changed(
+                    sample_id=sample_id,
+                    sample_name=existing.get("fabric_name", "Sample"),
+                    old_status=old_status,
+                    new_status=new_status,
+                    changed_by_id=current_user.get("id"),
+                    changed_by_name=current_user.get("name", "User"),
+                    brand_name=existing.get("supplier_name"),
+                    assigned_to=existing.get("requested_by") or existing.get("created_by")
+                ))
+            except Exception:
+                pass  # Don't fail the request if notification fails
+        
         return await db.sourcing_samples.find_one({"id": sample_id}, {"_id": 0})
 
     @router.delete("/{sample_id}")

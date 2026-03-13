@@ -25,6 +25,11 @@ class NotificationCategory(str, Enum):
     REMINDER = "reminder"
     PULSE = "pulse"
     COMMUNICATION = "communication"
+    # New categories
+    SOURCING = "sourcing"
+    SALES = "sales"
+    HR = "hr"
+    DIGEST = "digest"
 
 
 class NotificationType(str, Enum):
@@ -44,8 +49,30 @@ class NotificationType(str, Enum):
     # Marketing notifications
     CAMPAIGN_CREATED = "campaign_created"
     CAMPAIGN_APPROVED = "campaign_approved"
+    CAMPAIGN_DEADLINE_APPROACHING = "campaign_deadline_approaching"
     INFLUENCER_CONFIRMED = "influencer_confirmed"
+    INFLUENCER_DEAL_STATUS_CHANGED = "influencer_deal_status_changed"
+    CONTENT_APPROVAL_PENDING = "content_approval_pending"
     CONTENT_PUBLISHED = "content_published"
+    CAMPAIGN_PERFORMANCE_DIGEST = "campaign_performance_digest"
+    
+    # Sourcing notifications
+    SAMPLE_STATUS_CHANGED = "sample_status_changed"
+    SAMPLE_DELIVERY_DUE = "sample_delivery_due"
+    BRAND_STAGE_CHANGED = "brand_stage_changed"
+    SUPPLIER_DELIVERY_DUE = "supplier_delivery_due"
+    SOURCING_FOLLOWUP_CREATED = "sourcing_followup_created"
+    
+    # Sales notifications
+    LEAD_STAGE_CHANGED = "lead_stage_changed"
+    LEAD_STALE_REMINDER = "lead_stale_reminder"
+    LEAD_FOLLOWUP_DUE = "lead_followup_due"
+    LEAD_AUTO_TASK_CREATED = "lead_auto_task_created"
+    
+    # HR notifications
+    EXPENSE_STATUS_CHANGED = "expense_status_changed"
+    EXPENSE_APPROVED = "expense_approved"
+    EXPENSE_REJECTED = "expense_rejected"
     
     # Mail notifications
     EMAIL_RECEIVED = "email_received"
@@ -75,6 +102,13 @@ class NotificationType(str, Enum):
     RECOGNITION = "recognition"
     ACHIEVEMENT = "achievement"
     ANNOUNCEMENT = "announcement"
+    
+    # Digests
+    DAILY_TASK_DIGEST = "daily_task_digest"
+    WEEKLY_PROGRESS_REPORT = "weekly_progress_report"
+    
+    # Escalation
+    BLOCKED_ITEM_ESCALATION = "blocked_item_escalation"
 
 
 class NotificationCreate(BaseModel):
