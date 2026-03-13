@@ -13,9 +13,10 @@ import { toast } from 'sonner';
 import { 
   Globe, Settings, Search, Shield, Bell, Mail, 
   Palette, Clock, Save, RefreshCw, ExternalLink,
-  FileText, Image, Lock, Eye, Database, Zap, Plug
+  FileText, Image, Lock, Eye, Database, Zap, Plug, HelpCircle
 } from 'lucide-react';
 import TokenStatusPanel from '../../components/TokenStatusPanel';
+import { isHelpButtonVisible, setHelpButtonVisible } from '../../components/HelpButton';
 
 const WebsiteSettings = () => {
   const { api } = useAuth();
@@ -821,6 +822,33 @@ const WebsiteSettings = () => {
                   <Switch
                     checked={settings.dark_mode_enabled}
                     onCheckedChange={(v) => updateSetting('dark_mode_enabled', v)}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* UI Preferences */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-[#4A3728] flex items-center gap-2">
+                  <HelpCircle className="w-5 h-5" />
+                  UI Preferences
+                </CardTitle>
+                <CardDescription>Toggle visibility of UI elements</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-[#F5EBE0] rounded-lg border border-[#E8D5C4]">
+                  <div>
+                    <p className="font-medium text-[#4A3728]">Help Button</p>
+                    <p className="text-sm text-[#6B5D52]">Show floating help button on all pages</p>
+                  </div>
+                  <Switch
+                    checked={isHelpButtonVisible()}
+                    onCheckedChange={(v) => {
+                      setHelpButtonVisible(v);
+                      toast.success(v ? 'Help button enabled' : 'Help button hidden');
+                    }}
+                    data-testid="help-button-toggle"
                   />
                 </div>
               </CardContent>

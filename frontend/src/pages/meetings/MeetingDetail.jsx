@@ -1006,6 +1006,19 @@ const MeetingDetail = () => {
                     {meeting.location}
                   </span>
                 )}
+                {meeting.meeting_link && (
+                  <a 
+                    href={meeting.meeting_link.startsWith('http') ? meeting.meeting_link : `https://${meeting.meeting_link}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-200 text-blue-700 hover:bg-blue-100 transition-colors"
+                    data-testid="meeting-link"
+                  >
+                    <Video className="w-4 h-4" />
+                    Join Meeting
+                    <ExternalLink className="w-3 h-3 ml-1" />
+                  </a>
+                )}
                 <span className="flex items-center gap-1.5 bg-white/80 px-3 py-1.5 rounded-full border border-[#E8D5C4]">
                   <Users className="w-4 h-4 text-[#8B7355]" />
                   {meeting.participants?.length || 0} participants

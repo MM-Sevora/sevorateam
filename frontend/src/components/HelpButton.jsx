@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HelpCircle, X, Book, MessageSquare, ExternalLink, ChevronRight } from 'lucide-react';
 import { Button } from './ui/button';
@@ -30,6 +30,21 @@ const MODULE_HELP_MAP = {
     'dashboard': 'overview'
 };
 
+// Help button visibility setting key
+const HELP_BUTTON_VISIBLE_KEY = 'sevora_help_button_visible';
+
+// Export helper functions for toggle
+export const isHelpButtonVisible = () => {
+    const stored = localStorage.getItem(HELP_BUTTON_VISIBLE_KEY);
+    return stored === null ? true : stored === 'true'; // Default to visible
+};
+
+export const setHelpButtonVisible = (visible) => {
+    localStorage.setItem(HELP_BUTTON_VISIBLE_KEY, visible.toString());
+    // Dispatch custom event so other components can react
+    window.dispatchEvent(new CustomEvent('helpButtonVisibilityChanged', { detail: visible }));
+};
+
 /**
  * Contextual Help Button Component
  * Displays a floating help button that opens a side panel with relevant help content
@@ -44,6 +59,16 @@ const HelpButton = ({ moduleKey, position = 'bottom-right', variant = 'floating'
     const [open, setOpen] = useState(false);
     const [helpData, setHelpData] = useState({ module: null, articles: [], faqs: [] });
     const [loading, setLoading] = useState(false);
+    const [isVisible, setIsVisible] = useState(isHelpButtonVisible());
+
+    // Listen for visibility changes
+    useEffect(() => {
+        const handleVisibilityChange = (e) => {
+            setIsVisible(e.detail);
+        };
+        window.addEventListener('helpButtonVisibilityChanged', handleVisibilityChange);
+        return () => window.removeEventListener('helpButtonVisibilityChanged', handleVisibilityChange);
+    }, []);
 
     // Auto-detect module from URL if not provided
     const detectModuleKey = () => {
@@ -57,6 +82,11 @@ const HelpButton = ({ moduleKey, position = 'bottom-right', variant = 'floating'
         }
         return 'overview';
     };
+
+    // Don't render if hidden
+    if (!isVisible && variant === 'floating') {
+        return null;
+    }
 
     const fetchHelpContent = async () => {
         const key = detectModuleKey();
