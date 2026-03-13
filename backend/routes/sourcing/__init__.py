@@ -170,8 +170,8 @@ async def get_sourcing_settings(user: dict = Depends(get_current_user)):
             },
             "email": {
                 "fromName": "Sevora Sourcing Team",
-                "fromEmail": "sourcing@sevora.com",
-                "replyTo": "sourcing@sevora.com",
+                "fromEmail": os.environ.get("SOURCING_EMAIL", "sourcing@sevora.com"),
+                "replyTo": os.environ.get("SOURCING_EMAIL", "sourcing@sevora.com"),
                 "signature": "Best regards,\nSevora Sourcing Team",
                 "defaultSubjectPrefix": "[Sevora] "
             },
