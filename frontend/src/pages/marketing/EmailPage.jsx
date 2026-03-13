@@ -10,7 +10,8 @@ import {
   MailOpen, CheckSquare, Square, StarOff, Bookmark, Eye, EyeOff,
   CornerUpLeft, ArrowLeft, Printer, ExternalLink, MoreHorizontal,
   Loader2, Plus, Check, LogIn, LogOut, User, Bold, Italic, Underline,
-  Link, List, ListOrdered, AlignLeft, CalendarClock, ListTodo, FolderKanban, Flag, Calendar
+  Link, List, ListOrdered, AlignLeft, CalendarClock, ListTodo, FolderKanban, Flag, Calendar,
+  CheckCircle, Users
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -178,6 +179,11 @@ const EmailPage = () => {
   const [showScheduler, setShowScheduler] = useState(false);
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
+
+  // Shared Mailbox state
+  const [sharedMailboxes, setSharedMailboxes] = useState([]);
+  const [activeMailbox, setActiveMailbox] = useState(null); // null = personal mailbox
+  const [loadingMailboxes, setLoadingMailboxes] = useState(false);
 
   // Task creation state
   const [showTaskModal, setShowTaskModal] = useState(false);
@@ -619,6 +625,26 @@ Sevora Team`
     }
   };
 
+  // Fetch shared mailboxes from backend
+  const fetchSharedMailboxes = useCallback(async () => {
+    try {
+      setLoadingMailboxes(true);
+      const response = await api.get('/shared-mailboxes/my-mailboxes');
+      setSharedMailboxes(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch shared mailboxes:', error);
+    } finally {
+      setLoadingMailboxes(false);
+    }
+  }, []);
+
+  // Fetch shared mailboxes when email is connected
+  useEffect(() => {
+    if (emailConnected) {
+      fetchSharedMailboxes();
+    }
+  }, [emailConnected, fetchSharedMailboxes]);
+
   // Fetch emails using Graph API
   const fetchEmails = useCallback(async () => {
     if (!emailConnected) return;
@@ -635,7 +661,13 @@ Sevora Team`
       };
       
       const folder = folderMap[currentFolder] || 'inbox';
-      let url = `/me/mailFolders/${folder}/messages?$top=50&$orderby=receivedDateTime desc&$select=id,subject,bodyPreview,from,toRecipients,receivedDateTime,isRead,flag,hasAttachments,importance`;
+      
+      // Build URL based on whether we're accessing shared mailbox or personal
+      let baseUrl = activeMailbox 
+        ? `/users/${activeMailbox.email}/mailFolders/${folder}/messages`
+        : `/me/mailFolders/${folder}/messages`;
+      
+      let url = `${baseUrl}?$top=50&$orderby=receivedDateTime desc&$select=id,subject,bodyPreview,from,toRecipients,receivedDateTime,isRead,flag,hasAttachments,importance`;
       
       if (searchQuery) {
         url += `&$search="${searchQuery}"`;
@@ -657,7 +689,7 @@ Sevora Team`
     } finally {
       setLoading(false);
     }
-  }, [emailConnected, currentFolder, searchQuery, callGraphAPI]);
+  }, [emailConnected, currentFolder, searchQuery, callGraphAPI, activeMailbox]);
 
   // Sync emails
   const handleSync = async () => {
@@ -670,12 +702,16 @@ Sevora Team`
   // Load full email using Graph API
   const loadFullEmail = async (messageId) => {
     try {
-      const data = await callGraphAPI(`/me/messages/${messageId}?$select=id,subject,body,from,toRecipients,ccRecipients,receivedDateTime,isRead,flag,hasAttachments,importance`);
+      const baseUrl = activeMailbox 
+        ? `/users/${activeMailbox.email}/messages/${messageId}`
+        : `/me/messages/${messageId}`;
+      
+      const data = await callGraphAPI(`${baseUrl}?$select=id,subject,body,from,toRecipients,ccRecipients,receivedDateTime,isRead,flag,hasAttachments,importance`);
       
       // Fetch attachments if email has them
       if (data.hasAttachments) {
         try {
-          const attachmentsData = await callGraphAPI(`/me/messages/${messageId}/attachments`);
+          const attachmentsData = await callGraphAPI(`${baseUrl}/attachments`);
           data.attachments = attachmentsData?.value || [];
         } catch (attError) {
           console.error('Failed to fetch attachments:', attError);
@@ -688,7 +724,7 @@ Sevora Team`
       // Mark as read
       const email = emails.find(e => e.id === messageId);
       if (email && !email.isRead) {
-        await callGraphAPI(`/me/messages/${messageId}`, {
+        await callGraphAPI(baseUrl, {
           method: 'PATCH',
           body: JSON.stringify({ isRead: true })
         });
@@ -749,8 +785,9 @@ Sevora Team`
   const handleToggleStar = async (e, emailId, currentFlag) => {
     e.stopPropagation();
     const newFlag = currentFlag === 'flagged' ? 'notFlagged' : 'flagged';
+    const baseUrl = activeMailbox ? `/users/${activeMailbox.email}` : '/me';
     try {
-      await callGraphAPI(`/me/messages/${emailId}`, {
+      await callGraphAPI(`${baseUrl}/messages/${emailId}`, {
         method: 'PATCH',
         body: JSON.stringify({ flag: { flagStatus: newFlag } })
       });
@@ -788,14 +825,15 @@ Sevora Team`
   // Archive selected using Graph API
   const handleArchiveSelected = async () => {
     if (selectedEmails.size === 0) return;
+    const baseUrl = activeMailbox ? `/users/${activeMailbox.email}` : '/me';
     try {
       // Get archive folder ID
-      const folders = await callGraphAPI('/me/mailFolders');
+      const folders = await callGraphAPI(`${baseUrl}/mailFolders`);
       const archiveFolder = folders?.value?.find(f => f.displayName.toLowerCase() === 'archive');
       
       if (archiveFolder) {
         for (const emailId of selectedEmails) {
-          await callGraphAPI(`/me/messages/${emailId}/move`, {
+          await callGraphAPI(`${baseUrl}/messages/${emailId}/move`, {
             method: 'POST',
             body: JSON.stringify({ destinationId: archiveFolder.id })
           });
@@ -812,9 +850,10 @@ Sevora Team`
   // Delete selected using Graph API
   const handleDeleteSelected = async () => {
     if (selectedEmails.size === 0) return;
+    const baseUrl = activeMailbox ? `/users/${activeMailbox.email}` : '/me';
     try {
       for (const emailId of selectedEmails) {
-        await callGraphAPI(`/me/messages/${emailId}`, { method: 'DELETE' });
+        await callGraphAPI(`${baseUrl}/messages/${emailId}`, { method: 'DELETE' });
       }
       setEmails(prev => prev.filter(e => !selectedEmails.has(e.id)));
       setSelectedEmails(new Set());
@@ -827,9 +866,10 @@ Sevora Team`
   // Mark as read/unread using Graph API
   const handleMarkReadUnread = async (read) => {
     if (selectedEmails.size === 0) return;
+    const baseUrl = activeMailbox ? `/users/${activeMailbox.email}` : '/me';
     try {
       for (const emailId of selectedEmails) {
-        await callGraphAPI(`/me/messages/${emailId}`, {
+        await callGraphAPI(`${baseUrl}/messages/${emailId}`, {
           method: 'PATCH',
           body: JSON.stringify({ isRead: read })
         });
@@ -1060,8 +1100,12 @@ Sevora Team`
         const scheduledDateTime = new Date(`${scheduledDate}T${scheduledTime}`);
         const formattedSchedule = format(scheduledDateTime, 'MMM d, yyyy h:mm a');
         
-        // Create draft
-        await callGraphAPI('/me/messages', {
+        // Create draft - use shared mailbox if active
+        const draftEndpoint = activeMailbox 
+          ? `/users/${activeMailbox.email}/messages`
+          : '/me/messages';
+        
+        await callGraphAPI(draftEndpoint, {
           method: 'POST',
           body: JSON.stringify({
             ...message,
@@ -1075,12 +1119,16 @@ Sevora Team`
         setScheduledDate('');
         setScheduledTime('');
       } else {
-        // Send immediately
-        await callGraphAPI('/me/sendMail', {
+        // Send immediately - use shared mailbox if active
+        const sendEndpoint = activeMailbox 
+          ? `/users/${activeMailbox.email}/sendMail`
+          : '/me/sendMail';
+        
+        await callGraphAPI(sendEndpoint, {
           method: 'POST',
           body: JSON.stringify({ message, saveToSentItems: true })
         });
-        toast.success('Message sent');
+        toast.success(activeMailbox ? `Message sent from ${activeMailbox.display_name}` : 'Message sent');
         
         // Trigger automation for pipeline auto-advance
         try {
@@ -1302,26 +1350,81 @@ Sevora Team`
           </div>
           
           <div className="flex items-center gap-2">
-            {/* User Account */}
+            {/* Mailbox Switcher */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-9 px-2 gap-2 hover:bg-gray-100 rounded-full">
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-700 rounded-full flex items-center justify-center">
-                    <span className="text-white text-sm font-medium">
-                      {account?.name?.charAt(0) || account?.username?.charAt(0) || 'U'}
-                    </span>
+                <Button variant="ghost" className="h-9 px-3 gap-2 hover:bg-gray-100 rounded-full border border-gray-200">
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-medium ${
+                    activeMailbox ? 'bg-gradient-to-br from-purple-500 to-purple-700' : 'bg-gradient-to-br from-blue-500 to-blue-700'
+                  }`}>
+                    {activeMailbox 
+                      ? activeMailbox.display_name?.charAt(0) || 'S'
+                      : account?.name?.charAt(0) || account?.username?.charAt(0) || 'U'
+                    }
                   </div>
-                  <span className="text-sm text-gray-700 max-w-32 truncate hidden sm:block">
-                    {account?.username || 'User'}
-                  </span>
+                  <div className="text-left hidden sm:block">
+                    <p className="text-xs font-medium text-gray-800 truncate max-w-32">
+                      {activeMailbox ? activeMailbox.display_name : (account?.name || 'My Inbox')}
+                    </p>
+                    <p className="text-[10px] text-gray-500 truncate max-w-32">
+                      {activeMailbox ? activeMailbox.email : account?.username}
+                    </p>
+                  </div>
                   <ChevronDown className="w-4 h-4 text-gray-500" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64">
-                <div className="px-3 py-2 border-b">
-                  <p className="font-medium text-gray-900">{account?.name || 'Microsoft User'}</p>
-                  <p className="text-sm text-gray-500">{account?.username}</p>
+              <DropdownMenuContent align="end" className="w-72">
+                <div className="px-2 py-1.5 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Personal
                 </div>
+                <DropdownMenuItem 
+                  onClick={() => { setActiveMailbox(null); setCurrentFolder('inbox'); }}
+                  className={`cursor-pointer ${!activeMailbox ? 'bg-blue-50' : ''}`}
+                >
+                  <div className="flex items-center gap-3 w-full">
+                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-700 rounded-full flex items-center justify-center">
+                      <span className="text-white text-sm font-medium">
+                        {account?.name?.charAt(0) || 'U'}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 text-sm">{account?.name || 'My Inbox'}</p>
+                      <p className="text-xs text-gray-500 truncate">{account?.username}</p>
+                    </div>
+                    {!activeMailbox && <CheckCircle className="w-4 h-4 text-blue-600" />}
+                  </div>
+                </DropdownMenuItem>
+                
+                {sharedMailboxes.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <div className="px-2 py-1.5 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Shared Mailboxes
+                    </div>
+                    {sharedMailboxes.map(mailbox => (
+                      <DropdownMenuItem 
+                        key={mailbox.id}
+                        onClick={() => { setActiveMailbox(mailbox); setCurrentFolder('inbox'); }}
+                        className={`cursor-pointer ${activeMailbox?.id === mailbox.id ? 'bg-purple-50' : ''}`}
+                      >
+                        <div className="flex items-center gap-3 w-full">
+                          <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-700 rounded-full flex items-center justify-center">
+                            <span className="text-white text-sm font-medium">
+                              {mailbox.display_name?.charAt(0) || 'S'}
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 text-sm">{mailbox.display_name}</p>
+                            <p className="text-xs text-gray-500 truncate">{mailbox.email}</p>
+                          </div>
+                          {activeMailbox?.id === mailbox.id && <CheckCircle className="w-4 h-4 text-purple-600" />}
+                        </div>
+                      </DropdownMenuItem>
+                    ))}
+                  </>
+                )}
+                
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleMicrosoftLogout} className="text-red-600">
                   <LogOut className="w-4 h-4 mr-2" /> Sign out
                 </DropdownMenuItem>

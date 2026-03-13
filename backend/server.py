@@ -4670,6 +4670,16 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Data Import routes: {e}")
 
+# Shared Mailboxes routes
+try:
+    from routes.shared_mailboxes import router as shared_mailboxes_router, create_router as create_shared_mailboxes_router, init_shared_mailboxes
+    init_shared_mailboxes(db)
+    shared_mailboxes_router = create_shared_mailboxes_router(get_current_user)
+    api_router.include_router(shared_mailboxes_router)
+    logger.info("Shared Mailboxes routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Shared Mailboxes routes: {e}")
+
 app.include_router(api_router)
 
 # ============== WEBSOCKET FOR REAL-TIME NOTIFICATIONS ==============
