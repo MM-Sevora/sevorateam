@@ -960,6 +960,58 @@ async def initiate_platform_connection(platform: str, user: dict = Depends(get_c
                 "note": "User should be redirected to auth_url to complete OAuth flow"
             }
     
+    # Facebook/Instagram: Real OAuth flow
+    if platform in ["facebook", "instagram"]:
+        app_id = os.environ.get("META_APP_ID")
+        if app_id:
+            preview_url = "https://sevora-hub.preview.emergentagent.com"
+            production_url = os.environ.get("PRODUCTION_URL", "https://teams.sevora.com")
+            base_url = preview_url
+            redirect_uri = f"{base_url}/api/social/integrations/callback/facebook"
+            state = f"{user['id']}_{platform}_{uuid.uuid4().hex[:8]}"
+            
+            # Scopes for Facebook/Instagram
+            scopes = [
+                "pages_show_list",
+                "pages_read_engagement", 
+                "pages_manage_posts",
+                "pages_read_user_content",
+                "instagram_basic",
+                "instagram_content_publish",
+                "instagram_manage_insights",
+                "business_management"
+            ]
+            
+            auth_url = (
+                f"https://www.facebook.com/v21.0/dialog/oauth?"
+                f"client_id={app_id}&"
+                f"redirect_uri={redirect_uri}&"
+                f"state={state}&"
+                f"scope={','.join(scopes)}&"
+                f"response_type=code"
+            )
+            
+            # Store state in DB for verification
+            if db is not None:
+                await db.oauth_states.update_one(
+                    {"user_id": user["id"], "platform": platform},
+                    {"$set": {
+                        "state": state,
+                        "user_id": user["id"],
+                        "platform": platform,
+                        "created_at": datetime.now(timezone.utc).isoformat()
+                    }},
+                    upsert=True
+                )
+            
+            return {
+                "success": True,
+                "requires_oauth": True,
+                "auth_url": auth_url,
+                "message": f"Please authorize {platform.title()} access. You will be redirected to Facebook.",
+                "note": "User should be redirected to auth_url to complete OAuth flow"
+            }
+    
     # Structure-ready: Simulate OAuth and create mock connection
     connection_id = str(uuid.uuid4())
     mock_account_id = f"mock_{platform}_{uuid.uuid4().hex[:8]}"
