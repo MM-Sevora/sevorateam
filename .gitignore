@@ -282,3 +282,6 @@ frontend/node_modules/.cache/default-development/112.pack
 # Environment files
 *.env
 *.env.*
+
+# Database backups (contain secrets)
+db_backup/
