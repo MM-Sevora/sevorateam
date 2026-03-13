@@ -78,29 +78,29 @@ def create_campaigns_router(db, get_current_user: Callable):
         background_tasks: BackgroundTasks,
         current_user: dict = Depends(get_current_user)
     ):
-        """Send a single email to a contact"""
-        if not email_service.is_configured():
-            raise HTTPException(status_code=503, detail="Email service not configured")
+        """Send a single email to a contact using Microsoft Graph API"""
+        from services.microsoft_service import microsoft_service
         
         # Fetch email settings from database
         settings = await db.sourcing_settings.find_one({}) or {}
         email_config = settings.get("email", {})
         from_email = email_config.get("fromEmail", "seller@sevora.com")
-        from_name = email_config.get("fromName", "Sevora Sourcing Team")
-        reply_to = email_config.get("replyTo", from_email)
         
-        # Generate HTML email
-        html_content = email_service.generate_html_email(request.content)
+        # Check if Microsoft service is configured
+        if not microsoft_service:
+            raise HTTPException(status_code=503, detail="Microsoft email service not configured")
         
-        # Send email with settings from database
-        result = await email_service.send_single_email(
-            to_email=request.to_email,
-            subject=request.subject,
-            html_content=html_content,
-            from_name=from_name,
-            from_email=from_email,
-            reply_to=reply_to
-        )
+        try:
+            # Send email via Microsoft Graph API
+            result = await microsoft_service.send_email(
+                to_email=request.to_email,
+                subject=request.subject,
+                body=request.content,
+                is_html=True,
+                sender_email=from_email  # Use the shared mailbox
+            )
+        except Exception as e:
+            result = {"success": False, "error": str(e)}
         
         # Log the outreach
         now = datetime.now(timezone.utc).isoformat()
@@ -155,12 +155,12 @@ def create_campaigns_router(db, get_current_user: Callable):
         if not request.recipients:
             raise HTTPException(status_code=400, detail="No recipients provided")
         
+        from services.microsoft_service import microsoft_service
+        
         # Fetch email settings from database
         settings = await db.sourcing_settings.find_one({}) or {}
         email_config = settings.get("email", {})
         from_email = email_config.get("fromEmail", "seller@sevora.com")
-        from_name = email_config.get("fromName", "Sevora Sourcing Team")
-        reply_to = email_config.get("replyTo", from_email)
         
         # Create campaign record
         now = datetime.now(timezone.utc).isoformat()
@@ -183,49 +183,41 @@ def create_campaigns_router(db, get_current_user: Callable):
         }
         await db.sourcing_campaigns.insert_one(campaign_doc)
         
-        # Generate HTML email
-        html_content = email_service.generate_html_email(request.content)
+        # Send emails one by one via Microsoft Graph (shared mailbox)
+        sent_count = 0
+        failed_count = 0
         
-        # Prepare recipients list for SendGrid
-        recipients_list = [
-            {
-                "email": r.email,
-                "name": r.name or "",
-                "substitutions": r.substitutions or {}
-            }
-            for r in request.recipients
-        ]
-        
-        # Send bulk emails with settings from database
-        result = await email_service.send_bulk_emails(
-            recipients=recipients_list,
-            subject=request.subject,
-            html_content=html_content,
-            from_name=from_name,
-            from_email=from_email,
-            reply_to=reply_to
-        )
+        for recipient in request.recipients:
+            try:
+                result = await microsoft_service.send_email(
+                    to_email=recipient.email,
+                    subject=request.subject,
+                    body=request.content,
+                    is_html=True,
+                    sender_email=from_email
+                )
+                if result.get("success"):
+                    sent_count += 1
+                else:
+                    failed_count += 1
+            except Exception as e:
+                failed_count += 1
+                logger.error(f"Failed to send email to {recipient.email}: {e}")
         
         # Update campaign status
-        if result.get("success"):
-            await db.sourcing_campaigns.update_one(
-                {"id": campaign_id},
-                {"$set": {
-                    "status": "sent",
-                    "sent_count": len(request.recipients),
-                    "sent_at": now,
-                    "updated_at": now
-                }}
-            )
-        else:
-            await db.sourcing_campaigns.update_one(
-                {"id": campaign_id},
-                {"$set": {
-                    "status": "failed",
-                    "error": result.get("error"),
-                    "updated_at": now
-                }}
-            )
+        final_status = "sent" if sent_count > 0 else "failed"
+        await db.sourcing_campaigns.update_one(
+            {"id": campaign_id},
+            {"$set": {
+                "status": final_status,
+                "sent_count": sent_count,
+                "failed_count": failed_count,
+                "sent_at": now,
+                "updated_at": now
+            }}
+        )
+        
+        result = {"success": sent_count > 0, "sent_count": sent_count, "failed_count": failed_count}
         
         # Log individual outreach for each recipient
         for recipient in request.recipients:
