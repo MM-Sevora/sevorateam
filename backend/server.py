@@ -4680,6 +4680,16 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Shared Mailboxes routes: {e}")
 
+# Email Features routes (Templates, Signatures, Snooze, etc.)
+try:
+    from routes.email_features import router as email_features_router, create_router as create_email_features_router, init_email_features
+    init_email_features(db)
+    email_features_router = create_email_features_router(get_current_user)
+    api_router.include_router(email_features_router)
+    logger.info("Email Features routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Email Features routes: {e}")
+
 app.include_router(api_router)
 
 # ============== WEBSOCKET FOR REAL-TIME NOTIFICATIONS ==============

@@ -169,10 +169,22 @@ const EmailPage = () => {
   const fileInputRef = React.useRef(null);
   const editorRef = React.useRef(null);
   
-  // Email Signature state
+  // Email Signature state (now API-backed)
   const [emailSignature, setEmailSignature] = useState('');
   const [showSignatureEditor, setShowSignatureEditor] = useState(false);
   const [signatureEnabled, setSignatureEnabled] = useState(true);
+  const [signatures, setSignatures] = useState([]);
+  const [loadingSignatures, setLoadingSignatures] = useState(false);
+  const [activeSignatureId, setActiveSignatureId] = useState(null);
+  const [editingSignature, setEditingSignature] = useState(null);
+  const [newSignatureName, setNewSignatureName] = useState('');
+  
+  // Email Templates state (API-backed)
+  const [apiTemplates, setApiTemplates] = useState([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [showTemplateManager, setShowTemplateManager] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState(null);
+  const [savingTemplate, setSavingTemplate] = useState(false);
   
   // Rich text and scheduling state
   const [useRichText, setUseRichText] = useState(false); // Disabled by default for stability
@@ -638,12 +650,164 @@ Sevora Team`
     }
   }, []);
 
+  // Fetch email templates from backend API
+  const fetchTemplates = useCallback(async () => {
+    try {
+      setLoadingTemplates(true);
+      const response = await api.get('/email-features/templates');
+      setApiTemplates(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch templates:', error);
+    } finally {
+      setLoadingTemplates(false);
+    }
+  }, []);
+
+  // Fetch email signatures from backend API
+  const fetchSignatures = useCallback(async () => {
+    try {
+      setLoadingSignatures(true);
+      const response = await api.get('/email-features/signatures');
+      const sigs = response.data || [];
+      setSignatures(sigs);
+      
+      // Set the default signature as active
+      const defaultSig = sigs.find(s => s.is_default);
+      if (defaultSig) {
+        setActiveSignatureId(defaultSig.id);
+        setEmailSignature(defaultSig.content);
+      }
+    } catch (error) {
+      console.error('Failed to fetch signatures:', error);
+    } finally {
+      setLoadingSignatures(false);
+    }
+  }, []);
+
+  // Create a new email template
+  const createTemplate = async (template) => {
+    try {
+      setSavingTemplate(true);
+      const response = await api.post('/email-features/templates', template);
+      setApiTemplates(prev => [...prev, response.data]);
+      toast.success('Template created');
+      return response.data;
+    } catch (error) {
+      console.error('Failed to create template:', error);
+      toast.error('Failed to create template');
+      throw error;
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  // Update an existing template
+  const updateTemplate = async (templateId, template) => {
+    try {
+      setSavingTemplate(true);
+      const response = await api.put(`/email-features/templates/${templateId}`, template);
+      setApiTemplates(prev => prev.map(t => t.id === templateId ? response.data : t));
+      toast.success('Template updated');
+      return response.data;
+    } catch (error) {
+      console.error('Failed to update template:', error);
+      toast.error('Failed to update template');
+      throw error;
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  // Delete a template
+  const deleteTemplate = async (templateId) => {
+    try {
+      await api.delete(`/email-features/templates/${templateId}`);
+      setApiTemplates(prev => prev.filter(t => t.id !== templateId));
+      toast.success('Template deleted');
+    } catch (error) {
+      console.error('Failed to delete template:', error);
+      toast.error('Failed to delete template');
+    }
+  };
+
+  // Create a new signature
+  const createSignature = async (signature) => {
+    try {
+      const response = await api.post('/email-features/signatures', signature);
+      setSignatures(prev => {
+        // If this is default, unset others
+        if (signature.is_default) {
+          return [...prev.map(s => ({ ...s, is_default: false })), response.data];
+        }
+        return [...prev, response.data];
+      });
+      toast.success('Signature created');
+      if (signature.is_default) {
+        setActiveSignatureId(response.data.id);
+        setEmailSignature(response.data.content);
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Failed to create signature:', error);
+      toast.error('Failed to create signature');
+      throw error;
+    }
+  };
+
+  // Update an existing signature
+  const updateSignature = async (signatureId, signature) => {
+    try {
+      const response = await api.put(`/email-features/signatures/${signatureId}`, signature);
+      setSignatures(prev => {
+        // If this is default, unset others
+        if (signature.is_default) {
+          return prev.map(s => s.id === signatureId ? response.data : { ...s, is_default: false });
+        }
+        return prev.map(s => s.id === signatureId ? response.data : s);
+      });
+      toast.success('Signature updated');
+      if (signature.is_default || signatureId === activeSignatureId) {
+        setEmailSignature(response.data.content);
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Failed to update signature:', error);
+      toast.error('Failed to update signature');
+      throw error;
+    }
+  };
+
+  // Delete a signature
+  const deleteSignature = async (signatureId) => {
+    try {
+      await api.delete(`/email-features/signatures/${signatureId}`);
+      setSignatures(prev => prev.filter(s => s.id !== signatureId));
+      if (activeSignatureId === signatureId) {
+        setActiveSignatureId(null);
+        setEmailSignature('');
+      }
+      toast.success('Signature deleted');
+    } catch (error) {
+      console.error('Failed to delete signature:', error);
+      toast.error('Failed to delete signature');
+    }
+  };
+
+  // Select a signature for use
+  const selectSignature = (signature) => {
+    setActiveSignatureId(signature.id);
+    setEmailSignature(signature.content);
+    setShowSignatureEditor(false);
+  };
+
   // Fetch shared mailboxes when email is connected
   useEffect(() => {
     if (emailConnected) {
       fetchSharedMailboxes();
+      fetchTemplates();
+      fetchSignatures();
     }
-  }, [emailConnected, fetchSharedMailboxes]);
+  }, [emailConnected, fetchSharedMailboxes, fetchTemplates, fetchSignatures]);
 
   // Fetch emails using Graph API
   const fetchEmails = useCallback(async () => {
@@ -1884,55 +2048,250 @@ Sevora Team`
                 />
               </div>
 
-              {/* Template Selector */}
+              {/* Template Selector - API-backed */}
               {showTemplates && (
-                <div className="px-4 py-2 border-b border-gray-200 bg-gray-50">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-medium text-[#5f6368] uppercase tracking-wide">Select Template</span>
-                    <Button variant="ghost" size="sm" className="h-6 px-2" onClick={() => setShowTemplates(false)}>
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {EMAIL_TEMPLATES.map((template) => (
-                      <Button
-                        key={template.id}
-                        variant="outline"
-                        size="sm"
-                        className="text-xs h-7"
-                        onClick={() => applyTemplate(template)}
-                        data-testid={`template-${template.id}`}
+                <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-medium text-[#5f6368] uppercase tracking-wide">Email Templates</span>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="h-7 px-2 text-xs"
+                        onClick={() => {
+                          setEditingTemplate({ name: '', subject: '', body: '', category: 'general' });
+                          setShowTemplateManager(true);
+                        }}
+                        data-testid="new-template-btn"
                       >
-                        {template.name}
+                        <Plus className="h-3 w-3 mr-1" /> New
                       </Button>
-                    ))}
+                      <Button variant="ghost" size="sm" className="h-6 px-2" onClick={() => setShowTemplates(false)}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
+                  
+                  {loadingTemplates ? (
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Loading templates...
+                    </div>
+                  ) : (
+                    <>
+                      {/* API Templates */}
+                      {apiTemplates.length > 0 && (
+                        <div className="mb-3">
+                          <span className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5 block">Your Templates</span>
+                          <div className="flex flex-wrap gap-2">
+                            {apiTemplates.map((template) => (
+                              <div key={template.id} className="group relative">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-xs h-7 pr-7 bg-white"
+                                  onClick={() => applyTemplate(template)}
+                                  data-testid={`template-${template.id}`}
+                                >
+                                  {template.name}
+                                </Button>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      className="h-7 w-6 p-0 absolute right-0 top-0 opacity-0 group-hover:opacity-100"
+                                    >
+                                      <MoreVertical className="h-3 w-3" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => {
+                                      setEditingTemplate(template);
+                                      setShowTemplateManager(true);
+                                    }}>
+                                      <PenSquare className="h-3 w-3 mr-2" /> Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem 
+                                      className="text-red-600"
+                                      onClick={() => deleteTemplate(template.id)}
+                                    >
+                                      <Trash2 className="h-3 w-3 mr-2" /> Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Default Templates */}
+                      <div>
+                        <span className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5 block">Quick Templates</span>
+                        <div className="flex flex-wrap gap-2">
+                          {EMAIL_TEMPLATES.map((template) => (
+                            <Button
+                              key={template.id}
+                              variant="outline"
+                              size="sm"
+                              className="text-xs h-7 bg-gray-100 border-gray-200 text-gray-600"
+                              onClick={() => applyTemplate(template)}
+                              data-testid={`default-template-${template.id}`}
+                            >
+                              {template.name}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
               
-              {/* Signature Editor */}
+              {/* Signature Manager - API-backed */}
               {showSignatureEditor && (
                 <div className="px-4 py-3 border-b border-gray-200 bg-blue-50">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-medium text-[#5f6368] uppercase tracking-wide">Edit Signature</span>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-medium text-[#5f6368] uppercase tracking-wide">Email Signatures</span>
                     <Button variant="ghost" size="sm" className="h-6 px-2" onClick={() => setShowSignatureEditor(false)}>
                       <X className="h-3 w-3" />
                     </Button>
                   </div>
-                  <Textarea
-                    value={emailSignature}
-                    onChange={(e) => setEmailSignature(e.target.value)}
-                    placeholder="Enter your email signature...&#10;Example:&#10;Best regards,&#10;John Doe&#10;Marketing Manager | Sevora"
-                    className="min-h-[100px] text-sm mb-2"
-                  />
-                  <div className="flex items-center gap-2">
-                    <Button size="sm" onClick={() => saveSignature(emailSignature)}>
-                      <Check className="h-3 w-3 mr-1" /> Save Signature
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => { setEmailSignature(''); saveSignature(''); }}>
-                      Clear
-                    </Button>
-                  </div>
+                  
+                  {loadingSignatures ? (
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Loading signatures...
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {/* Existing Signatures List */}
+                      {signatures.length > 0 && (
+                        <div className="space-y-2">
+                          <span className="text-[10px] text-gray-500 uppercase tracking-wide">Select Signature</span>
+                          <div className="flex flex-wrap gap-2">
+                            {signatures.map((sig) => (
+                              <div key={sig.id} className="group relative">
+                                <Button
+                                  variant={activeSignatureId === sig.id ? "default" : "outline"}
+                                  size="sm"
+                                  className={`text-xs h-7 pr-7 ${activeSignatureId === sig.id ? 'bg-blue-600' : ''}`}
+                                  onClick={() => selectSignature(sig)}
+                                >
+                                  {sig.name} {sig.is_default && <Star className="h-2.5 w-2.5 ml-1 fill-current" />}
+                                </Button>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      className="h-7 w-6 p-0 absolute right-0 top-0 opacity-0 group-hover:opacity-100"
+                                    >
+                                      <MoreVertical className="h-3 w-3" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => setEditingSignature(sig)}>
+                                      <PenSquare className="h-3 w-3 mr-2" /> Edit
+                                    </DropdownMenuItem>
+                                    {!sig.is_default && (
+                                      <DropdownMenuItem onClick={() => updateSignature(sig.id, { ...sig, is_default: true })}>
+                                        <Star className="h-3 w-3 mr-2" /> Set as Default
+                                      </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuItem 
+                                      className="text-red-600"
+                                      onClick={() => deleteSignature(sig.id)}
+                                    >
+                                      <Trash2 className="h-3 w-3 mr-2" /> Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            ))}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs h-7 border-dashed"
+                              onClick={() => setEditingSignature({ name: '', content: '', is_default: false })}
+                            >
+                              <Plus className="h-3 w-3 mr-1" /> New
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* No Signatures - Create First */}
+                      {signatures.length === 0 && !editingSignature && (
+                        <div className="text-center py-4">
+                          <p className="text-sm text-gray-500 mb-2">No signatures yet</p>
+                          <Button
+                            size="sm"
+                            onClick={() => setEditingSignature({ name: '', content: '', is_default: true })}
+                          >
+                            <Plus className="h-3 w-3 mr-1" /> Create Signature
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {/* Signature Editor */}
+                      {editingSignature && (
+                        <div className="border rounded-lg p-3 bg-white">
+                          <Input
+                            value={editingSignature.name}
+                            onChange={(e) => setEditingSignature({ ...editingSignature, name: e.target.value })}
+                            placeholder="Signature name (e.g., Professional, Casual)"
+                            className="mb-2 h-8 text-sm"
+                          />
+                          <Textarea
+                            value={editingSignature.content}
+                            onChange={(e) => setEditingSignature({ ...editingSignature, content: e.target.value })}
+                            placeholder="Enter your signature...&#10;Example:&#10;Best regards,&#10;John Doe&#10;Marketing Manager | Sevora"
+                            className="min-h-[80px] text-sm mb-2"
+                          />
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id="sig-default"
+                              checked={editingSignature.is_default}
+                              onCheckedChange={(checked) => setEditingSignature({ ...editingSignature, is_default: checked })}
+                            />
+                            <label htmlFor="sig-default" className="text-xs text-gray-600">Set as default</label>
+                          </div>
+                          <div className="flex items-center gap-2 mt-3">
+                            <Button 
+                              size="sm" 
+                              onClick={async () => {
+                                if (!editingSignature.name.trim()) {
+                                  toast.error('Please enter a signature name');
+                                  return;
+                                }
+                                if (editingSignature.id) {
+                                  await updateSignature(editingSignature.id, editingSignature);
+                                } else {
+                                  await createSignature(editingSignature);
+                                }
+                                setEditingSignature(null);
+                              }}
+                            >
+                              <Check className="h-3 w-3 mr-1" /> {editingSignature.id ? 'Update' : 'Save'}
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => setEditingSignature(null)}>
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Signature Toggle */}
+                      <div className="flex items-center gap-2 pt-2 border-t">
+                        <Checkbox
+                          id="sig-enabled"
+                          checked={signatureEnabled}
+                          onCheckedChange={setSignatureEnabled}
+                        />
+                        <label htmlFor="sig-enabled" className="text-xs text-gray-600">Append signature to emails</label>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               
@@ -2548,6 +2907,122 @@ Sevora Team`
                 <>
                   <Calendar className="w-4 h-4 mr-2" />
                   Schedule Meeting
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Template Manager Modal */}
+      <Dialog open={showTemplateManager} onOpenChange={(open) => {
+        setShowTemplateManager(open);
+        if (!open) setEditingTemplate(null);
+      }}>
+        <DialogContent className="bg-white max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-blue-600" />
+              {editingTemplate?.id ? 'Edit Template' : 'Create Template'}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {editingTemplate && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Template Name *</Label>
+                <Input
+                  value={editingTemplate.name}
+                  onChange={(e) => setEditingTemplate({ ...editingTemplate, name: e.target.value })}
+                  placeholder="e.g., Collaboration Inquiry, Follow-up"
+                  data-testid="template-name-input"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Select 
+                  value={editingTemplate.category || 'general'} 
+                  onValueChange={(value) => setEditingTemplate({ ...editingTemplate, category: value })}
+                >
+                  <SelectTrigger data-testid="template-category-select">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="general">General</SelectItem>
+                    <SelectItem value="outreach">Outreach</SelectItem>
+                    <SelectItem value="follow_up">Follow-up</SelectItem>
+                    <SelectItem value="pr">PR & Press</SelectItem>
+                    <SelectItem value="partnership">Partnership</SelectItem>
+                    <SelectItem value="support">Support</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Subject Line *</Label>
+                <Input
+                  value={editingTemplate.subject}
+                  onChange={(e) => setEditingTemplate({ ...editingTemplate, subject: e.target.value })}
+                  placeholder="Email subject line"
+                  data-testid="template-subject-input"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Email Body *</Label>
+                <Textarea
+                  value={editingTemplate.body}
+                  onChange={(e) => setEditingTemplate({ ...editingTemplate, body: e.target.value })}
+                  placeholder="Write your email template content here...&#10;&#10;You can use placeholders like [Name], [Company], etc."
+                  className="min-h-[200px]"
+                  data-testid="template-body-input"
+                />
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowTemplateManager(false);
+                setEditingTemplate(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={async () => {
+                if (!editingTemplate?.name?.trim() || !editingTemplate?.subject?.trim()) {
+                  toast.error('Please fill in template name and subject');
+                  return;
+                }
+                try {
+                  if (editingTemplate.id) {
+                    await updateTemplate(editingTemplate.id, editingTemplate);
+                  } else {
+                    await createTemplate(editingTemplate);
+                  }
+                  setShowTemplateManager(false);
+                  setEditingTemplate(null);
+                } catch (e) {
+                  // Error already handled in the function
+                }
+              }}
+              disabled={savingTemplate}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              data-testid="save-template-btn"
+            >
+              {savingTemplate ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4 mr-2" />
+                  {editingTemplate?.id ? 'Update Template' : 'Save Template'}
                 </>
               )}
             </Button>
