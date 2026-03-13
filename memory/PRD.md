@@ -1,3 +1,55 @@
+## March 13, 2026 - Admin UI, Link to Campaign & Export Features ✅
+
+### What Was Built
+Three new features for the Marketing Operations Platform:
+
+### 1. Admin UI for Shared Mailboxes
+- New admin page at `/admin/shared-mailboxes`
+- CRUD operations for managing shared mailboxes
+- Access control via roles, departments, and individual users
+- Search and filter functionality
+- Active/inactive status management
+
+### 2. Link to Campaign Feature
+- Reusable `LinkToCampaign` component for cross-module linking
+- Entity linking API to connect any entity to campaigns
+- Support for influencers, leads, contacts, brands, emails
+- View linked campaigns per entity with unlink option
+- Added to Influencers dropdown menu
+
+### 3. Export Buttons
+- Reusable `ExportButton` component supporting CSV, Excel, and JSON
+- Added to Influencers (Sourcing Contacts) page
+- Added to Leads (Sales) page
+- Added to Tasks page
+- Configurable columns for export
+
+### New Backend APIs
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/shared-mailboxes` | GET/POST | List/create shared mailboxes |
+| `/api/shared-mailboxes/{id}` | GET/PUT/DELETE | Read/update/delete mailbox |
+| `/api/shared-mailboxes/my-mailboxes` | GET | User's accessible mailboxes |
+| `/api/entity-links` | GET/POST | List/create entity links |
+| `/api/entity-links/{id}` | DELETE | Remove entity link |
+| `/api/entity-links/campaigns` | GET | Available campaigns for linking |
+| `/api/entity-links/for-entity/{type}/{id}` | GET | Links for specific entity |
+| `/api/entity-links/campaign/{id}/linked-entities` | GET | Entities linked to campaign |
+
+### New Files Created
+| File | Purpose |
+|------|---------|
+| `/app/frontend/src/pages/admin/SharedMailboxesPage.jsx` | Admin UI for mailboxes |
+| `/app/frontend/src/lib/exportUtils.jsx` | Export utility component |
+| `/app/frontend/src/lib/LinkToCampaign.jsx` | Link to Campaign component |
+| `/app/backend/routes/entity_links.py` | Entity linking API |
+
+### Testing
+- Backend tests: 22/22 passed (100%)
+- Test file: `/app/backend/tests/test_shared_mailboxes_entity_links.py`
+
+---
+
 ## March 13, 2026 - Mail Inbox Phase 2 & 3: Snooze, Scheduled Send, Follow-ups & Tracking ✅
 
 ### What Was Built
