@@ -83,8 +83,7 @@ const DEPARTMENT_CONFIG = {
         routes: [
             { path: '/meetings', name: 'Meetings', icon: CalendarDays, subModuleCode: 'comm_meetings' },
             { path: '/meetings/new', name: 'Schedule Meeting', icon: Plus, subModuleCode: 'comm_schedule' },
-            { path: '/teams/calendar', name: 'Teams Calendar', icon: Calendar, subModuleCode: 'comm_calendar' },
-            { path: '/calendar', name: 'Unified Calendar', icon: Globe, subModuleCode: 'comm_unified_calendar' },
+            { path: '/calendar', name: 'Calendar', icon: Calendar, subModuleCode: 'comm_calendar' },
             { path: '/teams/chat', name: 'Teams Chat', icon: MessageSquare, subModuleCode: 'comm_chat' },
             { path: '/mail/inbox', name: 'Inbox', icon: Mail, subModuleCode: 'comm_inbox' },
         ]

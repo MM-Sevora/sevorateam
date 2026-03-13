@@ -1,3 +1,38 @@
+## March 13, 2026 - Combined Calendar Page with Tabs ✅
+
+### What Was Built
+Combined the Teams Calendar and Unified Calendar into a single page with two tabs for a cleaner navigation experience.
+
+### Navigation Change
+**Before:**
+- Communication Hub → Teams Calendar
+- Communication Hub → Unified Calendar
+
+**After:**
+- Communication Hub → Calendar (single link with tabs)
+
+### Tab Views
+| Tab | Description |
+|-----|-------------|
+| Teams Calendar | Microsoft Outlook/Teams calendar integration |
+| Unified Calendar | Aggregated view from all modules (Outlook, Meetings, Marketing, Sourcing, Tasks) |
+
+### Files Created/Modified
+| File | Changes |
+|------|---------|
+| `/app/frontend/src/pages/calendar/CombinedCalendarPage.jsx` | NEW - Combined calendar with tabs |
+| `/app/frontend/src/pages/teams/TeamsCalendar.jsx` | Added `embedded` prop support |
+| `/app/frontend/src/pages/calendar/UnifiedCalendarPage.jsx` | Added `embedded` prop support |
+| `/app/frontend/src/App.js` | Updated route to use CombinedCalendarPage |
+| `/app/frontend/src/components/Layout.jsx` | Simplified navigation to single "Calendar" link |
+
+### Technical Notes
+- Both calendar components accept `embedded={true}` prop to hide their headers when used within the combined page
+- The tab components handle their own internal padding when embedded
+- Direct routes to `/teams/calendar` and `/calendar/unified` still work for backward compatibility
+
+---
+
 ## March 13, 2026 - Task Deadlines to Outlook Reminders ✅
 
 ### What Was Built

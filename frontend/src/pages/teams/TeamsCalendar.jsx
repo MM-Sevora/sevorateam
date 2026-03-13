@@ -41,7 +41,7 @@ const EVENT_COLORS = {
   travel: { bg: 'bg-rose-100', border: 'border-rose-400', text: 'text-rose-800' },
 };
 
-export default function TeamsCalendar() {
+export default function TeamsCalendar({ embedded = false }) {
   const navigate = useNavigate();
   const { instance, accounts, inProgress } = useMsal();
   const isAuthenticated = useIsAuthenticated();
@@ -956,8 +956,9 @@ export default function TeamsCalendar() {
 
   // Connected view
   return (
-    <div className="p-6 space-y-6" data-testid="teams-calendar-page">
-      {/* Header */}
+    <div className={embedded ? "space-y-4" : "p-6 space-y-6"} data-testid="teams-calendar-page">
+      {/* Header - Hide when embedded */}
+      {!embedded && (
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[#4A3728]">Teams Calendar</h1>
@@ -1051,9 +1052,92 @@ export default function TeamsCalendar() {
           </Button>
         </div>
       </div>
+      )}
+
+      {/* Controls - shown in embedded mode too */}
+      {embedded && (
+        <div className="px-6 pt-4 flex items-center justify-between">
+          {/* Calendar Selector for embedded mode */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="border-[#D4BBA6] gap-2">
+                <div className="w-6 h-6 bg-gradient-to-br from-violet-500 to-violet-700 rounded-full flex items-center justify-center">
+                  <span className="text-white text-xs font-medium">
+                    {activeCalendar ? activeCalendar.charAt(0).toUpperCase() : (account?.name?.charAt(0) || 'U')}
+                  </span>
+                </div>
+                <span className="text-sm text-[#4A3728] max-w-40 truncate">
+                  {activeCalendar 
+                    ? sharedMailboxes.find(m => m.email === activeCalendar)?.display_name || activeCalendar
+                    : (account?.username || 'Personal')}
+                </span>
+                <ChevronDown className="w-4 h-4 text-[#6B5D52]" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="bg-white border-[#D4BBA6] min-w-[220px]">
+              <DropdownMenuItem 
+                onClick={() => setActiveCalendar(null)}
+                className={!activeCalendar ? 'bg-violet-50' : ''}
+              >
+                <div className="flex items-center gap-2 w-full">
+                  <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-violet-700 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs font-medium">{account?.name?.charAt(0) || 'U'}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-[#4A3728] text-sm">{account?.name || 'Personal'}</p>
+                    <p className="text-xs text-[#6B5D52] truncate">{account?.username}</p>
+                  </div>
+                  {!activeCalendar && <Check className="w-4 h-4 text-violet-600" />}
+                </div>
+              </DropdownMenuItem>
+              {sharedMailboxes.length > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <div className="px-2 py-1.5">
+                    <p className="text-xs font-medium text-[#6B5D52] uppercase tracking-wide">Shared Calendars</p>
+                  </div>
+                  {sharedMailboxes.map(mailbox => (
+                    <DropdownMenuItem 
+                      key={mailbox.email}
+                      onClick={() => setActiveCalendar(mailbox.email)}
+                      className={activeCalendar === mailbox.email ? 'bg-violet-50' : ''}
+                    >
+                      <div className="flex items-center gap-2 w-full">
+                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-700 rounded-full flex items-center justify-center">
+                          <span className="text-white text-xs font-medium">{mailbox.display_name?.charAt(0) || 'S'}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-[#4A3728] text-sm">{mailbox.display_name}</p>
+                          <p className="text-xs text-[#6B5D52] truncate">{mailbox.email}</p>
+                        </div>
+                        {activeCalendar === mailbox.email && <Check className="w-4 h-4 text-violet-600" />}
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
+          <div className="flex items-center gap-2">
+            <Button onClick={handleSync} variant="outline" size="sm" className="border-[#D4BBA6]" disabled={syncing}>
+              <RefreshCw className={`w-4 h-4 mr-1 ${syncing ? 'animate-spin' : ''}`} />
+              Sync
+            </Button>
+            <Button
+              onClick={() => openCreateModal()}
+              size="sm"
+              className="bg-gradient-to-r from-violet-600 to-violet-700 hover:from-violet-700 hover:to-violet-800 text-white"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              New Event
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Controls */}
-      <div className="flex items-center justify-between">
+      <div className={`flex items-center justify-between ${embedded ? 'px-6' : ''}`}>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={navigatePrev} className="border-[#D4BBA6]">
             <ChevronLeft className="w-4 h-4" />
@@ -1104,6 +1188,7 @@ export default function TeamsCalendar() {
       </div>
 
       {/* Calendar View */}
+      <div className={embedded ? 'px-6 pb-6' : ''}>
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
@@ -1115,6 +1200,7 @@ export default function TeamsCalendar() {
           {view === 'day' && renderDayView()}
         </>
       )}
+      </div>
 
       {/* Create/Edit Event Modal */}
       <Dialog open={showEventModal} onOpenChange={setShowEventModal}>

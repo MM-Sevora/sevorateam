@@ -39,7 +39,7 @@ const EVENT_SOURCES = {
   tasks: { label: 'Task Deadlines', color: '#F59E0B', bgColor: 'bg-amber-500', icon: ClipboardList },
 };
 
-const UnifiedCalendarPage = () => {
+const UnifiedCalendarPage = ({ embedded = false }) => {
   const navigate = useNavigate();
   const { instance, accounts } = useMsal();
   const msAccount = accounts[0];
@@ -264,8 +264,9 @@ const UnifiedCalendarPage = () => {
   const selectedDateEvents = selectedDate ? getEventsForDay(selectedDate) : [];
 
   return (
-    <div className="p-6 space-y-6 bg-[#FAF8F5] min-h-screen" data-testid="unified-calendar-page">
-      {/* Header */}
+    <div className={embedded ? "space-y-4" : "p-6 space-y-6 bg-[#FAF8F5] min-h-screen"} data-testid="unified-calendar-page">
+      {/* Header - Hide when embedded */}
+      {!embedded && (
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[#4A3728]">Unified Calendar</h1>
@@ -310,9 +311,51 @@ const UnifiedCalendarPage = () => {
           </Button>
         </div>
       </div>
+      )}
+
+      {/* Embedded mode controls */}
+      {embedded && (
+        <div className="px-6 pt-4 flex items-center justify-between">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="border-[#D4BBA6] gap-2">
+                <Filter className="w-4 h-4" />
+                Sources
+                <Badge variant="secondary" className="ml-1">
+                  {Object.values(visibleSources).filter(Boolean).length}
+                </Badge>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="bg-white border-[#D4BBA6] w-64">
+              <div className="px-3 py-2 border-b border-gray-100">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Event Sources</p>
+              </div>
+              {Object.entries(EVENT_SOURCES).map(([key, source]) => (
+                <DropdownMenuItem 
+                  key={key} 
+                  onClick={(e) => { e.preventDefault(); toggleSource(key); }}
+                  className="cursor-pointer"
+                >
+                  <div className="flex items-center gap-3 w-full">
+                    <Checkbox checked={visibleSources[key]} />
+                    <div className={`w-3 h-3 rounded-full ${source.bgColor}`} />
+                    <span className="flex-1">{source.label}</span>
+                    {visibleSources[key] && <Check className="w-4 h-4 text-green-600" />}
+                  </div>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button onClick={fetchAllEvents} variant="outline" size="sm" className="border-[#D4BBA6]" disabled={loading}>
+            <RefreshCw className={`w-4 h-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
+      )}
 
       {/* Source Legend */}
-      <div className="flex flex-wrap items-center gap-4 bg-white rounded-lg px-4 py-3 border border-[#E8E0D8]">
+      <div className={`flex flex-wrap items-center gap-4 bg-white rounded-lg px-4 py-3 border border-[#E8E0D8] ${embedded ? 'mx-6' : ''}`}>
         <span className="text-sm font-medium text-[#6B5D52]">Legend:</span>
         {Object.entries(EVENT_SOURCES).map(([key, source]) => (
           visibleSources[key] && (
@@ -325,7 +368,7 @@ const UnifiedCalendarPage = () => {
       </div>
 
       {/* Calendar Controls */}
-      <div className="flex items-center justify-between bg-white rounded-lg px-4 py-3 border border-[#E8E0D8]">
+      <div className={`flex items-center justify-between bg-white rounded-lg px-4 py-3 border border-[#E8E0D8] ${embedded ? 'mx-6' : ''}`}>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={navigatePrev} className="border-[#D4BBA6]">
             <ChevronLeft className="w-4 h-4" />
@@ -346,7 +389,7 @@ const UnifiedCalendarPage = () => {
       </div>
 
       {/* Calendar Grid */}
-      <div className="flex gap-6">
+      <div className={`flex gap-6 ${embedded ? 'px-6 pb-6' : ''}`}>
         {/* Main Calendar */}
         <Card className="flex-1 border-[#E8E0D8]">
           <CardContent className="p-4">
