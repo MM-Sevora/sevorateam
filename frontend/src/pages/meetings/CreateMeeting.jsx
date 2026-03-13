@@ -32,6 +32,85 @@ import { toast } from 'sonner';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
+// Microsoft Graph API helper for Outlook sync
+const syncMeetingToOutlook = async (meeting, participants) => {
+  const msToken = localStorage.getItem('ms_access_token');
+  if (!msToken) {
+    throw new Error('Not connected to Microsoft');
+  }
+
+  // Build attendees list
+  const attendees = participants
+    .filter(p => p.email)
+    .map(p => ({
+      emailAddress: {
+        address: p.email,
+        name: p.name || p.email
+      },
+      type: p.role === 'organizer' ? 'required' : (p.role === 'optional' ? 'optional' : 'required')
+    }));
+
+  // Build the Outlook event
+  const outlookEvent = {
+    subject: meeting.title,
+    body: {
+      contentType: 'HTML',
+      content: `<p>${meeting.description || ''}</p>
+        ${meeting.agenda?.length > 0 ? `
+        <h3>Agenda</h3>
+        <ul>${meeting.agenda.map(a => `<li><strong>${a.title}</strong> (${a.duration} min)${a.presenter ? ` - ${a.presenter}` : ''}</li>`).join('')}</ul>
+        ` : ''}
+        <p><em>Created from Sevora Meetings</em></p>`
+    },
+    start: {
+      dateTime: meeting.start_time,
+      timeZone: meeting.timezone || 'UTC'
+    },
+    end: {
+      dateTime: meeting.end_time,
+      timeZone: meeting.timezone || 'UTC'
+    },
+    location: meeting.location ? {
+      displayName: meeting.location
+    } : undefined,
+    attendees: attendees,
+    isOnlineMeeting: !!meeting.meeting_link,
+    onlineMeetingUrl: meeting.meeting_link || undefined
+  };
+
+  // Create the event in Outlook
+  const response = await fetch('https://graph.microsoft.com/v1.0/me/events', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${msToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(outlookEvent)
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    console.error('Outlook sync error:', error);
+    throw new Error(error.error?.message || 'Failed to create Outlook event');
+  }
+
+  const createdEvent = await response.json();
+  
+  // Update the meeting with the Outlook event ID
+  const token = localStorage.getItem('sevora_token');
+  await fetch(`${API}/api/meetings/${meeting.id}`, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ outlook_event_id: createdEvent.id })
+  });
+
+  toast.success('Synced to Outlook calendar');
+  return createdEvent;
+};
+
 const meetingTypes = [
   { value: 'general', label: 'General Meeting' },
   { value: 'okr_review', label: 'OKR Review', category: 'Strategic' },
@@ -432,6 +511,17 @@ const CreateMeeting = () => {
 
         if (res.ok) {
           const meeting = await res.json();
+          
+          // Sync to Outlook if enabled
+          if (formData.sync_to_outlook && meeting.id) {
+            try {
+              await syncMeetingToOutlook(meeting, participants);
+            } catch (syncError) {
+              console.error('Failed to sync to Outlook:', syncError);
+              toast.warning('Meeting created but failed to sync to Outlook');
+            }
+          }
+          
           toast.success(isEditMode ? 'Meeting updated successfully' : 'Meeting created successfully');
           navigate(`/meetings/${meeting.id}`);
         } else {

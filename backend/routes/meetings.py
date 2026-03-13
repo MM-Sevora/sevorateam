@@ -1278,6 +1278,32 @@ async def delete_meeting(
     return {"message": "Meeting deleted successfully"}
 
 
+@router.patch("/{meeting_id}")
+async def patch_meeting(
+    meeting_id: str,
+    updates: dict,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Partial update of a meeting (e.g., sync outlook_event_id)"""
+    meeting = await db.meetings.find_one({"id": meeting_id}, {"_id": 0})
+    
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    
+    # Only allow certain fields to be patched
+    allowed_fields = {"outlook_event_id", "google_event_id", "sync_status", "external_links"}
+    filtered_updates = {k: v for k, v in updates.items() if k in allowed_fields}
+    
+    if filtered_updates:
+        filtered_updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+        await db.meetings.update_one(
+            {"id": meeting_id},
+            {"$set": filtered_updates}
+        )
+    
+    return {"message": "Meeting updated", "updated_fields": list(filtered_updates.keys())}
+
+
 @router.post("/{meeting_id}/start")
 async def start_meeting(
     meeting_id: str,

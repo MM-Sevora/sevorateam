@@ -148,6 +148,7 @@ import TeamsChat from "./pages/teams/TeamsChat";
 import TeamsCallback from "./pages/teams/TeamsCallback";
 import TeamsCalendar from "./pages/teams/TeamsCalendar";
 import TeamsEventDetail from "./pages/teams/TeamsEventDetail";
+import UnifiedCalendarPage from "./pages/calendar/UnifiedCalendarPage";
 
 // Analytics & Insights
 import AnalyticsTeamDashboard from "./pages/analytics/TeamDashboard";
@@ -574,6 +575,7 @@ function AppRoutes() {
             <Route path="/teams/chat" element={<ProtectedRoute requiredModule="communication_hub"><TeamsChat /></ProtectedRoute>} />
             <Route path="/teams/calendar" element={<ProtectedRoute requiredModule="communication_hub"><TeamsCalendar /></ProtectedRoute>} />
             <Route path="/teams/calendar/:eventId" element={<ProtectedRoute requiredModule="communication_hub"><TeamsEventDetail /></ProtectedRoute>} />
+            <Route path="/calendar" element={<ProtectedRoute><UnifiedCalendarPage /></ProtectedRoute>} />
             <Route path="/teams/callback" element={<TeamsCallback />} />
 
             {/* Analytics & Insights Routes */}
