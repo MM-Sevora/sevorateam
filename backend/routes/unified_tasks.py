@@ -198,6 +198,116 @@ async def get_tasks(
     }
 
 
+@router.get("/paginated")
+async def get_tasks_paginated(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, le=100),
+    status: Optional[str] = None,
+    assigned_to: Optional[str] = None,
+    assigned_team: Optional[str] = None,
+    source_module: Optional[str] = None,
+    priority: Optional[str] = None,
+    created_by: Optional[str] = None,
+    search: Optional[str] = None,
+    sort_by: Optional[str] = Query(default="created_at", description="Field to sort by"),
+    sort_order: Optional[str] = Query(default="desc", description="Sort order: asc or desc"),
+    current_user: dict = Depends(get_current_user_dep)
+):
+    """Get tasks with pagination, sorting, and filter metadata"""
+    user_id = current_user.get("id")
+    user_role = current_user.get("role", "")
+    is_admin = user_role in ["super_admin", "admin"] or current_user.get("can_manage_users")
+    
+    query = {}
+    
+    if status:
+        query["status"] = status
+    if assigned_to:
+        query["assigned_to"] = assigned_to
+    if assigned_team:
+        query["assigned_team"] = assigned_team
+    if source_module:
+        query["source_module"] = source_module
+    if priority:
+        query["priority"] = priority
+    if created_by:
+        query["created_by"] = created_by
+    if search:
+        query["$or"] = [
+            {"title": {"$regex": search, "$options": "i"}},
+            {"description": {"$regex": search, "$options": "i"}}
+        ]
+    
+    # For non-admins, show their tasks and created tasks
+    if not is_admin:
+        original_filters = dict(query) if query else {}
+        if original_filters:
+            query = {
+                "$and": [
+                    {"$or": [
+                        {"assigned_to": user_id},
+                        {"created_by": user_id}
+                    ]},
+                    original_filters
+                ]
+            }
+        else:
+            query = {
+                "$or": [
+                    {"assigned_to": user_id},
+                    {"created_by": user_id}
+                ]
+            }
+    
+    total = await db.unified_tasks.count_documents(query)
+    skip = (page - 1) * page_size
+    
+    # Validate sort field
+    allowed_sort_fields = ["created_at", "title", "due_date", "priority", "status", "updated_at"]
+    if sort_by not in allowed_sort_fields:
+        sort_by = "created_at"
+    sort_direction = -1 if sort_order == "desc" else 1
+    
+    tasks = await db.unified_tasks.find(query, {"_id": 0}).sort(sort_by, sort_direction).skip(skip).limit(page_size).to_list(length=page_size)
+    
+    # Add permission info
+    for task in tasks:
+        task["_permissions"] = {
+            "can_edit": task.get("created_by") == user_id or task.get("assigned_to") == user_id or is_admin,
+            "can_delete": task.get("created_by") == user_id or is_admin,
+            "is_owner": task.get("created_by") == user_id,
+        }
+    
+    # Get filter metadata
+    active_users = await db.users.find(
+        {"status": "active"}, 
+        {"_id": 0, "id": 1, "name": 1}
+    ).to_list(100)
+    users_list = [{"id": u["id"], "name": u.get("name", "Unknown")} for u in active_users]
+    users_list.sort(key=lambda x: x.get("name", "").lower())
+    
+    unique_teams = await db.unified_tasks.distinct("assigned_team")
+    unique_teams = [t for t in unique_teams if t]
+    
+    unique_modules = await db.unified_tasks.distinct("source_module")
+    unique_modules = [m for m in unique_modules if m]
+    
+    return {
+        "tasks": tasks,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size,
+        "filters_meta": {
+            "users": users_list,
+            "teams": sorted(unique_teams) if unique_teams else [],
+            "modules": sorted(unique_modules) if unique_modules else [],
+            "priorities": ["urgent", "high", "medium", "low"],
+            "statuses": ["pending", "in_progress", "completed", "cancelled"]
+        }
+    }
+
+
 @router.get("/my-tasks")
 async def get_my_tasks(
     status: Optional[str] = None,

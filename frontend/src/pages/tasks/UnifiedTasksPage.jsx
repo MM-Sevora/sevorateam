@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
@@ -9,11 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../components/ui/dialog';
 import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { toast } from 'sonner';
 import {
     ClipboardList, Plus, Search, Filter, Clock, CheckCircle2,
     AlertCircle, User, Calendar, Tag, ExternalLink, MoreVertical,
-    Loader2, Target, Bot, ArrowUpRight, Package
+    Loader2, Target, Bot, ArrowUpRight, Package, ChevronLeft, ChevronRight,
+    ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, X
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -56,7 +58,18 @@ export default function UnifiedTasksPage() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [priorityFilter, setPriorityFilter] = useState('all');
     const [moduleFilter, setModuleFilter] = useState('all');
+    const [assignedToFilter, setAssignedToFilter] = useState('all');
+    const [createdByFilter, setCreatedByFilter] = useState('all');
     const [periodFilter, setPeriodFilter] = useState('month');
+    
+    // Sorting
+    const [sorting, setSorting] = useState({ sort_by: 'created_at', sort_order: 'desc' });
+    
+    // Pagination
+    const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
+    
+    // Filter metadata
+    const [filtersMeta, setFiltersMeta] = useState({ users: [], teams: [], modules: [], priorities: [], statuses: [] });
     
     // Create task dialog
     const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -72,30 +85,43 @@ export default function UnifiedTasksPage() {
         tags: []
     });
 
-    useEffect(() => {
-        fetchTasks();
-        fetchStats();
-        fetchUsers();
-    }, [statusFilter, priorityFilter, moduleFilter, searchQuery]);
-
-    const fetchTasks = async () => {
+    const fetchTasks = useCallback(async () => {
         try {
             setLoading(true);
-            const params = new URLSearchParams();
-            if (statusFilter !== 'all') params.append('status', statusFilter);
-            if (priorityFilter !== 'all') params.append('priority', priorityFilter);
-            if (moduleFilter !== 'all') params.append('source_module', moduleFilter);
-            if (searchQuery) params.append('search', searchQuery);
+            const params = new URLSearchParams({
+                page: pagination.page,
+                page_size: pagination.pageSize,
+                sort_by: sorting.sort_by,
+                sort_order: sorting.sort_order,
+                ...(searchQuery && { search: searchQuery }),
+                ...(statusFilter !== 'all' && { status: statusFilter }),
+                ...(priorityFilter !== 'all' && { priority: priorityFilter }),
+                ...(moduleFilter !== 'all' && { source_module: moduleFilter }),
+                ...(assignedToFilter !== 'all' && { assigned_to: assignedToFilter }),
+                ...(createdByFilter !== 'all' && { created_by: createdByFilter })
+            });
             
-            const response = await api.get(`/tasks?${params.toString()}`);
+            const response = await api.get(`/tasks/paginated?${params.toString()}`);
             setTasks(response.data.tasks || []);
+            setPagination(prev => ({
+                ...prev,
+                total: response.data.total,
+                totalPages: response.data.total_pages
+            }));
+            if (response.data.filters_meta) {
+                setFiltersMeta(response.data.filters_meta);
+            }
         } catch (error) {
             console.error('Failed to fetch tasks:', error);
             toast.error('Failed to load tasks');
         } finally {
             setLoading(false);
         }
-    };
+    }, [pagination.page, pagination.pageSize, sorting, searchQuery, statusFilter, priorityFilter, moduleFilter, assignedToFilter, createdByFilter]);
+
+    useEffect(() => {
+        fetchTasks();
+    }, [fetchTasks]);
 
     const fetchStats = async () => {
         try {
@@ -106,15 +132,25 @@ export default function UnifiedTasksPage() {
         }
     };
 
-    const fetchUsers = async () => {
-        try {
-            const response = await api.get('/users');
-            const allUsers = response.data || [];
-            // Filter to show only active users
-            setUsers(allUsers.filter(u => u.status === 'active'));
-        } catch (error) {
-            console.error('Failed to fetch users:', error);
+    useEffect(() => {
+        fetchStats();
+    }, [periodFilter]);
+
+    const handleSort = (field) => {
+        setSorting(prev => ({
+            sort_by: field,
+            sort_order: prev.sort_by === field && prev.sort_order === 'asc' ? 'desc' : 'asc'
+        }));
+        setPagination(prev => ({ ...prev, page: 1 }));
+    };
+
+    const SortIcon = ({ field }) => {
+        if (sorting.sort_by !== field) {
+            return <ArrowUpDown className="h-4 w-4 ml-1 opacity-50" />;
         }
+        return sorting.sort_order === 'asc' 
+            ? <ArrowUp className="h-4 w-4 ml-1 text-[#5C4033]" />
+            : <ArrowDown className="h-4 w-4 ml-1 text-[#5C4033]" />;
     };
 
     const handleCreateTask = async () => {
@@ -165,6 +201,7 @@ export default function UnifiedTasksPage() {
     };
 
     const handleDeleteTask = async (taskId) => {
+        if (!window.confirm('Are you sure you want to delete this task?')) return;
         try {
             await api.delete(`/tasks/${taskId}`);
             toast.success('Task deleted');
@@ -188,6 +225,19 @@ export default function UnifiedTasksPage() {
     const isOverdue = (task) => {
         if (!task.due_date || task.status === 'completed' || task.status === 'cancelled') return false;
         return new Date(task.due_date) < new Date();
+    };
+
+    const hasActiveFilters = statusFilter !== 'all' || priorityFilter !== 'all' || moduleFilter !== 'all' || 
+        assignedToFilter !== 'all' || createdByFilter !== 'all' || searchQuery;
+
+    const clearAllFilters = () => {
+        setStatusFilter('all');
+        setPriorityFilter('all');
+        setModuleFilter('all');
+        setAssignedToFilter('all');
+        setCreatedByFilter('all');
+        setSearchQuery('');
+        setPagination(prev => ({ ...prev, page: 1 }));
     };
 
     return (
@@ -295,8 +345,8 @@ export default function UnifiedTasksPage() {
             {/* Filters */}
             <Card className="bg-white/80 border-[#DDD0C8] mb-6">
                 <CardContent className="p-4">
-                    <div className="flex flex-col md:flex-row gap-4">
-                        <div className="relative flex-1">
+                    <div className="flex flex-wrap gap-4">
+                        <div className="relative flex-1 min-w-[200px]">
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#8B7355] w-4 h-4" />
                             <Input
                                 placeholder="Search tasks..."
@@ -307,7 +357,7 @@ export default function UnifiedTasksPage() {
                             />
                         </div>
                         <Select value={statusFilter} onValueChange={setStatusFilter}>
-                            <SelectTrigger className="w-[150px] border-[#DDD0C8] bg-white">
+                            <SelectTrigger className="w-[140px] border-[#DDD0C8] bg-white" data-testid="filter-status">
                                 <SelectValue placeholder="Status" />
                             </SelectTrigger>
                             <SelectContent>
@@ -319,7 +369,7 @@ export default function UnifiedTasksPage() {
                             </SelectContent>
                         </Select>
                         <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                            <SelectTrigger className="w-[150px] border-[#DDD0C8] bg-white">
+                            <SelectTrigger className="w-[140px] border-[#DDD0C8] bg-white" data-testid="filter-priority">
                                 <SelectValue placeholder="Priority" />
                             </SelectTrigger>
                             <SelectContent>
@@ -331,61 +381,139 @@ export default function UnifiedTasksPage() {
                             </SelectContent>
                         </Select>
                         <Select value={moduleFilter} onValueChange={setModuleFilter}>
-                            <SelectTrigger className="w-[150px] border-[#DDD0C8] bg-white">
+                            <SelectTrigger className="w-[140px] border-[#DDD0C8] bg-white" data-testid="filter-module">
                                 <SelectValue placeholder="Module" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Modules</SelectItem>
-                                <SelectItem value="sourcing">Sourcing</SelectItem>
-                                <SelectItem value="marketing">Marketing</SelectItem>
-                                <SelectItem value="sales">Sales</SelectItem>
-                                <SelectItem value="hr">HR</SelectItem>
-                                <SelectItem value="projects">Projects</SelectItem>
+                                {(filtersMeta.modules?.length > 0 ? filtersMeta.modules : ['sourcing', 'marketing', 'sales', 'hr', 'projects']).map(m => (
+                                    <SelectItem key={m} value={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
+                        <Select value={assignedToFilter} onValueChange={setAssignedToFilter}>
+                            <SelectTrigger className="w-[160px] border-[#DDD0C8] bg-white" data-testid="filter-assigned-to">
+                                <SelectValue placeholder="Assigned to" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Assignees</SelectItem>
+                                {filtersMeta.users?.map(u => (
+                                    <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <Select value={createdByFilter} onValueChange={setCreatedByFilter}>
+                            <SelectTrigger className="w-[160px] border-[#DDD0C8] bg-white" data-testid="filter-created-by">
+                                <SelectValue placeholder="Created by" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Creators</SelectItem>
+                                {filtersMeta.users?.map(u => (
+                                    <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <Button variant="outline" onClick={fetchTasks} className="border-[#DDD0C8]">
+                            <RefreshCw className="w-4 h-4" />
+                        </Button>
+                        {hasActiveFilters && (
+                            <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-gray-500">
+                                <X className="w-4 h-4 mr-1" /> Clear
+                            </Button>
+                        )}
                     </div>
                 </CardContent>
             </Card>
 
-            {/* Tasks List */}
+            {/* Tasks Table */}
             <Card className="bg-white/80 border-[#DDD0C8]">
-                <CardHeader className="border-b border-[#DDD0C8]">
-                    <CardTitle className="text-[#5C4033]">Tasks</CardTitle>
-                    <CardDescription className="text-[#8B7355]">
-                        {tasks.length} task{tasks.length !== 1 ? 's' : ''} found
-                    </CardDescription>
-                </CardHeader>
                 <CardContent className="p-0">
-                    {loading ? (
-                        <div className="flex items-center justify-center py-12">
-                            <Loader2 className="w-8 h-8 animate-spin text-[#8B7355]" />
-                        </div>
-                    ) : tasks.length === 0 ? (
-                        <div className="text-center py-12">
-                            <ClipboardList className="w-12 h-12 text-[#DDD0C8] mx-auto mb-4" />
-                            <p className="text-[#8B7355]">No tasks found</p>
-                            <Button 
-                                variant="outline" 
-                                className="mt-4 border-[#8B7355] text-[#8B7355]"
-                                onClick={() => setShowCreateDialog(true)}
-                            >
-                                Create your first task
-                            </Button>
-                        </div>
-                    ) : (
-                        <div className="divide-y divide-[#DDD0C8]">
-                            {tasks.map((task) => {
-                                const ModuleIcon = moduleIcons[task.source_module] || ClipboardList;
-                                return (
-                                    <div 
-                                        key={task.id}
-                                        className={`p-4 hover:bg-[#F5EBE0]/50 transition-colors ${isOverdue(task) ? 'bg-red-50/50' : ''}`}
-                                        data-testid={`task-item-${task.id}`}
-                                    >
-                                        <div className="flex items-start justify-between gap-4">
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2 mb-2">
-                                                    <h3 className="font-medium text-[#5C4033] truncate">{task.title}</h3>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead 
+                                    className="cursor-pointer hover:bg-gray-50 select-none"
+                                    onClick={() => handleSort('title')}
+                                >
+                                    <div className="flex items-center">
+                                        Title
+                                        <SortIcon field="title" />
+                                    </div>
+                                </TableHead>
+                                <TableHead 
+                                    className="cursor-pointer hover:bg-gray-50 select-none"
+                                    onClick={() => handleSort('priority')}
+                                >
+                                    <div className="flex items-center">
+                                        Priority
+                                        <SortIcon field="priority" />
+                                    </div>
+                                </TableHead>
+                                <TableHead 
+                                    className="cursor-pointer hover:bg-gray-50 select-none"
+                                    onClick={() => handleSort('status')}
+                                >
+                                    <div className="flex items-center">
+                                        Status
+                                        <SortIcon field="status" />
+                                    </div>
+                                </TableHead>
+                                <TableHead>Module</TableHead>
+                                <TableHead>Assigned To</TableHead>
+                                <TableHead 
+                                    className="cursor-pointer hover:bg-gray-50 select-none"
+                                    onClick={() => handleSort('due_date')}
+                                >
+                                    <div className="flex items-center">
+                                        Due Date
+                                        <SortIcon field="due_date" />
+                                    </div>
+                                </TableHead>
+                                <TableHead 
+                                    className="cursor-pointer hover:bg-gray-50 select-none"
+                                    onClick={() => handleSort('created_at')}
+                                >
+                                    <div className="flex items-center">
+                                        Created
+                                        <SortIcon field="created_at" />
+                                    </div>
+                                </TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {loading ? (
+                                <TableRow>
+                                    <TableCell colSpan={8} className="text-center py-8">
+                                        <Loader2 className="w-6 h-6 animate-spin mx-auto text-[#8B7355]" />
+                                    </TableCell>
+                                </TableRow>
+                            ) : tasks.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                                        <ClipboardList className="w-12 h-12 text-[#DDD0C8] mx-auto mb-4" />
+                                        <p className="text-[#8B7355]">No tasks found</p>
+                                        <Button 
+                                            variant="outline" 
+                                            className="mt-4 border-[#8B7355] text-[#8B7355]"
+                                            onClick={() => setShowCreateDialog(true)}
+                                        >
+                                            Create your first task
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                tasks.map((task) => {
+                                    const ModuleIcon = moduleIcons[task.source_module] || ClipboardList;
+                                    return (
+                                        <TableRow 
+                                            key={task.id} 
+                                            className={`hover:bg-[#F5EBE0]/50 ${isOverdue(task) ? 'bg-red-50/50' : ''}`}
+                                            data-testid={`task-row-${task.id}`}
+                                        >
+                                            <TableCell>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-medium text-[#5C4033]">{task.title}</span>
                                                     {task.is_auto_generated && (
                                                         <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs">
                                                             <Bot className="w-3 h-3 mr-1" />
@@ -399,141 +527,169 @@ export default function UnifiedTasksPage() {
                                                     )}
                                                 </div>
                                                 {task.description && (
-                                                    <p className="text-sm text-[#8B7355] mb-2 line-clamp-2">{task.description}</p>
+                                                    <p className="text-xs text-gray-500 truncate max-w-xs">{task.description}</p>
                                                 )}
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <Badge className={`${statusColors[task.status]} text-xs`}>
-                                                        {task.status?.replace('_', ' ')}
-                                                    </Badge>
-                                                    <Badge className={`${priorityColors[task.priority]} text-xs`}>
-                                                        {task.priority}
-                                                    </Badge>
-                                                    {task.source_module && (
-                                                        <Badge variant="outline" className="text-xs border-[#DDD0C8]">
-                                                            <ModuleIcon className="w-3 h-3 mr-1" />
-                                                            {task.source_module}
-                                                        </Badge>
-                                                    )}
-                                                    {task.assigned_to_name && (
-                                                        <span className="text-xs text-[#8B7355] flex items-center gap-1">
-                                                            <User className="w-3 h-3" />
-                                                            {task.assigned_to_name}
-                                                        </span>
-                                                    )}
-                                                    {task.due_date && (
-                                                        <span className={`text-xs flex items-center gap-1 ${isOverdue(task) ? 'text-red-600' : 'text-[#8B7355]'}`}>
-                                                            <Calendar className="w-3 h-3" />
-                                                            {formatDate(task.due_date)}
-                                                        </span>
-                                                    )}
-                                                    {task.tags && task.tags.length > 0 && (
-                                                        <span className="text-xs text-[#8B7355] flex items-center gap-1">
-                                                            <Tag className="w-3 h-3" />
-                                                            {task.tags.slice(0, 2).join(', ')}
-                                                        </span>
-                                                    )}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge className={priorityColors[task.priority] || priorityColors.medium}>
+                                                    {task.priority}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge className={statusColors[task.status] || statusColors.pending}>
+                                                    {task.status?.replace('_', ' ')}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                {task.source_module && (
+                                                    <div className="flex items-center gap-1 text-sm text-[#8B7355]">
+                                                        <ModuleIcon className="w-3 h-3" />
+                                                        {task.source_module}
+                                                    </div>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                {task.assigned_to_name && (
+                                                    <div className="flex items-center gap-1 text-sm">
+                                                        <User className="w-3 h-3 text-[#8B7355]" />
+                                                        {task.assigned_to_name}
+                                                    </div>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                {task.due_date && (
+                                                    <div className={`flex items-center gap-1 text-sm ${isOverdue(task) ? 'text-red-600' : 'text-[#8B7355]'}`}>
+                                                        <Calendar className="w-3 h-3" />
+                                                        {formatDate(task.due_date)}
+                                                    </div>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="text-sm text-gray-600">
+                                                    {formatDate(task.created_at)}
                                                 </div>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                {task.related_url && (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => navigate(task.related_url)}
-                                                        className="text-[#8B7355]"
-                                                    >
-                                                        <ExternalLink className="w-4 h-4" />
-                                                    </Button>
+                                                {task.created_by_name && (
+                                                    <div className="text-xs text-gray-400">
+                                                        by {task.created_by_name}
+                                                    </div>
                                                 )}
+                                            </TableCell>
+                                            <TableCell className="text-right">
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="sm" className="text-[#8B7355]">
-                                                            <MoreVertical className="w-4 h-4" />
+                                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                                            <MoreVertical className="h-4 w-4" />
                                                         </Button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
-                                                        {task.status !== 'in_progress' && task.status !== 'completed' && (
-                                                            <DropdownMenuItem onClick={() => handleUpdateStatus(task.id, 'in_progress')}>
-                                                                Start Task
-                                                            </DropdownMenuItem>
-                                                        )}
                                                         {task.status !== 'completed' && (
                                                             <DropdownMenuItem onClick={() => handleUpdateStatus(task.id, 'completed')}>
+                                                                <CheckCircle2 className="w-4 h-4 mr-2 text-green-600" />
                                                                 Mark Complete
                                                             </DropdownMenuItem>
                                                         )}
-                                                        {task.status !== 'cancelled' && (
-                                                            <DropdownMenuItem onClick={() => handleUpdateStatus(task.id, 'cancelled')}>
-                                                                Cancel Task
+                                                        {task.status === 'pending' && (
+                                                            <DropdownMenuItem onClick={() => handleUpdateStatus(task.id, 'in_progress')}>
+                                                                <Loader2 className="w-4 h-4 mr-2 text-blue-600" />
+                                                                Start Progress
                                                             </DropdownMenuItem>
                                                         )}
-                                                        <DropdownMenuItem 
-                                                            onClick={() => handleDeleteTask(task.id)}
-                                                            className="text-red-600"
-                                                        >
-                                                            Delete
-                                                        </DropdownMenuItem>
+                                                        {task.related_url && (
+                                                            <DropdownMenuItem onClick={() => window.open(task.related_url, '_blank')}>
+                                                                <ExternalLink className="w-4 h-4 mr-2" />
+                                                                View Source
+                                                            </DropdownMenuItem>
+                                                        )}
+                                                        {task._permissions?.can_delete && (
+                                                            <DropdownMenuItem onClick={() => handleDeleteTask(task.id)} className="text-red-600">
+                                                                <AlertCircle className="w-4 h-4 mr-2" />
+                                                                Delete
+                                                            </DropdownMenuItem>
+                                                        )}
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })
+                            )}
+                        </TableBody>
+                    </Table>
                 </CardContent>
             </Card>
 
+            {/* Pagination */}
+            {pagination.totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4">
+                    <div className="text-sm text-gray-500">
+                        Showing {((pagination.page - 1) * pagination.pageSize) + 1} to {Math.min(pagination.page * pagination.pageSize, pagination.total)} of {pagination.total} tasks
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                            disabled={pagination.page === 1}
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <span className="text-sm">Page {pagination.page} of {pagination.totalPages}</span>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                            disabled={pagination.page === pagination.totalPages}
+                        >
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+            )}
+
             {/* Create Task Dialog */}
             <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-                <DialogContent className="bg-white max-w-lg">
+                <DialogContent className="max-w-lg bg-white">
                     <DialogHeader>
                         <DialogTitle className="text-[#5C4033]">Create New Task</DialogTitle>
                         <DialogDescription className="text-[#8B7355]">
-                            Create an operational task for cross-module follow-ups
+                            Add a new task for tracking and follow-up
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
-                        <div>
+                        <div className="space-y-2">
                             <Label className="text-[#5C4033]">Title *</Label>
                             <Input
                                 value={newTask.title}
                                 onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                                placeholder="Task title"
+                                placeholder="Enter task title"
                                 className="border-[#DDD0C8]"
-                                data-testid="new-task-title"
                             />
                         </div>
-                        <div>
+                        <div className="space-y-2">
                             <Label className="text-[#5C4033]">Description</Label>
                             <Textarea
                                 value={newTask.description}
                                 onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                                placeholder="Task description"
+                                placeholder="Enter task description"
                                 className="border-[#DDD0C8]"
-                                rows={3}
                             />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
-                            <div>
+                            <div className="space-y-2">
                                 <Label className="text-[#5C4033]">Priority</Label>
-                                <Select 
-                                    value={newTask.priority} 
-                                    onValueChange={(v) => setNewTask({ ...newTask, priority: v })}
-                                >
+                                <Select value={newTask.priority} onValueChange={(v) => setNewTask({ ...newTask, priority: v })}>
                                     <SelectTrigger className="border-[#DDD0C8]">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="urgent">Urgent</SelectItem>
-                                        <SelectItem value="high">High</SelectItem>
-                                        <SelectItem value="medium">Medium</SelectItem>
                                         <SelectItem value="low">Low</SelectItem>
+                                        <SelectItem value="medium">Medium</SelectItem>
+                                        <SelectItem value="high">High</SelectItem>
+                                        <SelectItem value="urgent">Urgent</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div>
+                            <div className="space-y-2">
                                 <Label className="text-[#5C4033]">Due Date</Label>
                                 <Input
                                     type="date"
@@ -544,36 +700,26 @@ export default function UnifiedTasksPage() {
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
-                            <div>
+                            <div className="space-y-2">
                                 <Label className="text-[#5C4033]">Assign To</Label>
-                                <Select 
-                                    value={newTask.assigned_to} 
-                                    onValueChange={(v) => setNewTask({ ...newTask, assigned_to: v })}
-                                >
+                                <Select value={newTask.assigned_to} onValueChange={(v) => setNewTask({ ...newTask, assigned_to: v })}>
                                     <SelectTrigger className="border-[#DDD0C8]">
                                         <SelectValue placeholder="Select user" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="none">Unassigned</SelectItem>
-                                        {users.map((user) => (
-                                            <SelectItem key={user.id} value={user.id}>
-                                                {user.name}
-                                            </SelectItem>
+                                        {filtersMeta.users?.map(user => (
+                                            <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div>
+                            <div className="space-y-2">
                                 <Label className="text-[#5C4033]">Module</Label>
-                                <Select 
-                                    value={newTask.source_module} 
-                                    onValueChange={(v) => setNewTask({ ...newTask, source_module: v })}
-                                >
+                                <Select value={newTask.source_module} onValueChange={(v) => setNewTask({ ...newTask, source_module: v })}>
                                     <SelectTrigger className="border-[#DDD0C8]">
                                         <SelectValue placeholder="Select module" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="none">None</SelectItem>
                                         <SelectItem value="sourcing">Sourcing</SelectItem>
                                         <SelectItem value="marketing">Marketing</SelectItem>
                                         <SelectItem value="sales">Sales</SelectItem>
@@ -583,39 +729,15 @@ export default function UnifiedTasksPage() {
                                 </Select>
                             </div>
                         </div>
-                        <div>
-                            <Label className="text-[#5C4033]">Team</Label>
-                            <Select 
-                                value={newTask.assigned_team} 
-                                onValueChange={(v) => setNewTask({ ...newTask, assigned_team: v })}
-                            >
-                                <SelectTrigger className="border-[#DDD0C8]">
-                                    <SelectValue placeholder="Select team" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="none">None</SelectItem>
-                                    <SelectItem value="sourcing">Sourcing Team</SelectItem>
-                                    <SelectItem value="marketing">Marketing Team</SelectItem>
-                                    <SelectItem value="sales">Sales Team</SelectItem>
-                                    <SelectItem value="hr">HR Team</SelectItem>
-                                    <SelectItem value="operations">Operations Team</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
                     </div>
                     <DialogFooter>
-                        <Button 
-                            variant="outline" 
-                            onClick={() => setShowCreateDialog(false)}
-                            className="border-[#DDD0C8]"
-                        >
+                        <Button variant="outline" onClick={() => setShowCreateDialog(false)} className="border-[#DDD0C8]">
                             Cancel
                         </Button>
                         <Button 
-                            onClick={handleCreateTask}
-                            disabled={createLoading}
-                            className="bg-[#8B7355] hover:bg-[#5C4033] text-white"
-                            data-testid="submit-create-task"
+                            onClick={handleCreateTask} 
+                            disabled={createLoading || !newTask.title.trim()}
+                            className="bg-[#8B7355] hover:bg-[#5C4033]"
                         >
                             {createLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                             Create Task

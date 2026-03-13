@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="20" time="8.225" timestamp="2026-03-13T15:54:58.471561+00:00" hostname="agent-env-decee466-a110-495d-afbf-630aad0be0a0"><testcase classname="tests.test_filter_sort_pagination.TestMarketingContactsPaginated" name="test_01_contacts_paginated_basic" time="0.607" /><testcase classname="tests.test_filter_sort_pagination.TestMarketingContactsPaginated" name="test_02_contacts_city_filter" time="0.322" /><testcase classname="tests.test_filter_sort_pagination.TestMarketingContactsPaginated" name="test_03_contacts_added_by_filter" time="0.352" /><testcase classname="tests.test_filter_sort_pagination.TestMarketingContactsPaginated" name="test_04_contacts_sorting" time="0.199"><failure message="AssertionError: Contacts not sorted by name ascending&#10;assert ['ananya | pe...ya nair', ...] == ['ananya gupt...ya nair', ...]&#10;  &#10;  At index 0 diff: 'ananya | personal stylist' != 'ananya gupta'&#10;  &#10;  Full diff:&#10;    [&#10;  +     'ananya | personal stylist',&#10;        'ananya gupta',...&#10;  &#10;  ...Full output truncated (10 lines hidden), use '-vv' to show">tests/test_filter_sort_pagination.py:147: in test_04_contacts_sorting
+    assert names == sorted(names), "Contacts not sorted by name ascending"
+E   AssertionError: Contacts not sorted by name ascending
+E   assert ['ananya | pe...ya nair', ...] == ['ananya gupt...ya nair', ...]
+E     
+E     At index 0 diff: 'ananya | personal stylist' != 'ananya gupta'
+E     
+E     Full diff:
+E       [
+E     +     'ananya | personal stylist',
+E           'ananya gupta',...
+E     
+E     ...Full output truncated (10 lines hidden), use '-vv' to show</failure></testcase><testcase classname="tests.test_filter_sort_pagination.TestMarketingContactsPaginated" name="test_05_contacts_pagination" time="0.282" /><testcase classname="tests.test_filter_sort_pagination.TestLeadsPaginated" name="test_01_leads_paginated_basic" time="0.125" /><testcase classname="tests.test_filter_sort_pagination.TestLeadsPaginated" name="test_02_leads_source_filter" time="0.455" /><testcase classname="tests.test_filter_sort_pagination.TestLeadsPaginated" name="test_03_leads_stage_filter" time="0.335" /><testcase classname="tests.test_filter_sort_pagination.TestLeadsPaginated" name="test_04_leads_city_filter" time="0.358" /><testcase classname="tests.test_filter_sort_pagination.TestLeadsPaginated" name="test_05_leads_added_by_filter" time="0.287" /><testcase classname="tests.test_filter_sort_pagination.TestLeadsPaginated" name="test_06_leads_sorting" time="0.465" /><testcase classname="tests.test_filter_sort_pagination.TestLeadsPaginated" name="test_07_leads_pagination" time="0.275" /><testcase classname="tests.test_filter_sort_pagination.TestTasksPaginated" name="test_01_tasks_paginated_basic" time="0.192" /><testcase classname="tests.test_filter_sort_pagination.TestTasksPaginated" name="test_02_tasks_status_filter" time="0.380" /><testcase classname="tests.test_filter_sort_pagination.TestTasksPaginated" name="test_03_tasks_priority_filter" time="2.330" /><testcase classname="tests.test_filter_sort_pagination.TestTasksPaginated" name="test_04_tasks_module_filter" time="0.237" /><testcase classname="tests.test_filter_sort_pagination.TestTasksPaginated" name="test_05_tasks_assigned_to_filter" time="0.241" /><testcase classname="tests.test_filter_sort_pagination.TestTasksPaginated" name="test_06_tasks_created_by_filter" time="0.251" /><testcase classname="tests.test_filter_sort_pagination.TestTasksPaginated" name="test_07_tasks_sorting" time="0.124"><failure message="AssertionError: Tasks not sorted by title ascending&#10;assert ['initial out...ui task', ...] == ['initial out... 'task1', ...]&#10;  &#10;  At index 5 diff: 'test - playwright ui task' != 'task1'&#10;  &#10;  Full diff:&#10;    [&#10;        'initial outreach to test',&#10;        'initial outreach to test brand',...&#10;  &#10;  ...Full output truncated (9 lines hidden), use '-vv' to show">tests/test_filter_sort_pagination.py:542: in test_07_tasks_sorting
+    assert titles == sorted(titles), "Tasks not sorted by title ascending"
+E   AssertionError: Tasks not sorted by title ascending
+E   assert ['initial out...ui task', ...] == ['initial out... 'task1', ...]
+E     
+E     At index 5 diff: 'test - playwright ui task' != 'task1'
+E     
+E     Full diff:
+E       [
+E           'initial outreach to test',
+E           'initial outreach to test brand',...
+E     
+E     ...Full output truncated (9 lines hidden), use '-vv' to show</failure></testcase><testcase classname="tests.test_filter_sort_pagination.TestTasksPaginated" name="test_08_tasks_pagination" time="0.312" /></testsuite></testsuites>

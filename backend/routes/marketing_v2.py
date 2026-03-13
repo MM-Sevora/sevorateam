@@ -500,6 +500,97 @@ async def get_contacts(
     contacts = await db.contacts.find(query, {"_id": 0}).sort("score", -1).skip(skip).limit(limit).to_list(limit)
     return contacts
 
+
+@marketing_v2_router.get("/contacts/paginated")
+async def get_contacts_paginated(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, le=100),
+    contact_type: Optional[str] = None,
+    status: Optional[str] = None,
+    tier: Optional[str] = None,
+    industry: Optional[str] = None,
+    city: Optional[str] = None,
+    added_by: Optional[str] = None,
+    search: Optional[str] = None,
+    sort_by: Optional[str] = Query(default="score", description="Field to sort by: score, name, created_at, followers, engagement_rate, city"),
+    sort_order: Optional[str] = Query(default="desc", description="Sort order: asc or desc"),
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get contacts with pagination, sorting, and filter metadata"""
+    db = get_db()
+    query = {}
+    
+    if contact_type:
+        query["contact_type"] = contact_type
+    if status:
+        query["status"] = status
+    if tier:
+        query["tier"] = tier
+    if industry:
+        query["industry"] = industry
+    if city:
+        query["city"] = city
+    if added_by:
+        query["created_by"] = added_by
+    if search:
+        query["$or"] = [
+            {"name": {"$regex": search, "$options": "i"}},
+            {"email": {"$regex": search, "$options": "i"}},
+            {"instagram_handle": {"$regex": search, "$options": "i"}},
+            {"publication": {"$regex": search, "$options": "i"}},
+        ]
+    
+    total = await db.contacts.count_documents(query)
+    skip = (page - 1) * page_size
+    
+    # Validate sort field and determine direction
+    allowed_sort_fields = ["score", "name", "created_at", "followers", "engagement_rate", "city", "updated_at", "tier"]
+    if sort_by not in allowed_sort_fields:
+        sort_by = "score"
+    sort_direction = -1 if sort_order == "desc" else 1
+    
+    contacts = await db.contacts.find(query, {"_id": 0}).sort(sort_by, sort_direction).skip(skip).limit(page_size).to_list(length=page_size)
+    
+    # Populate creator names
+    user_ids = list(set([c.get("created_by") for c in contacts if c.get("created_by")]))
+    if user_ids:
+        users = await db.users.find({"id": {"$in": user_ids}}, {"_id": 0, "id": 1, "name": 1}).to_list(100)
+        user_map = {u["id"]: u.get("name", "Unknown") for u in users}
+        for contact in contacts:
+            contact["created_by_name"] = user_map.get(contact.get("created_by"), "Unknown")
+    
+    # Get filter metadata: team members (all active users) and unique cities
+    active_users = await db.users.find(
+        {"status": "active"}, 
+        {"_id": 0, "id": 1, "name": 1}
+    ).to_list(100)
+    creators_list = [{"id": u["id"], "name": u.get("name", "Unknown")} for u in active_users]
+    creators_list.sort(key=lambda x: x.get("name", "").lower())
+    
+    unique_cities = await db.contacts.distinct("city")
+    unique_cities = [c for c in unique_cities if c]
+    
+    unique_tiers = await db.contacts.distinct("tier")
+    unique_tiers = [t for t in unique_tiers if t]
+    
+    unique_industries = await db.contacts.distinct("industry")
+    unique_industries = [i for i in unique_industries if i]
+    
+    return {
+        "contacts": contacts,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size,
+        "filters_meta": {
+            "creators": creators_list,
+            "cities": sorted(unique_cities),
+            "tiers": unique_tiers,
+            "industries": sorted(unique_industries) if unique_industries else []
+        }
+    }
+
+
 @marketing_v2_router.get("/contacts/{contact_id}", response_model=ContactResponse)
 async def get_contact(contact_id: str, user: dict = Depends(get_marketing_auth())):
     """Get single contact by ID - requires marketing auth"""
@@ -3445,7 +3536,7 @@ async def ai_external_discover_influencers(
 
 # ---- Influencer AI Discovery ----
 @marketing_v2_router.post("/ai/discover-influencers")
-async def ai_discover_influencers(
+async def ai_discover_influencers_v2(
     campaign_brief: dict,
     user: dict = Depends(get_marketing_auth())
 ):

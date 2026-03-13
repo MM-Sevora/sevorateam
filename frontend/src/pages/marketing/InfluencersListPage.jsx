@@ -32,8 +32,11 @@ const InfluencersListPage = () => {
   const [filterCampaign, setFilterCampaign] = useState('all');
   const [filterEngagement, setFilterEngagement] = useState('all');
   const [filterScore, setFilterScore] = useState('all');
+  const [filterCity, setFilterCity] = useState('all');
+  const [filterAddedBy, setFilterAddedBy] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
   const [campaigns, setCampaigns] = useState([]);
+  const [filtersMeta, setFiltersMeta] = useState({ creators: [], cities: [] });
   const [sortBy, setSortBy] = useState('score');
   const [sortOrder, setSortOrder] = useState('desc');
   const [selectedIds, setSelectedIds] = useState([]);
@@ -72,7 +75,7 @@ const InfluencersListPage = () => {
   // Check if any filters are active
   const hasActiveFilters = filterPlatform !== 'all' || filterStatus !== 'all' || filterTier !== 'all' || 
     filterIndustry !== 'all' || filterCampaign !== 'all' || filterEngagement !== 'all' || 
-    filterScore !== 'all' || searchQuery;
+    filterScore !== 'all' || filterCity !== 'all' || filterAddedBy !== 'all' || searchQuery;
   
   const clearAllFilters = () => {
     setFilterPlatform('all');
@@ -82,6 +85,8 @@ const InfluencersListPage = () => {
     setFilterCampaign('all');
     setFilterEngagement('all');
     setFilterScore('all');
+    setFilterCity('all');
+    setFilterAddedBy('all');
     setSearchQuery('');
   };
   
@@ -107,11 +112,21 @@ const InfluencersListPage = () => {
   const fetchInfluencers = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await api.get('/marketing/v2/contacts', {
-        params: { contact_type: 'influencer', limit: 100 }
+      const response = await api.get('/marketing/v2/contacts/paginated', {
+        params: { 
+          contact_type: 'influencer', 
+          page_size: 100,
+          ...(filterCity !== 'all' && { city: filterCity }),
+          ...(filterAddedBy !== 'all' && { added_by: filterAddedBy })
+        }
       });
-      const data = response.data || [];
+      const data = response.data.contacts || [];
       setInfluencers(data);
+      
+      // Update filters metadata
+      if (response.data.filters_meta) {
+        setFiltersMeta(response.data.filters_meta);
+      }
       
       const counts = { identified: 0, contacted: 0, interested: 0, negotiation: 0, confirmed: 0, completed: 0 };
       data.forEach(inf => {
@@ -125,7 +140,7 @@ const InfluencersListPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [api]);
+  }, [api, filterCity, filterAddedBy]);
 
   const fetchCampaigns = useCallback(async () => {
     try {
@@ -624,8 +639,15 @@ const InfluencersListPage = () => {
       else if (filterScore === 'below') matchesScore = score < 40;
     }
     
+    // City filter (done server-side via API, but also filter client-side for consistency)
+    const matchesCity = filterCity === 'all' || inf.city?.toLowerCase() === filterCity.toLowerCase();
+    
+    // Added by filter (done server-side via API, but also filter client-side for consistency)
+    const matchesAddedBy = filterAddedBy === 'all' || inf.created_by === filterAddedBy;
+    
     return matchesSearch && matchesPlatform && matchesStatus && matchesTier && 
-           matchesIndustry && matchesCampaign && matchesEngagement && matchesScore;
+           matchesIndustry && matchesCampaign && matchesEngagement && matchesScore &&
+           matchesCity && matchesAddedBy;
   }).sort((a, b) => {
     const multiplier = sortOrder === 'desc' ? -1 : 1;
     if (sortBy === 'score') return multiplier * ((a.score || 0) - (b.score || 0));
@@ -1678,9 +1700,9 @@ const InfluencersListPage = () => {
           >
             <Filter className="w-4 h-4 mr-1" /> 
             More
-            {(filterCampaign !== 'all' || filterEngagement !== 'all' || filterScore !== 'all') && (
+            {(filterCampaign !== 'all' || filterEngagement !== 'all' || filterScore !== 'all' || filterCity !== 'all' || filterAddedBy !== 'all') && (
               <Badge className="ml-1 h-5 w-5 p-0 flex items-center justify-center bg-amber-500 text-white text-[10px]">
-                {[filterCampaign, filterEngagement, filterScore].filter(f => f !== 'all').length}
+                {[filterCampaign, filterEngagement, filterScore, filterCity, filterAddedBy].filter(f => f !== 'all').length}
               </Badge>
             )}
           </Button>
@@ -1735,6 +1757,28 @@ const InfluencersListPage = () => {
                 <SelectItem value="below">Below Average (&lt;40)</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={filterCity} onValueChange={setFilterCity}>
+              <SelectTrigger className="w-44 bg-white" data-testid="filter-city">
+                <SelectValue placeholder="City" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Cities</SelectItem>
+                {filtersMeta.cities?.map(c => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filterAddedBy} onValueChange={setFilterAddedBy}>
+              <SelectTrigger className="w-44 bg-white" data-testid="filter-added-by">
+                <SelectValue placeholder="Added by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Team Members</SelectItem>
+                {filtersMeta.creators?.map(u => (
+                  <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {hasActiveFilters && (
               <Button 
                 variant="ghost" 
@@ -1779,6 +1823,18 @@ const InfluencersListPage = () => {
               <Badge variant="secondary" className="bg-amber-100 text-amber-700 gap-1">
                 Campaign: {filterCampaign === 'unassigned' ? 'Unassigned' : campaigns.find(c => c.id === filterCampaign)?.name}
                 <X className="w-3 h-3 cursor-pointer" onClick={() => setFilterCampaign('all')} />
+              </Badge>
+            )}
+            {filterCity !== 'all' && (
+              <Badge variant="secondary" className="bg-teal-100 text-teal-700 gap-1">
+                City: {filterCity}
+                <X className="w-3 h-3 cursor-pointer" onClick={() => setFilterCity('all')} />
+              </Badge>
+            )}
+            {filterAddedBy !== 'all' && (
+              <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 gap-1">
+                Added by: {filtersMeta.creators?.find(u => u.id === filterAddedBy)?.name || filterAddedBy}
+                <X className="w-3 h-3 cursor-pointer" onClick={() => setFilterAddedBy('all')} />
               </Badge>
             )}
             {searchQuery && (

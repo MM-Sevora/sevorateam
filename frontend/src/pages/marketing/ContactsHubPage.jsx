@@ -8,12 +8,16 @@ import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
 import { Label } from '../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { toast } from 'sonner';
 import { 
   Search, Plus, Users, Star, MapPin, Instagram, Youtube, Twitter, Linkedin,
-  Filter, Mail, Phone, Building2, Newspaper, PenTool, RefreshCw
+  Filter, Mail, Phone, Building2, Newspaper, PenTool, RefreshCw, Eye,
+  ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, MoreVertical, Trash2
 } from 'lucide-react';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
+} from '../../components/ui/dropdown-menu';
 
 const CONTACT_TYPES = [
   { value: 'influencer', label: 'Influencer', icon: Users, color: 'bg-purple-100 text-purple-700' },
@@ -45,8 +49,10 @@ const ContactsHubPage = () => {
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filterType, setFilterType] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('all');
+  const [filters, setFilters] = useState({ contact_type: '', status: '', city: '', added_by: '', tier: '' });
+  const [sorting, setSorting] = useState({ sort_by: 'score', sort_order: 'desc' });
+  const [filtersMeta, setFiltersMeta] = useState({ creators: [], cities: [], tiers: [], industries: [] });
+  const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
   const [showAddModal, setShowAddModal] = useState(false);
   const [stats, setStats] = useState(null);
   
@@ -78,20 +84,36 @@ const ContactsHubPage = () => {
   const fetchContacts = useCallback(async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams();
-      if (search) params.append('search', search);
-      if (filterType !== 'all') params.append('contact_type', filterType);
-      if (filterStatus !== 'all') params.append('status', filterStatus);
+      const params = new URLSearchParams({
+        page: pagination.page,
+        page_size: pagination.pageSize,
+        sort_by: sorting.sort_by,
+        sort_order: sorting.sort_order,
+        ...(search && { search }),
+        ...(filters.contact_type && { contact_type: filters.contact_type }),
+        ...(filters.status && { status: filters.status }),
+        ...(filters.city && { city: filters.city }),
+        ...(filters.added_by && { added_by: filters.added_by }),
+        ...(filters.tier && { tier: filters.tier })
+      });
       
-      const response = await api.get(`/marketing/v2/contacts?${params.toString()}`);
-      setContacts(response.data || []);
+      const response = await api.get(`/marketing/v2/contacts/paginated?${params.toString()}`);
+      setContacts(response.data.contacts || []);
+      setPagination(prev => ({
+        ...prev,
+        total: response.data.total,
+        totalPages: response.data.total_pages
+      }));
+      if (response.data.filters_meta) {
+        setFiltersMeta(response.data.filters_meta);
+      }
     } catch (error) {
       console.error('Failed to fetch contacts:', error);
       toast.error('Failed to load contacts');
     } finally {
       setLoading(false);
     }
-  }, [api, search, filterType, filterStatus]);
+  }, [api, pagination.page, pagination.pageSize, sorting, search, filters]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -104,8 +126,34 @@ const ContactsHubPage = () => {
 
   useEffect(() => {
     fetchContacts();
+  }, [fetchContacts]);
+
+  useEffect(() => {
     fetchStats();
-  }, [fetchContacts, fetchStats]);
+  }, [fetchStats]);
+
+  const handleSort = (field) => {
+    setSorting(prev => ({
+      sort_by: field,
+      sort_order: prev.sort_by === field && prev.sort_order === 'asc' ? 'desc' : 'asc'
+    }));
+    setPagination(prev => ({ ...prev, page: 1 }));
+  };
+
+  const SortIcon = ({ field }) => {
+    if (sorting.sort_by !== field) {
+      return <ArrowUpDown className="h-4 w-4 ml-1 opacity-50" />;
+    }
+    return sorting.sort_order === 'asc' 
+      ? <ArrowUp className="h-4 w-4 ml-1 text-[#4A3728]" />
+      : <ArrowDown className="h-4 w-4 ml-1 text-[#4A3728]" />;
+  };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    setPagination(prev => ({ ...prev, page: 1 }));
+    fetchContacts();
+  };
 
   const handleAddContact = async () => {
     try {
@@ -131,6 +179,18 @@ const ContactsHubPage = () => {
       fetchStats();
     } catch (error) {
       toast.error('Failed to add contact');
+    }
+  };
+
+  const handleDeleteContact = async (contactId) => {
+    if (!window.confirm('Are you sure you want to delete this contact?')) return;
+    try {
+      await api.delete(`/marketing/v2/contacts/${contactId}`);
+      toast.success('Contact deleted');
+      fetchContacts();
+      fetchStats();
+    } catch (error) {
+      toast.error('Failed to delete contact');
     }
   };
 
@@ -242,7 +302,7 @@ const ContactsHubPage = () => {
                     <Input type="number" step="0.1" value={newContact.engagement_rate} onChange={e => setNewContact({...newContact, engagement_rate: e.target.value})} placeholder="4.5" />
                   </div>
                   <div>
-                    <Label>Rate per Reel (₹)</Label>
+                    <Label>Rate per Reel (INR)</Label>
                     <Input type="number" value={newContact.rate_per_reel} onChange={e => setNewContact({...newContact, rate_per_reel: e.target.value})} placeholder="25000" />
                   </div>
                 </>
@@ -325,132 +385,282 @@ const ContactsHubPage = () => {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#5D4A3A]" />
-          <Input 
-            className="pl-10 border-[#E8D5C4]" 
-            placeholder="Search contacts..." 
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-        </div>
-        <Select value={filterType} onValueChange={setFilterType}>
-          <SelectTrigger className="w-[180px] border-[#E8D5C4]">
-            <Filter className="w-4 h-4 mr-2" />
-            <SelectValue placeholder="Type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            {CONTACT_TYPES.map(t => (
-              <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-[180px] border-[#E8D5C4]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="identified">Identified</SelectItem>
-            <SelectItem value="contacted">Contacted</SelectItem>
-            <SelectItem value="interested">Interested</SelectItem>
-            <SelectItem value="negotiating">Negotiating</SelectItem>
-            <SelectItem value="confirmed">Confirmed</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button variant="outline" onClick={fetchContacts} className="border-[#E8D5C4]">
-          <RefreshCw className="w-4 h-4" />
-        </Button>
-      </div>
+      {/* Search & Filters */}
+      <Card className="border-[#E8D5C4] bg-white/80">
+        <CardContent className="p-4">
+          <div className="flex flex-wrap gap-4">
+            <form onSubmit={handleSearch} className="flex-1 min-w-[200px]">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#9C8C74]" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search contacts..."
+                  className="pl-10 border-[#E8D5C4] focus:border-[#D4BBA6] focus:ring-[#D4BBA6]"
+                />
+              </div>
+            </form>
+            <Select value={filters.contact_type || 'all'} onValueChange={(v) => setFilters(prev => ({ ...prev, contact_type: v === 'all' ? '' : v }))}>
+              <SelectTrigger className="w-[150px] border-[#E8D5C4]">
+                <Filter className="w-4 h-4 mr-2" />
+                <SelectValue placeholder="Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                {CONTACT_TYPES.map(t => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filters.status || 'all'} onValueChange={(v) => setFilters(prev => ({ ...prev, status: v === 'all' ? '' : v }))}>
+              <SelectTrigger className="w-[150px] border-[#E8D5C4]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="identified">Identified</SelectItem>
+                <SelectItem value="contacted">Contacted</SelectItem>
+                <SelectItem value="interested">Interested</SelectItem>
+                <SelectItem value="negotiating">Negotiating</SelectItem>
+                <SelectItem value="confirmed">Confirmed</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filters.tier || 'all'} onValueChange={(v) => setFilters(prev => ({ ...prev, tier: v === 'all' ? '' : v }))}>
+              <SelectTrigger className="w-[150px] border-[#E8D5C4]">
+                <SelectValue placeholder="Tier" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Tiers</SelectItem>
+                {(filtersMeta.tiers?.length > 0 ? filtersMeta.tiers : ['nano', 'micro', 'macro', 'mega', 'celebrity']).map(t => (
+                  <SelectItem key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filters.city || 'all'} onValueChange={(v) => setFilters(prev => ({ ...prev, city: v === 'all' ? '' : v }))}>
+              <SelectTrigger className="w-[150px] border-[#E8D5C4]">
+                <SelectValue placeholder="City" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Cities</SelectItem>
+                {filtersMeta.cities?.map(c => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filters.added_by || 'all'} onValueChange={(v) => setFilters(prev => ({ ...prev, added_by: v === 'all' ? '' : v }))}>
+              <SelectTrigger className="w-[180px] border-[#E8D5C4]">
+                <SelectValue placeholder="Added by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Team Members</SelectItem>
+                {filtersMeta.creators?.map(u => (
+                  <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button variant="outline" onClick={fetchContacts} className="border-[#E8D5C4]">
+              <RefreshCw className="w-4 h-4" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Contacts Grid */}
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <RefreshCw className="w-8 h-8 animate-spin text-[#4A3728]" />
-        </div>
-      ) : contacts.length === 0 ? (
-        <Card className="border-[#E8D5C4]">
-          <CardContent className="py-12 text-center">
-            <Users className="w-12 h-12 mx-auto text-[#5D4A3A] mb-4" />
-            <h3 className="text-lg font-medium text-[#4A3728]">No contacts found</h3>
-            <p className="text-[#5D4A3A]">Add your first contact to get started</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {contacts.map(contact => {
-            const typeConfig = getContactTypeConfig(contact.contact_type);
-            return (
-              <Card 
-                key={contact.id} 
-                className="border-[#E8D5C4] hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => navigate(`/marketing/contacts/${contact.id}`)}
-                data-testid={`contact-card-${contact.id}`}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${typeConfig.color}`}>
-                        {contact.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-[#4A3728]">{contact.name}</h3>
-                        <div className="flex items-center gap-2 text-xs text-[#5D4A3A]">
-                          {contact.instagram_handle && (
-                            <span className="flex items-center gap-1">
-                              <Instagram className="w-3 h-3" /> {contact.instagram_handle}
-                            </span>
-                          )}
+      {/* Contacts Table */}
+      <Card className="border-[#E8D5C4]">
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead 
+                  className="cursor-pointer hover:bg-gray-50 select-none"
+                  onClick={() => handleSort('name')}
+                >
+                  <div className="flex items-center">
+                    Name
+                    <SortIcon field="name" />
+                  </div>
+                </TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-gray-50 select-none"
+                  onClick={() => handleSort('tier')}
+                >
+                  <div className="flex items-center">
+                    Tier
+                    <SortIcon field="tier" />
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-gray-50 select-none"
+                  onClick={() => handleSort('followers')}
+                >
+                  <div className="flex items-center">
+                    Followers
+                    <SortIcon field="followers" />
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-gray-50 select-none"
+                  onClick={() => handleSort('engagement_rate')}
+                >
+                  <div className="flex items-center">
+                    Engagement
+                    <SortIcon field="engagement_rate" />
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-gray-50 select-none"
+                  onClick={() => handleSort('city')}
+                >
+                  <div className="flex items-center">
+                    City
+                    <SortIcon field="city" />
+                  </div>
+                </TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-gray-50 select-none"
+                  onClick={() => handleSort('score')}
+                >
+                  <div className="flex items-center">
+                    Score
+                    <SortIcon field="score" />
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-gray-50 select-none"
+                  onClick={() => handleSort('created_at')}
+                >
+                  <div className="flex items-center">
+                    Added by
+                    <SortIcon field="created_at" />
+                  </div>
+                </TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={10} className="text-center py-8">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-amber-600 mx-auto"></div>
+                  </TableCell>
+                </TableRow>
+              ) : contacts.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={10} className="text-center py-8 text-gray-500">
+                    No contacts found. Add your first contact to get started.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                contacts.map((contact) => {
+                  const typeConfig = getContactTypeConfig(contact.contact_type);
+                  return (
+                    <TableRow key={contact.id} className="hover:bg-gray-50" data-testid={`contact-row-${contact.id}`}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${typeConfig.color}`}>
+                            {contact.name?.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="font-medium text-[#4A3728]">{contact.name}</div>
+                            {contact.instagram_handle && (
+                              <div className="text-xs text-[#5D4A3A] flex items-center gap-1">
+                                <Instagram className="w-3 h-3" /> {contact.instagram_handle}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-                      <span className="text-sm font-medium">{contact.score}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    <Badge className={typeConfig.color}>{typeConfig.label}</Badge>
-                    {contact.tier && <Badge className={TIER_COLORS[contact.tier] || TIER_COLORS.micro}>{contact.tier}</Badge>}
-                    <Badge className={STATUS_COLORS[contact.status] || STATUS_COLORS.identified}>{contact.status}</Badge>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2 text-center text-sm">
-                    {contact.followers > 0 && (
-                      <div>
-                        <div className="font-semibold text-[#4A3728]">{formatNumber(contact.followers)}</div>
-                        <div className="text-xs text-[#5D4A3A]">Followers</div>
-                      </div>
-                    )}
-                    {contact.engagement_rate > 0 && (
-                      <div>
-                        <div className="font-semibold text-[#4A3728]">{contact.engagement_rate}%</div>
-                        <div className="text-xs text-[#5D4A3A]">Engagement</div>
-                      </div>
-                    )}
-                    {contact.publication && (
-                      <div className="col-span-3 text-left">
-                        <div className="flex items-center gap-1 text-[#5D4A3A]">
-                          <Building2 className="w-3 h-3" />
-                          <span className="text-xs">{contact.publication}</span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={typeConfig.color}>{typeConfig.label}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        {contact.tier && <Badge className={TIER_COLORS[contact.tier] || TIER_COLORS.micro}>{contact.tier}</Badge>}
+                      </TableCell>
+                      <TableCell>
+                        {contact.followers > 0 ? formatNumber(contact.followers) : '-'}
+                      </TableCell>
+                      <TableCell>
+                        {contact.engagement_rate > 0 ? `${contact.engagement_rate}%` : '-'}
+                      </TableCell>
+                      <TableCell>
+                        {contact.city && (
+                          <div className="flex items-center gap-1 text-sm text-[#5D4A3A]">
+                            <MapPin className="w-3 h-3" /> {contact.city}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={STATUS_COLORS[contact.status] || STATUS_COLORS.identified}>
+                          {contact.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                          <span className="font-medium">{contact.score || 0}</span>
                         </div>
-                      </div>
-                    )}
-                  </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm text-gray-600">
+                          {contact.created_by_name || '-'}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {contact.created_at ? new Date(contact.created_at).toLocaleDateString() : ''}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => navigate(`/marketing/contacts/${contact.id}`)}>
+                              <Eye className="h-4 w-4 mr-2" /> View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDeleteContact(contact.id)} className="text-red-600">
+                              <Trash2 className="h-4 w-4 mr-2" /> Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
-                  {contact.city && (
-                    <div className="flex items-center gap-1 mt-2 text-xs text-[#5D4A3A]">
-                      <MapPin className="w-3 h-3" /> {contact.city}, {contact.country}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+      {/* Pagination */}
+      {pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-500">
+            Showing {((pagination.page - 1) * pagination.pageSize) + 1} to {Math.min(pagination.page * pagination.pageSize, pagination.total)} of {pagination.total} contacts
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+              disabled={pagination.page === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm">Page {pagination.page} of {pagination.totalPages}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+              disabled={pagination.page === pagination.totalPages}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       )}
     </div>

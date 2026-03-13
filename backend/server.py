@@ -1705,6 +1705,99 @@ async def get_leads(
     
     return leads
 
+
+@sales_router.get("/leads/paginated")
+async def get_leads_paginated(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, le=100),
+    source: Optional[str] = None,
+    stage: Optional[str] = None,
+    city: Optional[str] = None,
+    added_by: Optional[str] = None,
+    search: Optional[str] = None,
+    sort_by: Optional[str] = Query(default="created_at", description="Field to sort by"),
+    sort_order: Optional[str] = Query(default="desc", description="Sort order: asc or desc"),
+    user: dict = Depends(require_department(["sales"]))
+):
+    """Get leads with pagination, sorting, and filter metadata"""
+    from utils.permissions import get_data_scope_query
+    
+    user_id = user.get("id")
+    user_role = user.get("role", "")
+    is_admin = user_role in ["super_admin", "admin"] or user.get("can_manage_users")
+    
+    filter_query = {}
+    if source:
+        filter_query["source"] = source
+    if stage:
+        filter_query["stage"] = stage
+    if city:
+        filter_query["city"] = city
+    if added_by:
+        filter_query["created_by"] = added_by
+    if search:
+        filter_query["$or"] = [
+            {"name": {"$regex": search, "$options": "i"}},
+            {"phone": {"$regex": search, "$options": "i"}}
+        ]
+    
+    query = get_data_scope_query(user, "leads", filter_query)
+    
+    total = await db.leads.count_documents(query)
+    skip = (page - 1) * page_size
+    
+    # Validate sort field
+    allowed_sort_fields = ["created_at", "name", "source", "stage", "city", "updated_at"]
+    if sort_by not in allowed_sort_fields:
+        sort_by = "created_at"
+    sort_direction = -1 if sort_order == "desc" else 1
+    
+    leads = await db.leads.find(query, {"_id": 0}).sort(sort_by, sort_direction).skip(skip).limit(page_size).to_list(length=page_size)
+    
+    # Add permissions
+    for lead in leads:
+        is_owner = lead.get("created_by") == user_id
+        is_assigned = lead.get("assigned_to") == user_id
+        lead["_permissions"] = {
+            "can_view": True,
+            "can_edit": is_owner or is_assigned or is_admin,
+            "can_delete": is_owner or is_admin,
+            "is_owner": is_owner,
+            "is_assigned": is_assigned,
+        }
+    
+    # Get filter metadata
+    active_users = await db.users.find(
+        {"status": "active"}, 
+        {"_id": 0, "id": 1, "name": 1}
+    ).to_list(100)
+    creators_list = [{"id": u["id"], "name": u.get("name", "Unknown")} for u in active_users]
+    creators_list.sort(key=lambda x: x.get("name", "").lower())
+    
+    unique_cities = await db.leads.distinct("city")
+    unique_cities = [c for c in unique_cities if c]
+    
+    unique_sources = await db.leads.distinct("source")
+    unique_sources = [s for s in unique_sources if s]
+    
+    unique_stages = await db.leads.distinct("stage")
+    unique_stages = [s for s in unique_stages if s]
+    
+    return {
+        "leads": leads,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size,
+        "filters_meta": {
+            "creators": creators_list,
+            "cities": sorted(unique_cities),
+            "sources": unique_sources,
+            "stages": unique_stages
+        }
+    }
+
+
 @sales_router.post("/leads", response_model=LeadResponse)
 async def create_lead(lead: LeadCreate, user: dict = Depends(require_department(["sales"]))):
     lead_id = str(uuid.uuid4())
