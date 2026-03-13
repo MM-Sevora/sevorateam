@@ -4518,6 +4518,16 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Marketing V3 Modular routes: {e}")
 
+
+# Data Import routes
+try:
+    from routes.data_import import router as data_import_router, set_db as set_data_import_db
+    set_data_import_db(db)
+    api_router.include_router(data_import_router)
+    logger.info("Data Import routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Data Import routes: {e}")
+
 app.include_router(api_router)
 
 # ============== WEBSOCKET FOR REAL-TIME NOTIFICATIONS ==============

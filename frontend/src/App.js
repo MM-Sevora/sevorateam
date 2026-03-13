@@ -99,6 +99,7 @@ import AccessControlPage from "./pages/admin/AccessControlPage";
 import WebsiteSettings from "./pages/admin/WebsiteSettings";
 import SystemModulesPage from "./pages/admin/SystemModulesPage";
 import UsersPermissionsPage from "./pages/admin/UsersPermissionsPage";
+import DataImportPage from "./pages/admin/DataImportPage";
 
 // Settings Pages
 import AutomationSettings from "./pages/settings/AutomationSettings";
@@ -497,6 +498,7 @@ function AppRoutes() {
             {/* /admin/org-structure merged into /admin/organization */}
             <Route path="/admin/org-structure" element={<Navigate to="/admin/organization" replace />} />
             <Route path="/admin/website-settings" element={<ProtectedRoute requiredModule="admin"><WebsiteSettings /></ProtectedRoute>} />
+            <Route path="/admin/data-import" element={<ProtectedRoute requiredModule="admin"><DataImportPage /></ProtectedRoute>} />
             {/* /admin/team removed - use Team Dashboard under Analytics & Insights instead */}
 
             {/* Systems Module Routes */}
