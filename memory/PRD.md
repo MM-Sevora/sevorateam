@@ -1,3 +1,63 @@
+## March 13, 2026 - Mail Inbox Phase 2 & 3: Snooze, Scheduled Send, Follow-ups & Tracking ✅
+
+### What Was Built
+Complete email management features with backend APIs and frontend integration.
+
+### Phase 2: Email Snooze & Scheduled Send
+| Feature | Description |
+|---------|-------------|
+| Snooze Emails | Hide emails from inbox until specified time, with quick options (Later Today, Tomorrow, Weekend, Next Week) |
+| Scheduled Send | Compose emails now, send automatically later with calendar picker |
+| Snoozed Folder | View all snoozed emails with option to unsnooze |
+| Scheduled Panel | Sidebar shows pending scheduled emails with cancel option |
+
+### Phase 3: Follow-up Reminders & Email Tracking
+| Feature | Description |
+|---------|-------------|
+| Follow-up Reminders | Set reminders if no reply received (1 day, 2 days, 3 days, 1 week) |
+| Reminder Management | Snooze or dismiss reminders from sidebar |
+| Email Tracking | Track opens/clicks with invisible 1x1 pixel |
+| Tracking Stats | Dashboard showing open rate, click rate |
+
+### New Backend APIs
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/email-features/snooze` | POST | Snooze an email |
+| `/api/email-features/snoozed` | GET | List snoozed emails |
+| `/api/email-features/snooze/{message_id}` | DELETE | Unsnooze email |
+| `/api/email-features/scheduled` | GET/POST | List/create scheduled emails |
+| `/api/email-features/scheduled/{id}` | PUT/DELETE | Update/cancel scheduled |
+| `/api/email-features/follow-ups` | GET/POST | List/create follow-up reminders |
+| `/api/email-features/follow-ups/{id}/dismiss` | PUT | Dismiss reminder |
+| `/api/email-features/follow-ups/{id}/snooze` | PUT | Snooze reminder |
+| `/api/email-features/tracking` | GET/POST | List/create tracking |
+| `/api/email-features/track/{id}/pixel.gif` | GET | Tracking pixel (public) |
+| `/api/email-features/tracking/stats/summary` | GET | Tracking statistics |
+
+### New MongoDB Collections
+| Collection | Schema |
+|------------|--------|
+| `snoozed_emails` | `{ id, user_id, message_id, snooze_until, subject, from_email, ... }` |
+| `scheduled_emails` | `{ id, user_id, to_recipients[], subject, body, scheduled_time, status }` |
+| `email_follow_ups` | `{ id, user_id, message_id, remind_at, remind_after_hours, status }` |
+| `email_tracking` | `{ id, user_id, message_id, open_count, click_count, first_opened_at }` |
+| `email_tracking_events` | `{ tracking_id, event_type, timestamp, user_agent, ip_address }` |
+
+### Frontend Features Added
+- Snooze button on email hover with modal for quick/custom time selection
+- Follow-up button on email hover with reminder duration options
+- Snoozed folder view showing all snoozed emails
+- Scheduled emails panel in sidebar with cancel option
+- Follow-ups panel in sidebar with dismiss/snooze options
+- Email tracking toggle in compose dialog
+- Tracking stats card in sidebar
+
+### Testing
+- Backend tests: 34/34 passed (100%)
+- Test file: `/app/backend/tests/test_email_features_phase2_3.py`
+
+---
+
 ## March 13, 2026 - Mail Inbox Phase 1: Email Templates & Signatures (API-backed) ✅
 
 ### What Was Built
