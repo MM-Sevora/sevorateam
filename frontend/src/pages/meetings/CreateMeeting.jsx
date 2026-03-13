@@ -346,9 +346,12 @@ const CreateMeeting = () => {
     try {
       const token = localStorage.getItem('sevora_token');
       
-      // Build datetime strings
-      const startDateTime = `${formData.start_date}T${formData.start_time}:00Z`;
-      const endDateTime = `${formData.start_date}T${formData.end_time}:00Z`;
+      // Build datetime strings - create local dates first, then convert to ISO
+      // This ensures the user's local time is preserved correctly
+      const startDate = new Date(`${formData.start_date}T${formData.start_time}:00`);
+      const endDate = new Date(`${formData.start_date}T${formData.end_time}:00`);
+      const startDateTime = startDate.toISOString();
+      const endDateTime = endDate.toISOString();
 
       const payload = {
         title: formData.title,
@@ -369,7 +372,7 @@ const CreateMeeting = () => {
         pre_read_documents: preReadDocuments.filter(d => d.title),
         sync_to_outlook: formData.sync_to_outlook,
         recurrence_type: formData.recurrence_type || 'none',
-        recurrence_end_date: formData.recurrence_end_date ? `${formData.recurrence_end_date}T23:59:59Z` : null,
+        recurrence_end_date: formData.recurrence_end_date ? new Date(`${formData.recurrence_end_date}T23:59:59`).toISOString() : null,
         recurrence_day_of_week: formData.recurrence_type === 'weekly' ? formData.recurrence_day_of_week : null,
         recurrence_day_of_month: formData.recurrence_type === 'monthly' ? formData.recurrence_day_of_month : null
       };
