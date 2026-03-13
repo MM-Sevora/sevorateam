@@ -1,0 +1,2700 @@
+[
+  {
+    "id": "de32c9fd-db5c-43e2-bf37-f5fa6f106013",
+    "user_id": "cba8c104-5e5e-491e-9caa-205c09b38354",
+    "user_name": "Super Administrator",
+    "action": "created",
+    "entity_type": "brand",
+    "entity_id": "94bef6c8-b0d9-4122-9630-2c008227875a",
+    "entity_name": "Test Fashion Brand",
+    "details": {
+      "segment": "Affordable Luxury",
+      "city": "Mumbai"
+    },
+    "created_at": "2026-03-10T17:34:12.444006+00:00"
+  },
+  {
+    "id": "fe5c32e6-49a0-4216-9be7-e5760995065b",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "brand",
+    "entity_id": "95a17df8-6fd7-4f3d-8054-401a69b2206f",
+    "entity_name": "Biba",
+    "details": {
+      "fields_updated": [
+        "description",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T05:46:26.180844+00:00"
+  },
+  {
+    "id": "8940215b-7ca2-40ab-8fe7-6b52a0f3b521",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "supplier",
+    "entity_id": "a74350d8-ba67-491d-965f-4870a5a39514",
+    "entity_name": "Surat Silk Mills Pvt Ltd",
+    "details": {
+      "supplier_type": "Fabric Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T13:14:22.402975+00:00"
+  },
+  {
+    "id": "e594a449-4c24-45c8-802d-60ca93dd5ea2",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "requested_sample",
+    "entity_type": "sample",
+    "entity_id": "7bbe6a80-cd57-4c9d-8421-1b9416e9a488",
+    "entity_name": "Banarasi Silk #102",
+    "details": {
+      "supplier_id": "a74350d8-ba67-491d-965f-4870a5a39514",
+      "fabric_type": "Silk"
+    },
+    "created_at": "2026-03-05T13:25:25.247060+00:00"
+  },
+  {
+    "id": "627a5d6a-3553-4d8b-a787-0df8b53aec65",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "supplier",
+    "entity_id": "8fafdde4-7f99-4097-b338-c6664621c727",
+    "entity_name": "Button World Supplies",
+    "details": {
+      "supplier_type": "Trims & Accessories",
+      "country": "China"
+    },
+    "created_at": "2026-03-05T13:38:10.153133+00:00"
+  },
+  {
+    "id": "0ab24bc6-8d6e-4b0d-bdff-d9691e16357f",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "ai_discovered_suppliers",
+    "entity_type": "supplier",
+    "entity_id": "batch",
+    "entity_name": "3 suppliers",
+    "details": {
+      "country": "India",
+      "type": "Fabric Manufacturer",
+      "count": 3
+    },
+    "created_at": "2026-03-05T13:46:10.361147+00:00"
+  },
+  {
+    "id": "3b0e065d-d4a3-4633-afa7-b6b9652f12e9",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "e4119208-520e-490e-a324-37bffc7dfab1",
+    "entity_name": "Test Garment Factory",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:01:34.607807+00:00"
+  },
+  {
+    "id": "fc56753e-6952-4f50-ae24-5e25083bfa59",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "ai_discovered_suppliers",
+    "entity_type": "supplier",
+    "entity_id": "batch",
+    "entity_name": "10 suppliers",
+    "details": {
+      "country": "India",
+      "type": "Fabric Manufacturer",
+      "count": 10
+    },
+    "created_at": "2026-03-05T14:02:50.460514+00:00"
+  },
+  {
+    "id": "2deb9ee7-76d5-4147-b68d-e1e5d3cf64d3",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "fd40cfc7-d5c4-44e5-a506-4c9912404777",
+    "entity_name": "TEST_Manufacturer_88edc0c5",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:03:23.124660+00:00"
+  },
+  {
+    "id": "f585a042-7fb3-4508-b275-a83a5ba04912",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "b464b53d-0ade-4d6c-bb7c-dc6a223f349c",
+    "entity_name": "TEST_Update_fb2d433c",
+    "details": {
+      "manufacturer_type": "Bag Manufacturer",
+      "country": "China"
+    },
+    "created_at": "2026-03-05T14:03:24.166593+00:00"
+  },
+  {
+    "id": "1a7ee3d4-ab5e-4551-981e-c7df4d236174",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "manufacturer",
+    "entity_id": "b464b53d-0ade-4d6c-bb7c-dc6a223f349c",
+    "entity_name": "TEST_Update_fb2d433c",
+    "details": {
+      "fields_updated": [
+        "name",
+        "city",
+        "moq",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:03:24.232539+00:00"
+  },
+  {
+    "id": "e8c3ab46-81d9-4a2b-88a8-6a137e8d242e",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "2a9fa119-9e96-4300-93ce-a9a9bee5f98c",
+    "entity_name": "TEST_Stage_69c7c9ac",
+    "details": {
+      "manufacturer_type": "Jewelry Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:03:24.746328+00:00"
+  },
+  {
+    "id": "7d424095-6db6-447c-829e-fdc14312e1c9",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "407f5557-934b-4deb-a5ab-04897662ccc5",
+    "entity_name": "TEST_Delete_dd64d801",
+    "details": {
+      "manufacturer_type": "Footwear Manufacturer",
+      "country": "Vietnam"
+    },
+    "created_at": "2026-03-05T14:03:25.505506+00:00"
+  },
+  {
+    "id": "a607ed1f-2dc9-46bc-8736-e2454060f4c7",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "c1d07b3c-6081-4111-8b08-2163199037d6",
+    "entity_name": "TEST_Playwright_d8b377",
+    "details": {
+      "manufacturer_type": "Footwear Manufacturer",
+      "country": "Vietnam"
+    },
+    "created_at": "2026-03-05T14:05:46.326331+00:00"
+  },
+  {
+    "id": "938f79ce-362c-48e2-aaf9-1d0297cba523",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "c633aaf9-a637-411e-81eb-3ee5a3064a66",
+    "entity_name": "TEST_DetailManufacturer_abba82",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:21:50.123778+00:00"
+  },
+  {
+    "id": "358451d7-3ec0-4568-a635-3535a68af38e",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "957b9787-6979-43a8-be51-0036b3a0863b",
+    "entity_name": "TEST_DetailManufacturer_ce7d1c",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:21:50.678958+00:00"
+  },
+  {
+    "id": "be4e06e0-7d57-48e7-9277-a190527c882b",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "0d77d224-8d69-4afd-98fa-e4fe262de0f4",
+    "entity_name": "TEST_DetailManufacturer_c509c0",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:21:51.242916+00:00"
+  },
+  {
+    "id": "d410ac97-395c-48ef-ada6-f46e4005eb49",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "manufacturer",
+    "entity_id": "0d77d224-8d69-4afd-98fa-e4fe262de0f4",
+    "entity_name": "TEST_DetailManufacturer_c509c0",
+    "details": {
+      "fields_updated": [
+        "name",
+        "city",
+        "email",
+        "description",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:21:51.309331+00:00"
+  },
+  {
+    "id": "aa9388e0-57cd-4986-ad21-715b0cbb2420",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "0b71f780-41e5-4f60-b84c-6b713f7e2dad",
+    "entity_name": "TEST_DetailManufacturer_140bf2",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:21:51.858740+00:00"
+  },
+  {
+    "id": "df5c0d81-11a7-4454-8806-b0b4dd6f4b0a",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "manufacturer",
+    "entity_id": "0b71f780-41e5-4f60-b84c-6b713f7e2dad",
+    "entity_name": "TEST_DetailManufacturer_140bf2",
+    "details": {
+      "fields_updated": [
+        "moq",
+        "lead_time_days",
+        "payment_terms",
+        "price_range_min",
+        "price_range_max",
+        "currency",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:21:51.930989+00:00"
+  },
+  {
+    "id": "2fd6c81d-23a1-40a0-a0c2-bbee4ecb6e67",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "52700aab-5ab9-42c4-afa9-06390c8af1b7",
+    "entity_name": "TEST_DetailManufacturer_55f303",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:21:52.468750+00:00"
+  },
+  {
+    "id": "abd6a453-188e-430b-8073-2a593a6cc79f",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "bf711b32-962f-44b5-b91e-4a30bf8d9abd",
+    "entity_name": "TEST_DetailManufacturer_b98bc1",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:21:53.084826+00:00"
+  },
+  {
+    "id": "91dd2363-a032-4a88-a647-b586d6f4adf9",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "6d6589ec-1861-48ce-afb5-3f0739889873",
+    "entity_name": "TEST_DetailManufacturer_c3cb1b",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:21:53.874323+00:00"
+  },
+  {
+    "id": "dc7f5451-c11c-4c56-ab4b-7d1585ead9f7",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "d1c88665-c03d-4838-8399-b9610bceb6f5",
+    "entity_name": "TEST_DetailManufacturer_c2a2a1",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:21:54.556266+00:00"
+  },
+  {
+    "id": "572899f3-4226-451b-ba05-78ab7e45f22e",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "6be64d8a-3e78-4342-a99a-18e73f17ab48",
+    "entity_name": "TEST_DetailManufacturer_898ed0",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:21:55.176575+00:00"
+  },
+  {
+    "id": "3965f609-fb4e-49d9-815a-2e920b4003f2",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "bba0d0ce-a2cb-4d68-8959-ada089e68c7a",
+    "entity_name": "TEST_DetailManufacturer_9a955c",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:21:55.817576+00:00"
+  },
+  {
+    "id": "8f4e0f65-31ea-4df0-adee-31d123ab8eac",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "ebcc205b-b475-4323-9043-e2a67f757bd4",
+    "entity_name": "TEST_DetailManufacturer_b165f2",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:21:56.342968+00:00"
+  },
+  {
+    "id": "2f3d77e7-fd2b-4f4c-93d0-76f74a6f8134",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "6bc7a855-5eec-424c-a2c2-ffcd445daee2",
+    "entity_name": "TEST_DetailManufacturer_01a3a5",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:21:56.840765+00:00"
+  },
+  {
+    "id": "a5ea130f-8bbd-4a02-ac0b-7c3afc02c831",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "manufacturer",
+    "entity_id": "6bc7a855-5eec-424c-a2c2-ffcd445daee2",
+    "entity_name": "TEST_DetailManufacturer_01a3a5",
+    "details": {
+      "fields_updated": [
+        "notes",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:21:56.898481+00:00"
+  },
+  {
+    "id": "6a1a5012-3960-4191-8598-5a727a2f10a0",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "a0efa8d5-c538-4b34-95de-28b46af9bbf4",
+    "entity_name": "TEST_DetailManufacturer_c338c9",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:21:57.406597+00:00"
+  },
+  {
+    "id": "8471ea36-ead8-4411-b670-874b4806de46",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "manufacturer",
+    "entity_id": "a0efa8d5-c538-4b34-95de-28b46af9bbf4",
+    "entity_name": "TEST_DetailManufacturer_c338c9",
+    "details": {
+      "fields_updated": [
+        "notes",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:21:57.469940+00:00"
+  },
+  {
+    "id": "ba15d19a-00b0-404f-965e-a2233a38593c",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "manufacturer",
+    "entity_id": "a0efa8d5-c538-4b34-95de-28b46af9bbf4",
+    "entity_name": "TEST_DetailManufacturer_c338c9",
+    "details": {
+      "fields_updated": [
+        "notes",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:21:57.530518+00:00"
+  },
+  {
+    "id": "c92e8895-d9f7-416a-84e6-502c6d23ee50",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "7734f0eb-d9cf-4532-b66c-1c81017644ae",
+    "entity_name": "TEST_DetailManufacturer_391232",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:21:58.065292+00:00"
+  },
+  {
+    "id": "fdb547f1-90a6-416b-b4ef-13c27d8f4a60",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "180336c5-d4e8-4682-92cd-df16e3e1c218",
+    "entity_name": "TEST_DeleteMe_b68880",
+    "details": {
+      "manufacturer_type": "Bag Manufacturer",
+      "country": "Vietnam"
+    },
+    "created_at": "2026-03-05T14:21:58.130462+00:00"
+  },
+  {
+    "id": "ffe20451-4dfe-48b5-942a-27cb58bec586",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "d7aa572a-1aad-4ec7-8748-908bf9b0e949",
+    "entity_name": "TEST_DetailManufacturer_83d1c9",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:21:58.888755+00:00"
+  },
+  {
+    "id": "288175c2-a6e1-4c69-8bfa-3ab2f3f0351b",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "4221c438-7f6d-4230-8966-789e84487fc8",
+    "entity_name": "TEST_DetailManufacturer_b5612c",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:22:30.220318+00:00"
+  },
+  {
+    "id": "5c5a237e-eb11-4ddd-b35d-449ac7b23bfa",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "e20b0d31-0e2c-45cb-a7ef-e3b69c67a4dd",
+    "entity_name": "TEST_DetailManufacturer_d8f664",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:22:30.752907+00:00"
+  },
+  {
+    "id": "0a20d5ca-9897-4cf7-8b32-a42e727df521",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "a91aeb4f-5446-4c50-a0f5-9dfb203114d0",
+    "entity_name": "TEST_DetailManufacturer_ed21ad",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:22:31.282032+00:00"
+  },
+  {
+    "id": "394485b0-c3bb-4ebb-974f-4782da586f70",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "manufacturer",
+    "entity_id": "a91aeb4f-5446-4c50-a0f5-9dfb203114d0",
+    "entity_name": "TEST_DetailManufacturer_ed21ad",
+    "details": {
+      "fields_updated": [
+        "name",
+        "city",
+        "email",
+        "description",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:22:31.343806+00:00"
+  },
+  {
+    "id": "82f33c6d-88b9-4c26-89f0-855df8961c01",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "b69a5afd-6341-4f52-8169-20fb15f74562",
+    "entity_name": "TEST_DetailManufacturer_c9ccad",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:22:31.866371+00:00"
+  },
+  {
+    "id": "f168e24b-b95b-4271-8b9c-0eb80532dced",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "manufacturer",
+    "entity_id": "b69a5afd-6341-4f52-8169-20fb15f74562",
+    "entity_name": "TEST_DetailManufacturer_c9ccad",
+    "details": {
+      "fields_updated": [
+        "moq",
+        "lead_time_days",
+        "payment_terms",
+        "price_range_min",
+        "price_range_max",
+        "currency",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:22:31.923386+00:00"
+  },
+  {
+    "id": "8695ba92-5928-49d4-9134-32e1655d34f3",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "f54c6f2b-8284-4d3c-9e07-7fa983f0ed3f",
+    "entity_name": "TEST_DetailManufacturer_12d8ae",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:22:32.363273+00:00"
+  },
+  {
+    "id": "92bcb27d-f4b4-4760-bdc4-99f6f647fae0",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "10040962-6c40-4b73-8456-191804d1e571",
+    "entity_name": "TEST_DetailManufacturer_e73e09",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:22:32.927900+00:00"
+  },
+  {
+    "id": "a21ff138-6114-4aaf-9f79-6f328eb13b7e",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "503afd91-9418-4418-816f-ec83ea855465",
+    "entity_name": "TEST_DetailManufacturer_f17a9c",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:22:33.563531+00:00"
+  },
+  {
+    "id": "3ae6ce27-3f93-4fb2-aa92-d0f6f1193cdb",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "da2a96d7-ae85-41b5-90d3-9ae29b523ad4",
+    "entity_name": "TEST_DetailManufacturer_b6413d",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:22:34.263001+00:00"
+  },
+  {
+    "id": "ea8d9136-e156-4c9e-8fad-ff51e8ccc142",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "74a95cc0-50e4-4f2b-9220-f19b899694b4",
+    "entity_name": "TEST_DetailManufacturer_7b3a88",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:22:34.795465+00:00"
+  },
+  {
+    "id": "fac04b37-1269-4e5b-be93-8632106d05dd",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "48a0e47d-efa5-45b4-bf63-2c937a22eee1",
+    "entity_name": "TEST_DetailManufacturer_6002c6",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:22:35.391809+00:00"
+  },
+  {
+    "id": "29d8650c-02d0-4951-a4c1-b2161ac145e9",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "4b896e7f-60bc-4055-a73f-aa5d2e5a5688",
+    "entity_name": "TEST_DetailManufacturer_b5e712",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:22:36.004515+00:00"
+  },
+  {
+    "id": "d572f433-c733-4f24-b283-1995c1182264",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "d3cc20f7-16b1-430e-8265-d753acd06eda",
+    "entity_name": "TEST_DetailManufacturer_d07fd6",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:22:36.539595+00:00"
+  },
+  {
+    "id": "5d2bdf80-d831-4043-b4dc-f5acd2b48956",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "manufacturer",
+    "entity_id": "d3cc20f7-16b1-430e-8265-d753acd06eda",
+    "entity_name": "TEST_DetailManufacturer_d07fd6",
+    "details": {
+      "fields_updated": [
+        "notes",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:22:36.617799+00:00"
+  },
+  {
+    "id": "327e40ea-c827-4d7c-bff2-cf6464acf656",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "9c967b8f-6890-449d-b091-e2a63f0767ee",
+    "entity_name": "TEST_DetailManufacturer_5302e0",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:22:37.156647+00:00"
+  },
+  {
+    "id": "150c10f7-5d11-433b-921f-f970c3c0371f",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "manufacturer",
+    "entity_id": "9c967b8f-6890-449d-b091-e2a63f0767ee",
+    "entity_name": "TEST_DetailManufacturer_5302e0",
+    "details": {
+      "fields_updated": [
+        "notes",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:22:37.213120+00:00"
+  },
+  {
+    "id": "3eabc13d-0ed0-4d5b-9644-aaa167aa9d69",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "manufacturer",
+    "entity_id": "9c967b8f-6890-449d-b091-e2a63f0767ee",
+    "entity_name": "TEST_DetailManufacturer_5302e0",
+    "details": {
+      "fields_updated": [
+        "notes",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:22:37.268201+00:00"
+  },
+  {
+    "id": "5cb7a4f8-d873-41ae-9564-9f65e0d16dc6",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "a3b29b70-a96b-4338-9515-4be404286ec1",
+    "entity_name": "TEST_DetailManufacturer_a3107d",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:22:37.771501+00:00"
+  },
+  {
+    "id": "d4ccb126-c3a6-4290-a49a-3bf9f15194a0",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "0e91dc30-0791-4df2-87f8-f8a1d21a7f94",
+    "entity_name": "TEST_DeleteMe_ab6985",
+    "details": {
+      "manufacturer_type": "Bag Manufacturer",
+      "country": "Vietnam"
+    },
+    "created_at": "2026-03-05T14:22:37.829724+00:00"
+  },
+  {
+    "id": "6b42ec67-881f-4287-88b6-7063d4146450",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "c5ff0787-12aa-46db-bf96-417a6ef1d836",
+    "entity_name": "TEST_DetailManufacturer_cfcd5d",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:22:38.504444+00:00"
+  },
+  {
+    "id": "ac65f197-c869-41e5-be8c-b5fc8f661ce2",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "manufacturer",
+    "entity_id": "e4119208-520e-490e-a324-37bffc7dfab1",
+    "entity_name": "Test Garment Factory",
+    "details": {
+      "fields_updated": [
+        "name",
+        "manufacturer_type",
+        "country",
+        "city",
+        "email",
+        "phone",
+        "specialties",
+        "certifications",
+        "moq",
+        "moq_unit",
+        "lead_time_days",
+        "price_unit",
+        "currency",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:23:49.400018+00:00"
+  },
+  {
+    "id": "41b158ee-91e0-4903-ba9a-3df5a7546dfe",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "manufacturer",
+    "entity_id": "e4119208-520e-490e-a324-37bffc7dfab1",
+    "entity_name": "Test Garment Factory Updated",
+    "details": {
+      "fields_updated": [
+        "notes",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:24:50.977360+00:00"
+  },
+  {
+    "id": "42bf37a2-4921-46b2-898b-213d912b68c2",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "supplier",
+    "entity_id": "8b54a9be-04e1-495a-bab0-986cdb05b372",
+    "entity_name": "TEST_Supplier_5bd78ab5",
+    "details": {
+      "supplier_type": "Fabric Distributor",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:36:14.737178+00:00"
+  },
+  {
+    "id": "06d7301f-e868-4786-983c-3c49a34c2d58",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "supplier",
+    "entity_id": "8b54a9be-04e1-495a-bab0-986cdb05b372",
+    "entity_name": "TEST_Supplier_5bd78ab5",
+    "details": {
+      "fields_updated": [
+        "name",
+        "website",
+        "email",
+        "phone",
+        "whatsapp",
+        "description",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:36:14.849631+00:00"
+  },
+  {
+    "id": "2bd0d2b9-52de-42de-b55e-c296ba2e758c",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "supplier",
+    "entity_id": "8b54a9be-04e1-495a-bab0-986cdb05b372",
+    "entity_name": "TEST_Supplier_Updated",
+    "details": {
+      "fields_updated": [
+        "moq",
+        "moq_unit",
+        "lead_time_days",
+        "payment_terms",
+        "price_range_min",
+        "price_range_max",
+        "currency",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:36:14.974527+00:00"
+  },
+  {
+    "id": "6ba6289a-84e9-41c9-aec4-18b128569f4b",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "supplier",
+    "entity_id": "8b54a9be-04e1-495a-bab0-986cdb05b372",
+    "entity_name": "TEST_Supplier_Updated",
+    "details": {
+      "fields_updated": [
+        "categories",
+        "specialties",
+        "certifications",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:36:15.094391+00:00"
+  },
+  {
+    "id": "e4b37813-0467-4064-b885-145e76c25b6b",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "supplier",
+    "entity_id": "8b54a9be-04e1-495a-bab0-986cdb05b372",
+    "entity_name": "TEST_Supplier_Updated",
+    "details": {
+      "fields_updated": [
+        "notes",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:36:16.370490+00:00"
+  },
+  {
+    "id": "60a3b298-abd4-42c8-8fbe-4f7f4dd871b6",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "supplier",
+    "entity_id": "8b54a9be-04e1-495a-bab0-986cdb05b372",
+    "entity_name": "TEST_Supplier_Updated",
+    "details": {
+      "fields_updated": [
+        "notes",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:36:16.607520+00:00"
+  },
+  {
+    "id": "49de4ff6-9be7-4a41-9fc5-24b78d4f54e6",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "supplier",
+    "entity_id": "014cebc5-95f3-4518-9d82-f7b57fa6717c",
+    "entity_name": "TEST_PHASE2_LinkedIn Test Supplier",
+    "details": {
+      "supplier_type": "Trims & Accessories",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:50:04.239369+00:00"
+  },
+  {
+    "id": "4dc4bb2a-5a6d-49b1-b796-ef18500614ba",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "supplier",
+    "entity_id": "09184fea-492d-4792-81e3-c85de0e67461",
+    "entity_name": "TEST_PHASE2_Silk Supplier",
+    "details": {
+      "supplier_type": "Fabric Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:50:04.535314+00:00"
+  },
+  {
+    "id": "f87dddee-efda-466e-ba1c-a3a2a1f59953",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "supplier",
+    "entity_id": "09184fea-492d-4792-81e3-c85de0e67461",
+    "entity_name": "TEST_PHASE2_Silk Supplier",
+    "details": {
+      "fields_updated": [
+        "linkedin",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:50:04.745338+00:00"
+  },
+  {
+    "id": "e5eefa43-1102-4af2-bc26-3a96d2872949",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "supplier",
+    "entity_id": "09184fea-492d-4792-81e3-c85de0e67461",
+    "entity_name": "TEST_PHASE2_Silk Supplier",
+    "details": {
+      "fields_updated": [
+        "follow_up_date",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:50:04.874668+00:00"
+  },
+  {
+    "id": "8e2bcfbb-f6ce-485d-9cc6-a07dc40df38d",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "supplier",
+    "entity_id": "09184fea-492d-4792-81e3-c85de0e67461",
+    "entity_name": "TEST_PHASE2_Silk Supplier",
+    "details": {
+      "fields_updated": [
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:50:04.990591+00:00"
+  },
+  {
+    "id": "955888ec-c57d-4659-8dcf-96b36ad46706",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "93a1872a-5683-4957-a2a5-2f6440e9fd49",
+    "entity_name": "TEST_PHASE2_LinkedIn Test Manufacturer",
+    "details": {
+      "manufacturer_type": "Bag Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:50:05.299890+00:00"
+  },
+  {
+    "id": "6cb80f6a-cac6-4263-aa2d-6dec4239824c",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "97a2ed58-3409-4faa-85f6-ae4b0bc87ffd",
+    "entity_name": "TEST_PHASE2_Garment Factory",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:50:05.542595+00:00"
+  },
+  {
+    "id": "63b832e0-38e0-4c03-9192-e6e49e1b75fd",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "manufacturer",
+    "entity_id": "97a2ed58-3409-4faa-85f6-ae4b0bc87ffd",
+    "entity_name": "TEST_PHASE2_Garment Factory",
+    "details": {
+      "fields_updated": [
+        "linkedin",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:50:05.770545+00:00"
+  },
+  {
+    "id": "3a455771-88c4-42ac-8212-85301d9f14f1",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "manufacturer",
+    "entity_id": "97a2ed58-3409-4faa-85f6-ae4b0bc87ffd",
+    "entity_name": "TEST_PHASE2_Garment Factory",
+    "details": {
+      "fields_updated": [
+        "follow_up_date",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:50:05.922674+00:00"
+  },
+  {
+    "id": "b1c96368-18df-4ef7-a075-a9294fb5f398",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "supplier",
+    "entity_id": "5b7a9c76-3a27-4088-9064-584c87741fec",
+    "entity_name": "TEST_PHASE2_Silk Supplier",
+    "details": {
+      "supplier_type": "Fabric Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:50:42.061062+00:00"
+  },
+  {
+    "id": "8c9d4d5f-9c38-4e74-99a6-1f2d9c303a71",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "supplier",
+    "entity_id": "27e68e2e-a795-43e7-ac75-56a0486f61ce",
+    "entity_name": "TEST_PHASE2_LinkedIn Test Supplier",
+    "details": {
+      "supplier_type": "Trims & Accessories",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:50:48.116902+00:00"
+  },
+  {
+    "id": "4b42da8a-9787-456e-a8ab-b5f5a76b4516",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "supplier",
+    "entity_id": "1034cefc-373e-4c88-a7c9-64975406a3bc",
+    "entity_name": "TEST_PHASE2_Silk Supplier",
+    "details": {
+      "supplier_type": "Fabric Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:50:48.348881+00:00"
+  },
+  {
+    "id": "21319c83-7fe4-46f6-98af-627c74da23c0",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "supplier",
+    "entity_id": "1034cefc-373e-4c88-a7c9-64975406a3bc",
+    "entity_name": "TEST_PHASE2_Silk Supplier",
+    "details": {
+      "fields_updated": [
+        "linkedin",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:50:48.580007+00:00"
+  },
+  {
+    "id": "2392a9c8-d95f-46c0-ad8e-d93bd27fb2ea",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "supplier",
+    "entity_id": "1034cefc-373e-4c88-a7c9-64975406a3bc",
+    "entity_name": "TEST_PHASE2_Silk Supplier",
+    "details": {
+      "fields_updated": [
+        "follow_up_date",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:50:48.684939+00:00"
+  },
+  {
+    "id": "e3cbb6ca-14a2-4c6b-80b7-60def44789ea",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "supplier",
+    "entity_id": "1034cefc-373e-4c88-a7c9-64975406a3bc",
+    "entity_name": "TEST_PHASE2_Silk Supplier",
+    "details": {
+      "fields_updated": [
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:50:48.805597+00:00"
+  },
+  {
+    "id": "42119178-70b6-4489-ab94-65874f397d30",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "78111d00-2790-42ad-9934-9419425589cb",
+    "entity_name": "TEST_PHASE2_LinkedIn Test Manufacturer",
+    "details": {
+      "manufacturer_type": "Bag Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:50:49.036075+00:00"
+  },
+  {
+    "id": "104b02ed-b5cd-4dce-9b84-6d07db7400d2",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "d58d47e4-e062-46be-8bae-127c58f55e6f",
+    "entity_name": "TEST_PHASE2_Garment Factory",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:50:49.289331+00:00"
+  },
+  {
+    "id": "1cb3598f-3141-4454-bb2c-171976ad11aa",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "manufacturer",
+    "entity_id": "d58d47e4-e062-46be-8bae-127c58f55e6f",
+    "entity_name": "TEST_PHASE2_Garment Factory",
+    "details": {
+      "fields_updated": [
+        "linkedin",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:50:49.518682+00:00"
+  },
+  {
+    "id": "de0a6697-ba23-4c67-ad52-51a1f02e6806",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "manufacturer",
+    "entity_id": "d58d47e4-e062-46be-8bae-127c58f55e6f",
+    "entity_name": "TEST_PHASE2_Garment Factory",
+    "details": {
+      "fields_updated": [
+        "follow_up_date",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:50:49.622958+00:00"
+  },
+  {
+    "id": "6f8955b2-dcf5-4f33-8917-c33de1529ae6",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "supplier",
+    "entity_id": "2abe9dd4-c4b7-426b-b02c-ba71cba236ef",
+    "entity_name": "TEST_PHASE2_LinkedIn Test Supplier",
+    "details": {
+      "supplier_type": "Trims & Accessories",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:55:27.184125+00:00"
+  },
+  {
+    "id": "d74a2837-a965-4c9e-8fb3-ad4c664f4570",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "supplier",
+    "entity_id": "0affcace-6a0c-4b03-9c8b-dff219332d73",
+    "entity_name": "TEST_PHASE2_Silk Supplier",
+    "details": {
+      "supplier_type": "Fabric Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:55:27.424868+00:00"
+  },
+  {
+    "id": "9871234a-2cb1-425f-a784-5ed0ecf56334",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "supplier",
+    "entity_id": "0affcace-6a0c-4b03-9c8b-dff219332d73",
+    "entity_name": "TEST_PHASE2_Silk Supplier",
+    "details": {
+      "fields_updated": [
+        "linkedin",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:55:27.714807+00:00"
+  },
+  {
+    "id": "25d369e3-ffce-49a0-9b3a-83ae7b329621",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "supplier",
+    "entity_id": "0affcace-6a0c-4b03-9c8b-dff219332d73",
+    "entity_name": "TEST_PHASE2_Silk Supplier",
+    "details": {
+      "fields_updated": [
+        "follow_up_date",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:55:27.839172+00:00"
+  },
+  {
+    "id": "e2e10ea6-afb1-4be1-8fb5-b6bd8352d707",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "supplier",
+    "entity_id": "0affcace-6a0c-4b03-9c8b-dff219332d73",
+    "entity_name": "TEST_PHASE2_Silk Supplier",
+    "details": {
+      "fields_updated": [
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:55:27.950957+00:00"
+  },
+  {
+    "id": "0d2a5942-a761-4970-b8c4-77542080dc7a",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "5defc28c-bee3-49f3-b680-09938905459c",
+    "entity_name": "TEST_PHASE2_LinkedIn Test Manufacturer",
+    "details": {
+      "manufacturer_type": "Bag Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:55:28.192083+00:00"
+  },
+  {
+    "id": "63bb472a-66f7-487c-80b8-ad969a631097",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "7b496737-cf69-4d67-8606-3ab35f6fa79f",
+    "entity_name": "TEST_PHASE2_Garment Factory",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:55:28.488054+00:00"
+  },
+  {
+    "id": "88c8469b-0b9e-4d47-82c1-5b83fbdb66eb",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "manufacturer",
+    "entity_id": "7b496737-cf69-4d67-8606-3ab35f6fa79f",
+    "entity_name": "TEST_PHASE2_Garment Factory",
+    "details": {
+      "fields_updated": [
+        "linkedin",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:55:28.710356+00:00"
+  },
+  {
+    "id": "46dc6ea3-be45-4001-b26d-ae9222a0a1c9",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "manufacturer",
+    "entity_id": "7b496737-cf69-4d67-8606-3ab35f6fa79f",
+    "entity_name": "TEST_PHASE2_Garment Factory",
+    "details": {
+      "fields_updated": [
+        "follow_up_date",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:55:28.840643+00:00"
+  },
+  {
+    "id": "e4b33845-d34e-4549-9912-d8220d5fe6b2",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "supplier",
+    "entity_id": "4de2688d-6a0c-48f2-b300-e9bbd2553638",
+    "entity_name": "TEST_PHASE2_LinkedIn Test Supplier",
+    "details": {
+      "supplier_type": "Trims & Accessories",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:56:06.963909+00:00"
+  },
+  {
+    "id": "bc80d185-fa41-4b66-bbab-dbe74f1eda79",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "supplier",
+    "entity_id": "95f1c0ac-6b03-42c5-a893-c2f6811b7b86",
+    "entity_name": "TEST_PHASE2_Silk Supplier",
+    "details": {
+      "supplier_type": "Fabric Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:56:07.193252+00:00"
+  },
+  {
+    "id": "7a2323df-05d3-4543-b819-e452fd9e381e",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "supplier",
+    "entity_id": "95f1c0ac-6b03-42c5-a893-c2f6811b7b86",
+    "entity_name": "TEST_PHASE2_Silk Supplier",
+    "details": {
+      "fields_updated": [
+        "linkedin",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:56:07.419263+00:00"
+  },
+  {
+    "id": "b6561ec1-a311-4d92-9501-b39fdeef2f40",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "supplier",
+    "entity_id": "95f1c0ac-6b03-42c5-a893-c2f6811b7b86",
+    "entity_name": "TEST_PHASE2_Silk Supplier",
+    "details": {
+      "fields_updated": [
+        "follow_up_date",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:56:07.545767+00:00"
+  },
+  {
+    "id": "83335e46-04ad-470a-a309-2202a232c9c8",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "supplier",
+    "entity_id": "95f1c0ac-6b03-42c5-a893-c2f6811b7b86",
+    "entity_name": "TEST_PHASE2_Silk Supplier",
+    "details": {
+      "fields_updated": [
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:56:07.655876+00:00"
+  },
+  {
+    "id": "788950a8-8711-4600-ae5a-4c5f3a2678ea",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "09160293-518b-4343-8bbf-79a994889047",
+    "entity_name": "TEST_PHASE2_LinkedIn Test Manufacturer",
+    "details": {
+      "manufacturer_type": "Bag Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:56:07.889920+00:00"
+  },
+  {
+    "id": "af5a699b-6176-4e11-a2e7-9fa1512e49b7",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "3ba9e74b-116f-4304-96aa-02b5ec61244b",
+    "entity_name": "TEST_PHASE2_Garment Factory",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T14:56:08.125148+00:00"
+  },
+  {
+    "id": "e4ef09e6-da8d-4b72-b190-53d3833f004d",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "manufacturer",
+    "entity_id": "3ba9e74b-116f-4304-96aa-02b5ec61244b",
+    "entity_name": "TEST_PHASE2_Garment Factory",
+    "details": {
+      "fields_updated": [
+        "linkedin",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:56:08.372073+00:00"
+  },
+  {
+    "id": "1a13b243-6e13-49e0-a5f7-a4ca9fae96a8",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "manufacturer",
+    "entity_id": "3ba9e74b-116f-4304-96aa-02b5ec61244b",
+    "entity_name": "TEST_PHASE2_Garment Factory",
+    "details": {
+      "fields_updated": [
+        "follow_up_date",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T14:56:08.476742+00:00"
+  },
+  {
+    "id": "a32549a2-490c-4ef0-a3c4-052a7f723d6c",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "ai_discovered_manufacturers",
+    "entity_type": "manufacturer",
+    "entity_id": "batch",
+    "entity_name": "5 manufacturers",
+    "details": {
+      "country": "India",
+      "type": "Garment Manufacturer",
+      "count": 5
+    },
+    "created_at": "2026-03-05T15:07:49.362610+00:00"
+  },
+  {
+    "id": "6b3cc03d-8a5d-476c-a220-8c6c6c5ff031",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "ai_discovered_manufacturers",
+    "entity_type": "manufacturer",
+    "entity_id": "batch",
+    "entity_name": "3 manufacturers",
+    "details": {
+      "country": "India",
+      "type": "Garment Manufacturer",
+      "count": 3
+    },
+    "created_at": "2026-03-05T15:07:55.028637+00:00"
+  },
+  {
+    "id": "64ba0fee-0466-42c4-adcd-61e5ebe57edc",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "ai_discovered_manufacturers",
+    "entity_type": "manufacturer",
+    "entity_id": "batch",
+    "entity_name": "3 manufacturers",
+    "details": {
+      "country": "India",
+      "type": "Bag Manufacturer",
+      "count": 3
+    },
+    "created_at": "2026-03-05T15:08:00.576085+00:00"
+  },
+  {
+    "id": "75b1664f-cd10-43f6-b2a6-3399ac63a6d2",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "ai_discovered_manufacturers",
+    "entity_type": "manufacturer",
+    "entity_id": "batch",
+    "entity_name": "3 manufacturers",
+    "details": {
+      "country": "India",
+      "type": "Footwear Manufacturer",
+      "count": 3
+    },
+    "created_at": "2026-03-05T15:08:08.409867+00:00"
+  },
+  {
+    "id": "a99f6453-1bc8-43bf-8226-e8dc311cfa91",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "ai_discovered_manufacturers",
+    "entity_type": "manufacturer",
+    "entity_id": "batch",
+    "entity_name": "3 manufacturers",
+    "details": {
+      "country": "India",
+      "type": "Jewelry Manufacturer",
+      "count": 3
+    },
+    "created_at": "2026-03-05T15:08:14.867055+00:00"
+  },
+  {
+    "id": "9e9ff345-07be-4720-8ce9-3671d5d499e4",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "ai_discovered_manufacturers",
+    "entity_type": "manufacturer",
+    "entity_id": "batch",
+    "entity_name": "3 manufacturers",
+    "details": {
+      "country": "India",
+      "type": "Garment Manufacturer",
+      "count": 3
+    },
+    "created_at": "2026-03-05T15:08:21.105753+00:00"
+  },
+  {
+    "id": "57154b51-c549-4060-9838-4d15fea8948e",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "ai_discovered_manufacturers",
+    "entity_type": "manufacturer",
+    "entity_id": "batch",
+    "entity_name": "3 manufacturers",
+    "details": {
+      "country": "China",
+      "type": "Garment Manufacturer",
+      "count": 3
+    },
+    "created_at": "2026-03-05T15:08:29.279709+00:00"
+  },
+  {
+    "id": "512c25e1-8f70-402c-a062-763518975529",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "ai_discovered_manufacturers",
+    "entity_type": "manufacturer",
+    "entity_id": "batch",
+    "entity_name": "3 manufacturers",
+    "details": {
+      "country": "Bangladesh",
+      "type": "Garment Manufacturer",
+      "count": 3
+    },
+    "created_at": "2026-03-05T15:08:37.559206+00:00"
+  },
+  {
+    "id": "1678a88b-4ae6-437f-ad67-18a1295c6cc1",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "ai_discovered_suppliers",
+    "entity_type": "supplier",
+    "entity_id": "batch",
+    "entity_name": "2 suppliers",
+    "details": {
+      "country": "India",
+      "type": "Fabric Manufacturer",
+      "count": 2
+    },
+    "created_at": "2026-03-05T15:08:43.825864+00:00"
+  },
+  {
+    "id": "69f8c33d-8d8a-4194-adf5-1e2f6f461904",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "cea0147d-3ad4-4b87-bd7d-e26287c0dccf",
+    "entity_name": "TEST_Unit_Test_Manufacturer",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T15:08:44.081988+00:00"
+  },
+  {
+    "id": "9e09b918-d3c5-4e6d-97bc-38b4ca1ab607",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "ai_discovered_manufacturers",
+    "entity_type": "manufacturer",
+    "entity_id": "batch",
+    "entity_name": "5 manufacturers",
+    "details": {
+      "country": "India",
+      "type": "Garment Manufacturer",
+      "count": 5
+    },
+    "created_at": "2026-03-05T15:12:41.838436+00:00"
+  },
+  {
+    "id": "8c05c315-1934-4c89-af62-b3dfa1e1ef17",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "ai_discovered_manufacturers",
+    "entity_type": "manufacturer",
+    "entity_id": "batch",
+    "entity_name": "2 manufacturers",
+    "details": {
+      "country": "India",
+      "type": "Garment Manufacturer",
+      "count": 2
+    },
+    "created_at": "2026-03-05T15:12:47.699108+00:00"
+  },
+  {
+    "id": "091335ca-ff15-46b8-b179-7c979a014005",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "ai_discovered_manufacturers",
+    "entity_type": "manufacturer",
+    "entity_id": "batch",
+    "entity_name": "2 manufacturers",
+    "details": {
+      "country": "India",
+      "type": "Bag Manufacturer",
+      "count": 2
+    },
+    "created_at": "2026-03-05T15:12:52.869472+00:00"
+  },
+  {
+    "id": "af846e1f-07fa-4c02-a8f8-8fe53158e0be",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "ai_discovered_manufacturers",
+    "entity_type": "manufacturer",
+    "entity_id": "batch",
+    "entity_name": "3 manufacturers",
+    "details": {
+      "country": "India",
+      "type": "Footwear Manufacturer",
+      "count": 3
+    },
+    "created_at": "2026-03-05T15:13:00.976368+00:00"
+  },
+  {
+    "id": "cb6edc79-cc64-421c-bb5c-49d6eb0f43cd",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "ai_discovered_manufacturers",
+    "entity_type": "manufacturer",
+    "entity_id": "batch",
+    "entity_name": "3 manufacturers",
+    "details": {
+      "country": "India",
+      "type": "Jewelry Manufacturer",
+      "count": 3
+    },
+    "created_at": "2026-03-05T15:13:07.845342+00:00"
+  },
+  {
+    "id": "d34dd16a-d463-4da5-a8b9-fb8980e66ece",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "ai_discovered_manufacturers",
+    "entity_type": "manufacturer",
+    "entity_id": "batch",
+    "entity_name": "1 manufacturers",
+    "details": {
+      "country": "India",
+      "type": "Garment Manufacturer",
+      "count": 1
+    },
+    "created_at": "2026-03-05T15:13:15.623713+00:00"
+  },
+  {
+    "id": "fa77fa8d-4c8d-48f7-bb68-641954004423",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "ai_discovered_manufacturers",
+    "entity_type": "manufacturer",
+    "entity_id": "batch",
+    "entity_name": "3 manufacturers",
+    "details": {
+      "country": "China",
+      "type": "Garment Manufacturer",
+      "count": 3
+    },
+    "created_at": "2026-03-05T15:13:22.205299+00:00"
+  },
+  {
+    "id": "24886fe6-f5ae-48c7-b180-465d5b7dd26f",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "ai_discovered_manufacturers",
+    "entity_type": "manufacturer",
+    "entity_id": "batch",
+    "entity_name": "2 manufacturers",
+    "details": {
+      "country": "Bangladesh",
+      "type": "Garment Manufacturer",
+      "count": 2
+    },
+    "created_at": "2026-03-05T15:13:27.246932+00:00"
+  },
+  {
+    "id": "98722ce5-6530-4265-aa3c-5107499e1bb8",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "ai_discovered_suppliers",
+    "entity_type": "supplier",
+    "entity_id": "batch",
+    "entity_name": "1 suppliers",
+    "details": {
+      "country": "India",
+      "type": "Fabric Manufacturer",
+      "count": 1
+    },
+    "created_at": "2026-03-05T15:13:34.976613+00:00"
+  },
+  {
+    "id": "8a26c4a4-682e-40a0-8237-8392d9e62324",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "eddea276-582a-4292-8f5b-7fdfd5bc3c3b",
+    "entity_name": "TEST_Unit_Test_Manufacturer",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-05T15:13:35.228042+00:00"
+  },
+  {
+    "id": "5542c6a8-3f6e-4dd3-a39e-2264759ae11a",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "ai_discovered_manufacturers",
+    "entity_type": "manufacturer",
+    "entity_id": "batch",
+    "entity_name": "1 manufacturers",
+    "details": {
+      "country": "India",
+      "type": "Garment Manufacturer",
+      "count": 1
+    },
+    "created_at": "2026-03-05T15:14:18.030866+00:00"
+  },
+  {
+    "id": "00d91181-6ac6-40f3-bbd9-aea6c1826b29",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "manufacturer",
+    "entity_id": "f56c4633-94c1-46ff-b98c-85cb8535c066",
+    "entity_name": "Vishwa Apparel",
+    "details": {
+      "fields_updated": [
+        "name",
+        "manufacturer_type",
+        "country",
+        "city",
+        "website",
+        "specialties",
+        "certifications",
+        "moq",
+        "moq_unit",
+        "lead_time_days",
+        "price_unit",
+        "currency",
+        "description",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-05T15:38:05.518561+00:00"
+  },
+  {
+    "id": "cc72505d-494c-4521-8982-e4fdceb8e768",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "enhanced_ai_discovery",
+    "entity_type": "brand",
+    "entity_id": "batch",
+    "entity_name": "Discovered 3 brands",
+    "details": {
+      "criteria": {
+        "category": "Womenswear",
+        "country": "India"
+      },
+      "auto_added": 0,
+      "pending_review": 2,
+      "sources": {
+        "ai_llm": 3,
+        "google_search": 3,
+        "indiamart": 3
+      }
+    },
+    "created_at": "2026-03-05T15:59:04.429163+00:00"
+  },
+  {
+    "id": "96e061f4-6ed4-4137-b083-ddc36a5d6cc5",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "enhanced_ai_discovery",
+    "entity_type": "supplier",
+    "entity_id": "batch",
+    "entity_name": "Discovered 3 suppliers",
+    "details": {
+      "criteria": {
+        "supplier_type": "Fabric Manufacturer",
+        "country": "India"
+      },
+      "auto_added": 0,
+      "pending_review": 2,
+      "sources": {
+        "ai_llm": 3,
+        "google_search": 3,
+        "indiamart": 3,
+        "trade_directory": 3
+      }
+    },
+    "created_at": "2026-03-05T16:00:56.263196+00:00"
+  },
+  {
+    "id": "b672d4f0-e6c0-4936-ba9e-f13c541ca34e",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "enhanced_ai_discovery",
+    "entity_type": "manufacturer",
+    "entity_id": "batch",
+    "entity_name": "Discovered 3 manufacturers",
+    "details": {
+      "criteria": {
+        "manufacturer_type": "Garment Manufacturer",
+        "country": "India"
+      },
+      "auto_added": 0,
+      "pending_review": 2,
+      "sources": {
+        "ai_llm": 3,
+        "google_search": 3,
+        "indiamart": 3,
+        "trade_directory": 3
+      }
+    },
+    "created_at": "2026-03-05T16:01:10.514063+00:00"
+  },
+  {
+    "id": "dc315195-f5c3-42f5-87d3-a1339db14c8d",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "discovery_approve",
+    "entity_type": "brand",
+    "entity_id": "b84b399b-bca3-4a15-842d-00ec615b2b17",
+    "entity_name": "Brand review approved",
+    "details": {},
+    "created_at": "2026-03-05T16:04:01.514705+00:00"
+  },
+  {
+    "id": "7ec09ecf-febb-455f-a0a2-cf267c9ad2b3",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "calculated_score",
+    "entity_type": "supplier",
+    "entity_id": "a74350d8-ba67-491d-965f-4870a5a39514",
+    "entity_name": "Surat Silk Mills Pvt Ltd",
+    "details": {
+      "score": 53.3
+    },
+    "created_at": "2026-03-05T16:26:54.364961+00:00"
+  },
+  {
+    "id": "bf6bcf92-576a-4eb8-9f2f-85ecd7c2b68e",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "calculated_score",
+    "entity_type": "manufacturer",
+    "entity_id": "e4119208-520e-490e-a324-37bffc7dfab1",
+    "entity_name": "Test Garment Factory Updated",
+    "details": {
+      "score": 52.3
+    },
+    "created_at": "2026-03-05T16:26:56.607607+00:00"
+  },
+  {
+    "id": "d0d448f8-269f-4604-86ea-b35cac4f5df9",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "calculated_score",
+    "entity_type": "supplier",
+    "entity_id": "a74350d8-ba67-491d-965f-4870a5a39514",
+    "entity_name": "Surat Silk Mills Pvt Ltd",
+    "details": {
+      "score": 53
+    },
+    "created_at": "2026-03-05T16:29:38.980815+00:00"
+  },
+  {
+    "id": "5ee4133e-fb77-4d69-9283-6ffc00f7609d",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "calculated_score",
+    "entity_type": "supplier",
+    "entity_id": "a74350d8-ba67-491d-965f-4870a5a39514",
+    "entity_name": "Surat Silk Mills Pvt Ltd",
+    "details": {
+      "score": 55
+    },
+    "created_at": "2026-03-05T16:29:39.584442+00:00"
+  },
+  {
+    "id": "88a1e873-c3fe-4ad9-a606-b07a7d937df2",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "calculated_score",
+    "entity_type": "manufacturer",
+    "entity_id": "e4119208-520e-490e-a324-37bffc7dfab1",
+    "entity_name": "Test Garment Factory Updated",
+    "details": {
+      "score": 52
+    },
+    "created_at": "2026-03-05T16:29:41.306034+00:00"
+  },
+  {
+    "id": "02f610a9-1c81-4193-8bdd-eaff04aa6ef7",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "calculated_score",
+    "entity_type": "manufacturer",
+    "entity_id": "e4119208-520e-490e-a324-37bffc7dfab1",
+    "entity_name": "Test Garment Factory Updated",
+    "details": {
+      "score": 52
+    },
+    "created_at": "2026-03-05T16:29:43.031952+00:00"
+  },
+  {
+    "id": "66528f46-4e57-4ce3-9689-25e5faa533c9",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "enhanced_ai_discovery",
+    "entity_type": "brand",
+    "entity_id": "batch",
+    "entity_name": "Discovered 0 brands",
+    "details": {
+      "criteria": {
+        "category": "Womenswear",
+        "country": "India"
+      },
+      "auto_added": 0,
+      "pending_review": 0,
+      "sources": {}
+    },
+    "created_at": "2026-03-05T17:21:00.420526+00:00"
+  },
+  {
+    "id": "28807df9-2166-46ba-b13d-ac6ffdb5c697",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "enhanced_ai_discovery",
+    "entity_type": "manufacturer",
+    "entity_id": "batch",
+    "entity_name": "Discovered 0 manufacturers",
+    "details": {
+      "criteria": {
+        "manufacturer_type": "Garment Manufacturer",
+        "country": "India",
+        "city": "Tirupur"
+      },
+      "auto_added": 0,
+      "pending_review": 0,
+      "sources": {}
+    },
+    "created_at": "2026-03-05T17:21:31.606099+00:00"
+  },
+  {
+    "id": "1db15472-5616-42e3-b3c4-a35be5c04e23",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "enhanced_ai_discovery",
+    "entity_type": "manufacturer",
+    "entity_id": "batch",
+    "entity_name": "Discovered 4 manufacturers",
+    "details": {
+      "criteria": {
+        "manufacturer_type": "Garment Manufacturer",
+        "country": "India",
+        "city": "Tirupur"
+      },
+      "auto_added": 0,
+      "pending_review": 3,
+      "sources": {
+        "google_search": 4
+      }
+    },
+    "created_at": "2026-03-05T17:22:45.866621+00:00"
+  },
+  {
+    "id": "ef72cf52-a20a-401f-a6ec-9e110bd627fb",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "enhanced_ai_discovery",
+    "entity_type": "brand",
+    "entity_id": "batch",
+    "entity_name": "Discovered 10 brands",
+    "details": {
+      "criteria": {
+        "category": "Womenswear",
+        "country": "India"
+      },
+      "auto_added": 0,
+      "pending_review": 6,
+      "sources": {
+        "ai_llm": 10,
+        "google_search": 10,
+        "indiamart": 10
+      }
+    },
+    "created_at": "2026-03-05T17:24:17.798333+00:00"
+  },
+  {
+    "id": "808240f1-dc49-45f1-80a1-a4eccfd3757c",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "enhanced_ai_discovery",
+    "entity_type": "supplier",
+    "entity_id": "batch",
+    "entity_name": "Discovered 5 suppliers",
+    "details": {
+      "criteria": {
+        "supplier_type": "Fabric Manufacturer",
+        "country": "India",
+        "city": "Surat"
+      },
+      "auto_added": 0,
+      "pending_review": 5,
+      "sources": {
+        "indiamart": 5
+      }
+    },
+    "created_at": "2026-03-05T17:27:34.448552+00:00"
+  },
+  {
+    "id": "ff9287a2-b106-4688-ae66-05c3c4389497",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "enhanced_ai_discovery",
+    "entity_type": "manufacturer",
+    "entity_id": "batch",
+    "entity_name": "Discovered 5 manufacturers",
+    "details": {
+      "criteria": {
+        "manufacturer_type": "Garment Manufacturer",
+        "country": "Bangladesh"
+      },
+      "auto_added": 0,
+      "pending_review": 5,
+      "sources": {
+        "trade_directory": 5
+      }
+    },
+    "created_at": "2026-03-05T17:28:02.825190+00:00"
+  },
+  {
+    "id": "8faf1d8b-0d60-4a94-a8be-ce51dc474083",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "ai_discovered_suppliers",
+    "entity_type": "supplier",
+    "entity_id": "batch",
+    "entity_name": "9 suppliers",
+    "details": {
+      "country": "India",
+      "type": "Fabric Manufacturer",
+      "count": 9
+    },
+    "created_at": "2026-03-05T17:32:32.074216+00:00"
+  },
+  {
+    "id": "55e5a9cf-56be-4bb3-8c3e-96a335ae11db",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "enhanced_ai_discovery",
+    "entity_type": "brand",
+    "entity_id": "batch",
+    "entity_name": "Discovered 5 brands",
+    "details": {
+      "criteria": {
+        "category": "Womenswear",
+        "country": "India"
+      },
+      "auto_added": 0,
+      "pending_review": 2,
+      "sources": {
+        "linkedin": 5
+      }
+    },
+    "created_at": "2026-03-05T17:33:19.572225+00:00"
+  },
+  {
+    "id": "a32a6864-3e78-4026-b6b6-f4561d470fd0",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "enhanced_ai_discovery",
+    "entity_type": "manufacturer",
+    "entity_id": "batch",
+    "entity_name": "Discovered 5 manufacturers",
+    "details": {
+      "criteria": {
+        "manufacturer_type": "Garment Manufacturer",
+        "country": "India",
+        "city": "Bengaluru"
+      },
+      "auto_added": 0,
+      "pending_review": 2,
+      "sources": {
+        "linkedin": 5
+      }
+    },
+    "created_at": "2026-03-05T17:34:52.217887+00:00"
+  },
+  {
+    "id": "30bad2df-76ad-407b-9c2d-d55a964be4f0",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "discovery_approve",
+    "entity_type": "supplier",
+    "entity_id": "0670e06f-24cd-4507-b5a4-a8d138c8911a",
+    "entity_name": "Supplier review approved",
+    "details": {},
+    "created_at": "2026-03-05T17:35:28.403947+00:00"
+  },
+  {
+    "id": "ddef147f-5c3b-4a11-97b9-824c95fc52bf",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "discovery_approve",
+    "entity_type": "supplier",
+    "entity_id": "680fb474-4200-439b-acf7-5e5974634ec4",
+    "entity_name": "Supplier review approved",
+    "details": {},
+    "created_at": "2026-03-05T17:35:42.320704+00:00"
+  },
+  {
+    "id": "38ddf0cb-fff4-4be6-911c-78a82201d070",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "discovery_reject",
+    "entity_type": "supplier",
+    "entity_id": "f8ff8c80-a9b8-4201-8361-72bac37c4907",
+    "entity_name": "Supplier review rejected",
+    "details": {},
+    "created_at": "2026-03-05T17:36:07.901511+00:00"
+  },
+  {
+    "id": "eaa8b258-4b11-4865-bdb4-d8598a21297a",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "discovery_reject",
+    "entity_type": "supplier",
+    "entity_id": "03308102-8bd1-439b-bf45-44693ed1f015",
+    "entity_name": "Supplier review rejected",
+    "details": {},
+    "created_at": "2026-03-05T17:36:41.293023+00:00"
+  },
+  {
+    "id": "6bda9ffd-219c-47ec-87e6-54f049af5ed3",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "discovery_reject",
+    "entity_type": "supplier",
+    "entity_id": "6811281d-91da-45e5-a2ea-cce530f788de",
+    "entity_name": "Supplier review rejected",
+    "details": {},
+    "created_at": "2026-03-05T17:42:41.504134+00:00"
+  },
+  {
+    "id": "a5870776-83c3-4ba6-8767-4d79e2f1a5dd",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "discovery_reject",
+    "entity_type": "supplier",
+    "entity_id": "6c66a7bb-d998-47d4-bbe8-0bedcf097392",
+    "entity_name": "Supplier review rejected",
+    "details": {},
+    "created_at": "2026-03-05T17:43:23.115654+00:00"
+  },
+  {
+    "id": "48355b1e-4a2c-4060-bd45-91b4c5e04cde",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "discovery_reject",
+    "entity_type": "supplier",
+    "entity_id": "c05042e3-fab8-4432-b5b1-a11c92f77eec",
+    "entity_name": "Supplier review rejected",
+    "details": {},
+    "created_at": "2026-03-05T17:43:34.969974+00:00"
+  },
+  {
+    "id": "9b7ec453-9d6b-4e4d-85c5-ea1d7be1111a",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "sent_email",
+    "entity_type": "brand",
+    "entity_id": "f1ba7fb7-b27f-4808-8d27-ee884557a5d2",
+    "entity_name": "House of Sevora",
+    "details": {
+      "contact_name": "Mashum",
+      "contact_email": "mashum.mollah@gmail.com",
+      "subject": "Partnership Opportunity with SEVORA \u2014 Indias First Stylist-Led Fashion App"
+    },
+    "created_at": "2026-03-06T08:24:22.173834+00:00"
+  },
+  {
+    "id": "fa35a862-847d-4928-9f0a-a99601fd1ae6",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "sent_email",
+    "entity_type": "brand",
+    "entity_id": "95a17df8-6fd7-4f3d-8054-401a69b2206f",
+    "entity_name": "Biba",
+    "details": {
+      "contact_name": "Mashum Mollah",
+      "contact_email": "mashum.mollah@gmail.com",
+      "subject": "Test Email - SEVORA System Check"
+    },
+    "created_at": "2026-03-06T08:31:16.792958+00:00"
+  },
+  {
+    "id": "41df45cf-3e3b-465d-b57e-5d950faa8192",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "sent_email",
+    "entity_type": "brand",
+    "entity_id": "95a17df8-6fd7-4f3d-8054-401a69b2206f",
+    "entity_name": "Biba",
+    "details": {
+      "contact_name": "Mashum Mollah",
+      "contact_email": "mashum.mollah@gmail.com",
+      "subject": "Test Email - SEVORA System"
+    },
+    "created_at": "2026-03-06T08:34:58.408902+00:00"
+  },
+  {
+    "id": "d7dea021-7e26-4da1-b3b1-cf1c80ce1b4a",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "sent_email",
+    "entity_type": "brand",
+    "entity_id": "95a17df8-6fd7-4f3d-8054-401a69b2206f",
+    "entity_name": "Biba",
+    "details": {
+      "contact_name": "Mashum Mollah",
+      "contact_email": "mashum.mollah@gmail.com",
+      "subject": "SEVORA App Test - Email Working"
+    },
+    "created_at": "2026-03-06T08:56:04.095381+00:00"
+  },
+  {
+    "id": "549121fc-b4a3-488e-8390-78151f6b3903",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "sent_email",
+    "entity_type": "brand",
+    "entity_id": "f1ba7fb7-b27f-4808-8d27-ee884557a5d2",
+    "entity_name": "House of Sevora",
+    "details": {
+      "contact_name": "Mashum",
+      "contact_email": "mashum.mollah@gmail.com",
+      "subject": "Partnership Opportunity with SEVORA \u2014 Indias First Stylist-Led Fashion App"
+    },
+    "created_at": "2026-03-06T08:57:02.289271+00:00"
+  },
+  {
+    "id": "c285f82b-cd9d-4136-ac84-66d92708ef13",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "sent_email",
+    "entity_type": "brand",
+    "entity_id": "fbb24176-e006-44bc-bf5f-818a424e9022",
+    "entity_name": "House of Sevora",
+    "details": {
+      "contact_name": "MM",
+      "contact_email": "mashum.mollah@gmail.com",
+      "subject": "Partnership Opportunity with SEVORA \u2014 Indias First Stylist-Led Fashion App"
+    },
+    "created_at": "2026-03-06T16:16:31.051282+00:00"
+  },
+  {
+    "id": "7fe0a0d6-dacf-4f4c-8aee-1f0602aec87f",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "sent_email",
+    "entity_type": "brand",
+    "entity_id": "f1ba7fb7-b27f-4808-8d27-ee884557a5d2",
+    "entity_name": "House of Sevora",
+    "details": {
+      "contact_name": "Mashum",
+      "contact_email": "mashum.mollah@gmail.com",
+      "subject": "Partnership Opportunity with SEVORA \u2014 Indias First Stylist-Led Fashion App"
+    },
+    "created_at": "2026-03-06T16:17:36.588962+00:00"
+  },
+  {
+    "id": "e3edeb49-1745-4a74-8103-ad5910fe435f",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "sent_email",
+    "entity_type": "brand",
+    "entity_id": "fbb24176-e006-44bc-bf5f-818a424e9022",
+    "entity_name": "House of Sevora",
+    "details": {
+      "contact_name": "MM",
+      "contact_email": "mashum.mollah@gmail.com",
+      "subject": "Partnership Opportunity with SEVORA \u2014 Indias First Stylist-Led Fashion App"
+    },
+    "created_at": "2026-03-06T16:31:59.648650+00:00"
+  },
+  {
+    "id": "f562018a-a8e7-4904-94e0-51e830a5e356",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "manufacturer",
+    "entity_id": "706750f8-ba61-4b53-8fac-172e212e5541",
+    "entity_name": "House of Sevora",
+    "details": {
+      "manufacturer_type": "Garment Manufacturer",
+      "country": "India"
+    },
+    "created_at": "2026-03-06T22:59:43.145577+00:00"
+  },
+  {
+    "id": "dba4fd30-cb7c-4185-937d-bc495f3732ba",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "updated",
+    "entity_type": "manufacturer",
+    "entity_id": "706750f8-ba61-4b53-8fac-172e212e5541",
+    "entity_name": "House of Sevora",
+    "details": {
+      "fields_updated": [
+        "follow_up_date",
+        "updated_at",
+        "updated_by"
+      ]
+    },
+    "created_at": "2026-03-06T23:10:31.913445+00:00"
+  },
+  {
+    "id": "261957a8-7373-4d12-8ac5-ef5fa72c867d",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "sent_email",
+    "entity_type": "manufacturer",
+    "entity_id": "706750f8-ba61-4b53-8fac-172e212e5541",
+    "entity_name": "House of Sevora",
+    "details": {
+      "contact_name": "MM",
+      "contact_email": "mashum.mollah@gmail.com",
+      "subject": "Partnership Opportunity with SEVORA \u2014 Indias First Stylist-Led Fashion App"
+    },
+    "created_at": "2026-03-06T23:14:57.752080+00:00"
+  },
+  {
+    "id": "74f7dab1-848d-4595-b6d8-6a5cac001745",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "sent_email",
+    "entity_type": "manufacturer",
+    "entity_id": "706750f8-ba61-4b53-8fac-172e212e5541",
+    "entity_name": "House of Sevora",
+    "details": {
+      "contact_name": "MM",
+      "contact_email": "mashum.mollah@gmail.com",
+      "subject": "Manufacturing Partnership Inquiry from SEVORA"
+    },
+    "created_at": "2026-03-06T23:15:35.229294+00:00"
+  },
+  {
+    "id": "45e9126a-5891-4f98-bff0-3289b42ffcae",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "sent_email",
+    "entity_type": "brand",
+    "entity_id": "fbb24176-e006-44bc-bf5f-818a424e9022",
+    "entity_name": "House of Sevora",
+    "details": {
+      "contact_name": "MM",
+      "contact_email": "mashum.mollah@gmail.com",
+      "subject": "Partnership Opportunity with SEVORA \u2014 Indias First Stylist-Led Fashion App"
+    },
+    "created_at": "2026-03-06T23:22:36.405365+00:00"
+  },
+  {
+    "id": "82c75850-9479-4cb6-9088-039065804db2",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "sent_email",
+    "entity_type": "manufacturer",
+    "entity_id": "706750f8-ba61-4b53-8fac-172e212e5541",
+    "entity_name": "House of Sevora",
+    "details": {
+      "contact_name": "MM",
+      "contact_email": "mashum.mollah@gmail.com",
+      "subject": "Partnership Opportunity with SEVORA \u2014 Indias First Stylist-Led Fashion App",
+      "provider": "microsoft365"
+    },
+    "created_at": "2026-03-06T23:30:27.629127+00:00"
+  },
+  {
+    "id": "6dd48990-609c-48d8-8fb3-8b8f31898c9d",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "sent_email",
+    "entity_type": "brand",
+    "entity_id": "fbb24176-e006-44bc-bf5f-818a424e9022",
+    "entity_name": "House of Sevora",
+    "details": {
+      "contact_name": "MM",
+      "contact_email": "mashum.mollah@gmail.com",
+      "subject": "Partnership Opportunity with SEVORA \u2014 Indias First Stylist-Led Fashion App",
+      "provider": "microsoft365"
+    },
+    "created_at": "2026-03-06T23:33:03.257176+00:00"
+  },
+  {
+    "id": "f4224a4c-5fcd-406b-ab30-55ecac1d90c3",
+    "user_id": "e0999d40-2b08-45d1-8d1b-9e1321b7e4ce",
+    "user_name": "Mashum Mollah",
+    "action": "created",
+    "entity_type": "contact",
+    "entity_id": "988cc3a8-a80d-48ee-bd27-cad978b4bb38",
+    "entity_name": "Test SEVORA Contact",
+    "details": {
+      "brand_id": "95a17df8-6fd7-4f3d-8054-401a69b2206f",
+      "brand_name": "Biba"
+    },
+    "created_at": "2026-03-07T00:25:01.151199+00:00"
+  },
+  {
+    "id": "8ab4d97f-8d6a-4fd4-9167-6c43abb3efab",
+    "user_id": "cba8c104-5e5e-491e-9caa-205c09b38354",
+    "user_name": "Super Administrator",
+    "action": "stage_changed",
+    "entity_type": "brand",
+    "entity_id": "613d0335-fe0f-42f8-9a0f-5331adaaa89d",
+    "entity_name": "Amrapali Jewels",
+    "details": {
+      "old_stage": "Discovery",
+      "new_stage": "Contacted",
+      "old_sub_stage": null,
+      "new_sub_stage": null
+    },
+    "created_at": "2026-03-10T18:51:31.956324+00:00"
+  },
+  {
+    "id": "b9deb8b7-153f-4dac-a8be-b2fa7c7dc600",
+    "user_id": "cba8c104-5e5e-491e-9caa-205c09b38354",
+    "user_name": "Super Administrator",
+    "action": "stage_changed",
+    "entity_type": "brand",
+    "entity_id": "613d0335-fe0f-42f8-9a0f-5331adaaa89d",
+    "entity_name": "Amrapali Jewels",
+    "details": {
+      "old_stage": "Contacted",
+      "new_stage": "Contacted",
+      "old_sub_stage": null,
+      "new_sub_stage": null
+    },
+    "created_at": "2026-03-10T18:51:32.489340+00:00"
+  },
+  {
+    "id": "6719f711-3f30-4b27-8b6d-cd4283443d52",
+    "user_id": "cba8c104-5e5e-491e-9caa-205c09b38354",
+    "user_name": "Super Administrator",
+    "action": "created",
+    "entity_type": "brand",
+    "entity_id": "a66870fa-73dd-46d1-9788-32b030bc6306",
+    "entity_name": "TEST_BrandCreation_190820",
+    "details": {
+      "segment": "Affordable Luxury",
+      "city": "Mumbai"
+    },
+    "created_at": "2026-03-10T19:08:20.956815+00:00"
+  },
+  {
+    "id": "a64f0d2a-3d43-4b7d-9051-eb33e1ef88c2",
+    "user_id": "cba8c104-5e5e-491e-9caa-205c09b38354",
+    "user_name": "Super Administrator",
+    "action": "created",
+    "entity_type": "brand",
+    "entity_id": "2f4bfa77-2c75-46e6-8789-5a8c19e91284",
+    "entity_name": "TEST_CRUDFlow_190821",
+    "details": {
+      "segment": "Premium",
+      "city": "Delhi"
+    },
+    "created_at": "2026-03-10T19:08:21.218274+00:00"
+  },
+  {
+    "id": "f6998c99-9ea3-4b23-a442-220b580b9d36",
+    "user_id": "cba8c104-5e5e-491e-9caa-205c09b38354",
+    "user_name": "Super Administrator",
+    "action": "created",
+    "entity_type": "brand",
+    "entity_id": "479bb884-e46b-4127-ab18-cc2f8c77b8ae",
+    "entity_name": "TEST_NotesBrand_190823",
+    "details": {
+      "segment": "Bridge to Luxury",
+      "city": "Bangalore"
+    },
+    "created_at": "2026-03-10T19:08:23.372072+00:00"
+  },
+  {
+    "id": "71b83f12-e720-4186-bac7-0ca922235071",
+    "user_id": "cba8c104-5e5e-491e-9caa-205c09b38354",
+    "user_name": "Super Administrator",
+    "action": "created",
+    "entity_type": "brand",
+    "entity_id": "6c8271cf-3b3e-4b35-b32b-23f393f5caae",
+    "entity_name": "TEST_ContactsBrand_190823",
+    "details": {
+      "segment": "Premium",
+      "city": "Chennai"
+    },
+    "created_at": "2026-03-10T19:08:23.645348+00:00"
+  },
+  {
+    "id": "b07ca52f-6e9e-4b95-9a66-989ed9463e16",
+    "user_id": "cba8c104-5e5e-491e-9caa-205c09b38354",
+    "user_name": "Super Administrator",
+    "action": "stage_changed",
+    "entity_type": "brand",
+    "entity_id": "613d0335-fe0f-42f8-9a0f-5331adaaa89d",
+    "entity_name": "Amrapali Jewels",
+    "details": {
+      "old_stage": "Contacted",
+      "new_stage": "Qualified",
+      "old_sub_stage": null,
+      "new_sub_stage": null
+    },
+    "created_at": "2026-03-12T15:41:34.310876+00:00"
+  },
+  {
+    "id": "8c0c1260-f696-4694-be21-4804dc28ba11",
+    "user_id": "cba8c104-5e5e-491e-9caa-205c09b38354",
+    "user_name": "Super Administrator",
+    "action": "stage_changed",
+    "entity_type": "brand",
+    "entity_id": "613d0335-fe0f-42f8-9a0f-5331adaaa89d",
+    "entity_name": "Amrapali Jewels",
+    "details": {
+      "old_stage": "Qualified",
+      "new_stage": "Contacted",
+      "old_sub_stage": null,
+      "new_sub_stage": null
+    },
+    "created_at": "2026-03-12T15:42:06.145975+00:00"
+  }
+]
