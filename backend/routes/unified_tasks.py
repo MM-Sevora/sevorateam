@@ -126,58 +126,42 @@ async def get_tasks(
     priority: Optional[str] = None,
     is_overdue: Optional[bool] = None,
     search: Optional[str] = None,
-    include_my_tasks: bool = True,  # NEW: Always include tasks assigned to current user
+    include_my_tasks: bool = True,
     skip: int = 0,
     limit: int = 50,
     current_user: dict = Depends(get_current_user_dep)
 ):
-    """Get all tasks with filters. By default includes tasks assigned to current user."""
+    """Get all tasks with filters. Respects data scope permissions."""
+    from utils.permissions import get_data_scope_query
+    
     user_id = current_user.get("id")
     user_role = current_user.get("role", "")
     is_admin = user_role in ["super_admin", "admin"] or current_user.get("can_manage_users")
     
-    query = {}
+    filter_query = {}
     
     if status:
-        query["status"] = status
+        filter_query["status"] = status
     if assigned_to:
-        query["assigned_to"] = assigned_to
+        filter_query["assigned_to"] = assigned_to
     if assigned_team:
-        query["assigned_team"] = assigned_team
+        filter_query["assigned_team"] = assigned_team
     if source_module:
-        query["source_module"] = source_module
+        filter_query["source_module"] = source_module
     if priority:
-        query["priority"] = priority
+        filter_query["priority"] = priority
     if search:
-        query["$or"] = [
+        filter_query["$or"] = [
             {"title": {"$regex": search, "$options": "i"}},
             {"description": {"$regex": search, "$options": "i"}}
         ]
     if is_overdue:
         now = datetime.now(timezone.utc).isoformat()
-        query["due_date"] = {"$lt": now}
-        query["status"] = {"$nin": ["completed", "cancelled"]}
+        filter_query["due_date"] = {"$lt": now}
+        filter_query["status"] = {"$nin": ["completed", "cancelled"]}
     
-    # If not admin and include_my_tasks is True, ensure user sees their assigned tasks
-    if not is_admin and include_my_tasks and not assigned_to:
-        # Combine filter with "OR assigned to me"
-        if query:
-            original_query = dict(query)
-            query = {
-                "$or": [
-                    {"assigned_to": user_id},
-                    {"created_by": user_id},
-                    original_query
-                ]
-            }
-        else:
-            # No other filters, show all tasks user has access to
-            query = {
-                "$or": [
-                    {"assigned_to": user_id},
-                    {"created_by": user_id}
-                ]
-            }
+    # Apply data scope filtering based on user's module permissions
+    query = get_data_scope_query(current_user, "project_management", filter_query)
     
     tasks = await db.unified_tasks.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(length=limit)
     total = await db.unified_tasks.count_documents(query)
@@ -213,51 +197,35 @@ async def get_tasks_paginated(
     sort_order: Optional[str] = Query(default="desc", description="Sort order: asc or desc"),
     current_user: dict = Depends(get_current_user_dep)
 ):
-    """Get tasks with pagination, sorting, and filter metadata"""
+    """Get tasks with pagination, sorting, and filter metadata. Respects data scope."""
+    from utils.permissions import get_data_scope_query
+    
     user_id = current_user.get("id")
     user_role = current_user.get("role", "")
     is_admin = user_role in ["super_admin", "admin"] or current_user.get("can_manage_users")
     
-    query = {}
+    filter_query = {}
     
     if status:
-        query["status"] = status
+        filter_query["status"] = status
     if assigned_to:
-        query["assigned_to"] = assigned_to
+        filter_query["assigned_to"] = assigned_to
     if assigned_team:
-        query["assigned_team"] = assigned_team
+        filter_query["assigned_team"] = assigned_team
     if source_module:
-        query["source_module"] = source_module
+        filter_query["source_module"] = source_module
     if priority:
-        query["priority"] = priority
+        filter_query["priority"] = priority
     if created_by:
-        query["created_by"] = created_by
+        filter_query["created_by"] = created_by
     if search:
-        query["$or"] = [
+        filter_query["$or"] = [
             {"title": {"$regex": search, "$options": "i"}},
             {"description": {"$regex": search, "$options": "i"}}
         ]
     
-    # For non-admins, show their tasks and created tasks
-    if not is_admin:
-        original_filters = dict(query) if query else {}
-        if original_filters:
-            query = {
-                "$and": [
-                    {"$or": [
-                        {"assigned_to": user_id},
-                        {"created_by": user_id}
-                    ]},
-                    original_filters
-                ]
-            }
-        else:
-            query = {
-                "$or": [
-                    {"assigned_to": user_id},
-                    {"created_by": user_id}
-                ]
-            }
+    # Apply data scope filtering based on user's module permissions
+    query = get_data_scope_query(current_user, "project_management", filter_query)
     
     total = await db.unified_tasks.count_documents(query)
     skip = (page - 1) * page_size

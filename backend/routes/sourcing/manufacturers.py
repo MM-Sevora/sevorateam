@@ -84,23 +84,28 @@ def create_manufacturers_router(db, get_current_user: Callable):
         include_my_manufacturers: bool = True,
         limit: int = Query(default=100, le=500)
     ):
-        """List manufacturers with filters. Includes manufacturers created by or assigned to user."""
+        """List manufacturers with filters. Respects data scope permissions."""
+        from utils.permissions import get_data_scope_query
+        
         user_id = current_user.get("id")
         user_role = current_user.get("role", "")
         is_admin = user_role in ["super_admin", "admin"] or current_user.get("can_manage_users")
         
-        query = {}
+        filter_query = {}
         if manufacturer_type:
-            query["manufacturer_type"] = manufacturer_type
+            filter_query["manufacturer_type"] = manufacturer_type
         if pipeline_stage:
-            query["pipeline_stage"] = pipeline_stage
+            filter_query["pipeline_stage"] = pipeline_stage
         if city:
-            query["city"] = city
+            filter_query["city"] = city
         if search:
-            query["$or"] = [
+            filter_query["$or"] = [
                 {"name": {"$regex": search, "$options": "i"}},
                 {"city": {"$regex": search, "$options": "i"}}
             ]
+        
+        # Apply data scope filtering based on user's module permissions
+        query = get_data_scope_query(current_user, "sourcing", filter_query)
         
         manufacturers = await db.sourcing_manufacturers.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(length=limit)
         

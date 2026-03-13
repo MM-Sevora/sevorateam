@@ -145,20 +145,25 @@ def create_brands_router(db, get_current_user: Callable):
         limit: int = Query(default=100, le=500)
     ):
         """List all brands with optional filters"""
-        query = {}
+        from utils.permissions import get_data_scope_query
+        
+        filter_query = {}
         
         if pipeline_stage:
-            query["pipeline_stage"] = pipeline_stage
+            filter_query["pipeline_stage"] = pipeline_stage
         if segment:
-            query["segment"] = segment
+            filter_query["segment"] = segment
         if city:
-            query["city"] = city
+            filter_query["city"] = city
         if search:
-            query["$or"] = [
+            filter_query["$or"] = [
                 {"name": {"$regex": search, "$options": "i"}},
                 {"city": {"$regex": search, "$options": "i"}},
                 {"email": {"$regex": search, "$options": "i"}}
             ]
+        
+        # Apply data scope filtering based on user's module permissions
+        query = get_data_scope_query(current_user, "sourcing", filter_query)
         
         brands = await db.sourcing_brands.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(length=limit)
         
@@ -198,21 +203,26 @@ def create_brands_router(db, get_current_user: Callable):
         sort_order: Optional[str] = Query(default="desc", description="Sort order: asc or desc")
     ):
         """List brands with pagination, filtering, and sorting"""
-        query = {}
+        from utils.permissions import get_data_scope_query
+        
+        filter_query = {}
         
         if pipeline_stage:
-            query["pipeline_stage"] = pipeline_stage
+            filter_query["pipeline_stage"] = pipeline_stage
         if segment:
-            query["segment"] = segment
+            filter_query["segment"] = segment
         if city:
-            query["city"] = city
+            filter_query["city"] = city
         if added_by:
-            query["created_by"] = added_by
+            filter_query["created_by"] = added_by
         if search:
-            query["$or"] = [
+            filter_query["$or"] = [
                 {"name": {"$regex": search, "$options": "i"}},
                 {"city": {"$regex": search, "$options": "i"}}
             ]
+        
+        # Apply data scope filtering based on user's module permissions
+        query = get_data_scope_query(current_user, "sourcing", filter_query)
         
         total = await db.sourcing_brands.count_documents(query)
         skip = (page - 1) * page_size

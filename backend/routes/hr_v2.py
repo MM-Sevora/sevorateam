@@ -115,21 +115,23 @@ async def get_employees_v2(
     skip: int = Query(default=0, ge=0),
     user: dict = Depends(get_current_user_dep())
 ):
-    """Get all employees with filters (from employees collection)"""
+    """Get all employees with filters (from employees collection). Respects data scope."""
+    from utils.permissions import get_data_scope_query
+    
     db = get_db()
     
     # Build query for employees collection
-    query = {}
+    filter_query = {}
     if department_id:
-        query["department_id"] = department_id
+        filter_query["department_id"] = department_id
     if grade_id:
-        query["grade_id"] = grade_id
+        filter_query["grade_id"] = grade_id
     if reports_to:
-        query["reports_to"] = reports_to
+        filter_query["reports_to"] = reports_to
     if status:
-        query["status"] = status
+        filter_query["status"] = status
     if employment_type:
-        query["employment_type"] = employment_type
+        filter_query["employment_type"] = employment_type
     
     # For search, we need to search across users and employees
     if search:
@@ -144,10 +146,13 @@ async def get_employees_v2(
         user_ids = [u["id"] for u in user_matches]
         
         # Also search by employee_code
-        query["$or"] = [
+        filter_query["$or"] = [
             {"user_id": {"$in": user_ids}},
             {"employee_code": {"$regex": search, "$options": "i"}}
         ]
+    
+    # Apply data scope filtering
+    query = get_data_scope_query(user, "hr", filter_query)
     
     employees = await db.employees.find(
         query, 

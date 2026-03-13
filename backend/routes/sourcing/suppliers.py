@@ -84,23 +84,28 @@ def create_suppliers_router(db, get_current_user: Callable):
         include_my_suppliers: bool = True,
         limit: int = Query(default=100, le=500)
     ):
-        """List suppliers with filters. Includes suppliers created by or assigned to user."""
+        """List suppliers with filters. Respects data scope permissions."""
+        from utils.permissions import get_data_scope_query
+        
         user_id = current_user.get("id")
         user_role = current_user.get("role", "")
         is_admin = user_role in ["super_admin", "admin"] or current_user.get("can_manage_users")
         
-        query = {}
+        filter_query = {}
         if supplier_type:
-            query["supplier_type"] = supplier_type
+            filter_query["supplier_type"] = supplier_type
         if pipeline_stage:
-            query["pipeline_stage"] = pipeline_stage
+            filter_query["pipeline_stage"] = pipeline_stage
         if city:
-            query["city"] = city
+            filter_query["city"] = city
         if search:
-            query["$or"] = [
+            filter_query["$or"] = [
                 {"name": {"$regex": search, "$options": "i"}},
                 {"city": {"$regex": search, "$options": "i"}}
             ]
+        
+        # Apply data scope filtering based on user's module permissions
+        query = get_data_scope_query(current_user, "sourcing", filter_query)
         
         suppliers = await db.sourcing_suppliers.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(length=limit)
         

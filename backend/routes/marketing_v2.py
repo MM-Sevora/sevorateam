@@ -370,18 +370,23 @@ async def get_unified_campaigns(
     limit: int = 100,
     user: dict = Depends(get_marketing_auth())
 ):
-    """Get all campaigns (both influencer and PR) in a unified view"""
+    """Get all campaigns (both influencer and PR) in a unified view. Respects data scope."""
+    from utils.permissions import get_data_scope_query
+    
     db = get_db()
     
     campaigns = []
     
     # Fetch influencer campaigns from marketing_campaigns collection
     if not campaign_type or campaign_type == "influencer":
-        inf_query = {}
+        inf_filter = {}
         if status:
-            inf_query["status"] = status
+            inf_filter["status"] = status
         if search:
-            inf_query["name"] = {"$regex": search, "$options": "i"}
+            inf_filter["name"] = {"$regex": search, "$options": "i"}
+        
+        # Apply data scope filtering
+        inf_query = get_data_scope_query(user, "marketing_ops", inf_filter)
         
         inf_campaigns = await db.marketing_campaigns.find(inf_query, {"_id": 0}).limit(limit).to_list(limit)
         for c in inf_campaigns:
@@ -392,11 +397,14 @@ async def get_unified_campaigns(
     
     # Fetch PR campaigns
     if not campaign_type or campaign_type == "pr":
-        pr_query = {}
+        pr_filter = {}
         if status:
-            pr_query["status"] = status
+            pr_filter["status"] = status
         if search:
-            pr_query["name"] = {"$regex": search, "$options": "i"}
+            pr_filter["name"] = {"$regex": search, "$options": "i"}
+        
+        # Apply data scope filtering
+        pr_query = get_data_scope_query(user, "marketing_ops", pr_filter)
         
         pr_campaigns = await db.pr_campaigns.find(pr_query, {"_id": 0}).limit(limit).to_list(limit)
         for c in pr_campaigns:
@@ -475,27 +483,32 @@ async def get_contacts(
     skip: int = 0,
     user: dict = Depends(get_marketing_auth())
 ):
-    """Get all contacts with filters - requires marketing auth"""
+    """Get all contacts with filters - requires marketing auth. Respects data scope."""
+    from utils.permissions import get_data_scope_query
+    
     db = get_db()
-    query = {}
+    filter_query = {}
     
     if contact_type:
-        query["contact_type"] = contact_type
+        filter_query["contact_type"] = contact_type
     if status:
-        query["status"] = status
+        filter_query["status"] = status
     if tier:
-        query["tier"] = tier
+        filter_query["tier"] = tier
     if industry:
-        query["industry"] = industry
+        filter_query["industry"] = industry
     if city:
-        query["city"] = {"$regex": city, "$options": "i"}
+        filter_query["city"] = {"$regex": city, "$options": "i"}
     if search:
-        query["$or"] = [
+        filter_query["$or"] = [
             {"name": {"$regex": search, "$options": "i"}},
             {"email": {"$regex": search, "$options": "i"}},
             {"instagram_handle": {"$regex": search, "$options": "i"}},
             {"publication": {"$regex": search, "$options": "i"}},
         ]
+    
+    # Apply data scope filtering
+    query = get_data_scope_query(user, "marketing_ops", filter_query)
     
     contacts = await db.contacts.find(query, {"_id": 0}).sort("score", -1).skip(skip).limit(limit).to_list(limit)
     return contacts
@@ -516,29 +529,34 @@ async def get_contacts_paginated(
     sort_order: Optional[str] = Query(default="desc", description="Sort order: asc or desc"),
     user: dict = Depends(get_marketing_auth())
 ):
-    """Get contacts with pagination, sorting, and filter metadata"""
+    """Get contacts with pagination, sorting, and filter metadata. Respects data scope."""
+    from utils.permissions import get_data_scope_query
+    
     db = get_db()
-    query = {}
+    filter_query = {}
     
     if contact_type:
-        query["contact_type"] = contact_type
+        filter_query["contact_type"] = contact_type
     if status:
-        query["status"] = status
+        filter_query["status"] = status
     if tier:
-        query["tier"] = tier
+        filter_query["tier"] = tier
     if industry:
-        query["industry"] = industry
+        filter_query["industry"] = industry
     if city:
-        query["city"] = city
+        filter_query["city"] = city
     if added_by:
-        query["created_by"] = added_by
+        filter_query["created_by"] = added_by
     if search:
-        query["$or"] = [
+        filter_query["$or"] = [
             {"name": {"$regex": search, "$options": "i"}},
             {"email": {"$regex": search, "$options": "i"}},
             {"instagram_handle": {"$regex": search, "$options": "i"}},
             {"publication": {"$regex": search, "$options": "i"}},
         ]
+    
+    # Apply data scope filtering
+    query = get_data_scope_query(user, "marketing_ops", filter_query)
     
     total = await db.contacts.count_documents(query)
     skip = (page - 1) * page_size
