@@ -39,11 +39,12 @@ api.interceptors.response.use(
         
         // If 401 and not already retrying
         if (error.response?.status === 401 && !originalRequest._retry) {
-            // Don't retry refresh endpoint itself
-            if (originalRequest.url?.includes('/auth/refresh') || originalRequest.url?.includes('/auth/login')) {
-                localStorage.removeItem('sevora_token');
-                localStorage.removeItem('sevora_auth_method');
-                window.location.href = '/login';
+            // Don't intercept auth endpoints - let them handle their own errors
+            if (originalRequest.url?.includes('/auth/refresh') || 
+                originalRequest.url?.includes('/auth/login') ||
+                originalRequest.url?.includes('/auth/azure') ||
+                originalRequest.url?.includes('/auth/me')) {
+                // Just reject, don't redirect - let the calling code handle it
                 return Promise.reject(error);
             }
             
@@ -60,7 +61,8 @@ api.interceptors.response.use(
                     
                     // Try to refresh the token
                     const response = await axios.post(`${BACKEND_URL}/api/auth/refresh`, {}, {
-                        headers: { Authorization: `Bearer ${token}` }
+                        headers: { Authorization: `Bearer ${token}` },
+                        timeout: 10000 // 10 second timeout for refresh
                     });
                     
                     const newToken = response.data.access_token;
@@ -73,17 +75,24 @@ api.interceptors.response.use(
                     return api(originalRequest);
                 } catch (refreshError) {
                     isRefreshing = false;
-                    localStorage.removeItem('sevora_token');
-                    localStorage.removeItem('sevora_auth_method');
-                    window.location.href = '/login';
+                    // Only redirect if we're sure the session is invalid
+                    if (refreshError.response?.status === 401) {
+                        localStorage.removeItem('sevora_token');
+                        localStorage.removeItem('sevora_auth_method');
+                        window.location.href = '/login';
+                    }
                     return Promise.reject(refreshError);
                 }
             } else {
                 // Wait for token refresh
-                return new Promise((resolve) => {
+                return new Promise((resolve, reject) => {
                     subscribeTokenRefresh((newToken) => {
-                        originalRequest.headers.Authorization = `Bearer ${newToken}`;
-                        resolve(api(originalRequest));
+                        if (newToken) {
+                            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                            resolve(api(originalRequest));
+                        } else {
+                            reject(error);
+                        }
                     });
                 });
             }

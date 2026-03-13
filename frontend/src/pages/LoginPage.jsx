@@ -78,11 +78,18 @@ export const LoginPage = () => {
         e.preventDefault();
         try {
             setLoading(true);
-            await loginWithCredentials(loginEmail, loginPassword);
-            toast.success('Welcome back!');
-            navigate('/');
+            // Clear any stale MSAL state that might interfere
+            sessionStorage.removeItem('msalLoginType');
+            
+            const userData = await loginWithCredentials(loginEmail, loginPassword);
+            if (userData) {
+                toast.success('Welcome back!');
+                // Small delay to ensure state is updated before navigation
+                setTimeout(() => navigate('/'), 100);
+            }
         } catch (error) {
-            toast.error(error.response?.data?.detail || 'Login failed');
+            console.error('Login error:', error);
+            toast.error(error.response?.data?.detail || 'Login failed. Please try again.');
         } finally {
             setLoading(false);
         }

@@ -382,36 +382,54 @@ export const AuthProvider = ({ children }) => {
             const savedAuthMethod = localStorage.getItem('sevora_auth_method');
             
             if (savedToken) {
-                try {
-                    console.log('Found saved token, verifying...');
-                    setToken(savedToken); // Set token immediately
-                    const userData = await fetchUserProfile(savedToken);
-                    if (userData) {
-                        setAuthMethod(savedAuthMethod || 'local');
-                        setLoading(false);
-                        console.log('Token valid, user restored:', userData.email);
-                        return;
+                console.log('Found saved token, verifying with method:', savedAuthMethod);
+                setToken(savedToken); // Set token immediately for optimistic UI
+                
+                // Try to verify the token with retries
+                let verified = false;
+                for (let attempt = 0; attempt < 3; attempt++) {
+                    try {
+                        const userData = await fetchUserProfile(savedToken);
+                        if (userData) {
+                            setAuthMethod(savedAuthMethod || 'local');
+                            setLoading(false);
+                            console.log('Token valid, user restored:', userData.email);
+                            verified = true;
+                            return;
+                        }
+                    } catch (error) {
+                        console.error(`Token verification attempt ${attempt + 1} failed:`, error);
+                        
+                        // Only clear token if it's definitely expired (401)
+                        if (error.response?.status === 401) {
+                            console.log('Token expired, clearing...');
+                            localStorage.removeItem('sevora_token');
+                            localStorage.removeItem('sevora_auth_method');
+                            setToken(null);
+                            break; // Don't retry on auth errors
+                        }
+                        
+                        // Wait before retry on network errors
+                        if (attempt < 2) {
+                            await new Promise(r => setTimeout(r, 1000));
+                        }
                     }
-                } catch (error) {
-                    console.error('Token verification failed:', error);
-                    // Only clear token if it's definitely expired (401)
-                    if (error.response?.status === 401) {
-                        console.log('Token expired, clearing...');
-                        localStorage.removeItem('sevora_token');
-                        localStorage.removeItem('sevora_auth_method');
-                        setToken(null);
-                    } else {
-                        // Network error or other issue - keep the token
-                        console.log('Network issue, keeping token for retry');
-                        setAuthMethod(savedAuthMethod || 'local');
-                        setLoading(false);
-                        return;
-                    }
+                }
+                
+                // If we verified successfully or had a network issue, don't try Azure
+                if (verified || savedAuthMethod === 'local') {
+                    setLoading(false);
+                    return;
                 }
             }
             
-            // If MSAL has accounts (user already authenticated with Azure)
-            if (accounts.length > 0 && !azureLoginProcessed.current) {
+            // Only try MSAL auto-login if:
+            // 1. No saved local token
+            // 2. MSAL has accounts
+            // 3. Not already processed
+            // 4. User explicitly logged in with Azure before (check session)
+            const msalLoginType = sessionStorage.getItem('msalLoginType');
+            if (accounts.length > 0 && !azureLoginProcessed.current && msalLoginType === 'app') {
                 try {
                     console.log('Found MSAL account, processing Azure token...');
                     await processAzureToken(accounts[0]);
