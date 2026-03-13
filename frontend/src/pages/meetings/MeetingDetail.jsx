@@ -39,6 +39,12 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { ScrollArea } from '../../components/ui/scroll-area';
 import { RichTextEditor } from '../../components/ui/rich-text-editor';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../components/ui/tooltip';
 import { toast } from 'sonner';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -155,6 +161,46 @@ const MeetingDetail = () => {
   const [msCalendarStatus, setMsCalendarStatus] = useState(null);
   const [showConnectOutlookModal, setShowConnectOutlookModal] = useState(false);
   const [connectingToMs, setConnectingToMs] = useState(false);
+  
+  // Add meeting link modal
+  const [showAddLinkModal, setShowAddLinkModal] = useState(false);
+  const [newMeetingLink, setNewMeetingLink] = useState('');
+  const [savingLink, setSavingLink] = useState(false);
+
+  // Save meeting link
+  const handleSaveMeetingLink = async () => {
+    if (!newMeetingLink.trim()) {
+      toast.error('Please enter a meeting link');
+      return;
+    }
+    
+    setSavingLink(true);
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const response = await fetch(`${API}/api/meetings/${meetingId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ ...meeting, meeting_link: newMeetingLink })
+      });
+      
+      if (response.ok) {
+        setMeeting({ ...meeting, meeting_link: newMeetingLink });
+        setShowAddLinkModal(false);
+        setNewMeetingLink('');
+        toast.success('Meeting link added');
+      } else {
+        toast.error('Failed to save meeting link');
+      }
+    } catch (error) {
+      console.error('Failed to save meeting link:', error);
+      toast.error('Failed to save meeting link');
+    } finally {
+      setSavingLink(false);
+    }
+  };
 
   const fetchMeeting = useCallback(async () => {
     try {
@@ -1006,18 +1052,47 @@ const MeetingDetail = () => {
                     {meeting.location}
                   </span>
                 )}
-                {meeting.meeting_link && (
-                  <a 
-                    href={meeting.meeting_link.startsWith('http') ? meeting.meeting_link : `https://${meeting.meeting_link}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-200 text-blue-700 hover:bg-blue-100 transition-colors"
-                    data-testid="meeting-link"
+                {meeting.meeting_link ? (
+                  <div className="flex items-center gap-2">
+                    <a 
+                      href={meeting.meeting_link.startsWith('http') ? meeting.meeting_link : `https://${meeting.meeting_link}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 bg-blue-600 px-4 py-1.5 rounded-full text-white hover:bg-blue-700 transition-colors font-medium"
+                      data-testid="meeting-link"
+                    >
+                      <Video className="w-4 h-4" />
+                      Join Meeting
+                      <ExternalLink className="w-3 h-3 ml-1" />
+                    </a>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button 
+                            onClick={() => {
+                              navigator.clipboard.writeText(meeting.meeting_link);
+                              toast.success('Meeting link copied!');
+                            }}
+                            className="p-1.5 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                          >
+                            <LinkIcon className="w-3.5 h-3.5 text-gray-600" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>Copy link</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                ) : meeting.status !== 'completed' && meeting.status !== 'cancelled' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAddLinkModal(true)}
+                    className="border-dashed border-blue-300 text-blue-600 hover:bg-blue-50"
+                    data-testid="add-meeting-link-btn"
                   >
-                    <Video className="w-4 h-4" />
-                    Join Meeting
-                    <ExternalLink className="w-3 h-3 ml-1" />
-                  </a>
+                    <Video className="w-4 h-4 mr-1.5" />
+                    Add Meeting Link
+                  </Button>
                 )}
                 <span className="flex items-center gap-1.5 bg-white/80 px-3 py-1.5 rounded-full border border-[#E8D5C4]">
                   <Users className="w-4 h-4 text-[#8B7355]" />
@@ -1139,14 +1214,29 @@ const MeetingDetail = () => {
             {/* Status Actions */}
             {meeting.status === 'scheduled' && (
               <div className="flex gap-2">
-                <Button 
-                  onClick={handleStartMeeting} 
-                  size="sm"
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
-                >
-                  <Play className="w-4 h-4 mr-1.5" />
-                  Start Meeting
-                </Button>
+                {/* Join/Start Meeting - Primary action with meeting link */}
+                {meeting.meeting_link ? (
+                  <a 
+                    href={meeting.meeting_link.startsWith('http') ? meeting.meeting_link : `https://${meeting.meeting_link}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-medium text-sm shadow-sm transition-colors"
+                    data-testid="join-meeting-btn"
+                  >
+                    <Video className="w-4 h-4" />
+                    Join Meeting
+                    <ExternalLink className="w-3 h-3 ml-1" />
+                  </a>
+                ) : (
+                  <Button 
+                    onClick={handleStartMeeting} 
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                  >
+                    <Play className="w-4 h-4 mr-1.5" />
+                    Start Meeting
+                  </Button>
+                )}
                 {meeting.recurrence_type && meeting.recurrence_type !== 'none' && (
                   <Button 
                     onClick={handleSkipMeeting} 
@@ -1170,14 +1260,30 @@ const MeetingDetail = () => {
               </div>
             )}
             {meeting.status === 'in_progress' && (
-              <Button 
-                onClick={handleCompleteMeeting} 
-                size="sm"
-                className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white shadow-sm"
-              >
-                <CheckCircle2 className="w-4 h-4 mr-1.5" />
-                Complete Meeting
-              </Button>
+              <div className="flex gap-2">
+                {/* Join button during meeting */}
+                {meeting.meeting_link && (
+                  <a 
+                    href={meeting.meeting_link.startsWith('http') ? meeting.meeting_link : `https://${meeting.meeting_link}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium text-sm shadow-sm transition-colors"
+                    data-testid="join-meeting-btn-inprogress"
+                  >
+                    <Video className="w-4 h-4" />
+                    Join Meeting
+                    <ExternalLink className="w-3 h-3 ml-1" />
+                  </a>
+                )}
+                <Button 
+                  onClick={handleCompleteMeeting} 
+                  size="sm"
+                  className="bg-[#4A3728] hover:bg-[#3A2A1E] text-white shadow-sm"
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                  Complete Meeting
+                </Button>
+              </div>
             )}
           </div>
         </div>
@@ -2967,6 +3073,81 @@ const MeetingDetail = () => {
                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Rescheduling...</>
               ) : (
                 <><CalendarClock className="w-4 h-4 mr-2" />Reschedule</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Meeting Link Modal */}
+      <Dialog open={showAddLinkModal} onOpenChange={setShowAddLinkModal}>
+        <DialogContent className="bg-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Video className="w-5 h-5 text-blue-600" />
+              Add Meeting Link
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Meeting Link / URL</Label>
+              <Input
+                value={newMeetingLink}
+                onChange={(e) => setNewMeetingLink(e.target.value)}
+                placeholder="https://teams.microsoft.com/... or https://zoom.us/..."
+                data-testid="meeting-link-input"
+              />
+              <p className="text-xs text-gray-500">
+                Paste your Teams, Zoom, Google Meet, or any video conferencing link
+              </p>
+            </div>
+            
+            <div className="bg-blue-50 p-3 rounded-lg space-y-2">
+              <p className="text-sm font-medium text-blue-800">Quick Options:</p>
+              <div className="flex flex-wrap gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="text-xs"
+                  onClick={() => window.open('https://teams.microsoft.com/l/meeting/new', '_blank')}
+                >
+                  Create Teams Meeting
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="text-xs"
+                  onClick={() => window.open('https://zoom.us/meeting/schedule', '_blank')}
+                >
+                  Create Zoom Meeting
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="text-xs"
+                  onClick={() => window.open('https://meet.google.com/new', '_blank')}
+                >
+                  Create Google Meet
+                </Button>
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddLinkModal(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSaveMeetingLink}
+              disabled={savingLink || !newMeetingLink.trim()}
+              className="bg-blue-600 hover:bg-blue-700"
+              data-testid="save-meeting-link-btn"
+            >
+              {savingLink ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</>
+              ) : (
+                <><Save className="w-4 h-4 mr-2" /> Save Link</>
               )}
             </Button>
           </DialogFooter>
