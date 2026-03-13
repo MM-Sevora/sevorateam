@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { 
   Building2, Plus, Search, Filter, ExternalLink, Mail, Phone,
   MoreVertical, Edit2, Trash2, Eye, ChevronLeft, ChevronRight,
-  Instagram, Linkedin, MapPin, Sparkles, Globe
+  Instagram, Linkedin, MapPin, Sparkles, Globe, ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
@@ -64,7 +64,9 @@ const BrandsPage = () => {
   const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState({ segment: '', pipeline_stage: '', city: '' });
+  const [filters, setFilters] = useState({ segment: '', pipeline_stage: '', city: '', added_by: '' });
+  const [sorting, setSorting] = useState({ sort_by: 'created_at', sort_order: 'desc' });
+  const [filtersMeta, setFiltersMeta] = useState({ creators: [], cities: [] });
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
   const [showAddModal, setShowAddModal] = useState(false);
   const [showIntegrationCheck, setShowIntegrationCheck] = useState(false);
@@ -90,7 +92,7 @@ const BrandsPage = () => {
 
   useEffect(() => {
     fetchBrands();
-  }, [pagination.page, filters]);
+  }, [pagination.page, filters, sorting]);
 
   const fetchBrands = async () => {
     setLoading(true);
@@ -98,10 +100,13 @@ const BrandsPage = () => {
       const params = new URLSearchParams({
         page: pagination.page,
         page_size: pagination.pageSize,
+        sort_by: sorting.sort_by,
+        sort_order: sorting.sort_order,
         ...(search && { search }),
         ...(filters.segment && { segment: filters.segment }),
         ...(filters.pipeline_stage && { pipeline_stage: filters.pipeline_stage }),
-        ...(filters.city && { city: filters.city })
+        ...(filters.city && { city: filters.city }),
+        ...(filters.added_by && { added_by: filters.added_by })
       });
       const response = await api.get(`/sourcing/brands/paginated?${params}`);
       setBrands(response.data.brands);
@@ -110,11 +115,32 @@ const BrandsPage = () => {
         total: response.data.total,
         totalPages: response.data.total_pages
       }));
+      // Update filter metadata (available creators and cities)
+      if (response.data.filters_meta) {
+        setFiltersMeta(response.data.filters_meta);
+      }
     } catch (error) {
       toast.error('Failed to fetch brands');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSort = (field) => {
+    setSorting(prev => ({
+      sort_by: field,
+      sort_order: prev.sort_by === field && prev.sort_order === 'asc' ? 'desc' : 'asc'
+    }));
+    setPagination(prev => ({ ...prev, page: 1 }));
+  };
+
+  const SortIcon = ({ field }) => {
+    if (sorting.sort_by !== field) {
+      return <ArrowUpDown className="h-4 w-4 ml-1 opacity-50" />;
+    }
+    return sorting.sort_order === 'asc' 
+      ? <ArrowUp className="h-4 w-4 ml-1 text-[#4A3728]" />
+      : <ArrowDown className="h-4 w-4 ml-1 text-[#4A3728]" />;
   };
 
   const handleSearch = (e) => {
@@ -233,7 +259,7 @@ const BrandsPage = () => {
               </div>
             </form>
             <Select value={filters.segment || 'all'} onValueChange={(v) => setFilters(prev => ({ ...prev, segment: v === 'all' ? '' : v }))}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[160px]">
                 <SelectValue placeholder="All Segments" />
               </SelectTrigger>
               <SelectContent>
@@ -242,12 +268,34 @@ const BrandsPage = () => {
               </SelectContent>
             </Select>
             <Select value={filters.pipeline_stage || 'all'} onValueChange={(v) => setFilters(prev => ({ ...prev, pipeline_stage: v === 'all' ? '' : v }))}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[160px]">
                 <SelectValue placeholder="All Stages" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Stages</SelectItem>
                 {PIPELINE_STAGES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={filters.city || 'all'} onValueChange={(v) => setFilters(prev => ({ ...prev, city: v === 'all' ? '' : v }))}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="All Cities" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Cities</SelectItem>
+                {(filtersMeta.cities?.length > 0 ? filtersMeta.cities : CITIES).map(c => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filters.added_by || 'all'} onValueChange={(v) => setFilters(prev => ({ ...prev, added_by: v === 'all' ? '' : v }))}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Added by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Team Members</SelectItem>
+                {filtersMeta.creators?.map(u => (
+                  <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -260,13 +308,61 @@ const BrandsPage = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Brand</TableHead>
-                <TableHead>City</TableHead>
-                <TableHead>Segment</TableHead>
-                <TableHead>Stage</TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-gray-50 select-none"
+                  onClick={() => handleSort('name')}
+                >
+                  <div className="flex items-center">
+                    Brand
+                    <SortIcon field="name" />
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-gray-50 select-none"
+                  onClick={() => handleSort('city')}
+                >
+                  <div className="flex items-center">
+                    City
+                    <SortIcon field="city" />
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-gray-50 select-none"
+                  onClick={() => handleSort('segment')}
+                >
+                  <div className="flex items-center">
+                    Segment
+                    <SortIcon field="segment" />
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-gray-50 select-none"
+                  onClick={() => handleSort('pipeline_stage')}
+                >
+                  <div className="flex items-center">
+                    Stage
+                    <SortIcon field="pipeline_stage" />
+                  </div>
+                </TableHead>
                 <TableHead>Contact</TableHead>
-                <TableHead>Score</TableHead>
-                <TableHead>Added by</TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-gray-50 select-none"
+                  onClick={() => handleSort('fit_score')}
+                >
+                  <div className="flex items-center">
+                    Score
+                    <SortIcon field="fit_score" />
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-gray-50 select-none"
+                  onClick={() => handleSort('created_at')}
+                >
+                  <div className="flex items-center">
+                    Added by
+                    <SortIcon field="created_at" />
+                  </div>
+                </TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>

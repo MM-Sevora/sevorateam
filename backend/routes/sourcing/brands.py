@@ -192,9 +192,12 @@ def create_brands_router(db, get_current_user: Callable):
         pipeline_stage: Optional[str] = None,
         segment: Optional[str] = None,
         city: Optional[str] = None,
-        search: Optional[str] = None
+        search: Optional[str] = None,
+        added_by: Optional[str] = None,
+        sort_by: Optional[str] = Query(default="created_at", description="Field to sort by: created_at, name, city, segment, pipeline_stage, fit_score"),
+        sort_order: Optional[str] = Query(default="desc", description="Sort order: asc or desc")
     ):
-        """List brands with pagination"""
+        """List brands with pagination, filtering, and sorting"""
         query = {}
         
         if pipeline_stage:
@@ -203,6 +206,8 @@ def create_brands_router(db, get_current_user: Callable):
             query["segment"] = segment
         if city:
             query["city"] = city
+        if added_by:
+            query["created_by"] = added_by
         if search:
             query["$or"] = [
                 {"name": {"$regex": search, "$options": "i"}},
@@ -212,7 +217,15 @@ def create_brands_router(db, get_current_user: Callable):
         total = await db.sourcing_brands.count_documents(query)
         skip = (page - 1) * page_size
         
-        brands = await db.sourcing_brands.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(page_size).to_list(length=page_size)
+        # Determine sort direction
+        sort_direction = -1 if sort_order == "desc" else 1
+        
+        # Validate sort field to prevent injection
+        allowed_sort_fields = ["created_at", "name", "city", "segment", "pipeline_stage", "fit_score", "updated_at"]
+        if sort_by not in allowed_sort_fields:
+            sort_by = "created_at"
+        
+        brands = await db.sourcing_brands.find(query, {"_id": 0}).sort(sort_by, sort_direction).skip(skip).limit(page_size).to_list(length=page_size)
         
         # Populate creator names
         user_ids = list(set([b.get("created_by") for b in brands if b.get("created_by")]))
@@ -222,12 +235,25 @@ def create_brands_router(db, get_current_user: Callable):
             for brand in brands:
                 brand["created_by_name"] = user_map.get(brand.get("created_by"), "Unknown")
         
+        # Get unique creators for the "Added by" filter dropdown
+        all_creators = await db.sourcing_brands.distinct("created_by")
+        creator_users = await db.users.find({"id": {"$in": all_creators}}, {"_id": 0, "id": 1, "name": 1}).to_list(100)
+        creators_list = [{"id": u["id"], "name": u.get("name", "Unknown")} for u in creator_users]
+        
+        # Get unique cities for the filter dropdown
+        unique_cities = await db.sourcing_brands.distinct("city")
+        unique_cities = [c for c in unique_cities if c]  # Filter out empty values
+        
         return {
             "brands": brands,
             "total": total,
             "page": page,
             "page_size": page_size,
-            "total_pages": (total + page_size - 1) // page_size
+            "total_pages": (total + page_size - 1) // page_size,
+            "filters_meta": {
+                "creators": creators_list,
+                "cities": sorted(unique_cities)
+            }
         }
 
     @router.get("/substages")
