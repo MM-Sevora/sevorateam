@@ -290,8 +290,6 @@ const DEPARTMENT_CONFIG = {
                 requiredModule: 'admin',
                 items: [
                     { path: '/admin/users-permissions', name: 'Users & Permissions', icon: Shield },
-                    { path: '/admin/shared-mailboxes', name: 'Shared Mailboxes', icon: Mail },
-                    { path: '/admin/mail-settings', name: 'Mail Settings', icon: Settings },
                 ]
             },
         ]
@@ -310,6 +308,8 @@ const DEPARTMENT_CONFIG = {
             { path: '/settings/automations', name: 'Automations', icon: Zap, requiredModule: 'automations' },
             { path: '/notifications', name: 'Notifications', icon: Bell, requiredModule: 'notifications' },
             { path: '/admin/website-settings', name: 'Website Settings', icon: Globe },
+            { path: '/admin/shared-mailboxes', name: 'Shared Mailboxes', icon: Mail },
+            { path: '/admin/mail-settings', name: 'Mail Settings', icon: Settings },
         ]
     }
 };
