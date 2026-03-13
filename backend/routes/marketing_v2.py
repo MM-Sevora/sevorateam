@@ -222,11 +222,14 @@ async def get_marketing_email_settings(user: dict = Depends(get_marketing_auth()
 
 @marketing_v2_router.put("/settings/email")
 async def update_marketing_email_settings(
-    email: dict,
+    body: dict,
     user: dict = Depends(get_marketing_auth())
 ):
     """Update marketing email settings for outreach"""
     db = get_db()
+    
+    # Extract email from body
+    email = body.get("email", body)
     
     # Validate required fields
     required_fields = ["fromName", "fromEmail", "replyTo"]
