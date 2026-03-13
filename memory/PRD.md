@@ -1,3 +1,47 @@
+## March 13, 2026 - Data Scope Filtering Applied to All APIs ✅
+
+### What Was Built
+Applied the `get_data_scope_query` function to all major list APIs to ensure users only see data they're authorized to access based on their role's data_scope setting.
+
+### Endpoints Updated
+| Module | Endpoint | Module Code |
+|--------|----------|-------------|
+| Sourcing | `/api/sourcing/brands` | sourcing |
+| Sourcing | `/api/sourcing/brands/paginated` | sourcing |
+| Sourcing | `/api/sourcing/suppliers` | sourcing |
+| Sourcing | `/api/sourcing/manufacturers` | sourcing |
+| Marketing | `/api/marketing/v2/contacts` | marketing_ops |
+| Marketing | `/api/marketing/v2/contacts/paginated` | marketing_ops |
+| Marketing | `/api/marketing/v2/unified-campaigns` | marketing_ops |
+| Tasks | `/api/tasks` | project_management |
+| Tasks | `/api/tasks/paginated` | project_management |
+| HR | `/api/hr/v2/employees` | hr |
+| Sales | `/api/sales/leads` | leads (already had) |
+| Sales | `/api/sales/leads/paginated` | leads (already had) |
+| Projects | `/api/projects/list` | project_management (already had) |
+
+### Data Scope Options
+| Scope | Description | Filter Applied |
+|-------|-------------|----------------|
+| all | See everything | No filter |
+| team | See team data | created_by OR assigned_to OR department_id |
+| own_assigned | See own + assigned | created_by OR assigned_to |
+| own_only | See only own data | created_by = user_id |
+
+### Files Modified
+- `/app/backend/routes/sourcing/brands.py`
+- `/app/backend/routes/sourcing/suppliers.py`
+- `/app/backend/routes/sourcing/manufacturers.py`
+- `/app/backend/routes/marketing_v2.py`
+- `/app/backend/routes/unified_tasks.py`
+- `/app/backend/routes/hr_v2.py`
+
+### Testing
+- Backend API tests: 100% (29/29 passed)
+- Test report: `/app/test_reports/iteration_93.json`
+
+---
+
 ## March 13, 2026 - Filter & Sort for High-Priority Pages ✅
 
 ### What Was Built
