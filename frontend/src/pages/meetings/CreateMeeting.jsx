@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import {
   Calendar, Clock, MapPin, Users, Target, Folder, Building2,
   Plus, Trash2, ArrowLeft, Save, Video, FileText, Link as LinkIcon,
-  RefreshCw, Loader2
+  RefreshCw, Loader2, Sparkles
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -196,6 +196,90 @@ const CreateMeeting = () => {
   const [agenda, setAgenda] = useState([]);
   const [participants, setParticipants] = useState([]);
   const [preReadDocuments, setPreReadDocuments] = useState([]);
+  
+  // Teams meeting generation state
+  const [generatingTeamsLink, setGeneratingTeamsLink] = useState(false);
+  const [msCalendarStatus, setMsCalendarStatus] = useState({ is_connected: false });
+
+  // Check MS Calendar connection status on mount
+  useEffect(() => {
+    const checkMsCalendarStatus = async () => {
+      try {
+        const token = localStorage.getItem('sevora_token');
+        const res = await fetch(`${API}/api/meetings/ms-calendar/status`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setMsCalendarStatus(data);
+        }
+      } catch (err) {
+        console.error('Failed to check MS Calendar status:', err);
+      }
+    };
+    checkMsCalendarStatus();
+  }, []);
+
+  // Generate Teams meeting link
+  const generateTeamsMeetingLink = async () => {
+    if (!formData.title) {
+      toast.error('Please enter a meeting title first');
+      return;
+    }
+    if (!formData.start_date || !formData.start_time || !formData.end_time) {
+      toast.error('Please set the meeting date and time first');
+      return;
+    }
+    
+    if (!msCalendarStatus.is_connected) {
+      toast.error('Please connect your Outlook calendar first to generate Teams meeting links');
+      return;
+    }
+
+    setGeneratingTeamsLink(true);
+    try {
+      const token = localStorage.getItem('sevora_token');
+      
+      // Build datetime strings
+      const startDate = new Date(`${formData.start_date}T${formData.start_time}:00`);
+      const endDate = new Date(`${formData.start_date}T${formData.end_time}:00`);
+      
+      // Get attendee emails from participants
+      const attendees = participants
+        .filter(p => p.email)
+        .map(p => ({ email: p.email, name: p.name || p.email }));
+
+      const res = await fetch(`${API}/api/meetings/ms-calendar/create-teams-meeting`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          subject: formData.title,
+          start_time: startDate.toISOString(),
+          end_time: endDate.toISOString(),
+          attendees
+        })
+      });
+
+      const data = await res.json();
+      
+      if (data.status === 'success' && data.join_url) {
+        setFormData(prev => ({ ...prev, meeting_link: data.join_url }));
+        toast.success('Teams meeting link generated!');
+      } else if (data.error === 'token_expired') {
+        toast.error('Microsoft token expired. Please reconnect your Outlook calendar.');
+      } else {
+        toast.error(data.message || 'Failed to generate Teams meeting link');
+      }
+    } catch (err) {
+      console.error('Failed to generate Teams meeting:', err);
+      toast.error('Failed to generate Teams meeting link');
+    } finally {
+      setGeneratingTeamsLink(false);
+    }
+  };
 
   // Pre-fill from URL params (when creating from Project/Goal page)
   useEffect(() => {
@@ -716,12 +800,37 @@ const CreateMeeting = () => {
 
                 <div>
                   <Label className="text-[#4A3728]">Meeting Link</Label>
-                  <Input
-                    value={formData.meeting_link}
-                    onChange={(e) => setFormData({ ...formData, meeting_link: e.target.value })}
-                    placeholder="https://meet.google.com/..."
-                    className="border-[#D4BBA6]"
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      value={formData.meeting_link}
+                      onChange={(e) => setFormData({ ...formData, meeting_link: e.target.value })}
+                      placeholder="https://teams.microsoft.com/... or paste any meeting link"
+                      className="border-[#D4BBA6] flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={generateTeamsMeetingLink}
+                      disabled={generatingTeamsLink || !msCalendarStatus.is_connected}
+                      className="border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0] whitespace-nowrap"
+                      title={!msCalendarStatus.is_connected ? 'Connect Outlook calendar to generate Teams links' : 'Generate Teams Meeting Link'}
+                    >
+                      {generatingTeamsLink ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4 mr-1" />
+                          Teams Link
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  {!msCalendarStatus.is_connected && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      Connect your Outlook calendar to auto-generate Teams meeting links
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between p-3 bg-[#F5EBE0] rounded-lg">

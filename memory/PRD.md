@@ -1,3 +1,44 @@
+## March 13, 2026 - Auto-Generate Teams Meeting Link ✅
+
+### What Was Built
+Added the ability to automatically generate Microsoft Teams meeting links when creating a meeting.
+
+### How It Works
+1. User clicks the "Teams Link" button next to the Meeting Link input
+2. System calls Microsoft Graph API's `/me/onlineMeetings` endpoint
+3. A Teams meeting is created and the join URL is populated in the form
+4. Users can then save the meeting with the Teams link included
+
+### Requirements
+- User must be connected to Microsoft Outlook calendar
+- Meeting title, date, and time must be filled in before generating
+
+### New Backend Endpoint
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/meetings/ms-calendar/create-teams-meeting` | POST | Create Teams online meeting |
+
+### OAuth Scopes Updated
+Added `OnlineMeetings.ReadWrite` to the existing scopes:
+- `Calendars.ReadWrite`
+- `OnlineMeetings.ReadWrite` (NEW)
+- `offline_access`
+
+**Note**: Users need to re-authorize their Outlook connection to get the new scope.
+
+### Files Modified
+| File | Changes |
+|------|---------|
+| `/app/backend/routes/meetings.py` | Added create-teams-meeting endpoint, updated OAuth scopes |
+| `/app/frontend/src/pages/meetings/CreateMeeting.jsx` | Added "Teams Link" button and generation logic |
+
+### UI Changes
+- "Teams Link" button with sparkles icon next to Meeting Link input
+- Updated placeholder text to hint at Teams links
+- Shows warning if Outlook is not connected
+
+---
+
 ## March 13, 2026 - Unified Calendar Added to Sidebar ✅
 
 ### What Was Done

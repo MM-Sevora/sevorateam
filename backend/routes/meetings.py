@@ -927,7 +927,7 @@ async def initiate_ms_calendar_connection(
         upsert=True
     )
     
-    scopes = "Calendars.ReadWrite offline_access"
+    scopes = "Calendars.ReadWrite OnlineMeetings.ReadWrite offline_access"
     auth_url = (
         f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/authorize"
         f"?client_id={client_id}"
@@ -980,7 +980,7 @@ async def ms_calendar_oauth_callback(
                     "code": code,
                     "redirect_uri": redirect_uri,
                     "grant_type": "authorization_code",
-                    "scope": "Calendars.ReadWrite offline_access"
+                    "scope": "Calendars.ReadWrite OnlineMeetings.ReadWrite offline_access"
                 }
             )
             
@@ -1042,6 +1042,126 @@ async def disconnect_ms_calendar(
     )
     
     return {"message": "Microsoft Calendar disconnected"}
+
+
+@router.post("/ms-calendar/create-teams-meeting")
+async def create_teams_meeting(
+    meeting_data: dict,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Create a Teams online meeting and return the join URL
+    
+    This creates a Teams meeting via Microsoft Graph API's onlineMeetings endpoint.
+    The user must be connected to Microsoft Calendar.
+    
+    Request body:
+    {
+        "subject": "Meeting Title",
+        "start_time": "2026-03-15T14:00:00Z",
+        "end_time": "2026-03-15T15:00:00Z",
+        "attendees": [{"email": "...", "name": "..."}]  # Optional
+    }
+    
+    Returns:
+    {
+        "join_url": "https://teams.microsoft.com/l/meetup-join/...",
+        "meeting_id": "...",
+        "subject": "..."
+    }
+    """
+    import os
+    import httpx
+    
+    # Check connection
+    connection = await db.ms_calendar_connections.find_one(
+        {"user_id": user.get("id"), "is_connected": True}, {"_id": 0}
+    )
+    
+    if not connection:
+        raise HTTPException(
+            status_code=400, 
+            detail="Microsoft Calendar not connected. Please connect your Outlook calendar first."
+        )
+    
+    # Validate required fields
+    subject = meeting_data.get("subject")
+    start_time = meeting_data.get("start_time")
+    end_time = meeting_data.get("end_time")
+    
+    if not subject or not start_time or not end_time:
+        raise HTTPException(
+            status_code=400,
+            detail="subject, start_time, and end_time are required"
+        )
+    
+    # Build online meeting payload
+    online_meeting_payload = {
+        "subject": subject,
+        "startDateTime": start_time,
+        "endDateTime": end_time,
+        "lobbyBypassSettings": {
+            "scope": "everyone"  # Allow everyone to bypass lobby
+        }
+    }
+    
+    # Add attendees if provided
+    attendees = meeting_data.get("attendees", [])
+    if attendees:
+        online_meeting_payload["participants"] = {
+            "attendees": [
+                {
+                    "upn": att.get("email"),
+                    "role": "attendee"
+                }
+                for att in attendees if att.get("email")
+            ]
+        }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            # Create online meeting via Graph API
+            response = await client.post(
+                "https://graph.microsoft.com/v1.0/me/onlineMeetings",
+                headers={
+                    "Authorization": f"Bearer {connection.get('access_token')}",
+                    "Content-Type": "application/json"
+                },
+                json=online_meeting_payload
+            )
+            
+            if response.status_code == 201:
+                result = response.json()
+                return {
+                    "status": "success",
+                    "join_url": result.get("joinWebUrl"),
+                    "meeting_id": result.get("id"),
+                    "subject": result.get("subject"),
+                    "video_teleconference_id": result.get("videoTeleconferenceId"),
+                    "toll_number": result.get("audioConferencing", {}).get("tollNumber"),
+                    "conference_id": result.get("audioConferencing", {}).get("conferenceId")
+                }
+            elif response.status_code == 401:
+                # Token might be expired, try to refresh
+                return {
+                    "status": "error",
+                    "error": "token_expired",
+                    "message": "Microsoft token expired. Please reconnect your Outlook calendar.",
+                    "details": response.text
+                }
+            else:
+                return {
+                    "status": "error",
+                    "error": "api_error",
+                    "message": f"Failed to create Teams meeting: {response.status_code}",
+                    "details": response.text
+                }
+                
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": "exception",
+            "message": f"Error creating Teams meeting: {str(e)}"
+        }
 
 
 # ============== MEETING DETAIL ROUTES (Dynamic {meeting_id}) ==============
