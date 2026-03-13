@@ -19,13 +19,75 @@ api.interceptors.request.use((config) => {
 });
 
 // Handle auth errors
+let isRefreshing = false;
+let refreshSubscribers = [];
+
+const subscribeTokenRefresh = (callback) => {
+    refreshSubscribers.push(callback);
+};
+
+const onTokenRefreshed = (newToken) => {
+    refreshSubscribers.forEach(callback => callback(newToken));
+    refreshSubscribers = [];
+};
+
 api.interceptors.response.use(
     (response) => response,
-    (error) => {
-        if (error.response?.status === 401) {
-            localStorage.removeItem('sevora_token');
-            window.location.href = '/login';
+    async (error) => {
+        const originalRequest = error.config;
+        
+        // If 401 and not already retrying
+        if (error.response?.status === 401 && !originalRequest._retry) {
+            // Don't retry refresh endpoint itself
+            if (originalRequest.url?.includes('/auth/refresh') || originalRequest.url?.includes('/auth/login')) {
+                localStorage.removeItem('sevora_token');
+                localStorage.removeItem('sevora_auth_method');
+                window.location.href = '/login';
+                return Promise.reject(error);
+            }
+            
+            originalRequest._retry = true;
+            
+            if (!isRefreshing) {
+                isRefreshing = true;
+                
+                try {
+                    const token = localStorage.getItem('sevora_token');
+                    if (!token) {
+                        throw new Error('No token');
+                    }
+                    
+                    // Try to refresh the token
+                    const response = await axios.post(`${BACKEND_URL}/api/auth/refresh`, {}, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    
+                    const newToken = response.data.access_token;
+                    localStorage.setItem('sevora_token', newToken);
+                    isRefreshing = false;
+                    onTokenRefreshed(newToken);
+                    
+                    // Retry original request with new token
+                    originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                    return api(originalRequest);
+                } catch (refreshError) {
+                    isRefreshing = false;
+                    localStorage.removeItem('sevora_token');
+                    localStorage.removeItem('sevora_auth_method');
+                    window.location.href = '/login';
+                    return Promise.reject(refreshError);
+                }
+            } else {
+                // Wait for token refresh
+                return new Promise((resolve) => {
+                    subscribeTokenRefresh((newToken) => {
+                        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                        resolve(api(originalRequest));
+                    });
+                });
+            }
         }
+        
         return Promise.reject(error);
     }
 );
