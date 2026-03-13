@@ -1,3 +1,44 @@
+## March 13, 2026 - Notification Settings Admin Page ✅
+
+### What Was Built
+Comprehensive admin page to configure organization-wide notification defaults.
+
+### Features (4 Tabs)
+
+| Tab | Settings |
+|-----|----------|
+| **Channels** | Email, In-App, Push, SMS, Slack - enable/disable globally |
+| **Delivery** | Email digest (frequency, time), instant for urgent, batch delay, max emails/day |
+| **Quiet Hours** | DND schedule, weekend quiet mode, allow urgent during quiet |
+| **Categories** | Per-category defaults for 6 categories × 24 notification types |
+
+### Notification Categories
+- **Meetings & Calendar**: Reminders, invites, updates, notes shared
+- **Tasks & Assignments**: Assigned, due soon, overdue, completed
+- **Marketing & Campaigns**: Status changes, influencer responses, approvals, alerts
+- **Sourcing & Suppliers**: Updates, quotes, orders, follow-ups
+- **Sales & Leads**: New leads, activity, deals, conversions
+- **System & Security**: Security alerts, updates, integration errors, exports
+
+### Files Created/Modified
+| File | Purpose |
+|------|---------|
+| `/app/frontend/src/pages/admin/NotificationSettingsPage.jsx` | Admin UI |
+| `/app/backend/routes/notifications.py` | Added admin settings endpoints |
+| `/app/frontend/src/App.js` | Added route |
+| `/app/frontend/src/components/Layout.jsx` | Added to Systems sidebar |
+
+### API Endpoints
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/notifications/admin/settings` | GET | Get notification settings |
+| `/api/notifications/admin/settings` | PUT | Update notification settings |
+
+### Navigation
+Systems → Notification Settings (`/admin/notification-settings`)
+
+---
+
 ## March 13, 2026 - Admin UI for Mail Settings ✅
 
 ### What Was Built

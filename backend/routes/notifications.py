@@ -706,3 +706,64 @@ async def notify_pulse_announcement(
         action_url=f"/pulse?post={post_id}",
         metadata={"author": author_name, "department": department}
     )
+
+
+# ============== ADMIN NOTIFICATION SETTINGS ==============
+
+@router.get("/admin/settings")
+async def get_admin_notification_settings(current_user: dict = Depends(get_current_user_dep)):
+    """Get organization-wide notification settings (admin only)"""
+    if current_user.get("role") not in ["super_admin", "admin"]:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    settings = await db.admin_notification_settings.find_one({}, {"_id": 0})
+    if not settings:
+        # Return defaults
+        return {
+            "channels": {
+                "email_enabled": True,
+                "in_app_enabled": True,
+                "push_enabled": False,
+                "sms_enabled": False,
+                "slack_enabled": False
+            },
+            "delivery": {
+                "digest_enabled": True,
+                "digest_frequency": "daily",
+                "digest_time": "09:00",
+                "instant_for_urgent": True,
+                "batch_delay_minutes": 5,
+                "max_emails_per_day": 50
+            },
+            "quiet_hours": {
+                "enabled": False,
+                "start_time": "22:00",
+                "end_time": "08:00",
+                "weekend_quiet": False,
+                "allow_urgent": True
+            },
+            "category_defaults": {}
+        }
+    return settings
+
+
+@router.put("/admin/settings")
+async def update_admin_notification_settings(
+    settings: dict,
+    current_user: dict = Depends(get_current_user_dep)
+):
+    """Update organization-wide notification settings (admin only)"""
+    if current_user.get("role") not in ["super_admin", "admin"]:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    settings["updated_at"] = datetime.now(timezone.utc).isoformat()
+    settings["updated_by"] = current_user.get("id")
+    
+    await db.admin_notification_settings.update_one(
+        {},
+        {"$set": settings},
+        upsert=True
+    )
+    
+    return {"status": "success", "message": "Notification settings updated"}
+

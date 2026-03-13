@@ -310,6 +310,7 @@ const DEPARTMENT_CONFIG = {
             { path: '/admin/website-settings', name: 'Website Settings', icon: Globe },
             { path: '/admin/shared-mailboxes', name: 'Shared Mailboxes', icon: Mail },
             { path: '/admin/mail-settings', name: 'Mail Settings', icon: Settings },
+            { path: '/admin/notification-settings', name: 'Notification Settings', icon: Bell },
         ]
     }
 };
