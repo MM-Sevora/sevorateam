@@ -126,35 +126,58 @@ class TokenManagerService:
                 "refresh_endpoint": f"/api/social/integrations/tokens/{platform}/refresh" if platform in ["instagram", "facebook"] else None
             }
         
-        # Check .env configured tokens (Instagram/Facebook)
+        # Check .env configured tokens (Instagram/Facebook) - actually validate them
         if "instagram" not in platforms_status:
             instagram_token = os.environ.get("INSTAGRAM_ACCESS_TOKEN")
             if instagram_token:
-                # For .env tokens, we don't have expiry stored - estimate based on typical 60-day lifetime
-                platforms_status["instagram"] = {
-                    "account_name": "Instagram (via .env)",
-                    "has_expiry": True,
-                    "is_expired": False,
-                    "days_remaining": None,
-                    "warning_level": "unknown",
-                    "message": "Token expiry unknown. Meta tokens typically expire after 60 days.",
-                    "can_refresh": True,
-                    "needs_manual_check": True
-                }
+                # Actually check this token's validity
+                token_check = await self.check_token_validity(instagram_token)
+                if token_check.get("valid"):
+                    expiry_status = self._calculate_expiry_status(token_check.get("expires_at"))
+                    platforms_status["instagram"] = {
+                        "account_name": "Instagram (via .env)",
+                        **expiry_status,
+                        "expires_at": token_check.get("expires_at"),
+                        "can_refresh": True,
+                        "refresh_endpoint": "/api/social/tokens/instagram/refresh"
+                    }
+                else:
+                    platforms_status["instagram"] = {
+                        "account_name": "Instagram (via .env)",
+                        "has_expiry": True,
+                        "is_expired": True,
+                        "days_remaining": 0,
+                        "warning_level": "critical",
+                        "message": token_check.get("error", "Token invalid or expired"),
+                        "can_refresh": True,
+                        "needs_reauth": True
+                    }
         
         if "facebook" not in platforms_status:
             fb_token = os.environ.get("FACEBOOK_PAGE_ACCESS_TOKEN")
             if fb_token:
-                platforms_status["facebook"] = {
-                    "account_name": "Facebook Page (via .env)",
-                    "has_expiry": True,
-                    "is_expired": False,
-                    "days_remaining": None,
-                    "warning_level": "unknown",
-                    "message": "Token expiry unknown. Meta tokens typically expire after 60 days.",
-                    "can_refresh": True,
-                    "needs_manual_check": True
-                }
+                # Actually check this token's validity
+                token_check = await self.check_token_validity(fb_token)
+                if token_check.get("valid"):
+                    expiry_status = self._calculate_expiry_status(token_check.get("expires_at"))
+                    platforms_status["facebook"] = {
+                        "account_name": "Facebook Page (via .env)",
+                        **expiry_status,
+                        "expires_at": token_check.get("expires_at"),
+                        "can_refresh": True,
+                        "refresh_endpoint": "/api/social/tokens/facebook/refresh"
+                    }
+                else:
+                    platforms_status["facebook"] = {
+                        "account_name": "Facebook Page (via .env)",
+                        "has_expiry": True,
+                        "is_expired": True,
+                        "days_remaining": 0,
+                        "warning_level": "critical",
+                        "message": token_check.get("error", "Token invalid or expired"),
+                        "can_refresh": True,
+                        "needs_reauth": True
+                    }
         
         # Count warnings
         critical_count = sum(1 for p in platforms_status.values() if p.get("warning_level") == "critical")

@@ -13,8 +13,9 @@ import { toast } from 'sonner';
 import { 
   Globe, Settings, Search, Shield, Bell, Mail, 
   Palette, Clock, Save, RefreshCw, ExternalLink,
-  FileText, Image, Lock, Eye, Database, Zap
+  FileText, Image, Lock, Eye, Database, Zap, Plug
 } from 'lucide-react';
+import TokenStatusPanel from '../../components/TokenStatusPanel';
 
 const WebsiteSettings = () => {
   const { api } = useAuth();
@@ -148,6 +149,10 @@ const WebsiteSettings = () => {
             <Globe className="w-4 h-4 mr-2" />
             General
           </TabsTrigger>
+          <TabsTrigger value="integrations" className="data-[state=active]:bg-white">
+            <Plug className="w-4 h-4 mr-2" />
+            Integrations
+          </TabsTrigger>
           <TabsTrigger value="seo" className="data-[state=active]:bg-white">
             <Search className="w-4 h-4 mr-2" />
             SEO & Crawl
@@ -169,6 +174,19 @@ const WebsiteSettings = () => {
             Performance
           </TabsTrigger>
         </TabsList>
+
+        {/* Integrations - Token Status */}
+        <TabsContent value="integrations">
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold text-[#4A3728] mb-2">Social Media Token Status</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Monitor and manage your social media API tokens. Refresh tokens before they expire to maintain service continuity.
+              </p>
+              <TokenStatusPanel />
+            </div>
+          </div>
+        </TabsContent>
 
         {/* General Settings */}
         <TabsContent value="general">

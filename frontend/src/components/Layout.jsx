@@ -5,6 +5,7 @@ import { NotificationsDropdown, OnlineUsersIndicator } from './Notifications';
 import HelpButton from './HelpButton';
 import TourTrigger from './TourTrigger';
 import GlobalSearch from './GlobalSearch';
+import TokenStatusPanel from './TokenStatusPanel';
 import { 
     LayoutDashboard, Users, Target, MessageSquare, DollarSign, BarChart3,
     UserPlus, ShoppingBag, Calendar, QrCode, Building2, Settings,
@@ -754,6 +755,12 @@ export const Layout = ({ children }) => {
                         <NotificationsDropdown />
                     </div>
                 </div>
+                
+                {/* Token Expiry Alert Banner - Show for admin users */}
+                {(user?.role === 'super_admin' || user?.role === 'admin' || user?.can_manage_users) && (
+                    <TokenStatusPanel showAlertOnly={true} />
+                )}
+                
                 {children}
             </main>
 
