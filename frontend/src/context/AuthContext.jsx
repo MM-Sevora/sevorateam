@@ -9,6 +9,15 @@ const AuthContext = createContext(null);
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
+// Create axios instance with timeout
+const authAxios = axios.create({
+    baseURL: API,
+    timeout: 30000, // 30 second timeout
+    headers: {
+        'Content-Type': 'application/json',
+    },
+});
+
 export const AuthProvider = ({ children }) => {
     const { instance, accounts, inProgress } = useMsal();
     const isAzureAuthenticated = useIsAuthenticated();
@@ -45,7 +54,7 @@ export const AuthProvider = ({ children }) => {
     // Fetch user profile from backend
     const fetchUserProfile = useCallback(async (authToken) => {
         try {
-            const response = await axios.get(`${API}/auth/me`, {
+            const response = await authAxios.get(`/auth/me`, {
                 headers: { Authorization: `Bearer ${authToken}` }
             });
             const userData = response.data;
@@ -66,7 +75,7 @@ export const AuthProvider = ({ children }) => {
         if (!currentToken) return null;
         
         try {
-            const response = await axios.post(`${API}/auth/refresh`, {}, {
+            const response = await authAxios.post(`/auth/refresh`, {}, {
                 headers: { Authorization: `Bearer ${currentToken}` }
             });
             const newToken = response.data.access_token;
@@ -123,7 +132,7 @@ export const AuthProvider = ({ children }) => {
             console.log('Got Azure access token, calling backend...');
 
             // Send Azure token to backend
-            const backendResponse = await axios.post(`${API}/auth/azure`, {
+            const backendResponse = await authAxios.post(`/auth/azure`, {
                 azure_token: tokenResponse.accessToken
             });
 
@@ -170,23 +179,39 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    // Local Login (email/password)
-    const loginWithCredentials = async (email, password) => {
+    // Local Login (email/password) with retry
+    const loginWithCredentials = async (email, password, retries = 2) => {
         try {
             setLoading(true);
-            const response = await axios.post(`${API}/auth/login`, { email, password });
-            const { access_token, user: userData } = response.data;
             
-            localStorage.setItem('sevora_token', access_token);
-            localStorage.setItem('sevora_auth_method', 'local');
-            
-            setToken(access_token);
-            userData.departments = getUserDepartments(userData.role);
-            setUser(userData);
-            setAuthMethod('local');
-            setLoading(false);
-            
-            return userData;
+            let lastError;
+            for (let i = 0; i <= retries; i++) {
+                try {
+                    const { access_token, user: userData } = await authAxios.post(`/auth/login`, { email, password }).then(r => r.data);
+                    
+                    localStorage.setItem('sevora_token', access_token);
+                    localStorage.setItem('sevora_auth_method', 'local');
+                    
+                    setToken(access_token);
+                    userData.departments = getUserDepartments(userData.role);
+                    setUser(userData);
+                    setAuthMethod('local');
+                    setLoading(false);
+                    
+                    return userData;
+                } catch (error) {
+                    lastError = error;
+                    // Only retry on network errors, not auth errors
+                    if (error.response?.status === 401 || error.response?.status === 403) {
+                        throw error; // Don't retry auth errors
+                    }
+                    if (i < retries) {
+                        console.log(`Login attempt ${i + 1} failed, retrying...`);
+                        await new Promise(r => setTimeout(r, 500)); // Wait 500ms before retry
+                    }
+                }
+            }
+            throw lastError;
         } catch (error) {
             console.error('Login failed:', error);
             setLoading(false);
@@ -198,7 +223,7 @@ export const AuthProvider = ({ children }) => {
     const register = async (name, email, password, department = 'sales', role = 'viewer') => {
         try {
             setLoading(true);
-            const response = await axios.post(`${API}/auth/register`, {
+            const response = await authAxios.post(`/auth/register`, {
                 name,
                 email,
                 password,
@@ -359,6 +384,7 @@ export const AuthProvider = ({ children }) => {
             if (savedToken) {
                 try {
                     console.log('Found saved token, verifying...');
+                    setToken(savedToken); // Set token immediately
                     const userData = await fetchUserProfile(savedToken);
                     if (userData) {
                         setAuthMethod(savedAuthMethod || 'local');
@@ -367,10 +393,20 @@ export const AuthProvider = ({ children }) => {
                         return;
                     }
                 } catch (error) {
-                    console.error('Saved token invalid, clearing...');
-                    localStorage.removeItem('sevora_token');
-                    localStorage.removeItem('sevora_auth_method');
-                    setToken(null);
+                    console.error('Token verification failed:', error);
+                    // Only clear token if it's definitely expired (401)
+                    if (error.response?.status === 401) {
+                        console.log('Token expired, clearing...');
+                        localStorage.removeItem('sevora_token');
+                        localStorage.removeItem('sevora_auth_method');
+                        setToken(null);
+                    } else {
+                        // Network error or other issue - keep the token
+                        console.log('Network issue, keeping token for retry');
+                        setAuthMethod(savedAuthMethod || 'local');
+                        setLoading(false);
+                        return;
+                    }
                 }
             }
             
@@ -397,7 +433,7 @@ export const AuthProvider = ({ children }) => {
         const fetchSiteSettings = async () => {
             try {
                 // Use public endpoint - no auth required
-                const response = await axios.get(`${API}/settings/website/public`);
+                const response = await authAxios.get(`/settings/website/public`);
                 if (response.data?.site_name) {
                     document.title = response.data.site_name;
                     // Also update meta description if present
