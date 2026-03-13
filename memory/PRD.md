@@ -1,3 +1,52 @@
+## March 13, 2026 - Mail Inbox Phase 1: Email Templates & Signatures (API-backed) ✅
+
+### What Was Built
+Backend API and frontend integration for managing email templates and signatures with database persistence (replacing localStorage).
+
+### Backend APIs Created
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/email-features/templates` | GET | List user's templates |
+| `/api/email-features/templates` | POST | Create new template |
+| `/api/email-features/templates/{id}` | PUT | Update template |
+| `/api/email-features/templates/{id}` | DELETE | Delete template |
+| `/api/email-features/signatures` | GET | List user's signatures |
+| `/api/email-features/signatures` | POST | Create new signature |
+| `/api/email-features/signatures/{id}` | PUT | Update signature |
+| `/api/email-features/signatures/{id}` | DELETE | Delete signature |
+
+### MongoDB Collections
+| Collection | Schema |
+|------------|--------|
+| `email_templates` | `{ id, user_id, name, subject, body, category, created_at, updated_at }` |
+| `email_signatures` | `{ id, user_id, name, content, is_default, created_at, updated_at }` |
+
+### Frontend Features
+- Templates panel in compose dialog shows user's API templates + fallback templates
+- Create/Edit/Delete templates via modal dialog
+- Signature selector with multiple signatures support
+- Set default signature (auto-appends to new emails)
+- Edit signatures inline in compose dialog
+- Toggle to enable/disable signature appending
+
+### Key Behaviors
+- Setting `is_default=true` on a signature automatically unsets other signatures' default flag
+- Templates support HTML content for rich email bodies
+- Category filter for templates (general, outreach, follow_up, pr, partnership, support)
+- Fallback default templates remain available when API templates are empty
+
+### Files Created/Modified
+- `/app/backend/routes/email_features.py` - Backend API (already existed, now registered)
+- `/app/backend/server.py` - Added router registration
+- `/app/frontend/src/pages/marketing/EmailPage.jsx` - Integrated API calls and new UI components
+
+### Testing
+- Backend tests: 26/26 passed (100%)
+- Test file: `/app/backend/tests/test_email_features.py`
+
+---
+
+
 ## March 13, 2026 - Cross-Module Automation, Sync & Notifications ✅
 
 ### What Was Built
