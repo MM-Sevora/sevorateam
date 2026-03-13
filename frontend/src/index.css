@@ -139,3 +139,16 @@ button:focus {
   background: rgba(139, 92, 246, 0.2);
   color: #1a1a2e;
 }
+
+
+/* Hide Emergent platform badge */
+[class*="emergent"], 
+[id*="emergent"],
+a[href*="emergentagent.com"],
+div[style*="Made with"],
+iframe[src*="emergent"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
