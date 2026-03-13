@@ -11,7 +11,7 @@ import {
   CornerUpLeft, ArrowLeft, Printer, ExternalLink, MoreHorizontal,
   Loader2, Plus, Check, LogIn, LogOut, User, Bold, Italic, Underline,
   Link, List, ListOrdered, AlignLeft, CalendarClock, ListTodo, FolderKanban, Flag, Calendar,
-  CheckCircle, Users
+  CheckCircle, Users, BarChart3
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -191,6 +191,25 @@ const EmailPage = () => {
   const [showScheduler, setShowScheduler] = useState(false);
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
+  const [scheduledEmails, setScheduledEmails] = useState([]);
+  const [loadingScheduled, setLoadingScheduled] = useState(false);
+  
+  // Snooze state
+  const [snoozedEmails, setSnoozedEmails] = useState([]);
+  const [showSnoozeModal, setShowSnoozeModal] = useState(false);
+  const [snoozeEmail, setSnoozeEmail] = useState(null);
+  const [snoozeDate, setSnoozeDate] = useState('');
+  const [snoozeTime, setSnoozeTime] = useState('');
+  
+  // Follow-up reminders state
+  const [followUps, setFollowUps] = useState([]);
+  const [showFollowUpModal, setShowFollowUpModal] = useState(false);
+  const [followUpEmail, setFollowUpEmail] = useState(null);
+  const [followUpHours, setFollowUpHours] = useState(48);
+  const [enableTracking, setEnableTracking] = useState(false);
+  
+  // Email tracking state
+  const [trackingStats, setTrackingStats] = useState(null);
 
   // Shared Mailbox state
   const [sharedMailboxes, setSharedMailboxes] = useState([]);
@@ -800,18 +819,226 @@ Sevora Team`
     setShowSignatureEditor(false);
   };
 
+  // ============== SNOOZE FUNCTIONS ==============
+  
+  // Fetch snoozed emails
+  const fetchSnoozedEmails = useCallback(async () => {
+    try {
+      const response = await api.get('/email-features/snoozed');
+      setSnoozedEmails(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch snoozed emails:', error);
+    }
+  }, []);
+
+  // Snooze an email
+  const snoozeEmailAction = async (email, snoozeUntil) => {
+    try {
+      const snoozeData = {
+        message_id: email.id,
+        mailbox: activeMailbox?.email || null,
+        snooze_until: snoozeUntil,
+        subject: email.subject || '(no subject)',
+        from_email: email.from?.emailAddress?.address || '',
+        from_name: email.from?.emailAddress?.name || null
+      };
+      await api.post('/email-features/snooze', snoozeData);
+      toast.success('Email snoozed');
+      setShowSnoozeModal(false);
+      setSnoozeEmail(null);
+      fetchSnoozedEmails();
+      // Remove from current view
+      setEmails(prev => prev.filter(e => e.id !== email.id));
+    } catch (error) {
+      console.error('Failed to snooze email:', error);
+      toast.error('Failed to snooze email');
+    }
+  };
+
+  // Unsnooze an email
+  const unsnoozeEmail = async (messageId) => {
+    try {
+      await api.delete(`/email-features/snooze/${messageId}`);
+      toast.success('Email unsnoozed');
+      fetchSnoozedEmails();
+      fetchEmails(); // Refresh inbox
+    } catch (error) {
+      console.error('Failed to unsnooze email:', error);
+      toast.error('Failed to unsnooze email');
+    }
+  };
+
+  // ============== SCHEDULED SEND FUNCTIONS ==============
+  
+  // Fetch scheduled emails
+  const fetchScheduledEmails = useCallback(async () => {
+    try {
+      setLoadingScheduled(true);
+      const response = await api.get('/email-features/scheduled');
+      setScheduledEmails(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch scheduled emails:', error);
+    } finally {
+      setLoadingScheduled(false);
+    }
+  }, []);
+
+  // Schedule an email
+  const scheduleEmail = async (emailData) => {
+    try {
+      const response = await api.post('/email-features/scheduled', emailData);
+      toast.success('Email scheduled');
+      setScheduledEmails(prev => [...prev, response.data]);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to schedule email:', error);
+      toast.error('Failed to schedule email');
+      throw error;
+    }
+  };
+
+  // Cancel scheduled email
+  const cancelScheduledEmail = async (scheduledId) => {
+    try {
+      await api.delete(`/email-features/scheduled/${scheduledId}`);
+      toast.success('Scheduled email cancelled');
+      setScheduledEmails(prev => prev.filter(e => e.id !== scheduledId));
+    } catch (error) {
+      console.error('Failed to cancel scheduled email:', error);
+      toast.error('Failed to cancel scheduled email');
+    }
+  };
+
+  // ============== FOLLOW-UP REMINDER FUNCTIONS ==============
+  
+  // Fetch follow-up reminders
+  const fetchFollowUps = useCallback(async () => {
+    try {
+      const response = await api.get('/email-features/follow-ups');
+      setFollowUps(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch follow-ups:', error);
+    }
+  }, []);
+
+  // Create follow-up reminder
+  const createFollowUp = async (email, hours = 48) => {
+    try {
+      const reminderData = {
+        message_id: email.id,
+        subject: email.subject || '(no subject)',
+        to_email: email.from?.emailAddress?.address || '',
+        to_name: email.from?.emailAddress?.name || null,
+        remind_after_hours: hours,
+        mailbox: activeMailbox?.email || null
+      };
+      const response = await api.post('/email-features/follow-ups', reminderData);
+      toast.success(`Follow-up reminder set for ${hours} hours`);
+      setFollowUps(prev => [...prev, response.data]);
+      setShowFollowUpModal(false);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to create follow-up:', error);
+      toast.error('Failed to create follow-up reminder');
+      throw error;
+    }
+  };
+
+  // Dismiss follow-up
+  const dismissFollowUp = async (reminderId) => {
+    try {
+      await api.put(`/email-features/follow-ups/${reminderId}/dismiss`);
+      toast.success('Reminder dismissed');
+      setFollowUps(prev => prev.filter(f => f.id !== reminderId));
+    } catch (error) {
+      console.error('Failed to dismiss follow-up:', error);
+      toast.error('Failed to dismiss reminder');
+    }
+  };
+
+  // Snooze follow-up
+  const snoozeFollowUp = async (reminderId, hours = 24) => {
+    try {
+      await api.put(`/email-features/follow-ups/${reminderId}/snooze?hours=${hours}`);
+      toast.success(`Reminder snoozed for ${hours} hours`);
+      fetchFollowUps();
+    } catch (error) {
+      console.error('Failed to snooze follow-up:', error);
+      toast.error('Failed to snooze reminder');
+    }
+  };
+
+  // ============== EMAIL TRACKING FUNCTIONS ==============
+  
+  // Fetch tracking stats
+  const fetchTrackingStats = useCallback(async () => {
+    try {
+      const response = await api.get('/email-features/tracking/stats/summary');
+      setTrackingStats(response.data);
+    } catch (error) {
+      console.error('Failed to fetch tracking stats:', error);
+    }
+  }, []);
+
+  // Create tracking for an email
+  const createTracking = async (messageId, toEmail, subject) => {
+    try {
+      const response = await api.post('/email-features/tracking', {
+        message_id: messageId,
+        to_email: toEmail,
+        subject: subject,
+        mailbox: activeMailbox?.email || null
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to create tracking:', error);
+      return null;
+    }
+  };
+
   // Fetch shared mailboxes when email is connected
   useEffect(() => {
     if (emailConnected) {
       fetchSharedMailboxes();
       fetchTemplates();
       fetchSignatures();
+      fetchSnoozedEmails();
+      fetchScheduledEmails();
+      fetchFollowUps();
+      fetchTrackingStats();
     }
-  }, [emailConnected, fetchSharedMailboxes, fetchTemplates, fetchSignatures]);
+  }, [emailConnected, fetchSharedMailboxes, fetchTemplates, fetchSignatures, fetchSnoozedEmails, fetchScheduledEmails, fetchFollowUps, fetchTrackingStats]);
 
   // Fetch emails using Graph API
   const fetchEmails = useCallback(async () => {
     if (!emailConnected) return;
+    
+    // Handle snoozed folder separately (uses our backend)
+    if (currentFolder === 'snoozed') {
+      setLoading(true);
+      try {
+        const response = await api.get('/email-features/snoozed');
+        // Transform snoozed emails to match the email list format
+        const snoozedList = (response.data || []).map(s => ({
+          id: s.message_id,
+          subject: s.subject,
+          bodyPreview: `Snoozed until ${format(new Date(s.snooze_until), 'MMM d, yyyy h:mm a')}`,
+          from: { emailAddress: { address: s.from_email, name: s.from_name } },
+          receivedDateTime: s.created_at,
+          isRead: true,
+          isSnoozed: true,
+          snoozeUntil: s.snooze_until,
+          snoozeId: s.id
+        }));
+        setEmails(snoozedList);
+      } catch (error) {
+        console.error('Failed to fetch snoozed emails:', error);
+        setEmails([]);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
     
     setLoading(true);
     try {
@@ -845,6 +1072,12 @@ Sevora Team`
         fetchedEmails = fetchedEmails.filter(e => e.flag?.flagStatus === 'flagged');
       }
       
+      // Filter out snoozed emails from inbox
+      if (currentFolder === 'inbox' && snoozedEmails.length > 0) {
+        const snoozedIds = new Set(snoozedEmails.map(s => s.message_id));
+        fetchedEmails = fetchedEmails.filter(e => !snoozedIds.has(e.id));
+      }
+      
       setEmails(fetchedEmails);
     } catch (error) {
       console.error('Failed to fetch emails:', error);
@@ -853,7 +1086,7 @@ Sevora Team`
     } finally {
       setLoading(false);
     }
-  }, [emailConnected, currentFolder, searchQuery, callGraphAPI, activeMailbox]);
+  }, [emailConnected, currentFolder, searchQuery, callGraphAPI, activeMailbox, snoozedEmails]);
 
   // Sync emails
   const handleSync = async () => {
@@ -1258,27 +1491,26 @@ Sevora Team`
         message.attachments = attachments;
       }
       
-      // Handle scheduled send (Microsoft Graph doesn't support native scheduling, so we save as draft with a note)
+      // Handle scheduled send - save to our backend for proper scheduling
       if (showScheduler && scheduledDate && scheduledTime) {
-        // Save as draft with scheduled info in subject
         const scheduledDateTime = new Date(`${scheduledDate}T${scheduledTime}`);
         const formattedSchedule = format(scheduledDateTime, 'MMM d, yyyy h:mm a');
         
-        // Create draft - use shared mailbox if active
-        const draftEndpoint = activeMailbox 
-          ? `/users/${activeMailbox.email}/messages`
-          : '/me/messages';
+        // Save to our backend scheduled emails table
+        const scheduledEmailData = {
+          to_recipients: composeTo.split(',').map(e => e.trim()).filter(e => e),
+          cc_recipients: composeCc ? composeCc.split(',').map(e => e.trim()).filter(e => e) : [],
+          bcc_recipients: composeBcc ? composeBcc.split(',').map(e => e.trim()).filter(e => e) : [],
+          subject: composeSubject,
+          body: emailContent,
+          scheduled_time: scheduledDateTime.toISOString(),
+          mailbox: activeMailbox?.email || null,
+          attachments: attachments.length > 0 ? attachments : []
+        };
         
-        await callGraphAPI(draftEndpoint, {
-          method: 'POST',
-          body: JSON.stringify({
-            ...message,
-            subject: `[SCHEDULED: ${formattedSchedule}] ${message.subject}`,
-            isDraft: true
-          })
-        });
+        await scheduleEmail(scheduledEmailData);
         
-        toast.success(`Email saved as draft. Scheduled for ${formattedSchedule}.\nNote: Please manually send at the scheduled time.`, { duration: 5000 });
+        toast.success(`Email scheduled for ${formattedSchedule}`, { duration: 4000 });
         setShowScheduler(false);
         setScheduledDate('');
         setScheduledTime('');
@@ -1473,6 +1705,9 @@ Sevora Team`
                 {folder.id === 'inbox' && unreadCount > 0 && (
                   <span className="text-xs font-bold">{unreadCount}</span>
                 )}
+                {folder.id === 'snoozed' && snoozedEmails.length > 0 && (
+                  <span className="text-xs font-medium text-amber-600">{snoozedEmails.length}</span>
+                )}
               </button>
             );
           })}
@@ -1493,6 +1728,81 @@ Sevora Team`
               </button>
             ))}
           </div>
+          
+          {/* Scheduled & Follow-ups Section */}
+          {(scheduledEmails.length > 0 || followUps.length > 0) && (
+            <div className="mt-4 pt-2 border-t border-gray-200">
+              {scheduledEmails.length > 0 && (
+                <div className="px-4 py-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Calendar className="h-4 w-4 text-blue-600" />
+                    <span className="text-xs font-medium text-gray-700">Scheduled ({scheduledEmails.length})</span>
+                  </div>
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {scheduledEmails.slice(0, 3).map(email => (
+                      <div key={email.id} className="bg-blue-50 rounded px-2 py-1.5 text-xs group relative">
+                        <p className="font-medium text-gray-800 truncate pr-6">{email.subject}</p>
+                        <p className="text-gray-500">{format(new Date(email.scheduled_time), 'MMM d, h:mm a')}</p>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-5 w-5 absolute right-1 top-1 opacity-0 group-hover:opacity-100"
+                          onClick={(e) => { e.stopPropagation(); cancelScheduledEmail(email.id); }}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {followUps.length > 0 && (
+                <div className="px-4 py-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Flag className="h-4 w-4 text-orange-600" />
+                    <span className="text-xs font-medium text-gray-700">Follow-ups ({followUps.length})</span>
+                  </div>
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {followUps.slice(0, 3).map(f => (
+                      <div key={f.id} className="bg-orange-50 rounded px-2 py-1.5 text-xs group relative">
+                        <p className="font-medium text-gray-800 truncate pr-6">{f.subject}</p>
+                        <p className="text-gray-500">Due: {format(new Date(f.remind_at), 'MMM d, h:mm a')}</p>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-5 w-5 absolute right-1 top-1 opacity-0 group-hover:opacity-100"
+                          onClick={(e) => { e.stopPropagation(); dismissFollowUp(f.id); }}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Tracking Stats */}
+          {trackingStats && trackingStats.total_emails_tracked > 0 && (
+            <div className="mt-4 pt-2 border-t border-gray-200 px-4 py-2">
+              <div className="flex items-center gap-2 mb-2">
+                <BarChart3 className="h-4 w-4 text-green-600" />
+                <span className="text-xs font-medium text-gray-700">Email Tracking</span>
+              </div>
+              <div className="bg-green-50 rounded p-2 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Open Rate</span>
+                  <span className="font-medium text-green-700">{trackingStats.open_rate}%</span>
+                </div>
+                <div className="flex justify-between mt-1">
+                  <span className="text-gray-600">Click Rate</span>
+                  <span className="font-medium text-green-700">{trackingStats.click_rate}%</span>
+                </div>
+              </div>
+            </div>
+          )}
         </nav>
       </div>
 
@@ -1754,6 +2064,50 @@ Sevora Team`
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>{email.isRead ? 'Mark unread' : 'Mark read'}</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8" 
+                                onClick={() => { 
+                                  setSnoozeEmail(email); 
+                                  setShowSnoozeModal(true);
+                                  // Default to tomorrow 9 AM
+                                  const tomorrow = new Date();
+                                  tomorrow.setDate(tomorrow.getDate() + 1);
+                                  setSnoozeDate(tomorrow.toISOString().split('T')[0]);
+                                  setSnoozeTime('09:00');
+                                }}
+                                data-testid={`snooze-email-${email.id}`}
+                              >
+                                <Clock className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Snooze</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8" 
+                                onClick={() => { 
+                                  setFollowUpEmail(email); 
+                                  setFollowUpHours(48);
+                                  setShowFollowUpModal(true); 
+                                }}
+                                data-testid={`followup-email-${email.id}`}
+                              >
+                                <Flag className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Follow-up reminder</TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
                       </div>
@@ -2533,6 +2887,24 @@ Sevora Team`
                     </Tooltip>
                   </TooltipProvider>
                   
+                  {/* Email Tracking Toggle */}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => setEnableTracking(!enableTracking)}
+                          className={enableTracking ? 'bg-green-100' : ''}
+                          data-testid="tracking-btn"
+                        >
+                          <BarChart3 className="h-5 w-5 text-[#5f6368]" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{enableTracking ? 'Tracking enabled' : 'Enable tracking'}</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  
                   {/* Hidden file input */}
                   <input
                     type="file"
@@ -3025,6 +3397,164 @@ Sevora Team`
                   {editingTemplate?.id ? 'Update Template' : 'Save Template'}
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Snooze Modal */}
+      <Dialog open={showSnoozeModal} onOpenChange={(open) => {
+        setShowSnoozeModal(open);
+        if (!open) setSnoozeEmail(null);
+      }}>
+        <DialogContent className="bg-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="w-5 h-5 text-amber-600" />
+              Snooze Email
+            </DialogTitle>
+          </DialogHeader>
+          
+          {snoozeEmail && (
+            <div className="space-y-4">
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <p className="text-sm font-medium text-gray-900 truncate">{snoozeEmail.subject || '(no subject)'}</p>
+                <p className="text-xs text-gray-500">From: {snoozeEmail.from?.emailAddress?.name || snoozeEmail.from?.emailAddress?.address}</p>
+              </div>
+              
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Quick Options</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: 'Later Today', hours: 3 },
+                    { label: 'Tomorrow', hours: 24 },
+                    { label: 'This Weekend', hours: 72 },
+                    { label: 'Next Week', hours: 168 },
+                  ].map((opt) => (
+                    <Button
+                      key={opt.label}
+                      variant="outline"
+                      size="sm"
+                      className="text-xs"
+                      onClick={() => {
+                        const snoozeUntil = new Date(Date.now() + opt.hours * 60 * 60 * 1000).toISOString();
+                        snoozeEmailAction(snoozeEmail, snoozeUntil);
+                      }}
+                    >
+                      {opt.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Custom Date & Time</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="date"
+                    value={snoozeDate}
+                    onChange={(e) => setSnoozeDate(e.target.value)}
+                    className="flex-1"
+                    min={new Date().toISOString().split('T')[0]}
+                  />
+                  <Input
+                    type="time"
+                    value={snoozeTime}
+                    onChange={(e) => setSnoozeTime(e.target.value)}
+                    className="w-28"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSnoozeModal(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                if (snoozeDate && snoozeTime) {
+                  const snoozeUntil = new Date(`${snoozeDate}T${snoozeTime}`).toISOString();
+                  snoozeEmailAction(snoozeEmail, snoozeUntil);
+                } else {
+                  toast.error('Please select a date and time');
+                }
+              }}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              <Clock className="w-4 h-4 mr-2" />
+              Snooze
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Follow-up Reminder Modal */}
+      <Dialog open={showFollowUpModal} onOpenChange={(open) => {
+        setShowFollowUpModal(open);
+        if (!open) setFollowUpEmail(null);
+      }}>
+        <DialogContent className="bg-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Flag className="w-5 h-5 text-orange-600" />
+              Set Follow-up Reminder
+            </DialogTitle>
+          </DialogHeader>
+          
+          {followUpEmail && (
+            <div className="space-y-4">
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <p className="text-sm font-medium text-gray-900 truncate">{followUpEmail.subject || '(no subject)'}</p>
+                <p className="text-xs text-gray-500">To: {followUpEmail.from?.emailAddress?.name || followUpEmail.from?.emailAddress?.address}</p>
+              </div>
+              
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Remind me if no reply in:</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: '1 Day', hours: 24 },
+                    { label: '2 Days', hours: 48 },
+                    { label: '3 Days', hours: 72 },
+                    { label: '1 Week', hours: 168 },
+                  ].map((opt) => (
+                    <Button
+                      key={opt.label}
+                      variant={followUpHours === opt.hours ? 'default' : 'outline'}
+                      size="sm"
+                      className={`text-xs ${followUpHours === opt.hours ? 'bg-orange-600' : ''}`}
+                      onClick={() => setFollowUpHours(opt.hours)}
+                    >
+                      {opt.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2 pt-2 border-t">
+                <Checkbox
+                  id="enable-tracking"
+                  checked={enableTracking}
+                  onCheckedChange={setEnableTracking}
+                />
+                <label htmlFor="enable-tracking" className="text-xs text-gray-600">
+                  Enable open/click tracking for future emails to this contact
+                </label>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowFollowUpModal(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => createFollowUp(followUpEmail, followUpHours)}
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              <Flag className="w-4 h-4 mr-2" />
+              Set Reminder
             </Button>
           </DialogFooter>
         </DialogContent>

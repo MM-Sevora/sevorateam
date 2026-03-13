@@ -53,6 +53,35 @@ class SnoozedEmail(BaseModel):
     from_name: Optional[str] = None
 
 
+class ScheduledEmail(BaseModel):
+    to_recipients: List[str]
+    cc_recipients: Optional[List[str]] = None
+    bcc_recipients: Optional[List[str]] = None
+    subject: str
+    body: str
+    scheduled_time: str  # ISO datetime
+    mailbox: Optional[str] = None  # null for personal, email for shared
+    attachments: Optional[List[dict]] = None
+
+
+class FollowUpReminder(BaseModel):
+    message_id: str
+    thread_id: Optional[str] = None
+    subject: str
+    to_email: str
+    to_name: Optional[str] = None
+    remind_after_hours: int = 48  # Default: remind if no reply in 48 hours
+    mailbox: Optional[str] = None
+
+
+class EmailTrackingCreate(BaseModel):
+    message_id: str
+    to_email: str
+    subject: str
+    tracking_type: str = "open"  # open, click
+    mailbox: Optional[str] = None
+
+
 class OutOfOfficeSettings(BaseModel):
     is_enabled: bool
     start_date: Optional[str] = None
@@ -572,5 +601,450 @@ def create_router(get_current_user):
         )
         
         return settings
+    
+    # ============== SCHEDULED EMAILS ==============
+    
+    @router.get("/scheduled")
+    async def get_scheduled_emails(current_user: dict = Depends(get_current_user)):
+        """Get user's scheduled emails"""
+        user_id = current_user.get("id")
+        now = datetime.now(timezone.utc).isoformat()
+        
+        scheduled = await db.scheduled_emails.find({
+            "user_id": user_id,
+            "status": "pending",
+            "scheduled_time": {"$gt": now}
+        }, {"_id": 0}).sort("scheduled_time", 1).to_list(100)
+        
+        return scheduled
+    
+    @router.post("/scheduled")
+    async def schedule_email(
+        email: ScheduledEmail,
+        current_user: dict = Depends(get_current_user)
+    ):
+        """Schedule an email for later sending"""
+        user_id = current_user.get("id")
+        
+        doc = {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "to_recipients": email.to_recipients,
+            "cc_recipients": email.cc_recipients or [],
+            "bcc_recipients": email.bcc_recipients or [],
+            "subject": email.subject,
+            "body": email.body,
+            "scheduled_time": email.scheduled_time,
+            "mailbox": email.mailbox,
+            "attachments": email.attachments or [],
+            "status": "pending",  # pending, sent, cancelled, failed
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.scheduled_emails.insert_one(doc)
+        doc.pop("_id", None)
+        return doc
+    
+    @router.put("/scheduled/{scheduled_id}")
+    async def update_scheduled_email(
+        scheduled_id: str,
+        email: ScheduledEmail,
+        current_user: dict = Depends(get_current_user)
+    ):
+        """Update a scheduled email"""
+        user_id = current_user.get("id")
+        
+        existing = await db.scheduled_emails.find_one({
+            "id": scheduled_id, 
+            "user_id": user_id,
+            "status": "pending"
+        })
+        if not existing:
+            raise HTTPException(status_code=404, detail="Scheduled email not found or already sent")
+        
+        await db.scheduled_emails.update_one(
+            {"id": scheduled_id},
+            {"$set": {
+                "to_recipients": email.to_recipients,
+                "cc_recipients": email.cc_recipients or [],
+                "bcc_recipients": email.bcc_recipients or [],
+                "subject": email.subject,
+                "body": email.body,
+                "scheduled_time": email.scheduled_time,
+                "attachments": email.attachments or [],
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+        
+        updated = await db.scheduled_emails.find_one({"id": scheduled_id}, {"_id": 0})
+        return updated
+    
+    @router.delete("/scheduled/{scheduled_id}")
+    async def cancel_scheduled_email(
+        scheduled_id: str,
+        current_user: dict = Depends(get_current_user)
+    ):
+        """Cancel a scheduled email"""
+        user_id = current_user.get("id")
+        
+        result = await db.scheduled_emails.update_one(
+            {"id": scheduled_id, "user_id": user_id, "status": "pending"},
+            {"$set": {"status": "cancelled", "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(status_code=404, detail="Scheduled email not found or already processed")
+        
+        return {"message": "Scheduled email cancelled"}
+    
+    @router.post("/scheduled/{scheduled_id}/send-now")
+    async def send_scheduled_now(
+        scheduled_id: str,
+        current_user: dict = Depends(get_current_user)
+    ):
+        """Send a scheduled email immediately"""
+        user_id = current_user.get("id")
+        
+        email = await db.scheduled_emails.find_one({
+            "id": scheduled_id, 
+            "user_id": user_id,
+            "status": "pending"
+        }, {"_id": 0})
+        
+        if not email:
+            raise HTTPException(status_code=404, detail="Scheduled email not found or already sent")
+        
+        # Mark as ready to send (actual sending happens via Microsoft Graph from frontend)
+        await db.scheduled_emails.update_one(
+            {"id": scheduled_id},
+            {"$set": {"status": "ready_to_send", "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        
+        return {"message": "Email ready to send", "email": email}
+    
+    # ============== FOLLOW-UP REMINDERS ==============
+    
+    @router.get("/follow-ups")
+    async def get_follow_up_reminders(current_user: dict = Depends(get_current_user)):
+        """Get user's follow-up reminders"""
+        user_id = current_user.get("id")
+        
+        reminders = await db.email_follow_ups.find({
+            "user_id": user_id,
+            "status": {"$in": ["pending", "reminded"]}
+        }, {"_id": 0}).sort("remind_at", 1).to_list(100)
+        
+        return reminders
+    
+    @router.get("/follow-ups/due")
+    async def get_due_follow_ups(current_user: dict = Depends(get_current_user)):
+        """Get follow-up reminders that are due"""
+        user_id = current_user.get("id")
+        now = datetime.now(timezone.utc).isoformat()
+        
+        due = await db.email_follow_ups.find({
+            "user_id": user_id,
+            "status": "pending",
+            "remind_at": {"$lte": now}
+        }, {"_id": 0}).to_list(100)
+        
+        return due
+    
+    @router.post("/follow-ups")
+    async def create_follow_up_reminder(
+        reminder: FollowUpReminder,
+        current_user: dict = Depends(get_current_user)
+    ):
+        """Create a follow-up reminder for an email"""
+        user_id = current_user.get("id")
+        
+        # Calculate remind_at time
+        from datetime import timedelta
+        remind_at = datetime.now(timezone.utc) + timedelta(hours=reminder.remind_after_hours)
+        
+        doc = {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "message_id": reminder.message_id,
+            "thread_id": reminder.thread_id,
+            "subject": reminder.subject,
+            "to_email": reminder.to_email,
+            "to_name": reminder.to_name,
+            "remind_after_hours": reminder.remind_after_hours,
+            "remind_at": remind_at.isoformat(),
+            "mailbox": reminder.mailbox,
+            "status": "pending",  # pending, reminded, replied, dismissed
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.email_follow_ups.insert_one(doc)
+        doc.pop("_id", None)
+        return doc
+    
+    @router.put("/follow-ups/{reminder_id}/dismiss")
+    async def dismiss_follow_up(
+        reminder_id: str,
+        current_user: dict = Depends(get_current_user)
+    ):
+        """Dismiss a follow-up reminder"""
+        user_id = current_user.get("id")
+        
+        result = await db.email_follow_ups.update_one(
+            {"id": reminder_id, "user_id": user_id},
+            {"$set": {"status": "dismissed", "dismissed_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(status_code=404, detail="Reminder not found")
+        
+        return {"message": "Reminder dismissed"}
+    
+    @router.put("/follow-ups/{reminder_id}/snooze")
+    async def snooze_follow_up(
+        reminder_id: str,
+        hours: int = Query(default=24, ge=1, le=168),
+        current_user: dict = Depends(get_current_user)
+    ):
+        """Snooze a follow-up reminder"""
+        user_id = current_user.get("id")
+        
+        from datetime import timedelta
+        new_remind_at = datetime.now(timezone.utc) + timedelta(hours=hours)
+        
+        result = await db.email_follow_ups.update_one(
+            {"id": reminder_id, "user_id": user_id},
+            {"$set": {
+                "remind_at": new_remind_at.isoformat(),
+                "status": "pending",
+                "snoozed_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(status_code=404, detail="Reminder not found")
+        
+        return {"message": f"Reminder snoozed for {hours} hours", "remind_at": new_remind_at.isoformat()}
+    
+    @router.delete("/follow-ups/{reminder_id}")
+    async def delete_follow_up(
+        reminder_id: str,
+        current_user: dict = Depends(get_current_user)
+    ):
+        """Delete a follow-up reminder"""
+        user_id = current_user.get("id")
+        
+        result = await db.email_follow_ups.delete_one({"id": reminder_id, "user_id": user_id})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Reminder not found")
+        
+        return {"message": "Reminder deleted"}
+    
+    @router.post("/follow-ups/mark-replied/{message_id}")
+    async def mark_email_replied(
+        message_id: str,
+        current_user: dict = Depends(get_current_user)
+    ):
+        """Mark a follow-up as replied (called when reply is detected)"""
+        user_id = current_user.get("id")
+        
+        result = await db.email_follow_ups.update_many(
+            {"user_id": user_id, "message_id": message_id, "status": "pending"},
+            {"$set": {"status": "replied", "replied_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        
+        return {"message": f"Marked {result.modified_count} reminder(s) as replied"}
+    
+    # ============== EMAIL TRACKING ==============
+    
+    @router.get("/tracking")
+    async def get_email_tracking(
+        limit: int = Query(default=50, le=200),
+        current_user: dict = Depends(get_current_user)
+    ):
+        """Get email tracking records"""
+        user_id = current_user.get("id")
+        
+        tracking = await db.email_tracking.find(
+            {"user_id": user_id},
+            {"_id": 0}
+        ).sort("created_at", -1).limit(limit).to_list(limit)
+        
+        return tracking
+    
+    @router.get("/tracking/{tracking_id}")
+    async def get_tracking_detail(
+        tracking_id: str,
+        current_user: dict = Depends(get_current_user)
+    ):
+        """Get detailed tracking info for a specific email"""
+        user_id = current_user.get("id")
+        
+        tracking = await db.email_tracking.find_one(
+            {"id": tracking_id, "user_id": user_id},
+            {"_id": 0}
+        )
+        
+        if not tracking:
+            raise HTTPException(status_code=404, detail="Tracking record not found")
+        
+        # Get all events for this tracking
+        events = await db.email_tracking_events.find(
+            {"tracking_id": tracking_id},
+            {"_id": 0}
+        ).sort("timestamp", 1).to_list(1000)
+        
+        tracking["events"] = events
+        return tracking
+    
+    @router.post("/tracking")
+    async def create_tracking(
+        tracking: EmailTrackingCreate,
+        current_user: dict = Depends(get_current_user)
+    ):
+        """Create a tracking record for an email"""
+        user_id = current_user.get("id")
+        tracking_id = str(uuid.uuid4())
+        
+        doc = {
+            "id": tracking_id,
+            "user_id": user_id,
+            "message_id": tracking.message_id,
+            "to_email": tracking.to_email,
+            "subject": tracking.subject,
+            "mailbox": tracking.mailbox,
+            "tracking_type": tracking.tracking_type,
+            "open_count": 0,
+            "click_count": 0,
+            "first_opened_at": None,
+            "last_opened_at": None,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.email_tracking.insert_one(doc)
+        doc.pop("_id", None)
+        
+        # Generate tracking pixel URL
+        doc["tracking_pixel_url"] = f"/api/email-features/track/{tracking_id}/pixel.gif"
+        doc["tracking_link_prefix"] = f"/api/email-features/track/{tracking_id}/link?"
+        
+        return doc
+    
+    @router.delete("/tracking/{tracking_id}")
+    async def delete_tracking(
+        tracking_id: str,
+        current_user: dict = Depends(get_current_user)
+    ):
+        """Delete a tracking record"""
+        user_id = current_user.get("id")
+        
+        result = await db.email_tracking.delete_one({"id": tracking_id, "user_id": user_id})
+        await db.email_tracking_events.delete_many({"tracking_id": tracking_id})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Tracking record not found")
+        
+        return {"message": "Tracking record deleted"}
+    
+    # Public tracking endpoints (no auth required)
+    @router.get("/track/{tracking_id}/pixel.gif")
+    async def track_email_open(tracking_id: str):
+        """Tracking pixel endpoint - records email open"""
+        tracking = await db.email_tracking.find_one({"id": tracking_id})
+        
+        if tracking:
+            now = datetime.now(timezone.utc).isoformat()
+            update_data = {
+                "$inc": {"open_count": 1},
+                "$set": {"last_opened_at": now}
+            }
+            if not tracking.get("first_opened_at"):
+                update_data["$set"]["first_opened_at"] = now
+            
+            await db.email_tracking.update_one({"id": tracking_id}, update_data)
+            
+            # Record event
+            await db.email_tracking_events.insert_one({
+                "id": str(uuid.uuid4()),
+                "tracking_id": tracking_id,
+                "event_type": "open",
+                "timestamp": now,
+                "user_agent": "",  # Could be populated from request headers
+                "ip_address": ""   # Could be populated from request
+            })
+        
+        # Return 1x1 transparent GIF
+        from fastapi.responses import Response
+        gif_bytes = bytes([
+            0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00,
+            0x01, 0x00, 0x80, 0x00, 0x00, 0xff, 0xff, 0xff,
+            0x00, 0x00, 0x00, 0x21, 0xf9, 0x04, 0x01, 0x00,
+            0x00, 0x00, 0x00, 0x2c, 0x00, 0x00, 0x00, 0x00,
+            0x01, 0x00, 0x01, 0x00, 0x00, 0x02, 0x02, 0x44,
+            0x01, 0x00, 0x3b
+        ])
+        return Response(content=gif_bytes, media_type="image/gif")
+    
+    @router.get("/track/{tracking_id}/link")
+    async def track_link_click(
+        tracking_id: str,
+        url: str = Query(..., description="The actual URL to redirect to")
+    ):
+        """Link tracking endpoint - records click and redirects"""
+        from fastapi.responses import RedirectResponse
+        
+        tracking = await db.email_tracking.find_one({"id": tracking_id})
+        
+        if tracking:
+            now = datetime.now(timezone.utc).isoformat()
+            await db.email_tracking.update_one(
+                {"id": tracking_id},
+                {"$inc": {"click_count": 1}}
+            )
+            
+            # Record event
+            await db.email_tracking_events.insert_one({
+                "id": str(uuid.uuid4()),
+                "tracking_id": tracking_id,
+                "event_type": "click",
+                "clicked_url": url,
+                "timestamp": now,
+                "user_agent": "",
+                "ip_address": ""
+            })
+        
+        return RedirectResponse(url=url, status_code=302)
+    
+    @router.get("/tracking/stats/summary")
+    async def get_tracking_summary(
+        days: int = Query(default=30, ge=1, le=90),
+        current_user: dict = Depends(get_current_user)
+    ):
+        """Get tracking summary statistics"""
+        user_id = current_user.get("id")
+        from datetime import timedelta
+        
+        since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        
+        tracking_records = await db.email_tracking.find({
+            "user_id": user_id,
+            "created_at": {"$gte": since}
+        }, {"_id": 0}).to_list(1000)
+        
+        total_emails = len(tracking_records)
+        total_opens = sum(t.get("open_count", 0) for t in tracking_records)
+        total_clicks = sum(t.get("click_count", 0) for t in tracking_records)
+        emails_opened = sum(1 for t in tracking_records if t.get("open_count", 0) > 0)
+        emails_clicked = sum(1 for t in tracking_records if t.get("click_count", 0) > 0)
+        
+        return {
+            "period_days": days,
+            "total_emails_tracked": total_emails,
+            "total_opens": total_opens,
+            "total_clicks": total_clicks,
+            "emails_opened": emails_opened,
+            "emails_clicked": emails_clicked,
+            "open_rate": round(emails_opened / total_emails * 100, 1) if total_emails > 0 else 0,
+            "click_rate": round(emails_clicked / total_emails * 100, 1) if total_emails > 0 else 0,
+            "avg_opens_per_email": round(total_opens / total_emails, 1) if total_emails > 0 else 0
+        }
     
     return router
