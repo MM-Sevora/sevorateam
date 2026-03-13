@@ -236,9 +236,31 @@ def create_brands_router(db, get_current_user: Callable):
                 brand["created_by_name"] = user_map.get(brand.get("created_by"), "Unknown")
         
         # Get unique creators for the "Added by" filter dropdown
+        # Include both users who have created brands AND all active team members
         all_creators = await db.sourcing_brands.distinct("created_by")
-        creator_users = await db.users.find({"id": {"$in": all_creators}}, {"_id": 0, "id": 1, "name": 1}).to_list(100)
-        creators_list = [{"id": u["id"], "name": u.get("name", "Unknown")} for u in creator_users]
+        all_creators = [c for c in all_creators if c]  # Filter out None values
+        
+        # Also get all active users for the dropdown
+        active_users = await db.users.find(
+            {"status": "active"}, 
+            {"_id": 0, "id": 1, "name": 1}
+        ).to_list(100)
+        
+        # Merge: prioritize active users list, but include any creator not in that list
+        user_ids_set = {u["id"] for u in active_users}
+        creators_list = [{"id": u["id"], "name": u.get("name", "Unknown")} for u in active_users]
+        
+        # Add any creators not in active users
+        missing_creators = [c for c in all_creators if c not in user_ids_set]
+        if missing_creators:
+            extra_users = await db.users.find(
+                {"id": {"$in": missing_creators}}, 
+                {"_id": 0, "id": 1, "name": 1}
+            ).to_list(100)
+            creators_list.extend([{"id": u["id"], "name": u.get("name", "Unknown")} for u in extra_users])
+        
+        # Sort by name
+        creators_list.sort(key=lambda x: x.get("name", "").lower())
         
         # Get unique cities for the filter dropdown
         unique_cities = await db.sourcing_brands.distinct("city")
