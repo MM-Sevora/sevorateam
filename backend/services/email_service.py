@@ -27,19 +27,28 @@ class EmailService:
         to_email: str,
         subject: str,
         html_content: str,
-        from_name: Optional[str] = "Sevora Sourcing"
+        from_name: Optional[str] = "Sevora Sourcing",
+        from_email: Optional[str] = None,
+        reply_to: Optional[str] = None
     ) -> Dict:
         """Send a single email"""
         if not self.is_configured():
             return {"success": False, "error": "SendGrid not configured"}
         
+        # Use provided from_email or fall back to default
+        sender_email = from_email or self.from_email
+        
         try:
             message = Mail(
-                from_email=(self.from_email, from_name),
+                from_email=(sender_email, from_name),
                 to_emails=to_email,
                 subject=subject,
                 html_content=html_content
             )
+            
+            # Add reply-to if provided
+            if reply_to:
+                message.reply_to = reply_to
             
             response = self.client.send(message)
             
@@ -57,7 +66,9 @@ class EmailService:
         recipients: List[Dict],
         subject: str,
         html_content: str,
-        from_name: Optional[str] = "Sevora Sourcing"
+        from_name: Optional[str] = "Sevora Sourcing",
+        from_email: Optional[str] = None,
+        reply_to: Optional[str] = None
     ) -> Dict:
         """
         Send bulk emails using SendGrid personalizations
@@ -66,10 +77,17 @@ class EmailService:
         if not self.is_configured():
             return {"success": False, "error": "SendGrid not configured"}
         
+        # Use provided from_email or fall back to default
+        sender_email = from_email or self.from_email
+        
         try:
             message = Mail()
-            message.from_email = (self.from_email, from_name)
+            message.from_email = (sender_email, from_name)
             message.subject = subject
+            
+            # Add reply-to if provided
+            if reply_to:
+                message.reply_to = reply_to
             
             for recipient in recipients:
                 personalization = Personalization()

@@ -82,14 +82,24 @@ def create_campaigns_router(db, get_current_user: Callable):
         if not email_service.is_configured():
             raise HTTPException(status_code=503, detail="Email service not configured")
         
+        # Fetch email settings from database
+        settings = await db.sourcing_settings.find_one({}) or {}
+        email_config = settings.get("email", {})
+        from_email = email_config.get("fromEmail", "seller@sevora.com")
+        from_name = email_config.get("fromName", "Sevora Sourcing Team")
+        reply_to = email_config.get("replyTo", from_email)
+        
         # Generate HTML email
         html_content = email_service.generate_html_email(request.content)
         
-        # Send email
+        # Send email with settings from database
         result = await email_service.send_single_email(
             to_email=request.to_email,
             subject=request.subject,
-            html_content=html_content
+            html_content=html_content,
+            from_name=from_name,
+            from_email=from_email,
+            reply_to=reply_to
         )
         
         # Log the outreach
@@ -145,6 +155,13 @@ def create_campaigns_router(db, get_current_user: Callable):
         if not request.recipients:
             raise HTTPException(status_code=400, detail="No recipients provided")
         
+        # Fetch email settings from database
+        settings = await db.sourcing_settings.find_one({}) or {}
+        email_config = settings.get("email", {})
+        from_email = email_config.get("fromEmail", "seller@sevora.com")
+        from_name = email_config.get("fromName", "Sevora Sourcing Team")
+        reply_to = email_config.get("replyTo", from_email)
+        
         # Create campaign record
         now = datetime.now(timezone.utc).isoformat()
         campaign_id = str(uuid.uuid4())
@@ -179,11 +196,14 @@ def create_campaigns_router(db, get_current_user: Callable):
             for r in request.recipients
         ]
         
-        # Send bulk emails
+        # Send bulk emails with settings from database
         result = await email_service.send_bulk_emails(
             recipients=recipients_list,
             subject=request.subject,
-            html_content=html_content
+            html_content=html_content,
+            from_name=from_name,
+            from_email=from_email,
+            reply_to=reply_to
         )
         
         # Update campaign status
