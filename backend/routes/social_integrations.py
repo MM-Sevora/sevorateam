@@ -2467,8 +2467,9 @@ async def start_facebook_oauth(user: dict = Depends(get_current_user)):
     if not app_id:
         raise HTTPException(status_code=500, detail="META_APP_ID not configured")
     
-    base_url = os.environ.get("BACKEND_URL", "https://sevora-hub.preview.emergentagent.com")
-    redirect_uri = f"{base_url}/api/social/integrations/callback/facebook"
+    # Use production URL for Facebook OAuth (must match Facebook App Settings)
+    production_url = os.environ.get("PRODUCTION_URL", "https://teams.sevora.com")
+    redirect_uri = f"{production_url}/api/social/integrations/callback/facebook"
     state = f"{user['id']}_{uuid.uuid4().hex[:8]}"
     
     # Required permissions for full functionality
@@ -2620,9 +2621,9 @@ async def facebook_callback(code: str, state: str):
     if not app_id or not app_secret:
         return {"success": False, "error": "Meta App credentials not configured"}
     
-    # Determine redirect URI (must match the one used in initial auth request)
-    preview_url = os.environ.get("BACKEND_URL") or "https://sevora-hub.preview.emergentagent.com"
-    redirect_uri = f"{preview_url}/api/social/integrations/callback/facebook"
+    # Determine redirect URI (must match the one used in initial auth request - use production URL)
+    production_url = os.environ.get("PRODUCTION_URL", "https://teams.sevora.com")
+    redirect_uri = f"{production_url}/api/social/integrations/callback/facebook"
     
     try:
         async with aiohttp.ClientSession() as session:
