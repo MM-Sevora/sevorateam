@@ -1,3 +1,27 @@
+## March 13, 2026 - Unified Calendar Added to Sidebar ✅
+
+### What Was Done
+Added **Unified Calendar** navigation link to the sidebar under **Communication Hub** section.
+
+### Changes Made
+| File | Change |
+|------|--------|
+| `/app/frontend/src/components/Layout.jsx` | Added Unified Calendar route to Communication Hub routes |
+
+### Navigation Path
+**Communication Hub** → **Unified Calendar** → `/calendar`
+
+### Sidebar Order (Communication Hub)
+1. Meetings
+2. Schedule Meeting
+3. Teams Calendar
+4. **Unified Calendar** (NEW)
+5. Teams Chat
+6. Inbox
+
+---
+
+
 ## March 13, 2026 - Calendar Sync & Unified Calendar View ✅
 
 ### What Was Built
