@@ -83,8 +83,25 @@ export default function UnifiedTasksPage() {
         assigned_team: '',
         due_date: '',
         source_module: '',
-        tags: []
+        tags: [],
+        sync_to_outlook: false
     });
+    
+    // MS Calendar status
+    const [msCalendarConnected, setMsCalendarConnected] = useState(false);
+    
+    // Check MS Calendar status on mount
+    useEffect(() => {
+        const checkMsCalendar = async () => {
+            try {
+                const response = await api.get('/meetings/ms-calendar/status');
+                setMsCalendarConnected(response.data?.is_connected || false);
+            } catch (e) {
+                console.error('Failed to check MS Calendar status:', e);
+            }
+        };
+        checkMsCalendar();
+    }, []);
 
     const fetchTasks = useCallback(async () => {
         try {
@@ -747,6 +764,30 @@ export default function UnifiedTasksPage() {
                                 </Select>
                             </div>
                         </div>
+                        {/* Outlook Sync Toggle */}
+                        {newTask.due_date && (
+                            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-100">
+                                <div className="flex items-center gap-2">
+                                    <Calendar className="w-4 h-4 text-blue-600" />
+                                    <span className="text-sm text-blue-800">Add reminder to Outlook Calendar</span>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={newTask.sync_to_outlook}
+                                        onChange={(e) => setNewTask({ ...newTask, sync_to_outlook: e.target.checked })}
+                                        disabled={!msCalendarConnected}
+                                        className="sr-only peer"
+                                    />
+                                    <div className={`w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${msCalendarConnected ? 'peer-checked:bg-blue-600' : 'opacity-50 cursor-not-allowed'}`}></div>
+                                </label>
+                            </div>
+                        )}
+                        {newTask.due_date && !msCalendarConnected && (
+                            <p className="text-xs text-amber-600">
+                                Connect your Outlook calendar in Meetings to enable automatic reminders
+                            </p>
+                        )}
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setShowCreateDialog(false)} className="border-[#DDD0C8]">

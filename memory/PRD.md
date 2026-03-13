@@ -1,3 +1,44 @@
+## March 13, 2026 - Task Deadlines to Outlook Reminders ✅
+
+### What Was Built
+Automatic Outlook calendar reminders for task deadlines. When a task is created with a due date, it can automatically create a reminder event in the user's Outlook calendar.
+
+### How It Works
+1. User creates a task with a due date
+2. Toggle "Add reminder to Outlook Calendar" appears
+3. If enabled, an Outlook calendar event is created with:
+   - Subject: "🟠 Task Due: [Task Title]" (emoji based on priority)
+   - Time: 9:00 AM on the due date
+   - Duration: 30 minutes
+   - Reminder: 1 hour before
+   - Show as: Free (doesn't block calendar)
+
+### Features
+| Feature | Description |
+|---------|-------------|
+| Auto-create | Creates Outlook event when task with due date is created |
+| Auto-update | Updates Outlook event when task due date changes |
+| Auto-delete | Removes Outlook event when task is completed/cancelled |
+| Priority Indicators | 🔴 Urgent, 🟠 High, 🟡 Medium, 🟢 Low |
+
+### Backend Changes
+| File | Changes |
+|------|---------|
+| `/app/backend/routes/unified_tasks.py` | Added `sync_task_to_outlook()` helper, modified create/update endpoints |
+
+### Frontend Changes
+| File | Changes |
+|------|---------|
+| `/app/frontend/src/pages/tasks/UnifiedTasksPage.jsx` | Added Outlook sync toggle in Create Task dialog |
+
+### New Fields in Task Model
+- `sync_to_outlook: bool` - Whether to sync to Outlook
+- `outlook_event_id: str` - ID of the linked Outlook event
+
+**Note:** Requires user to have connected Outlook calendar in Communication Hub → Meetings.
+
+---
+
 ## March 13, 2026 - Auto-Generate Teams Meeting Link + Two-Way Calendar Sync ✅
 
 ### What Was Built

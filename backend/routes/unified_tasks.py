@@ -80,6 +80,7 @@ class TaskCreate(BaseModel):
     source_entity_id: Optional[str] = None
     tags: List[str] = []
     related_url: Optional[str] = None  # Link to the source entity
+    sync_to_outlook: bool = False  # Create Outlook reminder for due date
 
 
 class TaskUpdate(BaseModel):
@@ -92,6 +93,7 @@ class TaskUpdate(BaseModel):
     status: Optional[str] = None  # pending, in_progress, completed, cancelled
     tags: Optional[List[str]] = None
     completion_notes: Optional[str] = None
+    sync_to_outlook: Optional[bool] = None  # Create/update Outlook reminder
 
 
 class ActivityLog(BaseModel):
@@ -113,6 +115,134 @@ class TaskTriggerConfig(BaseModel):
     task_template: Dict[str, Any]  # Task template to create
     enabled: bool = True
     due_date_offset_days: int = 3
+
+
+# ============== OUTLOOK SYNC HELPER ==============
+
+async def sync_task_to_outlook(task_doc: dict, user_id: str) -> Optional[str]:
+    """
+    Create or update an Outlook calendar event for a task deadline.
+    Returns the Outlook event ID if successful, None otherwise.
+    """
+    import httpx
+    import os
+    
+    # Get user's MS Calendar connection
+    connection = await db.ms_calendar_connections.find_one(
+        {"user_id": user_id, "is_connected": True}, {"_id": 0}
+    )
+    
+    if not connection or not connection.get("access_token"):
+        return None
+    
+    due_date = task_doc.get("due_date")
+    if not due_date:
+        return None
+    
+    # Parse due date and create all-day event or timed reminder
+    try:
+        # If due_date is just a date (YYYY-MM-DD), create a reminder at 9 AM
+        if "T" not in due_date:
+            start_datetime = f"{due_date}T09:00:00"
+            end_datetime = f"{due_date}T09:30:00"
+        else:
+            start_datetime = due_date
+            # 30 min event
+            from datetime import datetime as dt
+            start_dt = dt.fromisoformat(due_date.replace("Z", "+00:00"))
+            end_dt = start_dt + timedelta(minutes=30)
+            end_datetime = end_dt.isoformat()
+    except Exception:
+        return None
+    
+    # Build event payload
+    priority_emoji = {"urgent": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}.get(task_doc.get("priority", "medium"), "🟡")
+    
+    event_data = {
+        "subject": f"{priority_emoji} Task Due: {task_doc.get('title')}",
+        "body": {
+            "contentType": "HTML",
+            "content": f"""
+                <p><strong>Task:</strong> {task_doc.get('title')}</p>
+                <p><strong>Priority:</strong> {task_doc.get('priority', 'medium').title()}</p>
+                {f"<p><strong>Description:</strong> {task_doc.get('description')}</p>" if task_doc.get('description') else ""}
+                {f"<p><strong>Tags:</strong> {', '.join(task_doc.get('tags', []))}</p>" if task_doc.get('tags') else ""}
+                <p><em>Created from Sevora Tasks</em></p>
+            """
+        },
+        "start": {
+            "dateTime": start_datetime,
+            "timeZone": "UTC"
+        },
+        "end": {
+            "dateTime": end_datetime,
+            "timeZone": "UTC"
+        },
+        "isReminderOn": True,
+        "reminderMinutesBeforeStart": 60,  # 1 hour before
+        "categories": ["Task Deadline"],
+        "showAs": "free"  # Don't block the calendar
+    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            existing_event_id = task_doc.get("outlook_event_id")
+            
+            if existing_event_id:
+                # Update existing event
+                response = await client.patch(
+                    f"https://graph.microsoft.com/v1.0/me/events/{existing_event_id}",
+                    headers={
+                        "Authorization": f"Bearer {connection.get('access_token')}",
+                        "Content-Type": "application/json"
+                    },
+                    json=event_data
+                )
+            else:
+                # Create new event
+                response = await client.post(
+                    "https://graph.microsoft.com/v1.0/me/events",
+                    headers={
+                        "Authorization": f"Bearer {connection.get('access_token')}",
+                        "Content-Type": "application/json"
+                    },
+                    json=event_data
+                )
+            
+            if response.status_code in [200, 201]:
+                event_response = response.json()
+                return event_response.get("id")
+            else:
+                print(f"Outlook sync failed: {response.status_code} - {response.text}")
+                return None
+                
+    except Exception as e:
+        print(f"Error syncing task to Outlook: {e}")
+        return None
+
+
+async def delete_outlook_task_event(outlook_event_id: str, user_id: str) -> bool:
+    """Delete an Outlook calendar event for a completed/cancelled task."""
+    import httpx
+    
+    connection = await db.ms_calendar_connections.find_one(
+        {"user_id": user_id, "is_connected": True}, {"_id": 0}
+    )
+    
+    if not connection or not connection.get("access_token"):
+        return False
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.delete(
+                f"https://graph.microsoft.com/v1.0/me/events/{outlook_event_id}",
+                headers={
+                    "Authorization": f"Bearer {connection.get('access_token')}"
+                }
+            )
+            return response.status_code == 204
+    except Exception:
+        return False
 
 
 # ============== TASK ENDPOINTS ==============
@@ -656,6 +786,8 @@ async def create_task(
         "tags": task.tags,
         "is_auto_generated": False,
         "auto_trigger": None,
+        "sync_to_outlook": task.sync_to_outlook,
+        "outlook_event_id": None,
         "created_by": current_user.get("id"),
         "created_by_name": current_user.get("name"),
         "created_at": now,
@@ -663,6 +795,12 @@ async def create_task(
         "completed_at": None,
         "completion_notes": None
     }
+    
+    # Sync to Outlook if enabled and has due date
+    if task.sync_to_outlook and task.due_date:
+        outlook_event_id = await sync_task_to_outlook(task_doc, current_user.get("id"))
+        if outlook_event_id:
+            task_doc["outlook_event_id"] = outlook_event_id
     
     await db.unified_tasks.insert_one(task_doc)
     
@@ -719,6 +857,33 @@ async def update_task(
     # Set completed_at if status changed to completed
     if update_data.get("status") == "completed" and task.get("status") != "completed":
         update_data["completed_at"] = now
+    
+    # Handle Outlook sync
+    should_sync_outlook = False
+    should_delete_outlook_event = False
+    
+    # If sync_to_outlook is being enabled, sync to Outlook
+    if update_data.get("sync_to_outlook") and not task.get("sync_to_outlook"):
+        should_sync_outlook = True
+    
+    # If due_date changed and sync is enabled, update Outlook
+    if "due_date" in update_data and task.get("sync_to_outlook"):
+        should_sync_outlook = True
+    
+    # If task is completed/cancelled, remove from Outlook
+    if update_data.get("status") in ["completed", "cancelled"] and task.get("outlook_event_id"):
+        should_delete_outlook_event = True
+    
+    # Handle Outlook sync before updating database
+    if should_delete_outlook_event:
+        await delete_outlook_task_event(task.get("outlook_event_id"), current_user.get("id"))
+        update_data["outlook_event_id"] = None
+    elif should_sync_outlook and (task.get("due_date") or update_data.get("due_date")):
+        merged_task = {**task, **update_data}
+        merged_task["outlook_event_id"] = task.get("outlook_event_id")  # Keep existing ID for update
+        outlook_event_id = await sync_task_to_outlook(merged_task, current_user.get("id"))
+        if outlook_event_id:
+            update_data["outlook_event_id"] = outlook_event_id
     
     await db.unified_tasks.update_one({"id": task_id}, {"$set": update_data})
     
