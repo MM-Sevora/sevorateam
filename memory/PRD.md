@@ -1,3 +1,42 @@
+## March 13, 2026 - Admin UI for Mail Settings ✅
+
+### What Was Built
+A comprehensive admin page to configure organization-wide email settings.
+
+### Features
+| Tab | Settings |
+|-----|----------|
+| **General** | Undo send delay, attachment limits, allowed file types, auto-save interval, read receipts toggle |
+| **Tracking** | Open/click tracking, tracking pixel, notification on first open, data retention |
+| **Auto-Reply** | OOO settings, custom message templates, internal/external differentiation |
+| **Security** | External images, TLS, spam filter, blocked domains/files, attachment scanning |
+| **Scheduled Send** | Enable/disable, max per user, send time optimization, send window |
+
+### Stats Dashboard
+Shows real-time counts for:
+- Templates
+- Signatures  
+- Scheduled Emails (pending)
+- Tracked Emails
+- Active Follow-ups
+
+### New Files
+| File | Purpose |
+|------|---------|
+| `/app/frontend/src/pages/admin/MailSettingsPage.jsx` | Admin UI for mail settings |
+
+### New API Endpoints
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/email-features/admin/settings` | GET | Get organization mail settings |
+| `/api/email-features/admin/settings` | PUT | Update organization mail settings |
+| `/api/email-features/admin/stats` | GET | Get mail feature usage stats |
+
+### Navigation
+Administration → General Admin → Mail Settings (`/admin/mail-settings`)
+
+---
+
 ## March 13, 2026 - Combined Calendar Page with Tabs ✅
 
 ### What Was Built

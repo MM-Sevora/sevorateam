@@ -290,6 +290,8 @@ const DEPARTMENT_CONFIG = {
                 requiredModule: 'admin',
                 items: [
                     { path: '/admin/users-permissions', name: 'Users & Permissions', icon: Shield },
+                    { path: '/admin/shared-mailboxes', name: 'Shared Mailboxes', icon: Mail },
+                    { path: '/admin/mail-settings', name: 'Mail Settings', icon: Settings },
                 ]
             },
         ]

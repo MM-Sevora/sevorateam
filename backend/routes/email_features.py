@@ -1047,4 +1047,117 @@ def create_router(get_current_user):
             "avg_opens_per_email": round(total_opens / total_emails, 1) if total_emails > 0 else 0
         }
     
+    # ============== ADMIN SETTINGS ==============
+    
+    @router.get("/admin/settings")
+    async def get_admin_mail_settings(current_user: dict = Depends(get_current_user)):
+        """Get organization-wide mail settings (admin only)"""
+        # Check if user is admin
+        if current_user.get("role") not in ["super_admin", "admin"]:
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        settings = await db.admin_mail_settings.find_one({}, {"_id": 0})
+        if not settings:
+            # Return defaults
+            return {
+                "general": {
+                    "default_undo_send_delay": 5,
+                    "max_attachment_size_mb": 25,
+                    "allowed_attachment_types": ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.zip",
+                    "enable_read_receipts": True,
+                    "enable_email_tracking": True,
+                    "default_signature_position": "bottom",
+                    "auto_save_drafts_interval": 30,
+                    "max_recipients_per_email": 100
+                },
+                "tracking": {
+                    "track_opens": True,
+                    "track_clicks": True,
+                    "track_link_clicks": True,
+                    "tracking_pixel_enabled": True,
+                    "notify_on_first_open": True,
+                    "aggregate_tracking_data": True,
+                    "retention_days": 90
+                },
+                "auto_reply": {
+                    "enable_ooo_for_all": True,
+                    "allow_custom_ooo_messages": True,
+                    "default_ooo_internal_message": "",
+                    "default_ooo_external_message": "",
+                    "ooo_excludes_internal": False
+                },
+                "security": {
+                    "block_external_images": False,
+                    "warn_external_recipients": True,
+                    "require_tls": True,
+                    "enable_spam_filter": True,
+                    "spam_sensitivity": "medium",
+                    "blocked_domains": "",
+                    "blocked_file_types": ".exe,.bat,.cmd,.scr,.js,.vbs",
+                    "enable_attachment_scanning": True
+                },
+                "scheduled": {
+                    "enable_scheduled_send": True,
+                    "max_scheduled_emails_per_user": 50,
+                    "max_schedule_days_ahead": 30,
+                    "send_time_optimization": False,
+                    "default_send_window_start": "09:00",
+                    "default_send_window_end": "17:00"
+                }
+            }
+        return settings
+    
+    @router.put("/admin/settings")
+    async def update_admin_mail_settings(
+        settings: dict,
+        current_user: dict = Depends(get_current_user)
+    ):
+        """Update organization-wide mail settings (admin only)"""
+        if current_user.get("role") not in ["super_admin", "admin"]:
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        settings["updated_at"] = datetime.now(timezone.utc).isoformat()
+        settings["updated_by"] = current_user.get("id")
+        
+        await db.admin_mail_settings.update_one(
+            {},
+            {"$set": settings},
+            upsert=True
+        )
+        
+        return {"status": "success", "message": "Settings updated"}
+    
+    @router.get("/admin/stats")
+    async def get_admin_mail_stats(current_user: dict = Depends(get_current_user)):
+        """Get mail feature usage statistics (admin only)"""
+        if current_user.get("role") not in ["super_admin", "admin"]:
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        # Count templates
+        total_templates = await db.email_templates.count_documents({})
+        
+        # Count signatures
+        total_signatures = await db.email_signatures.count_documents({})
+        
+        # Count pending scheduled emails
+        scheduled_pending = await db.scheduled_emails.count_documents({
+            "status": {"$in": ["pending", None]}
+        })
+        
+        # Count tracked emails
+        tracked_total = await db.email_tracking.count_documents({})
+        
+        # Count active follow-ups
+        active_followups = await db.follow_up_reminders.count_documents({
+            "status": {"$in": ["pending", "active", None]}
+        })
+        
+        return {
+            "total_templates": total_templates,
+            "total_signatures": total_signatures,
+            "scheduled_emails_pending": scheduled_pending,
+            "tracked_emails_total": tracked_total,
+            "active_follow_ups": active_followups
+        }
+    
     return router
