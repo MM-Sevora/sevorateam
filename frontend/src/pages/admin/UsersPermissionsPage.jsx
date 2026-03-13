@@ -650,7 +650,18 @@ const UsersPermissionsPage = () => {
         return {
           ...prev,
           module_access: [...prev.module_access, moduleCode],
-          module_permissions: { ...prev.module_permissions, [moduleCode]: { create: true, read: true, update: true, delete: true } }
+          module_permissions: { 
+            ...prev.module_permissions, 
+            [moduleCode]: { 
+              create: true, 
+              read: true, 
+              update: true, 
+              delete: false,
+              data_scope: 'all',
+              can_edit_others: false,
+              can_delete_others: false
+            } 
+          }
         };
       }
     });
@@ -664,6 +675,27 @@ const UsersPermissionsPage = () => {
         [moduleCode]: { ...(prev.module_permissions[moduleCode] || {}), [perm]: !(prev.module_permissions[moduleCode]?.[perm]) }
       }
     }));
+  };
+
+  const updateRoleModulePermission = (moduleCode, field, value) => {
+    setRoleForm(prev => ({
+      ...prev,
+      module_permissions: {
+        ...prev.module_permissions,
+        [moduleCode]: { ...(prev.module_permissions[moduleCode] || DEFAULT_MODULE_PERMISSION), [field]: value }
+      }
+    }));
+  };
+
+  // Track which modules are expanded in role dialog
+  const [expandedRoleModules, setExpandedRoleModules] = useState([]);
+
+  const toggleRoleModuleExpand = (moduleCode) => {
+    setExpandedRoleModules(prev => 
+      prev.includes(moduleCode) 
+        ? prev.filter(c => c !== moduleCode) 
+        : [...prev, moduleCode]
+    );
   };
 
   const saveRole = async () => {
@@ -1193,13 +1225,13 @@ const UsersPermissionsPage = () => {
 
       {/* ==================== USER PERMISSIONS PANEL (Sheet) ==================== */}
       <Sheet open={userPanelOpen} onOpenChange={setUserPanelOpen}>
-        <SheetContent className="w-[600px] sm:max-w-[600px] overflow-y-auto">
+        <SheetContent className="w-[550px] sm:max-w-[550px] overflow-y-auto">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
               <Lock className="h-5 w-5" /> User Permissions
             </SheetTitle>
             <SheetDescription>
-              Configure roles and module access for {selectedUser?.name}
+              Assign roles to {selectedUser?.name}. Permissions are inherited from roles.
             </SheetDescription>
           </SheetHeader>
 
@@ -1221,187 +1253,136 @@ const UsersPermissionsPage = () => {
                 </div>
               </div>
 
-              {/* Roles Section */}
+              {/* Roles Section - Primary */}
               <div className="space-y-3">
                 <Label className="text-base font-semibold flex items-center gap-2">
                   <Shield className="h-4 w-4" /> Assigned Roles ({userPermForm.role_ids.length})
                 </Label>
-                <div className="grid grid-cols-2 gap-2 p-3 bg-gray-50 rounded-lg max-h-48 overflow-y-auto">
-                  {roles.map(role => (
-                    <label key={role.id} className="flex items-center gap-2 p-2 hover:bg-white rounded cursor-pointer">
-                      <Checkbox checked={userPermForm.role_ids.includes(role.id)} onCheckedChange={() => togglePermRole(role.id)} />
-                      <span className="text-sm">{role.name}</span>
-                      <Badge variant="outline" className="text-xs ml-auto">{role.module_access?.length || 0}</Badge>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Module Access Section - Enhanced with 3D Permissions */}
-              <div className="space-y-3">
-                <Label className="text-base font-semibold flex items-center gap-2">
-                  <Package className="h-4 w-4" /> Module Access ({userPermForm.module_access.length} modules)
-                </Label>
-                <p className="text-xs text-gray-500">Configure module access, CRUD permissions, and data visibility scope for each module.</p>
-                <div className="border rounded-lg max-h-[500px] overflow-y-auto">
-                  {categories.map(cat => {
-                    const catModules = modules.filter(m => m.category === cat.code);
-                    if (catModules.length === 0) return null;
+                <p className="text-xs text-gray-500">Users inherit all permissions from their assigned roles. Click on a role to view its permissions.</p>
+                <div className="space-y-2 p-3 bg-gray-50 rounded-lg max-h-64 overflow-y-auto">
+                  {roles.map(role => {
+                    const isSelected = userPermForm.role_ids.includes(role.id);
+                    const moduleCount = role.module_access?.length || 0;
                     return (
-                      <div key={cat.code} className="border-b last:border-0">
-                        <div className="px-3 py-2 bg-gray-100 text-xs font-semibold text-gray-600 sticky top-0">{cat.name}</div>
-                        {catModules.map(mod => {
-                          const isModuleSelected = userPermForm.module_access.includes(mod.code);
-                          const isExpanded = expandedModules.includes(mod.code);
-                          const subModules = mod.sub_modules || [];
-                          const selectedSubCount = (userPermForm.sub_module_access[mod.code] || []).length;
-                          const modPerm = getModulePermission(mod.code);
-                          return (
-                            <Collapsible key={mod.code} open={isExpanded}>
-                              <div className="border-b last:border-0">
-                                {/* Module Header Row */}
-                                <div className="flex items-center justify-between px-3 py-2 hover:bg-gray-50">
-                                  <label className="flex items-center gap-2 flex-1 cursor-pointer">
-                                    <Checkbox checked={isModuleSelected} onCheckedChange={() => togglePermModule(mod.code)} />
-                                    <span className="font-medium text-sm">{mod.name}</span>
-                                    {mod.is_default && <Badge variant="outline" className="text-xs bg-green-50 text-green-700">Default</Badge>}
-                                  </label>
-                                  <div className="flex items-center gap-2">
-                                    {isModuleSelected && subModules.length > 0 && <span className="text-xs text-gray-500">{selectedSubCount}/{subModules.length}</span>}
-                                    <CollapsibleTrigger asChild>
-                                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setExpandedModules(prev => prev.includes(mod.code) ? prev.filter(c => c !== mod.code) : [...prev, mod.code])}>
-                                        {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                                      </Button>
-                                    </CollapsibleTrigger>
-                                  </div>
-                                </div>
-                                
-                                {/* Expanded Permission Controls */}
-                                <CollapsibleContent>
-                                  {isModuleSelected && (
-                                    <div className="px-3 py-3 bg-amber-50/50 border-t space-y-3">
-                                      {/* CRUD Permissions (Dimension 1) */}
-                                      <div>
-                                        <Label className="text-xs font-semibold text-gray-600 mb-2 block">CRUD Permissions</Label>
-                                        <div className="flex flex-wrap gap-3">
-                                          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                                            <Checkbox 
-                                              checked={modPerm.create} 
-                                              onCheckedChange={(checked) => updateModulePermission(mod.code, 'create', checked)} 
-                                              className="h-3.5 w-3.5"
-                                            />
-                                            <span>Create</span>
-                                          </label>
-                                          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                                            <Checkbox 
-                                              checked={modPerm.read} 
-                                              onCheckedChange={(checked) => updateModulePermission(mod.code, 'read', checked)} 
-                                              className="h-3.5 w-3.5"
-                                            />
-                                            <span>Read</span>
-                                          </label>
-                                          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                                            <Checkbox 
-                                              checked={modPerm.update} 
-                                              onCheckedChange={(checked) => updateModulePermission(mod.code, 'update', checked)} 
-                                              className="h-3.5 w-3.5"
-                                            />
-                                            <span>Update</span>
-                                          </label>
-                                          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                                            <Checkbox 
-                                              checked={modPerm.delete} 
-                                              onCheckedChange={(checked) => updateModulePermission(mod.code, 'delete', checked)} 
-                                              className="h-3.5 w-3.5"
-                                            />
-                                            <span>Delete</span>
-                                          </label>
-                                        </div>
-                                      </div>
-                                      
-                                      {/* Data Scope (Dimension 3) */}
-                                      <div>
-                                        <Label className="text-xs font-semibold text-gray-600 mb-2 block">Data Visibility Scope</Label>
-                                        <Select 
-                                          value={modPerm.data_scope} 
-                                          onValueChange={(value) => updateModulePermission(mod.code, 'data_scope', value)}
-                                        >
-                                          <SelectTrigger className="h-8 text-xs w-full max-w-[220px]">
-                                            <SelectValue />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {DATA_SCOPE_OPTIONS.map(opt => (
-                                              <SelectItem key={opt.value} value={opt.value}>
-                                                <div className="flex flex-col">
-                                                  <span className="font-medium">{opt.label}</span>
-                                                  <span className="text-xs text-gray-500">{opt.description}</span>
-                                                </div>
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                      </div>
-                                      
-                                      {/* Others' Data Permissions (Dimension 2) */}
-                                      <div>
-                                        <Label className="text-xs font-semibold text-gray-600 mb-2 block">Others' Data Permissions</Label>
-                                        <div className="flex flex-wrap gap-3">
-                                          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                                            <Checkbox 
-                                              checked={modPerm.can_edit_others} 
-                                              onCheckedChange={(checked) => updateModulePermission(mod.code, 'can_edit_others', checked)} 
-                                              className="h-3.5 w-3.5"
-                                            />
-                                            <span>Can Edit Others' Data</span>
-                                          </label>
-                                          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                                            <Checkbox 
-                                              checked={modPerm.can_delete_others} 
-                                              onCheckedChange={(checked) => updateModulePermission(mod.code, 'can_delete_others', checked)} 
-                                              className="h-3.5 w-3.5"
-                                            />
-                                            <span>Can Delete Others' Data</span>
-                                          </label>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
-                                  
-                                  {/* Sub-modules */}
-                                  {subModules.length > 0 && (
-                                    <div className="pl-8 pr-3 py-2 bg-gray-50 space-y-1 border-t">
-                                      <Label className="text-xs font-semibold text-gray-500 mb-1 block">Sub-modules</Label>
-                                      {subModules.map(sub => {
-                                        const isSubSelected = (userPermForm.sub_module_access[mod.code] || []).includes(sub.code);
-                                        return (
-                                          <label key={sub.code} className="flex items-center gap-2 py-1 cursor-pointer">
-                                            <Checkbox checked={isSubSelected} onCheckedChange={() => togglePermSubModule(mod.code, sub.code)} disabled={!isModuleSelected} />
-                                            <span className={`text-sm ${!isModuleSelected ? 'text-gray-400' : ''}`}>{sub.name}</span>
-                                            <span className="text-xs text-gray-400 ml-auto">{sub.path}</span>
-                                          </label>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                </CollapsibleContent>
-                              </div>
-                            </Collapsible>
-                          );
-                        })}
+                      <div key={role.id} className={`p-3 rounded-lg border ${isSelected ? 'bg-purple-50 border-purple-200' : 'bg-white border-gray-200'}`}>
+                        <div className="flex items-center gap-3">
+                          <Checkbox checked={isSelected} onCheckedChange={() => togglePermRole(role.id)} />
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">{role.name}</p>
+                            <p className="text-xs text-gray-500">{role.description || `${moduleCount} modules`}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs">{moduleCount} modules</Badge>
+                            {(role.can_manage_users || role.can_manage_roles) && (
+                              <Badge className="bg-amber-100 text-amber-800 text-xs">Admin</Badge>
+                            )}
+                          </div>
+                        </div>
+                        {isSelected && role.module_access?.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-purple-100">
+                            <p className="text-xs text-gray-500 mb-1">Modules: {role.module_access.slice(0, 5).join(', ')}{role.module_access.length > 5 ? ` +${role.module_access.length - 5} more` : ''}</p>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Permission Legend */}
-              <div className="p-3 bg-gray-50 rounded-lg border text-xs space-y-2">
-                <p className="font-semibold text-gray-700">Permission Guide:</p>
-                <div className="grid grid-cols-1 gap-1 text-gray-600">
-                  <p><strong>CRUD:</strong> What actions can be performed in the module</p>
-                  <p><strong>Data Scope:</strong> Whose data the user can see (All/Team/Own+Assigned/Own Only)</p>
-                  <p><strong>Others' Data:</strong> Can user edit/delete records created by others</p>
+              {/* Inherited Permissions Preview */}
+              {userPermForm.role_ids.length > 0 && (
+                <div className="space-y-3">
+                  <Label className="text-base font-semibold flex items-center gap-2">
+                    <Package className="h-4 w-4" /> Inherited Permissions
+                  </Label>
+                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                    <p className="text-xs text-blue-700 mb-2">Merged permissions from {userPermForm.role_ids.length} role(s):</p>
+                    <div className="flex flex-wrap gap-1">
+                      {(() => {
+                        const mergedModules = new Set();
+                        userPermForm.role_ids.forEach(roleId => {
+                          const role = roles.find(r => r.id === roleId);
+                          role?.module_access?.forEach(m => mergedModules.add(m));
+                        });
+                        return Array.from(mergedModules).slice(0, 10).map(mod => (
+                          <Badge key={mod} variant="secondary" className="text-xs">{modules.find(m => m.code === mod)?.name || mod}</Badge>
+                        ));
+                      })()}
+                      {(() => {
+                        const mergedModules = new Set();
+                        userPermForm.role_ids.forEach(roleId => {
+                          const role = roles.find(r => r.id === roleId);
+                          role?.module_access?.forEach(m => mergedModules.add(m));
+                        });
+                        return mergedModules.size > 10 ? <Badge variant="outline" className="text-xs">+{mergedModules.size - 10} more</Badge> : null;
+                      })()}
+                    </div>
+                  </div>
                 </div>
+              )}
+
+              {/* User-Level Overrides (Collapsible Advanced Section) */}
+              <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" className="w-full justify-between text-sm text-gray-600 hover:bg-gray-100">
+                    <span className="flex items-center gap-2">
+                      <Settings className="h-4 w-4" />
+                      Advanced: User-Level Overrides
+                    </span>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 mt-2">
+                    <p className="text-xs text-amber-700 mb-3">
+                      <strong>Override role permissions</strong> for this specific user. Use sparingly - prefer assigning appropriate roles instead.
+                    </p>
+                    
+                    {/* Sub-module Access Overrides */}
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold">Sub-module Access (restrict sub-modules from roles)</Label>
+                      <div className="border rounded-lg max-h-48 overflow-y-auto bg-white">
+                        {userPermForm.module_access.length === 0 ? (
+                          <p className="p-3 text-xs text-gray-500">No modules assigned via roles</p>
+                        ) : (
+                          userPermForm.module_access.slice(0, 5).map(modCode => {
+                            const mod = modules.find(m => m.code === modCode);
+                            if (!mod?.sub_modules?.length) return null;
+                            return (
+                              <div key={modCode} className="p-2 border-b last:border-0">
+                                <p className="text-xs font-medium mb-1">{mod.name}</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {mod.sub_modules.map(sub => {
+                                    const isEnabled = (userPermForm.sub_module_access[modCode] || []).includes(sub.code);
+                                    return (
+                                      <label key={sub.code} className="flex items-center gap-1 text-xs cursor-pointer">
+                                        <Checkbox 
+                                          checked={isEnabled} 
+                                          onCheckedChange={() => togglePermSubModule(modCode, sub.code)} 
+                                          className="h-3 w-3"
+                                        />
+                                        {sub.name}
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+
+              {/* Info Box */}
+              <div className="p-3 bg-gray-50 rounded-lg border text-xs space-y-1">
+                <p className="font-semibold text-gray-700">How permissions work:</p>
+                <p className="text-gray-600">• Assign roles to grant module access and permissions</p>
+                <p className="text-gray-600">• Users inherit CRUD, data scope, and other settings from roles</p>
+                <p className="text-gray-600">• Multiple roles? Permissions are merged (most permissive wins)</p>
+                <p className="text-gray-600">• Edit roles in the <strong>Roles</strong> tab to configure 3D permissions</p>
               </div>
 
               {/* Save Button */}
@@ -1802,41 +1783,130 @@ const UsersPermissionsPage = () => {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Module Access ({roleForm.module_access.length} selected)</Label>
-              <div className="border rounded-lg max-h-64 overflow-y-auto">
+              <Label className="flex items-center justify-between">
+                <span>Module Permissions ({roleForm.module_access.length} modules)</span>
+                <span className="text-xs text-gray-500 font-normal">Configure CRUD, data scope, and access rules</span>
+              </Label>
+              <div className="border rounded-lg max-h-[400px] overflow-y-auto">
                 {categories.map(cat => {
                   const catModules = modules.filter(m => m.category === cat.code);
                   if (catModules.length === 0) return null;
                   const colorOpt = COLOR_OPTIONS.find(c => c.value === cat.color) || COLOR_OPTIONS[0];
                   return (
                     <div key={cat.code} className="border-b last:border-0">
-                      <div className={`px-3 py-2 ${colorOpt.badge} text-xs font-medium`}>{cat.name}</div>
-                      <div className="p-2 space-y-1">
+                      <div className={`px-3 py-2 ${colorOpt.badge} text-xs font-medium sticky top-0 z-10`}>{cat.name}</div>
+                      <div className="divide-y">
                         {catModules.map(mod => {
                           const isSelected = roleForm.module_access.includes(mod.code);
+                          const isExpanded = expandedRoleModules.includes(mod.code);
+                          const modPerm = roleForm.module_permissions[mod.code] || DEFAULT_MODULE_PERMISSION;
                           return (
-                            <div key={mod.code} className="flex items-center justify-between py-1 px-2 hover:bg-gray-50 rounded">
-                              <label className="flex items-center gap-2 text-sm cursor-pointer flex-1">
-                                <Checkbox checked={isSelected} onCheckedChange={() => toggleRoleModule(mod.code)} />
-                                {mod.name}
-                              </label>
+                            <Collapsible key={mod.code} open={isExpanded && isSelected}>
+                              <div className="flex items-center justify-between py-2 px-3 hover:bg-gray-50">
+                                <label className="flex items-center gap-2 text-sm cursor-pointer flex-1">
+                                  <Checkbox checked={isSelected} onCheckedChange={() => toggleRoleModule(mod.code)} />
+                                  <span className={isSelected ? 'font-medium' : ''}>{mod.name}</span>
+                                </label>
+                                {isSelected && (
+                                  <div className="flex items-center gap-3">
+                                    {/* Quick CRUD indicators */}
+                                    <div className="flex items-center gap-1 text-xs">
+                                      <span className={modPerm.create ? 'text-green-600' : 'text-gray-300'}>C</span>
+                                      <span className={modPerm.read ? 'text-green-600' : 'text-gray-300'}>R</span>
+                                      <span className={modPerm.update ? 'text-green-600' : 'text-gray-300'}>U</span>
+                                      <span className={modPerm.delete ? 'text-green-600' : 'text-gray-300'}>D</span>
+                                    </div>
+                                    {/* Data scope badge */}
+                                    <Badge variant="outline" className="text-xs">
+                                      {DATA_SCOPE_OPTIONS.find(o => o.value === modPerm.data_scope)?.label || 'All'}
+                                    </Badge>
+                                    <CollapsibleTrigger asChild>
+                                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => toggleRoleModuleExpand(mod.code)}>
+                                        {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                      </Button>
+                                    </CollapsibleTrigger>
+                                  </div>
+                                )}
+                              </div>
                               {isSelected && (
-                                <div className="flex items-center gap-2 text-xs">
-                                  {['create', 'read', 'update', 'delete'].map(perm => (
-                                    <label key={perm} className="flex items-center gap-1 cursor-pointer">
-                                      <Checkbox checked={roleForm.module_permissions[mod.code]?.[perm]} onCheckedChange={() => toggleRolePermission(mod.code, perm)} className="h-3 w-3" />
-                                      <span className="text-gray-500 uppercase">{perm[0]}</span>
-                                    </label>
-                                  ))}
-                                </div>
+                                <CollapsibleContent>
+                                  <div className="px-4 py-3 bg-amber-50/50 border-t space-y-3">
+                                    {/* Dimension 1: CRUD */}
+                                    <div>
+                                      <Label className="text-xs font-semibold text-gray-600 mb-2 block">CRUD Permissions</Label>
+                                      <div className="flex flex-wrap gap-4">
+                                        {['create', 'read', 'update', 'delete'].map(perm => (
+                                          <label key={perm} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                                            <Checkbox 
+                                              checked={modPerm[perm]} 
+                                              onCheckedChange={() => toggleRolePermission(mod.code, perm)} 
+                                              className="h-3.5 w-3.5"
+                                            />
+                                            <span className="capitalize">{perm}</span>
+                                          </label>
+                                        ))}
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Dimension 3: Data Scope */}
+                                    <div>
+                                      <Label className="text-xs font-semibold text-gray-600 mb-2 block">Data Visibility Scope</Label>
+                                      <Select 
+                                        value={modPerm.data_scope || 'all'} 
+                                        onValueChange={(value) => updateRoleModulePermission(mod.code, 'data_scope', value)}
+                                      >
+                                        <SelectTrigger className="h-8 text-xs w-full max-w-[220px]">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {DATA_SCOPE_OPTIONS.map(opt => (
+                                            <SelectItem key={opt.value} value={opt.value}>
+                                              <div className="flex flex-col">
+                                                <span className="font-medium">{opt.label}</span>
+                                                <span className="text-xs text-gray-500">{opt.description}</span>
+                                              </div>
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    
+                                    {/* Dimension 2: Others' Data */}
+                                    <div>
+                                      <Label className="text-xs font-semibold text-gray-600 mb-2 block">Others' Data Permissions</Label>
+                                      <div className="flex flex-wrap gap-4">
+                                        <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                                          <Checkbox 
+                                            checked={modPerm.can_edit_others} 
+                                            onCheckedChange={(checked) => updateRoleModulePermission(mod.code, 'can_edit_others', checked)} 
+                                            className="h-3.5 w-3.5"
+                                          />
+                                          <span>Can Edit Others' Data</span>
+                                        </label>
+                                        <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                                          <Checkbox 
+                                            checked={modPerm.can_delete_others} 
+                                            onCheckedChange={(checked) => updateRoleModulePermission(mod.code, 'can_delete_others', checked)} 
+                                            className="h-3.5 w-3.5"
+                                          />
+                                          <span>Can Delete Others' Data</span>
+                                        </label>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </CollapsibleContent>
                               )}
-                            </div>
+                            </Collapsible>
                           );
                         })}
                       </div>
                     </div>
                   );
                 })}
+              </div>
+              {/* Legend */}
+              <div className="text-xs text-gray-500 mt-2 p-2 bg-gray-50 rounded">
+                <strong>Legend:</strong> CRUD = Create/Read/Update/Delete | Data Scope = Whose data users can see | Others' = Can modify data created by others
               </div>
             </div>
           </div>
