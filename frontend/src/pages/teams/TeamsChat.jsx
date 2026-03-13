@@ -6,7 +6,7 @@ import {
   CheckCircle, Loader2, ChevronLeft, Settings,
   User, AtSign, MoreVertical, Phone, Video, Info, ListTodo,
   Calendar, Flag, FolderKanban, CalendarPlus, Clock, MapPin, Target,
-  LogOut, ChevronDown
+  LogOut, ChevronDown, Pencil, X, Check
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -67,6 +67,11 @@ export default function TeamsChat() {
   const [currentUserEmail, setCurrentUserEmail] = useState('');
   const [currentUserId, setCurrentUserId] = useState('');
   const messagesEndRef = useRef(null);
+  
+  // Message editing state
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editMessageContent, setEditMessageContent] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
   
   // Task creation state
   const [showTaskModal, setShowTaskModal] = useState(false);
@@ -328,6 +333,47 @@ export default function TeamsChat() {
       toast.error('Failed to send message');
     } finally {
       setSending(false);
+    }
+  };
+
+  // Start editing a message
+  const startEditMessage = (message) => {
+    setEditingMessageId(message.id);
+    // Strip HTML tags to get plain text for editing
+    const plainText = message.body?.content?.replace(/<[^>]*>/g, '') || '';
+    setEditMessageContent(plainText);
+  };
+
+  // Cancel editing
+  const cancelEditMessage = () => {
+    setEditingMessageId(null);
+    setEditMessageContent('');
+  };
+
+  // Save edited message
+  const saveEditMessage = async () => {
+    if (!editMessageContent.trim() || !selectedChat || !editingMessageId) return;
+    
+    setSavingEdit(true);
+    try {
+      await callGraphAPI(`/me/chats/${selectedChat.id}/messages/${editingMessageId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          body: {
+            content: editMessageContent,
+          },
+        }),
+      });
+      
+      toast.success('Message updated');
+      setEditingMessageId(null);
+      setEditMessageContent('');
+      fetchMessages(selectedChat.id);
+    } catch (e) {
+      console.error('Error editing message:', e);
+      toast.error('Failed to update message');
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -975,15 +1021,33 @@ export default function TeamsChat() {
                                   : 'bg-white border border-[#E8D5C4] text-[#4A3728] rounded-bl-sm shadow-sm'
                               }`}
                             >
-                              <div 
-                                className="text-[13px] leading-relaxed"
-                                dangerouslySetInnerHTML={{ 
-                                  __html: message.body?.content || '' 
-                                }}
-                              />
+                              {editingMessageId === message.id ? (
+                                <Input
+                                  value={editMessageContent}
+                                  onChange={(e) => setEditMessageContent(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                      e.preventDefault();
+                                      saveEditMessage();
+                                    }
+                                    if (e.key === 'Escape') {
+                                      cancelEditMessage();
+                                    }
+                                  }}
+                                  className="text-[13px] bg-white/20 border-white/30 text-inherit placeholder:text-white/50"
+                                  autoFocus
+                                />
+                              ) : (
+                                <div 
+                                  className="text-[13px] leading-relaxed"
+                                  dangerouslySetInnerHTML={{ 
+                                    __html: message.body?.content || '' 
+                                  }}
+                                />
+                              )}
                             </div>
                             {/* Actions button for own messages - shows on hover */}
-                            {isMe && (
+                            {isMe && !editingMessageId && (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button 
@@ -995,6 +1059,14 @@ export default function TeamsChat() {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="bg-white border-[#D4BBA6]">
+                                  <DropdownMenuItem 
+                                    onClick={() => startEditMessage(message)}
+                                    className="cursor-pointer text-[#4A3728] text-xs"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5 mr-2 text-[#464EB8]" />
+                                    Edit Message
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
                                   <DropdownMenuItem 
                                     onClick={() => openTaskModal(message)}
                                     className="cursor-pointer text-[#4A3728] text-xs"
@@ -1014,8 +1086,40 @@ export default function TeamsChat() {
                               </DropdownMenu>
                             )}
                           </div>
+                          {/* Edit controls for own message being edited */}
+                          {editingMessageId === message.id && (
+                            <div className="flex items-center gap-1 mt-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={cancelEditMessage}
+                                className="h-6 px-2 text-xs text-gray-500 hover:text-gray-700"
+                              >
+                                <X className="w-3 h-3 mr-1" />
+                                Cancel
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={saveEditMessage}
+                                disabled={savingEdit || !editMessageContent.trim()}
+                                className="h-6 px-2 text-xs bg-[#464EB8] hover:bg-[#3d44a5] text-white"
+                              >
+                                {savingEdit ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <>
+                                    <Check className="w-3 h-3 mr-1" />
+                                    Save
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          )}
                           <p className={`text-[10px] text-[#9C8C74] mt-0.5 ${isMe ? 'text-right mr-1' : 'ml-7'}`}>
                             {formatMessageTime(message.createdDateTime)}
+                            {message.lastModifiedDateTime && message.lastModifiedDateTime !== message.createdDateTime && (
+                              <span className="ml-1 italic">(edited)</span>
+                            )}
                           </p>
                         </div>
                       </div>
