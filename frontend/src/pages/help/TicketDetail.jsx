@@ -223,9 +223,10 @@ const TicketDetail = () => {
                                 </div>
                             </CardHeader>
                             <CardContent>
-                                <p className="text-[#4A3728] whitespace-pre-wrap">
-                                    {ticket.description}
-                                </p>
+                                <div 
+                                    className="text-[#4A3728] prose prose-sm max-w-none"
+                                    dangerouslySetInnerHTML={{ __html: ticket.description }}
+                                />
                                 {ticket.attachments?.length > 0 && (
                                     <div className="mt-4 pt-4 border-t border-[#E8D5C4]">
                                         <p className="text-sm text-[#6B5D52] mb-2">Attachments:</p>

@@ -1065,7 +1065,10 @@ const ProjectDetail = () => {
                   </p>
                 )}
                 {project.description && (
-                  <p className="text-[#6B5D52] mb-4">{project.description}</p>
+                  <div 
+                    className="text-[#6B5D52] mb-4 prose prose-sm max-w-none"
+                    dangerouslySetInnerHTML={{ __html: project.description }}
+                  />
                 )}
                 <div className="flex items-center gap-6 text-sm text-[#6B5D52] flex-wrap">
                   {project.owner_name && (

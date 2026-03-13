@@ -564,9 +564,14 @@ export default function ObjectiveDetail() {
                 <CardTitle className="text-lg text-[#4A3728]">Description</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-[#6B5D52]">
-                  {objective.description || 'No description provided.'}
-                </p>
+                {objective.description ? (
+                  <div 
+                    className="text-[#6B5D52] prose prose-sm max-w-none"
+                    dangerouslySetInnerHTML={{ __html: objective.description }}
+                  />
+                ) : (
+                  <p className="text-[#6B5D52] italic">No description provided.</p>
+                )}
                 <div className="mt-4 pt-4 border-t border-[#E8D5C4] grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <p className="text-[#9C8C74]">Owner</p>
