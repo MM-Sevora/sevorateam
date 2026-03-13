@@ -143,6 +143,32 @@ const DataImportPage = () => {
     }
   };
 
+  const handleExport = async (collectionName) => {
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API}/api/data-import/export/${collectionName}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${collectionName}_export.json`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+        toast.success(`${collectionName} exported successfully`);
+      } else {
+        toast.error('Export failed');
+      }
+    } catch (error) {
+      toast.error('Export failed');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -208,59 +234,51 @@ const DataImportPage = () => {
         </CardContent>
       </Card>
 
-      {/* Download Links */}
-      <Card className="mb-6 border-blue-200 bg-blue-50/50">
+      {/* Export / Download Section */}
+      <Card className="mb-6 border-green-200 bg-green-50/50">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Download className="w-5 h-5 text-blue-600" />
-            Download Export Files (Preview Environment)
+            <Download className="w-5 h-5 text-green-600" />
+            Export Data (Download from this environment)
           </CardTitle>
           <CardDescription>
-            Download these JSON files first, then upload them below
+            Download your data as JSON files
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
-            <a 
-              href="https://sevora-hub.preview.emergentagent.com/sourcing_brands_export.json"
-              download
-              className="inline-flex items-center gap-2 px-3 py-2 bg-white border rounded-lg hover:bg-gray-50 text-sm"
+            <Button 
+              variant="outline"
+              onClick={() => handleExport('sourcing_brands')}
+              className="gap-2"
             >
               <FileJson className="w-4 h-4 text-blue-600" />
-              Brands (217)
-            </a>
-            <a 
-              href="https://sevora-hub.preview.emergentagent.com/sourcing_contacts_export.json"
-              download
-              className="inline-flex items-center gap-2 px-3 py-2 bg-white border rounded-lg hover:bg-gray-50 text-sm"
+              Export Brands
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => handleExport('sourcing_contacts')}
+              className="gap-2"
             >
               <FileJson className="w-4 h-4 text-green-600" />
-              Contacts (200)
-            </a>
-            <a 
-              href="https://sevora-hub.preview.emergentagent.com/sourcing_suppliers_export.json"
-              download
-              className="inline-flex items-center gap-2 px-3 py-2 bg-white border rounded-lg hover:bg-gray-50 text-sm"
+              Export Contacts
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => handleExport('sourcing_suppliers')}
+              className="gap-2"
             >
               <FileJson className="w-4 h-4 text-purple-600" />
-              Suppliers (33)
-            </a>
-            <a 
-              href="https://sevora-hub.preview.emergentagent.com/sourcing_manufacturers_export.json"
-              download
-              className="inline-flex items-center gap-2 px-3 py-2 bg-white border rounded-lg hover:bg-gray-50 text-sm"
+              Export Suppliers
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => handleExport('sourcing_manufacturers')}
+              className="gap-2"
             >
               <FileJson className="w-4 h-4 text-orange-600" />
-              Manufacturers (59)
-            </a>
-            <a 
-              href="https://sevora-hub.preview.emergentagent.com/sourcing_activity_logs_export.json"
-              download
-              className="inline-flex items-center gap-2 px-3 py-2 bg-white border rounded-lg hover:bg-gray-50 text-sm"
-            >
-              <FileJson className="w-4 h-4 text-gray-600" />
-              Activity Logs (173)
-            </a>
+              Export Manufacturers
+            </Button>
           </div>
         </CardContent>
       </Card>
