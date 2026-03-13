@@ -309,6 +309,9 @@ class TokenManagerService:
         """
         Refresh token for a specific platform.
         Currently supports: instagram, facebook
+        
+        For Meta platforms, always use .env token as the source of truth since
+        these are manually configured.
         """
         if platform not in ["instagram", "facebook"]:
             return {
@@ -316,48 +319,36 @@ class TokenManagerService:
                 "error": f"Token refresh not supported for {platform}"
             }
         
-        if self.db is None:
-            # Try from .env
-            if platform == "instagram":
-                current_token = os.environ.get("INSTAGRAM_ACCESS_TOKEN")
-            else:
-                current_token = os.environ.get("FACEBOOK_PAGE_ACCESS_TOKEN")
-            
-            if not current_token:
-                return {"success": False, "error": f"No token found for {platform}"}
+        # Always prefer .env tokens for Meta platforms
+        if platform == "instagram":
+            current_token = os.environ.get("INSTAGRAM_ACCESS_TOKEN")
         else:
-            # Get from database
-            connection = await self.db.social_platform_connections.find_one(
-                {"platform": platform, "status": "connected"}
-            )
-            
-            if not connection:
-                # Fallback to .env
-                if platform == "instagram":
-                    current_token = os.environ.get("INSTAGRAM_ACCESS_TOKEN")
-                else:
-                    current_token = os.environ.get("FACEBOOK_PAGE_ACCESS_TOKEN")
-            else:
-                current_token = connection.get("access_token")
+            current_token = os.environ.get("FACEBOOK_PAGE_ACCESS_TOKEN")
         
         if not current_token:
-            return {"success": False, "error": f"No access token found for {platform}"}
+            return {"success": False, "error": f"No access token found for {platform} in .env file. Please add INSTAGRAM_ACCESS_TOKEN or FACEBOOK_PAGE_ACCESS_TOKEN to your .env configuration."}
         
         # Refresh the token
         result = await self.refresh_meta_token(current_token)
         
-        if result.get("success") and self.db:
-            # Update in database
-            await self.db.social_platform_connections.update_one(
-                {"platform": platform, "status": "connected"},
-                {"$set": {
-                    "access_token": result["access_token"],
-                    "expires_at": result["expires_at"],
-                    "last_refreshed": datetime.now(timezone.utc).isoformat()
-                }}
-            )
-            
-            result["message"] = f"{platform.title()} token refreshed and saved."
+        if result.get("success"):
+            # Token refreshed successfully
+            result["message"] = f"{platform.title()} token refreshed successfully! New token valid for ~60 days."
+            result["instructions"] = f"Update your .env file with the new token: {'INSTAGRAM_ACCESS_TOKEN' if platform == 'instagram' else 'FACEBOOK_PAGE_ACCESS_TOKEN'}={result.get('access_token', '')[:50]}..."
+        else:
+            # Check if token is expired
+            error_msg = result.get("error", "")
+            if "expired" in error_msg.lower():
+                result["error"] = f"Token has expired and cannot be refreshed. You need to generate a NEW token from Facebook Developer Console."
+                result["help_url"] = "https://developers.facebook.com/tools/explorer/"
+                result["instructions"] = [
+                    "1. Go to Facebook Developer Console (Graph API Explorer)",
+                    "2. Select your App",
+                    "3. Generate a new Page Access Token",
+                    "4. Exchange it for a long-lived token (60 days)",
+                    f"5. Update .env with: {'FACEBOOK_PAGE_ACCESS_TOKEN' if platform == 'facebook' else 'INSTAGRAM_ACCESS_TOKEN'}=<new_token>",
+                    "6. Restart the backend service"
+                ]
         
         return result
 
