@@ -2327,122 +2327,151 @@ Sevora Team`
 
       {/* Gmail-style Compose Window */}
       {showCompose && (
-        <div className={`fixed ${composeMinimized ? 'bottom-0 right-4 w-72' : 'bottom-0 right-4 w-[560px]'} bg-white rounded-t-lg shadow-2xl border border-gray-200 z-50`}>
-          {/* Compose Header */}
+        <div 
+          className={`fixed ${composeMinimized ? 'bottom-0 right-6 w-80' : 'bottom-0 right-6 w-[580px]'} bg-white rounded-t-xl shadow-2xl border border-gray-200/80 z-50 transition-all duration-200`}
+          style={{ boxShadow: '0 -4px 32px rgba(0,0,0,0.15)' }}
+        >
+          {/* Compose Header - Dark rounded top */}
           <div 
-            className="flex items-center justify-between px-4 h-10 bg-[#404040] rounded-t-lg cursor-pointer"
+            className="flex items-center justify-between px-4 h-11 bg-[#2d2d2d] rounded-t-xl cursor-pointer select-none"
             onClick={() => setComposeMinimized(!composeMinimized)}
           >
-            <span className="text-white text-sm font-medium">
+            <span className="text-white text-[13px] font-medium tracking-wide">
               {composeMode === 'new' ? 'New Message' : composeMode === 'reply' ? 'Reply' : composeMode === 'replyAll' ? 'Reply All' : 'Forward'}
             </span>
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" className="h-6 w-6 text-white hover:bg-white/20" onClick={(e) => { e.stopPropagation(); setComposeMinimized(!composeMinimized); }}>
-                <ChevronDown className={`h-4 w-4 transition-transform ${composeMinimized ? 'rotate-180' : ''}`} />
+            <div className="flex items-center gap-0.5">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-7 w-7 text-gray-300 hover:text-white hover:bg-white/10 rounded" 
+                onClick={(e) => { e.stopPropagation(); setComposeMinimized(!composeMinimized); }}
+              >
+                <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${composeMinimized ? 'rotate-180' : ''}`} />
               </Button>
-              <Button variant="ghost" size="icon" className="h-6 w-6 text-white hover:bg-white/20" onClick={(e) => { e.stopPropagation(); setShowCompose(false); }}>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-7 w-7 text-gray-300 hover:text-white hover:bg-white/10 rounded" 
+                onClick={(e) => { e.stopPropagation(); setShowCompose(false); }}
+              >
                 <X className="h-4 w-4" />
               </Button>
             </div>
           </div>
 
-          {/* Compose Body */}
+          {/* Compose Body - Only shown when not minimized */}
           {!composeMinimized && (
-            <div className="flex flex-col">
-              {/* To Field */}
-              <div className="flex items-center px-4 py-2 border-b border-gray-200">
-                <span className="text-sm text-[#5f6368] w-12">To</span>
+            <div className="flex flex-col max-h-[70vh] overflow-hidden">
+              {/* To Field - Clean minimal design */}
+              <div className="flex items-center px-4 h-11 border-b border-gray-100 group">
+                <span className="text-[13px] text-gray-500 w-8 font-medium">To</span>
                 <Input
                   value={composeTo}
                   onChange={(e) => setComposeTo(e.target.value)}
                   placeholder="Recipients"
-                  className="flex-1 border-0 focus-visible:ring-0 h-8 text-sm"
+                  className="flex-1 border-0 focus-visible:ring-0 h-9 text-[13px] text-gray-900 placeholder:text-gray-400 bg-transparent px-2"
+                  data-testid="compose-to-input"
                 />
-                <Button variant="ghost" size="sm" className={`text-sm ${showCc ? 'text-blue-600' : 'text-[#5f6368]'}`} onClick={() => setShowCc(!showCc)}>
-                  Cc
-                </Button>
-                <Button variant="ghost" size="sm" className={`text-sm ${showBcc ? 'text-blue-600' : 'text-[#5f6368]'}`} onClick={() => setShowBcc(!showBcc)}>
-                  Bcc
-                </Button>
+                <div className="flex items-center gap-0">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className={`text-[13px] h-8 px-2 font-normal rounded ${showCc ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`} 
+                    onClick={() => setShowCc(!showCc)}
+                  >
+                    Cc
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className={`text-[13px] h-8 px-2 font-normal rounded ${showBcc ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`} 
+                    onClick={() => setShowBcc(!showBcc)}
+                  >
+                    Bcc
+                  </Button>
+                </div>
               </div>
 
-              {/* Cc Field */}
+              {/* Cc Field - Animated slide */}
               {showCc && (
-                <div className="flex items-center px-4 py-2 border-b border-gray-200">
-                  <span className="text-sm text-[#5f6368] w-12">Cc</span>
+                <div className="flex items-center px-4 h-11 border-b border-gray-100 animate-in slide-in-from-top-2 duration-150">
+                  <span className="text-[13px] text-gray-500 w-8 font-medium">Cc</span>
                   <Input
                     value={composeCc}
                     onChange={(e) => setComposeCc(e.target.value)}
-                    placeholder="Cc"
-                    className="flex-1 border-0 focus-visible:ring-0 h-8 text-sm"
+                    placeholder="Recipients"
+                    className="flex-1 border-0 focus-visible:ring-0 h-9 text-[13px] text-gray-900 placeholder:text-gray-400 bg-transparent px-2"
+                    autoFocus
                   />
                 </div>
               )}
 
-              {/* Bcc Field */}
+              {/* Bcc Field - Animated slide */}
               {showBcc && (
-                <div className="flex items-center px-4 py-2 border-b border-gray-200">
-                  <span className="text-sm text-[#5f6368] w-12">Bcc</span>
+                <div className="flex items-center px-4 h-11 border-b border-gray-100 animate-in slide-in-from-top-2 duration-150">
+                  <span className="text-[13px] text-gray-500 w-8 font-medium">Bcc</span>
                   <Input
                     value={composeBcc}
                     onChange={(e) => setComposeBcc(e.target.value)}
-                    placeholder="Bcc (recipients hidden from others)"
-                    className="flex-1 border-0 focus-visible:ring-0 h-8 text-sm"
+                    placeholder="Recipients (hidden from others)"
+                    className="flex-1 border-0 focus-visible:ring-0 h-9 text-[13px] text-gray-900 placeholder:text-gray-400 bg-transparent px-2"
+                    autoFocus
                   />
                 </div>
               )}
 
-              {/* Subject Field */}
-              <div className="flex items-center px-4 py-2 border-b border-gray-200">
+              {/* Subject Field - Clean minimal */}
+              <div className="flex items-center px-4 h-11 border-b border-gray-100">
                 <Input
                   value={composeSubject}
                   onChange={(e) => setComposeSubject(e.target.value)}
                   placeholder="Subject"
-                  className="flex-1 border-0 focus-visible:ring-0 h-8 text-sm"
+                  className="flex-1 border-0 focus-visible:ring-0 h-9 text-[13px] text-gray-900 placeholder:text-gray-400 bg-transparent px-0"
+                  data-testid="compose-subject-input"
                 />
               </div>
 
-              {/* Template Selector - API-backed */}
+              {/* Template Selector Panel - Slide down */}
               {showTemplates && (
-                <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+                <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-b from-gray-50 to-white animate-in slide-in-from-top-2 duration-200">
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-medium text-[#5f6368] uppercase tracking-wide">Email Templates</span>
-                    <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Templates</span>
+                    <div className="flex items-center gap-1">
                       <Button 
-                        variant="outline" 
+                        variant="ghost" 
                         size="sm" 
-                        className="h-7 px-2 text-xs"
+                        className="h-7 px-2 text-xs text-blue-600 hover:bg-blue-50"
                         onClick={() => {
                           setEditingTemplate({ name: '', subject: '', body: '', category: 'general' });
                           setShowTemplateManager(true);
                         }}
                         data-testid="new-template-btn"
                       >
-                        <Plus className="h-3 w-3 mr-1" /> New
+                        <Plus className="h-3 w-3 mr-1" /> Create New
                       </Button>
-                      <Button variant="ghost" size="sm" className="h-6 px-2" onClick={() => setShowTemplates(false)}>
-                        <X className="h-3 w-3" />
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-400 hover:text-gray-600" onClick={() => setShowTemplates(false)}>
+                        <X className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </div>
                   
                   {loadingTemplates ? (
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <div className="flex items-center gap-2 text-xs text-gray-500 py-2">
                       <Loader2 className="h-3 w-3 animate-spin" /> Loading templates...
                     </div>
                   ) : (
-                    <>
-                      {/* API Templates */}
+                    <div className="space-y-3">
+                      {/* User's Templates */}
                       {apiTemplates.length > 0 && (
-                        <div className="mb-3">
-                          <span className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5 block">Your Templates</span>
-                          <div className="flex flex-wrap gap-2">
+                        <div>
+                          <span className="text-[10px] text-gray-400 uppercase tracking-wider mb-2 block">Your Templates</span>
+                          <div className="flex flex-wrap gap-1.5">
                             {apiTemplates.map((template) => (
                               <div key={template.id} className="group relative">
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="text-xs h-7 pr-7 bg-white"
+                                  className="text-xs h-7 pr-6 bg-white hover:bg-gray-50 border-gray-200 text-gray-700"
                                   onClick={() => applyTemplate(template)}
                                   data-testid={`template-${template.id}`}
                                 >
@@ -2453,12 +2482,12 @@ Sevora Team`
                                     <Button 
                                       variant="ghost" 
                                       size="sm" 
-                                      className="h-7 w-6 p-0 absolute right-0 top-0 opacity-0 group-hover:opacity-100"
+                                      className="h-7 w-5 p-0 absolute right-0.5 top-0 opacity-0 group-hover:opacity-100 transition-opacity"
                                     >
-                                      <MoreVertical className="h-3 w-3" />
+                                      <MoreVertical className="h-3 w-3 text-gray-400" />
                                     </Button>
                                   </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
+                                  <DropdownMenuContent align="end" className="bg-white min-w-[120px]">
                                     <DropdownMenuItem onClick={() => {
                                       setEditingTemplate(template);
                                       setShowTemplateManager(true);
@@ -2479,16 +2508,16 @@ Sevora Team`
                         </div>
                       )}
                       
-                      {/* Default Templates */}
+                      {/* Quick Templates */}
                       <div>
-                        <span className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5 block">Quick Templates</span>
-                        <div className="flex flex-wrap gap-2">
+                        <span className="text-[10px] text-gray-400 uppercase tracking-wider mb-2 block">Quick Templates</span>
+                        <div className="flex flex-wrap gap-1.5">
                           {EMAIL_TEMPLATES.map((template) => (
                             <Button
                               key={template.id}
                               variant="outline"
                               size="sm"
-                              className="text-xs h-7 bg-gray-100 border-gray-200 text-gray-600"
+                              className="text-xs h-7 bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
                               onClick={() => applyTemplate(template)}
                               data-testid={`default-template-${template.id}`}
                             >
@@ -2497,89 +2526,88 @@ Sevora Team`
                           ))}
                         </div>
                       </div>
-                    </>
+                    </div>
                   )}
                 </div>
               )}
               
-              {/* Signature Manager - API-backed */}
+              {/* Signature Panel - Slide down */}
               {showSignatureEditor && (
-                <div className="px-4 py-3 border-b border-gray-200 bg-blue-50">
+                <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-b from-blue-50/50 to-white animate-in slide-in-from-top-2 duration-200">
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-medium text-[#5f6368] uppercase tracking-wide">Email Signatures</span>
-                    <Button variant="ghost" size="sm" className="h-6 px-2" onClick={() => setShowSignatureEditor(false)}>
-                      <X className="h-3 w-3" />
+                    <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Signatures</span>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-400 hover:text-gray-600" onClick={() => setShowSignatureEditor(false)}>
+                      <X className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                   
                   {loadingSignatures ? (
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <div className="flex items-center gap-2 text-xs text-gray-500 py-2">
                       <Loader2 className="h-3 w-3 animate-spin" /> Loading signatures...
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {/* Existing Signatures List */}
+                      {/* Existing Signatures */}
                       {signatures.length > 0 && (
-                        <div className="space-y-2">
-                          <span className="text-[10px] text-gray-500 uppercase tracking-wide">Select Signature</span>
-                          <div className="flex flex-wrap gap-2">
-                            {signatures.map((sig) => (
-                              <div key={sig.id} className="group relative">
-                                <Button
-                                  variant={activeSignatureId === sig.id ? "default" : "outline"}
-                                  size="sm"
-                                  className={`text-xs h-7 pr-7 ${activeSignatureId === sig.id ? 'bg-blue-600' : ''}`}
-                                  onClick={() => selectSignature(sig)}
-                                >
-                                  {sig.name} {sig.is_default && <Star className="h-2.5 w-2.5 ml-1 fill-current" />}
-                                </Button>
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm" 
-                                      className="h-7 w-6 p-0 absolute right-0 top-0 opacity-0 group-hover:opacity-100"
-                                    >
-                                      <MoreVertical className="h-3 w-3" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => setEditingSignature(sig)}>
-                                      <PenSquare className="h-3 w-3 mr-2" /> Edit
+                        <div className="flex flex-wrap gap-1.5">
+                          {signatures.map((sig) => (
+                            <div key={sig.id} className="group relative">
+                              <Button
+                                variant={activeSignatureId === sig.id ? "default" : "outline"}
+                                size="sm"
+                                className={`text-xs h-7 pr-6 ${activeSignatureId === sig.id ? 'bg-blue-600 hover:bg-blue-700' : 'bg-white border-gray-200'}`}
+                                onClick={() => selectSignature(sig)}
+                              >
+                                {sig.name} {sig.is_default && <Star className="h-2.5 w-2.5 ml-1 fill-current" />}
+                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="h-7 w-5 p-0 absolute right-0.5 top-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    <MoreVertical className="h-3 w-3" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="bg-white">
+                                  <DropdownMenuItem onClick={() => setEditingSignature(sig)}>
+                                    <PenSquare className="h-3 w-3 mr-2" /> Edit
+                                  </DropdownMenuItem>
+                                  {!sig.is_default && (
+                                    <DropdownMenuItem onClick={() => updateSignature(sig.id, { ...sig, is_default: true })}>
+                                      <Star className="h-3 w-3 mr-2" /> Set as Default
                                     </DropdownMenuItem>
-                                    {!sig.is_default && (
-                                      <DropdownMenuItem onClick={() => updateSignature(sig.id, { ...sig, is_default: true })}>
-                                        <Star className="h-3 w-3 mr-2" /> Set as Default
-                                      </DropdownMenuItem>
-                                    )}
-                                    <DropdownMenuItem 
-                                      className="text-red-600"
-                                      onClick={() => deleteSignature(sig.id)}
-                                    >
-                                      <Trash2 className="h-3 w-3 mr-2" /> Delete
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </div>
-                            ))}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs h-7 border-dashed"
-                              onClick={() => setEditingSignature({ name: '', content: '', is_default: false })}
-                            >
-                              <Plus className="h-3 w-3 mr-1" /> New
-                            </Button>
-                          </div>
+                                  )}
+                                  <DropdownMenuItem 
+                                    className="text-red-600"
+                                    onClick={() => deleteSignature(sig.id)}
+                                  >
+                                    <Trash2 className="h-3 w-3 mr-2" /> Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          ))}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs h-7 border-dashed text-gray-500"
+                            onClick={() => setEditingSignature({ name: '', content: '', is_default: false })}
+                          >
+                            <Plus className="h-3 w-3 mr-1" /> New
+                          </Button>
                         </div>
                       )}
                       
-                      {/* No Signatures - Create First */}
+                      {/* No Signatures */}
                       {signatures.length === 0 && !editingSignature && (
-                        <div className="text-center py-4">
-                          <p className="text-sm text-gray-500 mb-2">No signatures yet</p>
+                        <div className="text-center py-3">
+                          <p className="text-xs text-gray-500 mb-2">No signatures yet</p>
                           <Button
                             size="sm"
+                            variant="outline"
+                            className="text-xs"
                             onClick={() => setEditingSignature({ name: '', content: '', is_default: true })}
                           >
                             <Plus className="h-3 w-3 mr-1" /> Create Signature
@@ -2587,115 +2615,107 @@ Sevora Team`
                         </div>
                       )}
                       
-                      {/* Signature Editor */}
+                      {/* Signature Editor Inline */}
                       {editingSignature && (
-                        <div className="border rounded-lg p-3 bg-white">
+                        <div className="border rounded-lg p-3 bg-white space-y-2">
                           <Input
                             value={editingSignature.name}
                             onChange={(e) => setEditingSignature({ ...editingSignature, name: e.target.value })}
-                            placeholder="Signature name (e.g., Professional, Casual)"
-                            className="mb-2 h-8 text-sm"
+                            placeholder="Signature name"
+                            className="h-8 text-xs"
                           />
                           <Textarea
                             value={editingSignature.content}
                             onChange={(e) => setEditingSignature({ ...editingSignature, content: e.target.value })}
-                            placeholder="Enter your signature...&#10;Example:&#10;Best regards,&#10;John Doe&#10;Marketing Manager | Sevora"
-                            className="min-h-[80px] text-sm mb-2"
+                            placeholder="Your signature..."
+                            className="min-h-[60px] text-xs resize-none"
                           />
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              id="sig-default"
-                              checked={editingSignature.is_default}
-                              onCheckedChange={(checked) => setEditingSignature({ ...editingSignature, is_default: checked })}
-                            />
-                            <label htmlFor="sig-default" className="text-xs text-gray-600">Set as default</label>
-                          </div>
-                          <div className="flex items-center gap-2 mt-3">
-                            <Button 
-                              size="sm" 
-                              onClick={async () => {
-                                if (!editingSignature.name.trim()) {
-                                  toast.error('Please enter a signature name');
-                                  return;
-                                }
-                                if (editingSignature.id) {
-                                  await updateSignature(editingSignature.id, editingSignature);
-                                } else {
-                                  await createSignature(editingSignature);
-                                }
-                                setEditingSignature(null);
-                              }}
-                            >
-                              <Check className="h-3 w-3 mr-1" /> {editingSignature.id ? 'Update' : 'Save'}
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={() => setEditingSignature(null)}>
-                              Cancel
-                            </Button>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                id="sig-default"
+                                checked={editingSignature.is_default}
+                                onCheckedChange={(checked) => setEditingSignature({ ...editingSignature, is_default: checked })}
+                              />
+                              <label htmlFor="sig-default" className="text-xs text-gray-600">Set as default</label>
+                            </div>
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setEditingSignature(null)}>
+                                Cancel
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                className="h-7 text-xs bg-blue-600 hover:bg-blue-700"
+                                onClick={async () => {
+                                  if (!editingSignature.name.trim()) {
+                                    toast.error('Please enter a signature name');
+                                    return;
+                                  }
+                                  if (editingSignature.id) {
+                                    await updateSignature(editingSignature.id, editingSignature);
+                                  } else {
+                                    await createSignature(editingSignature);
+                                  }
+                                  setEditingSignature(null);
+                                }}
+                              >
+                                <Check className="h-3 w-3 mr-1" /> Save
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       )}
                       
                       {/* Signature Toggle */}
-                      <div className="flex items-center gap-2 pt-2 border-t">
+                      <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
                         <Checkbox
                           id="sig-enabled"
                           checked={signatureEnabled}
                           onCheckedChange={setSignatureEnabled}
                         />
-                        <label htmlFor="sig-enabled" className="text-xs text-gray-600">Append signature to emails</label>
+                        <label htmlFor="sig-enabled" className="text-xs text-gray-500">Append signature to emails</label>
                       </div>
                     </div>
                   )}
                 </div>
               )}
               
-              {/* Schedule Email */}
+              {/* Schedule Panel - Slide down */}
               {showScheduler && (
-                <div className="px-4 py-3 border-b border-gray-200 bg-amber-50">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-medium text-[#5f6368] uppercase tracking-wide">Schedule Send</span>
-                    <Button variant="ghost" size="sm" className="h-6 px-2" onClick={() => setShowScheduler(false)}>
-                      <X className="h-3 w-3" />
+                <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-b from-amber-50/50 to-white animate-in slide-in-from-top-2 duration-200">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Schedule Send</span>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-400 hover:text-gray-600" onClick={() => setShowScheduler(false)}>
+                      <X className="h-3.5 w-3.5" />
                     </Button>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <label className="text-xs text-[#5f6368] block mb-1">Date</label>
-                      <Input
-                        type="date"
-                        value={scheduledDate}
-                        onChange={(e) => setScheduledDate(e.target.value)}
-                        min={new Date().toISOString().split('T')[0]}
-                        className="h-8 text-sm w-40"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-[#5f6368] block mb-1">Time</label>
-                      <Input
-                        type="time"
-                        value={scheduledTime}
-                        onChange={(e) => setScheduledTime(e.target.value)}
-                        className="h-8 text-sm w-32"
-                      />
-                    </div>
-                    {scheduledDate && scheduledTime && (
-                      <div className="pt-4">
-                        <Badge variant="outline" className="bg-amber-100 text-amber-800">
-                          <CalendarClock className="h-3 w-3 mr-1" />
-                          {format(new Date(`${scheduledDate}T${scheduledTime}`), 'MMM d, h:mm a')}
-                        </Badge>
-                      </div>
-                    )}
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="date"
+                      value={scheduledDate}
+                      onChange={(e) => setScheduledDate(e.target.value)}
+                      className="flex-1 h-8 text-xs"
+                      min={new Date().toISOString().split('T')[0]}
+                    />
+                    <Input
+                      type="time"
+                      value={scheduledTime}
+                      onChange={(e) => setScheduledTime(e.target.value)}
+                      className="w-28 h-8 text-xs"
+                    />
                   </div>
-                  <p className="text-xs text-[#5f6368] mt-2">
-                    Note: Email will be saved as draft with scheduled time. You'll need to manually send at the scheduled time.
-                  </p>
+                  {scheduledDate && scheduledTime && (
+                    <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
+                      <CalendarClock className="h-3 w-3" />
+                      Will send on {new Date(`${scheduledDate}T${scheduledTime}`).toLocaleString()}
+                    </p>
+                  )}
                 </div>
               )}
 
-              {/* Rich Text Formatting Toolbar */}
+              {/* Formatting Toolbar - Only if rich text enabled */}
               {useRichText && (
-                <div className="flex items-center gap-1 px-4 py-2 border-b border-gray-200 bg-gray-50">
+                <div className="flex items-center gap-1 px-4 py-2 border-b border-gray-100 bg-gray-50/50">
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -2726,17 +2746,7 @@ Sevora Team`
                       <TooltipContent>Underline (Ctrl+U)</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
-                  <div className="w-px h-5 bg-gray-300 mx-1" />
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={insertLink}>
-                          <Link className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Insert Link</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <div className="w-px h-5 bg-gray-200 mx-1" />
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -2760,39 +2770,42 @@ Sevora Team`
                 </div>
               )}
 
-              {/* Body - Rich Text or Plain */}
-              {useRichText ? (
-                <div
-                  ref={editorRef}
-                  contentEditable
-                  className="min-h-[200px] border-0 focus:outline-none resize-none text-sm p-4 prose prose-sm max-w-none"
-                  style={{ whiteSpace: 'pre-wrap' }}
-                  onInput={(e) => setComposeBody(e.currentTarget.textContent || '')}
-                  dangerouslySetInnerHTML={{ __html: composeBody.replace(/\n/g, '<br>') }}
-                  data-testid="rich-text-editor"
-                />
-              ) : (
-                <Textarea
-                  value={composeBody}
-                  onChange={(e) => setComposeBody(e.target.value)}
-                  placeholder="Compose email"
-                  className="min-h-[200px] border-0 focus-visible:ring-0 resize-none text-sm p-4"
-                />
-              )}
+              {/* Email Body - Clean compose area */}
+              <div className="flex-1 overflow-y-auto">
+                {useRichText ? (
+                  <div
+                    ref={editorRef}
+                    contentEditable
+                    className="min-h-[180px] h-full focus:outline-none resize-none text-[13px] text-gray-800 px-4 py-3 leading-relaxed"
+                    style={{ whiteSpace: 'pre-wrap' }}
+                    onInput={(e) => setComposeBody(e.currentTarget.textContent || '')}
+                    dangerouslySetInnerHTML={{ __html: composeBody.replace(/\n/g, '<br>') }}
+                    data-testid="rich-text-editor"
+                  />
+                ) : (
+                  <Textarea
+                    value={composeBody}
+                    onChange={(e) => setComposeBody(e.target.value)}
+                    placeholder="Compose email"
+                    className="min-h-[180px] h-full border-0 focus-visible:ring-0 resize-none text-[13px] text-gray-800 px-4 py-3 placeholder:text-gray-400 leading-relaxed"
+                    data-testid="compose-body-input"
+                  />
+                )}
+              </div>
 
-              {/* Attachments Preview */}
+              {/* Attachments Preview - Clean chips */}
               {attachments.length > 0 && (
-                <div className="px-4 py-2 border-t border-gray-200 bg-gray-50">
+                <div className="px-4 py-2.5 border-t border-gray-100 bg-gray-50/50">
                   <div className="flex flex-wrap gap-2">
                     {attachments.map((att, i) => (
-                      <div key={i} className="flex items-center gap-2 px-2 py-1 bg-white border border-gray-200 rounded-lg text-sm">
-                        <Paperclip className="h-3 w-3 text-[#5f6368]" />
-                        <span className="text-[#202124] max-w-[150px] truncate">{att.name}</span>
-                        <span className="text-xs text-[#5f6368]">({formatFileSize(att.size)})</span>
+                      <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs group hover:border-gray-300 transition-colors">
+                        <Paperclip className="h-3 w-3 text-gray-400" />
+                        <span className="text-gray-700 max-w-[120px] truncate">{att.name}</span>
+                        <span className="text-gray-400">({formatFileSize(att.size)})</span>
                         <Button 
                           variant="ghost" 
                           size="icon" 
-                          className="h-5 w-5 hover:bg-red-100" 
+                          className="h-4 w-4 p-0 opacity-50 group-hover:opacity-100 hover:bg-red-100 rounded-full transition-opacity" 
                           onClick={() => removeAttachment(i)}
                         >
                           <X className="h-3 w-3 text-red-500" />
@@ -2803,121 +2816,139 @@ Sevora Team`
                 </div>
               )}
 
-              {/* Compose Footer */}
-              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
-                <div className="flex items-center gap-2">
+              {/* Compose Footer - Clean Gmail-style toolbar */}
+              <div className="flex items-center justify-between px-3 py-2.5 border-t border-gray-100 bg-white rounded-b-none">
+                <div className="flex items-center gap-0.5">
+                  {/* Send Button - Primary action */}
                   <Button
                     onClick={handleSend}
                     disabled={sending}
-                    className="bg-[#0b57d0] hover:bg-[#0842a0] text-white rounded-full px-6"
+                    className="bg-[#0b57d0] hover:bg-[#0842a0] text-white rounded-full h-9 px-5 text-[13px] font-medium shadow-sm"
                     data-testid="send-email-btn"
                   >
-                    {sending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    {sending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
                     Send
                   </Button>
                   
-                  {/* Attachment Button */}
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => fileInputRef.current?.click()}
-                          data-testid="attach-file-btn"
-                        >
-                          <Paperclip className="h-5 w-5 text-[#5f6368]" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Attach files (max 3MB each)</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  
-                  {/* Templates Button */}
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => setShowTemplates(!showTemplates)}
-                          className={showTemplates ? 'bg-blue-100' : ''}
-                          data-testid="templates-btn"
-                        >
-                          <FileText className="h-5 w-5 text-[#5f6368]" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Email templates</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  
-                  {/* Signature Button */}
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => setShowSignatureEditor(!showSignatureEditor)}
-                          className={showSignatureEditor ? 'bg-blue-100' : ''}
-                          data-testid="signature-btn"
-                        >
-                          <PenSquare className="h-5 w-5 text-[#5f6368]" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>{emailSignature ? 'Edit signature' : 'Add signature'}</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  
-                  {/* Schedule Send Button */}
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => setShowScheduler(!showScheduler)}
-                          className={showScheduler ? 'bg-amber-100' : ''}
-                          data-testid="schedule-btn"
-                        >
-                          <CalendarClock className="h-5 w-5 text-[#5f6368]" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Schedule send</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  
-                  {/* Email Tracking Toggle */}
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => setEnableTracking(!enableTracking)}
-                          className={enableTracking ? 'bg-green-100' : ''}
-                          data-testid="tracking-btn"
-                        >
-                          <BarChart3 className="h-5 w-5 text-[#5f6368]" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>{enableTracking ? 'Tracking enabled' : 'Enable tracking'}</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  
-                  {/* Hidden file input */}
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileSelect}
-                    multiple
-                    className="hidden"
-                    accept="*/*"
-                  />
+                  <div className="flex items-center ml-2">
+                    {/* Attachment */}
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            className="h-9 w-9 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                            onClick={() => fileInputRef.current?.click()}
+                            data-testid="attach-file-btn"
+                          >
+                            <Paperclip className="h-[18px] w-[18px]" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Attach files</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    
+                    {/* Templates */}
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            className={`h-9 w-9 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 ${showTemplates ? 'bg-blue-50 text-blue-600' : ''}`}
+                            onClick={() => setShowTemplates(!showTemplates)}
+                            data-testid="templates-btn"
+                          >
+                            <FileText className="h-[18px] w-[18px]" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Insert template</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    
+                    {/* Signature */}
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            className={`h-9 w-9 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 ${showSignatureEditor ? 'bg-blue-50 text-blue-600' : ''}`}
+                            onClick={() => setShowSignatureEditor(!showSignatureEditor)}
+                            data-testid="signature-btn"
+                          >
+                            <PenSquare className="h-[18px] w-[18px]" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Insert signature</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    
+                    {/* Schedule */}
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            className={`h-9 w-9 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 ${showScheduler ? 'bg-amber-50 text-amber-600' : ''}`}
+                            onClick={() => setShowScheduler(!showScheduler)}
+                            data-testid="schedule-btn"
+                          >
+                            <CalendarClock className="h-[18px] w-[18px]" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Schedule send</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    
+                    {/* Tracking */}
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            className={`h-9 w-9 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 ${enableTracking ? 'bg-green-50 text-green-600' : ''}`}
+                            onClick={() => setEnableTracking(!enableTracking)}
+                            data-testid="tracking-btn"
+                          >
+                            <BarChart3 className="h-[18px] w-[18px]" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{enableTracking ? 'Tracking enabled' : 'Enable tracking'}</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => setShowCompose(false)}>
-                  <Trash2 className="h-5 w-5 text-[#5f6368]" />
-                </Button>
+                
+                {/* Delete/Discard */}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-9 w-9 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50"
+                        onClick={() => setShowCompose(false)}
+                      >
+                        <Trash2 className="h-[18px] w-[18px]" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Discard draft</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                
+                {/* Hidden file input */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileSelect}
+                  multiple
+                  className="hidden"
+                  accept="*/*"
+                />
               </div>
             </div>
           )}
