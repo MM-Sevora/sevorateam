@@ -37,9 +37,9 @@ def get_current_user_dep():
 
 async def get_azure_ad_access_token():
     """Get access token for Microsoft Graph API using client credentials"""
-    tenant_id = os.environ.get("AZURE_AD_TENANT_ID")
-    client_id = os.environ.get("AZURE_AD_CLIENT_ID")
-    client_secret = os.environ.get("AZURE_AD_CLIENT_SECRET")
+    tenant_id = os.environ.get("AZURE_TENANT_ID")
+    client_id = os.environ.get("AZURE_CLIENT_ID")
+    client_secret = os.environ.get("AZURE_CLIENT_SECRET")
     
     if not all([tenant_id, client_id, client_secret]):
         return None

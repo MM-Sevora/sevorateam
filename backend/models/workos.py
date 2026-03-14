@@ -144,6 +144,12 @@ class UserEnhancedResponse(BaseModel):
     phone: Optional[str] = None
     avatar_url: Optional[str] = None
     
+    # Azure AD License fields
+    has_azure_license: Optional[bool] = None
+    azure_licenses: Optional[List[str]] = None
+    azure_license_count: Optional[int] = None
+    azure_synced_at: Optional[str] = None
+    
     # Metadata
     last_login: Optional[str] = None
     created_at: Optional[str] = None
