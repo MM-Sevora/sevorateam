@@ -148,6 +148,55 @@ async def submit_expense_claim(
     }
     await db.notifications.insert_one(notification_doc)
     
+    # Create approval task in unified_tasks for HR/Finance team
+    # Find HR manager or finance approver
+    hr_approver = await db.users.find_one(
+        {"$or": [{"role": "admin"}, {"department": {"$in": ["hr", "finance"]}}]},
+        {"_id": 0, "id": 1, "name": 1}
+    )
+    
+    if hr_approver:
+        approval_task = {
+            "id": str(uuid.uuid4()),
+            "title": f"Approve Expense Claim {claim_id} - ₹{total_amount:,.2f}",
+            "description": f"{emp_details.get('employee_name', 'Employee')} has submitted an expense claim with {len(data.entries)} item(s) totaling ₹{total_amount:,.2f}.\n\nNotes: {data.notes or 'None'}",
+            "assigned_to": hr_approver.get("id"),
+            "assigned_to_name": hr_approver.get("name"),
+            "priority": "high" if total_amount > 10000 else "medium",
+            "due_date": None,
+            "status": "pending",
+            "source_module": "finance",
+            "source_entity_type": "expense",
+            "source_entity_id": claim_doc["id"],
+            "related_url": f"/hr/expenses/{claim_doc['id']}",
+            "tags": ["finance", "expense", "approval"],
+            "task_type": "approval",
+            "requires_approval": True,
+            "approver_id": hr_approver.get("id"),
+            "approval_type": "expense",
+            "approval_status": "pending",
+            "created_by": user.get("id"),
+            "created_by_name": user.get("name"),
+            "created_at": now,
+            "updated_at": now
+        }
+        await db.unified_tasks.insert_one(approval_task)
+        
+        # Create in-app notification for approver
+        await db.notifications.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": hr_approver.get("id"),
+            "title": "New Expense Claim for Approval",
+            "message": f"{user.get('name')} submitted expense claim {claim_id} (₹{total_amount:,.2f})",
+            "category": "tasks",
+            "priority": "high",
+            "entity_type": "task",
+            "entity_id": approval_task["id"],
+            "action_url": "/unified-tasks?filter=approvals",
+            "is_read": False,
+            "created_at": now
+        })
+    
     # Send email notification to HR (in background)
     async def send_hr_email():
         try:
@@ -366,6 +415,20 @@ async def approve_claim(
     
     await db.expense_claims.update_one({"id": claim["id"]}, {"$set": update_data})
     
+    # Mark the unified approval task as completed
+    await db.unified_tasks.update_one(
+        {"source_entity_id": claim["id"], "source_entity_type": "expense", "task_type": "approval"},
+        {"$set": {
+            "status": "completed",
+            "approval_status": "approved",
+            "completed_at": now,
+            "completed_by": user.get("id"),
+            "completed_by_name": user.get("name"),
+            "completion_notes": hr_notes,
+            "updated_at": now
+        }}
+    )
+    
     # Notify employee via in-app notification
     notification_doc = {
         "id": str(uuid.uuid4()),
@@ -373,7 +436,7 @@ async def approve_claim(
         "type": "expense_approved",
         "title": f"Expense Claim Approved - {claim.get('claim_id')}",
         "message": f"Your expense claim of ₹{final_approved_amount:,.2f} has been approved.",
-        "link": f"/hr/expenses/my",
+        "link": "/hr/expenses/my",
         "read": False,
         "created_at": now
     }
@@ -437,6 +500,20 @@ async def reject_claim(
     
     await db.expense_claims.update_one({"id": claim["id"]}, {"$set": update_data})
     
+    # Mark the unified approval task as rejected
+    await db.unified_tasks.update_one(
+        {"source_entity_id": claim["id"], "source_entity_type": "expense", "task_type": "approval"},
+        {"$set": {
+            "status": "cancelled",
+            "approval_status": "rejected",
+            "completed_at": now,
+            "completed_by": user.get("id"),
+            "completed_by_name": user.get("name"),
+            "completion_notes": f"Rejected: {rejection_reason}",
+            "updated_at": now
+        }}
+    )
+    
     # Notify employee via in-app notification
     notification_doc = {
         "id": str(uuid.uuid4()),
@@ -444,7 +521,7 @@ async def reject_claim(
         "type": "expense_rejected",
         "title": f"Expense Claim Rejected - {claim.get('claim_id')}",
         "message": f"Your expense claim has been rejected. Reason: {rejection_reason}",
-        "link": f"/hr/expenses/my",
+        "link": "/hr/expenses/my",
         "read": False,
         "created_at": now
     }
