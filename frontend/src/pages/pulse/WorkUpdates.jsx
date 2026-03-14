@@ -276,39 +276,46 @@ export default function WorkUpdates() {
     };
 
     const updateItemText = (field, index, text) => {
-        const updated = [...formData[field]];
-        updated[index] = { ...updated[index], text };
-        setFormData({ ...formData, [field]: updated });
+        setFormData(prev => {
+            const updated = [...prev[field]];
+            updated[index] = { ...updated[index], text };
+            return { ...prev, [field]: updated };
+        });
     };
 
     const setItemLink = (field, index, item) => {
-        const updated = [...formData[field]];
-        updated[index] = {
-            ...updated[index],
-            linked_item: item ? {
-                item_type: item.item_type,
-                item_id: item.item_id,
-                item_name: item.item_name,
-                project_id: item.project_id,
-                project_name: item.project_name,
-            } : null,
-        };
-        // Don't auto-fill text - let user type their own description
-        setFormData({ ...formData, [field]: updated });
+        setFormData(prev => {
+            const updated = [...prev[field]];
+            updated[index] = {
+                ...updated[index],
+                linked_item: item ? {
+                    item_type: item.item_type,
+                    item_id: item.item_id,
+                    item_name: item.item_name,
+                    project_id: item.project_id,
+                    project_name: item.project_name,
+                } : null,
+            };
+            return { ...prev, [field]: updated };
+        });
     };
 
     const removeItem = (field, index) => {
-        const updated = formData[field].filter((_, i) => i !== index);
-        setFormData({
-            ...formData,
-            [field]: updated.length ? updated : [{ text: '', linked_item: null }]
+        setFormData(prev => {
+            const updated = prev[field].filter((_, i) => i !== index);
+            return {
+                ...prev,
+                [field]: updated.length ? updated : [{ text: '', linked_item: null }]
+            };
         });
     };
 
     const clearItemLink = (field, index) => {
-        const updated = [...formData[field]];
-        updated[index] = { ...updated[index], linked_item: null };
-        setFormData({ ...formData, [field]: updated });
+        setFormData(prev => {
+            const updated = [...prev[field]];
+            updated[index] = { ...updated[index], linked_item: null };
+            return { ...prev, [field]: updated };
+        });
     };
 
     const getInitials = (name) => {
@@ -335,17 +342,39 @@ export default function WorkUpdates() {
             item.project_name?.toLowerCase().includes(searchQuery.toLowerCase())
         );
 
+        const handleTextChange = (idx, value) => {
+            updateItemText(field, idx, value);
+        };
+
+        const handleLinkSelect = (idx, linkItem) => {
+            setItemLink(field, idx, linkItem);
+            setOpenPopover(null);
+            setSearchQuery('');
+        };
+
+        const handleClearLink = (idx) => {
+            clearItemLink(field, idx);
+        };
+
+        const handleRemove = (idx) => {
+            removeItem(field, idx);
+        };
+
+        const handleAdd = () => {
+            addItem(field);
+        };
+
         return (
             <div className="space-y-2">
                 {items.map((item, idx) => (
-                    <div key={idx} className="group">
+                    <div key={`${field}-${idx}`} className="group">
                         <div className="flex items-start gap-2 p-2 rounded-lg border border-[#E8D5C4] bg-white hover:border-[#D4BBA6] transition-all">
                             <Icon className={`w-4 h-4 mt-2.5 ${iconColor} flex-shrink-0`} />
                             <div className="flex-1 space-y-1 min-w-0">
                                 <input
                                     type="text"
                                     value={item.text || ''}
-                                    onChange={(e) => updateItemText(field, idx, e.target.value)}
+                                    onChange={(e) => handleTextChange(idx, e.target.value)}
                                     placeholder={placeholder}
                                     className="w-full h-8 bg-transparent outline-none text-[#4A3728] placeholder:text-[#A89888]"
                                 />
@@ -360,7 +389,7 @@ export default function WorkUpdates() {
                                             )}
                                             <span className="max-w-[150px] truncate">{item.linked_item.item_name}</span>
                                             <button 
-                                                onClick={() => clearItemLink(field, idx)}
+                                                onClick={() => handleClearLink(idx)}
                                                 className="hover:bg-blue-100 rounded p-0.5 ml-1"
                                             >
                                                 <X className="w-3 h-3" />
@@ -415,11 +444,7 @@ export default function WorkUpdates() {
                                                 filteredItems.map((linkItem) => (
                                                     <button
                                                         key={`${linkItem.item_type}-${linkItem.item_id}`}
-                                                        onClick={() => {
-                                                            setItemLink(field, idx, linkItem);
-                                                            setOpenPopover(null);
-                                                            setSearchQuery('');
-                                                        }}
+                                                        onClick={() => handleLinkSelect(idx, linkItem)}
                                                         className="w-full text-left p-2 rounded hover:bg-[#F5EBE0] flex items-start gap-2"
                                                     >
                                                         {linkItem.item_type === 'task' ? (
@@ -446,7 +471,7 @@ export default function WorkUpdates() {
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => removeItem(field, idx)}
+                                    onClick={() => handleRemove(idx)}
                                     className="h-9 w-9 p-0 text-[#8B7355] hover:text-red-600 hover:bg-red-50"
                                 >
                                     <Trash2 className="w-4 h-4" />
@@ -458,7 +483,7 @@ export default function WorkUpdates() {
                 <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => addItem(field)}
+                    onClick={handleAdd}
                     className="w-full text-[#6B5D52] border-dashed border-[#D4BBA6] hover:bg-[#F5EBE0]"
                 >
                     <Plus className="w-4 h-4 mr-1" /> Add item
