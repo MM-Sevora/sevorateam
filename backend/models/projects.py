@@ -187,11 +187,14 @@ class TaskCreate(BaseModel):
     priority: Priority = Priority.MEDIUM
     due_date: Optional[str] = None
     estimated_hours: Optional[float] = None
+    story_points: Optional[int] = None  # For sprint planning
     tags: List[str] = []
     parent_task_id: Optional[str] = None  # For subtasks
     blocked_by: List[str] = []  # Task IDs that block this task
     blocks: List[str] = []  # Task IDs that this task blocks
     external_links: List[ExternalLink] = []  # External URLs/documents
+    sprint_id: Optional[str] = None  # Sprint this task belongs to
+    milestone_id: Optional[str] = None  # Milestone this task is linked to
     # Recurrence fields
     is_recurring: bool = False
     recurrence_pattern: Optional[str] = None  # daily, weekly, monthly, custom
@@ -209,10 +212,13 @@ class TaskUpdate(BaseModel):
     due_date: Optional[str] = None
     estimated_hours: Optional[float] = None
     actual_hours: Optional[float] = None
+    story_points: Optional[int] = None  # For sprint planning
     tags: Optional[List[str]] = None
     blocked_by: Optional[List[str]] = None
     blocks: Optional[List[str]] = None
     external_links: Optional[List[ExternalLink]] = None
+    sprint_id: Optional[str] = None  # Sprint this task belongs to
+    milestone_id: Optional[str] = None  # Milestone this task is linked to
     # Recurrence fields
     is_recurring: Optional[bool] = None
     recurrence_pattern: Optional[str] = None
@@ -238,6 +244,7 @@ class TaskResponse(BaseModel):
     due_date: Optional[str] = None
     estimated_hours: Optional[float] = None
     actual_hours: Optional[float] = None
+    story_points: Optional[int] = None  # For sprint planning
     tags: List[str] = []
     labels: List[Dict] = []  # List of {id, name, color}
     parent_task_id: Optional[str] = None
@@ -247,6 +254,14 @@ class TaskResponse(BaseModel):
     blocks_names: List[str] = []  # Names of tasks this blocks
     is_blocked: bool = False  # True if any blocking task is incomplete
     is_individual: bool = False  # True if not linked to any project
+    # Sprint & Milestone
+    sprint_id: Optional[str] = None
+    sprint_name: Optional[str] = None
+    milestone_id: Optional[str] = None
+    milestone_name: Optional[str] = None
+    # Watchers
+    watchers: List[str] = []  # User IDs watching this task
+    watcher_count: int = 0
     # Recurrence fields
     is_recurring: bool = False
     recurrence_pattern: Optional[str] = None
@@ -715,3 +730,183 @@ class GeneratedTaskInfo(BaseModel):
     due_date: Optional[str] = None
     assigned_to_name: Optional[str] = None
     generated_at: str
+
+
+
+# ============== MILESTONE MODELS ==============
+
+class MilestoneStatus(str, Enum):
+    UPCOMING = "upcoming"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    MISSED = "missed"
+
+
+class MilestoneCreate(BaseModel):
+    """Create a project milestone"""
+    project_id: str
+    name: str
+    description: Optional[str] = None
+    due_date: str
+    linked_task_ids: List[str] = []  # Tasks that must be completed for milestone
+
+
+class MilestoneUpdate(BaseModel):
+    """Update a milestone"""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    due_date: Optional[str] = None
+    status: Optional[MilestoneStatus] = None
+    linked_task_ids: Optional[List[str]] = None
+    completion_notes: Optional[str] = None
+
+
+class MilestoneResponse(BaseModel):
+    """Milestone response"""
+    id: str
+    project_id: str
+    project_name: Optional[str] = None
+    name: str
+    description: Optional[str] = None
+    due_date: str
+    status: MilestoneStatus = MilestoneStatus.UPCOMING
+    linked_task_ids: List[str] = []
+    linked_tasks_count: int = 0
+    linked_tasks_completed: int = 0
+    progress: float = 0.0
+    completion_notes: Optional[str] = None
+    completed_at: Optional[str] = None
+    completed_by: Optional[str] = None
+    completed_by_name: Optional[str] = None
+    created_by: Optional[str] = None
+    created_by_name: Optional[str] = None
+    created_at: str
+    updated_at: str
+
+
+# ============== SPRINT MODELS ==============
+
+class SprintStatus(str, Enum):
+    PLANNING = "planning"
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+
+class SprintCreate(BaseModel):
+    """Create a sprint/iteration"""
+    project_id: str
+    name: str
+    goal: Optional[str] = None
+    start_date: str
+    end_date: str
+
+
+class SprintUpdate(BaseModel):
+    """Update a sprint"""
+    name: Optional[str] = None
+    goal: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    status: Optional[SprintStatus] = None
+    retrospective_notes: Optional[str] = None
+
+
+class SprintResponse(BaseModel):
+    """Sprint response"""
+    id: str
+    project_id: str
+    project_name: Optional[str] = None
+    name: str
+    goal: Optional[str] = None
+    start_date: str
+    end_date: str
+    status: SprintStatus = SprintStatus.PLANNING
+    task_count: int = 0
+    completed_task_count: int = 0
+    story_points_total: int = 0
+    story_points_completed: int = 0
+    progress: float = 0.0
+    retrospective_notes: Optional[str] = None
+    created_by: Optional[str] = None
+    created_by_name: Optional[str] = None
+    created_at: str
+    updated_at: str
+
+
+# ============== TASK WATCHER MODELS ==============
+
+class TaskWatcherCreate(BaseModel):
+    """Add a watcher to a task"""
+    task_id: str
+    user_id: str
+
+
+class TaskWatcherResponse(BaseModel):
+    """Task watcher response"""
+    id: str
+    task_id: str
+    user_id: str
+    user_name: Optional[str] = None
+    user_email: Optional[str] = None
+    added_at: str
+    added_by: Optional[str] = None
+
+
+# ============== BULK OPERATION MODELS ==============
+
+class BulkTaskUpdate(BaseModel):
+    """Bulk update multiple tasks"""
+    task_ids: List[str]
+    status: Optional[TaskStatus] = None
+    priority: Optional[Priority] = None
+    assigned_to: Optional[str] = None
+    due_date: Optional[str] = None
+    sprint_id: Optional[str] = None
+    add_tags: List[str] = []
+    remove_tags: List[str] = []
+
+
+class BulkTaskDelete(BaseModel):
+    """Bulk delete tasks"""
+    task_ids: List[str]
+
+
+class BulkOperationResult(BaseModel):
+    """Result of bulk operation"""
+    success_count: int = 0
+    failed_count: int = 0
+    failed_ids: List[str] = []
+    message: str = ""
+
+
+# ============== TASK DUPLICATE MODEL ==============
+
+class TaskDuplicateRequest(BaseModel):
+    """Request to duplicate a task"""
+    task_id: str
+    include_subtasks: bool = True
+    include_checklists: bool = True
+    include_attachments: bool = False
+    new_name: Optional[str] = None  # If not provided, will use "Copy of {original_name}"
+    assigned_to: Optional[str] = None  # Override assignee
+
+
+# ============== KANBAN BOARD MODELS ==============
+
+class KanbanColumn(BaseModel):
+    """Kanban board column"""
+    id: str
+    name: str
+    status: TaskStatus
+    task_count: int = 0
+    wip_limit: Optional[int] = None  # Work-in-progress limit
+
+
+class KanbanBoardResponse(BaseModel):
+    """Kanban board response"""
+    project_id: Optional[str] = None
+    project_name: Optional[str] = None
+    columns: List[KanbanColumn] = []
+    tasks_by_column: Dict[str, List[TaskResponse]] = {}
+    total_tasks: int = 0

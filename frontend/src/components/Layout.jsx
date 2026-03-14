@@ -14,7 +14,7 @@ import {
     HelpCircle, Award, Network, Shield, Flag, CalendarDays, RefreshCw, Plus, Globe,
     TrendingUp, PieChart, Activity, FileText, Package, Factory, FlaskConical, Search, Database,
     Server, Plug, Bell, ClipboardList, Bot, Cog, CheckCircle, MessageCircle, Key, Lock, Receipt,
-    CreditCard, Megaphone, FileImage
+    CreditCard, Megaphone, FileImage, LayoutGrid
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -99,6 +99,9 @@ const DEPARTMENT_CONFIG = {
             { path: '/projects/manager', name: 'Manager Dashboard', icon: BarChart3 },
             { path: '/projects/my-tasks', name: 'My Tasks', icon: ListTodo },
             { path: '/projects', name: 'All Projects', icon: FolderKanban },
+            { path: '/projects/kanban', name: 'Kanban Board', icon: LayoutGrid },
+            { path: '/projects/sprints', name: 'Sprints', icon: Zap },
+            { path: '/projects/milestones', name: 'Milestones', icon: Flag },
             { path: '/projects/recurring', name: 'Recurring Tasks', icon: RefreshCw },
         ]
     },

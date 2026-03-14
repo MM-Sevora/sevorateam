@@ -31,7 +31,13 @@ from models.projects import (
     LabelCreate, LabelUpdate, LabelResponse, TaskLabelResponse,
     TaskTemplateCreate, TaskTemplateUpdate, TaskTemplateResponse,
     RecurringTaskTemplateCreate, RecurringTaskTemplateUpdate, RecurringTaskTemplateResponse,
-    RecurrenceType, RecurrenceEndType, MonthlyRepeatType, GeneratedTaskInfo
+    RecurrenceType, RecurrenceEndType, MonthlyRepeatType, GeneratedTaskInfo,
+    # New models
+    MilestoneCreate, MilestoneUpdate, MilestoneResponse, MilestoneStatus,
+    SprintCreate, SprintUpdate, SprintResponse, SprintStatus,
+    TaskWatcherCreate, TaskWatcherResponse,
+    BulkTaskUpdate, BulkTaskDelete, BulkOperationResult,
+    TaskDuplicateRequest, KanbanColumn, KanbanBoardResponse
 )
 
 # Import storage utilities
@@ -283,6 +289,25 @@ async def enrich_task(task: dict) -> dict:
         task["project_name"] = None
         task["module_name"] = None
     
+    # Get sprint info
+    if task.get("sprint_id"):
+        sprint = await db.pm_sprints.find_one({"id": task["sprint_id"]}, {"name": 1})
+        task["sprint_name"] = sprint.get("name") if sprint else None
+    else:
+        task["sprint_name"] = None
+    
+    # Get milestone info
+    if task.get("milestone_id"):
+        milestone = await db.pm_milestones.find_one({"id": task["milestone_id"]}, {"name": 1})
+        task["milestone_name"] = milestone.get("name") if milestone else None
+    else:
+        task["milestone_name"] = None
+    
+    # Get watchers count
+    watchers = task.get("watchers", [])
+    task["watchers"] = watchers
+    task["watcher_count"] = len(watchers)
+    
     # Get counts
     task["subtask_count"] = await db.pm_subtasks.count_documents({"parent_task_id": task["id"]})
     task["checklist_count"] = await db.pm_checklists.count_documents({"task_id": task["id"]})
@@ -329,6 +354,9 @@ async def enrich_task(task: dict) -> dict:
     
     # Ensure external_links is present
     task["external_links"] = task.get("external_links", [])
+    
+    # Ensure story_points is present
+    task["story_points"] = task.get("story_points")
     
     return task
 
@@ -1699,6 +1727,135 @@ async def get_objectives_for_linking(
     except Exception as e:
         logger.error(f"Failed to get objectives for linking: {e}")
         return []
+
+
+# ============== KANBAN BOARD (Must be before /{project_id}) ==============
+
+@router.get("/kanban")
+async def get_kanban_board(
+    project_id: Optional[str] = None,
+    assigned_to: Optional[str] = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get Kanban board view with tasks grouped by status"""
+    # Define columns based on task statuses
+    columns = [
+        {"id": "draft", "name": "Backlog", "status": TaskStatus.DRAFT.value, "wip_limit": None},
+        {"id": "assigned", "name": "To Do", "status": TaskStatus.ASSIGNED.value, "wip_limit": None},
+        {"id": "in_progress", "name": "In Progress", "status": TaskStatus.IN_PROGRESS.value, "wip_limit": 5},
+        {"id": "pending_review", "name": "Review", "status": TaskStatus.PENDING_REVIEW.value, "wip_limit": None},
+        {"id": "completed", "name": "Done", "status": TaskStatus.COMPLETED.value, "wip_limit": None}
+    ]
+    
+    # Build query
+    query = {"parent_task_id": None}
+    if project_id:
+        query["project_id"] = project_id
+    if assigned_to:
+        query["assigned_to"] = assigned_to
+    
+    # Fetch tasks
+    tasks = await db.pm_tasks.find(query, {"_id": 0}).sort("updated_at", -1).to_list(500)
+    
+    # Enrich and group by status
+    tasks_by_column = {col["id"]: [] for col in columns}
+    
+    for task in tasks:
+        enriched = await enrich_task(task)
+        status = task.get("status", "draft")
+        
+        # Map status to column
+        if status in ["completed", "approved"]:
+            column_id = "completed"
+        elif status == "pending_review":
+            column_id = "pending_review"
+        elif status == "in_progress":
+            column_id = "in_progress"
+        elif status == "assigned":
+            column_id = "assigned"
+        else:
+            column_id = "draft"
+        
+        tasks_by_column[column_id].append(enriched)
+    
+    # Update column counts
+    for col in columns:
+        col["task_count"] = len(tasks_by_column.get(col["id"], []))
+    
+    # Get project name if filtered
+    project_name = None
+    if project_id:
+        project = await db.pm_projects.find_one({"id": project_id}, {"name": 1})
+        project_name = project.get("name") if project else None
+    
+    return {
+        "project_id": project_id,
+        "project_name": project_name,
+        "columns": columns,
+        "tasks_by_column": tasks_by_column,
+        "total_tasks": len(tasks)
+    }
+
+
+@router.put("/kanban/move-task")
+async def move_kanban_task(
+    task_id: str = Query(...),
+    new_status: str = Query(...),
+    user: dict = Depends(get_current_user_dep)
+):
+    """Move a task to a different status column (for drag-and-drop)"""
+    task = await db.pm_tasks.find_one({"id": task_id})
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    # Validate status
+    valid_statuses = [s.value for s in TaskStatus]
+    if new_status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
+    
+    old_status = task.get("status")
+    
+    # Check if task is blocked before allowing progress
+    if new_status in ["in_progress", "pending_review", "completed", "approved"]:
+        blocked_by = task.get("blocked_by", [])
+        for blocking_id in blocked_by:
+            blocking_task = await db.pm_tasks.find_one({"id": blocking_id}, {"status": 1, "name": 1})
+            if blocking_task and blocking_task.get("status") not in ["completed", "approved"]:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Cannot move task: blocked by '{blocking_task.get('name')}' which is not completed"
+                )
+    
+    now = datetime.now(timezone.utc).isoformat()
+    update_data = {"status": new_status, "updated_at": now}
+    
+    await db.pm_tasks.update_one({"id": task_id}, {"$set": update_data})
+    
+    await log_activity(
+        "task", task_id, task.get("name"), "status_changed", user["id"],
+        {"old_status": old_status, "new_status": new_status}
+    )
+    
+    # Notify watchers about status change
+    watchers = task.get("watchers", [])
+    for watcher_id in watchers:
+        if watcher_id != user["id"]:
+            try:
+                await create_notification(
+                    user_id=watcher_id,
+                    notification_type=NotificationType.TASK_STATUS_CHANGED,
+                    category=NotificationCategory.TASK,
+                    title="Task Status Changed",
+                    message=f"'{task.get('name')}' moved from {old_status} to {new_status}",
+                    priority=NotificationPriority.LOW,
+                    entity_type="task",
+                    entity_id=task_id,
+                    action_url=f"/projects/tasks/{task_id}"
+                )
+            except Exception as e:
+                logger.error(f"Failed to notify watcher: {e}")
+    
+    return {"message": "Task moved successfully", "task_id": task_id, "new_status": new_status}
 
 
 @router.get("/{project_id}", response_model=ProjectResponse)
@@ -3803,3 +3960,732 @@ async def _get_recurring_dashboard_impl(
         "top_templates": top_templates,
         "upcoming_occurrences": upcoming[:10]
     }
+
+
+# ============== MILESTONES ==============
+
+@router.get("/{project_id}/milestones", response_model=List[MilestoneResponse])
+async def list_project_milestones(
+    project_id: str,
+    status: Optional[MilestoneStatus] = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """List all milestones for a project"""
+    project = await db.pm_projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    query = {"project_id": project_id}
+    if status:
+        query["status"] = status.value
+    
+    milestones = await db.pm_milestones.find(query, {"_id": 0}).sort("due_date", 1).to_list(100)
+    
+    # Enrich milestones
+    for milestone in milestones:
+        milestone["project_name"] = project.get("name")
+        
+        # Calculate progress from linked tasks
+        linked_task_ids = milestone.get("linked_task_ids", [])
+        if linked_task_ids:
+            total = len(linked_task_ids)
+            completed = await db.pm_tasks.count_documents({
+                "id": {"$in": linked_task_ids},
+                "status": {"$in": ["completed", "approved"]}
+            })
+            milestone["linked_tasks_count"] = total
+            milestone["linked_tasks_completed"] = completed
+            milestone["progress"] = round((completed / total * 100), 1) if total > 0 else 0
+        else:
+            milestone["linked_tasks_count"] = 0
+            milestone["linked_tasks_completed"] = 0
+            milestone["progress"] = 0
+        
+        # Get creator name
+        if milestone.get("created_by"):
+            milestone["created_by_name"] = await get_user_name(milestone["created_by"])
+        if milestone.get("completed_by"):
+            milestone["completed_by_name"] = await get_user_name(milestone["completed_by"])
+    
+    return milestones
+
+
+@router.post("/milestones", response_model=MilestoneResponse)
+async def create_milestone(
+    data: MilestoneCreate,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Create a new milestone"""
+    project = await db.pm_projects.find_one({"id": data.project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    milestone_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    milestone_doc = {
+        "id": milestone_id,
+        "project_id": data.project_id,
+        "name": data.name,
+        "description": data.description,
+        "due_date": data.due_date,
+        "status": MilestoneStatus.UPCOMING.value,
+        "linked_task_ids": data.linked_task_ids,
+        "completion_notes": None,
+        "completed_at": None,
+        "completed_by": None,
+        "created_by": user["id"],
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.pm_milestones.insert_one(milestone_doc)
+    await log_activity("milestone", milestone_id, data.name, "created", user["id"])
+    
+    # Link tasks to this milestone
+    if data.linked_task_ids:
+        await db.pm_tasks.update_many(
+            {"id": {"$in": data.linked_task_ids}},
+            {"$set": {"milestone_id": milestone_id}}
+        )
+    
+    if "_id" in milestone_doc:
+        del milestone_doc["_id"]
+    
+    milestone_doc["project_name"] = project.get("name")
+    milestone_doc["linked_tasks_count"] = len(data.linked_task_ids)
+    milestone_doc["linked_tasks_completed"] = 0
+    milestone_doc["progress"] = 0
+    milestone_doc["created_by_name"] = user.get("name")
+    
+    return milestone_doc
+
+
+@router.put("/milestones/{milestone_id}", response_model=MilestoneResponse)
+async def update_milestone(
+    milestone_id: str,
+    data: MilestoneUpdate,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Update a milestone"""
+    milestone = await db.pm_milestones.find_one({"id": milestone_id})
+    if not milestone:
+        raise HTTPException(status_code=404, detail="Milestone not found")
+    
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    # Handle status changes
+    if data.status == MilestoneStatus.COMPLETED and milestone.get("status") != "completed":
+        update_data["completed_at"] = datetime.now(timezone.utc).isoformat()
+        update_data["completed_by"] = user["id"]
+    
+    # Handle linked task changes
+    if data.linked_task_ids is not None:
+        old_task_ids = set(milestone.get("linked_task_ids", []))
+        new_task_ids = set(data.linked_task_ids)
+        
+        # Remove milestone_id from unlinked tasks
+        removed = old_task_ids - new_task_ids
+        if removed:
+            await db.pm_tasks.update_many(
+                {"id": {"$in": list(removed)}},
+                {"$set": {"milestone_id": None}}
+            )
+        
+        # Add milestone_id to new linked tasks
+        added = new_task_ids - old_task_ids
+        if added:
+            await db.pm_tasks.update_many(
+                {"id": {"$in": list(added)}},
+                {"$set": {"milestone_id": milestone_id}}
+            )
+    
+    await db.pm_milestones.update_one({"id": milestone_id}, {"$set": update_data})
+    await log_activity("milestone", milestone_id, milestone.get("name"), "updated", user["id"], update_data)
+    
+    updated = await db.pm_milestones.find_one({"id": milestone_id}, {"_id": 0})
+    
+    # Enrich
+    project = await db.pm_projects.find_one({"id": updated["project_id"]}, {"name": 1})
+    updated["project_name"] = project.get("name") if project else None
+    
+    linked_task_ids = updated.get("linked_task_ids", [])
+    if linked_task_ids:
+        total = len(linked_task_ids)
+        completed = await db.pm_tasks.count_documents({
+            "id": {"$in": linked_task_ids},
+            "status": {"$in": ["completed", "approved"]}
+        })
+        updated["linked_tasks_count"] = total
+        updated["linked_tasks_completed"] = completed
+        updated["progress"] = round((completed / total * 100), 1) if total > 0 else 0
+    else:
+        updated["linked_tasks_count"] = 0
+        updated["linked_tasks_completed"] = 0
+        updated["progress"] = 0
+    
+    if updated.get("created_by"):
+        updated["created_by_name"] = await get_user_name(updated["created_by"])
+    if updated.get("completed_by"):
+        updated["completed_by_name"] = await get_user_name(updated["completed_by"])
+    
+    return updated
+
+
+@router.delete("/milestones/{milestone_id}")
+async def delete_milestone(
+    milestone_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Delete a milestone"""
+    milestone = await db.pm_milestones.find_one({"id": milestone_id})
+    if not milestone:
+        raise HTTPException(status_code=404, detail="Milestone not found")
+    
+    # Unlink tasks
+    await db.pm_tasks.update_many(
+        {"milestone_id": milestone_id},
+        {"$set": {"milestone_id": None}}
+    )
+    
+    await db.pm_milestones.delete_one({"id": milestone_id})
+    await log_activity("milestone", milestone_id, milestone.get("name"), "deleted", user["id"])
+    
+    return {"message": "Milestone deleted"}
+
+
+# ============== SPRINTS ==============
+
+@router.get("/{project_id}/sprints", response_model=List[SprintResponse])
+async def list_project_sprints(
+    project_id: str,
+    status: Optional[SprintStatus] = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """List all sprints for a project"""
+    project = await db.pm_projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    query = {"project_id": project_id}
+    if status:
+        query["status"] = status.value
+    
+    sprints = await db.pm_sprints.find(query, {"_id": 0}).sort("start_date", -1).to_list(100)
+    
+    # Enrich sprints
+    for sprint in sprints:
+        sprint["project_name"] = project.get("name")
+        
+        # Get task counts
+        task_count = await db.pm_tasks.count_documents({"sprint_id": sprint["id"]})
+        completed_count = await db.pm_tasks.count_documents({
+            "sprint_id": sprint["id"],
+            "status": {"$in": ["completed", "approved"]}
+        })
+        
+        # Get story points
+        pipeline = [
+            {"$match": {"sprint_id": sprint["id"], "story_points": {"$ne": None}}},
+            {"$group": {"_id": None, "total": {"$sum": "$story_points"}}}
+        ]
+        total_points_result = await db.pm_tasks.aggregate(pipeline).to_list(1)
+        total_points = total_points_result[0]["total"] if total_points_result else 0
+        
+        completed_pipeline = [
+            {"$match": {"sprint_id": sprint["id"], "story_points": {"$ne": None}, "status": {"$in": ["completed", "approved"]}}},
+            {"$group": {"_id": None, "total": {"$sum": "$story_points"}}}
+        ]
+        completed_points_result = await db.pm_tasks.aggregate(completed_pipeline).to_list(1)
+        completed_points = completed_points_result[0]["total"] if completed_points_result else 0
+        
+        sprint["task_count"] = task_count
+        sprint["completed_task_count"] = completed_count
+        sprint["story_points_total"] = total_points
+        sprint["story_points_completed"] = completed_points
+        sprint["progress"] = round((completed_count / task_count * 100), 1) if task_count > 0 else 0
+        
+        if sprint.get("created_by"):
+            sprint["created_by_name"] = await get_user_name(sprint["created_by"])
+    
+    return sprints
+
+
+@router.post("/sprints", response_model=SprintResponse)
+async def create_sprint(
+    data: SprintCreate,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Create a new sprint"""
+    project = await db.pm_projects.find_one({"id": data.project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    sprint_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    sprint_doc = {
+        "id": sprint_id,
+        "project_id": data.project_id,
+        "name": data.name,
+        "goal": data.goal,
+        "start_date": data.start_date,
+        "end_date": data.end_date,
+        "status": SprintStatus.PLANNING.value,
+        "retrospective_notes": None,
+        "created_by": user["id"],
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.pm_sprints.insert_one(sprint_doc)
+    await log_activity("sprint", sprint_id, data.name, "created", user["id"])
+    
+    if "_id" in sprint_doc:
+        del sprint_doc["_id"]
+    
+    sprint_doc["project_name"] = project.get("name")
+    sprint_doc["task_count"] = 0
+    sprint_doc["completed_task_count"] = 0
+    sprint_doc["story_points_total"] = 0
+    sprint_doc["story_points_completed"] = 0
+    sprint_doc["progress"] = 0
+    sprint_doc["created_by_name"] = user.get("name")
+    
+    return sprint_doc
+
+
+@router.put("/sprints/{sprint_id}", response_model=SprintResponse)
+async def update_sprint(
+    sprint_id: str,
+    data: SprintUpdate,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Update a sprint"""
+    sprint = await db.pm_sprints.find_one({"id": sprint_id})
+    if not sprint:
+        raise HTTPException(status_code=404, detail="Sprint not found")
+    
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.pm_sprints.update_one({"id": sprint_id}, {"$set": update_data})
+    await log_activity("sprint", sprint_id, sprint.get("name"), "updated", user["id"], update_data)
+    
+    updated = await db.pm_sprints.find_one({"id": sprint_id}, {"_id": 0})
+    
+    # Enrich
+    project = await db.pm_projects.find_one({"id": updated["project_id"]}, {"name": 1})
+    updated["project_name"] = project.get("name") if project else None
+    
+    task_count = await db.pm_tasks.count_documents({"sprint_id": sprint_id})
+    completed_count = await db.pm_tasks.count_documents({
+        "sprint_id": sprint_id,
+        "status": {"$in": ["completed", "approved"]}
+    })
+    
+    updated["task_count"] = task_count
+    updated["completed_task_count"] = completed_count
+    updated["progress"] = round((completed_count / task_count * 100), 1) if task_count > 0 else 0
+    
+    if updated.get("created_by"):
+        updated["created_by_name"] = await get_user_name(updated["created_by"])
+    
+    return updated
+
+
+@router.delete("/sprints/{sprint_id}")
+async def delete_sprint(
+    sprint_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Delete a sprint"""
+    sprint = await db.pm_sprints.find_one({"id": sprint_id})
+    if not sprint:
+        raise HTTPException(status_code=404, detail="Sprint not found")
+    
+    # Unlink tasks from this sprint
+    await db.pm_tasks.update_many(
+        {"sprint_id": sprint_id},
+        {"$set": {"sprint_id": None}}
+    )
+    
+    await db.pm_sprints.delete_one({"id": sprint_id})
+    await log_activity("sprint", sprint_id, sprint.get("name"), "deleted", user["id"])
+    
+    return {"message": "Sprint deleted"}
+
+
+@router.get("/sprints/{sprint_id}/tasks", response_model=List[TaskResponse])
+async def get_sprint_tasks(
+    sprint_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get all tasks in a sprint"""
+    sprint = await db.pm_sprints.find_one({"id": sprint_id})
+    if not sprint:
+        raise HTTPException(status_code=404, detail="Sprint not found")
+    
+    tasks = await db.pm_tasks.find({"sprint_id": sprint_id}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    
+    enriched_tasks = [await enrich_task(t) for t in tasks]
+    return enriched_tasks
+
+
+@router.post("/sprints/{sprint_id}/start")
+async def start_sprint(
+    sprint_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Start a sprint (change status to active)"""
+    sprint = await db.pm_sprints.find_one({"id": sprint_id})
+    if not sprint:
+        raise HTTPException(status_code=404, detail="Sprint not found")
+    
+    if sprint.get("status") != "planning":
+        raise HTTPException(status_code=400, detail="Sprint can only be started from planning status")
+    
+    # Check if there's already an active sprint
+    active_sprint = await db.pm_sprints.find_one({
+        "project_id": sprint["project_id"],
+        "status": "active"
+    })
+    if active_sprint:
+        raise HTTPException(status_code=400, detail="There is already an active sprint for this project")
+    
+    await db.pm_sprints.update_one(
+        {"id": sprint_id},
+        {"$set": {"status": "active", "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    await log_activity("sprint", sprint_id, sprint.get("name"), "started", user["id"])
+    
+    return {"message": "Sprint started"}
+
+
+@router.post("/sprints/{sprint_id}/complete")
+async def complete_sprint(
+    sprint_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Complete a sprint"""
+    sprint = await db.pm_sprints.find_one({"id": sprint_id})
+    if not sprint:
+        raise HTTPException(status_code=404, detail="Sprint not found")
+    
+    await db.pm_sprints.update_one(
+        {"id": sprint_id},
+        {"$set": {"status": "completed", "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    await log_activity("sprint", sprint_id, sprint.get("name"), "completed", user["id"])
+    
+    return {"message": "Sprint completed"}
+
+
+# ============== TASK WATCHERS ==============
+
+@router.get("/tasks/{task_id}/watchers", response_model=List[TaskWatcherResponse])
+async def get_task_watchers(
+    task_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get all watchers for a task"""
+    task = await db.pm_tasks.find_one({"id": task_id})
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    watchers = await db.task_watchers.find({"task_id": task_id}, {"_id": 0}).to_list(100)
+    
+    for watcher in watchers:
+        user_doc = await db.users.find_one({"id": watcher["user_id"]}, {"name": 1, "email": 1})
+        watcher["user_name"] = user_doc.get("name") if user_doc else None
+        watcher["user_email"] = user_doc.get("email") if user_doc else None
+    
+    return watchers
+
+
+@router.post("/tasks/{task_id}/watchers")
+async def add_task_watcher(
+    task_id: str,
+    data: TaskWatcherCreate,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Add a watcher to a task"""
+    task = await db.pm_tasks.find_one({"id": task_id})
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    # Check if already watching
+    existing = await db.task_watchers.find_one({"task_id": task_id, "user_id": data.user_id})
+    if existing:
+        raise HTTPException(status_code=400, detail="User is already watching this task")
+    
+    watcher_doc = {
+        "id": str(uuid.uuid4()),
+        "task_id": task_id,
+        "user_id": data.user_id,
+        "added_at": datetime.now(timezone.utc).isoformat(),
+        "added_by": user["id"]
+    }
+    
+    await db.task_watchers.insert_one(watcher_doc)
+    
+    # Update task's watcher list
+    await db.pm_tasks.update_one(
+        {"id": task_id},
+        {"$addToSet": {"watchers": data.user_id}}
+    )
+    
+    if "_id" in watcher_doc:
+        del watcher_doc["_id"]
+    
+    user_doc = await db.users.find_one({"id": data.user_id}, {"name": 1, "email": 1})
+    watcher_doc["user_name"] = user_doc.get("name") if user_doc else None
+    watcher_doc["user_email"] = user_doc.get("email") if user_doc else None
+    
+    return watcher_doc
+
+
+@router.delete("/tasks/{task_id}/watchers/{user_id}")
+async def remove_task_watcher(
+    task_id: str,
+    user_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Remove a watcher from a task"""
+    result = await db.task_watchers.delete_one({"task_id": task_id, "user_id": user_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Watcher not found")
+    
+    # Update task's watcher list
+    await db.pm_tasks.update_one(
+        {"id": task_id},
+        {"$pull": {"watchers": user_id}}
+    )
+    
+    return {"message": "Watcher removed"}
+
+
+@router.post("/tasks/{task_id}/watch")
+async def watch_task(
+    task_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Current user starts watching a task"""
+    task = await db.pm_tasks.find_one({"id": task_id})
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    user_id = user["id"]
+    
+    # Check if already watching
+    existing = await db.task_watchers.find_one({"task_id": task_id, "user_id": user_id})
+    if existing:
+        return {"message": "Already watching this task", "watching": True}
+    
+    watcher_doc = {
+        "id": str(uuid.uuid4()),
+        "task_id": task_id,
+        "user_id": user_id,
+        "added_at": datetime.now(timezone.utc).isoformat(),
+        "added_by": user_id
+    }
+    
+    await db.task_watchers.insert_one(watcher_doc)
+    await db.pm_tasks.update_one({"id": task_id}, {"$addToSet": {"watchers": user_id}})
+    
+    return {"message": "Now watching this task", "watching": True}
+
+
+@router.delete("/tasks/{task_id}/watch")
+async def unwatch_task(
+    task_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Current user stops watching a task"""
+    user_id = user["id"]
+    
+    await db.task_watchers.delete_one({"task_id": task_id, "user_id": user_id})
+    await db.pm_tasks.update_one({"id": task_id}, {"$pull": {"watchers": user_id}})
+    
+    return {"message": "Stopped watching this task", "watching": False}
+
+
+# ============== BULK OPERATIONS ==============
+
+@router.post("/tasks/bulk/update", response_model=BulkOperationResult)
+async def bulk_update_tasks(
+    data: BulkTaskUpdate,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Bulk update multiple tasks"""
+    if not data.task_ids:
+        raise HTTPException(status_code=400, detail="No task IDs provided")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    update_fields = {"updated_at": now}
+    
+    if data.status:
+        update_fields["status"] = data.status.value
+    if data.priority:
+        update_fields["priority"] = data.priority.value
+    if data.assigned_to:
+        update_fields["assigned_to"] = data.assigned_to
+        update_fields["assigned_by"] = user["id"]
+    if data.due_date:
+        update_fields["due_date"] = data.due_date
+    if data.sprint_id:
+        update_fields["sprint_id"] = data.sprint_id
+    
+    success_count = 0
+    failed_ids = []
+    
+    for task_id in data.task_ids:
+        try:
+            task = await db.pm_tasks.find_one({"id": task_id})
+            if not task:
+                failed_ids.append(task_id)
+                continue
+            
+            update_data = dict(update_fields)
+            
+            # Handle tag operations
+            if data.add_tags or data.remove_tags:
+                current_tags = set(task.get("tags", []))
+                if data.add_tags:
+                    current_tags.update(data.add_tags)
+                if data.remove_tags:
+                    current_tags -= set(data.remove_tags)
+                update_data["tags"] = list(current_tags)
+            
+            await db.pm_tasks.update_one({"id": task_id}, {"$set": update_data})
+            success_count += 1
+            
+        except Exception as e:
+            logger.error(f"Failed to update task {task_id}: {e}")
+            failed_ids.append(task_id)
+    
+    await log_activity(
+        "task", "bulk", f"{success_count} tasks", "bulk_updated", user["id"],
+        {"task_count": success_count, "updates": {k: str(v) for k, v in update_fields.items() if k != "updated_at"}}
+    )
+    
+    return BulkOperationResult(
+        success_count=success_count,
+        failed_count=len(failed_ids),
+        failed_ids=failed_ids,
+        message=f"Updated {success_count} tasks successfully"
+    )
+
+
+@router.post("/tasks/bulk/delete", response_model=BulkOperationResult)
+async def bulk_delete_tasks(
+    data: BulkTaskDelete,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Bulk delete multiple tasks"""
+    if not data.task_ids:
+        raise HTTPException(status_code=400, detail="No task IDs provided")
+    
+    success_count = 0
+    failed_ids = []
+    
+    for task_id in data.task_ids:
+        try:
+            task = await db.pm_tasks.find_one({"id": task_id})
+            if not task:
+                failed_ids.append(task_id)
+                continue
+            
+            # Check permission
+            if not can_delete_record(task, user):
+                failed_ids.append(task_id)
+                continue
+            
+            # Delete related data
+            await db.pm_subtasks.delete_many({"parent_task_id": task_id})
+            await db.pm_checklists.delete_many({"task_id": task_id})
+            await db.pm_comments.delete_many({"task_id": task_id})
+            await db.task_watchers.delete_many({"task_id": task_id})
+            
+            await db.pm_tasks.delete_one({"id": task_id})
+            success_count += 1
+            
+        except Exception as e:
+            logger.error(f"Failed to delete task {task_id}: {e}")
+            failed_ids.append(task_id)
+    
+    await log_activity(
+        "task", "bulk", f"{success_count} tasks", "bulk_deleted", user["id"],
+        {"task_count": success_count}
+    )
+    
+    return BulkOperationResult(
+        success_count=success_count,
+        failed_count=len(failed_ids),
+        failed_ids=failed_ids,
+        message=f"Deleted {success_count} tasks successfully"
+    )
+
+
+# ============== TASK DUPLICATE ==============
+
+@router.post("/tasks/duplicate", response_model=TaskResponse)
+async def duplicate_task(
+    data: TaskDuplicateRequest,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Duplicate a task with optional subtasks and checklists"""
+    original_task = await db.pm_tasks.find_one({"id": data.task_id}, {"_id": 0})
+    if not original_task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    new_task_id = str(uuid.uuid4())
+    
+    # Create the duplicate task
+    new_task = dict(original_task)
+    new_task["id"] = new_task_id
+    new_task["name"] = data.new_name or f"Copy of {original_task['name']}"
+    new_task["status"] = TaskStatus.DRAFT.value
+    new_task["assigned_to"] = data.assigned_to or original_task.get("assigned_to")
+    new_task["created_by"] = user["id"]
+    new_task["created_at"] = now
+    new_task["updated_at"] = now
+    new_task["watchers"] = []
+    
+    # Reset blocked_by/blocks (dependencies don't transfer)
+    new_task["blocked_by"] = []
+    new_task["blocks"] = []
+    
+    await db.pm_tasks.insert_one(new_task)
+    
+    # Duplicate subtasks if requested
+    if data.include_subtasks:
+        subtasks = await db.pm_subtasks.find({"parent_task_id": data.task_id}, {"_id": 0}).to_list(100)
+        for subtask in subtasks:
+            new_subtask = dict(subtask)
+            new_subtask["id"] = str(uuid.uuid4())
+            new_subtask["parent_task_id"] = new_task_id
+            new_subtask["status"] = TaskStatus.DRAFT.value
+            new_subtask["created_at"] = now
+            new_subtask["updated_at"] = now
+            await db.pm_subtasks.insert_one(new_subtask)
+    
+    # Duplicate checklists if requested
+    if data.include_checklists:
+        checklists = await db.pm_checklists.find({"task_id": data.task_id}, {"_id": 0}).to_list(100)
+        for checklist in checklists:
+            new_checklist = dict(checklist)
+            new_checklist["id"] = str(uuid.uuid4())
+            new_checklist["task_id"] = new_task_id
+            new_checklist["is_completed"] = False
+            new_checklist["completed_by"] = None
+            new_checklist["completed_at"] = None
+            new_checklist["created_at"] = now
+            await db.pm_checklists.insert_one(new_checklist)
+    
+    await log_activity("task", new_task_id, new_task["name"], "duplicated", user["id"], {"original_task_id": data.task_id})
+    
+    return await enrich_task(new_task)
