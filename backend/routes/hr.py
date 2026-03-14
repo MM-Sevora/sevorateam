@@ -800,6 +800,11 @@ async def get_employees(
     db = get_db()
     
     query = {}
+    
+    # By default exclude deleted users
+    if not status:
+        query["status"] = {"$ne": "deleted"}
+    
     if department_id:
         query["department_id"] = department_id
     if grade_id:

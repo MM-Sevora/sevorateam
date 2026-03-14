@@ -906,7 +906,10 @@ async def get_goals_dashboard(fiscal_year_id: Optional[str] = None):
 @router.get("/users")
 async def list_users_for_assignment():
     """Get list of users for assignment dropdowns"""
-    users = await db.users.find({}, {"_id": 1, "name": 1, "email": 1, "department": 1}).to_list(500)
+    users = await db.users.find(
+        {"status": {"$nin": ["deleted", "terminated"]}}, 
+        {"_id": 1, "name": 1, "email": 1, "department": 1}
+    ).to_list(500)
     return [serialize_doc(u) for u in users]
 
 

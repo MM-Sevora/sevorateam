@@ -611,8 +611,11 @@ async def get_team_performance(
     
     start_date_str = start_date.isoformat()
     
-    # Get all users
-    users = await db.users.find({}, {"_id": 0, "id": 1, "name": 1, "email": 1, "department": 1, "role": 1}).to_list(length=200)
+    # Get all active users (exclude deleted)
+    users = await db.users.find(
+        {"status": {"$nin": ["deleted", "terminated"]}}, 
+        {"_id": 0, "id": 1, "name": 1, "email": 1, "department": 1, "role": 1}
+    ).to_list(length=200)
     
     if department and department != 'all':
         users = [u for u in users if u.get('department') == department]

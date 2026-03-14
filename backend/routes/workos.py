@@ -287,6 +287,7 @@ async def get_users_enhanced(
     role_id: Optional[str] = None,
     status: Optional[str] = None,
     search: Optional[str] = None,
+    include_deleted: bool = False,
     limit: int = Query(default=100, le=500),
     user: dict = Depends(get_current_user_dep())
 ):
@@ -294,12 +295,17 @@ async def get_users_enhanced(
     db = get_db()
     
     query = {}
+    
+    # By default, exclude deleted users unless explicitly requested
+    if not include_deleted:
+        query["status"] = {"$ne": "deleted"}
+    
     if department_id:
         query["department_id"] = department_id
     if role_id:
         query["role_id"] = role_id
     if status:
-        query["status"] = status
+        query["status"] = status  # Override the default filter if specific status requested
     if search:
         query["$or"] = [
             {"name": {"$regex": search, "$options": "i"}},
