@@ -94,6 +94,8 @@ export default function WorkUpdates() {
     const { api, user } = useAuth();
     const [dailyUpdates, setDailyUpdates] = useState([]);
     const [weeklyUpdates, setWeeklyUpdates] = useState([]);
+    const [monthlyUpdates, setMonthlyUpdates] = useState([]);
+    const [quarterlyUpdates, setQuarterlyUpdates] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showUpdateDialog, setShowUpdateDialog] = useState(false);
     const [updateType, setUpdateType] = useState('daily');
@@ -162,12 +164,16 @@ export default function WorkUpdates() {
             if (filterEmployee && filterEmployee !== 'all') params.push(`user_id=${filterEmployee}`);
             const query = params.length > 0 ? `?${params.join('&')}` : '';
             
-            const [dailyRes, weeklyRes] = await Promise.all([
+            const [dailyRes, weeklyRes, monthlyRes, quarterlyRes] = await Promise.all([
                 api.get(`/pulse/updates/daily${query}`),
                 api.get(`/pulse/updates/weekly${query}`),
+                api.get(`/pulse/updates/monthly${query}`),
+                api.get(`/pulse/updates/quarterly${query}`),
             ]);
             setDailyUpdates(dailyRes.data.updates || []);
             setWeeklyUpdates(weeklyRes.data.updates || []);
+            setMonthlyUpdates(monthlyRes.data.updates || []);
+            setQuarterlyUpdates(quarterlyRes.data.updates || []);
         } catch (error) {
             console.error('Failed to fetch updates:', error);
             toast.error('Failed to load updates');
@@ -191,7 +197,7 @@ export default function WorkUpdates() {
     const handleSubmit = async () => {
         const validItems = formData.completed.filter(item => item.text.trim());
         if (validItems.length === 0) {
-            toast.error('Please add at least one completed item');
+            toast.error('Please add at least one item');
             return;
         }
 
@@ -209,12 +215,28 @@ export default function WorkUpdates() {
                     tomorrow_focus_items: formatItems(formData.next_focus),
                     notes: formData.notes || null,
                 });
-            } else {
+            } else if (updateType === 'weekly') {
                 await api.post('/pulse/updates/weekly', {
                     achievement_items: formatItems(formData.completed),
                     issues_faced_items: formatItems(formData.blockers),
                     next_week_focus_items: formatItems(formData.next_focus),
                     team_highlights_items: formatItems(formData.highlights),
+                    notes: formData.notes || null,
+                });
+            } else if (updateType === 'monthly') {
+                await api.post('/pulse/updates/monthly', {
+                    accomplishment_items: formatItems(formData.completed),
+                    goals_progress_items: formatItems(formData.highlights),
+                    challenge_items: formatItems(formData.blockers),
+                    next_month_focus_items: formatItems(formData.next_focus),
+                    notes: formData.notes || null,
+                });
+            } else if (updateType === 'quarterly') {
+                await api.post('/pulse/updates/quarterly', {
+                    achievement_items: formatItems(formData.completed),
+                    okr_progress_items: formatItems(formData.highlights),
+                    challenge_items: formatItems(formData.blockers),
+                    next_quarter_focus_items: formatItems(formData.next_focus),
                     notes: formData.notes || null,
                 });
             }
@@ -446,15 +468,76 @@ export default function WorkUpdates() {
 
     // Update Card Component
     const UpdateCard = ({ update, type }) => {
-        const completedItems = type === 'daily' 
-            ? (update.completed_items || update.completed || [])
-            : (update.achievement_items || update.achievements || []);
-        const blockerItems = type === 'daily'
-            ? (update.blocker_items || update.blockers || [])
-            : (update.issues_faced_items || update.issues_faced || []);
-        const focusItems = type === 'daily'
-            ? (update.tomorrow_focus_items || update.tomorrow_focus || [])
-            : (update.next_week_focus_items || update.next_week_focus || []);
+        // Get items based on update type
+        const getCompletedItems = () => {
+            if (type === 'daily') return update.completed_items || update.completed || [];
+            if (type === 'weekly') return update.achievement_items || update.achievements || [];
+            if (type === 'monthly') return update.accomplishment_items || update.accomplishments || [];
+            if (type === 'quarterly') return update.achievement_items || update.achievements || [];
+            return [];
+        };
+        
+        const getBlockerItems = () => {
+            if (type === 'daily') return update.blocker_items || update.blockers || [];
+            if (type === 'weekly') return update.issues_faced_items || update.issues_faced || [];
+            if (type === 'monthly') return update.challenge_items || update.challenges || [];
+            if (type === 'quarterly') return update.challenge_items || update.challenges || [];
+            return [];
+        };
+        
+        const getFocusItems = () => {
+            if (type === 'daily') return update.tomorrow_focus_items || update.tomorrow_focus || [];
+            if (type === 'weekly') return update.next_week_focus_items || update.next_week_focus || [];
+            if (type === 'monthly') return update.next_month_focus_items || update.next_month_focus || [];
+            if (type === 'quarterly') return update.next_quarter_focus_items || update.next_quarter_focus || [];
+            return [];
+        };
+        
+        const getHighlightItems = () => {
+            if (type === 'weekly') return update.team_highlights_items || update.team_highlights || [];
+            if (type === 'monthly') return update.goals_progress_items || update.goals_progress || [];
+            if (type === 'quarterly') return update.okr_progress_items || update.okr_progress || [];
+            return [];
+        };
+        
+        const completedItems = getCompletedItems();
+        const blockerItems = getBlockerItems();
+        const focusItems = getFocusItems();
+        const highlightItems = getHighlightItems();
+        
+        const getCompletedLabel = () => {
+            if (type === 'daily') return 'Completed';
+            if (type === 'weekly') return 'Achievements';
+            if (type === 'monthly') return 'Accomplishments';
+            if (type === 'quarterly') return 'Quarter Achievements';
+            return 'Completed';
+        };
+        
+        const getBlockerLabel = () => {
+            if (type === 'daily') return 'Blockers';
+            return 'Challenges';
+        };
+        
+        const getFocusLabel = () => {
+            if (type === 'daily') return "Tomorrow's Focus";
+            if (type === 'weekly') return 'Next Week Focus';
+            if (type === 'monthly') return 'Next Month Focus';
+            if (type === 'quarterly') return 'Next Quarter Focus';
+            return 'Focus';
+        };
+        
+        const getHighlightLabel = () => {
+            if (type === 'weekly') return 'Team Highlights';
+            if (type === 'monthly') return 'Goals Progress';
+            if (type === 'quarterly') return 'OKR Progress';
+            return 'Highlights';
+        };
+        
+        const getPeriodLabel = () => {
+            if (type === 'monthly' && update.month) return update.month;
+            if (type === 'quarterly' && update.quarter) return update.quarter;
+            return null;
+        };
 
         const renderItems = (items, section) => {
             if (!items || items.length === 0) return null;
@@ -518,6 +601,11 @@ export default function WorkUpdates() {
                                 <Badge variant="outline" className="text-xs border-[#D4BBA6] text-[#6B5D52]">
                                     {update.department || 'Team'}
                                 </Badge>
+                                {getPeriodLabel() && (
+                                    <Badge className="text-xs bg-blue-100 text-blue-700">
+                                        {getPeriodLabel()}
+                                    </Badge>
+                                )}
                             </div>
                             <span className="text-xs text-[#8B7355]">{formatDate(update.date || update.created_at)}</span>
                         </div>
@@ -529,10 +617,22 @@ export default function WorkUpdates() {
                             <div>
                                 <div className="flex items-center gap-2 text-emerald-600 text-sm font-medium mb-1">
                                     <CheckCircle className="w-4 h-4" />
-                                    {type === 'daily' ? 'Completed' : 'Achievements'}
+                                    {getCompletedLabel()}
                                 </div>
                                 <div className="ml-6 space-y-0.5">
                                     {renderItems(completedItems, 'completed')}
+                                </div>
+                            </div>
+                        )}
+                        
+                        {highlightItems.length > 0 && (
+                            <div>
+                                <div className="flex items-center gap-2 text-amber-600 text-sm font-medium mb-1">
+                                    <Sparkles className="w-4 h-4" />
+                                    {getHighlightLabel()}
+                                </div>
+                                <div className="ml-6 space-y-0.5">
+                                    {renderItems(highlightItems, 'highlights')}
                                 </div>
                             </div>
                         )}
@@ -541,7 +641,7 @@ export default function WorkUpdates() {
                             <div>
                                 <div className="flex items-center gap-2 text-red-500 text-sm font-medium mb-1">
                                     <AlertTriangle className="w-4 h-4" />
-                                    {type === 'daily' ? 'Blockers' : 'Challenges'}
+                                    {getBlockerLabel()}
                                 </div>
                                 <div className="ml-6 space-y-0.5">
                                     {renderItems(blockerItems, 'blockers')}
@@ -553,7 +653,7 @@ export default function WorkUpdates() {
                             <div>
                                 <div className="flex items-center gap-2 text-blue-600 text-sm font-medium mb-1">
                                     <Target className="w-4 h-4" />
-                                    {type === 'daily' ? "Tomorrow's Focus" : 'Next Week Focus'}
+                                    {getFocusLabel()}
                                 </div>
                                 <div className="ml-6 space-y-0.5">
                                     {renderItems(focusItems, 'focus')}
@@ -677,6 +777,14 @@ export default function WorkUpdates() {
                         <CalendarRange className="w-4 h-4 mr-2" />
                         Weekly ({weeklyUpdates.length})
                     </TabsTrigger>
+                    <TabsTrigger value="monthly" className="data-[state=active]:bg-white">
+                        <CalendarDays className="w-4 h-4 mr-2" />
+                        Monthly ({monthlyUpdates.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="quarterly" className="data-[state=active]:bg-white">
+                        <CalendarCheck className="w-4 h-4 mr-2" />
+                        Quarterly ({quarterlyUpdates.length})
+                    </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="daily" className="space-y-4">
@@ -718,6 +826,46 @@ export default function WorkUpdates() {
                         ))
                     )}
                 </TabsContent>
+
+                <TabsContent value="monthly" className="space-y-4">
+                    {monthlyUpdates.length === 0 ? (
+                        <Card className="border-[#E8D5C4]">
+                            <CardContent className="py-12 text-center">
+                                <CalendarDays className="w-12 h-12 mx-auto mb-4 text-[#D4BBA6]" />
+                                <h3 className="text-lg font-medium text-[#4A3728]">No monthly updates yet</h3>
+                                <p className="text-[#8B7355] mt-1">Summarize your monthly accomplishments!</p>
+                                <Button onClick={() => openUpdateDialog('monthly')} className="mt-4 bg-teal-600 hover:bg-teal-700">
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Submit Monthly Update
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        monthlyUpdates.map(update => (
+                            <UpdateCard key={update.id} update={update} type="monthly" />
+                        ))
+                    )}
+                </TabsContent>
+
+                <TabsContent value="quarterly" className="space-y-4">
+                    {quarterlyUpdates.length === 0 ? (
+                        <Card className="border-[#E8D5C4]">
+                            <CardContent className="py-12 text-center">
+                                <CalendarCheck className="w-12 h-12 mx-auto mb-4 text-[#D4BBA6]" />
+                                <h3 className="text-lg font-medium text-[#4A3728]">No quarterly updates yet</h3>
+                                <p className="text-[#8B7355] mt-1">Share your quarterly achievements and OKR progress!</p>
+                                <Button onClick={() => openUpdateDialog('quarterly')} className="mt-4 bg-teal-600 hover:bg-teal-700">
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Submit Quarterly Update
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        quarterlyUpdates.map(update => (
+                            <UpdateCard key={update.id} update={update} type="quarterly" />
+                        ))
+                    )}
+                </TabsContent>
             </Tabs>
 
             {/* Submit Update Dialog - Clean & Simple */}
@@ -739,16 +887,44 @@ export default function WorkUpdates() {
                         <div>
                             <label className="text-sm font-medium text-[#4A3728] flex items-center gap-2 mb-2">
                                 <CheckCircle className="w-4 h-4 text-emerald-500" />
-                                {updateType === 'daily' ? 'What did you complete today?' : 'Key achievements this week'}
+                                {updateType === 'daily' ? 'What did you complete today?' : 
+                                 updateType === 'weekly' ? 'Key achievements this week' :
+                                 updateType === 'monthly' ? 'Major accomplishments this month' :
+                                 'Quarter achievements'}
                             </label>
                             <ItemInput
                                 field="completed"
                                 items={formData.completed}
-                                placeholder={updateType === 'daily' ? "Completed task or milestone..." : "Achievement or win..."}
+                                placeholder={updateType === 'daily' ? "Completed task or milestone..." : 
+                                            updateType === 'weekly' ? "Achievement or win..." :
+                                            updateType === 'monthly' ? "Monthly accomplishment..." :
+                                            "Quarter achievement..."}
                                 icon={CheckCircle}
                                 iconColor="text-emerald-500"
                             />
                         </div>
+
+                        {/* Highlights / Goals / OKR Progress */}
+                        {(updateType === 'weekly' || updateType === 'monthly' || updateType === 'quarterly') && (
+                            <div>
+                                <label className="text-sm font-medium text-[#4A3728] flex items-center gap-2 mb-2">
+                                    <Sparkles className="w-4 h-4 text-amber-500" />
+                                    {updateType === 'weekly' ? 'Team highlights' :
+                                     updateType === 'monthly' ? 'Goals progress' :
+                                     'OKR progress'}
+                                    <span className="text-xs text-[#8B7355] font-normal">(optional)</span>
+                                </label>
+                                <ItemInput
+                                    field="highlights"
+                                    items={formData.highlights}
+                                    placeholder={updateType === 'weekly' ? "Shoutout or team win..." :
+                                                updateType === 'monthly' ? "Goal achieved or progressed..." :
+                                                "OKR update..."}
+                                    icon={Sparkles}
+                                    iconColor="text-amber-500"
+                                />
+                            </div>
+                        )}
 
                         {/* Blockers / Challenges */}
                         <div>
@@ -770,7 +946,10 @@ export default function WorkUpdates() {
                         <div>
                             <label className="text-sm font-medium text-[#4A3728] flex items-center gap-2 mb-2">
                                 <Target className="w-4 h-4 text-blue-500" />
-                                {updateType === 'daily' ? "Tomorrow's focus" : 'Next week priorities'}
+                                {updateType === 'daily' ? "Tomorrow's focus" : 
+                                 updateType === 'weekly' ? 'Next week priorities' :
+                                 updateType === 'monthly' ? 'Next month priorities' :
+                                 'Next quarter priorities'}
                                 <span className="text-xs text-[#8B7355] font-normal">(optional)</span>
                             </label>
                             <ItemInput
@@ -781,24 +960,6 @@ export default function WorkUpdates() {
                                 iconColor="text-blue-500"
                             />
                         </div>
-
-                        {/* Team Highlights - Weekly only */}
-                        {(updateType === 'weekly' || updateType === 'monthly' || updateType === 'quarterly') && (
-                            <div>
-                                <label className="text-sm font-medium text-[#4A3728] flex items-center gap-2 mb-2">
-                                    <Sparkles className="w-4 h-4 text-amber-500" />
-                                    Team highlights
-                                    <span className="text-xs text-[#8B7355] font-normal">(optional)</span>
-                                </label>
-                                <ItemInput
-                                    field="highlights"
-                                    items={formData.highlights}
-                                    placeholder="Shoutout or team win..."
-                                    icon={Sparkles}
-                                    iconColor="text-amber-500"
-                                />
-                            </div>
-                        )}
 
                         {/* Notes */}
                         <div>

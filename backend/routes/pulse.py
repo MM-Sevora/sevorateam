@@ -110,6 +110,8 @@ POST_TYPES = {
     "appreciation": {"label": "Appreciation", "icon": "heart", "color": "#EC4899"},
     "daily_update": {"label": "Daily Update", "icon": "calendar", "color": "#10B981"},
     "weekly_update": {"label": "Weekly Update", "icon": "calendar-range", "color": "#8B5CF6"},
+    "monthly_update": {"label": "Monthly Update", "icon": "calendar-days", "color": "#3B82F6"},
+    "quarterly_update": {"label": "Quarterly Update", "icon": "calendar-check", "color": "#F59E0B"},
     "update": {"label": "General Update", "icon": "message-circle", "color": "#64748B"},
 }
 
@@ -1221,6 +1223,55 @@ class WeeklyUpdateCreate(BaseModel):
     notes: Optional[str] = None
 
 
+class MonthlyUpdateCreate(BaseModel):
+    """Monthly update model"""
+    # Key accomplishments
+    accomplishments: List[str] = []  # Legacy
+    accomplishment_items: List[LinkableTextItem] = []  # New: items with links
+    # Goals progress
+    goals_progress: List[str] = []  # Legacy
+    goals_progress_items: List[LinkableTextItem] = []  # Goals achieved or progressed
+    # Challenges
+    challenges: List[str] = []  # Legacy
+    challenge_items: List[LinkableTextItem] = []  # Major challenges faced
+    # Next month focus
+    next_month_focus: List[str] = []  # Legacy
+    next_month_focus_items: List[LinkableTextItem] = []  # Priorities for next month
+    # Team/department highlights
+    team_highlights: List[str] = []  # Legacy
+    team_highlights_items: List[LinkableTextItem] = []
+    # Key metrics
+    key_metrics: Dict[str, Any] = {}
+    notes: Optional[str] = None
+    month: Optional[str] = None  # Format: "2026-03"
+
+
+class QuarterlyUpdateCreate(BaseModel):
+    """Quarterly update model"""
+    # Quarter achievements
+    achievements: List[str] = []  # Legacy
+    achievement_items: List[LinkableTextItem] = []  # Major wins
+    # OKR progress
+    okr_progress: List[str] = []  # Legacy
+    okr_progress_items: List[LinkableTextItem] = []  # OKR updates
+    # Key learnings
+    learnings: List[str] = []  # Legacy
+    learning_items: List[LinkableTextItem] = []
+    # Challenges overcome
+    challenges: List[str] = []  # Legacy
+    challenge_items: List[LinkableTextItem] = []
+    # Next quarter priorities
+    next_quarter_focus: List[str] = []  # Legacy
+    next_quarter_focus_items: List[LinkableTextItem] = []
+    # Team highlights
+    team_highlights: List[str] = []  # Legacy
+    team_highlights_items: List[LinkableTextItem] = []
+    # Key metrics
+    key_metrics: Dict[str, Any] = {}
+    notes: Optional[str] = None
+    quarter: Optional[str] = None  # Format: "2026-Q1"
+
+
 @router.post("/updates/daily")
 async def submit_daily_update(update: DailyUpdateCreate, user: dict = Depends(get_current_user)):
     """Submit a daily work update with optional linked tasks/projects for all fields"""
@@ -1500,7 +1551,258 @@ async def get_weekly_updates(
     return {"updates": updates}
 
 
-# ============== LINKABLE ITEMS FOR UPDATES ==============
+# ============== MONTHLY UPDATES ==============
+
+@router.post("/updates/monthly")
+async def submit_monthly_update(update: MonthlyUpdateCreate, user: dict = Depends(get_current_user)):
+    """Submit a monthly work update"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not available")
+    
+    update_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc)
+    month = update.month or now.strftime("%Y-%m")
+    
+    # Helper function to merge legacy and new items
+    def merge_items(legacy_list, new_items_list):
+        all_items = []
+        for text in legacy_list:
+            if text and text.strip():
+                all_items.append({"text": text, "linked_item": None})
+        for item in new_items_list:
+            all_items.append({
+                "text": item.text,
+                "linked_item": item.linked_item.model_dump() if item.linked_item else None,
+            })
+        return all_items
+    
+    # Merge all fields
+    all_accomplishments = merge_items(update.accomplishments, update.accomplishment_items)
+    all_goals_progress = merge_items(update.goals_progress, update.goals_progress_items)
+    all_challenges = merge_items(update.challenges, update.challenge_items)
+    all_next_focus = merge_items(update.next_month_focus, update.next_month_focus_items)
+    all_team_highlights = merge_items(update.team_highlights, update.team_highlights_items)
+    
+    if not all_accomplishments:
+        raise HTTPException(status_code=400, detail="Please add at least one accomplishment")
+    
+    # Check if already submitted for this month
+    existing = await db.pulse_monthly_updates.find_one({
+        "user_id": user["id"],
+        "month": month
+    })
+    
+    update_doc = {
+        "id": update_id,
+        "user_id": user["id"],
+        "user_name": user.get("name"),
+        "department": user.get("department"),
+        "month": month,
+        "accomplishment_items": all_accomplishments,
+        "goals_progress_items": all_goals_progress,
+        "challenge_items": all_challenges,
+        "next_month_focus_items": all_next_focus,
+        "team_highlights_items": all_team_highlights,
+        "key_metrics": update.key_metrics,
+        "notes": update.notes,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    if existing:
+        # Update existing
+        await db.pulse_monthly_updates.update_one(
+            {"id": existing["id"]},
+            {"$set": {
+                **update_doc,
+                "id": existing["id"],
+                "created_at": existing.get("created_at", now.isoformat())
+            }}
+        )
+        update_id = existing["id"]
+        logger.info(f"Monthly update updated for {user['id']} - {month}")
+    else:
+        await db.pulse_monthly_updates.insert_one(update_doc)
+        logger.info(f"Monthly update created for {user['id']} - {month}")
+    
+    # Create a pulse post for visibility
+    month_name = datetime.strptime(month, "%Y-%m").strftime("%B %Y")
+    post_doc = {
+        "id": str(uuid.uuid4()),
+        "author_id": user["id"],
+        "author_name": user.get("name"),
+        "department": user.get("department"),
+        "title": f"Monthly Update - {month_name}",
+        "content": f"Shared monthly update for {month_name}",
+        "post_type": "monthly_update",
+        "visibility": "public",
+        "priority": "normal",
+        "tags": ["monthly-update", user.get("department", "general")],
+        "reactions": {},
+        "comment_count": 0,
+        "monthly_update_id": update_id,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+    }
+    await db.pulse_posts.insert_one(post_doc)
+    
+    return {"message": "Monthly update submitted", "update_id": update_id}
+
+
+@router.get("/updates/monthly")
+async def get_monthly_updates(
+    user_id: Optional[str] = None,
+    department: Optional[str] = None,
+    limit: int = 10,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get monthly updates"""
+    if db is None:
+        return {"updates": []}
+    
+    query = {}
+    if user_id:
+        query["user_id"] = user_id
+    if department:
+        query["department"] = department
+    
+    updates = await db.pulse_monthly_updates.find(
+        query, {"_id": 0}
+    ).sort("month", -1).limit(limit).to_list(limit)
+    
+    return {"updates": updates}
+
+
+# ============== QUARTERLY UPDATES ==============
+
+@router.post("/updates/quarterly")
+async def submit_quarterly_update(update: QuarterlyUpdateCreate, user: dict = Depends(get_current_user)):
+    """Submit a quarterly work update"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not available")
+    
+    update_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc)
+    
+    # Determine current quarter
+    if update.quarter:
+        quarter = update.quarter
+    else:
+        month = now.month
+        q = (month - 1) // 3 + 1
+        quarter = f"{now.year}-Q{q}"
+    
+    # Helper function to merge legacy and new items
+    def merge_items(legacy_list, new_items_list):
+        all_items = []
+        for text in legacy_list:
+            if text and text.strip():
+                all_items.append({"text": text, "linked_item": None})
+        for item in new_items_list:
+            all_items.append({
+                "text": item.text,
+                "linked_item": item.linked_item.model_dump() if item.linked_item else None,
+            })
+        return all_items
+    
+    # Merge all fields
+    all_achievements = merge_items(update.achievements, update.achievement_items)
+    all_okr_progress = merge_items(update.okr_progress, update.okr_progress_items)
+    all_learnings = merge_items(update.learnings, update.learning_items)
+    all_challenges = merge_items(update.challenges, update.challenge_items)
+    all_next_focus = merge_items(update.next_quarter_focus, update.next_quarter_focus_items)
+    all_team_highlights = merge_items(update.team_highlights, update.team_highlights_items)
+    
+    if not all_achievements:
+        raise HTTPException(status_code=400, detail="Please add at least one achievement")
+    
+    # Check if already submitted for this quarter
+    existing = await db.pulse_quarterly_updates.find_one({
+        "user_id": user["id"],
+        "quarter": quarter
+    })
+    
+    update_doc = {
+        "id": update_id,
+        "user_id": user["id"],
+        "user_name": user.get("name"),
+        "department": user.get("department"),
+        "quarter": quarter,
+        "achievement_items": all_achievements,
+        "okr_progress_items": all_okr_progress,
+        "learning_items": all_learnings,
+        "challenge_items": all_challenges,
+        "next_quarter_focus_items": all_next_focus,
+        "team_highlights_items": all_team_highlights,
+        "key_metrics": update.key_metrics,
+        "notes": update.notes,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    if existing:
+        # Update existing
+        await db.pulse_quarterly_updates.update_one(
+            {"id": existing["id"]},
+            {"$set": {
+                **update_doc,
+                "id": existing["id"],
+                "created_at": existing.get("created_at", now.isoformat())
+            }}
+        )
+        update_id = existing["id"]
+        logger.info(f"Quarterly update updated for {user['id']} - {quarter}")
+    else:
+        await db.pulse_quarterly_updates.insert_one(update_doc)
+        logger.info(f"Quarterly update created for {user['id']} - {quarter}")
+    
+    # Create a pulse post for visibility
+    post_doc = {
+        "id": str(uuid.uuid4()),
+        "author_id": user["id"],
+        "author_name": user.get("name"),
+        "department": user.get("department"),
+        "title": f"Quarterly Update - {quarter}",
+        "content": f"Shared quarterly update for {quarter}",
+        "post_type": "quarterly_update",
+        "visibility": "public",
+        "priority": "normal",
+        "tags": ["quarterly-update", user.get("department", "general")],
+        "reactions": {},
+        "comment_count": 0,
+        "quarterly_update_id": update_id,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+    }
+    await db.pulse_posts.insert_one(post_doc)
+    
+    return {"message": "Quarterly update submitted", "update_id": update_id}
+
+
+@router.get("/updates/quarterly")
+async def get_quarterly_updates(
+    user_id: Optional[str] = None,
+    department: Optional[str] = None,
+    limit: int = 10,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get quarterly updates"""
+    if db is None:
+        return {"updates": []}
+    
+    query = {}
+    if user_id:
+        query["user_id"] = user_id
+    if department:
+        query["department"] = department
+    
+    updates = await db.pulse_quarterly_updates.find(
+        query, {"_id": 0}
+    ).sort("quarter", -1).limit(limit).to_list(limit)
+    
+    return {"updates": updates}
+
+
 
 @router.get("/updates/linkable-items")
 async def get_linkable_items(
