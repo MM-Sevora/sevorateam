@@ -2554,6 +2554,13 @@ async def create_task_from_daily_update_blocker(
     task_id = str(uuid.uuid4())
     linked_item = blocker.get("linked_item") if isinstance(blocker, dict) else None
     
+    # Determine assigned_to: use request.assignee_id if provided, otherwise assign to current user
+    assignee_id = None
+    if request and request.assignee_id:
+        assignee_id = request.assignee_id
+    else:
+        assignee_id = user.get("id")
+    
     task_doc = {
         "id": task_id,
         "name": f"[Blocker] {blocker_text[:100]}",
@@ -2561,7 +2568,7 @@ async def create_task_from_daily_update_blocker(
         "status": "not_started",
         "priority": request.priority if request else "high",  # Blockers are high priority by default
         "project_id": request.project_id if request else (linked_item.get("project_id") if linked_item else None),
-        "assigned_to": request.assignee_id if request else user.get("id"),
+        "assigned_to": assignee_id,
         "due_date": request.due_date if request else None,
         "labels": ["from-pulse", "blocker"],
         "created_by": user.get("id"),
