@@ -1,3 +1,51 @@
+## March 14, 2026 - Admin Tasks with Approval Workflows ✅
+
+### What Was Built
+Renamed "Operational Tasks" to "Admin Tasks" and added comprehensive approval workflow features.
+
+### Sidebar Changes
+- **Old**: "Operational Tasks" 
+- **New**: "Admin Tasks" with routes:
+  - All Tasks (`/tasks`)
+  - **Approvals** (`/tasks/approvals`) - NEW
+  - Activity Feed (`/tasks/activities`)
+  - Smart Triggers (`/tasks/triggers`)
+
+### Approval Workflow Features
+| Feature | Description |
+|---------|-------------|
+| **Pending Approvals** | Dashboard showing tasks awaiting approval |
+| **5 Categories** | Leave Requests, Expenses, Reimbursements, Documents, Other |
+| **Approve/Reject** | One-click approve with notes or reject with reason |
+| **History** | View past approval actions |
+| **Notifications** | Auto-notify requesters of approval/rejection |
+
+### HR/Finance Integration
+New endpoint `/api/tasks/create-approval-task` allows other modules to create approval tasks:
+- HR module can create leave approval tasks
+- Finance module can create expense/reimbursement approvals
+- Auto-assigns to the right approver
+- Links back to source entity
+
+### New API Endpoints
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/tasks/approvals/pending` | GET | Get pending approvals for current user |
+| `/api/tasks/approvals/history` | GET | Get approval history |
+| `/api/tasks/{id}/approve` | POST | Approve a task |
+| `/api/tasks/{id}/reject` | POST | Reject a task |
+| `/api/tasks/create-approval-task` | POST | Create approval task from HR/Finance |
+
+### Files Created/Modified
+| File | Changes |
+|------|---------|
+| `/app/frontend/src/pages/tasks/ApprovalsPage.jsx` | NEW - Approvals UI |
+| `/app/backend/routes/unified_tasks.py` | Added approval endpoints |
+| `/app/frontend/src/components/Layout.jsx` | Renamed to "Admin Tasks", added Approvals route |
+| `/app/frontend/src/App.js` | Added ApprovalsPage route |
+
+---
+
 ## March 13, 2026 - Notification Settings Admin Page ✅
 
 ### What Was Built

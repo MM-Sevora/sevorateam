@@ -103,14 +103,15 @@ const DEPARTMENT_CONFIG = {
         ]
     },
     tasks: {
-        name: 'Operational Tasks',
+        name: 'Admin Tasks',
         icon: ClipboardList,
         color: 'from-teal-600 to-teal-700',
         bgColor: 'bg-teal-50',
         textColor: 'text-teal-700',
-        requiredModule: 'operational_tasks',  // NEW: Dedicated module
+        requiredModule: 'operational_tasks',
         routes: [
             { path: '/tasks', name: 'All Tasks', icon: ClipboardList },
+            { path: '/tasks/approvals', name: 'Approvals', icon: CheckCircle },
             { path: '/tasks/activities', name: 'Activity Feed', icon: Activity },
             { path: '/tasks/triggers', name: 'Smart Triggers', icon: Bot },
         ]

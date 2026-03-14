@@ -118,6 +118,7 @@ import RecurringTasks from "./pages/projects/RecurringTasks";
 import UnifiedTasksPage from "./pages/tasks/UnifiedTasksPage";
 import ActivityFeedPage from "./pages/tasks/ActivityFeedPage";
 import TaskTriggersPage from "./pages/tasks/TaskTriggersPage";
+import ApprovalsPage from "./pages/tasks/ApprovalsPage";
 
 // Goals & Objectives Pages
 import GoalsDashboard from "./pages/goals/GoalsDashboard";
@@ -553,6 +554,7 @@ function AppRoutes() {
 
             {/* Unified Task Management Routes */}
             <Route path="/tasks" element={<ProtectedRoute requiredModule="project_management"><UnifiedTasksPage /></ProtectedRoute>} />
+            <Route path="/tasks/approvals" element={<ProtectedRoute requiredModule="project_management"><ApprovalsPage /></ProtectedRoute>} />
             <Route path="/tasks/activities" element={<ProtectedRoute requiredModule="project_management"><ActivityFeedPage /></ProtectedRoute>} />
             <Route path="/tasks/triggers" element={<ProtectedRoute requiredModule="project_management"><TaskTriggersPage /></ProtectedRoute>} />
 

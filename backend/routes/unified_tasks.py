@@ -75,12 +75,17 @@ class TaskCreate(BaseModel):
     assigned_to: Optional[str] = None    # Primary owner (user_id)
     priority: str = "medium"  # low, medium, high, urgent
     due_date: Optional[str] = None
-    source_module: Optional[str] = None  # sourcing, marketing, sales, hr, etc.
-    source_entity_type: Optional[str] = None  # brand, supplier, campaign, etc.
+    source_module: Optional[str] = None  # sourcing, marketing, sales, hr, finance, etc.
+    source_entity_type: Optional[str] = None  # leave_request, expense, reimbursement, etc.
     source_entity_id: Optional[str] = None
     tags: List[str] = []
     related_url: Optional[str] = None  # Link to the source entity
     sync_to_outlook: bool = False  # Create Outlook reminder for due date
+    # Approval workflow fields
+    task_type: str = "general"  # general, approval, review, action_required
+    requires_approval: bool = False
+    approver_id: Optional[str] = None  # User who needs to approve
+    approval_type: Optional[str] = None  # leave, expense, reimbursement, document, other
 
 
 class TaskUpdate(BaseModel):
@@ -90,10 +95,15 @@ class TaskUpdate(BaseModel):
     assigned_to: Optional[str] = None
     priority: Optional[str] = None
     due_date: Optional[str] = None
-    status: Optional[str] = None  # pending, in_progress, completed, cancelled
+    status: Optional[str] = None  # pending, in_progress, completed, cancelled, pending_approval, approved, rejected
     tags: Optional[List[str]] = None
     completion_notes: Optional[str] = None
     sync_to_outlook: Optional[bool] = None  # Create/update Outlook reminder
+    # Approval workflow fields
+    approval_status: Optional[str] = None  # pending, approved, rejected
+    approval_notes: Optional[str] = None
+    approved_by: Optional[str] = None
+    approved_at: Optional[str] = None
 
 
 class ActivityLog(BaseModel):
@@ -954,6 +964,355 @@ async def delete_task(
     )
     
     return {"message": "Task deleted successfully"}
+
+
+# ============== APPROVAL WORKFLOW ENDPOINTS ==============
+
+@router.get("/approvals/pending")
+async def get_pending_approvals(
+    current_user: dict = Depends(get_current_user_dep)
+):
+    """Get all tasks pending approval for the current user"""
+    query = {
+        "$or": [
+            {"approver_id": current_user.get("id")},
+            {"assigned_to": current_user.get("id"), "requires_approval": True}
+        ],
+        "approval_status": {"$in": ["pending", None]},
+        "requires_approval": True,
+        "status": {"$ne": "cancelled"}
+    }
+    
+    tasks = await db.unified_tasks.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
+    
+    # Group by approval type
+    grouped = {
+        "leave": [],
+        "expense": [],
+        "reimbursement": [],
+        "document": [],
+        "other": []
+    }
+    
+    for task in tasks:
+        approval_type = task.get("approval_type", "other")
+        if approval_type in grouped:
+            grouped[approval_type].append(task)
+        else:
+            grouped["other"].append(task)
+    
+    return {
+        "total": len(tasks),
+        "grouped": grouped,
+        "tasks": tasks
+    }
+
+
+@router.post("/{task_id}/approve")
+async def approve_task(
+    task_id: str,
+    approval_data: dict,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user_dep)
+):
+    """Approve a task that requires approval"""
+    task = await db.unified_tasks.find_one({"id": task_id})
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    # Check if user can approve
+    if task.get("approver_id") != current_user.get("id") and current_user.get("role") not in ["super_admin", "admin"]:
+        raise HTTPException(status_code=403, detail="You are not authorized to approve this task")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    update_data = {
+        "approval_status": "approved",
+        "approved_by": current_user.get("id"),
+        "approved_by_name": current_user.get("name"),
+        "approved_at": now,
+        "approval_notes": approval_data.get("notes", ""),
+        "status": "completed",
+        "updated_at": now
+    }
+    
+    await db.unified_tasks.update_one({"id": task_id}, {"$set": update_data})
+    
+    # Update source entity if linked (e.g., approve the leave request)
+    if task.get("source_module") and task.get("source_entity_id"):
+        await _update_source_entity_approval(
+            task.get("source_module"),
+            task.get("source_entity_type"),
+            task.get("source_entity_id"),
+            "approved",
+            current_user
+        )
+    
+    # Log activity
+    background_tasks.add_task(
+        log_activity,
+        module="tasks",
+        entity_type="approval",
+        entity_id=task_id,
+        entity_name=task.get("title"),
+        action="approved",
+        action_details={"notes": approval_data.get("notes", "")},
+        user_id=current_user.get("id"),
+        user_name=current_user.get("name")
+    )
+    
+    # Create notification for task creator
+    if task.get("created_by") and task.get("created_by") != current_user.get("id"):
+        await db.notifications.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": task.get("created_by"),
+            "title": "Task Approved",
+            "message": f"Your request '{task.get('title')}' has been approved by {current_user.get('name')}",
+            "category": "tasks",
+            "priority": "normal",
+            "entity_type": "task",
+            "entity_id": task_id,
+            "action_url": f"/tasks?task={task_id}",
+            "is_read": False,
+            "created_at": now
+        })
+    
+    return {"status": "success", "message": "Task approved successfully"}
+
+
+@router.post("/{task_id}/reject")
+async def reject_task(
+    task_id: str,
+    rejection_data: dict,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user_dep)
+):
+    """Reject a task that requires approval"""
+    task = await db.unified_tasks.find_one({"id": task_id})
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    # Check if user can reject
+    if task.get("approver_id") != current_user.get("id") and current_user.get("role") not in ["super_admin", "admin"]:
+        raise HTTPException(status_code=403, detail="You are not authorized to reject this task")
+    
+    reason = rejection_data.get("reason", "")
+    if not reason:
+        raise HTTPException(status_code=400, detail="Rejection reason is required")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    update_data = {
+        "approval_status": "rejected",
+        "approved_by": current_user.get("id"),
+        "approved_by_name": current_user.get("name"),
+        "approved_at": now,
+        "approval_notes": reason,
+        "status": "cancelled",
+        "updated_at": now
+    }
+    
+    await db.unified_tasks.update_one({"id": task_id}, {"$set": update_data})
+    
+    # Update source entity if linked
+    if task.get("source_module") and task.get("source_entity_id"):
+        await _update_source_entity_approval(
+            task.get("source_module"),
+            task.get("source_entity_type"),
+            task.get("source_entity_id"),
+            "rejected",
+            current_user,
+            reason
+        )
+    
+    # Log activity
+    background_tasks.add_task(
+        log_activity,
+        module="tasks",
+        entity_type="approval",
+        entity_id=task_id,
+        entity_name=task.get("title"),
+        action="rejected",
+        action_details={"reason": reason},
+        user_id=current_user.get("id"),
+        user_name=current_user.get("name")
+    )
+    
+    # Create notification for task creator
+    if task.get("created_by") and task.get("created_by") != current_user.get("id"):
+        await db.notifications.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": task.get("created_by"),
+            "title": "Task Rejected",
+            "message": f"Your request '{task.get('title')}' has been rejected. Reason: {reason}",
+            "category": "tasks",
+            "priority": "high",
+            "entity_type": "task",
+            "entity_id": task_id,
+            "action_url": f"/tasks?task={task_id}",
+            "is_read": False,
+            "created_at": now
+        })
+    
+    return {"status": "success", "message": "Task rejected"}
+
+
+async def _update_source_entity_approval(
+    source_module: str,
+    source_entity_type: str,
+    source_entity_id: str,
+    status: str,
+    approver: dict,
+    reason: str = ""
+):
+    """Update the source entity when approval status changes"""
+    now = datetime.now(timezone.utc).isoformat()
+    
+    update_data = {
+        "approval_status": status,
+        "approved_by": approver.get("id"),
+        "approved_by_name": approver.get("name"),
+        "approved_at": now,
+        "updated_at": now
+    }
+    
+    if reason:
+        update_data["rejection_reason"] = reason
+    
+    # Update based on source module
+    if source_module == "hr" and source_entity_type == "leave_request":
+        await db.leave_requests.update_one({"id": source_entity_id}, {"$set": update_data})
+    elif source_module == "finance" and source_entity_type in ["expense", "reimbursement"]:
+        await db.expenses.update_one({"id": source_entity_id}, {"$set": update_data})
+    elif source_module == "hr" and source_entity_type == "reimbursement":
+        await db.reimbursements.update_one({"id": source_entity_id}, {"$set": update_data})
+
+
+@router.get("/approvals/history")
+async def get_approval_history(
+    status: Optional[str] = None,
+    approval_type: Optional[str] = None,
+    limit: int = 50,
+    current_user: dict = Depends(get_current_user_dep)
+):
+    """Get approval history for tasks the user has acted on"""
+    query = {
+        "approved_by": current_user.get("id"),
+        "requires_approval": True
+    }
+    
+    if status:
+        query["approval_status"] = status
+    if approval_type:
+        query["approval_type"] = approval_type
+    
+    tasks = await db.unified_tasks.find(query, {"_id": 0}).sort("approved_at", -1).limit(limit).to_list(limit)
+    
+    return {
+        "total": len(tasks),
+        "tasks": tasks
+    }
+
+
+# ============== HR/FINANCE INTEGRATION ==============
+
+@router.post("/create-approval-task")
+async def create_approval_task(
+    request_data: dict,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user_dep)
+):
+    """
+    Create an approval task from HR/Finance modules.
+    Called when leave request, expense, or reimbursement is submitted.
+    """
+    source_module = request_data.get("source_module")  # hr, finance
+    source_entity_type = request_data.get("source_entity_type")  # leave_request, expense, reimbursement
+    source_entity_id = request_data.get("source_entity_id")
+    title = request_data.get("title")
+    description = request_data.get("description", "")
+    approver_id = request_data.get("approver_id")  # Manager or designated approver
+    priority = request_data.get("priority", "medium")
+    due_date = request_data.get("due_date")
+    related_url = request_data.get("related_url")
+    
+    if not all([source_module, source_entity_type, source_entity_id, title, approver_id]):
+        raise HTTPException(status_code=400, detail="Missing required fields")
+    
+    # Map entity type to approval type
+    approval_type_map = {
+        "leave_request": "leave",
+        "expense": "expense",
+        "reimbursement": "reimbursement",
+        "document": "document"
+    }
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Get approver name
+    approver = await db.users.find_one({"id": approver_id}, {"name": 1})
+    approver_name = approver.get("name") if approver else "Unknown"
+    
+    task_doc = {
+        "id": str(uuid.uuid4()),
+        "title": title,
+        "description": description,
+        "assigned_to": approver_id,
+        "assigned_to_name": approver_name,
+        "priority": priority,
+        "due_date": due_date,
+        "status": "pending",
+        "source_module": source_module,
+        "source_entity_type": source_entity_type,
+        "source_entity_id": source_entity_id,
+        "related_url": related_url,
+        "tags": [source_module, source_entity_type, "approval"],
+        "task_type": "approval",
+        "requires_approval": True,
+        "approver_id": approver_id,
+        "approval_type": approval_type_map.get(source_entity_type, "other"),
+        "approval_status": "pending",
+        "created_by": current_user.get("id"),
+        "created_by_name": current_user.get("name"),
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.unified_tasks.insert_one(task_doc)
+    
+    # Create notification for approver
+    await db.notifications.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": approver_id,
+        "title": f"New {source_entity_type.replace('_', ' ').title()} for Approval",
+        "message": f"{current_user.get('name')} has submitted: {title}",
+        "category": "tasks",
+        "priority": "high",
+        "entity_type": "task",
+        "entity_id": task_doc["id"],
+        "action_url": f"/tasks/approvals",
+        "is_read": False,
+        "created_at": now
+    })
+    
+    # Log activity
+    background_tasks.add_task(
+        log_activity,
+        module="tasks",
+        entity_type="approval_task",
+        entity_id=task_doc["id"],
+        entity_name=title,
+        action="created",
+        action_details={"source_module": source_module, "source_entity_type": source_entity_type},
+        user_id=current_user.get("id"),
+        user_name=current_user.get("name")
+    )
+    
+    return {
+        "status": "success",
+        "task_id": task_doc["id"],
+        "message": "Approval task created and notification sent"
+    }
 
 
 # ============== ACTIVITY LOG ENDPOINTS ==============
