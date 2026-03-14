@@ -6,6 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
+import httpx
+import os
 
 from models.workos import (
     DepartmentCreate, DepartmentUpdate, DepartmentResponse,
@@ -29,6 +31,219 @@ def require_admin():
 def get_current_user_dep():
     from server import get_current_user
     return get_current_user
+
+
+# ============== AZURE AD LICENSE MANAGEMENT ==============
+
+async def get_azure_ad_access_token():
+    """Get access token for Microsoft Graph API using client credentials"""
+    tenant_id = os.environ.get("AZURE_AD_TENANT_ID")
+    client_id = os.environ.get("AZURE_AD_CLIENT_ID")
+    client_secret = os.environ.get("AZURE_AD_CLIENT_SECRET")
+    
+    if not all([tenant_id, client_id, client_secret]):
+        return None
+    
+    token_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            token_url,
+            data={
+                "grant_type": "client_credentials",
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "scope": "https://graph.microsoft.com/.default"
+            }
+        )
+        
+        if response.status_code == 200:
+            return response.json().get("access_token")
+        return None
+
+
+async def fetch_azure_ad_users_with_licenses():
+    """Fetch users and their licenses from Azure AD"""
+    token = await get_azure_ad_access_token()
+    if not token:
+        return None, "Azure AD credentials not configured"
+    
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    async with httpx.AsyncClient() as client:
+        # Fetch all users with their assigned licenses
+        users_response = await client.get(
+            "https://graph.microsoft.com/v1.0/users?$select=id,displayName,mail,userPrincipalName,assignedLicenses,accountEnabled",
+            headers=headers
+        )
+        
+        if users_response.status_code != 200:
+            return None, f"Failed to fetch users: {users_response.text}"
+        
+        users_data = users_response.json().get("value", [])
+        
+        # Fetch SKU details for license names
+        skus_response = await client.get(
+            "https://graph.microsoft.com/v1.0/subscribedSkus",
+            headers=headers
+        )
+        
+        sku_map = {}
+        if skus_response.status_code == 200:
+            for sku in skus_response.json().get("value", []):
+                sku_map[sku.get("skuId")] = {
+                    "name": sku.get("skuPartNumber"),
+                    "display_name": sku.get("skuPartNumber", "").replace("_", " ").title()
+                }
+        
+        # Process users with license info
+        licensed_users = []
+        for user in users_data:
+            assigned_licenses = user.get("assignedLicenses", [])
+            if assigned_licenses:  # Only include users with licenses
+                license_names = []
+                for lic in assigned_licenses:
+                    sku_info = sku_map.get(lic.get("skuId"), {})
+                    license_names.append(sku_info.get("display_name", lic.get("skuId")))
+                
+                licensed_users.append({
+                    "azure_id": user.get("id"),
+                    "name": user.get("displayName"),
+                    "email": user.get("mail") or user.get("userPrincipalName"),
+                    "account_enabled": user.get("accountEnabled", False),
+                    "licenses": license_names,
+                    "license_count": len(assigned_licenses)
+                })
+        
+        return licensed_users, None
+
+
+@workos_router.get("/azure-ad/licensed-users")
+async def get_azure_ad_licensed_users(
+    user: dict = Depends(get_current_user_dep())
+):
+    """Get all users with licenses from Azure AD"""
+    licensed_users, error = await fetch_azure_ad_users_with_licenses()
+    
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+    
+    return {
+        "total_licensed": len(licensed_users),
+        "users": licensed_users
+    }
+
+
+@workos_router.post("/azure-ad/sync-licenses")
+async def sync_azure_ad_licenses(
+    user: dict = Depends(get_current_user_dep())
+):
+    """Sync license information from Azure AD to local users"""
+    db = get_db()
+    
+    licensed_users, error = await fetch_azure_ad_users_with_licenses()
+    
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+    
+    synced_count = 0
+    new_users = []
+    updated_users = []
+    
+    for azure_user in licensed_users:
+        email = azure_user.get("email")
+        azure_id = azure_user.get("azure_id")
+        
+        if not email:
+            continue
+        
+        # Find existing user by azure_id or email
+        existing_user = await db.users.find_one({
+            "$or": [{"azure_id": azure_id}, {"email": email.lower()}]
+        })
+        
+        license_data = {
+            "azure_licenses": azure_user.get("licenses", []),
+            "azure_license_count": azure_user.get("license_count", 0),
+            "azure_account_enabled": azure_user.get("account_enabled", False),
+            "azure_synced_at": datetime.now(timezone.utc).isoformat(),
+            "has_azure_license": True
+        }
+        
+        if existing_user:
+            # Update existing user with license info
+            await db.users.update_one(
+                {"id": existing_user.get("id")},
+                {"$set": license_data}
+            )
+            updated_users.append(email)
+        else:
+            # Optionally create new user (or just track for reporting)
+            new_users.append({
+                "name": azure_user.get("name"),
+                "email": email,
+                "licenses": azure_user.get("licenses")
+            })
+        
+        synced_count += 1
+    
+    # Also mark users without Azure licenses
+    await db.users.update_many(
+        {"has_azure_license": {"$ne": True}},
+        {"$set": {"has_azure_license": False}}
+    )
+    
+    return {
+        "success": True,
+        "total_azure_licensed": len(licensed_users),
+        "synced_count": synced_count,
+        "updated_users": len(updated_users),
+        "new_azure_users_not_in_system": new_users
+    }
+
+
+@workos_router.get("/license-stats")
+async def get_license_stats(
+    user: dict = Depends(get_current_user_dep())
+):
+    """Get license statistics for the organization"""
+    db = get_db()
+    
+    # Count users by license status
+    total_users = await db.users.count_documents({"status": {"$ne": "deleted"}})
+    licensed_users = await db.users.count_documents({
+        "status": {"$ne": "deleted"},
+        "has_azure_license": True
+    })
+    unlicensed_users = await db.users.count_documents({
+        "status": {"$ne": "deleted"},
+        "has_azure_license": {"$ne": True}
+    })
+    
+    # Get last sync time
+    last_synced_user = await db.users.find_one(
+        {"azure_synced_at": {"$exists": True}},
+        {"azure_synced_at": 1, "_id": 0},
+        sort=[("azure_synced_at", -1)]
+    )
+    
+    # Get license distribution
+    pipeline = [
+        {"$match": {"status": {"$ne": "deleted"}, "azure_licenses": {"$exists": True, "$ne": []}}},
+        {"$unwind": "$azure_licenses"},
+        {"$group": {"_id": "$azure_licenses", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    license_distribution = await db.users.aggregate(pipeline).to_list(20)
+    
+    return {
+        "total_users": total_users,
+        "licensed_users": licensed_users,
+        "unlicensed_users": unlicensed_users,
+        "license_percentage": round((licensed_users / total_users * 100) if total_users > 0 else 0, 1),
+        "last_synced_at": last_synced_user.get("azure_synced_at") if last_synced_user else None,
+        "license_distribution": [{"license": d["_id"], "count": d["count"]} for d in license_distribution]
+    }
 
 
 # ============== DEPARTMENTS ==============
@@ -288,6 +503,7 @@ async def get_users_enhanced(
     status: Optional[str] = None,
     search: Optional[str] = None,
     include_deleted: bool = False,
+    licensed_only: bool = False,
     limit: int = Query(default=100, le=500),
     user: dict = Depends(get_current_user_dep())
 ):
@@ -299,6 +515,10 @@ async def get_users_enhanced(
     # By default, exclude deleted users unless explicitly requested
     if not include_deleted:
         query["status"] = {"$ne": "deleted"}
+    
+    # Filter by Azure AD license
+    if licensed_only:
+        query["has_azure_license"] = True
     
     if department_id:
         query["department_id"] = department_id

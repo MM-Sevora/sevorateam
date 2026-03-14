@@ -194,6 +194,52 @@ const UsersPermissionsPage = () => {
   });
   const [deleteRoleDialog, setDeleteRoleDialog] = useState({ open: false, role: null });
 
+  // License states
+  const [licenseStats, setLicenseStats] = useState(null);
+  const [syncingLicenses, setSyncingLicenses] = useState(false);
+  const [showLicensedOnly, setShowLicensedOnly] = useState(false);
+
+  // Fetch license stats
+  const fetchLicenseStats = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API}/api/workos/license-stats`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLicenseStats(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch license stats:', err);
+    }
+  }, []);
+
+  // Sync licenses from Azure AD
+  const syncLicenses = async () => {
+    setSyncingLicenses(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API}/api/workos/azure-ad/sync-licenses`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        toast.success(`Synced ${data.synced_count} licenses from Azure AD`);
+        await fetchLicenseStats();
+        await fetchData();
+      } else {
+        const error = await res.json();
+        toast.error(error.detail || 'Failed to sync licenses');
+      }
+    } catch (err) {
+      toast.error('Failed to sync licenses from Azure AD');
+    } finally {
+      setSyncingLicenses(false);
+    }
+  };
+
   // Fetch all data
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -224,7 +270,7 @@ const UsersPermissionsPage = () => {
     }
   }, [api]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchData(); fetchLicenseStats(); }, [fetchData, fetchLicenseStats]);
 
   // Check if user is onboarded
   const isUserOnboarded = useCallback((userId) => {
@@ -240,6 +286,7 @@ const UsersPermissionsPage = () => {
     activeUsers: users.filter(u => u.status === 'active').length,
     inactiveUsers: users.filter(u => u.status === 'inactive').length,
     onboardedUsers: users.filter(u => isUserOnboarded(u.id)).length,
+    licensedUsers: licenseStats?.licensed_users || users.filter(u => u.has_azure_license).length,
     totalRoles: roles.length,
     totalModules: modules.length,
     totalCategories: categories.length,
@@ -251,7 +298,8 @@ const UsersPermissionsPage = () => {
       user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesLicense = !showLicensedOnly || user.has_azure_license;
+    return matchesSearch && matchesStatus && matchesLicense;
   });
 
   // Get role names for display
@@ -857,13 +905,22 @@ const UsersPermissionsPage = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-5 gap-4">
         <Card className="border-[#E8D5C4]">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="p-2 bg-blue-100 rounded-lg"><Users className="h-5 w-5 text-blue-600" /></div>
             <div>
               <p className="text-2xl font-bold text-[#4A3728]">{stats.totalUsers}</p>
               <p className="text-xs text-[#5D4A3A]">Total Users ({stats.activeUsers} active)</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-[#E8D5C4] border-emerald-200 bg-gradient-to-r from-emerald-50/30 to-white">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 bg-emerald-100 rounded-lg"><Key className="h-5 w-5 text-emerald-600" /></div>
+            <div>
+              <p className="text-2xl font-bold text-emerald-700">{stats.licensedUsers}</p>
+              <p className="text-xs text-[#5D4A3A]">Licensed (Azure AD)</p>
             </div>
           </CardContent>
         </Card>
@@ -929,10 +986,30 @@ const UsersPermissionsPage = () => {
                   <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>
               </Select>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50">
+                <Switch 
+                  checked={showLicensedOnly} 
+                  onCheckedChange={setShowLicensedOnly}
+                  className="data-[state=checked]:bg-emerald-600"
+                />
+                <span className="text-sm text-emerald-700 font-medium">Licensed Only</span>
+              </div>
             </div>
-            <Button onClick={openCreateUserDialog} className="bg-[#4A3728] hover:bg-[#5D4A3A] text-white" data-testid="create-user-btn">
-              <UserPlus className="h-4 w-4 mr-2" /> Create User
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                onClick={syncLicenses} 
+                disabled={syncingLicenses}
+                className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                data-testid="sync-licenses-btn"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${syncingLicenses ? 'animate-spin' : ''}`} /> 
+                Sync Azure AD
+              </Button>
+              <Button onClick={openCreateUserDialog} className="bg-[#4A3728] hover:bg-[#5D4A3A] text-white" data-testid="create-user-btn">
+                <UserPlus className="h-4 w-4 mr-2" /> Create User
+              </Button>
+            </div>
           </div>
 
           {/* Bulk Actions Toolbar */}
@@ -1015,9 +1092,16 @@ const UsersPermissionsPage = () => {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge className={user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                              {user.status === 'active' ? 'Active' : 'Inactive'}
-                            </Badge>
+                            <div className="flex items-center gap-1">
+                              <Badge className={user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                                {user.status === 'active' ? 'Active' : 'Inactive'}
+                              </Badge>
+                              {user.has_azure_license && (
+                                <Badge className="bg-emerald-100 text-emerald-700" title={user.azure_licenses?.join(', ') || 'Licensed'}>
+                                  <Key className="h-3 w-3" />
+                                </Badge>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>
                             {onboarded ? (
