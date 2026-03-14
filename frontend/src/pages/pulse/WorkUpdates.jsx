@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
@@ -61,6 +61,169 @@ import {
     Clock,
     Trash2,
 } from 'lucide-react';
+
+// ItemInput component - moved OUTSIDE WorkUpdates to prevent re-creation on every render
+const ItemInput = memo(function ItemInput({ 
+    field, 
+    items, 
+    placeholder, 
+    icon: Icon, 
+    iconColor,
+    linkableItems,
+    linkableLoading,
+    onTextChange,
+    onLinkSelect,
+    onClearLink,
+    onRemove,
+    onAdd,
+    onSearchLinkable
+}) {
+    const [openPopover, setOpenPopover] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
+
+    const filteredItems = linkableItems.filter(item => 
+        !searchQuery || 
+        item.item_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.project_name?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    const handleLinkSelect = (idx, linkItem) => {
+        onLinkSelect(field, idx, linkItem);
+        setOpenPopover(null);
+        setSearchQuery('');
+    };
+
+    return (
+        <div className="space-y-2">
+            {items.map((item, idx) => (
+                <div key={`${field}-item-${idx}`} className="group">
+                    <div className="flex items-start gap-2 p-2 rounded-lg border border-[#E8D5C4] bg-white hover:border-[#D4BBA6] transition-all">
+                        <Icon className={`w-4 h-4 mt-2.5 ${iconColor} flex-shrink-0`} />
+                        <div className="flex-1 space-y-1 min-w-0">
+                            <input
+                                type="text"
+                                value={item.text || ''}
+                                onChange={(e) => onTextChange(field, idx, e.target.value)}
+                                placeholder={placeholder}
+                                className="w-full h-8 bg-transparent outline-none text-[#4A3728] placeholder:text-[#A89888]"
+                                data-testid={`${field}-input-${idx}`}
+                            />
+                            {/* Linked item badge */}
+                            {item.linked_item && (
+                                <div className="flex items-center gap-1">
+                                    <Badge variant="secondary" className="text-xs gap-1 pr-1 bg-blue-50 text-blue-700 border border-blue-200">
+                                        {item.linked_item.item_type === 'task' ? (
+                                            <ListTodo className="w-3 h-3" />
+                                        ) : (
+                                            <FolderKanban className="w-3 h-3" />
+                                        )}
+                                        <span className="max-w-[150px] truncate">{item.linked_item.item_name}</span>
+                                        <button 
+                                            onClick={() => onClearLink(field, idx)}
+                                            className="hover:bg-blue-100 rounded p-0.5 ml-1"
+                                        >
+                                            <X className="w-3 h-3" />
+                                        </button>
+                                    </Badge>
+                                    {item.linked_item.project_name && (
+                                        <span className="text-xs text-[#8B7355]">in {item.linked_item.project_name}</span>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        
+                        {/* Link button */}
+                        <Popover open={openPopover === idx} onOpenChange={(open) => setOpenPopover(open ? idx : null)}>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className={`h-9 px-2 gap-1 text-xs ${
+                                        item.linked_item 
+                                            ? "bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100" 
+                                            : "border-[#D4BBA6] text-[#6B5D52] hover:bg-[#F5EBE0]"
+                                    }`}
+                                    title="Link to task or project"
+                                    data-testid={`${field}-link-btn-${idx}`}
+                                >
+                                    <Link2 className="w-3.5 h-3.5" />
+                                    {item.linked_item ? 'Linked' : 'Link'}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-80 p-2 z-[100]" align="end" side="bottom" sideOffset={4}>
+                                <div className="space-y-2">
+                                    <div className="relative">
+                                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-[#8B7355]" />
+                                        <Input
+                                            placeholder="Search tasks & projects..."
+                                            value={searchQuery}
+                                            onChange={(e) => {
+                                                setSearchQuery(e.target.value);
+                                                onSearchLinkable(e.target.value);
+                                            }}
+                                            className="pl-8 border-[#E8D5C4]"
+                                        />
+                                    </div>
+                                    <div className="max-h-48 overflow-y-auto space-y-1">
+                                        {linkableLoading ? (
+                                            <div className="flex items-center justify-center py-4">
+                                                <Loader2 className="w-5 h-5 animate-spin text-[#8B7355]" />
+                                            </div>
+                                        ) : filteredItems.length === 0 ? (
+                                            <p className="text-sm text-[#8B7355] text-center py-4">No items found</p>
+                                        ) : (
+                                            filteredItems.map((linkItem) => (
+                                                <button
+                                                    key={`${linkItem.item_type}-${linkItem.item_id}`}
+                                                    onClick={() => handleLinkSelect(idx, linkItem)}
+                                                    className="w-full text-left p-2 rounded hover:bg-[#F5EBE0] flex items-start gap-2"
+                                                >
+                                                    {linkItem.item_type === 'task' ? (
+                                                        <ListTodo className="w-4 h-4 text-blue-500 mt-0.5" />
+                                                    ) : (
+                                                        <FolderKanban className="w-4 h-4 text-violet-500 mt-0.5" />
+                                                    )}
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium truncate text-[#4A3728]">{linkItem.item_name}</p>
+                                                        <p className="text-xs text-[#8B7355] truncate">
+                                                            {linkItem.project_name || linkItem.item_type}
+                                                        </p>
+                                                    </div>
+                                                </button>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            </PopoverContent>
+                        </Popover>
+                        
+                        {/* Remove button */}
+                        {items.length > 1 && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => onRemove(field, idx)}
+                                className="h-9 w-9 p-0 text-[#8B7355] hover:text-red-600 hover:bg-red-50"
+                                data-testid={`${field}-remove-btn-${idx}`}
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </Button>
+                        )}
+                    </div>
+                </div>
+            ))}
+            <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onAdd(field)}
+                className="w-full text-[#6B5D52] border-dashed border-[#D4BBA6] hover:bg-[#F5EBE0]"
+                data-testid={`${field}-add-btn`}
+            >
+                <Plus className="w-4 h-4 mr-1" /> Add item
+            </Button>
+        </div>
+    );
+});
 
 // Update type configurations
 const UPDATE_TYPES = {
@@ -267,23 +430,23 @@ export default function WorkUpdates() {
         }
     };
 
-    // Form item handlers
-    const addItem = (field) => {
-        setFormData({
-            ...formData,
-            [field]: [...formData[field], { text: '', linked_item: null }]
-        });
-    };
+    // Form item handlers - wrapped in useCallback to prevent unnecessary re-renders
+    const addItem = useCallback((field) => {
+        setFormData(prev => ({
+            ...prev,
+            [field]: [...prev[field], { text: '', linked_item: null }]
+        }));
+    }, []);
 
-    const updateItemText = (field, index, text) => {
+    const updateItemText = useCallback((field, index, text) => {
         setFormData(prev => {
             const updated = [...prev[field]];
             updated[index] = { ...updated[index], text };
             return { ...prev, [field]: updated };
         });
-    };
+    }, []);
 
-    const setItemLink = (field, index, item) => {
+    const setItemLink = useCallback((field, index, item) => {
         setFormData(prev => {
             const updated = [...prev[field]];
             updated[index] = {
@@ -298,9 +461,9 @@ export default function WorkUpdates() {
             };
             return { ...prev, [field]: updated };
         });
-    };
+    }, []);
 
-    const removeItem = (field, index) => {
+    const removeItem = useCallback((field, index) => {
         setFormData(prev => {
             const updated = prev[field].filter((_, i) => i !== index);
             return {
@@ -308,15 +471,15 @@ export default function WorkUpdates() {
                 [field]: updated.length ? updated : [{ text: '', linked_item: null }]
             };
         });
-    };
+    }, []);
 
-    const clearItemLink = (field, index) => {
+    const clearItemLink = useCallback((field, index) => {
         setFormData(prev => {
             const updated = [...prev[field]];
             updated[index] = { ...updated[index], linked_item: null };
             return { ...prev, [field]: updated };
         });
-    };
+    }, []);
 
     const getInitials = (name) => {
         if (!name) return '?';
@@ -329,167 +492,6 @@ export default function WorkUpdates() {
             month: 'short',
             day: 'numeric',
         });
-    };
-
-    // Enhanced Item Input Component
-    const ItemInput = ({ field, items, placeholder, icon: Icon, iconColor }) => {
-        const [openPopover, setOpenPopover] = useState(null);
-        const [searchQuery, setSearchQuery] = useState('');
-
-        const filteredItems = linkableItems.filter(item => 
-            !searchQuery || 
-            item.item_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            item.project_name?.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-
-        const handleTextChange = (idx, value) => {
-            updateItemText(field, idx, value);
-        };
-
-        const handleLinkSelect = (idx, linkItem) => {
-            setItemLink(field, idx, linkItem);
-            setOpenPopover(null);
-            setSearchQuery('');
-        };
-
-        const handleClearLink = (idx) => {
-            clearItemLink(field, idx);
-        };
-
-        const handleRemove = (idx) => {
-            removeItem(field, idx);
-        };
-
-        const handleAdd = () => {
-            addItem(field);
-        };
-
-        return (
-            <div className="space-y-2">
-                {items.map((item, idx) => (
-                    <div key={`${field}-${idx}`} className="group">
-                        <div className="flex items-start gap-2 p-2 rounded-lg border border-[#E8D5C4] bg-white hover:border-[#D4BBA6] transition-all">
-                            <Icon className={`w-4 h-4 mt-2.5 ${iconColor} flex-shrink-0`} />
-                            <div className="flex-1 space-y-1 min-w-0">
-                                <input
-                                    type="text"
-                                    value={item.text || ''}
-                                    onChange={(e) => handleTextChange(idx, e.target.value)}
-                                    placeholder={placeholder}
-                                    className="w-full h-8 bg-transparent outline-none text-[#4A3728] placeholder:text-[#A89888]"
-                                />
-                                {/* Linked item badge */}
-                                {item.linked_item && (
-                                    <div className="flex items-center gap-1">
-                                        <Badge variant="secondary" className="text-xs gap-1 pr-1 bg-blue-50 text-blue-700 border border-blue-200">
-                                            {item.linked_item.item_type === 'task' ? (
-                                                <ListTodo className="w-3 h-3" />
-                                            ) : (
-                                                <FolderKanban className="w-3 h-3" />
-                                            )}
-                                            <span className="max-w-[150px] truncate">{item.linked_item.item_name}</span>
-                                            <button 
-                                                onClick={() => handleClearLink(idx)}
-                                                className="hover:bg-blue-100 rounded p-0.5 ml-1"
-                                            >
-                                                <X className="w-3 h-3" />
-                                            </button>
-                                        </Badge>
-                                        {item.linked_item.project_name && (
-                                            <span className="text-xs text-[#8B7355]">in {item.linked_item.project_name}</span>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                            
-                            {/* Link button - Always visible */}
-                            <Popover open={openPopover === idx} onOpenChange={(open) => setOpenPopover(open ? idx : null)}>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className={`h-9 px-2 gap-1 text-xs ${
-                                            item.linked_item 
-                                                ? "bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100" 
-                                                : "border-[#D4BBA6] text-[#6B5D52] hover:bg-[#F5EBE0]"
-                                        }`}
-                                        title="Link to task or project"
-                                    >
-                                        <Link2 className="w-3.5 h-3.5" />
-                                        {item.linked_item ? 'Linked' : 'Link'}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-80 p-2 z-[100]" align="end" side="bottom" sideOffset={4}>
-                                    <div className="space-y-2">
-                                        <div className="relative">
-                                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-[#8B7355]" />
-                                            <Input
-                                                placeholder="Search tasks & projects..."
-                                                value={searchQuery}
-                                                onChange={(e) => {
-                                                    setSearchQuery(e.target.value);
-                                                    fetchLinkableItems(e.target.value);
-                                                }}
-                                                className="pl-8 border-[#E8D5C4]"
-                                            />
-                                        </div>
-                                        <div className="max-h-48 overflow-y-auto space-y-1">
-                                            {linkableLoading ? (
-                                                <div className="flex items-center justify-center py-4">
-                                                    <Loader2 className="w-5 h-5 animate-spin text-[#8B7355]" />
-                                                </div>
-                                            ) : filteredItems.length === 0 ? (
-                                                <p className="text-sm text-[#8B7355] text-center py-4">No items found</p>
-                                            ) : (
-                                                filteredItems.map((linkItem) => (
-                                                    <button
-                                                        key={`${linkItem.item_type}-${linkItem.item_id}`}
-                                                        onClick={() => handleLinkSelect(idx, linkItem)}
-                                                        className="w-full text-left p-2 rounded hover:bg-[#F5EBE0] flex items-start gap-2"
-                                                    >
-                                                        {linkItem.item_type === 'task' ? (
-                                                            <ListTodo className="w-4 h-4 text-blue-500 mt-0.5" />
-                                                        ) : (
-                                                            <FolderKanban className="w-4 h-4 text-violet-500 mt-0.5" />
-                                                        )}
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="text-sm font-medium truncate text-[#4A3728]">{linkItem.item_name}</p>
-                                                            <p className="text-xs text-[#8B7355] truncate">
-                                                                {linkItem.project_name || linkItem.item_type}
-                                                            </p>
-                                                        </div>
-                                                    </button>
-                                                ))
-                                            )}
-                                        </div>
-                                    </div>
-                                </PopoverContent>
-                            </Popover>
-                            
-                            {/* Remove button */}
-                            {items.length > 1 && (
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleRemove(idx)}
-                                    className="h-9 w-9 p-0 text-[#8B7355] hover:text-red-600 hover:bg-red-50"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-                ))}
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAdd}
-                    className="w-full text-[#6B5D52] border-dashed border-[#D4BBA6] hover:bg-[#F5EBE0]"
-                >
-                    <Plus className="w-4 h-4 mr-1" /> Add item
-                </Button>
-            </div>
-        );
     };
 
     // Update Card Component
@@ -927,6 +929,14 @@ export default function WorkUpdates() {
                                             "Quarter achievement..."}
                                 icon={CheckCircle}
                                 iconColor="text-emerald-500"
+                                linkableItems={linkableItems}
+                                linkableLoading={linkableLoading}
+                                onTextChange={updateItemText}
+                                onLinkSelect={setItemLink}
+                                onClearLink={clearItemLink}
+                                onRemove={removeItem}
+                                onAdd={addItem}
+                                onSearchLinkable={fetchLinkableItems}
                             />
                         </div>
 
@@ -948,6 +958,14 @@ export default function WorkUpdates() {
                                                 "OKR update..."}
                                     icon={Sparkles}
                                     iconColor="text-amber-500"
+                                    linkableItems={linkableItems}
+                                    linkableLoading={linkableLoading}
+                                    onTextChange={updateItemText}
+                                    onLinkSelect={setItemLink}
+                                    onClearLink={clearItemLink}
+                                    onRemove={removeItem}
+                                    onAdd={addItem}
+                                    onSearchLinkable={fetchLinkableItems}
                                 />
                             </div>
                         )}
@@ -965,6 +983,14 @@ export default function WorkUpdates() {
                                 placeholder="Blocker or challenge..."
                                 icon={AlertTriangle}
                                 iconColor="text-red-500"
+                                linkableItems={linkableItems}
+                                linkableLoading={linkableLoading}
+                                onTextChange={updateItemText}
+                                onLinkSelect={setItemLink}
+                                onClearLink={clearItemLink}
+                                onRemove={removeItem}
+                                onAdd={addItem}
+                                onSearchLinkable={fetchLinkableItems}
                             />
                         </div>
 
@@ -984,6 +1010,14 @@ export default function WorkUpdates() {
                                 placeholder="What you'll focus on..."
                                 icon={Target}
                                 iconColor="text-blue-500"
+                                linkableItems={linkableItems}
+                                linkableLoading={linkableLoading}
+                                onTextChange={updateItemText}
+                                onLinkSelect={setItemLink}
+                                onClearLink={clearItemLink}
+                                onRemove={removeItem}
+                                onAdd={addItem}
+                                onSearchLinkable={fetchLinkableItems}
                             />
                         </div>
 
@@ -995,7 +1029,7 @@ export default function WorkUpdates() {
                             </label>
                             <Textarea
                                 value={formData.notes}
-                                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                                 placeholder="Any other updates or context..."
                                 className="border-[#E8D5C4]"
                                 rows={2}
