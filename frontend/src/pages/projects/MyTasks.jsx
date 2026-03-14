@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   CheckCircle2, Clock, AlertTriangle, ListTodo, ChevronRight,
   Calendar, User, Flag, Folder, LayoutGrid, PlayCircle, Eye,
@@ -252,6 +252,7 @@ const TaskSection = ({ title, icon: Icon, tasks, count, color, onStatusChange, o
 
 const MyTasks = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [personalProject, setPersonalProject] = useState(null);
@@ -432,6 +433,17 @@ const MyTasks = () => {
   };
 
   const [selectedTaskId, setSelectedTaskId] = useState(null);
+
+  // Handle URL parameter to open task detail
+  useEffect(() => {
+    const taskFromUrl = searchParams.get('task');
+    if (taskFromUrl) {
+      setSelectedTaskId(taskFromUrl);
+      // Clear the URL parameter after reading it
+      searchParams.delete('task');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const handleTaskClick = (task) => {
     // Open task detail modal instead of navigating to project

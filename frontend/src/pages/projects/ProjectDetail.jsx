@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   ArrowLeft, Plus, Edit, Trash2, Users, Calendar, Flag, Clock,
   CheckCircle2, AlertTriangle, PlayCircle, Eye, MoreVertical,
@@ -647,6 +647,7 @@ const TeamManagementModal = ({ open, onClose, project, users, onSuccess }) => {
 const ProjectDetail = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState(null);
   const [tasks, setTasks] = useState([]);
@@ -656,6 +657,17 @@ const ProjectDetail = () => {
   const [draggedTask, setDraggedTask] = useState(null);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [viewMode, setViewMode] = useState('kanban'); // 'kanban' or 'calendar'
+  
+  // Handle URL parameter to open task detail
+  useEffect(() => {
+    const taskFromUrl = searchParams.get('task');
+    if (taskFromUrl) {
+      setSelectedTaskId(taskFromUrl);
+      // Clear the URL parameter after reading it
+      searchParams.delete('task');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
   
   // Filter state
   const [filters, setFilters] = useState({

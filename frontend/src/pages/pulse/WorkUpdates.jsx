@@ -574,6 +574,22 @@ export default function WorkUpdates() {
                 const linkedItem = typeof item === 'object' ? item.linked_item : null;
                 const linkedTaskId = typeof item === 'object' ? item.linked_task_id : null;
                 
+                // Determine the correct navigation path for linked items
+                const getLinkedItemPath = () => {
+                    if (!linkedItem) return '/projects';
+                    if (linkedItem.item_type === 'project') {
+                        // For projects, use item_id as the project ID
+                        return `/projects/${linkedItem.item_id}`;
+                    }
+                    if (linkedItem.item_type === 'task') {
+                        // For tasks, navigate to the project (if has one) or My Tasks
+                        return linkedItem.project_id 
+                            ? `/projects/${linkedItem.project_id}?task=${linkedItem.item_id}`
+                            : `/projects/my-tasks?task=${linkedItem.item_id}`;
+                    }
+                    return '/projects';
+                };
+                
                 return (
                     <div key={idx} className="flex items-start gap-2 py-1">
                         <span className="text-[#6B5D52]">•</span>
@@ -581,9 +597,9 @@ export default function WorkUpdates() {
                             <span className="text-[#4A3728]">{text}</span>
                             {linkedItem && (
                                 <Link 
-                                    to={linkedItem.project_id ? `/projects/${linkedItem.project_id}` : '/projects'}
+                                    to={getLinkedItemPath()}
                                     className="ml-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 bg-blue-50 px-2 py-0.5 rounded"
-                                    onClick={(e) => e.stopPropagation()}
+                                    data-testid={`linked-item-${section}-${idx}`}
                                 >
                                     {linkedItem.item_type === 'task' ? <ListTodo className="w-3 h-3" /> : <FolderKanban className="w-3 h-3" />}
                                     <span className="max-w-[100px] truncate">{linkedItem.item_name}</span>
@@ -598,15 +614,21 @@ export default function WorkUpdates() {
                                 size="sm"
                                 onClick={() => handleCreateTask(update.id, idx, text)}
                                 className="h-6 text-xs text-teal-600 hover:text-teal-700 hover:bg-teal-50"
+                                data-testid={`create-task-btn-${idx}`}
                             >
                                 + Task
                             </Button>
                         )}
                         {linkedTaskId && (
-                            <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-200 bg-emerald-50">
+                            <Link
+                                to={`/projects/my-tasks?task=${linkedTaskId}`}
+                                className="inline-flex items-center text-xs text-emerald-600 border border-emerald-200 bg-emerald-50 px-2 py-0.5 rounded hover:bg-emerald-100"
+                                data-testid={`view-created-task-${idx}`}
+                            >
                                 <CheckCircle className="w-3 h-3 mr-1" />
                                 Task Created
-                            </Badge>
+                                <ExternalLink className="w-3 h-3 ml-1" />
+                            </Link>
                         )}
                     </div>
                 );
