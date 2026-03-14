@@ -3,7 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   CheckCircle2, Clock, AlertTriangle, ListTodo, ChevronRight,
   Calendar, User, Flag, Folder, LayoutGrid, PlayCircle, Eye,
-  RefreshCw, Plus, ChevronDown, FolderKanban, Link as LinkIcon, ExternalLink
+  RefreshCw, Plus, ChevronDown, FolderKanban, Link as LinkIcon, ExternalLink,
+  Zap, Target, TrendingUp, ChevronUp, Check, Pencil, Clock3
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -37,6 +38,49 @@ import TaskDetailModal from './TaskDetailModal';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
+// Progress Ring Component
+const ProgressRing = ({ progress, size = 48, strokeWidth = 4, color = "stroke-teal-500" }) => {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const offset = circumference - (progress / 100) * circumference;
+  
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg className="transform -rotate-90" width={size} height={size}>
+        <circle
+          className="stroke-gray-200"
+          strokeWidth={strokeWidth}
+          fill="transparent"
+          r={radius}
+          cx={size / 2}
+          cy={size / 2}
+        />
+        <circle
+          className={`${color} transition-all duration-700 ease-out`}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          fill="transparent"
+          r={radius}
+          cx={size / 2}
+          cy={size / 2}
+          style={{ strokeDasharray: circumference, strokeDashoffset: offset }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="text-xs font-bold text-[#4A3728]">{Math.round(progress)}%</span>
+      </div>
+    </div>
+  );
+};
+
+// Priority border colors for left border
+const priorityBorderColors = {
+  urgent: 'border-l-red-500',
+  high: 'border-l-orange-500',
+  medium: 'border-l-amber-400',
+  low: 'border-l-stone-300'
+};
+
 const priorityColors = {
   urgent: 'bg-red-100 text-red-700 border-red-200',
   high: 'bg-orange-100 text-orange-700 border-orange-200',
@@ -56,30 +100,48 @@ const statusConfig = {
 
 const TaskCard = ({ task, onStatusChange, onClick }) => {
   const StatusIcon = statusConfig[task.status]?.icon || ListTodo;
+  const [isHovered, setIsHovered] = useState(false);
   
-  const formatDate = (dateStr) => {
+  // Enhanced date formatting with countdown
+  const formatDateWithCountdown = (dateStr) => {
     if (!dateStr) return null;
     const date = new Date(dateStr);
     const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    today.setHours(0, 0, 0, 0);
+    const taskDate = new Date(date);
+    taskDate.setHours(0, 0, 0, 0);
     
-    if (date.toDateString() === today.toDateString()) return 'Today';
-    if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const diffTime = taskDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return { text: 'Today', urgent: true };
+    if (diffDays === 1) return { text: 'Tomorrow', urgent: false };
+    if (diffDays === -1) return { text: '1 day overdue', overdue: true };
+    if (diffDays < -1) return { text: `${Math.abs(diffDays)} days overdue`, overdue: true };
+    if (diffDays <= 3) return { text: `${diffDays} days left`, urgent: true };
+    if (diffDays <= 7) return { text: `${diffDays} days left`, urgent: false };
+    return { text: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), urgent: false };
   };
 
   const isOverdue = task.due_date && new Date(task.due_date) < new Date() && 
     !['completed', 'approved'].includes(task.status);
 
   const isIndividualTask = !task.project_id || task.is_individual;
-  
   const isCompleted = ['completed', 'approved'].includes(task.status);
+  const dateInfo = task.due_date ? formatDateWithCountdown(task.due_date) : null;
+
+  // Quick complete handler
+  const handleQuickComplete = (e) => {
+    e.stopPropagation();
+    onStatusChange(task.id, 'completed');
+  };
 
   return (
     <div 
       data-testid={`task-card-${task.id}`}
-      className={`group bg-white border rounded-xl p-4 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-lg transform hover:-translate-y-0.5 ${
+      className={`group bg-white border-l-4 border rounded-xl p-4 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-lg transform hover:-translate-y-0.5 ${
+        priorityBorderColors[task.priority] || 'border-l-stone-300'
+      } ${
         isOverdue 
           ? 'border-red-200 hover:border-red-300 bg-gradient-to-r from-red-50/50 to-white' 
           : isCompleted
@@ -87,6 +149,8 @@ const TaskCard = ({ task, onStatusChange, onClick }) => {
           : 'border-[#E8D5C4] hover:border-rose-300'
       }`}
       onClick={() => onClick?.(task)}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <div className="flex items-start gap-3">
         {/* Status Indicator */}
@@ -111,33 +175,50 @@ const TaskCard = ({ task, onStatusChange, onClick }) => {
             <h4 className={`font-semibold text-[#4A3728] truncate ${isCompleted ? 'line-through opacity-60' : ''}`}>
               {task.name}
             </h4>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className={`h-7 px-2 rounded-lg transition-all ${statusConfig[task.status]?.color}`}
-                >
-                  <span className="text-xs font-medium">{statusConfig[task.status]?.label}</span>
-                  <ChevronDown className="w-3 h-3 ml-1" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-white border-[#D4BBA6] shadow-lg">
-                {Object.entries(statusConfig).map(([key, config]) => (
-                  <DropdownMenuItem 
-                    key={key}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onStatusChange(task.id, key);
-                    }}
-                    className="cursor-pointer text-[#4A3728] hover:bg-[#F5EBE0]"
+            
+            {/* Quick Actions on Hover */}
+            <div className="flex items-center gap-1">
+              {isHovered && !isCompleted && (
+                <div className="flex items-center gap-1 animate-in fade-in duration-150">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleQuickComplete}
+                    className="h-7 w-7 p-0 rounded-full bg-emerald-100 hover:bg-emerald-200 text-emerald-600"
+                    title="Mark Complete"
                   >
-                    <config.icon className="w-4 h-4 mr-2" />
-                    {config.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                    <Check className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className={`h-7 px-2 rounded-lg transition-all ${statusConfig[task.status]?.color}`}
+                  >
+                    <span className="text-xs font-medium">{statusConfig[task.status]?.label}</span>
+                    <ChevronDown className="w-3 h-3 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-white border-[#D4BBA6] shadow-lg">
+                  {Object.entries(statusConfig).map(([key, config]) => (
+                    <DropdownMenuItem 
+                      key={key}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onStatusChange(task.id, key);
+                      }}
+                      className="cursor-pointer text-[#4A3728] hover:bg-[#F5EBE0]"
+                    >
+                      <config.icon className="w-4 h-4 mr-2" />
+                      {config.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
           
           {/* Project & Module Info */}
@@ -164,16 +245,18 @@ const TaskCard = ({ task, onStatusChange, onClick }) => {
               {task.priority}
             </Badge>
             
-            {/* Due Date */}
-            {task.due_date && (
-              <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full ${
-                isOverdue 
-                  ? 'bg-red-100 text-red-700 font-medium' 
+            {/* Due Date with Countdown */}
+            {dateInfo && (
+              <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full font-medium ${
+                dateInfo.overdue 
+                  ? 'bg-red-100 text-red-700' 
+                  : dateInfo.urgent
+                  ? 'bg-amber-100 text-amber-700'
                   : 'bg-[#F5EBE0] text-[#5D4A3A]'
               }`}>
-                <Calendar className="w-3 h-3" />
-                {formatDate(task.due_date)}
-                {isOverdue && <AlertTriangle className="w-3 h-3 ml-0.5" />}
+                <Clock3 className="w-3 h-3" />
+                {dateInfo.text}
+                {dateInfo.overdue && <AlertTriangle className="w-3 h-3 ml-0.5" />}
               </span>
             )}
             
@@ -215,10 +298,19 @@ const TaskCard = ({ task, onStatusChange, onClick }) => {
   );
 };
 
-const TaskSection = ({ title, icon: Icon, tasks, count, color, onStatusChange, onTaskClick }) => {
+const TaskSection = ({ title, icon: Icon, tasks, count, color, onStatusChange, onTaskClick, showCompleteAll = false }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   
   if (tasks.length === 0) return null;
+
+  const handleCompleteAll = (e) => {
+    e.stopPropagation();
+    tasks.forEach(task => {
+      if (!['completed', 'approved'].includes(task.status)) {
+        onStatusChange(task.id, 'completed');
+      }
+    });
+  };
   
   return (
     <div className="mb-8">
@@ -226,26 +318,37 @@ const TaskSection = ({ title, icon: Icon, tasks, count, color, onStatusChange, o
         onClick={() => setIsExpanded(!isExpanded)}
         className="flex items-center gap-3 mb-4 w-full text-left group"
       >
-        <div className={`p-2 rounded-xl ${color} transition-transform group-hover:scale-105`}>
+        <div className={`p-2.5 rounded-xl ${color} transition-all duration-200 group-hover:scale-105 group-hover:shadow-md`}>
           <Icon className="w-5 h-5" />
         </div>
         <div className="flex-1">
           <h3 className="font-bold text-[#4A3728] text-lg">{title}</h3>
           <p className="text-xs text-[#6B5D52]">{count || tasks.length} {(count || tasks.length) === 1 ? 'task' : 'tasks'}</p>
         </div>
+        {showCompleteAll && tasks.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleCompleteAll}
+            className="h-8 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 mr-2"
+          >
+            <CheckCircle2 className="w-4 h-4 mr-1" />
+            Complete All
+          </Button>
+        )}
         <Badge className="bg-[#E8D5C4] text-[#4A3728] font-semibold px-3 py-1">
           {count || tasks.length}
         </Badge>
-        <ChevronRight className={`w-5 h-5 text-[#5D4A3A] transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
+        <ChevronDown className={`w-5 h-5 text-[#5D4A3A] transition-transform duration-200 ${isExpanded ? '' : '-rotate-90'}`} />
       </button>
       
-      {isExpanded && (
-        <div className="space-y-3 pl-0 animate-in slide-in-from-top-2 duration-200">
-          {tasks.map(task => (
-            <TaskCard key={task.id} task={task} onStatusChange={onStatusChange} onClick={onTaskClick} />
-          ))}
-        </div>
-      )}
+      <div className={`space-y-3 pl-0 overflow-hidden transition-all duration-300 ease-in-out ${
+        isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+      }`}>
+        {tasks.map(task => (
+          <TaskCard key={task.id} task={task} onStatusChange={onStatusChange} onClick={onTaskClick} />
+        ))}
+      </div>
     </div>
   );
 };
@@ -615,64 +718,100 @@ const MyTasks = () => {
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards with Progress Rings */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="bg-white border-[#E8D5C4] shadow-sm">
-          <CardContent className="p-6">
+        <Card className="bg-white border-[#E8D5C4] shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[#5D4A3A] text-sm">Total Assigned</p>
+                <p className="text-[#5D4A3A] text-sm font-medium">Total Tasks</p>
                 <p className="text-3xl font-bold text-[#4A3728] mt-1">{stats.total_assigned || 0}</p>
+                <p className="text-xs text-[#8B7355] mt-1">assigned to you</p>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
-                <ListTodo className="w-6 h-6 text-blue-700" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white border-[#E8D5C4] shadow-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[#5D4A3A] text-sm">Due Today</p>
-                <p className="text-3xl font-bold text-[#4A3728] mt-1">{stats.due_today || 0}</p>
-              </div>
-              <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
-                <Calendar className="w-6 h-6 text-amber-700" />
+              <div className="relative">
+                <ProgressRing 
+                  progress={stats.total_assigned > 0 ? Math.min(100, (stats.total_completed / (stats.total_assigned + stats.total_completed)) * 100) : 0} 
+                  size={56} 
+                  strokeWidth={5}
+                  color="stroke-blue-500"
+                />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-white border-[#E8D5C4] shadow-sm">
-          <CardContent className="p-6">
+        <Card className="bg-white border-[#E8D5C4] shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[#5D4A3A] text-sm">Overdue</p>
-                <p className="text-3xl font-bold text-red-600 mt-1">{stats.overdue || 0}</p>
+                <p className="text-[#5D4A3A] text-sm font-medium">Due Today</p>
+                <p className="text-3xl font-bold text-amber-600 mt-1">{stats.due_today || 0}</p>
+                <p className="text-xs text-[#8B7355] mt-1">need attention</p>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center">
-                <AlertTriangle className="w-6 h-6 text-red-600" />
+              <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-100 to-amber-50 flex items-center justify-center ${stats.due_today > 0 ? 'animate-pulse' : ''}`}>
+                <Calendar className="w-7 h-7 text-amber-600" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-white border-[#E8D5C4] shadow-sm">
-          <CardContent className="p-6">
+        <Card className={`bg-white border-[#E8D5C4] shadow-sm hover:shadow-md transition-shadow ${stats.overdue > 0 ? 'border-red-200' : ''}`}>
+          <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[#5D4A3A] text-sm">Completed</p>
+                <p className="text-[#5D4A3A] text-sm font-medium">Overdue</p>
+                <p className={`text-3xl font-bold mt-1 ${stats.overdue > 0 ? 'text-red-600' : 'text-[#4A3728]'}`}>{stats.overdue || 0}</p>
+                <p className="text-xs text-[#8B7355] mt-1">{stats.overdue > 0 ? 'require action!' : 'all on track'}</p>
+              </div>
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${stats.overdue > 0 ? 'bg-gradient-to-br from-red-100 to-red-50' : 'bg-gradient-to-br from-emerald-100 to-emerald-50'}`}>
+                {stats.overdue > 0 ? (
+                  <AlertTriangle className="w-7 h-7 text-red-600" />
+                ) : (
+                  <CheckCircle2 className="w-7 h-7 text-emerald-600" />
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white border-[#E8D5C4] shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[#5D4A3A] text-sm font-medium">Completed</p>
                 <p className="text-3xl font-bold text-emerald-600 mt-1">{stats.total_completed || 0}</p>
+                <p className="text-xs text-[#8B7355] mt-1">all time</p>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
-                <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+              <div className="relative">
+                <ProgressRing 
+                  progress={stats.total_completed > 0 ? 100 : 0} 
+                  size={56} 
+                  strokeWidth={5}
+                  color="stroke-emerald-500"
+                />
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Productivity Streak Banner */}
+      {stats.completed_this_week > 0 && (
+        <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-rose-50 border border-amber-200 rounded-xl p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
+              <Zap className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="font-semibold text-[#4A3728]">
+                {stats.completed_this_week} task{stats.completed_this_week !== 1 ? 's' : ''} completed this week!
+              </p>
+              <p className="text-sm text-[#6B5D52]">Keep up the great momentum</p>
+            </div>
+          </div>
+          <TrendingUp className="w-6 h-6 text-amber-500" />
+        </div>
+      )}
 
       {/* Task Tabs */}
       <div className="flex gap-2 border-b border-[#E8D5C4] pb-4 flex-wrap">
@@ -716,6 +855,7 @@ const MyTasks = () => {
                   color="bg-red-100 text-red-600"
                   onStatusChange={handleStatusChange}
                   onTaskClick={handleTaskClick}
+                  showCompleteAll={true}
                 />
               )}
               
@@ -727,6 +867,7 @@ const MyTasks = () => {
                   color="bg-amber-100 text-amber-700"
                   onStatusChange={handleStatusChange}
                   onTaskClick={handleTaskClick}
+                  showCompleteAll={true}
                 />
               )}
               
