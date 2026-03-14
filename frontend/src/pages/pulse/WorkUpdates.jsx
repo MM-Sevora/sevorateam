@@ -317,19 +317,19 @@ export default function WorkUpdates() {
             <div className="space-y-2">
                 {items.map((item, idx) => (
                     <div key={idx} className="group">
-                        <div className="flex items-start gap-2 p-2 rounded-lg border border-transparent hover:border-[#E8D5C4] hover:bg-[#FAF7F5] transition-all">
+                        <div className="flex items-start gap-2 p-2 rounded-lg border border-[#E8D5C4] bg-white hover:border-[#D4BBA6] transition-all">
                             <Icon className={`w-4 h-4 mt-2.5 ${iconColor} flex-shrink-0`} />
                             <div className="flex-1 space-y-1">
                                 <Input
                                     value={item.text}
                                     onChange={(e) => updateItemText(field, idx, e.target.value)}
                                     placeholder={placeholder}
-                                    className="border-[#E8D5C4] focus:border-teal-400"
+                                    className="border-0 shadow-none focus-visible:ring-0 p-0 h-8"
                                 />
                                 {/* Linked item badge */}
                                 {item.linked_item && (
-                                    <div className="flex items-center gap-1 ml-1">
-                                        <Badge variant="secondary" className="text-xs gap-1 pr-1 bg-blue-50 text-blue-700">
+                                    <div className="flex items-center gap-1">
+                                        <Badge variant="secondary" className="text-xs gap-1 pr-1 bg-blue-50 text-blue-700 border border-blue-200">
                                             {item.linked_item.item_type === 'task' ? (
                                                 <ListTodo className="w-3 h-3" />
                                             ) : (
@@ -350,18 +350,24 @@ export default function WorkUpdates() {
                                 )}
                             </div>
                             
-                            {/* Link button */}
+                            {/* Link button - Always visible */}
                             <Popover open={openPopover === idx} onOpenChange={(open) => setOpenPopover(open ? idx : null)}>
                                 <PopoverTrigger asChild>
                                     <Button
-                                        variant={item.linked_item ? "default" : "ghost"}
+                                        variant="outline"
                                         size="sm"
-                                        className={`h-9 w-9 p-0 ${item.linked_item ? "bg-blue-600 hover:bg-blue-700" : "opacity-0 group-hover:opacity-100"}`}
+                                        className={`h-9 px-2 gap-1 text-xs ${
+                                            item.linked_item 
+                                                ? "bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100" 
+                                                : "border-[#D4BBA6] text-[#6B5D52] hover:bg-[#F5EBE0]"
+                                        }`}
+                                        title="Link to task or project"
                                     >
-                                        <Link2 className="w-4 h-4" />
+                                        <Link2 className="w-3.5 h-3.5" />
+                                        {item.linked_item ? 'Linked' : 'Link'}
                                     </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-80 p-2" align="end">
+                                <PopoverContent className="w-80 p-2 z-[100]" align="end" side="bottom" sideOffset={4}>
                                     <div className="space-y-2">
                                         <div className="relative">
                                             <Search className="absolute left-2 top-2.5 h-4 w-4 text-[#8B7355]" />
@@ -418,7 +424,7 @@ export default function WorkUpdates() {
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => removeItem(field, idx)}
-                                    className="h-9 w-9 p-0 opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-600 hover:bg-red-50"
+                                    className="h-9 w-9 p-0 text-[#8B7355] hover:text-red-600 hover:bg-red-50"
                                 >
                                     <Trash2 className="w-4 h-4" />
                                 </Button>
@@ -427,10 +433,10 @@ export default function WorkUpdates() {
                     </div>
                 ))}
                 <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
                     onClick={() => addItem(field)}
-                    className="w-full text-[#6B5D52] hover:bg-[#F5EBE0]"
+                    className="w-full text-[#6B5D52] border-dashed border-[#D4BBA6] hover:bg-[#F5EBE0]"
                 >
                     <Plus className="w-4 h-4 mr-1" /> Add item
                 </Button>
