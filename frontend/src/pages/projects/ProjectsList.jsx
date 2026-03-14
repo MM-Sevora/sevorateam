@@ -39,6 +39,17 @@ import GanttChart from '../../components/projects/GanttChart';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
+// Helper function to strip HTML tags and get plain text
+const stripHtml = (html) => {
+  if (!html) return '';
+  // Remove HTML tags and decode entities
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  const text = tmp.textContent || tmp.innerText || '';
+  // Return empty string if only whitespace
+  return text.trim();
+};
+
 const priorityConfig = {
   urgent: { label: 'Urgent', color: 'bg-red-100 text-red-700 border-red-200' },
   high: { label: 'High', color: 'bg-orange-100 text-orange-700 border-orange-200' },
@@ -149,8 +160,8 @@ const ProjectCard = ({ project, onEdit, onDelete, onView, onScheduleMeeting }) =
           </div>
         )}
 
-        {project.description && (
-          <p className="text-sm text-[#5D4A3A] line-clamp-2 mb-4">{project.description}</p>
+        {project.description && stripHtml(project.description) && (
+          <p className="text-sm text-[#5D4A3A] line-clamp-2 mb-4">{stripHtml(project.description)}</p>
         )}
 
         {/* Progress Bar */}
