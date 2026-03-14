@@ -27,6 +27,13 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '../../components/ui/popover';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+    DropdownMenuSeparator,
+} from '../../components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import {
     Calendar,
@@ -42,63 +49,84 @@ import {
     Send,
     Search,
     User,
-    LayoutGrid,
     List,
     Link2,
     FolderKanban,
     ListTodo,
     ExternalLink,
-    ListChecks,
+    ChevronDown,
+    CalendarDays,
+    CalendarCheck,
+    Sparkles,
+    Clock,
+    Trash2,
 } from 'lucide-react';
+
+// Update type configurations
+const UPDATE_TYPES = {
+    daily: { 
+        label: 'Daily Update', 
+        icon: Calendar, 
+        color: 'bg-emerald-600 hover:bg-emerald-700',
+        description: "What you accomplished today"
+    },
+    weekly: { 
+        label: 'Weekly Update', 
+        icon: CalendarRange, 
+        color: 'bg-violet-600 hover:bg-violet-700',
+        description: "Your week in review"
+    },
+    monthly: { 
+        label: 'Monthly Update', 
+        icon: CalendarDays, 
+        color: 'bg-blue-600 hover:bg-blue-700',
+        description: "Monthly highlights & goals"
+    },
+    quarterly: { 
+        label: 'Quarterly Update', 
+        icon: CalendarCheck, 
+        color: 'bg-amber-600 hover:bg-amber-700',
+        description: "Quarter review & OKRs"
+    },
+};
 
 export default function WorkUpdates() {
     const { api, user } = useAuth();
     const [dailyUpdates, setDailyUpdates] = useState([]);
     const [weeklyUpdates, setWeeklyUpdates] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [showDailyDialog, setShowDailyDialog] = useState(false);
-    const [showWeeklyDialog, setShowWeeklyDialog] = useState(false);
+    const [showUpdateDialog, setShowUpdateDialog] = useState(false);
+    const [updateType, setUpdateType] = useState('daily');
     const [submitting, setSubmitting] = useState(false);
     const [filterDepartment, setFilterDepartment] = useState('all');
     const [filterEmployee, setFilterEmployee] = useState('all');
     const [employees, setEmployees] = useState([]);
-    const [viewMode, setViewMode] = useState('list'); // 'list' or 'team'
-    const [searchQuery, setSearchQuery] = useState('');
+    const [viewMode, setViewMode] = useState('list');
+    const [activeTab, setActiveTab] = useState('daily');
     
-    // Linkable items state
+    // Linkable items
     const [linkableItems, setLinkableItems] = useState([]);
     const [linkableLoading, setLinkableLoading] = useState(false);
-    const [linkSearch, setLinkSearch] = useState('');
 
-    // Updated form state to support linked items for ALL fields
-    const [dailyForm, setDailyForm] = useState({
-        completed_items: [{ text: '', linked_item: null }],
-        blocker_items: [{ text: '', linked_item: null }],
-        tomorrow_focus_items: [{ text: '', linked_item: null }],
-        notes: '',
-    });
-
-    const [weeklyForm, setWeeklyForm] = useState({
-        achievement_items: [{ text: '', linked_item: null }],
-        issues_faced_items: [{ text: '', linked_item: null }],
-        next_week_focus_items: [{ text: '', linked_item: null }],
-        team_highlights_items: [{ text: '', linked_item: null }],
+    // Form state - unified for all update types
+    const [formData, setFormData] = useState({
+        completed: [{ text: '', linked_item: null }],
+        blockers: [{ text: '', linked_item: null }],
+        next_focus: [{ text: '', linked_item: null }],
+        highlights: [{ text: '', linked_item: null }],
         notes: '',
     });
 
     const DEPARTMENTS = ['marketing', 'buying', 'warehouse', 'technology', 'operations', 'finance', 'hr', 'sales', 'leadership'];
-    
-    // Check if user is manager/admin
     const isManager = ['super_admin', 'admin', 'department_manager', 'team_lead'].includes(user?.role);
 
-    // Fetch linkable items (tasks/projects)
+    // Fetch linkable items
     const fetchLinkableItems = useCallback(async (search = '') => {
         setLinkableLoading(true);
         try {
             const params = new URLSearchParams();
             if (search) params.append('search', search);
             params.append('limit', '30');
-            
             const response = await api.get(`/pulse/updates/linkable-items?${params}`);
             setLinkableItems(response.data.items || []);
         } catch (error) {
@@ -110,17 +138,12 @@ export default function WorkUpdates() {
 
     useEffect(() => {
         fetchUpdates();
-        if (isManager) {
-            fetchEmployees();
-        }
+        if (isManager) fetchEmployees();
     }, [filterDepartment, filterEmployee]);
-    
-    // Fetch linkable items when dialog opens
+
     useEffect(() => {
-        if (showDailyDialog || showWeeklyDialog) {
-            fetchLinkableItems();
-        }
-    }, [showDailyDialog, showWeeklyDialog, fetchLinkableItems]);
+        if (showUpdateDialog) fetchLinkableItems();
+    }, [showUpdateDialog, fetchLinkableItems]);
 
     const fetchEmployees = async () => {
         try {
@@ -134,24 +157,14 @@ export default function WorkUpdates() {
     const fetchUpdates = async () => {
         setLoading(true);
         try {
-            let dailyParams = [];
-            let weeklyParams = [];
-            
-            if (filterDepartment && filterDepartment !== 'all') {
-                dailyParams.push(`department=${filterDepartment}`);
-                weeklyParams.push(`department=${filterDepartment}`);
-            }
-            if (filterEmployee && filterEmployee !== 'all') {
-                dailyParams.push(`user_id=${filterEmployee}`);
-                weeklyParams.push(`user_id=${filterEmployee}`);
-            }
-            
-            const dailyQuery = dailyParams.length > 0 ? `?${dailyParams.join('&')}` : '';
-            const weeklyQuery = weeklyParams.length > 0 ? `?${weeklyParams.join('&')}` : '';
+            let params = [];
+            if (filterDepartment && filterDepartment !== 'all') params.push(`department=${filterDepartment}`);
+            if (filterEmployee && filterEmployee !== 'all') params.push(`user_id=${filterEmployee}`);
+            const query = params.length > 0 ? `?${params.join('&')}` : '';
             
             const [dailyRes, weeklyRes] = await Promise.all([
-                api.get(`/pulse/updates/daily${dailyQuery}`),
-                api.get(`/pulse/updates/weekly${weeklyQuery}`),
+                api.get(`/pulse/updates/daily${query}`),
+                api.get(`/pulse/updates/weekly${query}`),
             ]);
             setDailyUpdates(dailyRes.data.updates || []);
             setWeeklyUpdates(weeklyRes.data.updates || []);
@@ -163,194 +176,117 @@ export default function WorkUpdates() {
         }
     };
 
-    const handleSubmitDaily = async () => {
-        const validItems = dailyForm.completed_items.filter(item => item.text.trim());
-        if (validItems.length === 0) {
-            toast.error('Please add at least one completed task');
-            return;
-        }
-
-        // Helper to format items for API
-        const formatItems = (items) => items.filter(item => item.text.trim()).map(item => ({
-            text: item.text,
-            linked_item: item.linked_item,
-            completion_date: item.linked_item?.due_date || null,
-        }));
-
-        setSubmitting(true);
-        try {
-            await api.post('/pulse/updates/daily', {
-                completed_items: formatItems(dailyForm.completed_items),
-                blocker_items: formatItems(dailyForm.blocker_items),
-                tomorrow_focus_items: formatItems(dailyForm.tomorrow_focus_items),
-                notes: dailyForm.notes || null,
-            });
-            toast.success('Daily update submitted!');
-            setShowDailyDialog(false);
-            setDailyForm({
-                completed_items: [{ text: '', linked_item: null }],
-                blocker_items: [{ text: '', linked_item: null }],
-                tomorrow_focus_items: [{ text: '', linked_item: null }],
-                notes: '',
-            });
-            fetchUpdates();
-        } catch (error) {
-            toast.error('Failed to submit daily update');
-        } finally {
-            setSubmitting(false);
-        }
+    const openUpdateDialog = (type) => {
+        setUpdateType(type);
+        setFormData({
+            completed: [{ text: '', linked_item: null }],
+            blockers: [{ text: '', linked_item: null }],
+            next_focus: [{ text: '', linked_item: null }],
+            highlights: [{ text: '', linked_item: null }],
+            notes: '',
+        });
+        setShowUpdateDialog(true);
     };
 
-    const handleSubmitWeekly = async () => {
-        const validItems = weeklyForm.achievement_items.filter(item => item.text.trim());
+    const handleSubmit = async () => {
+        const validItems = formData.completed.filter(item => item.text.trim());
         if (validItems.length === 0) {
-            toast.error('Please add at least one achievement');
+            toast.error('Please add at least one completed item');
             return;
         }
 
-        // Helper to format items for API
         const formatItems = (items) => items.filter(item => item.text.trim()).map(item => ({
             text: item.text,
             linked_item: item.linked_item,
-            completion_date: item.linked_item?.due_date || null,
         }));
 
         setSubmitting(true);
         try {
-            await api.post('/pulse/updates/weekly', {
-                achievement_items: formatItems(weeklyForm.achievement_items),
-                issues_faced_items: formatItems(weeklyForm.issues_faced_items),
-                next_week_focus_items: formatItems(weeklyForm.next_week_focus_items),
-                team_highlights_items: formatItems(weeklyForm.team_highlights_items),
-                notes: weeklyForm.notes || null,
-            });
-            toast.success('Weekly update submitted!');
-            setShowWeeklyDialog(false);
-            setWeeklyForm({
-                achievement_items: [{ text: '', linked_item: null }],
-                issues_faced_items: [{ text: '', linked_item: null }],
-                next_week_focus_items: [{ text: '', linked_item: null }],
-                team_highlights_items: [{ text: '', linked_item: null }],
-                notes: '',
-            });
+            if (updateType === 'daily') {
+                await api.post('/pulse/updates/daily', {
+                    completed_items: formatItems(formData.completed),
+                    blocker_items: formatItems(formData.blockers),
+                    tomorrow_focus_items: formatItems(formData.next_focus),
+                    notes: formData.notes || null,
+                });
+            } else {
+                await api.post('/pulse/updates/weekly', {
+                    achievement_items: formatItems(formData.completed),
+                    issues_faced_items: formatItems(formData.blockers),
+                    next_week_focus_items: formatItems(formData.next_focus),
+                    team_highlights_items: formatItems(formData.highlights),
+                    notes: formData.notes || null,
+                });
+            }
+            toast.success(`${UPDATE_TYPES[updateType].label} submitted!`);
+            setShowUpdateDialog(false);
             fetchUpdates();
         } catch (error) {
-            toast.error('Failed to submit weekly update');
+            toast.error('Failed to submit update');
         } finally {
             setSubmitting(false);
         }
     };
 
     // Create task from blocker
-    const handleCreateTaskFromBlocker = async (updateId, blockerIndex, blockerText) => {
+    const handleCreateTask = async (updateId, blockerIndex, blockerText) => {
         try {
             const response = await api.post(`/pulse/updates/daily/${updateId}/create-task?blocker_index=${blockerIndex}`, {
                 priority: 'high'
             });
-            
             if (response.data.success) {
-                toast.success('Task created from blocker!', {
-                    description: `"${blockerText.substring(0, 50)}..." is now a task`,
-                    action: {
-                        label: 'View',
-                        onClick: () => window.location.href = '/projects'
-                    }
-                });
+                toast.success('Task created!');
                 fetchUpdates();
             } else {
                 toast.info(response.data.message);
             }
         } catch (error) {
             toast.error('Failed to create task');
-            console.error('Create task error:', error);
         }
     };
 
-    // Handlers for linked items - support ALL fields
-    const addLinkedItem = (formType, field) => {
-        if (formType === 'daily') {
-            setDailyForm({
-                ...dailyForm,
-                [field]: [...dailyForm[field], { text: '', linked_item: null }]
-            });
-        } else {
-            setWeeklyForm({
-                ...weeklyForm,
-                [field]: [...weeklyForm[field], { text: '', linked_item: null }]
-            });
-        }
+    // Form item handlers
+    const addItem = (field) => {
+        setFormData({
+            ...formData,
+            [field]: [...formData[field], { text: '', linked_item: null }]
+        });
     };
 
-    const updateLinkedItemText = (formType, field, index, text) => {
-        if (formType === 'daily') {
-            const updated = [...dailyForm[field]];
-            updated[index] = { ...updated[index], text };
-            setDailyForm({ ...dailyForm, [field]: updated });
-        } else {
-            const updated = [...weeklyForm[field]];
-            updated[index] = { ...updated[index], text };
-            setWeeklyForm({ ...weeklyForm, [field]: updated });
-        }
+    const updateItemText = (field, index, text) => {
+        const updated = [...formData[field]];
+        updated[index] = { ...updated[index], text };
+        setFormData({ ...formData, [field]: updated });
     };
 
-    const setLinkedItem = (formType, field, index, item) => {
-        if (formType === 'daily') {
-            const updated = [...dailyForm[field]];
-            updated[index] = {
-                ...updated[index],
-                linked_item: item ? {
-                    item_type: item.item_type,
-                    item_id: item.item_id,
-                    item_name: item.item_name,
-                    project_id: item.project_id,
-                    project_name: item.project_name,
-                } : null,
-                text: updated[index].text || item?.item_name || ''
-            };
-            setDailyForm({ ...dailyForm, [field]: updated });
-        } else {
-            const updated = [...weeklyForm[field]];
-            updated[index] = {
-                ...updated[index],
-                linked_item: item ? {
-                    item_type: item.item_type,
-                    item_id: item.item_id,
-                    item_name: item.item_name,
-                    project_id: item.project_id,
-                    project_name: item.project_name,
-                } : null,
-                text: updated[index].text || item?.item_name || ''
-            };
-            setWeeklyForm({ ...weeklyForm, [field]: updated });
-        }
+    const setItemLink = (field, index, item) => {
+        const updated = [...formData[field]];
+        updated[index] = {
+            ...updated[index],
+            linked_item: item ? {
+                item_type: item.item_type,
+                item_id: item.item_id,
+                item_name: item.item_name,
+                project_id: item.project_id,
+                project_name: item.project_name,
+            } : null,
+        };
+        // Don't auto-fill text - let user type their own description
+        setFormData({ ...formData, [field]: updated });
     };
 
-    const removeLinkedItem = (formType, field, index) => {
-        if (formType === 'daily') {
-            const updated = dailyForm[field].filter((_, i) => i !== index);
-            setDailyForm({
-                ...dailyForm,
-                [field]: updated.length ? updated : [{ text: '', linked_item: null }]
-            });
-        } else {
-            const updated = weeklyForm[field].filter((_, i) => i !== index);
-            setWeeklyForm({
-                ...weeklyForm,
-                [field]: updated.length ? updated : [{ text: '', linked_item: null }]
-            });
-        }
+    const removeItem = (field, index) => {
+        const updated = formData[field].filter((_, i) => i !== index);
+        setFormData({
+            ...formData,
+            [field]: updated.length ? updated : [{ text: '', linked_item: null }]
+        });
     };
 
-    const clearLinkedItem = (formType, field, index) => {
-        if (formType === 'daily') {
-            const updated = [...dailyForm[field]];
-            updated[index] = { ...updated[index], linked_item: null };
-            setDailyForm({ ...dailyForm, [field]: updated });
-        } else {
-            const updated = [...weeklyForm[field]];
-            updated[index] = { ...updated[index], linked_item: null };
-            setWeeklyForm({ ...weeklyForm, [field]: updated });
-        }
+    const clearItemLink = (field, index) => {
+        const updated = [...formData[field]];
+        updated[index] = { ...updated[index], linked_item: null };
+        setFormData({ ...formData, [field]: updated });
     };
 
     const getInitials = (name) => {
@@ -366,107 +302,107 @@ export default function WorkUpdates() {
         });
     };
 
-    // Helper to get link URL for a linked item
-    const getLinkedItemUrl = (linkedItem) => {
-        if (!linkedItem) return null;
-        if (linkedItem.item_type === 'project') {
-            return `/projects/${linkedItem.item_id}`;
-        } else if (linkedItem.item_type === 'task') {
-            return linkedItem.project_id ? `/projects/${linkedItem.project_id}` : '/projects';
-        }
-        return null;
-    };
-
-    // Linkable Item Input component for ALL fields with optional link to projects/tasks
-    const LinkableItemInput = ({ formType, field, items, placeholder, icon: Icon = CheckCircle, iconColor = "text-emerald-500" }) => {
-        const [openPopoverIndex, setOpenPopoverIndex] = useState(null);
-        const [localSearch, setLocalSearch] = useState('');
+    // Enhanced Item Input Component
+    const ItemInput = ({ field, items, placeholder, icon: Icon, iconColor }) => {
+        const [openPopover, setOpenPopover] = useState(null);
+        const [searchQuery, setSearchQuery] = useState('');
 
         const filteredItems = linkableItems.filter(item => 
-            !localSearch || 
-            item.item_name?.toLowerCase().includes(localSearch.toLowerCase()) ||
-            item.project_name?.toLowerCase().includes(localSearch.toLowerCase())
+            !searchQuery || 
+            item.item_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.project_name?.toLowerCase().includes(searchQuery.toLowerCase())
         );
 
         return (
             <div className="space-y-2">
                 {items.map((item, idx) => (
-                    <div key={idx} className="space-y-1">
-                        <div className="flex items-center gap-2">
-                            <Icon className={`w-4 h-4 ${iconColor} flex-shrink-0`} />
-                            <Input
-                                value={item.text}
-                                onChange={(e) => updateLinkedItemText(formType, field, idx, e.target.value)}
-                                placeholder={placeholder}
-                                className="flex-1"
-                                data-testid={`${field}-text-${idx}`}
-                            />
-                            <Popover modal={true} open={openPopoverIndex === idx} onOpenChange={(open) => setOpenPopoverIndex(open ? idx : null)}>
+                    <div key={idx} className="group">
+                        <div className="flex items-start gap-2 p-2 rounded-lg border border-transparent hover:border-[#E8D5C4] hover:bg-[#FAF7F5] transition-all">
+                            <Icon className={`w-4 h-4 mt-2.5 ${iconColor} flex-shrink-0`} />
+                            <div className="flex-1 space-y-1">
+                                <Input
+                                    value={item.text}
+                                    onChange={(e) => updateItemText(field, idx, e.target.value)}
+                                    placeholder={placeholder}
+                                    className="border-[#E8D5C4] focus:border-teal-400"
+                                />
+                                {/* Linked item badge */}
+                                {item.linked_item && (
+                                    <div className="flex items-center gap-1 ml-1">
+                                        <Badge variant="secondary" className="text-xs gap-1 pr-1 bg-blue-50 text-blue-700">
+                                            {item.linked_item.item_type === 'task' ? (
+                                                <ListTodo className="w-3 h-3" />
+                                            ) : (
+                                                <FolderKanban className="w-3 h-3" />
+                                            )}
+                                            <span className="max-w-[150px] truncate">{item.linked_item.item_name}</span>
+                                            <button 
+                                                onClick={() => clearItemLink(field, idx)}
+                                                className="hover:bg-blue-100 rounded p-0.5 ml-1"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        </Badge>
+                                        {item.linked_item.project_name && (
+                                            <span className="text-xs text-[#8B7355]">in {item.linked_item.project_name}</span>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            
+                            {/* Link button */}
+                            <Popover open={openPopover === idx} onOpenChange={(open) => setOpenPopover(open ? idx : null)}>
                                 <PopoverTrigger asChild>
                                     <Button
-                                        variant={item.linked_item ? "default" : "outline"}
+                                        variant={item.linked_item ? "default" : "ghost"}
                                         size="sm"
-                                        className={item.linked_item ? "bg-blue-600 hover:bg-blue-700" : ""}
-                                        data-testid={`${field}-link-btn-${idx}`}
+                                        className={`h-9 w-9 p-0 ${item.linked_item ? "bg-blue-600 hover:bg-blue-700" : "opacity-0 group-hover:opacity-100"}`}
                                     >
                                         <Link2 className="w-4 h-4" />
                                     </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-80 p-2 z-[100]" align="end">
+                                <PopoverContent className="w-80 p-2" align="end">
                                     <div className="space-y-2">
                                         <div className="relative">
-                                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
+                                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-[#8B7355]" />
                                             <Input
                                                 placeholder="Search tasks & projects..."
-                                                value={localSearch}
+                                                value={searchQuery}
                                                 onChange={(e) => {
-                                                    setLocalSearch(e.target.value);
+                                                    setSearchQuery(e.target.value);
                                                     fetchLinkableItems(e.target.value);
                                                 }}
-                                                className="pl-8"
-                                                data-testid="link-search-input"
+                                                className="pl-8 border-[#E8D5C4]"
                                             />
                                         </div>
-                                        <div className="max-h-60 overflow-y-auto space-y-1">
+                                        <div className="max-h-48 overflow-y-auto space-y-1">
                                             {linkableLoading ? (
                                                 <div className="flex items-center justify-center py-4">
-                                                    <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                                                    <Loader2 className="w-5 h-5 animate-spin text-[#8B7355]" />
                                                 </div>
                                             ) : filteredItems.length === 0 ? (
-                                                <p className="text-sm text-gray-500 text-center py-4">No items found</p>
+                                                <p className="text-sm text-[#8B7355] text-center py-4">No items found</p>
                                             ) : (
                                                 filteredItems.map((linkItem) => (
                                                     <button
                                                         key={`${linkItem.item_type}-${linkItem.item_id}`}
                                                         onClick={() => {
-                                                            setLinkedItem(formType, field, idx, linkItem);
-                                                            setOpenPopoverIndex(null);
-                                                            setLocalSearch('');
+                                                            setItemLink(field, idx, linkItem);
+                                                            setOpenPopover(null);
+                                                            setSearchQuery('');
                                                         }}
-                                                        className="w-full text-left p-2 rounded hover:bg-gray-100 flex items-start gap-2 transition-colors"
-                                                        data-testid={`link-option-${linkItem.item_id}`}
+                                                        className="w-full text-left p-2 rounded hover:bg-[#F5EBE0] flex items-start gap-2"
                                                     >
                                                         {linkItem.item_type === 'task' ? (
-                                                            <ListTodo className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                                                            <ListTodo className="w-4 h-4 text-blue-500 mt-0.5" />
                                                         ) : (
-                                                            <FolderKanban className="w-4 h-4 text-violet-500 flex-shrink-0 mt-0.5" />
+                                                            <FolderKanban className="w-4 h-4 text-violet-500 mt-0.5" />
                                                         )}
                                                         <div className="flex-1 min-w-0">
-                                                            <p className="text-sm font-medium truncate">{linkItem.item_name}</p>
-                                                            <div className="flex items-center gap-2 text-xs text-gray-500">
-                                                                <span className="capitalize">{linkItem.item_type}</span>
-                                                                {linkItem.project_name && (
-                                                                    <>
-                                                                        <span>•</span>
-                                                                        <span className="truncate">{linkItem.project_name}</span>
-                                                                    </>
-                                                                )}
-                                                                {linkItem.status && (
-                                                                    <Badge variant="outline" className="text-xs py-0 capitalize">
-                                                                        {linkItem.status}
-                                                                    </Badge>
-                                                                )}
-                                                            </div>
+                                                            <p className="text-sm font-medium truncate text-[#4A3728]">{linkItem.item_name}</p>
+                                                            <p className="text-xs text-[#8B7355] truncate">
+                                                                {linkItem.project_name || linkItem.item_type}
+                                                            </p>
                                                         </div>
                                                     </button>
                                                 ))
@@ -475,811 +411,415 @@ export default function WorkUpdates() {
                                     </div>
                                 </PopoverContent>
                             </Popover>
+                            
+                            {/* Remove button */}
                             {items.length > 1 && (
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => removeLinkedItem(formType, field, idx)}
+                                    onClick={() => removeItem(field, idx)}
+                                    className="h-9 w-9 p-0 opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-600 hover:bg-red-50"
                                 >
-                                    <X className="w-4 h-4" />
+                                    <Trash2 className="w-4 h-4" />
                                 </Button>
                             )}
                         </div>
-                        {/* Show linked item badge */}
-                        {item.linked_item && (
-                            <div className="ml-6 flex items-center gap-1">
-                                <Badge 
-                                    variant="secondary" 
-                                    className="text-xs flex items-center gap-1 pr-1"
-                                    data-testid={`${field}-badge-${idx}`}
-                                >
-                                    {item.linked_item.item_type === 'task' ? (
-                                        <ListTodo className="w-3 h-3" />
-                                    ) : (
-                                        <FolderKanban className="w-3 h-3" />
-                                    )}
-                                    <span className="capitalize">{item.linked_item.item_type}:</span>
-                                    <span className="font-medium max-w-32 truncate">{item.linked_item.item_name}</span>
-                                    <button 
-                                        onClick={() => clearLinkedItem(formType, field, idx)}
-                                        className="ml-1 hover:bg-gray-300 rounded p-0.5"
-                                    >
-                                        <X className="w-3 h-3" />
-                                    </button>
-                                </Badge>
-                                {item.linked_item.project_name && (
-                                    <span className="text-xs text-gray-500">in {item.linked_item.project_name}</span>
-                                )}
-                            </div>
-                        )}
                     </div>
                 ))}
                 <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    onClick={() => addLinkedItem(formType, field)}
-                    className="w-full"
-                    data-testid={`${field}-add-btn`}
+                    onClick={() => addItem(field)}
+                    className="w-full text-[#6B5D52] hover:bg-[#F5EBE0]"
                 >
-                    <Plus className="w-4 h-4 mr-1" /> Add Item
+                    <Plus className="w-4 h-4 mr-1" /> Add item
                 </Button>
             </div>
         );
     };
 
-    // Filter employees by search and department
-    const filteredEmployees = employees.filter(emp => {
-        const matchesSearch = !searchQuery || 
-            emp.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            emp.email?.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesDept = filterDepartment === 'all' || emp.department === filterDepartment;
-        return matchesSearch && matchesDept;
-    });
+    // Update Card Component
+    const UpdateCard = ({ update, type }) => {
+        const completedItems = type === 'daily' 
+            ? (update.completed_items || update.completed || [])
+            : (update.achievement_items || update.achievements || []);
+        const blockerItems = type === 'daily'
+            ? (update.blocker_items || update.blockers || [])
+            : (update.issues_faced_items || update.issues_faced || []);
+        const focusItems = type === 'daily'
+            ? (update.tomorrow_focus_items || update.tomorrow_focus || [])
+            : (update.next_week_focus_items || update.next_week_focus || []);
 
-    // Group updates by employee for team view
-    const groupUpdatesByEmployee = (updates) => {
-        const grouped = {};
-        updates.forEach(update => {
-            const key = update.user_id || update.user_name;
-            if (!grouped[key]) {
-                grouped[key] = {
-                    user_id: update.user_id,
-                    user_name: update.user_name,
-                    department: update.department,
-                    updates: []
-                };
-            }
-            grouped[key].updates.push(update);
-        });
-        return Object.values(grouped);
+        const renderItems = (items, section) => {
+            if (!items || items.length === 0) return null;
+            return items.map((item, idx) => {
+                const text = typeof item === 'string' ? item : item.text;
+                const linkedItem = typeof item === 'object' ? item.linked_item : null;
+                const linkedTaskId = typeof item === 'object' ? item.linked_task_id : null;
+                
+                return (
+                    <div key={idx} className="flex items-start gap-2 py-1">
+                        <span className="text-[#6B5D52]">•</span>
+                        <div className="flex-1">
+                            <span className="text-[#4A3728]">{text}</span>
+                            {linkedItem && (
+                                <Link 
+                                    to={linkedItem.project_id ? `/projects/${linkedItem.project_id}` : '/projects'}
+                                    className="ml-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 bg-blue-50 px-2 py-0.5 rounded"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    {linkedItem.item_type === 'task' ? <ListTodo className="w-3 h-3" /> : <FolderKanban className="w-3 h-3" />}
+                                    <span className="max-w-[100px] truncate">{linkedItem.item_name}</span>
+                                    <ExternalLink className="w-3 h-3" />
+                                </Link>
+                            )}
+                        </div>
+                        {/* Create task button for blockers */}
+                        {section === 'blockers' && type === 'daily' && !linkedTaskId && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleCreateTask(update.id, idx, text)}
+                                className="h-6 text-xs text-teal-600 hover:text-teal-700 hover:bg-teal-50"
+                            >
+                                + Task
+                            </Button>
+                        )}
+                        {linkedTaskId && (
+                            <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-200 bg-emerald-50">
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Task Created
+                            </Badge>
+                        )}
+                    </div>
+                );
+            });
+        };
+
+        return (
+            <Card className="border-[#E8D5C4] hover:border-[#D4BBA6] transition-colors">
+                <CardContent className="p-4">
+                    {/* Header */}
+                    <div className="flex items-center gap-3 mb-4">
+                        <Avatar className="w-10 h-10">
+                            <AvatarFallback className="bg-[#E8D5C4] text-[#4A3728]">
+                                {getInitials(update.user_name)}
+                            </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                                <span className="font-medium text-[#4A3728]">{update.user_name}</span>
+                                <Badge variant="outline" className="text-xs border-[#D4BBA6] text-[#6B5D52]">
+                                    {update.department || 'Team'}
+                                </Badge>
+                            </div>
+                            <span className="text-xs text-[#8B7355]">{formatDate(update.date || update.created_at)}</span>
+                        </div>
+                    </div>
+                    
+                    {/* Content */}
+                    <div className="space-y-3">
+                        {completedItems.length > 0 && (
+                            <div>
+                                <div className="flex items-center gap-2 text-emerald-600 text-sm font-medium mb-1">
+                                    <CheckCircle className="w-4 h-4" />
+                                    {type === 'daily' ? 'Completed' : 'Achievements'}
+                                </div>
+                                <div className="ml-6 space-y-0.5">
+                                    {renderItems(completedItems, 'completed')}
+                                </div>
+                            </div>
+                        )}
+                        
+                        {blockerItems.length > 0 && (
+                            <div>
+                                <div className="flex items-center gap-2 text-red-500 text-sm font-medium mb-1">
+                                    <AlertTriangle className="w-4 h-4" />
+                                    {type === 'daily' ? 'Blockers' : 'Challenges'}
+                                </div>
+                                <div className="ml-6 space-y-0.5">
+                                    {renderItems(blockerItems, 'blockers')}
+                                </div>
+                            </div>
+                        )}
+                        
+                        {focusItems.length > 0 && (
+                            <div>
+                                <div className="flex items-center gap-2 text-blue-600 text-sm font-medium mb-1">
+                                    <Target className="w-4 h-4" />
+                                    {type === 'daily' ? "Tomorrow's Focus" : 'Next Week Focus'}
+                                </div>
+                                <div className="ml-6 space-y-0.5">
+                                    {renderItems(focusItems, 'focus')}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
+        );
     };
 
     if (loading) {
         return (
             <div className="flex items-center justify-center h-96">
-                <Loader2 className="w-8 h-8 animate-spin text-rose-600" />
+                <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
             </div>
         );
     }
 
     return (
-        <div className="p-8 max-w-6xl mx-auto" data-testid="work-updates-page">
-            {/* Header */}
+        <div className="p-6 max-w-5xl mx-auto" data-testid="work-updates-page">
+            {/* Clean Header */}
             <div className="flex items-center justify-between mb-6">
                 <div>
                     <h1 className="text-2xl font-bold text-[#4A3728]">Work Updates</h1>
-                    <p className="text-[#5D4A3A] mt-1">Track daily and weekly progress across teams</p>
+                    <p className="text-[#8B7355] text-sm mt-1">Track progress across your team</p>
                 </div>
-                <div className="flex gap-2">
-                    <Button
-                        onClick={() => setShowDailyDialog(true)}
-                        className="gap-2 bg-emerald-600 hover:bg-emerald-700"
-                    >
-                        <Calendar className="w-4 h-4" />
-                        Submit Daily
-                    </Button>
-                    <Button
-                        onClick={() => setShowWeeklyDialog(true)}
-                        className="gap-2 bg-violet-600 hover:bg-violet-700"
-                    >
-                        <CalendarRange className="w-4 h-4" />
-                        Submit Weekly
-                    </Button>
-                </div>
+                
+                {/* Single Submit Button with Dropdown */}
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button className="bg-teal-600 hover:bg-teal-700 text-white gap-2">
+                            <Plus className="w-4 h-4" />
+                            Submit Update
+                            <ChevronDown className="w-4 h-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56 bg-white border-[#E8D5C4]">
+                        {Object.entries(UPDATE_TYPES).map(([key, config]) => {
+                            const Icon = config.icon;
+                            return (
+                                <DropdownMenuItem 
+                                    key={key}
+                                    onClick={() => openUpdateDialog(key)}
+                                    className="cursor-pointer py-3"
+                                >
+                                    <Icon className="w-4 h-4 mr-3 text-[#6B5D52]" />
+                                    <div>
+                                        <p className="font-medium text-[#4A3728]">{config.label}</p>
+                                        <p className="text-xs text-[#8B7355]">{config.description}</p>
+                                    </div>
+                                </DropdownMenuItem>
+                            );
+                        })}
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
 
-            {/* Filters Section - Enhanced for Managers */}
-            <Card className="mb-6 bg-white border-[#E8D5C4]">
-                <CardContent className="p-4">
-                    <div className="flex flex-wrap items-center gap-3">
-                        {/* Department Filter */}
-                        <Select value={filterDepartment} onValueChange={(v) => { setFilterDepartment(v); setFilterEmployee('all'); }}>
-                            <SelectTrigger className="w-44 border-[#E8D5C4]">
-                                <SelectValue placeholder="Department" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Departments</SelectItem>
-                                {DEPARTMENTS.map(d => (
-                                    <SelectItem key={d} value={d} className="capitalize">{d}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+            {/* Filters - Simplified */}
+            <div className="flex items-center gap-3 mb-6">
+                <Select value={filterDepartment} onValueChange={(v) => { setFilterDepartment(v); setFilterEmployee('all'); }}>
+                    <SelectTrigger className="w-[160px] border-[#E8D5C4] bg-white">
+                        <SelectValue placeholder="Department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Departments</SelectItem>
+                        {DEPARTMENTS.map(d => (
+                            <SelectItem key={d} value={d} className="capitalize">{d}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
 
-                        {/* Team Member Filter - Only for Managers */}
-                        {isManager && (
-                            <Select value={filterEmployee} onValueChange={setFilterEmployee}>
-                                <SelectTrigger className="w-52 border-[#E8D5C4]">
-                                    <User className="w-4 h-4 mr-2" />
-                                    <SelectValue placeholder="Team Member" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Team Members</SelectItem>
-                                    {filteredEmployees.map(emp => (
-                                        <SelectItem key={emp.id} value={emp.id}>
-                                            <div className="flex items-center gap-2">
-                                                <span>{emp.name}</span>
-                                                <span className="text-xs text-[#9C8C74] capitalize">({emp.department})</span>
-                                            </div>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        )}
+                {isManager && (
+                    <Select value={filterEmployee} onValueChange={setFilterEmployee}>
+                        <SelectTrigger className="w-[180px] border-[#E8D5C4] bg-white">
+                            <User className="w-4 h-4 mr-2 text-[#8B7355]" />
+                            <SelectValue placeholder="Team Member" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Members</SelectItem>
+                            {employees.filter(e => filterDepartment === 'all' || e.department === filterDepartment).map(emp => (
+                                <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                )}
 
-                        {/* View Mode Toggle - Only for Managers */}
-                        {isManager && (
-                            <div className="flex items-center border border-[#E8D5C4] rounded-lg overflow-hidden ml-auto">
-                                <Button
-                                    variant={viewMode === 'list' ? 'default' : 'ghost'}
-                                    size="sm"
-                                    onClick={() => setViewMode('list')}
-                                    className={`rounded-none ${viewMode === 'list' ? 'bg-rose-600' : 'hover:bg-[#F5EBE0]'}`}
-                                >
-                                    <List className="w-4 h-4 mr-1" />
-                                    List
-                                </Button>
-                                <Button
-                                    variant={viewMode === 'team' ? 'default' : 'ghost'}
-                                    size="sm"
-                                    onClick={() => setViewMode('team')}
-                                    className={`rounded-none ${viewMode === 'team' ? 'bg-rose-600' : 'hover:bg-[#F5EBE0]'}`}
-                                >
-                                    <Users className="w-4 h-4 mr-1" />
-                                    By Team
-                                </Button>
-                            </div>
-                        )}
+                <div className="flex-1" />
 
-                        <Button variant="outline" onClick={fetchUpdates} className="border-[#E8D5C4] hover:bg-[#F5EBE0]">
-                            <RefreshCw className="w-4 h-4" />
-                        </Button>
+                {isManager && (
+                    <div className="flex rounded-lg border border-[#E8D5C4] overflow-hidden bg-white">
+                        <button
+                            onClick={() => setViewMode('list')}
+                            className={`px-3 py-2 text-sm ${viewMode === 'list' ? 'bg-teal-600 text-white' : 'text-[#4A3728]'}`}
+                        >
+                            <List className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={() => setViewMode('team')}
+                            className={`px-3 py-2 text-sm ${viewMode === 'team' ? 'bg-teal-600 text-white' : 'text-[#4A3728]'}`}
+                        >
+                            <Users className="w-4 h-4" />
+                        </button>
                     </div>
-                </CardContent>
-            </Card>
+                )}
 
-            <Tabs defaultValue="daily" className="space-y-6">
-                <TabsList>
-                    <TabsTrigger value="daily" className="gap-2">
-                        <Calendar className="w-4 h-4" />
-                        Daily Updates
+                <Button variant="ghost" size="sm" onClick={fetchUpdates} className="text-[#6B5D52]">
+                    <RefreshCw className="w-4 h-4" />
+                </Button>
+            </div>
+
+            {/* Tabs */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+                <TabsList className="bg-[#F5EBE0]">
+                    <TabsTrigger value="daily" className="data-[state=active]:bg-white">
+                        <Calendar className="w-4 h-4 mr-2" />
+                        Daily ({dailyUpdates.length})
                     </TabsTrigger>
-                    <TabsTrigger value="weekly" className="gap-2">
-                        <CalendarRange className="w-4 h-4" />
-                        Weekly Updates
+                    <TabsTrigger value="weekly" className="data-[state=active]:bg-white">
+                        <CalendarRange className="w-4 h-4 mr-2" />
+                        Weekly ({weeklyUpdates.length})
                     </TabsTrigger>
                 </TabsList>
 
-                {/* Daily Updates Tab */}
-                <TabsContent value="daily">
+                <TabsContent value="daily" className="space-y-4">
                     {dailyUpdates.length === 0 ? (
-                        <Card className="py-12">
-                            <CardContent className="text-center">
-                                <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                                <h3 className="text-lg font-medium text-gray-700">No daily updates yet</h3>
-                                <p className="text-gray-500 mt-1">Submit your first daily update!</p>
+                        <Card className="border-[#E8D5C4]">
+                            <CardContent className="py-12 text-center">
+                                <Calendar className="w-12 h-12 mx-auto mb-4 text-[#D4BBA6]" />
+                                <h3 className="text-lg font-medium text-[#4A3728]">No daily updates yet</h3>
+                                <p className="text-[#8B7355] mt-1">Share what you accomplished today!</p>
+                                <Button onClick={() => openUpdateDialog('daily')} className="mt-4 bg-teal-600 hover:bg-teal-700">
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Submit Daily Update
+                                </Button>
                             </CardContent>
                         </Card>
-                    ) : viewMode === 'team' && isManager ? (
-                        /* Team View - Grouped by Employee */
-                        <div className="space-y-6">
-                            {groupUpdatesByEmployee(dailyUpdates).map(group => (
-                                <Card key={group.user_id || group.user_name}>
-                                    <CardHeader className="pb-2 bg-gray-50 border-b">
-                                        <div className="flex items-center gap-3">
-                                            <Avatar className="w-10 h-10">
-                                                <AvatarFallback className="bg-emerald-100 text-emerald-700">
-                                                    {getInitials(group.user_name)}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                            <div>
-                                                <CardTitle className="text-base">{group.user_name}</CardTitle>
-                                                <p className="text-sm text-gray-500 capitalize">{group.department}</p>
-                                            </div>
-                                            <Badge variant="secondary" className="ml-auto">
-                                                {group.updates.length} update{group.updates.length !== 1 ? 's' : ''}
-                                            </Badge>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="p-4 space-y-4">
-                                        {group.updates.map(update => (
-                                            <div key={update.id} className="border-l-2 border-emerald-300 pl-4">
-                                                <p className="text-sm font-medium text-gray-600 mb-2">{formatDate(update.date)}</p>
-                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                                    {(update.completed_items || update.completed_tasks)?.length > 0 && (
-                                                        <div>
-                                                            <h5 className="text-xs font-medium text-emerald-700 flex items-center gap-1 mb-1">
-                                                                <CheckCircle className="w-3 h-3" /> Completed
-                                                            </h5>
-                                                            <ul className="text-xs text-gray-600 space-y-0.5">
-                                                                {(update.completed_items || update.completed_tasks?.map(t => ({ text: t }))).map((item, i) => (
-                                                                    <li key={i} className="flex items-start gap-1">
-                                                                        <span>•</span>
-                                                                        <span>{typeof item === 'string' ? item : item.text}</span>
-                                                                        {item.linked_item && (
-                                                                            <span className="text-blue-600 text-[10px]">🔗</span>
-                                                                        )}
-                                                                    </li>
-                                                                ))}
-                                                            </ul>
-                                                        </div>
-                                                    )}
-                                                    {update.blockers?.length > 0 && update.blockers[0] && (
-                                                        <div>
-                                                            <h5 className="text-xs font-medium text-red-700 flex items-center gap-1 mb-1">
-                                                                <AlertTriangle className="w-3 h-3" /> Blockers
-                                                            </h5>
-                                                            <ul className="text-xs text-gray-600 space-y-0.5">
-                                                                {update.blockers.filter(b => b).map((b, i) => <li key={i}>• {b}</li>)}
-                                                            </ul>
-                                                        </div>
-                                                    )}
-                                                    {update.tomorrow_focus?.length > 0 && update.tomorrow_focus[0] && (
-                                                        <div>
-                                                            <h5 className="text-xs font-medium text-blue-700 flex items-center gap-1 mb-1">
-                                                                <Target className="w-3 h-3" /> Tomorrow
-                                                            </h5>
-                                                            <ul className="text-xs text-gray-600 space-y-0.5">
-                                                                {update.tomorrow_focus.filter(f => f).map((f, i) => <li key={i}>• {f}</li>)}
-                                                            </ul>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
                     ) : (
-                        <div className="space-y-4">
-                            {dailyUpdates.map(update => (
-                                <Card key={update.id}>
-                                    <CardContent className="p-5">
-                                        <div className="flex items-start gap-4">
-                                            <Avatar className="w-10 h-10">
-                                                <AvatarFallback className="bg-emerald-100 text-emerald-700">
-                                                    {getInitials(update.user_name)}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2 mb-2">
-                                                    <span className="font-medium">{update.user_name}</span>
-                                                    <Badge variant="outline" className="capitalize">{update.department}</Badge>
-                                                    <span className="text-sm text-gray-500">{formatDate(update.date)}</span>
-                                                </div>
-                                                
-                                                {/* Completed Tasks */}
-                                                <div className="mb-3">
-                                                    <h4 className="text-sm font-medium text-emerald-700 flex items-center gap-1 mb-1">
-                                                        <CheckCircle className="w-4 h-4" /> Completed
-                                                    </h4>
-                                                    <ul className="text-sm text-gray-700 space-y-1.5">
-                                                        {/* Use completed_items if available, fallback to completed_tasks */}
-                                                        {(update.completed_items || update.completed_tasks?.map(t => ({ text: t })))?.map((item, i) => (
-                                                            <li key={i} className="flex items-start gap-2">
-                                                                <span className="text-emerald-500 mt-0.5">•</span>
-                                                                <div className="flex-1">
-                                                                    <span>{typeof item === 'string' ? item : item.text}</span>
-                                                                    {item.linked_item && getLinkedItemUrl(item.linked_item) && (
-                                                                        <Link to={getLinkedItemUrl(item.linked_item)} className="inline-block">
-                                                                            <Badge 
-                                                                                variant="secondary" 
-                                                                                className="ml-2 text-xs py-0 px-1.5 inline-flex items-center gap-1 hover:bg-blue-100 cursor-pointer transition-colors"
-                                                                            >
-                                                                                {item.linked_item.item_type === 'task' ? (
-                                                                                    <ListTodo className="w-3 h-3" />
-                                                                                ) : (
-                                                                                    <FolderKanban className="w-3 h-3" />
-                                                                                )}
-                                                                                <span className="max-w-24 truncate">{item.linked_item.item_name}</span>
-                                                                                <ExternalLink className="w-3 h-3 text-blue-500" />
-                                                                            </Badge>
-                                                                        </Link>
-                                                                    )}
-                                                                    {item.linked_item && !getLinkedItemUrl(item.linked_item) && (
-                                                                        <Badge 
-                                                                            variant="secondary" 
-                                                                            className="ml-2 text-xs py-0 px-1.5 inline-flex items-center gap-1"
-                                                                        >
-                                                                            {item.linked_item.item_type === 'task' ? (
-                                                                                <ListTodo className="w-3 h-3" />
-                                                                            ) : (
-                                                                                <FolderKanban className="w-3 h-3" />
-                                                                            )}
-                                                                            <span className="max-w-24 truncate">{item.linked_item.item_name}</span>
-                                                                        </Badge>
-                                                                    )}
-                                                                </div>
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                </div>
-
-                                                {/* Blockers */}
-                                                {update.blockers?.length > 0 && update.blockers[0] && (
-                                                    <div className="mb-3">
-                                                        <h4 className="text-sm font-medium text-red-700 flex items-center gap-1 mb-1">
-                                                            <AlertTriangle className="w-4 h-4" /> Blockers
-                                                        </h4>
-                                                        <ul className="text-sm text-gray-700 space-y-2">
-                                                            {(update.blocker_items || update.blockers?.map(b => ({ text: b }))).map((blocker, i) => {
-                                                                const blockerText = typeof blocker === 'string' ? blocker : blocker.text;
-                                                                const hasTask = blocker.linked_task_id;
-                                                                return (
-                                                                    <li key={i} className="flex items-start gap-2 group">
-                                                                        <span className="text-red-500 mt-0.5">•</span>
-                                                                        <span className="flex-1">{blockerText}</span>
-                                                                        {!hasTask ? (
-                                                                            <Button
-                                                                                variant="ghost"
-                                                                                size="sm"
-                                                                                className="opacity-0 group-hover:opacity-100 h-6 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                                                                onClick={() => handleCreateTaskFromBlocker(update.id, i, blockerText)}
-                                                                            >
-                                                                                <ListChecks className="w-3 h-3 mr-1" />
-                                                                                Create Task
-                                                                            </Button>
-                                                                        ) : (
-                                                                            <span className="text-xs text-green-600 flex items-center gap-1">
-                                                                                <CheckCircle className="w-3 h-3" /> Task Created
-                                                                            </span>
-                                                                        )}
-                                                                    </li>
-                                                                );
-                                                            })}
-                                                        </ul>
-                                                    </div>
-                                                )}
-
-                                                {/* Tomorrow Focus */}
-                                                {update.tomorrow_focus?.length > 0 && update.tomorrow_focus[0] && (
-                                                    <div>
-                                                        <h4 className="text-sm font-medium text-blue-700 flex items-center gap-1 mb-1">
-                                                            <Target className="w-4 h-4" /> Tomorrow's Focus
-                                                        </h4>
-                                                        <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-                                                            {update.tomorrow_focus?.map((focus, i) => (
-                                                                <li key={i}>{focus}</li>
-                                                            ))}
-                                                        </ul>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
+                        dailyUpdates.map(update => (
+                            <UpdateCard key={update.id} update={update} type="daily" />
+                        ))
                     )}
                 </TabsContent>
 
-                {/* Weekly Updates Tab */}
-                <TabsContent value="weekly">
+                <TabsContent value="weekly" className="space-y-4">
                     {weeklyUpdates.length === 0 ? (
-                        <Card className="py-12">
-                            <CardContent className="text-center">
-                                <CalendarRange className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                                <h3 className="text-lg font-medium text-gray-700">No weekly updates yet</h3>
-                                <p className="text-gray-500 mt-1">Submit your first weekly update!</p>
+                        <Card className="border-[#E8D5C4]">
+                            <CardContent className="py-12 text-center">
+                                <CalendarRange className="w-12 h-12 mx-auto mb-4 text-[#D4BBA6]" />
+                                <h3 className="text-lg font-medium text-[#4A3728]">No weekly updates yet</h3>
+                                <p className="text-[#8B7355] mt-1">Share your weekly highlights!</p>
+                                <Button onClick={() => openUpdateDialog('weekly')} className="mt-4 bg-teal-600 hover:bg-teal-700">
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Submit Weekly Update
+                                </Button>
                             </CardContent>
                         </Card>
-                    ) : viewMode === 'team' && isManager ? (
-                        /* Team View - Grouped by Employee */
-                        <div className="space-y-6">
-                            {groupUpdatesByEmployee(weeklyUpdates).map(group => (
-                                <Card key={group.user_id || group.user_name}>
-                                    <CardHeader className="pb-2 bg-gray-50 border-b">
-                                        <div className="flex items-center gap-3">
-                                            <Avatar className="w-10 h-10">
-                                                <AvatarFallback className="bg-violet-100 text-violet-700">
-                                                    {getInitials(group.user_name)}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                            <div>
-                                                <CardTitle className="text-base">{group.user_name}</CardTitle>
-                                                <p className="text-sm text-gray-500 capitalize">{group.department}</p>
-                                            </div>
-                                            <Badge variant="secondary" className="ml-auto">
-                                                {group.updates.length} update{group.updates.length !== 1 ? 's' : ''}
-                                            </Badge>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="p-4 space-y-4">
-                                        {group.updates.map(update => (
-                                            <div key={update.id} className="border-l-2 border-violet-300 pl-4">
-                                                <p className="text-sm font-medium text-gray-600 mb-2">Week of {update.week_start}</p>
-                                                <div className="grid grid-cols-2 gap-3">
-                                                    {(update.achievement_items || update.achievements)?.length > 0 && (
-                                                        <div>
-                                                            <h5 className="text-xs font-medium text-violet-700 flex items-center gap-1 mb-1">
-                                                                <CheckCircle className="w-3 h-3" /> Achievements
-                                                            </h5>
-                                                            <ul className="text-xs text-gray-600 space-y-0.5">
-                                                                {(update.achievement_items || update.achievements?.map(a => ({ text: a }))).map((item, i) => (
-                                                                    <li key={i} className="flex items-start gap-1">
-                                                                        <span>•</span>
-                                                                        <span>{typeof item === 'string' ? item : item.text}</span>
-                                                                        {item.linked_item && (
-                                                                            <span className="text-blue-600 text-[10px]">🔗</span>
-                                                                        )}
-                                                                    </li>
-                                                                ))}
-                                                            </ul>
-                                                        </div>
-                                                    )}
-                                                    {update.team_highlights?.length > 0 && update.team_highlights[0] && (
-                                                        <div>
-                                                            <h5 className="text-xs font-medium text-blue-700 flex items-center gap-1 mb-1">
-                                                                <Users className="w-3 h-3" /> Team Highlights
-                                                            </h5>
-                                                            <ul className="text-xs text-gray-600 space-y-0.5">
-                                                                {update.team_highlights.filter(h => h).map((h, i) => <li key={i}>• {h}</li>)}
-                                                            </ul>
-                                                        </div>
-                                                    )}
-                                                    {update.issues_faced?.length > 0 && update.issues_faced[0] && (
-                                                        <div>
-                                                            <h5 className="text-xs font-medium text-red-700 flex items-center gap-1 mb-1">
-                                                                <AlertTriangle className="w-3 h-3" /> Challenges
-                                                            </h5>
-                                                            <ul className="text-xs text-gray-600 space-y-0.5">
-                                                                {update.issues_faced.filter(i => i).map((i, idx) => <li key={idx}>• {i}</li>)}
-                                                            </ul>
-                                                        </div>
-                                                    )}
-                                                    {update.next_week_focus?.length > 0 && update.next_week_focus[0] && (
-                                                        <div>
-                                                            <h5 className="text-xs font-medium text-emerald-700 flex items-center gap-1 mb-1">
-                                                                <Target className="w-3 h-3" /> Next Week
-                                                            </h5>
-                                                            <ul className="text-xs text-gray-600 space-y-0.5">
-                                                                {update.next_week_focus.filter(f => f).map((f, i) => <li key={i}>• {f}</li>)}
-                                                            </ul>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
                     ) : (
-                        <div className="space-y-4">
-                            {weeklyUpdates.map(update => (
-                                <Card key={update.id}>
-                                    <CardContent className="p-5">
-                                        <div className="flex items-start gap-4">
-                                            <Avatar className="w-10 h-10">
-                                                <AvatarFallback className="bg-violet-100 text-violet-700">
-                                                    {getInitials(update.user_name)}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2 mb-2">
-                                                    <span className="font-medium">{update.user_name}</span>
-                                                    <Badge variant="outline" className="capitalize">{update.department}</Badge>
-                                                    <span className="text-sm text-gray-500">Week of {update.week_start}</span>
-                                                </div>
-                                                
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    {/* Achievements */}
-                                                    <div>
-                                                        <h4 className="text-sm font-medium text-violet-700 flex items-center gap-1 mb-1">
-                                                            <CheckCircle className="w-4 h-4" /> Achievements
-                                                        </h4>
-                                                        <ul className="text-sm text-gray-700 space-y-1.5">
-                                                            {(update.achievement_items || update.achievements?.map(a => ({ text: a })))?.map((item, i) => (
-                                                                <li key={i} className="flex items-start gap-2">
-                                                                    <span className="text-violet-500 mt-0.5">•</span>
-                                                                    <div className="flex-1">
-                                                                        <span>{typeof item === 'string' ? item : item.text}</span>
-                                                                        {item.linked_item && getLinkedItemUrl(item.linked_item) && (
-                                                                            <Link to={getLinkedItemUrl(item.linked_item)} className="inline-block">
-                                                                                <Badge 
-                                                                                    variant="secondary" 
-                                                                                    className="ml-2 text-xs py-0 px-1.5 inline-flex items-center gap-1 hover:bg-blue-100 cursor-pointer transition-colors"
-                                                                                >
-                                                                                    {item.linked_item.item_type === 'task' ? (
-                                                                                        <ListTodo className="w-3 h-3" />
-                                                                                    ) : (
-                                                                                        <FolderKanban className="w-3 h-3" />
-                                                                                    )}
-                                                                                    <span className="max-w-24 truncate">{item.linked_item.item_name}</span>
-                                                                                    <ExternalLink className="w-3 h-3 text-blue-500" />
-                                                                                </Badge>
-                                                                            </Link>
-                                                                        )}
-                                                                        {item.linked_item && !getLinkedItemUrl(item.linked_item) && (
-                                                                            <Badge 
-                                                                                variant="secondary" 
-                                                                                className="ml-2 text-xs py-0 px-1.5 inline-flex items-center gap-1"
-                                                                            >
-                                                                                {item.linked_item.item_type === 'task' ? (
-                                                                                    <ListTodo className="w-3 h-3" />
-                                                                                ) : (
-                                                                                    <FolderKanban className="w-3 h-3" />
-                                                                                )}
-                                                                                <span className="max-w-24 truncate">{item.linked_item.item_name}</span>
-                                                                            </Badge>
-                                                                        )}
-                                                                    </div>
-                                                                </li>
-                                                            ))}
-                                                        </ul>
-                                                    </div>
-
-                                                    {/* Team Highlights */}
-                                                    {update.team_highlights?.length > 0 && update.team_highlights[0] && (
-                                                        <div>
-                                                            <h4 className="text-sm font-medium text-blue-700 flex items-center gap-1 mb-1">
-                                                                <Users className="w-4 h-4" /> Team Highlights
-                                                            </h4>
-                                                            <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-                                                                {update.team_highlights?.map((item, i) => (
-                                                                    <li key={i}>{item}</li>
-                                                                ))}
-                                                            </ul>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Issues */}
-                                                    {update.issues_faced?.length > 0 && update.issues_faced[0] && (
-                                                        <div>
-                                                            <h4 className="text-sm font-medium text-red-700 flex items-center gap-1 mb-1">
-                                                                <AlertTriangle className="w-4 h-4" /> Challenges
-                                                            </h4>
-                                                            <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-                                                                {update.issues_faced?.map((item, i) => (
-                                                                    <li key={i}>{item}</li>
-                                                                ))}
-                                                            </ul>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Next Week */}
-                                                    {update.next_week_focus?.length > 0 && update.next_week_focus[0] && (
-                                                        <div>
-                                                            <h4 className="text-sm font-medium text-emerald-700 flex items-center gap-1 mb-1">
-                                                                <Target className="w-4 h-4" /> Next Week Focus
-                                                            </h4>
-                                                            <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-                                                                {update.next_week_focus?.map((item, i) => (
-                                                                    <li key={i}>{item}</li>
-                                                                ))}
-                                                            </ul>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
+                        weeklyUpdates.map(update => (
+                            <UpdateCard key={update.id} update={update} type="weekly" />
+                        ))
                     )}
                 </TabsContent>
             </Tabs>
 
-            {/* Daily Update Dialog */}
-            <Dialog open={showDailyDialog} onOpenChange={setShowDailyDialog}>
-                <DialogContent className="max-w-lg">
+            {/* Submit Update Dialog - Clean & Simple */}
+            <Dialog open={showUpdateDialog} onOpenChange={setShowUpdateDialog}>
+                <DialogContent className="bg-white max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <Calendar className="w-5 h-5 text-emerald-500" />
-                            Submit Daily Update
+                        <DialogTitle className="flex items-center gap-2 text-[#4A3728]">
+                            {UPDATE_TYPES[updateType] && (
+                                <>
+                                    {React.createElement(UPDATE_TYPES[updateType].icon, { className: "w-5 h-5" })}
+                                    {UPDATE_TYPES[updateType].label}
+                                </>
+                            )}
                         </DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
+                    
+                    <div className="space-y-6 py-4">
+                        {/* Completed / Achievements */}
                         <div>
-                            <div className="flex items-center justify-between mb-2">
-                                <label className="text-sm font-medium text-emerald-700">
-                                    What did you complete today? *
-                                </label>
-                                <span className="text-xs text-gray-500 flex items-center gap-1">
-                                    <Link2 className="w-3 h-3" /> Link to Task/Project
-                                </span>
-                            </div>
-                            <LinkableItemInput
-                                formType="daily"
-                                field="completed_items"
-                                items={dailyForm.completed_items}
-                                placeholder="Completed task..."
+                            <label className="text-sm font-medium text-[#4A3728] flex items-center gap-2 mb-2">
+                                <CheckCircle className="w-4 h-4 text-emerald-500" />
+                                {updateType === 'daily' ? 'What did you complete today?' : 'Key achievements this week'}
+                            </label>
+                            <ItemInput
+                                field="completed"
+                                items={formData.completed}
+                                placeholder={updateType === 'daily' ? "Completed task or milestone..." : "Achievement or win..."}
                                 icon={CheckCircle}
                                 iconColor="text-emerald-500"
                             />
                         </div>
 
+                        {/* Blockers / Challenges */}
                         <div>
-                            <div className="flex items-center justify-between mb-2">
-                                <label className="text-sm font-medium text-red-700">
-                                    Any blockers?
-                                </label>
-                                <span className="text-xs text-gray-500 flex items-center gap-1">
-                                    <Link2 className="w-3 h-3" /> Link
-                                </span>
-                            </div>
-                            <LinkableItemInput
-                                formType="daily"
-                                field="blocker_items"
-                                items={dailyForm.blocker_items}
+                            <label className="text-sm font-medium text-[#4A3728] flex items-center gap-2 mb-2">
+                                <AlertTriangle className="w-4 h-4 text-red-500" />
+                                {updateType === 'daily' ? 'Any blockers?' : 'Challenges faced'}
+                                <span className="text-xs text-[#8B7355] font-normal">(optional)</span>
+                            </label>
+                            <ItemInput
+                                field="blockers"
+                                items={formData.blockers}
                                 placeholder="Blocker or challenge..."
                                 icon={AlertTriangle}
                                 iconColor="text-red-500"
                             />
                         </div>
 
+                        {/* Next Focus */}
                         <div>
-                            <div className="flex items-center justify-between mb-2">
-                                <label className="text-sm font-medium text-blue-700">
-                                    Tomorrow's focus
-                                </label>
-                                <span className="text-xs text-gray-500 flex items-center gap-1">
-                                    <Link2 className="w-3 h-3" /> Link
-                                </span>
-                            </div>
-                            <LinkableItemInput
-                                formType="daily"
-                                field="tomorrow_focus_items"
-                                items={dailyForm.tomorrow_focus_items}
-                                placeholder="Priority for tomorrow..."
+                            <label className="text-sm font-medium text-[#4A3728] flex items-center gap-2 mb-2">
+                                <Target className="w-4 h-4 text-blue-500" />
+                                {updateType === 'daily' ? "Tomorrow's focus" : 'Next week priorities'}
+                                <span className="text-xs text-[#8B7355] font-normal">(optional)</span>
+                            </label>
+                            <ItemInput
+                                field="next_focus"
+                                items={formData.next_focus}
+                                placeholder="What you'll focus on..."
                                 icon={Target}
                                 iconColor="text-blue-500"
                             />
                         </div>
 
-                        <div>
-                            <label className="text-sm font-medium mb-1 block">Notes (optional)</label>
-                            <Textarea
-                                value={dailyForm.notes}
-                                onChange={(e) => setDailyForm({ ...dailyForm, notes: e.target.value })}
-                                placeholder="Any additional notes..."
-                                rows={2}
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowDailyDialog(false)}>
-                            Cancel
-                        </Button>
-                        <Button
-                            onClick={handleSubmitDaily}
-                            disabled={submitting}
-                            className="bg-emerald-600 hover:bg-emerald-700"
-                        >
-                            {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
-                            Submit
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Weekly Update Dialog */}
-            <Dialog open={showWeeklyDialog} onOpenChange={setShowWeeklyDialog}>
-                <DialogContent className="max-w-lg">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <CalendarRange className="w-5 h-5 text-violet-500" />
-                            Submit Weekly Update
-                        </DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
-                        <div>
-                            <div className="flex items-center justify-between mb-2">
-                                <label className="text-sm font-medium text-violet-700">
-                                    Key achievements this week *
-                                </label>
-                                <span className="text-xs text-gray-500 flex items-center gap-1">
-                                    <Link2 className="w-3 h-3" /> Link
-                                </span>
-                            </div>
-                            <LinkableItemInput
-                                formType="weekly"
-                                field="achievement_items"
-                                items={weeklyForm.achievement_items}
-                                placeholder="Achievement..."
-                                icon={CheckCircle}
-                                iconColor="text-violet-500"
-                            />
-                        </div>
-
-                        <div>
-                            <div className="flex items-center justify-between mb-2">
-                                <label className="text-sm font-medium text-blue-700">
+                        {/* Team Highlights - Weekly only */}
+                        {(updateType === 'weekly' || updateType === 'monthly' || updateType === 'quarterly') && (
+                            <div>
+                                <label className="text-sm font-medium text-[#4A3728] flex items-center gap-2 mb-2">
+                                    <Sparkles className="w-4 h-4 text-amber-500" />
                                     Team highlights
+                                    <span className="text-xs text-[#8B7355] font-normal">(optional)</span>
                                 </label>
-                                <span className="text-xs text-gray-500 flex items-center gap-1">
-                                    <Link2 className="w-3 h-3" /> Link
-                                </span>
+                                <ItemInput
+                                    field="highlights"
+                                    items={formData.highlights}
+                                    placeholder="Shoutout or team win..."
+                                    icon={Sparkles}
+                                    iconColor="text-amber-500"
+                                />
                             </div>
-                            <LinkableItemInput
-                                formType="weekly"
-                                field="team_highlights_items"
-                                items={weeklyForm.team_highlights_items}
-                                placeholder="Team highlight..."
-                                icon={Users}
-                                iconColor="text-blue-500"
-                            />
-                        </div>
+                        )}
 
+                        {/* Notes */}
                         <div>
-                            <div className="flex items-center justify-between mb-2">
-                                <label className="text-sm font-medium text-red-700">
-                                    Challenges faced
-                                </label>
-                                <span className="text-xs text-gray-500 flex items-center gap-1">
-                                    <Link2 className="w-3 h-3" /> Link
-                                </span>
-                            </div>
-                            <LinkableItemInput
-                                formType="weekly"
-                                field="issues_faced_items"
-                                items={weeklyForm.issues_faced_items}
-                                placeholder="Challenge or issue..."
-                                icon={AlertTriangle}
-                                iconColor="text-red-500"
-                            />
-                        </div>
-
-                        <div>
-                            <div className="flex items-center justify-between mb-2">
-                                <label className="text-sm font-medium text-emerald-700">
-                                    Next week focus
-                                </label>
-                                <span className="text-xs text-gray-500 flex items-center gap-1">
-                                    <Link2 className="w-3 h-3" /> Link
-                                </span>
-                            </div>
-                            <LinkableItemInput
-                                formType="weekly"
-                                field="next_week_focus_items"
-                                items={weeklyForm.next_week_focus_items}
-                                placeholder="Priority for next week..."
-                                icon={Target}
-                                iconColor="text-emerald-500"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="text-sm font-medium mb-1 block">Notes (optional)</label>
+                            <label className="text-sm font-medium text-[#4A3728] mb-2 block">
+                                Additional notes
+                                <span className="text-xs text-[#8B7355] font-normal ml-2">(optional)</span>
+                            </label>
                             <Textarea
-                                value={weeklyForm.notes}
-                                onChange={(e) => setWeeklyForm({ ...weeklyForm, notes: e.target.value })}
-                                placeholder="Any additional notes..."
+                                value={formData.notes}
+                                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                                placeholder="Any other updates or context..."
+                                className="border-[#E8D5C4]"
                                 rows={2}
                             />
                         </div>
                     </div>
+
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowWeeklyDialog(false)}>
+                        <Button variant="outline" onClick={() => setShowUpdateDialog(false)} className="border-[#D4BBA6]">
                             Cancel
                         </Button>
-                        <Button
-                            onClick={handleSubmitWeekly}
+                        <Button 
+                            onClick={handleSubmit} 
                             disabled={submitting}
-                            className="bg-violet-600 hover:bg-violet-700"
+                            className="bg-teal-600 hover:bg-teal-700"
                         >
-                            {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+                            {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                             Submit
                         </Button>
                     </DialogFooter>
