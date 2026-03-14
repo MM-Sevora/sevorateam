@@ -341,12 +341,13 @@ export default function WorkUpdates() {
                     <div key={idx} className="group">
                         <div className="flex items-start gap-2 p-2 rounded-lg border border-[#E8D5C4] bg-white hover:border-[#D4BBA6] transition-all">
                             <Icon className={`w-4 h-4 mt-2.5 ${iconColor} flex-shrink-0`} />
-                            <div className="flex-1 space-y-1">
-                                <Input
-                                    value={item.text}
+                            <div className="flex-1 space-y-1 min-w-0">
+                                <input
+                                    type="text"
+                                    value={item.text || ''}
                                     onChange={(e) => updateItemText(field, idx, e.target.value)}
                                     placeholder={placeholder}
-                                    className="border-0 shadow-none focus-visible:ring-0 p-0 h-8"
+                                    className="w-full h-8 bg-transparent outline-none text-[#4A3728] placeholder:text-[#A89888]"
                                 />
                                 {/* Linked item badge */}
                                 {item.linked_item && (
