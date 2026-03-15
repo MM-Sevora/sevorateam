@@ -40,8 +40,18 @@ Build a comprehensive Marketing Operations Platform that integrates marketing, s
   - **Backlog View**: Prioritized list with drag-to-sprint functionality
   - **Bug Tracking Fields**: Severity, reproduction steps, expected/actual behavior
   - **Story Fields**: Acceptance criteria
-  - **Burndown Charts**: Sprint progress visualization (backend ready)
-  - **Velocity Charts**: Team performance tracking (backend ready)
+  - **Burndown Charts**: Sprint progress visualization
+  - **Velocity Charts**: Team performance tracking
+
+### 4. Knowledge Base (Confluence-like) - NEW (Mar 2026)
+- **Spaces**: Organize documentation by team/project/company
+- **Pages**: Rich text editor with Markdown support
+- **Page Hierarchy**: Parent/child page structure
+- **Version History**: Track all changes, restore previous versions
+- **Comments**: Collaborate on documentation
+- **Templates**: Industry-standard templates (RFC, ADR, Design Doc, Runbook, Post-Mortem, Meeting Notes, Onboarding)
+- **Search**: Full-text search across all knowledge base content
+- **Access Control**: Public/private spaces
 
 ### 4. Sevora Pulse (Team Communication)
 - Daily work updates

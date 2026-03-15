@@ -1,0 +1,487 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Badge } from '../../components/ui/badge';
+import { Input } from '../../components/ui/input';
+import { Textarea } from '../../components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { toast } from 'sonner';
+import { 
+  ChevronRight, ArrowLeft, Edit2, Save, X, Clock, User, Eye, 
+  MessageSquare, History, FileText, CheckCircle, Send, Trash2,
+  ChevronDown
+} from 'lucide-react';
+
+const PageEditorPage = () => {
+  const { pageId } = useParams();
+  const navigate = useNavigate();
+  const { api, user } = useAuth();
+  
+  const [page, setPage] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  
+  // Edit form
+  const [editForm, setEditForm] = useState({ title: '', content: '', status: 'draft' });
+  
+  // Comments
+  const [comments, setComments] = useState([]);
+  const [newComment, setNewComment] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
+  
+  // Version history
+  const [showHistory, setShowHistory] = useState(false);
+  const [versions, setVersions] = useState([]);
+  const [loadingVersions, setLoadingVersions] = useState(false);
+
+  const fetchPage = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await api.get(`/knowledge/pages/${pageId}`);
+      setPage(response.data);
+      setEditForm({
+        title: response.data.title,
+        content: response.data.content || '',
+        status: response.data.status
+      });
+    } catch (error) {
+      toast.error('Failed to load page');
+      navigate('/knowledge');
+    } finally {
+      setLoading(false);
+    }
+  }, [api, pageId, navigate]);
+
+  const fetchComments = useCallback(async () => {
+    try {
+      const response = await api.get(`/knowledge/pages/${pageId}/comments`);
+      setComments(response.data || []);
+    } catch (error) {
+      console.error('Failed to load comments:', error);
+    }
+  }, [api, pageId]);
+
+  const fetchVersions = async () => {
+    setLoadingVersions(true);
+    try {
+      const response = await api.get(`/knowledge/pages/${pageId}/versions`);
+      setVersions(response.data || []);
+    } catch (error) {
+      toast.error('Failed to load version history');
+    } finally {
+      setLoadingVersions(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPage();
+    fetchComments();
+  }, [fetchPage, fetchComments]);
+
+  const handleSave = async () => {
+    if (!editForm.title.trim()) {
+      toast.error('Title is required');
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      await api.put(`/knowledge/pages/${pageId}`, {
+        title: editForm.title,
+        content: editForm.content,
+        status: editForm.status
+      });
+      toast.success('Page saved');
+      setEditing(false);
+      fetchPage();
+    } catch (error) {
+      toast.error('Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePublish = async () => {
+    setSaving(true);
+    try {
+      await api.put(`/knowledge/pages/${pageId}`, { status: 'published' });
+      toast.success('Page published');
+      fetchPage();
+    } catch (error) {
+      toast.error('Failed to publish');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAddComment = async () => {
+    if (!newComment.trim()) return;
+    
+    setSubmittingComment(true);
+    try {
+      await api.post('/knowledge/comments', {
+        page_id: pageId,
+        content: newComment
+      });
+      setNewComment('');
+      fetchComments();
+      toast.success('Comment added');
+    } catch (error) {
+      toast.error('Failed to add comment');
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    if (!confirm('Delete this comment?')) return;
+    
+    try {
+      await api.delete(`/knowledge/comments/${commentId}`);
+      fetchComments();
+      toast.success('Comment deleted');
+    } catch (error) {
+      toast.error('Failed to delete comment');
+    }
+  };
+
+  const handleRestoreVersion = async (version) => {
+    if (!confirm(`Restore to version ${version}?`)) return;
+    
+    try {
+      await api.post(`/knowledge/pages/${pageId}/restore/${version}`);
+      toast.success('Version restored');
+      setShowHistory(false);
+      fetchPage();
+    } catch (error) {
+      toast.error('Failed to restore version');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6 flex items-center justify-center h-64">
+        <div className="text-gray-500">Loading page...</div>
+      </div>
+    );
+  }
+
+  if (!page) return null;
+
+  return (
+    <div className="min-h-screen bg-gray-50" data-testid="page-editor">
+      {/* Top Bar */}
+      <div className="bg-white border-b sticky top-0 z-10">
+        <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm">
+            <button 
+              className="text-gray-500 hover:text-blue-600 flex items-center gap-1"
+              onClick={() => navigate(`/knowledge/space/${page.space_id}`)}
+            >
+              <ArrowLeft className="w-4 h-4" /> {page.space_name}
+            </button>
+            <ChevronRight className="w-4 h-4 text-gray-400" />
+            <span className="font-medium text-gray-900 truncate max-w-[300px]">{page.title}</span>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Badge 
+              className={`${
+                page.status === 'published' ? 'bg-green-100 text-green-700' :
+                page.status === 'draft' ? 'bg-amber-100 text-amber-700' :
+                'bg-gray-100 text-gray-700'
+              }`}
+            >
+              {page.status}
+            </Badge>
+            
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => { setShowHistory(true); fetchVersions(); }}
+            >
+              <History className="w-4 h-4 mr-1" /> History
+            </Button>
+            
+            {editing ? (
+              <>
+                <Button variant="outline" size="sm" onClick={() => setEditing(false)}>
+                  <X className="w-4 h-4 mr-1" /> Cancel
+                </Button>
+                <Button 
+                  size="sm" 
+                  onClick={handleSave} 
+                  disabled={saving}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Save className="w-4 h-4 mr-1" /> {saving ? 'Saving...' : 'Save'}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                  <Edit2 className="w-4 h-4 mr-1" /> Edit
+                </Button>
+                {page.status === 'draft' && (
+                  <Button 
+                    size="sm" 
+                    onClick={handlePublish}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <CheckCircle className="w-4 h-4 mr-1" /> Publish
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-5xl mx-auto px-6 py-8">
+        <div className="grid grid-cols-4 gap-6">
+          {/* Page Content */}
+          <div className="col-span-3">
+            <Card>
+              <CardContent className="p-8">
+                {editing ? (
+                  <div className="space-y-4">
+                    <Input
+                      value={editForm.title}
+                      onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                      className="text-2xl font-bold border-0 border-b rounded-none px-0 focus-visible:ring-0"
+                      placeholder="Page title"
+                    />
+                    
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="text-sm text-gray-500">Status:</span>
+                      <Select
+                        value={editForm.status}
+                        onValueChange={(v) => setEditForm({ ...editForm, status: v })}
+                      >
+                        <SelectTrigger className="w-32 h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="draft">Draft</SelectItem>
+                          <SelectItem value="published">Published</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <Textarea
+                      value={editForm.content}
+                      onChange={(e) => setEditForm({ ...editForm, content: e.target.value })}
+                      className="min-h-[500px] font-mono text-sm"
+                      placeholder="Write your content here... (Markdown supported)"
+                    />
+                    
+                    <p className="text-xs text-gray-400">
+                      Tip: Use Markdown for formatting. Headers (#), bold (**text**), lists (-), code blocks (```)
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <h1 className="text-3xl font-bold text-gray-900 mb-6">{page.title}</h1>
+                    
+                    {page.content ? (
+                      <div className="prose prose-gray max-w-none">
+                        {/* Simple markdown rendering - in production use react-markdown */}
+                        <pre className="whitespace-pre-wrap font-sans text-gray-700 leading-relaxed">
+                          {page.content}
+                        </pre>
+                      </div>
+                    ) : (
+                      <div className="text-center py-12 text-gray-400">
+                        <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                        <p>This page is empty</p>
+                        <Button 
+                          variant="outline" 
+                          className="mt-3"
+                          onClick={() => setEditing(true)}
+                        >
+                          <Edit2 className="w-4 h-4 mr-1" /> Add content
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Comments Section */}
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4" />
+                  Comments ({comments.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {/* Add Comment */}
+                <div className="flex gap-2 mb-4">
+                  <Textarea
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Add a comment..."
+                    rows={2}
+                    className="flex-1"
+                  />
+                  <Button 
+                    onClick={handleAddComment}
+                    disabled={submittingComment || !newComment.trim()}
+                    className="self-end"
+                  >
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </div>
+                
+                {/* Comments List */}
+                {comments.length > 0 ? (
+                  <div className="space-y-3">
+                    {comments.map(comment => (
+                      <div key={comment.id} className="flex gap-3 p-3 bg-gray-50 rounded-lg">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-medium text-blue-600">
+                          {comment.author_name?.charAt(0) || '?'}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-sm">{comment.author_name}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-400">
+                                {new Date(comment.created_at).toLocaleString()}
+                              </span>
+                              {(comment.author_id === user?.id || user?.role === 'admin') && (
+                                <button 
+                                  className="text-red-500 hover:text-red-700"
+                                  onClick={() => handleDeleteComment(comment.id)}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-sm text-gray-700 mt-1">{comment.content}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-400 py-4">No comments yet</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Sidebar */}
+          <div className="col-span-1 space-y-4">
+            {/* Page Info */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Page Info</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-500">Created by:</span>
+                  <span className="font-medium">{page.created_by_name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-500">Created:</span>
+                  <span>{new Date(page.created_at).toLocaleDateString()}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Edit2 className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-500">Updated:</span>
+                  <span>{new Date(page.updated_at).toLocaleDateString()}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-500">Version:</span>
+                  <Badge variant="outline">{page.version}</Badge>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Child Pages */}
+            {page.children?.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Child Pages</CardTitle>
+                </CardHeader>
+                <CardContent className="p-2">
+                  {page.children.map(child => (
+                    <button
+                      key={child.id}
+                      className="w-full flex items-center gap-2 p-2 rounded hover:bg-gray-100 text-left"
+                      onClick={() => navigate(`/knowledge/page/${child.id}`)}
+                    >
+                      <FileText className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm truncate">{child.title}</span>
+                    </button>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Version History Panel */}
+      {showHistory && (
+        <div className="fixed inset-0 bg-black/50 flex justify-end z-50">
+          <div className="w-96 bg-white h-full overflow-auto">
+            <div className="p-4 border-b flex items-center justify-between sticky top-0 bg-white">
+              <h3 className="font-semibold">Version History</h3>
+              <Button variant="ghost" size="sm" onClick={() => setShowHistory(false)}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            
+            <div className="p-4">
+              {loadingVersions ? (
+                <p className="text-center text-gray-500 py-8">Loading...</p>
+              ) : versions.length === 0 ? (
+                <p className="text-center text-gray-500 py-8">No version history</p>
+              ) : (
+                <div className="space-y-2">
+                  {versions.map(v => (
+                    <div 
+                      key={v.version}
+                      className="p-3 border rounded-lg hover:bg-gray-50"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium">Version {v.version}</span>
+                        {v.version !== page.version && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleRestoreVersion(v.version)}
+                          >
+                            Restore
+                          </Button>
+                        )}
+                        {v.version === page.version && (
+                          <Badge className="bg-green-100 text-green-700">Current</Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        {v.created_by_name} • {new Date(v.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default PageEditorPage;

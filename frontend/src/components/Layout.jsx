@@ -14,7 +14,7 @@ import {
     HelpCircle, Award, Network, Shield, Flag, CalendarDays, RefreshCw, Plus, Globe,
     TrendingUp, PieChart, Activity, FileText, Package, Factory, FlaskConical, Search, Database,
     Server, Plug, Bell, ClipboardList, Bot, Cog, CheckCircle, MessageCircle, Key, Lock, Receipt,
-    CreditCard, Megaphone, FileImage, LayoutGrid
+    CreditCard, Megaphone, FileImage, LayoutGrid, Layers, BookOpen
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -103,6 +103,16 @@ const DEPARTMENT_CONFIG = {
             { path: '/projects/sprints', name: 'Sprints', icon: Zap },
             { path: '/projects/milestones', name: 'Milestones', icon: Flag },
             { path: '/projects/recurring', name: 'Recurring Tasks', icon: RefreshCw },
+        ],
+        groups: [
+            {
+                groupName: 'Engineering Tools',
+                groupIcon: Layers,
+                items: [
+                    { path: '/projects/engineering/backlog', name: 'Backlog', icon: Layers },
+                    { path: '/projects/engineering/reports', name: 'Reports & Charts', icon: TrendingUp },
+                ]
+            }
         ]
     },
     tasks: {
@@ -117,6 +127,17 @@ const DEPARTMENT_CONFIG = {
             { path: '/tasks/approvals', name: 'Approvals', icon: CheckCircle },
             { path: '/tasks/activities', name: 'Activity Feed', icon: Activity },
             { path: '/tasks/triggers', name: 'Smart Triggers', icon: Bot },
+        ]
+    },
+    knowledge: {
+        name: 'Knowledge Base',
+        icon: BookOpen,
+        color: 'from-indigo-600 to-indigo-700',
+        bgColor: 'bg-indigo-50',
+        textColor: 'text-indigo-700',
+        requiredModule: 'project_management',
+        routes: [
+            { path: '/knowledge', name: 'All Spaces', icon: BookOpen },
         ]
     },
     marketing: {

@@ -4628,6 +4628,14 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Engineering Tools routes: {e}")
 
+# Register Knowledge Base routes (Wiki/Confluence-like)
+try:
+    from routes.knowledge_base import router as knowledge_base_router
+    api_router.include_router(knowledge_base_router)
+    logger.info("Knowledge Base routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Knowledge Base routes: {e}")
+
 # Register Notifications routes
 try:
     from routes.notifications import router as notifications_router, init_notifications_router
