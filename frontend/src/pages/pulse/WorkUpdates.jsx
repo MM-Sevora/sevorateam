@@ -358,14 +358,16 @@ export default function WorkUpdates() {
     };
 
     const handleSubmit = async () => {
-        const validItems = formData.completed.filter(item => item.text.trim());
+        // Valid items have either text OR a linked item
+        const validItems = formData.completed.filter(item => item.text.trim() || item.linked_item);
         if (validItems.length === 0) {
             toast.error('Please add at least one item');
             return;
         }
 
-        const formatItems = (items) => items.filter(item => item.text.trim()).map(item => ({
-            text: item.text,
+        // Format items - include if has text OR has linked item
+        const formatItems = (items) => items.filter(item => item.text.trim() || item.linked_item).map(item => ({
+            text: item.text || (item.linked_item ? item.linked_item.item_name : ''),
             linked_item: item.linked_item,
         }));
 

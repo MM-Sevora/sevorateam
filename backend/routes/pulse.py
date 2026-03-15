@@ -1288,11 +1288,18 @@ async def submit_daily_update(update: DailyUpdateCreate, user: dict = Depends(ge
             if text and text.strip():
                 all_items.append({"text": text, "linked_item": None, "completion_date": None})
         for item in new_items_list:
-            all_items.append({
-                "text": item.text,
-                "linked_item": item.linked_item.model_dump() if item.linked_item else None,
-                "completion_date": item.completion_date
-            })
+            linked = item.linked_item.model_dump() if item.linked_item else None
+            # Use linked item name as text if text is empty but linked item exists
+            text = item.text.strip() if item.text else ""
+            if not text and linked:
+                text = linked.get("item_name", "")
+            # Only include items that have text OR a linked item
+            if text or linked:
+                all_items.append({
+                    "text": text,
+                    "linked_item": linked,
+                    "completion_date": item.completion_date
+                })
         return all_items
     
     # Merge all fields
@@ -1412,11 +1419,18 @@ async def submit_weekly_update(update: WeeklyUpdateCreate, user: dict = Depends(
             if text and text.strip():
                 all_items.append({"text": text, "linked_item": None, "completion_date": None})
         for item in new_items_list:
-            all_items.append({
-                "text": item.text,
-                "linked_item": item.linked_item.model_dump() if item.linked_item else None,
-                "completion_date": item.completion_date
-            })
+            linked = item.linked_item.model_dump() if item.linked_item else None
+            # Use linked item name as text if text is empty but linked item exists
+            text = item.text.strip() if item.text else ""
+            if not text and linked:
+                text = linked.get("item_name", "")
+            # Only include items that have text OR a linked item
+            if text or linked:
+                all_items.append({
+                    "text": text,
+                    "linked_item": linked,
+                    "completion_date": item.completion_date
+                })
         return all_items
     
     # Merge all fields
@@ -1722,10 +1736,17 @@ async def submit_monthly_update(update: MonthlyUpdateCreate, user: dict = Depend
             if text and text.strip():
                 all_items.append({"text": text, "linked_item": None})
         for item in new_items_list:
-            all_items.append({
-                "text": item.text,
-                "linked_item": item.linked_item.model_dump() if item.linked_item else None,
-            })
+            linked = item.linked_item.model_dump() if item.linked_item else None
+            # Use linked item name as text if text is empty but linked item exists
+            text = item.text.strip() if item.text else ""
+            if not text and linked:
+                text = linked.get("item_name", "")
+            # Only include items that have text OR a linked item
+            if text or linked:
+                all_items.append({
+                    "text": text,
+                    "linked_item": linked,
+                })
         return all_items
     
     # Merge all fields
@@ -1851,10 +1872,17 @@ async def update_monthly_update(
             if text and text.strip():
                 all_items.append({"text": text, "linked_item": None})
         for item in new_items_list:
-            all_items.append({
-                "text": item.text,
-                "linked_item": item.linked_item.model_dump() if item.linked_item else None,
-            })
+            linked = item.linked_item.model_dump() if item.linked_item else None
+            # Use linked item name as text if text is empty but linked item exists
+            text = item.text.strip() if item.text else ""
+            if not text and linked:
+                text = linked.get("item_name", "")
+            # Only include items that have text OR a linked item
+            if text or linked:
+                all_items.append({
+                    "text": text,
+                    "linked_item": linked,
+                })
         return all_items
     
     all_accomplishments = merge_items(update_data.accomplishments, update_data.accomplishment_items)
@@ -1931,10 +1959,17 @@ async def submit_quarterly_update(update: QuarterlyUpdateCreate, user: dict = De
             if text and text.strip():
                 all_items.append({"text": text, "linked_item": None})
         for item in new_items_list:
-            all_items.append({
-                "text": item.text,
-                "linked_item": item.linked_item.model_dump() if item.linked_item else None,
-            })
+            linked = item.linked_item.model_dump() if item.linked_item else None
+            # Use linked item name as text if text is empty but linked item exists
+            text = item.text.strip() if item.text else ""
+            if not text and linked:
+                text = linked.get("item_name", "")
+            # Only include items that have text OR a linked item
+            if text or linked:
+                all_items.append({
+                    "text": text,
+                    "linked_item": linked,
+                })
         return all_items
     
     # Merge all fields
