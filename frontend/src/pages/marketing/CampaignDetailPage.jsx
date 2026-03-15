@@ -9,11 +9,14 @@ import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { toast } from 'sonner';
 import { 
   ArrowLeft, RefreshCw, Save, Users, DollarSign, Target, Calendar,
   TrendingUp, Instagram, Youtube, UserPlus, UserMinus, Search,
-  Play, Pause, CheckCircle2, Clock, Edit2, X, ClipboardList
+  Play, Pause, CheckCircle2, Clock, Edit2, X, ClipboardList,
+  Share2, Video, Newspaper, Link2, Unlink, Plus, Trash2, ExternalLink,
+  ThumbsUp, ThumbsDown, Star, Eye
 } from 'lucide-react';
 import CreateTaskDialog from '../../components/shared/CreateTaskDialog';
 
@@ -48,6 +51,31 @@ const CampaignDetailPage = () => {
   const [influencerDeliverables, setInfluencerDeliverables] = useState([]);
   const [selectedDeliverable, setSelectedDeliverable] = useState(null);
   const [agreedFee, setAgreedFee] = useState('');
+  
+  // UGC Submissions
+  const [showUgcModal, setShowUgcModal] = useState(false);
+  const [ugcForm, setUgcForm] = useState({
+    creator_name: '',
+    creator_handle: '',
+    platform: 'instagram',
+    content_url: '',
+    content_type: 'post',
+    notes: ''
+  });
+  
+  // Link entities modals
+  const [showLinkAdModal, setShowLinkAdModal] = useState(false);
+  const [showLinkContentModal, setShowLinkContentModal] = useState(false);
+  const [showLinkPublicationModal, setShowLinkPublicationModal] = useState(false);
+  const [linkForm, setLinkForm] = useState({ id: '', name: '', type: '' });
+  
+  // Available entities for linking
+  const [availableAds, setAvailableAds] = useState([]);
+  const [availableProjects, setAvailableProjects] = useState([]);
+  const [availablePublications, setAvailablePublications] = useState([]);
+  
+  // Active tab for campaign type specific content
+  const [activeTab, setActiveTab] = useState('overview');
   
   // Edit form
   const [form, setForm] = useState({
@@ -203,6 +231,137 @@ const CampaignDetailPage = () => {
       fetchCampaign();
     } catch (error) {
       toast.error('Failed to remove influencer');
+    }
+  };
+
+  // ========== UGC SUBMISSION HANDLERS ==========
+  const handleAddUgcSubmission = async () => {
+    try {
+      await api.post(`/marketing/campaigns/${campaignId}/ugc-submission`, {
+        ...ugcForm,
+        status: 'pending'
+      });
+      toast.success('UGC submission added!');
+      setShowUgcModal(false);
+      setUgcForm({ creator_name: '', creator_handle: '', platform: 'instagram', content_url: '', content_type: 'post', notes: '' });
+      fetchCampaign();
+    } catch (error) {
+      toast.error('Failed to add UGC submission');
+    }
+  };
+
+  const handleUpdateUgcStatus = async (submissionId, status) => {
+    try {
+      await api.put(`/marketing/campaigns/${campaignId}/ugc-submission/${submissionId}?status=${status}`);
+      toast.success(`Submission ${status}!`);
+      fetchCampaign();
+    } catch (error) {
+      toast.error('Failed to update submission');
+    }
+  };
+
+  const handleDeleteUgcSubmission = async (submissionId) => {
+    if (!window.confirm('Delete this UGC submission?')) return;
+    try {
+      await api.delete(`/marketing/campaigns/${campaignId}/ugc-submission/${submissionId}`);
+      toast.success('Submission deleted');
+      fetchCampaign();
+    } catch (error) {
+      toast.error('Failed to delete submission');
+    }
+  };
+
+  // ========== LINK ENTITY HANDLERS ==========
+  const fetchAvailableAds = async () => {
+    try {
+      const response = await api.get('/marketing/v3/ads/campaigns');
+      setAvailableAds(response.data || []);
+    } catch (error) {
+      setAvailableAds([]);
+    }
+  };
+
+  const fetchAvailableProjects = async () => {
+    try {
+      const response = await api.get('/marketing/v3/content-production/projects');
+      setAvailableProjects(response.data || []);
+    } catch (error) {
+      setAvailableProjects([]);
+    }
+  };
+
+  const fetchAvailablePublications = async () => {
+    try {
+      const response = await api.get('/marketing/v2/publications');
+      setAvailablePublications(response.data || []);
+    } catch (error) {
+      setAvailablePublications([]);
+    }
+  };
+
+  const handleLinkAd = async () => {
+    try {
+      await api.post(`/marketing/campaigns/${campaignId}/link-ad?ad_id=${linkForm.id}&ad_name=${encodeURIComponent(linkForm.name)}&platform=${linkForm.type || 'meta'}`);
+      toast.success('Ad linked to campaign!');
+      setShowLinkAdModal(false);
+      setLinkForm({ id: '', name: '', type: '' });
+      fetchCampaign();
+    } catch (error) {
+      toast.error('Failed to link ad');
+    }
+  };
+
+  const handleUnlinkAd = async (adId) => {
+    try {
+      await api.delete(`/marketing/campaigns/${campaignId}/unlink-ad/${adId}`);
+      toast.success('Ad unlinked');
+      fetchCampaign();
+    } catch (error) {
+      toast.error('Failed to unlink ad');
+    }
+  };
+
+  const handleLinkContentProject = async () => {
+    try {
+      await api.post(`/marketing/campaigns/${campaignId}/link-content-project?project_id=${linkForm.id}&project_name=${encodeURIComponent(linkForm.name)}&project_type=${linkForm.type || 'original_production'}`);
+      toast.success('Content project linked!');
+      setShowLinkContentModal(false);
+      setLinkForm({ id: '', name: '', type: '' });
+      fetchCampaign();
+    } catch (error) {
+      toast.error('Failed to link project');
+    }
+  };
+
+  const handleUnlinkContentProject = async (projectId) => {
+    try {
+      await api.delete(`/marketing/campaigns/${campaignId}/unlink-content-project/${projectId}`);
+      toast.success('Project unlinked');
+      fetchCampaign();
+    } catch (error) {
+      toast.error('Failed to unlink project');
+    }
+  };
+
+  const handleLinkPublication = async () => {
+    try {
+      await api.post(`/marketing/campaigns/${campaignId}/link-publication?publication_id=${linkForm.id}&publication_name=${encodeURIComponent(linkForm.name)}&coverage_type=${linkForm.type || 'feature'}`);
+      toast.success('Publication linked!');
+      setShowLinkPublicationModal(false);
+      setLinkForm({ id: '', name: '', type: '' });
+      fetchCampaign();
+    } catch (error) {
+      toast.error('Failed to link publication');
+    }
+  };
+
+  const handleUnlinkPublication = async (publicationId) => {
+    try {
+      await api.delete(`/marketing/campaigns/${campaignId}/unlink-publication/${publicationId}`);
+      toast.success('Publication unlinked');
+      fetchCampaign();
+    } catch (error) {
+      toast.error('Failed to unlink publication');
     }
   };
 
@@ -406,6 +565,191 @@ const CampaignDetailPage = () => {
               )}
             </CardContent>
           </Card>
+
+          {/* Campaign Type Specific Content */}
+          {campaign?.campaign_type && campaign.campaign_type !== 'influencer' && (
+            <Card className="bg-white border-gray-200">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-base">
+                  {campaign.campaign_type === 'ugc' && 'UGC Submissions'}
+                  {campaign.campaign_type === 'paid_ads' && 'Linked Ads'}
+                  {campaign.campaign_type === 'content_production' && 'Linked Content Projects'}
+                  {campaign.campaign_type === 'pr_media' && 'Linked Publications'}
+                </CardTitle>
+                <Button 
+                  size="sm" 
+                  onClick={() => {
+                    if (campaign.campaign_type === 'ugc') setShowUgcModal(true);
+                    if (campaign.campaign_type === 'paid_ads') { fetchAvailableAds(); setShowLinkAdModal(true); }
+                    if (campaign.campaign_type === 'content_production') { fetchAvailableProjects(); setShowLinkContentModal(true); }
+                    if (campaign.campaign_type === 'pr_media') { fetchAvailablePublications(); setShowLinkPublicationModal(true); }
+                  }}
+                  className="bg-[#c4a35a] hover:bg-[#b39349] text-white"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  {campaign.campaign_type === 'ugc' ? 'Add Submission' : 'Link'}
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {/* UGC Submissions */}
+                {campaign.campaign_type === 'ugc' && (
+                  <div className="space-y-3">
+                    {(!campaign.ugc_submissions || campaign.ugc_submissions.length === 0) ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <Share2 className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                        <p>No UGC submissions yet</p>
+                      </div>
+                    ) : (
+                      campaign.ugc_submissions.map(submission => (
+                        <div key={submission.id} className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-gradient-to-br from-pink-400 to-purple-500 rounded-lg flex items-center justify-center text-white font-bold">
+                                {submission.creator_name?.charAt(0) || 'U'}
+                              </div>
+                              <div>
+                                <div className="font-medium text-gray-900">{submission.creator_name}</div>
+                                <div className="text-sm text-gray-500 flex items-center gap-2">
+                                  <span>{submission.creator_handle || 'No handle'}</span>
+                                  <span>•</span>
+                                  <span className="capitalize">{submission.platform}</span>
+                                  <span>•</span>
+                                  <span className="capitalize">{submission.content_type}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge className={
+                                submission.status === 'approved' ? 'bg-green-100 text-green-700' :
+                                submission.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                submission.status === 'featured' ? 'bg-purple-100 text-purple-700' :
+                                'bg-yellow-100 text-yellow-700'
+                              }>
+                                {submission.status}
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="mt-2 flex items-center justify-between">
+                            <a href={submission.content_url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+                              <ExternalLink className="w-3 h-3" /> View Content
+                            </a>
+                            <div className="flex items-center gap-1">
+                              {submission.status === 'pending' && (
+                                <>
+                                  <Button size="sm" variant="ghost" className="text-green-600 hover:bg-green-50" onClick={() => handleUpdateUgcStatus(submission.id, 'approved')}>
+                                    <ThumbsUp className="w-4 h-4" />
+                                  </Button>
+                                  <Button size="sm" variant="ghost" className="text-red-600 hover:bg-red-50" onClick={() => handleUpdateUgcStatus(submission.id, 'rejected')}>
+                                    <ThumbsDown className="w-4 h-4" />
+                                  </Button>
+                                </>
+                              )}
+                              {submission.status === 'approved' && (
+                                <Button size="sm" variant="ghost" className="text-purple-600 hover:bg-purple-50" onClick={() => handleUpdateUgcStatus(submission.id, 'featured')}>
+                                  <Star className="w-4 h-4" />
+                                </Button>
+                              )}
+                              <Button size="sm" variant="ghost" className="text-gray-500 hover:bg-gray-100" onClick={() => handleDeleteUgcSubmission(submission.id)}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          {submission.notes && <p className="mt-2 text-sm text-gray-600 italic">"{submission.notes}"</p>}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* Linked Ads */}
+                {campaign.campaign_type === 'paid_ads' && (
+                  <div className="space-y-3">
+                    {(!campaign.linked_ads || campaign.linked_ads.length === 0) ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <Target className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                        <p>No ads linked yet</p>
+                      </div>
+                    ) : (
+                      campaign.linked_ads.map((ad, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                              <Target className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-900">{ad.ad_name}</div>
+                              <div className="text-sm text-gray-500 capitalize">{ad.platform} Ad</div>
+                            </div>
+                          </div>
+                          <Button size="sm" variant="ghost" className="text-red-500 hover:bg-red-50" onClick={() => handleUnlinkAd(ad.ad_id)}>
+                            <Unlink className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* Linked Content Projects */}
+                {campaign.campaign_type === 'content_production' && (
+                  <div className="space-y-3">
+                    {(!campaign.linked_content_projects || campaign.linked_content_projects.length === 0) ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <Video className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                        <p>No content projects linked yet</p>
+                      </div>
+                    ) : (
+                      campaign.linked_content_projects.map((project, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                              <Video className="w-5 h-5 text-green-600" />
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-900">{project.project_name}</div>
+                              <div className="text-sm text-gray-500 capitalize">{project.project_type?.replace('_', ' ')}</div>
+                            </div>
+                          </div>
+                          <Button size="sm" variant="ghost" className="text-red-500 hover:bg-red-50" onClick={() => handleUnlinkContentProject(project.project_id)}>
+                            <Unlink className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* Linked Publications */}
+                {campaign.campaign_type === 'pr_media' && (
+                  <div className="space-y-3">
+                    {(!campaign.linked_publications || campaign.linked_publications.length === 0) ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <Newspaper className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                        <p>No publications linked yet</p>
+                      </div>
+                    ) : (
+                      campaign.linked_publications.map((pub, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                              <Newspaper className="w-5 h-5 text-orange-600" />
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-900">{pub.publication_name}</div>
+                              <div className="text-sm text-gray-500 capitalize">{pub.coverage_type} Coverage</div>
+                            </div>
+                          </div>
+                          <Button size="sm" variant="ghost" className="text-red-500 hover:bg-red-50" onClick={() => handleUnlinkPublication(pub.publication_id)}>
+                            <Unlink className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Right Column - Campaign Info */}
@@ -732,6 +1076,264 @@ const CampaignDetailPage = () => {
         sourceEntityId={campaignId}
         sourceEntityName={campaign?.name || 'Campaign'}
       />
+
+      {/* UGC Submission Modal */}
+      <Dialog open={showUgcModal} onOpenChange={setShowUgcModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add UGC Submission</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">Creator Name *</Label>
+              <Input 
+                value={ugcForm.creator_name}
+                onChange={e => setUgcForm(prev => ({ ...prev, creator_name: e.target.value }))}
+                placeholder="John Doe"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">Creator Handle</Label>
+              <Input 
+                value={ugcForm.creator_handle}
+                onChange={e => setUgcForm(prev => ({ ...prev, creator_handle: e.target.value }))}
+                placeholder="@johndoe"
+                className="mt-1"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500">Platform</Label>
+                <Select value={ugcForm.platform} onValueChange={v => setUgcForm(prev => ({ ...prev, platform: v }))}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="instagram">Instagram</SelectItem>
+                    <SelectItem value="youtube">YouTube</SelectItem>
+                    <SelectItem value="tiktok">TikTok</SelectItem>
+                    <SelectItem value="twitter">Twitter/X</SelectItem>
+                    <SelectItem value="facebook">Facebook</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500">Content Type</Label>
+                <Select value={ugcForm.content_type} onValueChange={v => setUgcForm(prev => ({ ...prev, content_type: v }))}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="post">Post</SelectItem>
+                    <SelectItem value="reel">Reel</SelectItem>
+                    <SelectItem value="story">Story</SelectItem>
+                    <SelectItem value="video">Video</SelectItem>
+                    <SelectItem value="review">Review</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">Content URL *</Label>
+              <Input 
+                value={ugcForm.content_url}
+                onChange={e => setUgcForm(prev => ({ ...prev, content_url: e.target.value }))}
+                placeholder="https://instagram.com/p/..."
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">Notes</Label>
+              <Textarea 
+                value={ugcForm.notes}
+                onChange={e => setUgcForm(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Any notes about this submission..."
+                className="mt-1"
+                rows={2}
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button variant="outline" onClick={() => setShowUgcModal(false)}>Cancel</Button>
+              <Button 
+                onClick={handleAddUgcSubmission}
+                disabled={!ugcForm.creator_name || !ugcForm.content_url}
+                className="bg-[#c4a35a] hover:bg-[#b39349] text-white"
+              >
+                Add Submission
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Link Ad Modal */}
+      <Dialog open={showLinkAdModal} onOpenChange={setShowLinkAdModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Link Ad Campaign</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">Select Ad Campaign</Label>
+              <Select value={linkForm.id} onValueChange={v => {
+                const ad = availableAds.find(a => a.id === v);
+                setLinkForm({ id: v, name: ad?.name || '', type: ad?.platform || 'meta' });
+              }}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select an ad campaign" /></SelectTrigger>
+                <SelectContent>
+                  {availableAds.map(ad => (
+                    <SelectItem key={ad.id} value={ad.id}>{ad.name} ({ad.platform})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-sm text-gray-500">Or enter manually:</p>
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">Ad Name</Label>
+              <Input 
+                value={linkForm.name}
+                onChange={e => setLinkForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Summer Sale 2026"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">Platform</Label>
+              <Select value={linkForm.type || 'meta'} onValueChange={v => setLinkForm(prev => ({ ...prev, type: v }))}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="meta">Meta (Facebook/Instagram)</SelectItem>
+                  <SelectItem value="google">Google Ads</SelectItem>
+                  <SelectItem value="linkedin">LinkedIn Ads</SelectItem>
+                  <SelectItem value="twitter">Twitter/X Ads</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button variant="outline" onClick={() => setShowLinkAdModal(false)}>Cancel</Button>
+              <Button 
+                onClick={handleLinkAd}
+                disabled={!linkForm.name}
+                className="bg-[#c4a35a] hover:bg-[#b39349] text-white"
+              >
+                <Link2 className="w-4 h-4 mr-1" /> Link Ad
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Link Content Project Modal */}
+      <Dialog open={showLinkContentModal} onOpenChange={setShowLinkContentModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Link Content Project</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">Select Project</Label>
+              <Select value={linkForm.id} onValueChange={v => {
+                const project = availableProjects.find(p => p.id === v);
+                setLinkForm({ id: v, name: project?.name || '', type: project?.project_type || 'original_production' });
+              }}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select a project" /></SelectTrigger>
+                <SelectContent>
+                  {availableProjects.map(project => (
+                    <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-sm text-gray-500">Or enter manually:</p>
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">Project Name</Label>
+              <Input 
+                value={linkForm.name}
+                onChange={e => setLinkForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Brand Video 2026"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">Project Type</Label>
+              <Select value={linkForm.type || 'original_production'} onValueChange={v => setLinkForm(prev => ({ ...prev, type: v }))}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="original_production">Original Production</SelectItem>
+                  <SelectItem value="graphics_design">Graphics / Design</SelectItem>
+                  <SelectItem value="adaptation">Adaptation / Repurpose</SelectItem>
+                  <SelectItem value="delivery_only">Delivery Only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button variant="outline" onClick={() => setShowLinkContentModal(false)}>Cancel</Button>
+              <Button 
+                onClick={handleLinkContentProject}
+                disabled={!linkForm.name}
+                className="bg-[#c4a35a] hover:bg-[#b39349] text-white"
+              >
+                <Link2 className="w-4 h-4 mr-1" /> Link Project
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Link Publication Modal */}
+      <Dialog open={showLinkPublicationModal} onOpenChange={setShowLinkPublicationModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Link Publication</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">Select Publication</Label>
+              <Select value={linkForm.id} onValueChange={v => {
+                const pub = availablePublications.find(p => p.id === v);
+                setLinkForm({ id: v, name: pub?.name || '', type: 'feature' });
+              }}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select a publication" /></SelectTrigger>
+                <SelectContent>
+                  {availablePublications.map(pub => (
+                    <SelectItem key={pub.id} value={pub.id}>{pub.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-sm text-gray-500">Or enter manually:</p>
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">Publication Name</Label>
+              <Input 
+                value={linkForm.name}
+                onChange={e => setLinkForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Vogue India"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">Coverage Type</Label>
+              <Select value={linkForm.type || 'feature'} onValueChange={v => setLinkForm(prev => ({ ...prev, type: v }))}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="feature">Feature Article</SelectItem>
+                  <SelectItem value="mention">Brand Mention</SelectItem>
+                  <SelectItem value="interview">Interview</SelectItem>
+                  <SelectItem value="press_release">Press Release</SelectItem>
+                  <SelectItem value="review">Product Review</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button variant="outline" onClick={() => setShowLinkPublicationModal(false)}>Cancel</Button>
+              <Button 
+                onClick={handleLinkPublication}
+                disabled={!linkForm.name}
+                className="bg-[#c4a35a] hover:bg-[#b39349] text-white"
+              >
+                <Link2 className="w-4 h-4 mr-1" /> Link Publication
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

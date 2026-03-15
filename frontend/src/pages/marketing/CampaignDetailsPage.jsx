@@ -6,11 +6,17 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Progress } from '../../components/ui/progress';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Textarea } from '../../components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { toast } from 'sonner';
 import {
   ArrowLeft, RefreshCw, Calendar, DollarSign, Users, FileText,
   Megaphone, Image, Building2, TrendingUp, Clock, CheckCircle,
-  AlertTriangle, Target, ExternalLink, Eye, Edit, Plus, BarChart3
+  AlertTriangle, Target, ExternalLink, Eye, Edit, Plus, BarChart3,
+  Share2, ThumbsUp, ThumbsDown, Star, Trash2
 } from 'lucide-react';
 
 const STATUS_CONFIG = {
@@ -23,6 +29,10 @@ const STATUS_CONFIG = {
 
 const CAMPAIGN_TYPE_CONFIG = {
   influencer: { label: 'Influencer', icon: Users, tabs: ['content', 'ads', 'assets', 'influencers', 'budget'] },
+  ugc: { label: 'UGC', icon: Users, tabs: ['ugc', 'content', 'assets', 'budget'] },
+  paid_ads: { label: 'Paid Ads', icon: Megaphone, tabs: ['ads', 'content', 'assets', 'budget'] },
+  content_production: { label: 'Content', icon: FileText, tabs: ['content', 'assets', 'budget'] },
+  pr_media: { label: 'PR/Media', icon: Building2, tabs: ['publications', 'content', 'assets', 'budget'] },
   pr: { label: 'PR', icon: Building2, tabs: ['content', 'assets', 'publications', 'budget'] },
   mixed: { label: 'Mixed', icon: Target, tabs: ['content', 'ads', 'assets', 'influencers', 'publications', 'budget'] },
   digital: { label: 'Digital', icon: Megaphone, tabs: ['content', 'ads', 'assets', 'budget'] },
@@ -60,6 +70,17 @@ export default function CampaignDetailsPage() {
   const [influencers, setInfluencers] = useState([]);
   const [publications, setPublications] = useState([]);
   const [budgetSummary, setBudgetSummary] = useState(null);
+  
+  // UGC state
+  const [showUgcModal, setShowUgcModal] = useState(false);
+  const [ugcForm, setUgcForm] = useState({
+    creator_name: '',
+    creator_handle: '',
+    platform: 'instagram',
+    content_url: '',
+    content_type: 'post',
+    notes: ''
+  });
 
   const fetchCampaignData = useCallback(async () => {
     if (!campaignId) return;
@@ -146,6 +167,43 @@ export default function CampaignDetailsPage() {
     fetchCampaignData();
   }, [fetchCampaignData]);
 
+  // UGC Handlers
+  const handleAddUgcSubmission = async () => {
+    try {
+      await api.post(`/marketing/campaigns/${campaignId}/ugc-submission`, {
+        ...ugcForm,
+        status: 'pending'
+      });
+      toast.success('UGC submission added!');
+      setShowUgcModal(false);
+      setUgcForm({ creator_name: '', creator_handle: '', platform: 'instagram', content_url: '', content_type: 'post', notes: '' });
+      fetchCampaignData();
+    } catch (error) {
+      toast.error('Failed to add UGC submission');
+    }
+  };
+
+  const handleUpdateUgcStatus = async (submissionId, status) => {
+    try {
+      await api.put(`/marketing/campaigns/${campaignId}/ugc-submission/${submissionId}?status=${status}`);
+      toast.success(`Submission ${status}!`);
+      fetchCampaignData();
+    } catch (error) {
+      toast.error('Failed to update submission');
+    }
+  };
+
+  const handleDeleteUgcSubmission = async (submissionId) => {
+    if (!window.confirm('Delete this UGC submission?')) return;
+    try {
+      await api.delete(`/marketing/campaigns/${campaignId}/ugc-submission/${submissionId}`);
+      toast.success('Submission deleted');
+      fetchCampaignData();
+    } catch (error) {
+      toast.error('Failed to delete submission');
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-6 flex items-center justify-center min-h-[400px]">
@@ -162,7 +220,7 @@ export default function CampaignDetailsPage() {
     );
   }
 
-  const campaignType = campaign.type || 'mixed';
+  const campaignType = campaign.campaign_type || campaign.type || 'mixed';
   const typeConfig = CAMPAIGN_TYPE_CONFIG[campaignType] || CAMPAIGN_TYPE_CONFIG.mixed;
   
   // Dynamic tab visibility based on campaign type AND available data
@@ -176,9 +234,15 @@ export default function CampaignDetailsPage() {
       visibleTabs.push({ key: 'content', count: contentProjects.length, alwaysShow: true });
     }
     
+    // UGC tab - only show if type is UGC
+    if (typeTabs.includes('ugc')) {
+      const ugcCount = campaign?.ugc_submissions?.length || 0;
+      visibleTabs.push({ key: 'ugc', count: ugcCount, alwaysShow: true });
+    }
+    
     // Ads tab - only show if type supports AND has data (or is digital/mixed type)
     if (typeTabs.includes('ads')) {
-      const showAds = adCampaigns.length > 0 || campaignType === 'digital' || campaignType === 'mixed';
+      const showAds = adCampaigns.length > 0 || campaignType === 'digital' || campaignType === 'mixed' || campaignType === 'paid_ads';
       if (showAds) visibleTabs.push({ key: 'ads', count: adCampaigns.length, alwaysShow: false });
     }
     
@@ -195,7 +259,7 @@ export default function CampaignDetailsPage() {
     
     // Publications tab - only show if type supports AND has data (or is PR type)
     if (typeTabs.includes('publications')) {
-      const showPubs = publications.length > 0 || campaignType === 'pr' || campaignType === 'mixed';
+      const showPubs = publications.length > 0 || campaignType === 'pr' || campaignType === 'mixed' || campaignType === 'pr_media';
       if (showPubs) visibleTabs.push({ key: 'publications', count: publications.length, alwaysShow: false });
     }
     
@@ -356,6 +420,12 @@ export default function CampaignDetailsPage() {
       {/* Tabs - Only show relevant tabs based on campaign type and data */}
       <Tabs value={effectiveActiveTab} onValueChange={setActiveTab}>
         <TabsList>
+          {tabKeys.includes('ugc') && (
+            <TabsTrigger value="ugc" className="flex items-center gap-2">
+              <Share2 className="w-4 h-4" />
+              UGC ({campaign?.ugc_submissions?.length || 0})
+            </TabsTrigger>
+          )}
           {tabKeys.includes('content') && (
             <TabsTrigger value="content" className="flex items-center gap-2">
               <FileText className="w-4 h-4" />
@@ -393,6 +463,109 @@ export default function CampaignDetailsPage() {
             </TabsTrigger>
           )}
         </TabsList>
+
+        {/* UGC Tab */}
+        <TabsContent value="ugc" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-lg">UGC Submissions</CardTitle>
+              <Button size="sm" onClick={() => setShowUgcModal(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Submission
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {(!campaign?.ugc_submissions || campaign.ugc_submissions.length === 0) ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Share2 className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p className="mb-2">No UGC submissions yet</p>
+                  <p className="text-sm">Add user-generated content from creators</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Stats Row */}
+                  <div className="grid grid-cols-4 gap-4 mb-4">
+                    <div className="bg-yellow-50 p-3 rounded-lg text-center">
+                      <p className="text-2xl font-bold text-yellow-600">{campaign.ugc_submissions.filter(s => s.status === 'pending').length}</p>
+                      <p className="text-xs text-yellow-700">Pending</p>
+                    </div>
+                    <div className="bg-green-50 p-3 rounded-lg text-center">
+                      <p className="text-2xl font-bold text-green-600">{campaign.ugc_submissions.filter(s => s.status === 'approved').length}</p>
+                      <p className="text-xs text-green-700">Approved</p>
+                    </div>
+                    <div className="bg-purple-50 p-3 rounded-lg text-center">
+                      <p className="text-2xl font-bold text-purple-600">{campaign.ugc_submissions.filter(s => s.status === 'featured').length}</p>
+                      <p className="text-xs text-purple-700">Featured</p>
+                    </div>
+                    <div className="bg-red-50 p-3 rounded-lg text-center">
+                      <p className="text-2xl font-bold text-red-600">{campaign.ugc_submissions.filter(s => s.status === 'rejected').length}</p>
+                      <p className="text-xs text-red-700">Rejected</p>
+                    </div>
+                  </div>
+                  
+                  {/* Submissions List */}
+                  <div className="space-y-3">
+                    {campaign.ugc_submissions.map(submission => (
+                      <div key={submission.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold text-lg">
+                            {submission.creator_name?.charAt(0) || 'U'}
+                          </div>
+                          <div>
+                            <div className="font-medium text-gray-900">{submission.creator_name}</div>
+                            <div className="text-sm text-gray-500 flex items-center gap-2">
+                              <span>{submission.creator_handle || 'No handle'}</span>
+                              <span>•</span>
+                              <span className="capitalize">{submission.platform}</span>
+                              <span>•</span>
+                              <Badge variant="outline" className="text-xs capitalize">{submission.content_type}</Badge>
+                            </div>
+                            {submission.notes && <p className="text-sm text-gray-500 mt-1 italic">"{submission.notes}"</p>}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Badge className={
+                            submission.status === 'approved' ? 'bg-green-100 text-green-700' :
+                            submission.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                            submission.status === 'featured' ? 'bg-purple-100 text-purple-700' :
+                            'bg-yellow-100 text-yellow-700'
+                          }>
+                            {submission.status}
+                          </Badge>
+                          <a href={submission.content_url} target="_blank" rel="noopener noreferrer">
+                            <Button size="sm" variant="outline">
+                              <ExternalLink className="w-4 h-4 mr-1" /> View
+                            </Button>
+                          </a>
+                          <div className="flex items-center gap-1">
+                            {submission.status === 'pending' && (
+                              <>
+                                <Button size="sm" variant="ghost" className="text-green-600 hover:bg-green-50" onClick={() => handleUpdateUgcStatus(submission.id, 'approved')}>
+                                  <ThumbsUp className="w-4 h-4" />
+                                </Button>
+                                <Button size="sm" variant="ghost" className="text-red-600 hover:bg-red-50" onClick={() => handleUpdateUgcStatus(submission.id, 'rejected')}>
+                                  <ThumbsDown className="w-4 h-4" />
+                                </Button>
+                              </>
+                            )}
+                            {submission.status === 'approved' && (
+                              <Button size="sm" variant="ghost" className="text-purple-600 hover:bg-purple-50" onClick={() => handleUpdateUgcStatus(submission.id, 'featured')} title="Feature this content">
+                                <Star className="w-4 h-4" />
+                              </Button>
+                            )}
+                            <Button size="sm" variant="ghost" className="text-gray-500 hover:bg-gray-100" onClick={() => handleDeleteUgcSubmission(submission.id)}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* Content Tab */}
         <TabsContent value="content" className="space-y-4">
@@ -638,6 +811,91 @@ export default function CampaignDetailsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* UGC Submission Modal */}
+      <Dialog open={showUgcModal} onOpenChange={setShowUgcModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add UGC Submission</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">Creator Name *</Label>
+              <Input 
+                value={ugcForm.creator_name}
+                onChange={e => setUgcForm(prev => ({ ...prev, creator_name: e.target.value }))}
+                placeholder="John Doe"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">Creator Handle</Label>
+              <Input 
+                value={ugcForm.creator_handle}
+                onChange={e => setUgcForm(prev => ({ ...prev, creator_handle: e.target.value }))}
+                placeholder="@johndoe"
+                className="mt-1"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500">Platform</Label>
+                <Select value={ugcForm.platform} onValueChange={v => setUgcForm(prev => ({ ...prev, platform: v }))}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="instagram">Instagram</SelectItem>
+                    <SelectItem value="youtube">YouTube</SelectItem>
+                    <SelectItem value="tiktok">TikTok</SelectItem>
+                    <SelectItem value="twitter">Twitter/X</SelectItem>
+                    <SelectItem value="facebook">Facebook</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500">Content Type</Label>
+                <Select value={ugcForm.content_type} onValueChange={v => setUgcForm(prev => ({ ...prev, content_type: v }))}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="post">Post</SelectItem>
+                    <SelectItem value="reel">Reel</SelectItem>
+                    <SelectItem value="story">Story</SelectItem>
+                    <SelectItem value="video">Video</SelectItem>
+                    <SelectItem value="review">Review</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">Content URL *</Label>
+              <Input 
+                value={ugcForm.content_url}
+                onChange={e => setUgcForm(prev => ({ ...prev, content_url: e.target.value }))}
+                placeholder="https://instagram.com/p/..."
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500">Notes</Label>
+              <Textarea 
+                value={ugcForm.notes}
+                onChange={e => setUgcForm(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Any notes about this submission..."
+                className="mt-1"
+                rows={2}
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button variant="outline" onClick={() => setShowUgcModal(false)}>Cancel</Button>
+              <Button 
+                onClick={handleAddUgcSubmission}
+                disabled={!ugcForm.creator_name || !ugcForm.content_url}
+              >
+                Add Submission
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
