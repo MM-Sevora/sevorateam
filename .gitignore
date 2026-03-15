@@ -302,3 +302,7 @@ db_backup/
 *.env
 *.env.*
 frontend/node_modules/.cache/default-development/35.pack
+-e 
+# Environment files
+*.env
+*.env.*
