@@ -404,7 +404,8 @@ async def create_email_campaign(
     }
     
     await db.email_campaigns.insert_one(campaign)
-    del campaign["_id"] if "_id" in campaign else None
+    if "_id" in campaign:
+        del campaign["_id"]
     
     return {"success": True, "campaign": campaign}
 
@@ -500,7 +501,8 @@ async def create_email_template(
     }
     
     await db.email_templates.insert_one(template)
-    del template["_id"] if "_id" in template else None
+    if "_id" in template:
+        del template["_id"]
     
     return {"success": True, "template": template}
 

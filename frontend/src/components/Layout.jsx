@@ -147,9 +147,11 @@ const DEPARTMENT_CONFIG = {
                 ]
             },
             { path: '/marketing/campaigns', name: 'Campaign Hub', icon: Target, subModuleCode: 'mkt_campaigns' },
+            { path: '/marketing/calendar', name: 'Content Calendar', icon: Calendar, subModuleCode: 'mkt_calendar' },
             { path: '/marketing/ads', name: 'Digital Ads', icon: Megaphone, subModuleCode: 'mkt_digital_ads' },
             { path: '/marketing/assets', name: 'Creative Assets', icon: Image, subModuleCode: 'mkt_assets' },
             { path: '/marketing/content', name: 'Content Production', icon: Cog, subModuleCode: 'mkt_content' },
+            { path: '/marketing/email-campaigns', name: 'Email Campaigns', icon: Mail, subModuleCode: 'mkt_email' },
             { path: '/marketing/content-promotion', name: 'UGC Promotion', icon: Zap, subModuleCode: 'mkt_ugc' },
             { path: '/marketing/budget-management', name: 'Budget Management', icon: DollarSign, subModuleCode: 'mkt_budget' },
             { path: '/marketing/ai-tools', name: 'AI Tools', icon: Sparkles, subModuleCode: 'mkt_ai_tools' },

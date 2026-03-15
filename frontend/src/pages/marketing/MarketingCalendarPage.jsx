@@ -34,7 +34,7 @@ const MarketingCalendarPage = () => {
       setLoading(true);
       const [eventsRes, campaignsRes, prRes, contentRes] = await Promise.all([
         api.get('/marketing/v2/events'),
-        api.get('/marketing/campaigns'),
+        api.get('/marketing/v2/unified-campaigns'),
         api.get('/marketing/v2/pr/releases'),
         api.get('/marketing/v3/content-production/projects'),
       ]);
