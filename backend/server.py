@@ -6409,6 +6409,192 @@ logger.info("Website settings routes loaded successfully")
 app.include_router(automation_router, prefix="/api")
 logger.info("Automation routes loaded successfully")
 
+# ============= Admin API Keys Router =============
+admin_keys_router = APIRouter(prefix="/admin", tags=["Admin API Keys"])
+
+@admin_keys_router.get("/api-keys")
+async def get_api_keys(user: dict = Depends(get_current_user)):
+    """Get all API keys (masked for security)"""
+    if user.get("role") not in ["admin", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    db = get_db()
+    settings = await db.api_keys_settings.find_one({}, {"_id": 0})
+    
+    if not settings:
+        # Return defaults from env (masked)
+        return {
+            "meta": {
+                "app_id": os.environ.get("META_APP_ID", ""),
+                "app_secret": mask_secret(os.environ.get("META_APP_SECRET", "")),
+                "access_token": mask_secret(os.environ.get("INSTAGRAM_ACCESS_TOKEN", "")),
+                "instagram_business_account_id": os.environ.get("INSTAGRAM_BUSINESS_ACCOUNT_ID", ""),
+                "facebook_page_id": os.environ.get("FACEBOOK_PAGE_ID", ""),
+                "token_expires_at": None,
+                "last_verified": None
+            },
+            "youtube": {
+                "api_key": mask_secret(os.environ.get("YOUTUBE_API_KEY", "")),
+                "client_id": os.environ.get("YOUTUBE_CLIENT_ID", ""),
+                "client_secret": mask_secret(os.environ.get("YOUTUBE_CLIENT_SECRET", ""))
+            },
+            "linkedin": {
+                "client_id": os.environ.get("LINKEDIN_CLIENT_ID", ""),
+                "client_secret": mask_secret(os.environ.get("LINKEDIN_CLIENT_SECRET", "")),
+                "company_id": os.environ.get("LINKEDIN_COMPANY_ID", "")
+            },
+            "google": {
+                "search_api_key": mask_secret(os.environ.get("GOOGLE_SEARCH_API_KEY", "")),
+                "search_engine_id": os.environ.get("GOOGLE_SEARCH_ENGINE_ID", "")
+            }
+        }
+    
+    return settings
+
+
+def mask_secret(value: str) -> str:
+    """Mask a secret value for display"""
+    if not value or len(value) < 10:
+        return value
+    return value[:6] + "..." + value[-4:]
+
+
+@admin_keys_router.put("/api-keys")
+async def update_api_keys(data: dict, user: dict = Depends(get_current_user)):
+    """Update API keys and save to database"""
+    if user.get("role") not in ["admin", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    db = get_db()
+    
+    # Don't save masked values - only update if full value provided
+    update_doc = {"updated_at": datetime.utcnow(), "updated_by": user.get("email")}
+    
+    for platform in ["meta", "youtube", "linkedin", "google"]:
+        if platform in data:
+            platform_data = data[platform]
+            clean_data = {}
+            for key, value in platform_data.items():
+                # Skip masked values (contain "...")
+                if value and "..." not in str(value):
+                    clean_data[key] = value
+            if clean_data:
+                update_doc[platform] = clean_data
+    
+    # Upsert settings
+    await db.api_keys_settings.update_one(
+        {},
+        {"$set": update_doc},
+        upsert=True
+    )
+    
+    # Also update environment variables in memory for immediate effect
+    settings = await db.api_keys_settings.find_one({}, {"_id": 0})
+    if settings:
+        if settings.get("meta", {}).get("access_token"):
+            os.environ["INSTAGRAM_ACCESS_TOKEN"] = settings["meta"]["access_token"]
+            os.environ["FACEBOOK_PAGE_ACCESS_TOKEN"] = settings["meta"]["access_token"]
+        if settings.get("meta", {}).get("app_id"):
+            os.environ["META_APP_ID"] = settings["meta"]["app_id"]
+        if settings.get("meta", {}).get("app_secret"):
+            os.environ["META_APP_SECRET"] = settings["meta"]["app_secret"]
+        if settings.get("meta", {}).get("instagram_business_account_id"):
+            os.environ["INSTAGRAM_BUSINESS_ACCOUNT_ID"] = settings["meta"]["instagram_business_account_id"]
+        if settings.get("meta", {}).get("facebook_page_id"):
+            os.environ["FACEBOOK_PAGE_ID"] = settings["meta"]["facebook_page_id"]
+        if settings.get("youtube", {}).get("api_key"):
+            os.environ["YOUTUBE_API_KEY"] = settings["youtube"]["api_key"]
+        if settings.get("linkedin", {}).get("client_id"):
+            os.environ["LINKEDIN_CLIENT_ID"] = settings["linkedin"]["client_id"]
+        if settings.get("google", {}).get("search_api_key"):
+            os.environ["GOOGLE_SEARCH_API_KEY"] = settings["google"]["search_api_key"]
+    
+    return {"success": True, "message": "API keys updated successfully"}
+
+
+@admin_keys_router.post("/api-keys/test/{platform}")
+async def test_api_connection(platform: str, user: dict = Depends(get_current_user)):
+    """Test API connection for a specific platform"""
+    if user.get("role") not in ["admin", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    db = get_db()
+    settings = await db.api_keys_settings.find_one({}, {"_id": 0})
+    
+    if platform == "meta":
+        token = settings.get("meta", {}).get("access_token") or os.environ.get("INSTAGRAM_ACCESS_TOKEN")
+        if not token:
+            return {"success": False, "message": "No access token configured"}
+        
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(
+                    f"https://graph.facebook.com/v18.0/me",
+                    params={"access_token": token}
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    # Update last verified
+                    await db.api_keys_settings.update_one(
+                        {},
+                        {"$set": {"meta.last_verified": datetime.utcnow()}},
+                        upsert=True
+                    )
+                    return {"success": True, "message": f"Connected as: {data.get('name', 'Unknown')}"}
+                else:
+                    error = response.json().get("error", {})
+                    return {"success": False, "message": error.get("message", "Connection failed")}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+    
+    elif platform == "youtube":
+        api_key = settings.get("youtube", {}).get("api_key") or os.environ.get("YOUTUBE_API_KEY")
+        if not api_key:
+            return {"success": False, "message": "No API key configured"}
+        
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(
+                    "https://www.googleapis.com/youtube/v3/channels",
+                    params={"part": "snippet", "mine": "true", "key": api_key}
+                )
+                # API key test - even a 403 means key is valid but needs OAuth
+                if response.status_code in [200, 401, 403]:
+                    return {"success": True, "message": "API key is valid"}
+                return {"success": False, "message": "Invalid API key"}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+    
+    elif platform == "google":
+        api_key = settings.get("google", {}).get("search_api_key") or os.environ.get("GOOGLE_SEARCH_API_KEY")
+        cx = settings.get("google", {}).get("search_engine_id") or os.environ.get("GOOGLE_SEARCH_ENGINE_ID")
+        if not api_key or not cx:
+            return {"success": False, "message": "API key or Search Engine ID not configured"}
+        
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(
+                    "https://www.googleapis.com/customsearch/v1",
+                    params={"key": api_key, "cx": cx, "q": "test", "num": 1}
+                )
+                if response.status_code == 200:
+                    return {"success": True, "message": "Google Search API working"}
+                else:
+                    error = response.json().get("error", {})
+                    return {"success": False, "message": error.get("message", "Connection failed")}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+    
+    return {"success": False, "message": f"Unknown platform: {platform}"}
+
+app.include_router(admin_keys_router, prefix="/api")
+logger.info("Admin API Keys routes loaded successfully")
+
+
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
