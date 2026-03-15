@@ -120,6 +120,8 @@ import RecurringTasks from "./pages/projects/RecurringTasks";
 import KanbanBoard from "./pages/projects/KanbanBoard";
 import SprintsPage from "./pages/projects/SprintsPage";
 import MilestonesPage from "./pages/projects/MilestonesPage";
+import EpicsPage from "./pages/projects/EpicsPage";
+import BacklogPage from "./pages/projects/BacklogPage";
 
 // Unified Task Management Pages
 import UnifiedTasksPage from "./pages/tasks/UnifiedTasksPage";
@@ -563,6 +565,8 @@ function AppRoutes() {
             <Route path="/projects/sprints" element={<ProtectedRoute requiredModule="project_management"><SprintsPage /></ProtectedRoute>} />
             <Route path="/projects/sprints/:projectId" element={<ProtectedRoute requiredModule="project_management"><SprintsPage /></ProtectedRoute>} />
             <Route path="/projects/milestones" element={<ProtectedRoute requiredModule="project_management"><MilestonesPage /></ProtectedRoute>} />
+            <Route path="/projects/:projectId/epics" element={<ProtectedRoute requiredModule="project_management"><EpicsPage /></ProtectedRoute>} />
+            <Route path="/projects/:projectId/backlog" element={<ProtectedRoute requiredModule="project_management"><BacklogPage /></ProtectedRoute>} />
             <Route path="/projects/manager" element={<ProtectedRoute requiredModule="project_management"><ManagerDashboard /></ProtectedRoute>} />
             <Route path="/projects/:projectId" element={<ProtectedRoute requiredModule="project_management"><ProjectDetail /></ProtectedRoute>} />
 

@@ -34,6 +34,14 @@ Build a comprehensive Marketing Operations Platform that integrates marketing, s
 - **NEW**: Milestones tracking
 - **NEW**: Task watchers
 - **NEW**: Bulk operations & task duplication
+- **NEW (Mar 2026)**: Engineering Tools Enhancement
+  - **Epics**: Container for related stories/tasks with progress tracking
+  - **Issue Types**: Epic, Story, Task, Bug, Subtask, Improvement, Spike
+  - **Backlog View**: Prioritized list with drag-to-sprint functionality
+  - **Bug Tracking Fields**: Severity, reproduction steps, expected/actual behavior
+  - **Story Fields**: Acceptance criteria
+  - **Burndown Charts**: Sprint progress visualization (backend ready)
+  - **Velocity Charts**: Team performance tracking (backend ready)
 
 ### 4. Sevora Pulse (Team Communication)
 - Daily work updates

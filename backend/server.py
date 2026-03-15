@@ -4620,6 +4620,14 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Project Management routes: {e}")
 
+# Register Engineering Tools routes (Epics, Backlog, Burndown)
+try:
+    from routes.engineering import router as engineering_router
+    api_router.include_router(engineering_router)
+    logger.info("Engineering Tools routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Engineering Tools routes: {e}")
+
 # Register Notifications routes
 try:
     from routes.notifications import router as notifications_router, init_notifications_router

@@ -51,6 +51,33 @@ class TaskStatus(str, Enum):
     ON_HOLD = "on_hold"
 
 
+class IssueType(str, Enum):
+    """Jira-like issue types for engineering tasks"""
+    EPIC = "epic"           # Large feature/initiative containing stories
+    STORY = "story"         # User story with acceptance criteria
+    TASK = "task"           # General work item
+    BUG = "bug"             # Defect/issue to fix
+    SUBTASK = "subtask"     # Child task of any issue
+    IMPROVEMENT = "improvement"  # Enhancement request
+    SPIKE = "spike"         # Research/investigation task
+
+
+class BugSeverity(str, Enum):
+    """Severity levels for bugs"""
+    CRITICAL = "critical"   # System down, data loss
+    MAJOR = "major"         # Major feature broken
+    MINOR = "minor"         # Minor feature issue
+    TRIVIAL = "trivial"     # Cosmetic issues
+
+
+class EpicStatus(str, Enum):
+    """Status for Epics"""
+    DRAFT = "draft"
+    TODO = "todo"
+    IN_PROGRESS = "in_progress"
+    DONE = "done"
+
+
 class Priority(str, Enum):
     LOW = "low"
     MEDIUM = "medium"
@@ -196,6 +223,17 @@ class TaskCreate(BaseModel):
     external_links: List[ExternalLink] = []  # External URLs/documents
     sprint_id: Optional[str] = None  # Sprint this task belongs to
     milestone_id: Optional[str] = None  # Milestone this task is linked to
+    # Issue Type (Jira-like)
+    issue_type: IssueType = IssueType.TASK  # Default to task
+    epic_id: Optional[str] = None  # Parent epic for stories/tasks
+    # Bug-specific fields
+    bug_severity: Optional[BugSeverity] = None
+    reproduction_steps: Optional[str] = None
+    expected_behavior: Optional[str] = None
+    actual_behavior: Optional[str] = None
+    environment: Optional[str] = None  # e.g., "Chrome 120, Windows 11"
+    # Story-specific fields
+    acceptance_criteria: Optional[str] = None
     # Recurrence fields
     is_recurring: bool = False
     recurrence_pattern: Optional[str] = None  # daily, weekly, monthly, custom
@@ -220,6 +258,17 @@ class TaskUpdate(BaseModel):
     external_links: Optional[List[ExternalLink]] = None
     sprint_id: Optional[str] = None  # Sprint this task belongs to
     milestone_id: Optional[str] = None  # Milestone this task is linked to
+    # Issue Type (Jira-like)
+    issue_type: Optional[IssueType] = None
+    epic_id: Optional[str] = None  # Parent epic for stories/tasks
+    # Bug-specific fields
+    bug_severity: Optional[BugSeverity] = None
+    reproduction_steps: Optional[str] = None
+    expected_behavior: Optional[str] = None
+    actual_behavior: Optional[str] = None
+    environment: Optional[str] = None
+    # Story-specific fields
+    acceptance_criteria: Optional[str] = None
     # Recurrence fields
     is_recurring: Optional[bool] = None
     recurrence_pattern: Optional[str] = None
@@ -255,6 +304,18 @@ class TaskResponse(BaseModel):
     blocks_names: List[str] = []  # Names of tasks this blocks
     is_blocked: bool = False  # True if any blocking task is incomplete
     is_individual: bool = False  # True if not linked to any project
+    # Issue Type (Jira-like)
+    issue_type: IssueType = IssueType.TASK
+    epic_id: Optional[str] = None
+    epic_name: Optional[str] = None
+    # Bug-specific fields
+    bug_severity: Optional[BugSeverity] = None
+    reproduction_steps: Optional[str] = None
+    expected_behavior: Optional[str] = None
+    actual_behavior: Optional[str] = None
+    environment: Optional[str] = None
+    # Story-specific fields
+    acceptance_criteria: Optional[str] = None
     # Sprint & Milestone
     sprint_id: Optional[str] = None
     sprint_name: Optional[str] = None
@@ -308,6 +369,129 @@ class SubtaskResponse(BaseModel):
     due_date: Optional[str] = None
     created_at: str
     updated_at: str
+
+
+# ============== EPIC MODELS ==============
+
+class EpicCreate(BaseModel):
+    """Create a new Epic - container for related stories/tasks"""
+    name: str
+    description: Optional[str] = None
+    owner_id: Optional[str] = None
+    start_date: Optional[str] = None
+    target_date: Optional[str] = None
+    priority: Priority = Priority.MEDIUM
+    color: str = "#8B5CF6"  # Default purple for epics
+    labels: List[str] = []
+
+
+class EpicUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    owner_id: Optional[str] = None
+    status: Optional[EpicStatus] = None
+    start_date: Optional[str] = None
+    target_date: Optional[str] = None
+    priority: Optional[Priority] = None
+    color: Optional[str] = None
+    labels: Optional[List[str]] = None
+
+
+class EpicResponse(BaseModel):
+    id: str
+    name: str
+    project_id: str
+    project_name: Optional[str] = None
+    description: Optional[str] = None
+    owner_id: Optional[str] = None
+    owner_name: Optional[str] = None
+    status: EpicStatus = EpicStatus.TODO
+    start_date: Optional[str] = None
+    target_date: Optional[str] = None
+    priority: Priority = Priority.MEDIUM
+    color: str = "#8B5CF6"
+    labels: List[str] = []
+    # Progress tracking
+    total_issues: int = 0
+    completed_issues: int = 0
+    total_story_points: int = 0
+    completed_story_points: int = 0
+    progress_percent: float = 0.0
+    # Linked items
+    story_ids: List[str] = []
+    task_ids: List[str] = []
+    bug_ids: List[str] = []
+    created_by: Optional[str] = None
+    created_at: str
+    updated_at: str
+
+
+# ============== BACKLOG MODELS ==============
+
+class BacklogItemResponse(BaseModel):
+    """Item in the backlog view"""
+    id: str
+    name: str
+    issue_type: IssueType
+    priority: Priority
+    status: TaskStatus
+    story_points: Optional[int] = None
+    epic_id: Optional[str] = None
+    epic_name: Optional[str] = None
+    epic_color: Optional[str] = None
+    sprint_id: Optional[str] = None
+    sprint_name: Optional[str] = None
+    assigned_to: Optional[str] = None
+    assigned_to_name: Optional[str] = None
+    due_date: Optional[str] = None
+    created_at: str
+
+
+class BacklogResponse(BaseModel):
+    """Backlog view response"""
+    backlog_items: List[BacklogItemResponse] = []  # Items not in any sprint
+    total_items: int = 0
+    total_story_points: int = 0
+
+
+# ============== BURNDOWN CHART MODELS ==============
+
+class BurndownDataPoint(BaseModel):
+    """Single data point in burndown chart"""
+    date: str
+    ideal_remaining: float  # Ideal burndown line
+    actual_remaining: float  # Actual remaining work
+    completed: float  # Work completed by this date
+
+
+class BurndownChartResponse(BaseModel):
+    """Burndown chart data for a sprint"""
+    sprint_id: str
+    sprint_name: str
+    start_date: str
+    end_date: str
+    total_story_points: int
+    completed_story_points: int
+    data_points: List[BurndownDataPoint] = []
+
+
+# ============== VELOCITY CHART MODELS ==============
+
+class VelocityDataPoint(BaseModel):
+    """Velocity data for a single sprint"""
+    sprint_id: str
+    sprint_name: str
+    committed_points: int  # Story points committed at sprint start
+    completed_points: int  # Story points actually completed
+    start_date: str
+    end_date: str
+
+
+class VelocityChartResponse(BaseModel):
+    """Velocity chart showing team performance over sprints"""
+    sprints: List[VelocityDataPoint] = []
+    average_velocity: float = 0.0
+    trend: str = "stable"  # increasing, decreasing, stable
 
 
 # ============== CHECKLIST MODELS ==============
