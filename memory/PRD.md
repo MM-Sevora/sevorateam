@@ -74,6 +74,18 @@ Build a comprehensive Marketing Operations Platform that integrates marketing, s
 - Redesigned Work Updates UI with dropdown selector
 - Unified form for all update types
 
+#### Work Updates Full CRUD (COMPLETED - Dec 2025)
+- **Issue**: Only daily updates had PUT/DELETE endpoints; weekly, monthly, quarterly were missing
+- **Fix Applied**: Added missing endpoints to `/app/backend/routes/pulse.py`:
+  - PUT /api/pulse/updates/weekly/{id}
+  - PUT /api/pulse/updates/monthly/{id}
+  - DELETE /api/pulse/updates/monthly/{id}
+  - PUT /api/pulse/updates/quarterly/{id}
+  - DELETE /api/pulse/updates/quarterly/{id}
+- **Testing**: All 16 CRUD endpoints (4 operations × 4 update types) passed
+- **Test File**: `/app/backend/tests/test_work_updates_crud.py`
+- **Status**: TESTED & WORKING
+
 ---
 
 ## Pending Issues (Blocked)
