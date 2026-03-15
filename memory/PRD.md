@@ -90,6 +90,20 @@ Build a comprehensive Marketing Operations Platform that integrates marketing, s
 
 ### March 2026 (Latest Session)
 
+#### Engineering Tools & Knowledge Base Bug Fixes (COMPLETED - Mar 15, 2026)
+- **Bug Fix 1**: Tiptap WYSIWYG Editor compilation error
+  - Updated BubbleMenu import from `@tiptap/react` to `@tiptap/react/menus` (v3 breaking change)
+  - Changed `tippyOptions` prop to `options` for Floating UI compatibility
+- **Bug Fix 2**: Backlog page runtime error
+  - Fixed Select.Item empty string value error (changed `value=""` to `value="backlog"`)
+- **Status**: All Engineering Tools and Knowledge Base pages now working:
+  - `/projects/{id}/backlog` - Product Backlog with filters, bulk actions
+  - `/projects/{id}/epics` - Epic management with progress tracking
+  - `/knowledge` - Knowledge Base with spaces, pages, search
+- **Files Modified**:
+  - `/app/frontend/src/components/ui/tiptap-editor.jsx`
+  - `/app/frontend/src/pages/projects/BacklogPage.jsx`
+
 #### API Keys Settings Page (COMPLETED - Mar 15, 2026)
 - **Enhancement**: Admin UI to manage third-party API keys directly from the dashboard
 - **Changes Applied**:

@@ -409,14 +409,14 @@ const BacklogPage = () => {
                     </td>
                     <td className="p-3">
                       <Select 
-                        value={item.sprint_id || ''} 
-                        onValueChange={(sprintId) => handleMoveToSprint(item.id, sprintId)}
+                        value={item.sprint_id || 'backlog'} 
+                        onValueChange={(sprintId) => handleMoveToSprint(item.id, sprintId === 'backlog' ? null : sprintId)}
                       >
                         <SelectTrigger className="h-8 text-sm">
                           <SelectValue placeholder="Add to sprint" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Backlog</SelectItem>
+                          <SelectItem value="backlog">Backlog</SelectItem>
                           {sprints.map(sprint => (
                             <SelectItem key={sprint.id} value={sprint.id}>{sprint.name}</SelectItem>
                           ))}
