@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { toast } from 'sonner';
 import {
   Loader2, Plus, Calendar, Flag, CheckCircle2, Clock, AlertTriangle,
-  MoreVertical, Edit, Trash2, RefreshCw, Target, ChevronRight, Link2
+  MoreVertical, Edit, Trash2, RefreshCw, Target, ChevronRight, Link2,
+  Eye, EyeOff, Archive
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -135,6 +136,7 @@ export default function MilestonesPage() {
   const [projects, setProjects] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [showCompleted, setShowCompleted] = useState(false);
   
   const [showDialog, setShowDialog] = useState(false);
   const [editingMilestone, setEditingMilestone] = useState(null);
@@ -349,45 +351,58 @@ export default function MilestonesPage() {
             </div>
           )}
 
-          {/* Completed */}
-          {completedMilestones.length > 0 && (
+          {/* Completed - Hidden by default */}
+          {(completedMilestones.length > 0 || missedMilestones.length > 0) && (
             <div>
-              <h2 className="text-lg font-semibold text-[#4A3728] mb-3 flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
-                Completed ({completedMilestones.length})
-              </h2>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {completedMilestones.map((milestone) => (
-                  <MilestoneCard
-                    key={milestone.id}
-                    milestone={milestone}
-                    onEdit={handleOpenDialog}
-                    onDelete={handleDelete}
-                    onComplete={handleComplete}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCompleted(!showCompleted)}
+                className={`mb-3 border-[#D4BBA6] ${showCompleted ? 'bg-stone-100' : ''}`}
+              >
+                {showCompleted ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
+                {showCompleted ? 'Hide Completed/Missed' : `Show Completed/Missed (${completedMilestones.length + missedMilestones.length})`}
+              </Button>
+              
+              {showCompleted && completedMilestones.length > 0 && (
+                <>
+                  <h2 className="text-lg font-semibold text-[#4A3728] mb-3 flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                    Completed ({completedMilestones.length})
+                  </h2>
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                    {completedMilestones.map((milestone) => (
+                      <MilestoneCard
+                        key={milestone.id}
+                        milestone={milestone}
+                        onEdit={handleOpenDialog}
+                        onDelete={handleDelete}
+                        onComplete={handleComplete}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
 
-          {/* Missed */}
-          {missedMilestones.length > 0 && (
-            <div>
-              <h2 className="text-lg font-semibold text-[#4A3728] mb-3 flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-red-600" />
-                Missed ({missedMilestones.length})
-              </h2>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {missedMilestones.map((milestone) => (
-                  <MilestoneCard
-                    key={milestone.id}
-                    milestone={milestone}
-                    onEdit={handleOpenDialog}
-                    onDelete={handleDelete}
-                    onComplete={handleComplete}
-                  />
-                ))}
-              </div>
+              {showCompleted && missedMilestones.length > 0 && (
+                <>
+                  <h2 className="text-lg font-semibold text-[#4A3728] mb-3 flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-red-600" />
+                    Missed ({missedMilestones.length})
+                  </h2>
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {missedMilestones.map((milestone) => (
+                      <MilestoneCard
+                        key={milestone.id}
+                        milestone={milestone}
+                        onEdit={handleOpenDialog}
+                        onDelete={handleDelete}
+                        onComplete={handleComplete}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
 

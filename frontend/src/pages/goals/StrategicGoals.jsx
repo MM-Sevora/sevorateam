@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Flag, Plus, Search, Filter, MoreVertical, Edit, Trash2, Eye,
-  Loader2, Target, Calendar, User, ChevronRight, ArrowLeft
+  Loader2, Target, Calendar, User, ChevronRight, ArrowLeft, Archive, EyeOff
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -135,6 +135,7 @@ export default function StrategicGoals() {
   const [filterFY, setFilterFY] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterPriority, setFilterPriority] = useState('all');
+  const [showArchived, setShowArchived] = useState(false);
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
@@ -417,17 +418,58 @@ export default function StrategicGoals() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {goals.map(goal => (
-            <GoalCard 
-              key={goal.id} 
-              goal={goal}
-              onEdit={handleOpenModal}
-              onDelete={handleDelete}
-              onView={handleView}
-              onScheduleMeeting={handleScheduleMeeting}
-            />
-          ))}
+        <div className="space-y-4">
+          {/* Archived Toggle */}
+          {goals.some(g => g.status === 'archived' || g.status === 'completed') && (
+            <div className="flex items-center justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowArchived(!showArchived)}
+                className={`border-[#D4BBA6] ${showArchived ? 'bg-stone-100' : ''}`}
+              >
+                {showArchived ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
+                {showArchived ? 'Hide Archived' : `Show Archived (${goals.filter(g => g.status === 'archived' || g.status === 'completed').length})`}
+              </Button>
+            </div>
+          )}
+          
+          {/* Active Goals */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {goals.filter(g => g.status !== 'archived' && g.status !== 'completed').map(goal => (
+              <GoalCard 
+                key={goal.id} 
+                goal={goal}
+                onEdit={handleOpenModal}
+                onDelete={handleDelete}
+                onView={handleView}
+                onScheduleMeeting={handleScheduleMeeting}
+              />
+            ))}
+          </div>
+          
+          {/* Archived Goals */}
+          {showArchived && goals.filter(g => g.status === 'archived' || g.status === 'completed').length > 0 && (
+            <>
+              <div className="flex items-center gap-2 mt-6 mb-2">
+                <Archive className="w-4 h-4 text-stone-500" />
+                <span className="text-sm font-medium text-stone-500">Archived / Completed</span>
+                <div className="flex-1 h-px bg-stone-200" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {goals.filter(g => g.status === 'archived' || g.status === 'completed').map(goal => (
+                  <GoalCard 
+                    key={goal.id} 
+                    goal={goal}
+                    onEdit={handleOpenModal}
+                    onDelete={handleDelete}
+                    onView={handleView}
+                    onScheduleMeeting={handleScheduleMeeting}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
 

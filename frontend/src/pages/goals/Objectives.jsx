@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Target, Plus, Search, Filter, MoreVertical, Edit, Trash2, Eye,
   Loader2, Flag, Calendar, User, ChevronRight, ArrowLeft, Building2,
-  AlertTriangle, Clock, X, CalendarPlus
+  AlertTriangle, Clock, X, CalendarPlus, Archive, EyeOff
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -173,6 +173,7 @@ export default function Objectives() {
   const [filterGoal, setFilterGoal] = useState(searchParams.get('strategic_goal_id') || 'all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterDept, setFilterDept] = useState('all');
+  const [showArchived, setShowArchived] = useState(false);
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
@@ -497,17 +498,58 @@ export default function Objectives() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {objectives.map(obj => (
-            <ObjectiveCard 
-              key={obj.id} 
-              objective={obj}
-              onEdit={handleOpenModal}
-              onDelete={handleDelete}
-              onClick={handleClick}
-              onScheduleMeeting={handleScheduleMeeting}
-            />
-          ))}
+        <div className="space-y-4">
+          {/* Archived Toggle */}
+          {objectives.some(o => o.status === 'completed' || o.status === 'archived') && (
+            <div className="flex items-center justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowArchived(!showArchived)}
+                className={`border-[#D4BBA6] ${showArchived ? 'bg-stone-100' : ''}`}
+              >
+                {showArchived ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
+                {showArchived ? 'Hide Completed' : `Show Completed (${objectives.filter(o => o.status === 'completed' || o.status === 'archived').length})`}
+              </Button>
+            </div>
+          )}
+          
+          {/* Active Objectives */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {objectives.filter(o => o.status !== 'completed' && o.status !== 'archived').map(obj => (
+              <ObjectiveCard 
+                key={obj.id} 
+                objective={obj}
+                onEdit={handleOpenModal}
+                onDelete={handleDelete}
+                onClick={handleClick}
+                onScheduleMeeting={handleScheduleMeeting}
+              />
+            ))}
+          </div>
+          
+          {/* Completed Objectives */}
+          {showArchived && objectives.filter(o => o.status === 'completed' || o.status === 'archived').length > 0 && (
+            <>
+              <div className="flex items-center gap-2 mt-6 mb-2">
+                <Archive className="w-4 h-4 text-stone-500" />
+                <span className="text-sm font-medium text-stone-500">Completed / Archived</span>
+                <div className="flex-1 h-px bg-stone-200" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {objectives.filter(o => o.status === 'completed' || o.status === 'archived').map(obj => (
+                  <ObjectiveCard 
+                    key={obj.id} 
+                    objective={obj}
+                    onEdit={handleOpenModal}
+                    onDelete={handleDelete}
+                    onClick={handleClick}
+                    onScheduleMeeting={handleScheduleMeeting}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
 

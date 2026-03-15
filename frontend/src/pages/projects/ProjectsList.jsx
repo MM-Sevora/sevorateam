@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Plus, Search, Filter, FolderKanban, Calendar, Users, Flag,
-  MoreVertical, Edit, Trash2, Eye, RefreshCw, ChevronDown,
+  MoreVertical, Edit, Trash2, Eye, EyeOff, RefreshCw, ChevronDown,
   CheckCircle2, Clock, AlertTriangle, Folder, ArrowRight, ListTodo,
   Lock, Globe, UserPlus, UserMinus, Paperclip, Upload, X, File, Target,
-  LayoutGrid, List, FileText, ChevronRight, CalendarPlus, GanttChartSquare
+  LayoutGrid, List, FileText, ChevronRight, CalendarPlus, GanttChartSquare, Archive
 } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -1150,6 +1150,7 @@ const ProjectsList = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
   const [viewMode, setViewMode] = useState('grid'); // 'grid', 'list', or 'gantt'
+  const [showArchived, setShowArchived] = useState(false);
   const [filters, setFilters] = useState({
     search: '',
     status: '',
@@ -1231,12 +1232,18 @@ const ProjectsList = () => {
   };
 
   const filteredProjects = projects.filter(project => {
+    // Hide completed/archived/cancelled by default
+    if (!showArchived && (project.status === 'completed' || project.status === 'archived' || project.status === 'cancelled')) return false;
+    
     if (filters.search && !project.name.toLowerCase().includes(filters.search.toLowerCase())) return false;
     if (filters.status && project.status !== filters.status) return false;
     if (filters.priority && project.priority !== filters.priority) return false;
     if (filters.module_id && project.module_id !== filters.module_id) return false;
     return true;
   });
+
+  // Count archived/completed/cancelled for toggle button
+  const archivedCount = projects.filter(p => p.status === 'completed' || p.status === 'archived' || p.status === 'cancelled').length;
 
   const stats = {
     total: projects.length,
@@ -1439,6 +1446,19 @@ const ProjectsList = () => {
                 <GanttChartSquare className="w-4 h-4" />
               </Button>
             </div>
+            
+            {/* Archived Toggle */}
+            {archivedCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowArchived(!showArchived)}
+                className={`border-[#D4BBA6] ${showArchived ? 'bg-stone-100' : ''}`}
+              >
+                {showArchived ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
+                {showArchived ? 'Hide Completed' : `Show Completed (${archivedCount})`}
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

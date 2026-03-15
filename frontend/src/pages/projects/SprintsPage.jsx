@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import {
   Loader2, Plus, Calendar, Target, Play, CheckCircle2, Pause,
   MoreVertical, Edit, Trash2, RefreshCw, Zap, Clock, AlertTriangle,
-  ChevronRight, BarChart3, TrendingUp
+  ChevronRight, BarChart3, TrendingUp, Eye, EyeOff, Archive
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -141,6 +141,7 @@ export default function SprintsPage() {
   const [project, setProject] = useState(null);
   const [projects, setProjects] = useState([]);
   const [selectedProjectId, setSelectedProjectId] = useState(projectId || '');
+  const [showCompleted, setShowCompleted] = useState(false);
   
   const [showDialog, setShowDialog] = useState(false);
   const [editingSprint, setEditingSprint] = useState(null);
@@ -387,26 +388,40 @@ export default function SprintsPage() {
             </div>
           )}
 
-          {/* Completed */}
+          {/* Completed - Hidden by default */}
           {completedSprints.length > 0 && (
             <div>
-              <h2 className="text-lg font-semibold text-[#4A3728] mb-3 flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-purple-600" />
-                Completed ({completedSprints.length})
-              </h2>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {completedSprints.slice(0, 6).map((sprint) => (
-                  <SprintCard
-                    key={sprint.id}
-                    sprint={sprint}
-                    onEdit={handleOpenDialog}
-                    onDelete={handleDelete}
-                    onStart={handleStart}
-                    onComplete={handleComplete}
-                    onViewTasks={handleViewTasks}
-                  />
-                ))}
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCompleted(!showCompleted)}
+                className={`mb-3 border-[#D4BBA6] ${showCompleted ? 'bg-stone-100' : ''}`}
+              >
+                {showCompleted ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
+                {showCompleted ? 'Hide Completed' : `Show Completed (${completedSprints.length})`}
+              </Button>
+              
+              {showCompleted && (
+                <>
+                  <h2 className="text-lg font-semibold text-[#4A3728] mb-3 flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-purple-600" />
+                    Completed ({completedSprints.length})
+                  </h2>
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {completedSprints.map((sprint) => (
+                      <SprintCard
+                        key={sprint.id}
+                        sprint={sprint}
+                        onEdit={handleOpenDialog}
+                        onDelete={handleDelete}
+                        onStart={handleStart}
+                        onComplete={handleComplete}
+                        onViewTasks={handleViewTasks}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
 
