@@ -1816,6 +1816,136 @@ async def discover_influencers(
     }
 
 
+# ============== PUBLIC INFLUENCER DISCOVERY ==============
+
+@marketing_v2_router.post("/influencers/public-discover")
+async def public_discover_influencers(
+    data: dict,
+    user: dict = Depends(get_marketing_auth())
+):
+    """
+    AI-powered discovery of NEW influencers from public Instagram/social media.
+    Searches the web to find influencers NOT in your database.
+    
+    Request body:
+    {
+        "niche": "fashion",           # Required: industry/category
+        "location": "Mumbai",         # Optional: target city/region
+        "platform": "instagram",      # Optional: default instagram
+        "follower_range": "10k-100k", # Optional: nano/micro/macro/mega
+        "count": 20                   # Optional: how many to find
+    }
+    """
+    from services.public_influencer_discovery import public_discovery_service
+    
+    niche = data.get("niche", "")
+    if not niche:
+        raise HTTPException(status_code=400, detail="Niche/industry is required")
+    
+    location = data.get("location", "")
+    platform = data.get("platform", "instagram")
+    follower_range = data.get("follower_range", "10k-100k")
+    count = data.get("count", 20)
+    
+    # Call the discovery service
+    result = await public_discovery_service.discover_influencers(
+        niche=niche,
+        location=location,
+        platform=platform,
+        follower_range=follower_range,
+        count=count
+    )
+    
+    return result
+
+
+@marketing_v2_router.post("/influencers/public-discover/enrich")
+async def enrich_influencer_profile(
+    data: dict,
+    user: dict = Depends(get_marketing_auth())
+):
+    """
+    Enrich an influencer profile with additional public data.
+    
+    Request body:
+    {
+        "handle": "username",
+        "platform": "instagram"
+    }
+    """
+    from services.public_influencer_discovery import public_discovery_service
+    
+    handle = data.get("handle", "").replace("@", "")
+    platform = data.get("platform", "instagram")
+    
+    if not handle:
+        raise HTTPException(status_code=400, detail="Handle is required")
+    
+    result = await public_discovery_service.enrich_influencer_data(handle, platform)
+    return result
+
+
+@marketing_v2_router.post("/influencers/public-discover/save")
+async def save_discovered_influencer(
+    data: dict,
+    user: dict = Depends(get_marketing_auth())
+):
+    """
+    Save a discovered influencer to your database.
+    
+    Request body: influencer object from discovery results
+    """
+    db = get_db()
+    
+    # Check if already exists
+    existing = await db.contacts.find_one({
+        "$or": [
+            {"instagram_handle": data.get("instagram_handle")},
+            {"name": data.get("name")}
+        ],
+        "contact_type": "influencer"
+    })
+    
+    if existing:
+        return {"success": False, "message": "Influencer already exists in database", "existing_id": existing.get("id")}
+    
+    # Create new influencer record
+    influencer_doc = {
+        "id": str(uuid.uuid4()),
+        "contact_type": "influencer",
+        "name": data.get("name", ""),
+        "instagram_handle": data.get("instagram_handle", ""),
+        "youtube_handle": data.get("youtube_handle", ""),
+        "primary_platform": data.get("platform", "instagram"),
+        "followers": data.get("estimated_followers", 0),
+        "tier": data.get("follower_tier", "micro"),
+        "industry": data.get("niche", ""),
+        "city": data.get("location", "").split(",")[0].strip() if data.get("location") else "",
+        "state": data.get("location", "").split(",")[1].strip() if data.get("location") and "," in data.get("location", "") else "",
+        "bio": data.get("description", ""),
+        "email": data.get("email", ""),
+        "engagement_rate": 0,
+        "status": "identified",
+        "pipeline_stage": "identified",
+        "source": "ai_public_discovery",
+        "discovered_at": datetime.utcnow(),
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow(),
+        "discovery_metadata": {
+            "collaboration_fit": data.get("collaboration_fit", ""),
+            "content_style": data.get("content_style", ""),
+            "profile_url": data.get("profile_url", "")
+        }
+    }
+    
+    await db.contacts.insert_one(influencer_doc)
+    
+    # Remove _id for response
+    influencer_doc.pop("_id", None)
+    
+    return {"success": True, "message": "Influencer saved to database", "influencer": influencer_doc}
+
+
 @marketing_v2_router.post("/influencers/ai-discover")
 async def ai_discover_influencers(
     data: dict,

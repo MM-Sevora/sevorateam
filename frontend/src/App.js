@@ -29,6 +29,7 @@ import CampaignHubPage from "./pages/marketing/CampaignHubPage";
 import MarketingInsightsPage from "./pages/marketing/MarketingInsightsPage";
 import AIDiscoveryPage from "./pages/marketing/AIDiscoveryPage";
 import InfluencerDiscoveryPage from "./pages/marketing/InfluencerDiscoveryPage";
+import PublicInfluencerDiscoveryPage from "./pages/marketing/PublicInfluencerDiscoveryPage";
 import PublicationsListPage from "./pages/marketing/PublicationsListPage";
 import PublicationDetailPage from "./pages/marketing/PublicationDetailPage";
 import UnifiedPipeline from "./pages/marketing/UnifiedPipeline";
@@ -413,6 +414,7 @@ function AppRoutes() {
             <Route path="/marketing/influencers" element={<ProtectedRoute requiredModule="marketing_ops"><InfluencersListPage /></ProtectedRoute>} />
             <Route path="/marketing/influencer/:influencerId" element={<ProtectedRoute requiredModule="marketing_ops"><InfluencerDetailPage /></ProtectedRoute>} />
             <Route path="/marketing/discovery" element={<ProtectedRoute requiredModule="marketing_ops"><InfluencerDiscoveryPage /></ProtectedRoute>} />
+            <Route path="/marketing/public-discovery" element={<ProtectedRoute requiredModule="marketing_ops"><PublicInfluencerDiscoveryPage /></ProtectedRoute>} />
             {/* Redirect old PR route to Publications */}
             <Route path="/marketing/pr" element={<Navigate to="/marketing/publications" replace />} />
             {/* Publications (PR equivalent of Influencers) */}
