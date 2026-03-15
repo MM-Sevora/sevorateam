@@ -11,10 +11,20 @@ Build a comprehensive Marketing Operations Platform that integrates marketing, s
 - User CRUD operations
 
 ### 2. Marketing Operations
-- Campaign management
+- Campaign management with **5 Campaign Types** (NEW - Dec 2025):
+  - **Influencer Marketing**: Assign influencers to campaigns
+  - **UGC Promotion**: Track user-generated content submissions
+  - **Paid Ads**: Link to Digital Ads campaigns (Meta/Google)
+  - **Content Production**: Link to content production projects
+  - **PR/Media**: Link to publications for media coverage
 - Content calendar
 - Social media integration (Meta Graph API)
 - Influencer discovery (AI-powered)
+- **Campaign Linking APIs** (NEW):
+  - Link/unlink digital ads to campaigns
+  - Link/unlink content production projects
+  - Link/unlink publications (PR/Media)
+  - UGC submission management (add/update status/delete)
 
 ### 3. Project Management Suite
 - Projects CRUD

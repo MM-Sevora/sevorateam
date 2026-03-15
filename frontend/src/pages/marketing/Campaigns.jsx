@@ -8,6 +8,7 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog';
+import { Textarea } from '../../components/ui/textarea';
 import { toast } from 'sonner';
 import { 
     Megaphone, 
@@ -18,7 +19,11 @@ import {
     Clock,
     Play,
     Pause,
-    CheckCircle2
+    CheckCircle2,
+    Video,
+    Newspaper,
+    Image,
+    Share2
 } from 'lucide-react';
 import EntityIntegrationCheck from '../../components/shared/EntityIntegrationCheck';
 
@@ -36,6 +41,14 @@ const STATUS_COLORS = {
     completed: 'bg-amber-700/20 text-amber-400'
 };
 
+const CAMPAIGN_TYPES = {
+    influencer: { label: 'Influencer Marketing', icon: Users, color: 'bg-purple-500/20 text-purple-400' },
+    ugc: { label: 'UGC Promotion', icon: Share2, color: 'bg-pink-500/20 text-pink-400' },
+    paid_ads: { label: 'Paid Ads', icon: Target, color: 'bg-blue-500/20 text-blue-400' },
+    content_production: { label: 'Content Production', icon: Video, color: 'bg-green-500/20 text-green-400' },
+    pr_media: { label: 'PR / Media', icon: Newspaper, color: 'bg-orange-500/20 text-orange-400' }
+};
+
 const CampaignsPage = () => {
     const navigate = useNavigate();
     const [campaigns, setCampaigns] = useState([]);
@@ -43,8 +56,10 @@ const CampaignsPage = () => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showIntegrationCheck, setShowIntegrationCheck] = useState(false);
     const [createdEntity, setCreatedEntity] = useState(null);
+    const [filterType, setFilterType] = useState('all');
     const [newCampaign, setNewCampaign] = useState({
         name: '',
+        campaign_type: 'influencer',
         objective: 'branding',
         budget: '',
         start_date: '',
@@ -89,6 +104,7 @@ const CampaignsPage = () => {
             
             setNewCampaign({
                 name: '',
+                campaign_type: 'influencer',
                 objective: 'branding',
                 budget: '',
                 start_date: '',
@@ -123,8 +139,8 @@ const CampaignsPage = () => {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-[#4A3728]">Campaigns</h1>
-                    <p className="text-[#5D4A3A] mt-1">Manage influencer marketing campaigns</p>
+                    <h1 className="text-2xl font-bold text-[#4A3728]">Campaign Hub</h1>
+                    <p className="text-[#5D4A3A] mt-1">Manage all marketing campaigns across channels</p>
                 </div>
                 <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
                     <DialogTrigger asChild>
@@ -138,6 +154,21 @@ const CampaignsPage = () => {
                             <DialogTitle>Create New Campaign</DialogTitle>
                         </DialogHeader>
                         <form onSubmit={handleCreateCampaign} className="space-y-4 mt-4">
+                            <div className="space-y-2">
+                                <Label>Campaign Type</Label>
+                                <select
+                                    value={newCampaign.campaign_type}
+                                    onChange={(e) => setNewCampaign({...newCampaign, campaign_type: e.target.value})}
+                                    className="w-full p-2 bg-[#F5EDE5] border border-[#D4BBA6] rounded-md text-[#4A3728]"
+                                    data-testid="campaign-type-select"
+                                >
+                                    <option value="influencer">Influencer Marketing</option>
+                                    <option value="ugc">UGC Promotion</option>
+                                    <option value="paid_ads">Paid Ads</option>
+                                    <option value="content_production">Content Production</option>
+                                    <option value="pr_media">PR / Media</option>
+                                </select>
+                            </div>
                             <div className="space-y-2">
                                 <Label>Campaign Name</Label>
                                 <Input
@@ -161,6 +192,8 @@ const CampaignsPage = () => {
                                         <option value="sales">Sales</option>
                                         <option value="awareness">Awareness</option>
                                         <option value="engagement">Engagement</option>
+                                        <option value="lead_generation">Lead Generation</option>
+                                        <option value="product_launch">Product Launch</option>
                                     </select>
                                 </div>
                                 <div className="space-y-2">
@@ -224,10 +257,35 @@ const CampaignsPage = () => {
             </div>
 
             {/* Campaigns Grid */}
-            {campaigns.length === 0 ? (
+            {/* Type Filter Tabs */}
+            <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                    variant={filterType === 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setFilterType('all')}
+                    className={filterType === 'all' ? 'bg-amber-700 hover:bg-amber-800' : 'border-[#D4BBA6] text-[#4A3728]'}
+                >
+                    All Campaigns
+                </Button>
+                {Object.entries(CAMPAIGN_TYPES).map(([key, { label, icon: Icon }]) => (
+                    <Button
+                        key={key}
+                        variant={filterType === key ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setFilterType(key)}
+                        className={filterType === key ? 'bg-amber-700 hover:bg-amber-800' : 'border-[#D4BBA6] text-[#4A3728]'}
+                    >
+                        <Icon className="w-4 h-4 mr-1" />
+                        {label}
+                    </Button>
+                ))}
+            </div>
+
+            {/* Campaign Grid */}
+            {campaigns.filter(c => filterType === 'all' || c.campaign_type === filterType).length === 0 ? (
                 <div className="text-center py-20">
                     <Megaphone className="w-12 h-12 text-white/20 mx-auto mb-4" />
-                    <p className="text-[#5D4A3A]">No campaigns yet</p>
+                    <p className="text-[#5D4A3A]">{filterType === 'all' ? 'No campaigns yet' : `No ${CAMPAIGN_TYPES[filterType]?.label || filterType} campaigns`}</p>
                     <Button 
                         onClick={() => setShowCreateModal(true)} 
                         className="mt-4 bg-amber-700 hover:bg-amber-800"
@@ -237,8 +295,12 @@ const CampaignsPage = () => {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {campaigns.map(campaign => {
+                    {campaigns
+                        .filter(c => filterType === 'all' || c.campaign_type === filterType)
+                        .map(campaign => {
                         const StatusIcon = STATUS_ICONS[campaign.status] || Clock;
+                        const typeConfig = CAMPAIGN_TYPES[campaign.campaign_type] || CAMPAIGN_TYPES.influencer;
+                        const TypeIcon = typeConfig.icon;
                         return (
                             <Card 
                                 key={campaign.id} 
@@ -247,15 +309,20 @@ const CampaignsPage = () => {
                                 data-testid={`campaign-card-${campaign.id}`}
                             >
                                 <CardContent className="p-5">
-                                    <div className="flex items-start justify-between mb-4">
-                                        <div>
-                                            <h3 className="text-[#4A3728] font-semibold">{campaign.name}</h3>
-                                            <p className="text-[#5D4A3A] text-sm capitalize">{campaign.objective}</p>
-                                        </div>
+                                    <div className="flex items-start justify-between mb-3">
+                                        <Badge className={typeConfig.color}>
+                                            <TypeIcon className="w-3 h-3 mr-1" />
+                                            {typeConfig.label}
+                                        </Badge>
                                         <Badge className={STATUS_COLORS[campaign.status] || STATUS_COLORS.planning}>
                                             <StatusIcon className="w-3 h-3 mr-1" />
                                             {campaign.status}
                                         </Badge>
+                                    </div>
+                                    
+                                    <div className="mb-4">
+                                        <h3 className="text-[#4A3728] font-semibold">{campaign.name}</h3>
+                                        <p className="text-[#5D4A3A] text-sm capitalize">{campaign.objective}</p>
                                     </div>
 
                                     <div className="space-y-3">
@@ -273,13 +340,51 @@ const CampaignsPage = () => {
                                             </span>
                                             <span className="text-[#4A3728]">{formatCurrency(campaign.spent || 0)}</span>
                                         </div>
-                                        <div className="flex items-center justify-between text-sm">
-                                            <span className="text-[#5D4A3A] flex items-center gap-2">
-                                                <Users className="w-4 h-4" />
-                                                Influencers
-                                            </span>
-                                            <span className="text-[#4A3728] font-medium">{campaign.influencer_count || 0}</span>
-                                        </div>
+                                        {campaign.campaign_type === 'influencer' && (
+                                            <div className="flex items-center justify-between text-sm">
+                                                <span className="text-[#5D4A3A] flex items-center gap-2">
+                                                    <Users className="w-4 h-4" />
+                                                    Influencers
+                                                </span>
+                                                <span className="text-[#4A3728] font-medium">{campaign.influencer_count || campaign.influencers?.length || 0}</span>
+                                            </div>
+                                        )}
+                                        {campaign.campaign_type === 'ugc' && (
+                                            <div className="flex items-center justify-between text-sm">
+                                                <span className="text-[#5D4A3A] flex items-center gap-2">
+                                                    <Share2 className="w-4 h-4" />
+                                                    Submissions
+                                                </span>
+                                                <span className="text-[#4A3728] font-medium">{campaign.ugc_submissions?.length || 0}</span>
+                                            </div>
+                                        )}
+                                        {campaign.campaign_type === 'paid_ads' && (
+                                            <div className="flex items-center justify-between text-sm">
+                                                <span className="text-[#5D4A3A] flex items-center gap-2">
+                                                    <Target className="w-4 h-4" />
+                                                    Linked Ads
+                                                </span>
+                                                <span className="text-[#4A3728] font-medium">{campaign.linked_ads?.length || 0}</span>
+                                            </div>
+                                        )}
+                                        {campaign.campaign_type === 'content_production' && (
+                                            <div className="flex items-center justify-between text-sm">
+                                                <span className="text-[#5D4A3A] flex items-center gap-2">
+                                                    <Video className="w-4 h-4" />
+                                                    Projects
+                                                </span>
+                                                <span className="text-[#4A3728] font-medium">{campaign.linked_content_projects?.length || 0}</span>
+                                            </div>
+                                        )}
+                                        {campaign.campaign_type === 'pr_media' && (
+                                            <div className="flex items-center justify-between text-sm">
+                                                <span className="text-[#5D4A3A] flex items-center gap-2">
+                                                    <Newspaper className="w-4 h-4" />
+                                                    Publications
+                                                </span>
+                                                <span className="text-[#4A3728] font-medium">{campaign.linked_publications?.length || 0}</span>
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="mt-4 pt-4 border-t border-[#E8D5C4] flex justify-between text-xs text-[#5D4A3A]">

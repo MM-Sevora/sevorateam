@@ -357,6 +357,7 @@ class InfluencerResponse(BaseModel):
 
 class CampaignCreate(BaseModel):
     name: str
+    campaign_type: str = "influencer"  # influencer, ugc, paid_ads, content_production, pr_media
     objective: str
     budget: float
     start_date: str
@@ -367,6 +368,7 @@ class CampaignCreate(BaseModel):
 class CampaignResponse(BaseModel):
     id: str
     name: str
+    campaign_type: str = "influencer"
     objective: str
     budget: float
     spent: float = 0.0
@@ -376,6 +378,10 @@ class CampaignResponse(BaseModel):
     description: Optional[str] = None
     status: str
     influencers: List[dict] = []
+    linked_ads: List[dict] = []
+    linked_content_projects: List[dict] = []
+    linked_publications: List[dict] = []
+    ugc_submissions: List[dict] = []
     created_at: str
 
 class OutreachCreate(BaseModel):
@@ -1376,6 +1382,10 @@ async def create_marketing_campaign(data: CampaignCreate, user: dict = Depends(r
         "spent": 0.0,
         "status": "planning",
         "influencers": [],
+        "linked_ads": [],
+        "linked_content_projects": [],
+        "linked_publications": [],
+        "ugc_submissions": [],
         "created_at": datetime.now(timezone.utc).isoformat(),
         "created_by": user['id']
     }
@@ -1402,6 +1412,196 @@ async def delete_marketing_campaign(campaign_id: str, user: dict = Depends(requi
     )
     
     return {"message": "Campaign deleted successfully"}
+
+
+# ========== CAMPAIGN LINKING APIs ==========
+
+@marketing_router.post("/campaigns/{campaign_id}/link-ad")
+async def link_ad_to_campaign(
+    campaign_id: str,
+    ad_id: str,
+    ad_name: str,
+    platform: str = "meta",
+    user: dict = Depends(require_department(["marketing"]))
+):
+    """Link a digital ad campaign to a marketing campaign"""
+    campaign = await db.marketing_campaigns.find_one({"id": campaign_id})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    linked_ad = {
+        "ad_id": ad_id,
+        "ad_name": ad_name,
+        "platform": platform,
+        "linked_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.marketing_campaigns.update_one(
+        {"id": campaign_id},
+        {"$push": {"linked_ads": linked_ad}}
+    )
+    return {"success": True, "message": "Ad linked to campaign"}
+
+
+@marketing_router.delete("/campaigns/{campaign_id}/unlink-ad/{ad_id}")
+async def unlink_ad_from_campaign(
+    campaign_id: str,
+    ad_id: str,
+    user: dict = Depends(require_department(["marketing"]))
+):
+    """Unlink a digital ad from a marketing campaign"""
+    await db.marketing_campaigns.update_one(
+        {"id": campaign_id},
+        {"$pull": {"linked_ads": {"ad_id": ad_id}}}
+    )
+    return {"success": True, "message": "Ad unlinked from campaign"}
+
+
+@marketing_router.post("/campaigns/{campaign_id}/link-content-project")
+async def link_content_project_to_campaign(
+    campaign_id: str,
+    project_id: str,
+    project_name: str,
+    project_type: str = "original_production",
+    user: dict = Depends(require_department(["marketing"]))
+):
+    """Link a content production project to a marketing campaign"""
+    campaign = await db.marketing_campaigns.find_one({"id": campaign_id})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    linked_project = {
+        "project_id": project_id,
+        "project_name": project_name,
+        "project_type": project_type,
+        "linked_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.marketing_campaigns.update_one(
+        {"id": campaign_id},
+        {"$push": {"linked_content_projects": linked_project}}
+    )
+    return {"success": True, "message": "Content project linked to campaign"}
+
+
+@marketing_router.delete("/campaigns/{campaign_id}/unlink-content-project/{project_id}")
+async def unlink_content_project_from_campaign(
+    campaign_id: str,
+    project_id: str,
+    user: dict = Depends(require_department(["marketing"]))
+):
+    """Unlink a content project from a marketing campaign"""
+    await db.marketing_campaigns.update_one(
+        {"id": campaign_id},
+        {"$pull": {"linked_content_projects": {"project_id": project_id}}}
+    )
+    return {"success": True, "message": "Content project unlinked from campaign"}
+
+
+@marketing_router.post("/campaigns/{campaign_id}/link-publication")
+async def link_publication_to_campaign(
+    campaign_id: str,
+    publication_id: str,
+    publication_name: str,
+    coverage_type: str = "feature",
+    user: dict = Depends(require_department(["marketing"]))
+):
+    """Link a publication (PR/Media) to a marketing campaign"""
+    campaign = await db.marketing_campaigns.find_one({"id": campaign_id})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    linked_pub = {
+        "publication_id": publication_id,
+        "publication_name": publication_name,
+        "coverage_type": coverage_type,
+        "linked_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.marketing_campaigns.update_one(
+        {"id": campaign_id},
+        {"$push": {"linked_publications": linked_pub}}
+    )
+    return {"success": True, "message": "Publication linked to campaign"}
+
+
+@marketing_router.delete("/campaigns/{campaign_id}/unlink-publication/{publication_id}")
+async def unlink_publication_from_campaign(
+    campaign_id: str,
+    publication_id: str,
+    user: dict = Depends(require_department(["marketing"]))
+):
+    """Unlink a publication from a marketing campaign"""
+    await db.marketing_campaigns.update_one(
+        {"id": campaign_id},
+        {"$pull": {"linked_publications": {"publication_id": publication_id}}}
+    )
+    return {"success": True, "message": "Publication unlinked from campaign"}
+
+
+class UGCSubmission(BaseModel):
+    creator_name: str
+    creator_handle: Optional[str] = None
+    platform: str = "instagram"
+    content_url: str
+    content_type: str = "post"  # post, reel, story, video
+    status: str = "pending"  # pending, approved, rejected, featured
+    notes: Optional[str] = None
+
+
+@marketing_router.post("/campaigns/{campaign_id}/ugc-submission")
+async def add_ugc_submission(
+    campaign_id: str,
+    submission: UGCSubmission,
+    user: dict = Depends(require_department(["marketing"]))
+):
+    """Add a UGC submission to a campaign"""
+    campaign = await db.marketing_campaigns.find_one({"id": campaign_id})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    ugc_entry = {
+        "id": str(uuid.uuid4()),
+        **submission.model_dump(),
+        "submitted_at": datetime.now(timezone.utc).isoformat(),
+        "submitted_by": user['id']
+    }
+    
+    await db.marketing_campaigns.update_one(
+        {"id": campaign_id},
+        {"$push": {"ugc_submissions": ugc_entry}}
+    )
+    return {"success": True, "message": "UGC submission added", "submission": ugc_entry}
+
+
+@marketing_router.put("/campaigns/{campaign_id}/ugc-submission/{submission_id}")
+async def update_ugc_submission_status(
+    campaign_id: str,
+    submission_id: str,
+    status: str,
+    user: dict = Depends(require_department(["marketing"]))
+):
+    """Update UGC submission status (approve/reject/feature)"""
+    await db.marketing_campaigns.update_one(
+        {"id": campaign_id, "ugc_submissions.id": submission_id},
+        {"$set": {"ugc_submissions.$.status": status}}
+    )
+    return {"success": True, "message": f"UGC submission {status}"}
+
+
+@marketing_router.delete("/campaigns/{campaign_id}/ugc-submission/{submission_id}")
+async def delete_ugc_submission(
+    campaign_id: str,
+    submission_id: str,
+    user: dict = Depends(require_department(["marketing"]))
+):
+    """Delete a UGC submission"""
+    await db.marketing_campaigns.update_one(
+        {"id": campaign_id},
+        {"$pull": {"ugc_submissions": {"id": submission_id}}}
+    )
+    return {"success": True, "message": "UGC submission deleted"}
+
 
 # ========== PAYMENT TRACKING APIs ==========
 

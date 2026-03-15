@@ -28,6 +28,10 @@ const STATUS_CONFIG = {
 
 const CAMPAIGN_TYPES = {
   influencer: { label: 'Influencer', color: 'bg-purple-100 text-purple-700' },
+  ugc: { label: 'UGC', color: 'bg-pink-100 text-pink-700' },
+  paid_ads: { label: 'Paid Ads', color: 'bg-blue-100 text-blue-700' },
+  content_production: { label: 'Content', color: 'bg-green-100 text-green-700' },
+  pr_media: { label: 'PR/Media', color: 'bg-orange-100 text-orange-700' },
   pr: { label: 'PR', color: 'bg-blue-100 text-blue-700' },
   mixed: { label: 'Mixed', color: 'bg-emerald-100 text-emerald-700' }
 };
@@ -595,7 +599,10 @@ const CampaignHubPage = () => {
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="influencer">Influencer</SelectItem>
-                <SelectItem value="pr">PR</SelectItem>
+                <SelectItem value="ugc">UGC</SelectItem>
+                <SelectItem value="paid_ads">Paid Ads</SelectItem>
+                <SelectItem value="content_production">Content</SelectItem>
+                <SelectItem value="pr_media">PR/Media</SelectItem>
                 <SelectItem value="mixed">Mixed</SelectItem>
               </SelectContent>
             </Select>
@@ -893,8 +900,11 @@ const CampaignHubPage = () => {
               <Select value={newCampaign.campaign_type} onValueChange={v => setNewCampaign(prev => ({ ...prev, campaign_type: v }))}>
                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="influencer">Influencer Campaign</SelectItem>
-                  <SelectItem value="pr">PR Campaign</SelectItem>
+                  <SelectItem value="influencer">Influencer Marketing</SelectItem>
+                  <SelectItem value="ugc">UGC Promotion</SelectItem>
+                  <SelectItem value="paid_ads">Paid Ads</SelectItem>
+                  <SelectItem value="content_production">Content Production</SelectItem>
+                  <SelectItem value="pr_media">PR / Media</SelectItem>
                   <SelectItem value="mixed">Mixed Campaign</SelectItem>
                 </SelectContent>
               </Select>
@@ -1032,8 +1042,11 @@ const CampaignHubPage = () => {
                 <Select value={editingCampaign.campaign_type || 'influencer'} onValueChange={v => setEditingCampaign(prev => ({ ...prev, campaign_type: v }))}>
                   <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="influencer">Influencer Campaign</SelectItem>
-                    <SelectItem value="pr">PR Campaign</SelectItem>
+                    <SelectItem value="influencer">Influencer Marketing</SelectItem>
+                    <SelectItem value="ugc">UGC Promotion</SelectItem>
+                    <SelectItem value="paid_ads">Paid Ads</SelectItem>
+                    <SelectItem value="content_production">Content Production</SelectItem>
+                    <SelectItem value="pr_media">PR / Media</SelectItem>
                     <SelectItem value="mixed">Mixed Campaign</SelectItem>
                   </SelectContent>
                 </Select>
