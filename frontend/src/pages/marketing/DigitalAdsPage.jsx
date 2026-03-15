@@ -82,10 +82,46 @@ export default function DigitalAdsPage() {
   const [showAccountDialog, setShowAccountDialog] = useState(false);
   const [showCampaignDialog, setShowCampaignDialog] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  
+  // Sync states
+  const [syncStatus, setSyncStatus] = useState(null);
+  const [syncing, setSyncing] = useState({ meta: false, google: false });
 
   useEffect(() => {
     fetchData();
+    fetchSyncStatus();
   }, []);
+
+  const fetchSyncStatus = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/marketing/v3/ads/sync/status`);
+      if (res.ok) setSyncStatus(await res.json());
+    } catch (e) {
+      console.error('Failed to fetch sync status:', e);
+    }
+  };
+
+  const handleSync = async (platform) => {
+    setSyncing(prev => ({ ...prev, [platform]: true }));
+    try {
+      const res = await fetch(`${API_URL}/api/marketing/v3/ads/sync/${platform}`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      
+      if (res.ok) {
+        toast.success(data.message || `Synced ${platform} campaigns`);
+        fetchData();
+        fetchSyncStatus();
+      } else {
+        toast.error(data.detail || `Failed to sync ${platform}`);
+      }
+    } catch (error) {
+      toast.error(`Failed to sync ${platform}: ${error.message}`);
+    } finally {
+      setSyncing(prev => ({ ...prev, [platform]: false }));
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -192,6 +228,76 @@ export default function DigitalAdsPage() {
           </Button>
         </div>
       </div>
+
+      {/* Platform Sync Panel */}
+      <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-blue-600" />
+                <span className="font-medium">Live Data Sync</span>
+              </div>
+              
+              {/* Meta Sync */}
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border">
+                <span className="text-sm">📘 Meta</span>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="h-7" 
+                  onClick={() => handleSync('meta')}
+                  disabled={syncing.meta}
+                  data-testid="sync-meta-btn"
+                >
+                  {syncing.meta ? (
+                    <RefreshCw className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-3 h-3" />
+                  )}
+                </Button>
+                {syncStatus?.meta?.last_sync && (
+                  <span className="text-xs text-gray-500">
+                    {syncStatus.meta.campaigns_count} campaigns
+                  </span>
+                )}
+              </div>
+
+              {/* Google Sync */}
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border">
+                <span className="text-sm">🔍 Google</span>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="h-7" 
+                  onClick={() => handleSync('google')}
+                  disabled={syncing.google}
+                  data-testid="sync-google-btn"
+                >
+                  {syncing.google ? (
+                    <RefreshCw className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-3 h-3" />
+                  )}
+                </Button>
+                {syncStatus?.google?.last_sync && (
+                  <span className="text-xs text-gray-500">
+                    {syncStatus.google.campaigns_count} campaigns
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <a 
+              href="/marketing/settings" 
+              className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+            >
+              <Settings className="w-4 h-4" />
+              Configure API Keys
+            </a>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Stats Overview */}
       {stats && (

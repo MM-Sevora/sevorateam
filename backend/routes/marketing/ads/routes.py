@@ -728,3 +728,276 @@ def _get_ad_metrics_summary(db, ad_id: str) -> dict:
         "ctr": 0,
         "cpc": 0
     }
+
+
+# ============== LIVE DATA SYNC ==============
+
+async def get_ad_platform_credentials(platform: str):
+    """Get ad platform credentials from settings"""
+    from motor.motor_asyncio import AsyncIOMotorClient
+    client = AsyncIOMotorClient(os.environ.get("MONGO_URL"))
+    db = client[os.environ.get("DB_NAME", "sevora_production")]
+    
+    settings = await db.marketing_settings.find_one({}, {"_id": 0, "ad_platforms": 1})
+    if not settings or "ad_platforms" not in settings:
+        return None
+    
+    return settings["ad_platforms"].get(platform, {})
+
+
+@router.post("/sync/meta")
+async def sync_meta_ads_data(background_tasks: BackgroundTasks):
+    """Sync campaign data from Meta (Facebook/Instagram) Ads API"""
+    import httpx
+    
+    creds = await get_ad_platform_credentials("meta")
+    if not creds or not creds.get("enabled") or not creds.get("access_token"):
+        raise HTTPException(status_code=400, detail="Meta Ads not configured. Please add API credentials in Settings > Ad Platforms.")
+    
+    access_token = creds.get("access_token")
+    ad_account_id = creds.get("ad_account_id", "").replace("act_", "")
+    
+    if not ad_account_id:
+        raise HTTPException(status_code=400, detail="Ad Account ID not configured")
+    
+    db = get_db()
+    synced_campaigns = []
+    
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            # Fetch campaigns from Meta
+            campaigns_url = f"https://graph.facebook.com/v18.0/act_{ad_account_id}/campaigns"
+            campaigns_response = await client.get(campaigns_url, params={
+                "access_token": access_token,
+                "fields": "id,name,objective,status,daily_budget,lifetime_budget,start_time,stop_time,created_time,updated_time"
+            })
+            
+            if campaigns_response.status_code != 200:
+                error = campaigns_response.json().get("error", {})
+                raise HTTPException(status_code=400, detail=f"Meta API error: {error.get('message', 'Unknown error')}")
+            
+            campaigns_data = campaigns_response.json().get("data", [])
+            
+            for campaign in campaigns_data:
+                # Get campaign insights (metrics)
+                insights_url = f"https://graph.facebook.com/v18.0/{campaign['id']}/insights"
+                insights_response = await client.get(insights_url, params={
+                    "access_token": access_token,
+                    "fields": "impressions,clicks,spend,reach,cpc,ctr,cpm",
+                    "date_preset": "last_30d"
+                })
+                
+                insights = {}
+                if insights_response.status_code == 200:
+                    insights_data = insights_response.json().get("data", [])
+                    if insights_data:
+                        insights = insights_data[0]
+                
+                # Upsert campaign to database
+                campaign_doc = {
+                    "external_id": campaign["id"],
+                    "name": campaign.get("name", "Untitled Campaign"),
+                    "platform": "meta",
+                    "objective": campaign.get("objective", "UNKNOWN").lower(),
+                    "status": campaign.get("status", "UNKNOWN").lower(),
+                    "budget": float(campaign.get("daily_budget", 0) or campaign.get("lifetime_budget", 0)) / 100,
+                    "budget_type": "daily" if campaign.get("daily_budget") else "lifetime",
+                    "start_date": campaign.get("start_time"),
+                    "end_date": campaign.get("stop_time"),
+                    "metrics": {
+                        "impressions": int(insights.get("impressions", 0)),
+                        "clicks": int(insights.get("clicks", 0)),
+                        "spend": float(insights.get("spend", 0)),
+                        "reach": int(insights.get("reach", 0)),
+                        "cpc": float(insights.get("cpc", 0)),
+                        "ctr": float(insights.get("ctr", 0)),
+                        "cpm": float(insights.get("cpm", 0))
+                    },
+                    "synced_at": datetime.utcnow(),
+                    "source": "meta_api"
+                }
+                
+                # Check if campaign exists
+                existing = db.marketing_ads_campaigns.find_one({"external_id": campaign["id"], "platform": "meta"})
+                if existing:
+                    db.marketing_ads_campaigns.update_one(
+                        {"external_id": campaign["id"], "platform": "meta"},
+                        {"$set": campaign_doc}
+                    )
+                else:
+                    campaign_doc["_id"] = str(uuid.uuid4())
+                    campaign_doc["created_at"] = datetime.utcnow()
+                    db.marketing_ads_campaigns.insert_one(campaign_doc)
+                
+                synced_campaigns.append(campaign_doc["name"])
+        
+        return {
+            "success": True,
+            "message": f"Synced {len(synced_campaigns)} campaigns from Meta",
+            "campaigns": synced_campaigns
+        }
+        
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to connect to Meta API: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Sync failed: {str(e)}")
+
+
+@router.post("/sync/google")
+async def sync_google_ads_data(background_tasks: BackgroundTasks):
+    """Sync campaign data from Google Ads API"""
+    import httpx
+    
+    creds = await get_ad_platform_credentials("google")
+    if not creds or not creds.get("enabled"):
+        raise HTTPException(status_code=400, detail="Google Ads not configured. Please add API credentials in Settings > Ad Platforms.")
+    
+    developer_token = creds.get("developer_token")
+    customer_id = creds.get("customer_id", "").replace("-", "")
+    refresh_token = creds.get("refresh_token")
+    client_id = creds.get("client_id")
+    client_secret = creds.get("client_secret")
+    
+    if not all([developer_token, customer_id, client_id, client_secret]):
+        raise HTTPException(status_code=400, detail="Missing Google Ads API credentials")
+    
+    db = get_db()
+    synced_campaigns = []
+    
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            # First, get access token using refresh token
+            if refresh_token:
+                token_response = await client.post(
+                    "https://oauth2.googleapis.com/token",
+                    data={
+                        "client_id": client_id,
+                        "client_secret": client_secret,
+                        "refresh_token": refresh_token,
+                        "grant_type": "refresh_token"
+                    }
+                )
+                
+                if token_response.status_code != 200:
+                    raise HTTPException(status_code=400, detail="Failed to refresh Google OAuth token")
+                
+                access_token = token_response.json().get("access_token")
+            else:
+                raise HTTPException(status_code=400, detail="Google OAuth refresh token not configured")
+            
+            # Use Google Ads REST API to fetch campaigns
+            api_url = f"https://googleads.googleapis.com/v15/customers/{customer_id}/googleAds:search"
+            
+            query = """
+                SELECT 
+                    campaign.id,
+                    campaign.name,
+                    campaign.status,
+                    campaign.advertising_channel_type,
+                    campaign_budget.amount_micros,
+                    metrics.impressions,
+                    metrics.clicks,
+                    metrics.cost_micros,
+                    metrics.ctr,
+                    metrics.average_cpc
+                FROM campaign
+                WHERE campaign.status != 'REMOVED'
+                ORDER BY metrics.impressions DESC
+                LIMIT 100
+            """
+            
+            response = await client.post(
+                api_url,
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "developer-token": developer_token,
+                    "Content-Type": "application/json"
+                },
+                json={"query": query}
+            )
+            
+            if response.status_code != 200:
+                error_detail = response.json()
+                raise HTTPException(status_code=400, detail=f"Google Ads API error: {error_detail}")
+            
+            results = response.json().get("results", [])
+            
+            for result in results:
+                campaign = result.get("campaign", {})
+                metrics = result.get("metrics", {})
+                budget = result.get("campaignBudget", {})
+                
+                campaign_doc = {
+                    "external_id": campaign.get("id"),
+                    "name": campaign.get("name", "Untitled Campaign"),
+                    "platform": "google",
+                    "objective": campaign.get("advertisingChannelType", "UNKNOWN").lower(),
+                    "status": campaign.get("status", "UNKNOWN").lower(),
+                    "budget": float(budget.get("amountMicros", 0)) / 1000000,
+                    "budget_type": "daily",
+                    "metrics": {
+                        "impressions": int(metrics.get("impressions", 0)),
+                        "clicks": int(metrics.get("clicks", 0)),
+                        "spend": float(metrics.get("costMicros", 0)) / 1000000,
+                        "ctr": float(metrics.get("ctr", 0)) * 100,
+                        "cpc": float(metrics.get("averageCpc", 0)) / 1000000
+                    },
+                    "synced_at": datetime.utcnow(),
+                    "source": "google_api"
+                }
+                
+                # Check if campaign exists
+                existing = db.marketing_ads_campaigns.find_one({"external_id": campaign.get("id"), "platform": "google"})
+                if existing:
+                    db.marketing_ads_campaigns.update_one(
+                        {"external_id": campaign.get("id"), "platform": "google"},
+                        {"$set": campaign_doc}
+                    )
+                else:
+                    campaign_doc["_id"] = str(uuid.uuid4())
+                    campaign_doc["created_at"] = datetime.utcnow()
+                    db.marketing_ads_campaigns.insert_one(campaign_doc)
+                
+                synced_campaigns.append(campaign_doc["name"])
+        
+        return {
+            "success": True,
+            "message": f"Synced {len(synced_campaigns)} campaigns from Google Ads",
+            "campaigns": synced_campaigns
+        }
+        
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to connect to Google Ads API: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Sync failed: {str(e)}")
+
+
+@router.get("/sync/status")
+async def get_sync_status():
+    """Get the sync status for all ad platforms"""
+    db = get_db()
+    
+    # Get last sync times
+    meta_last = db.marketing_ads_campaigns.find_one(
+        {"platform": "meta", "source": "meta_api"},
+        sort=[("synced_at", -1)]
+    )
+    google_last = db.marketing_ads_campaigns.find_one(
+        {"platform": "google", "source": "google_api"},
+        sort=[("synced_at", -1)]
+    )
+    
+    # Get counts
+    meta_count = db.marketing_ads_campaigns.count_documents({"platform": "meta", "source": "meta_api"})
+    google_count = db.marketing_ads_campaigns.count_documents({"platform": "google", "source": "google_api"})
+    
+    return {
+        "meta": {
+            "last_sync": meta_last.get("synced_at") if meta_last else None,
+            "campaigns_count": meta_count
+        },
+        "google": {
+            "last_sync": google_last.get("synced_at") if google_last else None,
+            "campaigns_count": google_count
+        }
+    }

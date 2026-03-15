@@ -16,7 +16,7 @@ import {
   ArrowLeft, RefreshCw, Calendar, DollarSign, Users, FileText,
   Megaphone, Image, Building2, TrendingUp, Clock, CheckCircle,
   AlertTriangle, Target, ExternalLink, Eye, Edit, Plus, BarChart3,
-  Share2, ThumbsUp, ThumbsDown, Star, Trash2
+  Share2, ThumbsUp, ThumbsDown, Star, Trash2, Link, Unlink, Search
 } from 'lucide-react';
 
 const STATUS_CONFIG = {
@@ -81,6 +81,18 @@ export default function CampaignDetailsPage() {
     content_type: 'post',
     notes: ''
   });
+
+  // Linking modals state
+  const [showLinkAdModal, setShowLinkAdModal] = useState(false);
+  const [showLinkContentModal, setShowLinkContentModal] = useState(false);
+  const [showLinkPublicationModal, setShowLinkPublicationModal] = useState(false);
+  const [linkSearchQuery, setLinkSearchQuery] = useState('');
+  
+  // Available items to link
+  const [availableAds, setAvailableAds] = useState([]);
+  const [availableContentProjects, setAvailableContentProjects] = useState([]);
+  const [availablePublications, setAvailablePublications] = useState([]);
+  const [loadingLinkItems, setLoadingLinkItems] = useState(false);
 
   const fetchCampaignData = useCallback(async () => {
     if (!campaignId) return;
@@ -202,6 +214,143 @@ export default function CampaignDetailsPage() {
     } catch (error) {
       toast.error('Failed to delete submission');
     }
+  };
+
+  // =====================
+  // LINKING HANDLERS
+  // =====================
+
+  const fetchAvailableAds = async () => {
+    setLoadingLinkItems(true);
+    try {
+      const res = await api.get('/marketing/v3/ads/campaigns?limit=100');
+      // Filter out already linked ads
+      const linkedAdIds = (campaign?.linked_ads || []).map(a => a.ad_id);
+      const available = (res.data || []).filter(ad => !linkedAdIds.includes(ad.id));
+      setAvailableAds(available);
+    } catch (e) {
+      console.error('Failed to fetch ads:', e);
+      setAvailableAds([]);
+    } finally {
+      setLoadingLinkItems(false);
+    }
+  };
+
+  const fetchAvailableContentProjects = async () => {
+    setLoadingLinkItems(true);
+    try {
+      const res = await api.get('/marketing/v3/content/projects?limit=100');
+      // Filter out already linked projects
+      const linkedProjectIds = (campaign?.linked_content_projects || []).map(p => p.project_id);
+      const available = (res.data || []).filter(p => !linkedProjectIds.includes(p.id));
+      setAvailableContentProjects(available);
+    } catch (e) {
+      console.error('Failed to fetch content projects:', e);
+      setAvailableContentProjects([]);
+    } finally {
+      setLoadingLinkItems(false);
+    }
+  };
+
+  const fetchAvailablePublications = async () => {
+    setLoadingLinkItems(true);
+    try {
+      const res = await api.get('/marketing/v2/publications?limit=100');
+      // Filter out already linked publications
+      const linkedPubIds = (campaign?.linked_publications || []).map(p => p.publication_id);
+      const available = (res.data || []).filter(p => !linkedPubIds.includes(p.id));
+      setAvailablePublications(available);
+    } catch (e) {
+      console.error('Failed to fetch publications:', e);
+      setAvailablePublications([]);
+    } finally {
+      setLoadingLinkItems(false);
+    }
+  };
+
+  const handleLinkAd = async (ad) => {
+    try {
+      await api.post(`/marketing/campaigns/${campaignId}/link-ad?ad_id=${ad.id}&ad_name=${encodeURIComponent(ad.name)}&platform=${ad.platform || 'meta'}`);
+      toast.success(`Linked "${ad.name}" to campaign`);
+      setShowLinkAdModal(false);
+      fetchCampaignData();
+    } catch (error) {
+      toast.error('Failed to link ad campaign');
+    }
+  };
+
+  const handleUnlinkAd = async (adId) => {
+    if (!window.confirm('Unlink this ad campaign?')) return;
+    try {
+      await api.delete(`/marketing/campaigns/${campaignId}/unlink-ad/${adId}`);
+      toast.success('Ad campaign unlinked');
+      fetchCampaignData();
+    } catch (error) {
+      toast.error('Failed to unlink ad campaign');
+    }
+  };
+
+  const handleLinkContentProject = async (project) => {
+    try {
+      await api.post(`/marketing/campaigns/${campaignId}/link-content-project?project_id=${project.id}&project_name=${encodeURIComponent(project.title || project.name)}&project_type=${project.content_type || 'original_production'}`);
+      toast.success(`Linked "${project.title || project.name}" to campaign`);
+      setShowLinkContentModal(false);
+      fetchCampaignData();
+    } catch (error) {
+      toast.error('Failed to link content project');
+    }
+  };
+
+  const handleUnlinkContentProject = async (projectId) => {
+    if (!window.confirm('Unlink this content project?')) return;
+    try {
+      await api.delete(`/marketing/campaigns/${campaignId}/unlink-content-project/${projectId}`);
+      toast.success('Content project unlinked');
+      fetchCampaignData();
+    } catch (error) {
+      toast.error('Failed to unlink content project');
+    }
+  };
+
+  const handleLinkPublication = async (publication) => {
+    try {
+      await api.post(`/marketing/campaigns/${campaignId}/link-publication?publication_id=${publication.id}&publication_name=${encodeURIComponent(publication.name)}&coverage_type=${publication.type || 'feature'}`);
+      toast.success(`Linked "${publication.name}" to campaign`);
+      setShowLinkPublicationModal(false);
+      fetchCampaignData();
+    } catch (error) {
+      toast.error('Failed to link publication');
+    }
+  };
+
+  const handleUnlinkPublication = async (publicationId) => {
+    if (!window.confirm('Unlink this publication?')) return;
+    try {
+      await api.delete(`/marketing/campaigns/${campaignId}/unlink-publication/${publicationId}`);
+      toast.success('Publication unlinked');
+      fetchCampaignData();
+    } catch (error) {
+      toast.error('Failed to unlink publication');
+    }
+  };
+
+  // Open linking modals with data fetch
+  const openLinkAdModal = () => {
+    fetchAvailableAds();
+    setLinkSearchQuery('');
+    setShowLinkAdModal(true);
+  };
+
+  const openLinkContentModal = () => {
+    fetchAvailableContentProjects();
+    setLinkSearchQuery('');
+    setShowLinkContentModal(true);
+  };
+
+  const openLinkPublicationModal = () => {
+    fetchAvailablePublications();
+    setLinkSearchQuery('');
+    setShowLinkPublicationModal(true);
   };
 
   if (loading) {
@@ -569,18 +718,59 @@ export default function CampaignDetailsPage() {
 
         {/* Content Tab */}
         <TabsContent value="content" className="space-y-4">
+          {/* Linked Content Projects Section */}
+          {(campaign?.linked_content_projects?.length > 0) && (
+            <Card className="border-green-200 bg-green-50/30">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Link className="w-4 h-4 text-green-600" />
+                  Linked Content Projects ({campaign.linked_content_projects.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {campaign.linked_content_projects.map(linked => (
+                    <div key={linked.project_id} className="flex items-center justify-between p-3 bg-white border rounded-lg">
+                      <div>
+                        <p className="font-medium">{linked.project_name}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className="text-xs">{linked.project_type}</Badge>
+                          <span className="text-xs text-gray-500">Linked {formatDate(linked.linked_at)}</span>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm" className="text-red-600 hover:bg-red-50" onClick={() => handleUnlinkContentProject(linked.project_id)}>
+                        <Unlink className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Content Projects</CardTitle>
-              <Button size="sm" onClick={() => navigate('/marketing/content')}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Content
-              </Button>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={openLinkContentModal}>
+                  <Link className="w-4 h-4 mr-2" />
+                  Link Existing
+                </Button>
+                <Button size="sm" onClick={() => navigate('/marketing/content')}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create New
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {contentProjects.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
-                  No content projects linked to this campaign
+                  <FileText className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                  <p>No content projects linked to this campaign</p>
+                  <Button variant="outline" size="sm" className="mt-3" onClick={openLinkContentModal}>
+                    <Link className="w-4 h-4 mr-2" />
+                    Link Content Project
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -616,18 +806,59 @@ export default function CampaignDetailsPage() {
 
         {/* Ads Tab */}
         <TabsContent value="ads" className="space-y-4">
+          {/* Linked Ads Section */}
+          {(campaign?.linked_ads?.length > 0) && (
+            <Card className="border-blue-200 bg-blue-50/30">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Link className="w-4 h-4 text-blue-600" />
+                  Linked Ad Campaigns ({campaign.linked_ads.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {campaign.linked_ads.map(linked => (
+                    <div key={linked.ad_id} className="flex items-center justify-between p-3 bg-white border rounded-lg">
+                      <div>
+                        <p className="font-medium">{linked.ad_name}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className="text-xs capitalize">{linked.platform}</Badge>
+                          <span className="text-xs text-gray-500">Linked {formatDate(linked.linked_at)}</span>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm" className="text-red-600 hover:bg-red-50" onClick={() => handleUnlinkAd(linked.ad_id)}>
+                        <Unlink className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Digital Ad Campaigns</CardTitle>
-              <Button size="sm" onClick={() => navigate('/marketing/ads')}>
-                <Plus className="w-4 h-4 mr-2" />
-                Create Ad Campaign
-              </Button>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={openLinkAdModal}>
+                  <Link className="w-4 h-4 mr-2" />
+                  Link Existing
+                </Button>
+                <Button size="sm" onClick={() => navigate('/marketing/ads')}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create New
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {adCampaigns.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
-                  No ad campaigns linked to this marketing campaign
+                  <Megaphone className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                  <p>No ad campaigns linked to this marketing campaign</p>
+                  <Button variant="outline" size="sm" className="mt-3" onClick={openLinkAdModal}>
+                    <Link className="w-4 h-4 mr-2" />
+                    Link Ad Campaign
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -725,18 +956,59 @@ export default function CampaignDetailsPage() {
 
         {/* Publications Tab */}
         <TabsContent value="publications" className="space-y-4">
+          {/* Linked Publications Section */}
+          {(campaign?.linked_publications?.length > 0) && (
+            <Card className="border-purple-200 bg-purple-50/30">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Link className="w-4 h-4 text-purple-600" />
+                  Linked Publications ({campaign.linked_publications.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {campaign.linked_publications.map(linked => (
+                    <div key={linked.publication_id} className="flex items-center justify-between p-3 bg-white border rounded-lg">
+                      <div>
+                        <p className="font-medium">{linked.publication_name}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className="text-xs capitalize">{linked.coverage_type}</Badge>
+                          <span className="text-xs text-gray-500">Linked {formatDate(linked.linked_at)}</span>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm" className="text-red-600 hover:bg-red-50" onClick={() => handleUnlinkPublication(linked.publication_id)}>
+                        <Unlink className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg">PR Pitches</CardTitle>
-              <Button size="sm" onClick={() => navigate('/marketing/publications/pipeline')}>
-                <Plus className="w-4 h-4 mr-2" />
-                New Pitch
-              </Button>
+              <CardTitle className="text-lg">PR Pitches & Publications</CardTitle>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={openLinkPublicationModal}>
+                  <Link className="w-4 h-4 mr-2" />
+                  Link Publication
+                </Button>
+                <Button size="sm" onClick={() => navigate('/marketing/publications/pipeline')}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Pitch
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {publications.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
-                  No PR pitches linked to this campaign
+                  <Building2 className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                  <p>No PR pitches linked to this campaign</p>
+                  <Button variant="outline" size="sm" className="mt-3" onClick={openLinkPublicationModal}>
+                    <Link className="w-4 h-4 mr-2" />
+                    Link Publication
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -892,6 +1164,183 @@ export default function CampaignDetailsPage() {
               >
                 Add Submission
               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Link Ad Campaign Modal */}
+      <Dialog open={showLinkAdModal} onOpenChange={setShowLinkAdModal}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link className="w-5 h-5 text-blue-600" />
+              Link Ad Campaign
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                placeholder="Search ad campaigns..."
+                value={linkSearchQuery}
+                onChange={e => setLinkSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="max-h-96 overflow-y-auto space-y-2">
+              {loadingLinkItems ? (
+                <div className="text-center py-8">
+                  <RefreshCw className="w-6 h-6 animate-spin mx-auto text-gray-400" />
+                  <p className="text-sm text-gray-500 mt-2">Loading ad campaigns...</p>
+                </div>
+              ) : availableAds.filter(ad => 
+                  !linkSearchQuery || 
+                  ad.name?.toLowerCase().includes(linkSearchQuery.toLowerCase())
+                ).length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Megaphone className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                  <p>No ad campaigns available to link</p>
+                </div>
+              ) : (
+                availableAds
+                  .filter(ad => !linkSearchQuery || ad.name?.toLowerCase().includes(linkSearchQuery.toLowerCase()))
+                  .map(ad => (
+                    <div key={ad.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-blue-50 cursor-pointer" onClick={() => handleLinkAd(ad)}>
+                      <div>
+                        <p className="font-medium">{ad.name}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className="text-xs capitalize">{ad.platform}</Badge>
+                          <span className="text-sm text-gray-500">Budget: {formatCurrency(ad.budget)}</span>
+                          <Badge className={ad.status === 'active' ? 'bg-green-500' : 'bg-gray-500'}>{ad.status}</Badge>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm" className="text-blue-600">
+                        <Link className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Link Content Project Modal */}
+      <Dialog open={showLinkContentModal} onOpenChange={setShowLinkContentModal}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link className="w-5 h-5 text-green-600" />
+              Link Content Project
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                placeholder="Search content projects..."
+                value={linkSearchQuery}
+                onChange={e => setLinkSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="max-h-96 overflow-y-auto space-y-2">
+              {loadingLinkItems ? (
+                <div className="text-center py-8">
+                  <RefreshCw className="w-6 h-6 animate-spin mx-auto text-gray-400" />
+                  <p className="text-sm text-gray-500 mt-2">Loading content projects...</p>
+                </div>
+              ) : availableContentProjects.filter(p => 
+                  !linkSearchQuery || 
+                  (p.title || p.name)?.toLowerCase().includes(linkSearchQuery.toLowerCase())
+                ).length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <FileText className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                  <p>No content projects available to link</p>
+                </div>
+              ) : (
+                availableContentProjects
+                  .filter(p => !linkSearchQuery || (p.title || p.name)?.toLowerCase().includes(linkSearchQuery.toLowerCase()))
+                  .map(project => (
+                    <div key={project.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-green-50 cursor-pointer" onClick={() => handleLinkContentProject(project)}>
+                      <div>
+                        <p className="font-medium">{project.title || project.name}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className="text-xs">{project.content_type || project.content_category}</Badge>
+                          <Badge variant="outline" className="text-xs">{project.platform || project.medium}</Badge>
+                          <Badge className={
+                            project.status === 'published' ? 'bg-green-500' :
+                            project.status === 'in_production' ? 'bg-blue-500' : 'bg-gray-500'
+                          }>{project.status}</Badge>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm" className="text-green-600">
+                        <Link className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Link Publication Modal */}
+      <Dialog open={showLinkPublicationModal} onOpenChange={setShowLinkPublicationModal}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link className="w-5 h-5 text-purple-600" />
+              Link Publication
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                placeholder="Search publications..."
+                value={linkSearchQuery}
+                onChange={e => setLinkSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="max-h-96 overflow-y-auto space-y-2">
+              {loadingLinkItems ? (
+                <div className="text-center py-8">
+                  <RefreshCw className="w-6 h-6 animate-spin mx-auto text-gray-400" />
+                  <p className="text-sm text-gray-500 mt-2">Loading publications...</p>
+                </div>
+              ) : availablePublications.filter(p => 
+                  !linkSearchQuery || 
+                  p.name?.toLowerCase().includes(linkSearchQuery.toLowerCase())
+                ).length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Building2 className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                  <p>No publications available to link</p>
+                </div>
+              ) : (
+                availablePublications
+                  .filter(p => !linkSearchQuery || p.name?.toLowerCase().includes(linkSearchQuery.toLowerCase()))
+                  .map(publication => (
+                    <div key={publication.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-purple-50 cursor-pointer" onClick={() => handleLinkPublication(publication)}>
+                      <div>
+                        <p className="font-medium">{publication.name}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className="text-xs capitalize">{publication.type || 'feature'}</Badge>
+                          {publication.website && (
+                            <a href={publication.website} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline" onClick={e => e.stopPropagation()}>
+                              {publication.website}
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm" className="text-purple-600">
+                        <Link className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))
+              )}
             </div>
           </div>
         </DialogContent>
