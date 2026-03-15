@@ -1621,6 +1621,66 @@ async def get_weekly_updates(
     return {"updates": updates}
 
 
+@router.put("/updates/weekly/{update_id}")
+async def update_weekly_update(
+    update_id: str,
+    update_data: WeeklyUpdateCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update an existing weekly update"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not available")
+    
+    existing = await db.pulse_weekly_updates.find_one({"id": update_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Update not found")
+    
+    if existing.get("user_id") != current_user.get("id"):
+        raise HTTPException(status_code=403, detail="You can only edit your own updates")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Helper function to merge legacy and new items
+    def merge_items(legacy_list, new_items_list):
+        all_items = []
+        for text in legacy_list:
+            if text and text.strip():
+                all_items.append({"text": text, "linked_item": None})
+        for item in new_items_list:
+            all_items.append({
+                "text": item.text,
+                "linked_item": item.linked_item.model_dump() if item.linked_item else None,
+            })
+        return all_items
+    
+    all_achievement_items = merge_items(update_data.achievements, update_data.achievement_items)
+    all_issues_items = merge_items(update_data.issues_faced, update_data.issues_faced_items)
+    all_next_week_items = merge_items(update_data.next_week_focus, update_data.next_week_focus_items)
+    all_highlights_items = merge_items(update_data.team_highlights, update_data.team_highlights_items)
+    
+    update_doc = {
+        "achievements": [item["text"] for item in all_achievement_items],
+        "achievement_items": all_achievement_items,
+        "key_metrics": update_data.key_metrics,
+        "issues_faced": [item["text"] for item in all_issues_items],
+        "issues_faced_items": all_issues_items,
+        "next_week_focus": [item["text"] for item in all_next_week_items],
+        "next_week_focus_items": all_next_week_items,
+        "team_highlights": [item["text"] for item in all_highlights_items],
+        "team_highlights_items": all_highlights_items,
+        "notes": update_data.notes,
+        "updated_at": now.isoformat()
+    }
+    
+    await db.pulse_weekly_updates.update_one(
+        {"id": update_id},
+        {"$set": update_doc}
+    )
+    
+    updated = await db.pulse_weekly_updates.find_one({"id": update_id}, {"_id": 0})
+    return {"success": True, "message": "Weekly update modified", "update": updated}
+
+
 @router.delete("/updates/weekly/{update_id}")
 async def delete_weekly_update(
     update_id: str,
@@ -1765,6 +1825,86 @@ async def get_monthly_updates(
     return {"updates": updates}
 
 
+@router.put("/updates/monthly/{update_id}")
+async def update_monthly_update(
+    update_id: str,
+    update_data: MonthlyUpdateCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update an existing monthly update"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not available")
+    
+    existing = await db.pulse_monthly_updates.find_one({"id": update_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Update not found")
+    
+    if existing.get("user_id") != current_user.get("id"):
+        raise HTTPException(status_code=403, detail="You can only edit your own updates")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Helper function to merge legacy and new items
+    def merge_items(legacy_list, new_items_list):
+        all_items = []
+        for text in legacy_list:
+            if text and text.strip():
+                all_items.append({"text": text, "linked_item": None})
+        for item in new_items_list:
+            all_items.append({
+                "text": item.text,
+                "linked_item": item.linked_item.model_dump() if item.linked_item else None,
+            })
+        return all_items
+    
+    all_accomplishments = merge_items(update_data.accomplishments, update_data.accomplishment_items)
+    all_goals_progress = merge_items(update_data.goals_progress, update_data.goals_progress_items)
+    all_challenges = merge_items(update_data.challenges, update_data.challenge_items)
+    all_next_focus = merge_items(update_data.next_month_focus, update_data.next_month_focus_items)
+    all_team_highlights = merge_items(update_data.team_highlights, update_data.team_highlights_items)
+    
+    update_doc = {
+        "accomplishment_items": all_accomplishments,
+        "goals_progress_items": all_goals_progress,
+        "challenge_items": all_challenges,
+        "next_month_focus_items": all_next_focus,
+        "team_highlights_items": all_team_highlights,
+        "key_metrics": update_data.key_metrics,
+        "notes": update_data.notes,
+        "updated_at": now.isoformat()
+    }
+    
+    await db.pulse_monthly_updates.update_one(
+        {"id": update_id},
+        {"$set": update_doc}
+    )
+    
+    updated = await db.pulse_monthly_updates.find_one({"id": update_id}, {"_id": 0})
+    return {"success": True, "message": "Monthly update modified", "update": updated}
+
+
+@router.delete("/updates/monthly/{update_id}")
+async def delete_monthly_update(
+    update_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Delete a monthly update"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not available")
+    
+    existing = await db.pulse_monthly_updates.find_one({"id": update_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Update not found")
+    
+    if existing.get("user_id") != current_user.get("id"):
+        raise HTTPException(status_code=403, detail="You can only delete your own updates")
+    
+    await db.pulse_monthly_updates.delete_one({"id": update_id})
+    await db.pulse_posts.delete_many({"monthly_update_id": update_id})
+    
+    return {"success": True, "message": "Monthly update deleted"}
+
+
 # ============== QUARTERLY UPDATES ==============
 
 @router.post("/updates/quarterly")
@@ -1894,6 +2034,87 @@ async def get_quarterly_updates(
     
     return {"updates": updates}
 
+
+@router.put("/updates/quarterly/{update_id}")
+async def update_quarterly_update(
+    update_id: str,
+    update_data: QuarterlyUpdateCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update an existing quarterly update"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not available")
+    
+    existing = await db.pulse_quarterly_updates.find_one({"id": update_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Update not found")
+    
+    if existing.get("user_id") != current_user.get("id"):
+        raise HTTPException(status_code=403, detail="You can only edit your own updates")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Helper function to merge legacy and new items
+    def merge_items(legacy_list, new_items_list):
+        all_items = []
+        for text in legacy_list:
+            if text and text.strip():
+                all_items.append({"text": text, "linked_item": None})
+        for item in new_items_list:
+            all_items.append({
+                "text": item.text,
+                "linked_item": item.linked_item.model_dump() if item.linked_item else None,
+            })
+        return all_items
+    
+    all_achievements = merge_items(update_data.achievements, update_data.achievement_items)
+    all_okr_progress = merge_items(update_data.okr_progress, update_data.okr_progress_items)
+    all_learnings = merge_items(update_data.learnings, update_data.learning_items)
+    all_challenges = merge_items(update_data.challenges, update_data.challenge_items)
+    all_next_focus = merge_items(update_data.next_quarter_focus, update_data.next_quarter_focus_items)
+    all_team_highlights = merge_items(update_data.team_highlights, update_data.team_highlights_items)
+    
+    update_doc = {
+        "achievement_items": all_achievements,
+        "okr_progress_items": all_okr_progress,
+        "learning_items": all_learnings,
+        "challenge_items": all_challenges,
+        "next_quarter_focus_items": all_next_focus,
+        "team_highlights_items": all_team_highlights,
+        "key_metrics": update_data.key_metrics,
+        "notes": update_data.notes,
+        "updated_at": now.isoformat()
+    }
+    
+    await db.pulse_quarterly_updates.update_one(
+        {"id": update_id},
+        {"$set": update_doc}
+    )
+    
+    updated = await db.pulse_quarterly_updates.find_one({"id": update_id}, {"_id": 0})
+    return {"success": True, "message": "Quarterly update modified", "update": updated}
+
+
+@router.delete("/updates/quarterly/{update_id}")
+async def delete_quarterly_update(
+    update_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Delete a quarterly update"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not available")
+    
+    existing = await db.pulse_quarterly_updates.find_one({"id": update_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Update not found")
+    
+    if existing.get("user_id") != current_user.get("id"):
+        raise HTTPException(status_code=403, detail="You can only delete your own updates")
+    
+    await db.pulse_quarterly_updates.delete_one({"id": update_id})
+    await db.pulse_posts.delete_many({"quarterly_update_id": update_id})
+    
+    return {"success": True, "message": "Quarterly update deleted"}
 
 
 @router.get("/updates/linkable-items")
