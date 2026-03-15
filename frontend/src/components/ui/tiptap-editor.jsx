@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
-import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react';
+import { useEditor, EditorContent } from '@tiptap/react';
+import { BubbleMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
@@ -231,7 +232,7 @@ export const TipTapEditor = ({
       {editable && (
         <BubbleMenu 
           editor={editor} 
-          tippyOptions={{ duration: 100 }}
+          options={{ placement: 'top', offset: 8 }}
           className="bg-white shadow-lg border rounded-lg p-1 flex items-center gap-0.5"
         >
           <MenuButton 
