@@ -44,6 +44,16 @@ AZURE_AUTHORITY = f"https://login.microsoftonline.com/{AZURE_TENANT_ID}"
 # Create the main app
 app = FastAPI(title="SEVORA Team API - Unified Platform")
 
+# CORS Middleware - MUST be added immediately after app creation
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+)
+
 # Create routers
 api_router = APIRouter(prefix="/api")
 auth_router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -6335,14 +6345,6 @@ async def start_scheduler():
 async def stop_scheduler():
     scheduler.shutdown()
     logger.info("Automation scheduler stopped")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # ============= Website Settings Router =============
 settings_router = APIRouter(prefix="/settings")
