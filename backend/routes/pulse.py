@@ -1527,6 +1527,76 @@ async def get_daily_updates(
     return {"updates": updates}
 
 
+@router.put("/updates/daily/{update_id}")
+async def update_daily_update(
+    update_id: str,
+    update_data: DailyUpdateCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update an existing daily update"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not available")
+    
+    # Find the update
+    existing = await db.pulse_daily_updates.find_one({"id": update_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Update not found")
+    
+    # Check ownership - only the creator can edit
+    if existing.get("user_id") != current_user.get("id"):
+        raise HTTPException(status_code=403, detail="You can only edit your own updates")
+    
+    # Prepare update data
+    now = datetime.now(timezone.utc)
+    
+    update_doc = {
+        "completed_tasks": [item.text for item in update_data.completed_items] if update_data.completed_items else [],
+        "completed_items": [item.model_dump() for item in update_data.completed_items] if update_data.completed_items else [],
+        "blockers": [item.text for item in update_data.blocker_items] if update_data.blocker_items else [],
+        "blocker_items": [item.model_dump() for item in update_data.blocker_items] if update_data.blocker_items else [],
+        "tomorrow_focus": [item.text for item in update_data.tomorrow_focus_items] if update_data.tomorrow_focus_items else [],
+        "tomorrow_focus_items": [item.model_dump() for item in update_data.tomorrow_focus_items] if update_data.tomorrow_focus_items else [],
+        "notes": update_data.notes,
+        "updated_at": now.isoformat()
+    }
+    
+    await db.pulse_daily_updates.update_one(
+        {"id": update_id},
+        {"$set": update_doc}
+    )
+    
+    # Get and return updated document
+    updated = await db.pulse_daily_updates.find_one({"id": update_id}, {"_id": 0})
+    return {"success": True, "message": "Update modified", "update": updated}
+
+
+@router.delete("/updates/daily/{update_id}")
+async def delete_daily_update(
+    update_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Delete a daily update"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not available")
+    
+    # Find the update
+    existing = await db.pulse_daily_updates.find_one({"id": update_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Update not found")
+    
+    # Check ownership - only the creator can delete
+    if existing.get("user_id") != current_user.get("id"):
+        raise HTTPException(status_code=403, detail="You can only delete your own updates")
+    
+    # Delete the update
+    await db.pulse_daily_updates.delete_one({"id": update_id})
+    
+    # Also delete associated pulse post if exists
+    await db.pulse_posts.delete_many({"source_update_id": update_id})
+    
+    return {"success": True, "message": "Update deleted"}
+
+
 @router.get("/updates/weekly")
 async def get_weekly_updates(
     user_id: Optional[str] = None,
@@ -1549,6 +1619,28 @@ async def get_weekly_updates(
     ).sort("created_at", -1).limit(limit).to_list(limit)
     
     return {"updates": updates}
+
+
+@router.delete("/updates/weekly/{update_id}")
+async def delete_weekly_update(
+    update_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Delete a weekly update"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not available")
+    
+    existing = await db.pulse_weekly_updates.find_one({"id": update_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Update not found")
+    
+    if existing.get("user_id") != current_user.get("id"):
+        raise HTTPException(status_code=403, detail="You can only delete your own updates")
+    
+    await db.pulse_weekly_updates.delete_one({"id": update_id})
+    await db.pulse_posts.delete_many({"weekly_update_id": update_id})
+    
+    return {"success": True, "message": "Weekly update deleted"}
 
 
 # ============== MONTHLY UPDATES ==============
