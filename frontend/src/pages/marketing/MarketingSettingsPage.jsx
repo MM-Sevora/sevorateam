@@ -13,7 +13,8 @@ import { toast } from 'sonner';
 import {
   Settings, Plus, Edit2, Trash2, RefreshCw, Save, GripVertical,
   FileText, Package, Share2, Video, Megaphone, Globe, Mail, Printer,
-  Layers, FolderTree, Monitor, ChevronRight, AlertCircle
+  Layers, FolderTree, Monitor, ChevronRight, AlertCircle, Eye, EyeOff,
+  CheckCircle, XCircle, Target
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
@@ -175,6 +176,344 @@ function EmailSettingsTab() {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// Ad Platforms Settings Tab Component
+function AdPlatformsSettingsTab() {
+  const [settings, setSettings] = useState({
+    meta: {
+      app_id: '',
+      app_secret: '',
+      access_token: '',
+      ad_account_id: '',
+      pixel_id: '',
+      enabled: false
+    },
+    google: {
+      client_id: '',
+      client_secret: '',
+      developer_token: '',
+      customer_id: '',
+      enabled: false
+    }
+  });
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [showSecrets, setShowSecrets] = useState({ meta: false, google: false });
+  const [testStatus, setTestStatus] = useState({ meta: null, google: null });
+
+  useEffect(() => {
+    fetchAdSettings();
+  }, []);
+
+  const fetchAdSettings = async () => {
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API_URL}/api/marketing/v2/settings/ad-platforms`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.settings) {
+          setSettings(prev => ({
+            meta: { ...prev.meta, ...data.settings.meta },
+            google: { ...prev.google, ...data.settings.google }
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch ad settings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveAdSettings = async () => {
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API_URL}/api/marketing/v2/settings/ad-platforms`, {
+        method: 'PUT',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ settings })
+      });
+      if (res.ok) {
+        toast.success('Ad platform settings saved');
+      } else {
+        toast.error('Failed to save settings');
+      }
+    } catch (error) {
+      toast.error('Error saving settings');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const testConnection = async (platform) => {
+    setTestStatus(prev => ({ ...prev, [platform]: 'testing' }));
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const res = await fetch(`${API_URL}/api/marketing/v2/settings/ad-platforms/test/${platform}`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ settings: settings[platform] })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setTestStatus(prev => ({ ...prev, [platform]: 'success' }));
+        toast.success(`${platform === 'meta' ? 'Meta' : 'Google'} connection successful!`);
+      } else {
+        setTestStatus(prev => ({ ...prev, [platform]: 'error' }));
+        toast.error(data.error || 'Connection test failed');
+      }
+    } catch (error) {
+      setTestStatus(prev => ({ ...prev, [platform]: 'error' }));
+      toast.error('Connection test failed');
+    }
+  };
+
+  const maskValue = (value) => {
+    if (!value) return '';
+    if (value.length <= 8) return '••••••••';
+    return value.substring(0, 4) + '••••••••' + value.substring(value.length - 4);
+  };
+
+  if (loading) {
+    return <div className="flex justify-center p-8"><RefreshCw className="w-6 h-6 animate-spin" /></div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Meta (Facebook/Instagram) Ads */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+              <svg viewBox="0 0 24 24" className="w-6 h-6 text-blue-600" fill="currentColor">
+                <path d="M12 2.04c-5.5 0-10 4.49-10 10.02 0 5 3.66 9.15 8.44 9.9v-7H7.9v-2.9h2.54V9.85c0-2.51 1.49-3.89 3.78-3.89 1.09 0 2.24.19 2.24.19v2.47h-1.26c-1.24 0-1.63.77-1.63 1.56v1.88h2.78l-.45 2.9h-2.33v7a10 10 0 0 0 8.44-9.9c0-5.53-4.5-10.02-10-10.02Z"/>
+              </svg>
+            </div>
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                Meta Ads (Facebook/Instagram)
+                {settings.meta.enabled && <Badge className="bg-green-100 text-green-700">Enabled</Badge>}
+              </CardTitle>
+              <CardDescription>Connect your Meta Business account for ad campaign management</CardDescription>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {testStatus.meta === 'success' && <CheckCircle className="w-5 h-5 text-green-500" />}
+            {testStatus.meta === 'error' && <XCircle className="w-5 h-5 text-red-500" />}
+            <Button variant="outline" size="sm" onClick={() => testConnection('meta')} disabled={testStatus.meta === 'testing'}>
+              {testStatus.meta === 'testing' ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Test Connection'}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between pb-4 border-b">
+            <div className="flex items-center gap-2">
+              <Label>Enable Meta Ads Integration</Label>
+            </div>
+            <Switch 
+              checked={settings.meta.enabled}
+              onCheckedChange={(checked) => setSettings(prev => ({ ...prev, meta: { ...prev.meta, enabled: checked } }))}
+            />
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>App ID</Label>
+              <Input
+                value={settings.meta.app_id}
+                onChange={(e) => setSettings(prev => ({ ...prev, meta: { ...prev.meta, app_id: e.target.value } }))}
+                placeholder="Your Meta App ID"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>App Secret</Label>
+              <div className="relative">
+                <Input
+                  type={showSecrets.meta ? 'text' : 'password'}
+                  value={settings.meta.app_secret}
+                  onChange={(e) => setSettings(prev => ({ ...prev, meta: { ...prev.meta, app_secret: e.target.value } }))}
+                  placeholder="Your Meta App Secret"
+                />
+                <Button 
+                  type="button"
+                  variant="ghost" 
+                  size="sm" 
+                  className="absolute right-1 top-1/2 -translate-y-1/2"
+                  onClick={() => setShowSecrets(prev => ({ ...prev, meta: !prev.meta }))}
+                >
+                  {showSecrets.meta ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Access Token (Long-lived)</Label>
+            <div className="relative">
+              <Input
+                type={showSecrets.meta ? 'text' : 'password'}
+                value={settings.meta.access_token}
+                onChange={(e) => setSettings(prev => ({ ...prev, meta: { ...prev.meta, access_token: e.target.value } }))}
+                placeholder="Your long-lived access token"
+              />
+            </div>
+            <p className="text-xs text-gray-500">Get this from the Meta Business Suite → Business Settings → System Users</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Ad Account ID</Label>
+              <Input
+                value={settings.meta.ad_account_id}
+                onChange={(e) => setSettings(prev => ({ ...prev, meta: { ...prev.meta, ad_account_id: e.target.value } }))}
+                placeholder="act_1234567890"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Pixel ID (optional)</Label>
+              <Input
+                value={settings.meta.pixel_id}
+                onChange={(e) => setSettings(prev => ({ ...prev, meta: { ...prev.meta, pixel_id: e.target.value } }))}
+                placeholder="1234567890"
+              />
+            </div>
+          </div>
+
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              <strong>Setup Guide:</strong> Go to{' '}
+              <a href="https://business.facebook.com/settings" target="_blank" rel="noopener noreferrer" className="underline">
+                Meta Business Settings
+              </a>
+              {' '}→ System Users → Generate Token with ads_management, ads_read permissions.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Google Ads */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+              <svg viewBox="0 0 24 24" className="w-6 h-6 text-red-600" fill="currentColor">
+                <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"/>
+              </svg>
+            </div>
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                Google Ads
+                {settings.google.enabled && <Badge className="bg-green-100 text-green-700">Enabled</Badge>}
+              </CardTitle>
+              <CardDescription>Connect your Google Ads account for campaign management</CardDescription>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {testStatus.google === 'success' && <CheckCircle className="w-5 h-5 text-green-500" />}
+            {testStatus.google === 'error' && <XCircle className="w-5 h-5 text-red-500" />}
+            <Button variant="outline" size="sm" onClick={() => testConnection('google')} disabled={testStatus.google === 'testing'}>
+              {testStatus.google === 'testing' ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Test Connection'}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between pb-4 border-b">
+            <div className="flex items-center gap-2">
+              <Label>Enable Google Ads Integration</Label>
+            </div>
+            <Switch 
+              checked={settings.google.enabled}
+              onCheckedChange={(checked) => setSettings(prev => ({ ...prev, google: { ...prev.google, enabled: checked } }))}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>OAuth Client ID</Label>
+              <Input
+                value={settings.google.client_id}
+                onChange={(e) => setSettings(prev => ({ ...prev, google: { ...prev.google, client_id: e.target.value } }))}
+                placeholder="Your OAuth Client ID"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>OAuth Client Secret</Label>
+              <div className="relative">
+                <Input
+                  type={showSecrets.google ? 'text' : 'password'}
+                  value={settings.google.client_secret}
+                  onChange={(e) => setSettings(prev => ({ ...prev, google: { ...prev.google, client_secret: e.target.value } }))}
+                  placeholder="Your OAuth Client Secret"
+                />
+                <Button 
+                  type="button"
+                  variant="ghost" 
+                  size="sm" 
+                  className="absolute right-1 top-1/2 -translate-y-1/2"
+                  onClick={() => setShowSecrets(prev => ({ ...prev, google: !prev.google }))}
+                >
+                  {showSecrets.google ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Developer Token</Label>
+              <div className="relative">
+                <Input
+                  type={showSecrets.google ? 'text' : 'password'}
+                  value={settings.google.developer_token}
+                  onChange={(e) => setSettings(prev => ({ ...prev, google: { ...prev.google, developer_token: e.target.value } }))}
+                  placeholder="Your Developer Token"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Customer ID (MCC or Account)</Label>
+              <Input
+                value={settings.google.customer_id}
+                onChange={(e) => setSettings(prev => ({ ...prev, google: { ...prev.google, customer_id: e.target.value } }))}
+                placeholder="123-456-7890"
+              />
+            </div>
+          </div>
+
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-800">
+              <strong>Setup Guide:</strong> Go to{' '}
+              <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="underline">
+                Google Cloud Console
+              </a>
+              {' '}→ Create OAuth 2.0 credentials. Apply for Google Ads API access at{' '}
+              <a href="https://ads.google.com/aw/apicenter" target="_blank" rel="noopener noreferrer" className="underline">
+                API Center
+              </a>.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Save Button */}
+      <div className="flex justify-end">
+        <Button onClick={saveAdSettings} disabled={saving} size="lg">
+          {saving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+          Save All Ad Platform Settings
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -359,7 +698,7 @@ export default function MarketingSettingsPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-5 w-full max-w-3xl">
+        <TabsList className="grid grid-cols-6 w-full max-w-4xl">
           <TabsTrigger value="project-types" className="flex items-center gap-2">
             <Layers className="w-4 h-4" />
             Project Types
@@ -375,6 +714,10 @@ export default function MarketingSettingsPage() {
           <TabsTrigger value="mediums" className="flex items-center gap-2">
             <Monitor className="w-4 h-4" />
             Mediums
+          </TabsTrigger>
+          <TabsTrigger value="ad-platforms" className="flex items-center gap-2">
+            <Target className="w-4 h-4" />
+            Ad Platforms
           </TabsTrigger>
           <TabsTrigger value="email" className="flex items-center gap-2">
             <Mail className="w-4 h-4" />
@@ -583,6 +926,11 @@ export default function MarketingSettingsPage() {
         {/* Email Settings Tab */}
         <TabsContent value="email" className="space-y-4">
           <EmailSettingsTab />
+        </TabsContent>
+
+        {/* Ad Platforms Settings Tab */}
+        <TabsContent value="ad-platforms" className="space-y-4">
+          <AdPlatformsSettingsTab />
         </TabsContent>
       </Tabs>
 

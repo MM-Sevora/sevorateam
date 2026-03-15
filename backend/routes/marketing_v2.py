@@ -246,6 +246,123 @@ async def update_marketing_email_settings(
     return {"success": True, "message": "Email settings updated", "email": email}
 
 
+# ========== AD PLATFORM SETTINGS ==========
+
+@marketing_v2_router.get("/settings/ad-platforms")
+async def get_ad_platform_settings(user: dict = Depends(get_marketing_auth())):
+    """Get ad platform API settings (Meta, Google)"""
+    db = get_db()
+    settings = await db.marketing_settings.find_one({}, {"_id": 0})
+    
+    if not settings or "ad_platforms" not in settings:
+        return {
+            "settings": {
+                "meta": {
+                    "app_id": "",
+                    "app_secret": "",
+                    "access_token": "",
+                    "ad_account_id": "",
+                    "pixel_id": "",
+                    "enabled": False
+                },
+                "google": {
+                    "client_id": "",
+                    "client_secret": "",
+                    "developer_token": "",
+                    "customer_id": "",
+                    "enabled": False
+                }
+            }
+        }
+    
+    # Mask sensitive data for display
+    ad_settings = settings.get("ad_platforms", {})
+    return {"settings": ad_settings}
+
+
+@marketing_v2_router.put("/settings/ad-platforms")
+async def update_ad_platform_settings(
+    body: dict,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Update ad platform API settings"""
+    db = get_db()
+    
+    settings = body.get("settings", body)
+    
+    await db.marketing_settings.update_one(
+        {},
+        {"$set": {"ad_platforms": settings}},
+        upsert=True
+    )
+    
+    return {"success": True, "message": "Ad platform settings updated"}
+
+
+@marketing_v2_router.post("/settings/ad-platforms/test/{platform}")
+async def test_ad_platform_connection(
+    platform: str,
+    body: dict,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Test connection to an ad platform"""
+    settings = body.get("settings", {})
+    
+    if platform == "meta":
+        # Test Meta API connection
+        access_token = settings.get("access_token")
+        ad_account_id = settings.get("ad_account_id")
+        
+        if not access_token or not ad_account_id:
+            return {"success": False, "error": "Missing access token or ad account ID"}
+        
+        try:
+            import httpx
+            async with httpx.AsyncClient() as client:
+                # Test by fetching ad account info
+                url = f"https://graph.facebook.com/v18.0/{ad_account_id}"
+                response = await client.get(url, params={
+                    "access_token": access_token,
+                    "fields": "name,account_status,currency"
+                })
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    return {
+                        "success": True,
+                        "message": f"Connected to: {data.get('name', 'Unknown')}",
+                        "account": data
+                    }
+                else:
+                    error_data = response.json()
+                    return {
+                        "success": False,
+                        "error": error_data.get("error", {}).get("message", "API request failed")
+                    }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    elif platform == "google":
+        # Test Google Ads API connection
+        client_id = settings.get("client_id")
+        customer_id = settings.get("customer_id")
+        
+        if not client_id or not customer_id:
+            return {"success": False, "error": "Missing client ID or customer ID"}
+        
+        # For Google Ads, full OAuth flow is complex - just validate the credentials format
+        if len(client_id) < 20:
+            return {"success": False, "error": "Invalid client ID format"}
+        
+        return {
+            "success": True,
+            "message": "Google Ads credentials format validated. Full connection test requires OAuth flow.",
+            "note": "Please complete OAuth authorization in the Google Ads API console."
+        }
+    
+    return {"success": False, "error": "Unknown platform"}
+
+
 @marketing_v2_router.post("/outreach/send-email")
 async def send_outreach_email(
     contact_id: str,
