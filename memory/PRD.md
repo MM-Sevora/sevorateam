@@ -45,13 +45,21 @@ Build a comprehensive Marketing Operations Platform that integrates marketing, s
 
 ### 4. Knowledge Base (Confluence-like) - NEW (Mar 2026)
 - **Spaces**: Organize documentation by team/project/company
-- **Pages**: Rich text editor with Markdown support
+- **Pages**: WYSIWYG rich text editor (TipTap) with formatting toolbar
 - **Page Hierarchy**: Parent/child page structure
 - **Version History**: Track all changes, restore previous versions
 - **Comments**: Collaborate on documentation
 - **Templates**: Industry-standard templates (RFC, ADR, Design Doc, Runbook, Post-Mortem, Meeting Notes, Onboarding)
 - **Search**: Full-text search across all knowledge base content
 - **Access Control**: Public/private spaces
+
+### 5. Custom Workflow Configuration - NEW (Mar 2026)
+- **Workflow Definition**: Define custom status workflows
+- **Status Categories**: todo, in_progress, done
+- **Transitions**: Define allowed status transitions
+- **Required Fields**: Enforce field completion on transitions
+- **Bug Workflow**: Pre-built workflow with triage, fix, verify stages
+- **Issue Type Mapping**: Different workflows for different issue types
 
 ### 4. Sevora Pulse (Team Communication)
 - Daily work updates

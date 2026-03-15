@@ -3,7 +3,8 @@ import {
   X, Calendar, User, Flag, Clock, CheckCircle2, Circle, Plus,
   MessageSquare, Trash2, Edit, Save, ListTodo, Timer, ChevronDown,
   AlertTriangle, Link2, Unlink, Paperclip, Upload, FileText, Image,
-  File, Download, Folder, Tag, Repeat, RefreshCw, Bell, BellRing, Copy
+  File, Download, Folder, Tag, Repeat, RefreshCw, Bell, BellRing, Copy,
+  Layers, Bug, BookOpen, Zap, Search, CheckSquare
 } from 'lucide-react';
 
 // Animation styles
@@ -162,6 +163,25 @@ const statusConfig = {
   completed: { label: 'Completed', color: 'bg-emerald-500' },
   approved: { label: 'Approved', color: 'bg-green-500' },
   on_hold: { label: 'On Hold', color: 'bg-stone-400' }
+};
+
+// Issue type configuration (Jira-like)
+const issueTypeConfig = {
+  task: { label: 'Task', icon: CheckSquare, color: 'text-blue-600 bg-blue-50' },
+  story: { label: 'Story', icon: BookOpen, color: 'text-green-600 bg-green-50' },
+  bug: { label: 'Bug', icon: Bug, color: 'text-red-600 bg-red-50' },
+  epic: { label: 'Epic', icon: Layers, color: 'text-purple-600 bg-purple-50' },
+  subtask: { label: 'Sub-task', icon: CheckSquare, color: 'text-gray-500 bg-gray-50' },
+  improvement: { label: 'Improvement', icon: Zap, color: 'text-amber-600 bg-amber-50' },
+  spike: { label: 'Spike', icon: Search, color: 'text-indigo-600 bg-indigo-50' }
+};
+
+// Bug severity configuration
+const bugSeverityConfig = {
+  critical: { label: 'Critical', color: 'bg-red-600 text-white' },
+  major: { label: 'Major', color: 'bg-orange-500 text-white' },
+  minor: { label: 'Minor', color: 'bg-yellow-500 text-white' },
+  trivial: { label: 'Trivial', color: 'bg-gray-400 text-white' }
 };
 
 // Label colors
@@ -1590,7 +1610,18 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
           is_recurring: data.is_recurring || false,
           recurrence_pattern: data.recurrence_pattern || 'weekly',
           recurrence_interval: data.recurrence_interval || 1,
-          recurrence_end_date: data.recurrence_end_date ? data.recurrence_end_date.split('T')[0] : ''
+          recurrence_end_date: data.recurrence_end_date ? data.recurrence_end_date.split('T')[0] : '',
+          // Issue type fields
+          issue_type: data.issue_type || 'task',
+          epic_id: data.epic_id || '',
+          story_points: data.story_points || '',
+          // Bug-specific fields
+          bug_severity: data.bug_severity || '',
+          reproduction_steps: data.reproduction_steps || '',
+          expected_behavior: data.expected_behavior || '',
+          actual_behavior: data.actual_behavior || '',
+          // Story-specific fields
+          acceptance_criteria: data.acceptance_criteria || ''
         });
       }
     } catch (e) { 
@@ -1792,6 +1823,39 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
 
                   <div className="h-5 w-px bg-[#E8D5C4]" />
 
+                  {/* Issue Type */}
+                  {editing ? (
+                    <Select value={editData.issue_type || 'task'} onValueChange={(v) => setEditData({ ...editData, issue_type: v })}>
+                      <SelectTrigger className="w-[130px] border-[#D4BBA6] bg-[#FDF8F3] h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white border-[#D4BBA6]">
+                        {Object.entries(issueTypeConfig).map(([k, v]) => {
+                          const IconComp = v.icon;
+                          return (
+                            <SelectItem key={k} value={k}>
+                              <div className="flex items-center gap-2">
+                                <IconComp className="w-4 h-4" />
+                                {v.label}
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className={`flex items-center gap-1.5 px-2 py-1 rounded ${issueTypeConfig[task.issue_type || 'task']?.color}`}>
+                      {(() => {
+                        const config = issueTypeConfig[task.issue_type || 'task'];
+                        const IconComp = config?.icon || CheckSquare;
+                        return <IconComp className="w-3 h-3" />;
+                      })()}
+                      <span className="text-xs font-medium">{issueTypeConfig[task.issue_type || 'task']?.label}</span>
+                    </div>
+                  )}
+
+                  <div className="h-5 w-px bg-[#E8D5C4]" />
+
                   {/* Assignee */}
                   {editing ? (
                     <Select value={editData.assigned_to || 'unassigned'} onValueChange={(v) => setEditData({ ...editData, assigned_to: v === 'unassigned' ? '' : v })}>
@@ -1938,6 +2002,120 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
                     </div>
                   )}
                 </div>
+
+                {/* Bug-specific fields */}
+                {(task.issue_type === 'bug' || editData.issue_type === 'bug') && (
+                  <div className="p-4 bg-red-50/50 border-b border-[#E8D5C4] space-y-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Bug className="w-4 h-4 text-red-600" />
+                      <span className="text-xs font-semibold text-red-700 uppercase tracking-wide">Bug Details</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-[#6B5D52] text-xs font-medium mb-1 block">Severity</Label>
+                        {editing ? (
+                          <Select value={editData.bug_severity || ''} onValueChange={(v) => setEditData({ ...editData, bug_severity: v })}>
+                            <SelectTrigger className="h-8 border-[#D4BBA6] bg-white">
+                              <SelectValue placeholder="Select severity" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white border-[#D4BBA6]">
+                              {Object.entries(bugSeverityConfig).map(([k, v]) => (
+                                <SelectItem key={k} value={k}>
+                                  <div className="flex items-center gap-2">
+                                    <span className={`px-2 py-0.5 rounded text-xs ${v.color}`}>{v.label}</span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Badge className={bugSeverityConfig[task.bug_severity]?.color || 'bg-gray-200'}>
+                            {bugSeverityConfig[task.bug_severity]?.label || 'Not set'}
+                          </Badge>
+                        )}
+                      </div>
+                      <div>
+                        <Label className="text-[#6B5D52] text-xs font-medium mb-1 block">Environment</Label>
+                        {editing ? (
+                          <Input
+                            value={editData.environment || ''}
+                            onChange={(e) => setEditData({ ...editData, environment: e.target.value })}
+                            placeholder="e.g., Chrome 120, Windows 11"
+                            className="h-8 border-[#D4BBA6] bg-white"
+                          />
+                        ) : (
+                          <span className="text-sm text-[#6B5D52]">{task.environment || 'Not specified'}</span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <Label className="text-[#6B5D52] text-xs font-medium mb-1 block">Steps to Reproduce</Label>
+                      {editing ? (
+                        <Textarea
+                          value={editData.reproduction_steps || ''}
+                          onChange={(e) => setEditData({ ...editData, reproduction_steps: e.target.value })}
+                          placeholder="1. Go to...&#10;2. Click on...&#10;3. Observe..."
+                          className="min-h-[60px] border-[#D4BBA6] bg-white"
+                        />
+                      ) : (
+                        <p className="text-sm text-[#6B5D52] whitespace-pre-wrap">{task.reproduction_steps || 'Not provided'}</p>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-[#6B5D52] text-xs font-medium mb-1 block">Expected Behavior</Label>
+                        {editing ? (
+                          <Textarea
+                            value={editData.expected_behavior || ''}
+                            onChange={(e) => setEditData({ ...editData, expected_behavior: e.target.value })}
+                            placeholder="What should happen?"
+                            className="min-h-[50px] border-[#D4BBA6] bg-white"
+                          />
+                        ) : (
+                          <p className="text-sm text-[#6B5D52] whitespace-pre-wrap">{task.expected_behavior || 'Not provided'}</p>
+                        )}
+                      </div>
+                      <div>
+                        <Label className="text-[#6B5D52] text-xs font-medium mb-1 block">Actual Behavior</Label>
+                        {editing ? (
+                          <Textarea
+                            value={editData.actual_behavior || ''}
+                            onChange={(e) => setEditData({ ...editData, actual_behavior: e.target.value })}
+                            placeholder="What actually happens?"
+                            className="min-h-[50px] border-[#D4BBA6] bg-white"
+                          />
+                        ) : (
+                          <p className="text-sm text-[#6B5D52] whitespace-pre-wrap">{task.actual_behavior || 'Not provided'}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Story-specific fields - Acceptance Criteria */}
+                {(task.issue_type === 'story' || editData.issue_type === 'story') && (
+                  <div className="p-4 bg-green-50/50 border-b border-[#E8D5C4]">
+                    <div className="flex items-center gap-2 mb-2">
+                      <BookOpen className="w-4 h-4 text-green-600" />
+                      <span className="text-xs font-semibold text-green-700 uppercase tracking-wide">Acceptance Criteria</span>
+                    </div>
+                    {editing ? (
+                      <Textarea
+                        value={editData.acceptance_criteria || ''}
+                        onChange={(e) => setEditData({ ...editData, acceptance_criteria: e.target.value })}
+                        placeholder="Given...&#10;When...&#10;Then..."
+                        className="min-h-[80px] border-[#D4BBA6] bg-white"
+                      />
+                    ) : (
+                      <p className="text-sm text-[#6B5D52] whitespace-pre-wrap">
+                        {task.acceptance_criteria || 'No acceptance criteria defined'}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Tabs Section */}
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="p-4">

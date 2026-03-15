@@ -5,8 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Input } from '../../components/ui/input';
-import { Textarea } from '../../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { TipTapEditor } from '../../components/ui/tiptap-editor';
 import { toast } from 'sonner';
 import { 
   ChevronRight, ArrowLeft, Edit2, Save, X, Clock, User, Eye, 
@@ -272,28 +272,22 @@ const PageEditorPage = () => {
                       </Select>
                     </div>
                     
-                    <Textarea
-                      value={editForm.content}
-                      onChange={(e) => setEditForm({ ...editForm, content: e.target.value })}
-                      className="min-h-[500px] font-mono text-sm"
-                      placeholder="Write your content here... (Markdown supported)"
+                    <TipTapEditor
+                      content={editForm.content}
+                      onChange={(html) => setEditForm({ ...editForm, content: html })}
+                      placeholder="Write your content here..."
+                      minHeight="400px"
                     />
-                    
-                    <p className="text-xs text-gray-400">
-                      Tip: Use Markdown for formatting. Headers (#), bold (**text**), lists (-), code blocks (```)
-                    </p>
                   </div>
                 ) : (
                   <div>
                     <h1 className="text-3xl font-bold text-gray-900 mb-6">{page.title}</h1>
                     
                     {page.content ? (
-                      <div className="prose prose-gray max-w-none">
-                        {/* Simple markdown rendering - in production use react-markdown */}
-                        <pre className="whitespace-pre-wrap font-sans text-gray-700 leading-relaxed">
-                          {page.content}
-                        </pre>
-                      </div>
+                      <div 
+                        className="prose prose-gray max-w-none prose-headings:text-gray-900 prose-a:text-blue-600 prose-code:bg-gray-100 prose-code:px-1 prose-code:rounded prose-pre:bg-gray-900 prose-pre:text-gray-100"
+                        dangerouslySetInnerHTML={{ __html: page.content }}
+                      />
                     ) : (
                       <div className="text-center py-12 text-gray-400">
                         <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />

@@ -4636,6 +4636,14 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Knowledge Base routes: {e}")
 
+# Register Workflow Configuration routes
+try:
+    from routes.workflows import router as workflows_router
+    api_router.include_router(workflows_router)
+    logger.info("Workflow routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Workflow routes: {e}")
+
 # Register Notifications routes
 try:
     from routes.notifications import router as notifications_router, init_notifications_router
