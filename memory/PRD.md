@@ -64,6 +64,42 @@ Build a comprehensive Marketing Operations Platform that integrates marketing, s
 
 ### March 2026 (Latest Session)
 
+#### API Keys Settings Page (COMPLETED - Mar 15, 2026)
+- **Enhancement**: Admin UI to manage third-party API keys directly from the dashboard
+- **Changes Applied**:
+  - Created `/admin/api-keys` page with tabs for Meta, YouTube, LinkedIn, Google
+  - Secure secret masking (shows first 6 + last 4 characters only)
+  - Test connection buttons for each platform
+  - Auto-update environment variables on save
+  - Token expiration status display for Meta
+  - Added sidebar link under Administration > General Admin
+- **Files Modified**:
+  - `/app/frontend/src/pages/admin/APIKeysSettingsPage.jsx` (NEW)
+  - `/app/frontend/src/components/Layout.jsx` (sidebar link)
+  - `/app/backend/server.py` (admin_keys_router endpoints)
+- **Backend Endpoints**:
+  - `GET /api/admin/api-keys` - Get all keys (masked)
+  - `PUT /api/admin/api-keys` - Update keys
+  - `POST /api/admin/api-keys/test/{platform}` - Test connection
+- **Testing**: Backend API tested via curl ✓
+- **Status**: TESTED & WORKING
+
+#### AI Discovery → Add to Database Flow (COMPLETED - Mar 15, 2026)
+- **Enhancement**: Enhanced Public AI Influencer Discovery with real Instagram data verification
+- **Changes Applied**:
+  - New endpoint `POST /api/marketing/v2/influencers/public-discover/fetch-and-save`
+  - Fetches real Instagram metrics via Meta Graph API before saving
+  - Falls back to AI-estimated data if API fails
+  - Auto-redirects to influencer profile after adding
+  - Detects duplicates and offers "View Profile" action
+  - Records verification status (`instagram_verified: true/false`)
+  - Updated button labels: "Add to DB", "Preview", "Instagram"
+- **Files Modified**:
+  - `/app/backend/routes/marketing_v2.py` (new fetch-and-save endpoint)
+  - `/app/frontend/src/pages/marketing/PublicInfluencerDiscoveryPage.jsx`
+- **Testing**: Backend API tested via curl ✓
+- **Status**: TESTED & WORKING
+
 #### Sourcing Templates CRUD + Categories (COMPLETED - Mar 2026)
 - **Enhancement**: Full CRUD functionality for email templates with category filtering
 - **Changes Applied**:

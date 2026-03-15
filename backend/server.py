@@ -6418,7 +6418,6 @@ async def get_api_keys(user: dict = Depends(get_current_user)):
     if user.get("role") not in ["admin", "super_admin"]:
         raise HTTPException(status_code=403, detail="Admin access required")
     
-    db = get_db()
     settings = await db.api_keys_settings.find_one({}, {"_id": 0})
     
     if not settings:
@@ -6464,8 +6463,6 @@ async def update_api_keys(data: dict, user: dict = Depends(get_current_user)):
     """Update API keys and save to database"""
     if user.get("role") not in ["admin", "super_admin"]:
         raise HTTPException(status_code=403, detail="Admin access required")
-    
-    db = get_db()
     
     # Don't save masked values - only update if full value provided
     update_doc = {"updated_at": datetime.utcnow(), "updated_by": user.get("email")}
@@ -6518,8 +6515,7 @@ async def test_api_connection(platform: str, user: dict = Depends(get_current_us
     if user.get("role") not in ["admin", "super_admin"]:
         raise HTTPException(status_code=403, detail="Admin access required")
     
-    db = get_db()
-    settings = await db.api_keys_settings.find_one({}, {"_id": 0})
+    settings = await db.api_keys_settings.find_one({}, {"_id": 0}) or {}
     
     if platform == "meta":
         token = settings.get("meta", {}).get("access_token") or os.environ.get("INSTAGRAM_ACCESS_TOKEN")

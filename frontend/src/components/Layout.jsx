@@ -298,6 +298,7 @@ const DEPARTMENT_CONFIG = {
                 requiredModule: 'admin',
                 items: [
                     { path: '/admin/users-permissions', name: 'Users & Permissions', icon: Shield },
+                    { path: '/admin/api-keys', name: 'API Keys & Tokens', icon: Key },
                 ]
             },
         ]
