@@ -103,16 +103,21 @@ const DEPARTMENT_CONFIG = {
             { path: '/projects/sprints', name: 'Sprints', icon: Zap },
             { path: '/projects/milestones', name: 'Milestones', icon: Flag },
             { path: '/projects/recurring', name: 'Recurring Tasks', icon: RefreshCw },
-        ],
-        groups: [
-            {
-                groupName: 'Engineering Tools',
-                groupIcon: Layers,
-                items: [
-                    { path: '/projects/engineering/backlog', name: 'Backlog', icon: Layers },
-                    { path: '/projects/engineering/reports', name: 'Reports & Charts', icon: TrendingUp },
-                ]
-            }
+        ]
+    },
+    engineering: {
+        name: 'Engineering',
+        icon: Layers,
+        color: 'from-violet-600 to-violet-700',
+        bgColor: 'bg-violet-50',
+        textColor: 'text-violet-700',
+        requiredModule: 'project_management',
+        routes: [
+            { path: '/engineering/backlog', name: 'Product Backlog', icon: Layers },
+            { path: '/engineering/epics', name: 'Epics', icon: Target },
+            { path: '/engineering/sprints', name: 'Sprint Planning', icon: Zap },
+            { path: '/engineering/reports', name: 'Reports & Charts', icon: TrendingUp },
+            { path: '/engineering/workflows', name: 'Workflows', icon: RefreshCw },
         ]
     },
     tasks: {

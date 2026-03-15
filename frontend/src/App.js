@@ -126,6 +126,11 @@ import BacklogPage from "./pages/projects/BacklogPage";
 import GlobalBacklogPage from "./pages/projects/GlobalBacklogPage";
 import EngineeringReportsPage from "./pages/projects/EngineeringReportsPage";
 
+// Engineering Module Pages
+import GlobalEpicsPage from "./pages/engineering/GlobalEpicsPage";
+import GlobalSprintPlanningPage from "./pages/engineering/GlobalSprintPlanningPage";
+import WorkflowsPage from "./pages/engineering/WorkflowsPage";
+
 // Knowledge Base Pages
 import KnowledgeBasePage from "./pages/knowledge/KnowledgeBasePage";
 import SpaceDetailPage from "./pages/knowledge/SpaceDetailPage";
@@ -576,10 +581,18 @@ function AppRoutes() {
             <Route path="/projects/:projectId/epics" element={<ProtectedRoute requiredModule="project_management"><EpicsPage /></ProtectedRoute>} />
             <Route path="/projects/:projectId/backlog" element={<ProtectedRoute requiredModule="project_management"><BacklogPage /></ProtectedRoute>} />
             <Route path="/projects/:projectId/sprint-planning" element={<ProtectedRoute requiredModule="project_management"><SprintPlanningPage /></ProtectedRoute>} />
-            <Route path="/projects/engineering/backlog" element={<ProtectedRoute requiredModule="project_management"><GlobalBacklogPage /></ProtectedRoute>} />
-            <Route path="/projects/engineering/reports" element={<ProtectedRoute requiredModule="project_management"><EngineeringReportsPage /></ProtectedRoute>} />
             <Route path="/projects/manager" element={<ProtectedRoute requiredModule="project_management"><ManagerDashboard /></ProtectedRoute>} />
             <Route path="/projects/:projectId" element={<ProtectedRoute requiredModule="project_management"><ProjectDetail /></ProtectedRoute>} />
+
+            {/* Engineering Module Routes */}
+            <Route path="/engineering/backlog" element={<ProtectedRoute requiredModule="project_management"><GlobalBacklogPage /></ProtectedRoute>} />
+            <Route path="/engineering/epics" element={<ProtectedRoute requiredModule="project_management"><GlobalEpicsPage /></ProtectedRoute>} />
+            <Route path="/engineering/sprints" element={<ProtectedRoute requiredModule="project_management"><GlobalSprintPlanningPage /></ProtectedRoute>} />
+            <Route path="/engineering/reports" element={<ProtectedRoute requiredModule="project_management"><EngineeringReportsPage /></ProtectedRoute>} />
+            <Route path="/engineering/workflows" element={<ProtectedRoute requiredModule="project_management"><WorkflowsPage /></ProtectedRoute>} />
+            {/* Legacy routes - redirect to new paths */}
+            <Route path="/projects/engineering/backlog" element={<ProtectedRoute requiredModule="project_management"><GlobalBacklogPage /></ProtectedRoute>} />
+            <Route path="/projects/engineering/reports" element={<ProtectedRoute requiredModule="project_management"><EngineeringReportsPage /></ProtectedRoute>} />
 
             {/* Knowledge Base Routes */}
             <Route path="/knowledge" element={<ProtectedRoute requiredModule="project_management"><KnowledgeBasePage /></ProtectedRoute>} />

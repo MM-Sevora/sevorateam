@@ -90,6 +90,24 @@ Build a comprehensive Marketing Operations Platform that integrates marketing, s
 
 ### March 2026 (Latest Session)
 
+#### Separate Engineering Module (COMPLETED - Mar 15, 2026)
+- **Enhancement**: Created a dedicated "Engineering" sidebar module separate from Project Management
+- **New Routes**:
+  - `/engineering/backlog` - Global Product Backlog (project selector)
+  - `/engineering/epics` - Epics Overview across all projects
+  - `/engineering/sprints` - Global Sprint Planning view
+  - `/engineering/reports` - Engineering Reports & Charts
+  - `/engineering/workflows` - Custom Workflow Management
+- **New Pages Created**:
+  - `/app/frontend/src/pages/engineering/GlobalEpicsPage.jsx`
+  - `/app/frontend/src/pages/engineering/GlobalSprintPlanningPage.jsx`
+  - `/app/frontend/src/pages/engineering/WorkflowsPage.jsx`
+- **Sidebar Changes**: Engineering module has its own violet/purple theme and icon (Layers)
+- **Files Modified**:
+  - `/app/frontend/src/components/Layout.jsx` (new module config, removed from PM groups)
+  - `/app/frontend/src/App.js` (new routes and imports)
+- **Status**: WORKING
+
 #### Engineering Tools & Knowledge Base Bug Fixes (COMPLETED - Mar 15, 2026)
 - **Bug Fix 1**: Tiptap WYSIWYG Editor compilation error
   - Updated BubbleMenu import from `@tiptap/react` to `@tiptap/react/menus` (v3 breaking change)
