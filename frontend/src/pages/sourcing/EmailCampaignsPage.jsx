@@ -9,13 +9,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Checkbox } from '../../components/ui/checkbox';
+import { Label } from '../../components/ui/label';
 import { toast } from 'sonner';
 import { 
   Mail, Send, Users, History, CheckCircle2, AlertCircle, 
   Plus, Loader2, FileText, Eye, BarChart3, Clock,
   ChevronRight, Building2, ExternalLink, Trash2, RefreshCw,
-  Search, X, Package, Filter
+  Search, X, Package, Filter, Edit, Copy, Tag
 } from 'lucide-react';
+
+// Template type/category configuration
+const TEMPLATE_CATEGORIES = {
+  email: { label: 'Email', color: 'bg-blue-100 text-blue-700', icon: Mail },
+  introduction: { label: 'Introduction', color: 'bg-green-100 text-green-700', icon: Users },
+  follow_up: { label: 'Follow-up', color: 'bg-amber-100 text-amber-700', icon: RefreshCw },
+  partnership: { label: 'Partnership', color: 'bg-purple-100 text-purple-700', icon: Building2 },
+  sample_request: { label: 'Sample Request', color: 'bg-pink-100 text-pink-700', icon: Package },
+  whatsapp: { label: 'WhatsApp', color: 'bg-emerald-100 text-emerald-700', icon: Send }
+};
 
 const EmailCampaignsPage = () => {
   const { api } = useAuth();
@@ -56,6 +67,21 @@ const EmailCampaignsPage = () => {
   });
   
   const [sending, setSending] = useState(false);
+
+  // Template CRUD state
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState(null);
+  const [templateForm, setTemplateForm] = useState({
+    name: '',
+    type: 'email',
+    subject: '',
+    content: '',
+    variables: []
+  });
+  const [templateSearchQuery, setTemplateSearchQuery] = useState('');
+  const [templateFilterCategory, setTemplateFilterCategory] = useState('all');
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [showTemplatePreview, setShowTemplatePreview] = useState(null);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -222,6 +248,123 @@ const EmailCampaignsPage = () => {
       toast.error('Failed to load campaign details');
     }
   };
+
+  // =====================
+  // TEMPLATE CRUD HANDLERS
+  // =====================
+
+  const openCreateTemplateModal = () => {
+    setEditingTemplate(null);
+    setTemplateForm({ name: '', type: 'email', subject: '', content: '', variables: [] });
+    setShowTemplateModal(true);
+  };
+
+  const openEditTemplateModal = (template) => {
+    setEditingTemplate(template);
+    setTemplateForm({
+      name: template.name || '',
+      type: template.type || 'email',
+      subject: template.subject || '',
+      content: template.content || '',
+      variables: template.variables || []
+    });
+    setShowTemplateModal(true);
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!templateForm.name.trim()) {
+      toast.error('Template name is required');
+      return;
+    }
+    if (!templateForm.content.trim()) {
+      toast.error('Template content is required');
+      return;
+    }
+
+    setSavingTemplate(true);
+    try {
+      // Extract variables from content ({{variable_name}} format)
+      const variableMatches = templateForm.content.match(/\{\{(\w+)\}\}/g) || [];
+      const extractedVars = [...new Set(variableMatches.map(v => v.replace(/[{}]/g, '')))];
+
+      const payload = {
+        ...templateForm,
+        variables: extractedVars
+      };
+
+      if (editingTemplate) {
+        await api.put(`/sourcing/templates/${editingTemplate.id}`, payload);
+        toast.success('Template updated successfully');
+      } else {
+        await api.post('/sourcing/templates', payload);
+        toast.success('Template created successfully');
+      }
+
+      setShowTemplateModal(false);
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to save template');
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  const handleDeleteTemplate = async (templateId) => {
+    if (!window.confirm('Are you sure you want to delete this template?')) return;
+
+    try {
+      await api.delete(`/sourcing/templates/${templateId}`);
+      toast.success('Template deleted');
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to delete template');
+    }
+  };
+
+  const handleDuplicateTemplate = async (template) => {
+    try {
+      const payload = {
+        name: `${template.name} (Copy)`,
+        type: template.type,
+        subject: template.subject,
+        content: template.content,
+        variables: template.variables || []
+      };
+      await api.post('/sourcing/templates', payload);
+      toast.success('Template duplicated');
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to duplicate template');
+    }
+  };
+
+  // Filtered templates
+  const filteredTemplates = useMemo(() => {
+    return templates.filter(template => {
+      // Category filter
+      if (templateFilterCategory !== 'all' && template.type !== templateFilterCategory) {
+        return false;
+      }
+      // Search filter
+      if (templateSearchQuery) {
+        const query = templateSearchQuery.toLowerCase();
+        const nameMatch = template.name?.toLowerCase().includes(query);
+        const subjectMatch = template.subject?.toLowerCase().includes(query);
+        const contentMatch = template.content?.toLowerCase().includes(query);
+        if (!nameMatch && !subjectMatch && !contentMatch) return false;
+      }
+      return true;
+    });
+  }, [templates, templateFilterCategory, templateSearchQuery]);
+
+  // Template counts by category
+  const templateCounts = useMemo(() => {
+    const counts = { all: templates.length };
+    Object.keys(TEMPLATE_CATEGORIES).forEach(key => {
+      counts[key] = templates.filter(t => t.type === key).length;
+    });
+    return counts;
+  }, [templates]);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -455,41 +598,164 @@ const EmailCampaignsPage = () => {
 
         {/* Templates Tab */}
         <TabsContent value="templates">
-          <Card>
-            <CardHeader>
-              <CardTitle>Email Templates</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {templates.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <FileText className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                  <p>No templates yet</p>
+          <div className="space-y-4">
+            {/* Templates Header with Search, Filter, and Create */}
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 flex-1">
+                    {/* Search */}
+                    <div className="relative flex-1 max-w-sm">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        className="pl-9"
+                        placeholder="Search templates..."
+                        value={templateSearchQuery}
+                        onChange={(e) => setTemplateSearchQuery(e.target.value)}
+                        data-testid="template-search"
+                      />
+                    </div>
+                    
+                    {/* Category Filter */}
+                    <Select value={templateFilterCategory} onValueChange={setTemplateFilterCategory}>
+                      <SelectTrigger className="w-48" data-testid="template-category-filter">
+                        <Tag className="h-4 w-4 mr-2" />
+                        <SelectValue placeholder="All Categories" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories ({templateCounts.all})</SelectItem>
+                        {Object.entries(TEMPLATE_CATEGORIES).map(([key, config]) => (
+                          <SelectItem key={key} value={key}>
+                            {config.label} ({templateCounts[key] || 0})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <Button onClick={openCreateTemplateModal} className="bg-orange-600 hover:bg-orange-700" data-testid="create-template-btn">
+                    <Plus className="h-4 w-4 mr-2" /> Create Template
+                  </Button>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {templates.map(template => (
-                    <Card key={template.id} className="hover:shadow-md transition-shadow">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between mb-2">
-                          <h3 className="font-medium">{template.name}</h3>
-                          <Badge variant="outline">{template.type}</Badge>
-                        </div>
-                        <p className="text-sm text-gray-500 mb-2">{template.subject}</p>
-                        <p className="text-xs text-gray-400 line-clamp-2">{template.content?.slice(0, 100)}...</p>
-                        {template.variables?.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {template.variables.map(v => (
-                              <Badge key={v} variant="secondary" className="text-xs">{`{{${v}}}`}</Badge>
-                            ))}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+
+            {/* Category Pills */}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={templateFilterCategory === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTemplateFilterCategory('all')}
+              >
+                All ({templateCounts.all})
+              </Button>
+              {Object.entries(TEMPLATE_CATEGORIES).map(([key, config]) => {
+                const IconComponent = config.icon;
+                return (
+                  <Button
+                    key={key}
+                    variant={templateFilterCategory === key ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTemplateFilterCategory(key)}
+                    className={templateFilterCategory === key ? '' : config.color}
+                  >
+                    <IconComponent className="h-3 w-3 mr-1" />
+                    {config.label} ({templateCounts[key] || 0})
+                  </Button>
+                );
+              })}
+            </div>
+
+            {/* Templates Grid */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Email Templates
+                  <Badge variant="secondary">{filteredTemplates.length}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {filteredTemplates.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <FileText className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                    <p className="text-lg font-medium mb-2">
+                      {templates.length === 0 ? 'No templates yet' : 'No templates match your filters'}
+                    </p>
+                    <p className="text-sm mb-4">
+                      {templates.length === 0 
+                        ? 'Create your first email template to speed up your outreach'
+                        : 'Try adjusting your search or category filter'}
+                    </p>
+                    {templates.length === 0 && (
+                      <Button onClick={openCreateTemplateModal} className="bg-orange-600 hover:bg-orange-700">
+                        <Plus className="h-4 w-4 mr-2" /> Create First Template
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredTemplates.map(template => {
+                      const categoryConfig = TEMPLATE_CATEGORIES[template.type] || TEMPLATE_CATEGORIES.email;
+                      return (
+                        <Card key={template.id} className="hover:shadow-lg transition-all border-l-4" style={{ borderLeftColor: template.type === 'introduction' ? '#22c55e' : template.type === 'follow_up' ? '#f59e0b' : template.type === 'partnership' ? '#a855f7' : template.type === 'sample_request' ? '#ec4899' : '#3b82f6' }}>
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-semibold text-gray-900 truncate">{template.name}</h3>
+                                <Badge className={`mt-1 text-xs ${categoryConfig.color}`}>
+                                  {categoryConfig.label}
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-1 ml-2">
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setShowTemplatePreview(template)} title="Preview">
+                                  <Eye className="h-4 w-4 text-gray-500" />
+                                </Button>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEditTemplateModal(template)} title="Edit">
+                                  <Edit className="h-4 w-4 text-gray-500" />
+                                </Button>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleDuplicateTemplate(template)} title="Duplicate">
+                                  <Copy className="h-4 w-4 text-gray-500" />
+                                </Button>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500 hover:text-red-700" onClick={() => handleDeleteTemplate(template.id)} title="Delete">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            {template.subject && (
+                              <p className="text-sm text-gray-600 mb-2 font-medium">
+                                📧 {template.subject}
+                              </p>
+                            )}
+                            
+                            <p className="text-xs text-gray-500 line-clamp-3 mb-3">
+                              {template.content?.slice(0, 150)}...
+                            </p>
+                            
+                            {template.variables?.length > 0 && (
+                              <div className="flex flex-wrap gap-1 pt-2 border-t">
+                                {template.variables.slice(0, 4).map(v => (
+                                  <Badge key={v} variant="outline" className="text-xs bg-gray-50">
+                                    {`{{${v}}}`}
+                                  </Badge>
+                                ))}
+                                {template.variables.length > 4 && (
+                                  <Badge variant="outline" className="text-xs bg-gray-50">
+                                    +{template.variables.length - 4} more
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -881,6 +1147,163 @@ const EmailCampaignsPage = () => {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCampaignDetail(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Template Create/Edit Modal */}
+      <Dialog open={showTemplateModal} onOpenChange={setShowTemplateModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              {editingTemplate ? 'Edit Template' : 'Create New Template'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-medium">Template Name *</Label>
+                <Input
+                  value={templateForm.name}
+                  onChange={(e) => setTemplateForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g., Brand Introduction"
+                  className="mt-1"
+                  data-testid="template-name-input"
+                />
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Category *</Label>
+                <Select 
+                  value={templateForm.type} 
+                  onValueChange={(v) => setTemplateForm(prev => ({ ...prev, type: v }))}
+                >
+                  <SelectTrigger className="mt-1" data-testid="template-type-select">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(TEMPLATE_CATEGORIES).map(([key, config]) => (
+                      <SelectItem key={key} value={key}>
+                        <span className="flex items-center gap-2">
+                          <Badge className={`text-xs ${config.color}`}>{config.label}</Badge>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium">Email Subject</Label>
+              <Input
+                value={templateForm.subject}
+                onChange={(e) => setTemplateForm(prev => ({ ...prev, subject: e.target.value }))}
+                placeholder="e.g., Partnership Opportunity with {{company_name}}"
+                className="mt-1"
+                data-testid="template-subject-input"
+              />
+              <p className="text-xs text-gray-500 mt-1">Use {"{{variable_name}}"} for dynamic values</p>
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium">Email Content *</Label>
+              <Textarea
+                value={templateForm.content}
+                onChange={(e) => setTemplateForm(prev => ({ ...prev, content: e.target.value }))}
+                placeholder="Dear {{founder_name}},&#10;&#10;I hope this email finds you well..."
+                rows={10}
+                className="mt-1 font-mono text-sm"
+                data-testid="template-content-input"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Variables will be auto-detected. Available: {"{{founder_name}}, {{company_name}}, {{brand_name}}, {{category}}"}
+              </p>
+            </div>
+
+            {/* Variable Preview */}
+            {templateForm.content && (
+              <div className="bg-gray-50 rounded-lg p-3">
+                <Label className="text-xs uppercase tracking-wider text-gray-500">Detected Variables</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {[...new Set((templateForm.content.match(/\{\{(\w+)\}\}/g) || []).map(v => v.replace(/[{}]/g, '')))].map(v => (
+                    <Badge key={v} variant="secondary" className="text-xs">{`{{${v}}}`}</Badge>
+                  ))}
+                  {!(templateForm.content.match(/\{\{(\w+)\}\}/g) || []).length && (
+                    <span className="text-xs text-gray-400">No variables detected</span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowTemplateModal(false)}>Cancel</Button>
+            <Button 
+              onClick={handleSaveTemplate} 
+              disabled={savingTemplate || !templateForm.name || !templateForm.content}
+              className="bg-orange-600 hover:bg-orange-700"
+              data-testid="save-template-btn"
+            >
+              {savingTemplate ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+              {editingTemplate ? 'Update Template' : 'Create Template'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Template Preview Modal */}
+      <Dialog open={!!showTemplatePreview} onOpenChange={() => setShowTemplatePreview(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Template Preview: {showTemplatePreview?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {showTemplatePreview && (
+            <div className="space-y-4 py-4">
+              <div className="flex items-center gap-2">
+                <Badge className={TEMPLATE_CATEGORIES[showTemplatePreview.type]?.color || 'bg-gray-100'}>
+                  {TEMPLATE_CATEGORIES[showTemplatePreview.type]?.label || showTemplatePreview.type}
+                </Badge>
+                {showTemplatePreview.variables?.length > 0 && (
+                  <span className="text-sm text-gray-500">
+                    {showTemplatePreview.variables.length} variables
+                  </span>
+                )}
+              </div>
+
+              {showTemplatePreview.subject && (
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <Label className="text-xs uppercase tracking-wider text-gray-500">Subject Line</Label>
+                  <p className="mt-1 font-medium">{showTemplatePreview.subject}</p>
+                </div>
+              )}
+
+              <div className="bg-white border rounded-lg p-4">
+                <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">Email Body</Label>
+                <div className="whitespace-pre-wrap text-sm text-gray-700 font-mono bg-gray-50 p-4 rounded-lg max-h-80 overflow-y-auto">
+                  {showTemplatePreview.content}
+                </div>
+              </div>
+
+              {showTemplatePreview.variables?.length > 0 && (
+                <div>
+                  <Label className="text-xs uppercase tracking-wider text-gray-500">Variables Used</Label>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {showTemplatePreview.variables.map(v => (
+                      <Badge key={v} variant="outline" className="text-xs">{`{{${v}}}`}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowTemplatePreview(null)}>Close</Button>
+            <Button onClick={() => { openEditTemplateModal(showTemplatePreview); setShowTemplatePreview(null); }}>
+              <Edit className="h-4 w-4 mr-2" /> Edit Template
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
