@@ -378,22 +378,31 @@ async def get_unified_campaigns(
     campaigns = []
     
     # Fetch influencer campaigns from marketing_campaigns collection
-    if not campaign_type or campaign_type == "influencer":
+    if not campaign_type or campaign_type in ["influencer", "ugc", "paid_ads", "content_production", "pr_media", "mixed"]:
         inf_filter = {}
         if status:
             inf_filter["status"] = status
         if search:
             inf_filter["name"] = {"$regex": search, "$options": "i"}
         
+        # Filter by specific campaign type if provided
+        if campaign_type and campaign_type != "pr":
+            inf_filter["campaign_type"] = campaign_type
+        
         # Apply data scope filtering
         inf_query = get_data_scope_query(user, "marketing_ops", inf_filter)
         
         inf_campaigns = await db.marketing_campaigns.find(inf_query, {"_id": 0}).limit(limit).to_list(limit)
         for c in inf_campaigns:
-            if not c.get("campaign_type") or c.get("campaign_type") == "influencer":
+            # Set default type if not set
+            if not c.get("campaign_type"):
                 c["campaign_type"] = "influencer"
-                c["influencer_count"] = len(c.get("assigned_influencers", []))
-                campaigns.append(c)
+            c["influencer_count"] = len(c.get("assigned_influencers", []) or c.get("influencers", []))
+            c["ugc_count"] = len(c.get("ugc_submissions", []))
+            c["linked_ads_count"] = len(c.get("linked_ads", []))
+            c["linked_content_count"] = len(c.get("linked_content_projects", []))
+            c["linked_publications_count"] = len(c.get("linked_publications", []))
+            campaigns.append(c)
     
     # Fetch PR campaigns
     if not campaign_type or campaign_type == "pr":
