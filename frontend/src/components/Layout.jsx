@@ -695,6 +695,58 @@ export const Layout = ({ children }) => {
                                                 </Link>
                                             );
                                         })}
+                                        
+                                        {/* Render groups array (e.g., Engineering Tools) */}
+                                        {dept.groups && dept.groups.map((group) => {
+                                            const GroupIcon = group.groupIcon;
+                                            const groupKey = `${deptKey}-${group.groupName}`;
+                                            const isGroupExpanded = expandedSubgroups.includes(groupKey);
+                                            const isGroupActive = group.items.some(item => location.pathname === item.path);
+                                            
+                                            return (
+                                                <div key={groupKey} className="space-y-1 mt-2 pt-2 border-t border-[#D4BBA6]/30">
+                                                    <button
+                                                        onClick={() => toggleSubgroup(groupKey)}
+                                                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all ${
+                                                            isGroupActive 
+                                                                ? `bg-[#E8D5C4] ${dept.textColor} font-medium` 
+                                                                : 'text-[#5D4A3A] hover:bg-[#E8D5C4]/50'
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <GroupIcon className="w-4 h-4" />
+                                                            <span>{group.groupName}</span>
+                                                        </div>
+                                                        {isGroupExpanded 
+                                                            ? <ChevronDown className="w-3 h-3" />
+                                                            : <ChevronRight className="w-3 h-3" />
+                                                        }
+                                                    </button>
+                                                    {isGroupExpanded && (
+                                                        <div className="ml-4 pl-3 border-l border-[#D4BBA6]/50 space-y-1">
+                                                            {group.items.map(item => {
+                                                                const ItemIcon = item.icon;
+                                                                const isItemActive = location.pathname === item.path;
+                                                                return (
+                                                                    <Link
+                                                                        key={item.path}
+                                                                        to={item.path}
+                                                                        className={`flex items-center gap-3 px-3 py-1.5 rounded-lg text-xs transition-all ${
+                                                                            isItemActive 
+                                                                                ? `bg-[#D4BBA6] ${dept.textColor} font-medium` 
+                                                                                : 'text-[#5D4A3A] hover:bg-[#E8D5C4]/50'
+                                                                        }`}
+                                                                    >
+                                                                        <ItemIcon className="w-3 h-3" />
+                                                                        <span>{item.name}</span>
+                                                                    </Link>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </div>
