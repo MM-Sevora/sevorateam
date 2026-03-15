@@ -15,6 +15,7 @@ const TYPE_CONFIG = {
   event: { label: 'Event', color: 'bg-amber-100 text-amber-700 border-amber-300', icon: PartyPopper },
   content: { label: 'Content', color: 'bg-green-100 text-green-700 border-green-300', icon: Calendar },
   deadline: { label: 'Deadline', color: 'bg-red-100 text-red-700 border-red-300', icon: Calendar },
+  social: { label: 'Social Post', color: 'bg-pink-100 text-pink-700 border-pink-300', icon: Calendar },
 };
 
 const MarketingCalendarPage = () => {
@@ -23,6 +24,7 @@ const MarketingCalendarPage = () => {
   const [events, setEvents] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [pressReleases, setPressReleases] = useState([]);
+  const [contentProjects, setContentProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [filterType, setFilterType] = useState('all');
@@ -30,14 +32,16 @@ const MarketingCalendarPage = () => {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [eventsRes, campaignsRes, prRes] = await Promise.all([
+      const [eventsRes, campaignsRes, prRes, contentRes] = await Promise.all([
         api.get('/marketing/v2/events'),
         api.get('/marketing/campaigns'),
         api.get('/marketing/v2/pr/releases'),
+        api.get('/marketing/v3/content-production/projects'),
       ]);
       setEvents(eventsRes.data || []);
       setCampaigns(campaignsRes.data || []);
       setPressReleases(prRes.data || []);
+      setContentProjects(contentRes.data || []);
     } catch (error) {
       console.error('Failed to fetch calendar data:', error);
     } finally {
@@ -94,9 +98,35 @@ const MarketingCalendarPage = () => {
         });
       }
     });
+
+    // Add content production projects
+    contentProjects.forEach(project => {
+      // Add project delivery date
+      if (project.delivery_date) {
+        items.push({
+          id: `content-${project.id}`,
+          title: project.name,
+          start_date: project.delivery_date,
+          item_type: 'content',
+          description: project.project_type,
+          status: project.status,
+        });
+      }
+      // Add project publish date if different
+      if (project.publish_date && project.publish_date !== project.delivery_date) {
+        items.push({
+          id: `content-publish-${project.id}`,
+          title: `📢 ${project.name}`,
+          start_date: project.publish_date,
+          item_type: 'social',
+          description: 'Scheduled to publish',
+          status: project.status,
+        });
+      }
+    });
     
     return items;
-  }, [events, campaigns, pressReleases]);
+  }, [events, campaigns, pressReleases, contentProjects]);
 
   // Get days in month
   const getDaysInMonth = (date) => {
@@ -168,8 +198,8 @@ const MarketingCalendarPage = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#4A3728]">Marketing Calendar</h1>
-          <p className="text-[#5D4A3A] mt-1">Unified view of campaigns, PR, and events</p>
+          <h1 className="text-2xl font-bold text-[#4A3728]">Content Calendar</h1>
+          <p className="text-[#5D4A3A] mt-1">Unified view of campaigns, content, PR, and events</p>
         </div>
         <div className="flex items-center gap-2">
           <Select value={filterType} onValueChange={setFilterType}>
@@ -179,6 +209,8 @@ const MarketingCalendarPage = () => {
             <SelectContent>
               <SelectItem value="all">All Types</SelectItem>
               <SelectItem value="campaign">Campaigns</SelectItem>
+              <SelectItem value="content">Content</SelectItem>
+              <SelectItem value="social">Social Posts</SelectItem>
               <SelectItem value="pr">PR</SelectItem>
               <SelectItem value="event">Events</SelectItem>
             </SelectContent>
@@ -187,7 +219,7 @@ const MarketingCalendarPage = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-5 gap-4">
         <Card className="border-[#E8D5C4]">
           <CardContent className="pt-4">
             <div className="text-2xl font-bold text-[#4A3728]">{thisMonthItems.length}</div>
@@ -198,6 +230,12 @@ const MarketingCalendarPage = () => {
           <CardContent className="pt-4">
             <div className="text-2xl font-bold text-purple-700">{campaigns.length}</div>
             <div className="text-sm text-purple-600">Campaigns</div>
+          </CardContent>
+        </Card>
+        <Card className="border-green-200 bg-green-50">
+          <CardContent className="pt-4">
+            <div className="text-2xl font-bold text-green-700">{contentProjects.length}</div>
+            <div className="text-sm text-green-600">Content Projects</div>
           </CardContent>
         </Card>
         <Card className="border-blue-200 bg-blue-50">

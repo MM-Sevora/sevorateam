@@ -49,6 +49,8 @@ import PublicationsPipelinePage from "./pages/marketing/PublicationsPipelinePage
 
 // Marketing V3 Pages - Settings
 import MarketingSettingsPage from "./pages/marketing/MarketingSettingsPage";
+import MarketingCalendarPage from "./pages/marketing/MarketingCalendarPage";
+import MarketingEmailCampaignsPage from "./pages/marketing/EmailCampaignsPage";
 
 // Marketing V3 Pages - Campaign Details
 import CampaignDetailsPage from "./pages/marketing/CampaignDetailsPage";
@@ -421,7 +423,7 @@ function AppRoutes() {
             <Route path="/marketing/campaigns" element={<ProtectedRoute requiredModule="marketing_ops"><CampaignHubPage /></ProtectedRoute>} />
             <Route path="/marketing/campaign/:campaignId" element={<ProtectedRoute requiredModule="marketing_ops"><CampaignDetailPage /></ProtectedRoute>} />
             {/* Legacy calendar route redirects to Campaign Hub */}
-            <Route path="/marketing/calendar" element={<Navigate to="/marketing/campaigns" replace />} />
+            <Route path="/marketing/calendar" element={<ProtectedRoute requiredModule="marketing_ops"><MarketingCalendarPage /></ProtectedRoute>} />
             {/* Redirect old contacts routes to influencers */}
             <Route path="/marketing/contacts" element={<Navigate to="/marketing/influencers" replace />} />
             <Route path="/marketing/contacts/:contactId" element={<Navigate to="/marketing/influencers" replace />} />
@@ -454,6 +456,7 @@ function AppRoutes() {
             {/* Mail Routes */}
             <Route path="/mail/inbox" element={<ProtectedRoute requiredModule="mail"><EmailPage /></ProtectedRoute>} />
             <Route path="/marketing/email" element={<ProtectedRoute requiredModule="marketing_ops"><EmailPage /></ProtectedRoute>} />
+            <Route path="/marketing/email-campaigns" element={<ProtectedRoute requiredModule="marketing_ops"><MarketingEmailCampaignsPage /></ProtectedRoute>} />
 
             {/* Sales Routes */}
             <Route path="/sales" element={<ProtectedRoute requiredModule="project_management"><SalesDashboard /></ProtectedRoute>} />

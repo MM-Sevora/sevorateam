@@ -363,6 +363,176 @@ async def test_ad_platform_connection(
     return {"success": False, "error": "Unknown platform"}
 
 
+# ========== EMAIL CAMPAIGNS ==========
+
+@marketing_v2_router.get("/email-campaigns")
+async def get_email_campaigns(user: dict = Depends(get_marketing_auth())):
+    """Get all email campaigns"""
+    db = get_db()
+    campaigns = await db.email_campaigns.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return campaigns
+
+
+@marketing_v2_router.post("/email-campaigns")
+async def create_email_campaign(
+    body: dict,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Create a new email campaign"""
+    db = get_db()
+    
+    campaign_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc)
+    
+    campaign = {
+        "id": campaign_id,
+        "name": body.get("name"),
+        "subject": body.get("subject"),
+        "from_name": body.get("from_name", ""),
+        "from_email": body.get("from_email", ""),
+        "template_id": body.get("template_id"),
+        "recipient_list": body.get("recipient_list", "all_contacts"),
+        "scheduled_at": body.get("scheduled_at"),
+        "content": body.get("content", ""),
+        "status": "draft",
+        "recipients": 0,
+        "sent": 0,
+        "opens": 0,
+        "clicks": 0,
+        "created_at": now.isoformat(),
+        "created_by": user.get("id")
+    }
+    
+    await db.email_campaigns.insert_one(campaign)
+    del campaign["_id"] if "_id" in campaign else None
+    
+    return {"success": True, "campaign": campaign}
+
+
+@marketing_v2_router.get("/email-campaigns/{campaign_id}")
+async def get_email_campaign(campaign_id: str, user: dict = Depends(get_marketing_auth())):
+    """Get a specific email campaign"""
+    db = get_db()
+    campaign = await db.email_campaigns.find_one({"id": campaign_id}, {"_id": 0})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return campaign
+
+
+@marketing_v2_router.put("/email-campaigns/{campaign_id}")
+async def update_email_campaign(
+    campaign_id: str,
+    body: dict,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Update an email campaign"""
+    db = get_db()
+    
+    update_data = {k: v for k, v in body.items() if k not in ["id", "created_at", "created_by"]}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.email_campaigns.update_one(
+        {"id": campaign_id},
+        {"$set": update_data}
+    )
+    
+    return {"success": True, "message": "Campaign updated"}
+
+
+@marketing_v2_router.delete("/email-campaigns/{campaign_id}")
+async def delete_email_campaign(campaign_id: str, user: dict = Depends(get_marketing_auth())):
+    """Delete an email campaign"""
+    db = get_db()
+    await db.email_campaigns.delete_one({"id": campaign_id})
+    return {"success": True, "message": "Campaign deleted"}
+
+
+@marketing_v2_router.post("/email-campaigns/{campaign_id}/send")
+async def send_email_campaign(campaign_id: str, user: dict = Depends(get_marketing_auth())):
+    """Send an email campaign"""
+    db = get_db()
+    
+    campaign = await db.email_campaigns.find_one({"id": campaign_id})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Update status to sending
+    await db.email_campaigns.update_one(
+        {"id": campaign_id},
+        {"$set": {"status": "sending", "sent_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    # TODO: Implement actual email sending logic with SendGrid/other provider
+    # For now, just mark as sent after a delay
+    
+    return {"success": True, "message": "Campaign is being sent"}
+
+
+# ========== EMAIL TEMPLATES ==========
+
+@marketing_v2_router.get("/email-templates")
+async def get_email_templates(user: dict = Depends(get_marketing_auth())):
+    """Get all email templates"""
+    db = get_db()
+    templates = await db.email_templates.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return templates
+
+
+@marketing_v2_router.post("/email-templates")
+async def create_email_template(
+    body: dict,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Create a new email template"""
+    db = get_db()
+    
+    template_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc)
+    
+    template = {
+        "id": template_id,
+        "name": body.get("name"),
+        "subject": body.get("subject"),
+        "content": body.get("content", ""),
+        "category": body.get("category", "general"),
+        "created_at": now.isoformat(),
+        "created_by": user.get("id")
+    }
+    
+    await db.email_templates.insert_one(template)
+    del template["_id"] if "_id" in template else None
+    
+    return {"success": True, "template": template}
+
+
+@marketing_v2_router.put("/email-templates/{template_id}")
+async def update_email_template(
+    template_id: str,
+    body: dict,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Update an email template"""
+    db = get_db()
+    
+    update_data = {k: v for k, v in body.items() if k not in ["id", "created_at", "created_by"]}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.email_templates.update_one(
+        {"id": template_id},
+        {"$set": update_data}
+    )
+    
+    return {"success": True, "message": "Template updated"}
+
+
+@marketing_v2_router.delete("/email-templates/{template_id}")
+async def delete_email_template(template_id: str, user: dict = Depends(get_marketing_auth())):
+    """Delete an email template"""
+    db = get_db()
+    await db.email_templates.delete_one({"id": template_id})
+    return {"success": True, "message": "Template deleted"}
+
+
 @marketing_v2_router.post("/outreach/send-email")
 async def send_outreach_email(
     contact_id: str,
