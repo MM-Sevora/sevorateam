@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Progress } from '../../components/ui/progress';
 import { toast } from 'sonner';
+import { CreateProjectButton } from '../../components/engineering/QuickCreateProjectModal';
 import { 
   Zap, ArrowRight, Plus, Calendar, Target, Clock, CheckCircle2
 } from 'lucide-react';
@@ -87,6 +88,10 @@ const GlobalSprintPlanningPage = () => {
             Plan and manage sprints across all projects
           </p>
         </div>
+        <CreateProjectButton 
+          onSuccess={fetchProjectsAndSprints}
+          className="bg-violet-600 hover:bg-violet-700"
+        />
       </div>
 
       {/* Stats */}

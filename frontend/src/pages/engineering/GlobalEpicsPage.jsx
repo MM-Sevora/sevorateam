@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Progress } from '../../components/ui/progress';
 import { toast } from 'sonner';
+import { CreateProjectButton } from '../../components/engineering/QuickCreateProjectModal';
 import { 
   Target, ArrowRight, Plus, Layers, ChevronRight
 } from 'lucide-react';
@@ -81,6 +82,10 @@ const GlobalEpicsPage = () => {
             Manage epics across all projects
           </p>
         </div>
+        <CreateProjectButton 
+          onSuccess={fetchProjectsAndEpics}
+          className="bg-violet-600 hover:bg-violet-700"
+        />
       </div>
 
       {/* Stats */}

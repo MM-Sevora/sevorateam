@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { toast } from 'sonner';
+import { CreateProjectButton } from '../../components/engineering/QuickCreateProjectModal';
 import { 
   Layers, Target, ChevronRight, Filter, ArrowRight
 } from 'lucide-react';
@@ -17,23 +18,24 @@ const GlobalBacklogPage = () => {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const response = await api.get('/projects/list');
-        setProjects(response.data || []);
-        // Auto-redirect to first project's backlog if only one project
-        if (response.data?.length === 1) {
-          navigate(`/projects/${response.data[0].id}/backlog`);
-        }
-      } catch (error) {
-        toast.error('Failed to load projects');
-      } finally {
-        setLoading(false);
+  const fetchProjects = useCallback(async () => {
+    try {
+      const response = await api.get('/projects/list');
+      setProjects(response.data || []);
+      // Auto-redirect to first project's backlog if only one project
+      if (response.data?.length === 1) {
+        navigate(`/projects/${response.data[0].id}/backlog`);
       }
-    };
-    fetchProjects();
+    } catch (error) {
+      toast.error('Failed to load projects');
+    } finally {
+      setLoading(false);
+    }
   }, [api, navigate]);
+
+  useEffect(() => {
+    fetchProjects();
+  }, [fetchProjects]);
 
   if (loading) {
     return (
@@ -45,14 +47,20 @@ const GlobalBacklogPage = () => {
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6" data-testid="global-backlog-page">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Layers className="w-6 h-6 text-blue-600" />
-          Product Backlog
-        </h1>
-        <p className="text-gray-500 mt-1">
-          Select a project to view and manage its backlog
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <Layers className="w-6 h-6 text-violet-600" />
+            Product Backlog
+          </h1>
+          <p className="text-gray-500 mt-1">
+            Select a project to view and manage its backlog
+          </p>
+        </div>
+        <CreateProjectButton 
+          onSuccess={fetchProjects}
+          className="bg-violet-600 hover:bg-violet-700"
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
