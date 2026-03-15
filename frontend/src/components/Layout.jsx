@@ -135,6 +135,7 @@ const DEPARTMENT_CONFIG = {
                 children: [
                     { path: '/marketing/influencers', name: 'Database', icon: Database, subModuleCode: 'mkt_influencer_db' },
                     { path: '/marketing/pipeline', name: 'Pipeline', icon: Briefcase, subModuleCode: 'mkt_influencer_pipeline' },
+                    { path: '/marketing/discovery', name: 'AI Discovery', icon: Sparkles, subModuleCode: 'mkt_influencer_discovery' },
                 ]
             },
             { 
