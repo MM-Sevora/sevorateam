@@ -474,10 +474,10 @@ export default function EmailCampaignsPage() {
               </div>
               <div className="space-y-2">
                 <Label>Template</Label>
-                <Select value={newCampaign.template_id} onValueChange={(v) => setNewCampaign(prev => ({ ...prev, template_id: v }))}>
+                <Select value={newCampaign.template_id || "none"} onValueChange={(v) => setNewCampaign(prev => ({ ...prev, template_id: v === "none" ? "" : v }))}>
                   <SelectTrigger><SelectValue placeholder="Select template" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No template</SelectItem>
+                    <SelectItem value="none">No template</SelectItem>
                     {templates.map(t => (
                       <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
                     ))}
