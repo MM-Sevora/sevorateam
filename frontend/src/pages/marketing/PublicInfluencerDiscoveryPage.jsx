@@ -51,30 +51,52 @@ const PublicInfluencerDiscoveryPage = () => {
   const [results, setResults] = useState(null);
   const [selectedInfluencers, setSelectedInfluencers] = useState([]);
   const [savingIds, setSavingIds] = useState([]);
+  const [shownHandles, setShownHandles] = useState([]); // Track shown handles for "Discover More"
   
   // Enrich modal
   const [enrichModal, setEnrichModal] = useState(null);
   const [enriching, setEnriching] = useState(false);
   const [enrichedData, setEnrichedData] = useState(null);
 
-  const handleSearch = async () => {
+  const handleSearch = async (discoverMore = false) => {
     if (!searchForm.niche) {
       toast.error('Please select a niche/industry');
       return;
     }
     
     setLoading(true);
-    setResults(null);
-    setSelectedInfluencers([]);
+    if (!discoverMore) {
+      setResults(null);
+      setSelectedInfluencers([]);
+      setShownHandles([]);
+    }
     
     try {
-      const response = await api.post('/marketing/v2/influencers/public-discover', searchForm);
-      setResults(response.data);
+      const payload = {
+        ...searchForm,
+        exclude_handles: discoverMore ? shownHandles : []
+      };
+      
+      const response = await api.post('/marketing/v2/influencers/public-discover', payload);
+      
+      // Track shown handles
+      const newHandles = (response.data.influencers || []).map(i => i.instagram_handle?.toLowerCase()).filter(Boolean);
+      setShownHandles(prev => [...prev, ...newHandles]);
+      
+      if (discoverMore && results?.influencers) {
+        // Append to existing results
+        setResults({
+          ...response.data,
+          influencers: [...results.influencers, ...(response.data.influencers || [])]
+        });
+      } else {
+        setResults(response.data);
+      }
       
       if (response.data.influencers?.length > 0) {
-        toast.success(`Found ${response.data.influencers.length} influencers!`);
+        toast.success(`Found ${response.data.influencers.length} ${discoverMore ? 'more ' : ''}influencers!`);
       } else {
-        toast.info('No influencers found. Try different search criteria.');
+        toast.info('No more influencers found. Try different criteria.');
       }
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Discovery failed');
@@ -248,7 +270,7 @@ const PublicInfluencerDiscoveryPage = () => {
             {/* Search Button */}
             <div className="flex items-end">
               <Button 
-                onClick={handleSearch} 
+                onClick={() => handleSearch(false)} 
                 disabled={loading || !searchForm.niche}
                 className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
                 data-testid="discover-btn"
@@ -379,6 +401,7 @@ const PublicInfluencerDiscoveryPage = () => {
                         <span className="font-medium">
                           {influencer.estimated_followers?.toLocaleString() || 'N/A'}
                         </span>
+                        <span className="text-xs text-amber-600" title="AI estimated - verify on Instagram">~</span>
                       </div>
                       {influencer.location && (
                         <div className="flex items-center gap-1 text-sm text-gray-500">
@@ -387,6 +410,13 @@ const PublicInfluencerDiscoveryPage = () => {
                         </div>
                       )}
                     </div>
+                    
+                    {/* Metrics disclaimer */}
+                    {influencer.metrics_note && (
+                      <p className="text-xs text-amber-600 mt-1 italic">
+                        {influencer.metrics_note}
+                      </p>
+                    )}
 
                     {/* Niche */}
                     <div className="mt-2">
@@ -459,6 +489,26 @@ const PublicInfluencerDiscoveryPage = () => {
                 </p>
               </CardContent>
             </Card>
+          )}
+          
+          {/* Discover More Button */}
+          {results.influencers?.length > 0 && (
+            <div className="flex justify-center pt-4">
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => handleSearch(true)}
+                disabled={loading}
+                className="border-purple-300 text-purple-700 hover:bg-purple-50"
+              >
+                {loading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4 mr-2" />
+                )}
+                Discover More Influencers
+              </Button>
+            </div>
           )}
         </div>
       )}

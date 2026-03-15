@@ -5,7 +5,7 @@ Discovers influencers from public Instagram/social media using AI and web search
 import os
 import json
 import httpx
-import asyncio
+import random
 from typing import Optional, List, Dict
 from datetime import datetime, timezone
 from emergentintegrations.llm.chat import LlmChat, UserMessage
@@ -21,6 +21,35 @@ class PublicInfluencerDiscoveryService:
         self.api_key = os.environ.get('EMERGENT_LLM_KEY')
         self.google_api_key = os.environ.get('GOOGLE_SEARCH_API_KEY')
         self.google_cx = os.environ.get('GOOGLE_SEARCH_ENGINE_ID')
+        self.instagram_token = os.environ.get('INSTAGRAM_ACCESS_TOKEN')
+        
+        # Session cache to avoid repeating same influencers
+        self._shown_handles = set()
+        
+    def reset_session(self):
+        """Reset the session cache to allow showing same influencers again"""
+        self._shown_handles = set()
+        
+    async def verify_instagram_profile(self, username: str) -> Optional[Dict]:
+        """
+        Try to verify Instagram profile and get real metrics using Graph API.
+        This works for business/creator accounts.
+        """
+        if not self.instagram_token:
+            return None
+            
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                # Try to search for the business account
+                # Note: This only works for business accounts indexed by Facebook
+                search_url = f"https://graph.facebook.com/v18.0/ig_hashtag_search"
+                
+                # Alternative: Try to get user info if we have their business account ID
+                # For now, return None as we can't look up arbitrary accounts
+                return None
+        except Exception as e:
+            print(f"Instagram API error: {e}")
+            return None
         
     async def search_google(self, query: str, num_results: int = 10) -> List[Dict]:
         """Search Google for influencer profiles"""
@@ -72,12 +101,30 @@ class PublicInfluencerDiscoveryService:
         location: str = "",
         platform: str = "instagram",
         follower_range: str = "10k-100k",
-        count: int = 20
+        count: int = 20,
+        exclude_handles: List[str] = None
     ) -> Dict:
         """
-        AI-powered discovery of influencers. Uses web search if available,
-        otherwise uses AI knowledge to suggest relevant influencers.
+        AI-powered discovery of influencers. Returns different results each time.
         """
+        
+        # Combine session cache with provided exclusions
+        excluded = set(self._shown_handles)
+        if exclude_handles:
+            excluded.update(exclude_handles)
+        
+        # Random seed for variety
+        random_seed = random.randint(1, 1000)
+        
+        # Different prompt variations for variety
+        prompt_styles = [
+            "rising stars and emerging creators",
+            "established influencers with engaged audiences", 
+            "niche experts and thought leaders",
+            "lifestyle creators with authentic content",
+            "micro-influencers with high engagement"
+        ]
+        style = random.choice(prompt_styles)
         
         # Try web search first
         all_results = []
@@ -85,37 +132,34 @@ class PublicInfluencerDiscoveryService:
             search_queries = [
                 f"top {niche} influencers {location} {platform} {follower_range} followers",
                 f"best {niche} creators {location} instagram",
-                f"{niche} micro influencers {location} 2024 2025",
             ]
             
             for query in search_queries[:2]:
                 results = await self.search_google(query)
                 all_results.extend(results)
         
+        # Build exclusion list for prompt
+        exclusion_text = ""
+        if excluded:
+            exclusion_text = f"\n\nDO NOT include these handles (already shown): {', '.join(list(excluded)[:20])}"
+        
         # Use AI to discover/recommend influencers
-        system_prompt = """You are an expert social media researcher. Your task is to suggest REAL, ACTIVE influencers based on search criteria.
+        system_prompt = f"""You are an expert social media researcher. Find {style} in the specified niche.
 
-CRITICAL: Return ONLY a valid JSON object with NO additional text, NO markdown formatting, NO code blocks.
+CRITICAL: Return ONLY valid JSON. NO markdown, NO code blocks, NO extra text.
 
-The JSON must have this exact structure:
-{"influencers":[{"name":"Full Name","instagram_handle":"handle_only","estimated_followers":50000,"follower_tier":"micro","niche":"Fashion","location":"City, Country","description":"Brief bio","collaboration_fit":"Why good for brands"}],"search_insights":{"recommendations":"Tips"}}
+JSON format:
+{{"influencers":[{{"name":"Full Name","instagram_handle":"handle_only","estimated_followers":50000,"follower_tier":"micro","niche":"Category","location":"City, Country","description":"Brief bio","collaboration_fit":"Brand fit reason"}}],"search_insights":{{"recommendations":"Tips"}}}}
 
 Rules:
-- Only suggest REAL influencers with verifiable Instagram handles
-- Follower tiers: nano (<10k), micro (10k-100k), macro (100k-1M), mega (1M+)
-- instagram_handle must NOT include @ symbol
-- Return 5-10 influencers maximum
-- ONLY output JSON, nothing else"""
+- Suggest REAL influencers with actual Instagram handles (NO @ symbol)
+- Follower tiers: nano (<10k), micro (10k-100k), mid (100k-500k), macro (500k-1M), mega (1M+)
+- Return 5-10 DIFFERENT influencers each time
+- Random seed for this search: {random_seed}
+- Focus on: {style}{exclusion_text}
+- ONLY output JSON"""
 
-        # Prepare context from search results if available
-        search_context = ""
-        if all_results:
-            search_context = f"""
-Web Search Results (use these to verify/enhance suggestions):
-{json.dumps([{"title": r.get("title", ""), "snippet": r.get("snippet", ""), "link": r.get("link", "")} for r in all_results[:10]], indent=2)}
-"""
-
-        user_prompt = f"""Find {count} real {niche} influencers from {location or 'any location'} on {platform} with {follower_range} followers. Return ONLY valid JSON."""
+        user_prompt = f"Find {count} real {niche} influencers from {location or 'anywhere globally'} on {platform} with {follower_range} followers. Suggest different people than usual. Seed: {random_seed}"
 
         try:
             chat = LlmChat(
@@ -154,6 +198,17 @@ Web Search Results (use these to verify/enhance suggestions):
                     response_text = response_text[:last_brace + 1]
             
             result = json.loads(response_text)
+            
+            # Add discovered handles to session cache
+            for inf in result.get("influencers", []):
+                handle = inf.get("instagram_handle", "")
+                if handle:
+                    self._shown_handles.add(handle.lower())
+            
+            # Mark metrics as estimated
+            for inf in result.get("influencers", []):
+                inf["metrics_source"] = "ai_estimated"
+                inf["metrics_note"] = "Follower count is AI-estimated. Click 'View' to verify on Instagram."
             
             # Add metadata
             result["discovery_metadata"] = {

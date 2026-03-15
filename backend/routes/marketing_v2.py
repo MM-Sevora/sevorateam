@@ -1853,10 +1853,19 @@ async def public_discover_influencers(
         location=location,
         platform=platform,
         follower_range=follower_range,
-        count=count
+        count=count,
+        exclude_handles=data.get("exclude_handles", [])
     )
     
     return result
+
+
+@marketing_v2_router.post("/influencers/public-discover/reset")
+async def reset_discovery_session(user: dict = Depends(get_marketing_auth())):
+    """Reset the discovery session to allow showing same influencers again"""
+    from services.public_influencer_discovery import public_discovery_service
+    public_discovery_service.reset_session()
+    return {"success": True, "message": "Session reset. You'll see fresh results."}
 
 
 @marketing_v2_router.post("/influencers/public-discover/enrich")
