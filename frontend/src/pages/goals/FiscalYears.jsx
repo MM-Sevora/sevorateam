@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Calendar, Plus, Edit, Trash2, MoreVertical, Loader2, ArrowLeft,
-  CheckCircle, Archive, ChevronDown, ChevronRight
+  CheckCircle, Archive, ChevronDown, ChevronRight, Eye, EyeOff
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -123,6 +123,7 @@ export default function FiscalYears() {
   const [loading, setLoading] = useState(true);
   const [fiscalYears, setFiscalYears] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
+  const [showArchived, setShowArchived] = useState(false);
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
@@ -312,7 +313,23 @@ export default function FiscalYears() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {fiscalYears.map(fy => (
+          {/* Filter Toggle */}
+          {fiscalYears.some(fy => fy.status === 'archived') && (
+            <div className="flex items-center justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowArchived(!showArchived)}
+                className={`border-[#D4BBA6] ${showArchived ? 'bg-stone-100' : ''}`}
+              >
+                {showArchived ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
+                {showArchived ? 'Hide Archived' : `Show Archived (${fiscalYears.filter(fy => fy.status === 'archived').length})`}
+              </Button>
+            </div>
+          )}
+          
+          {/* Active Fiscal Years */}
+          {fiscalYears.filter(fy => fy.status !== 'archived').map(fy => (
             <FiscalYearCard 
               key={fy.id} 
               fy={fy}
@@ -322,6 +339,27 @@ export default function FiscalYears() {
               onArchive={handleArchive}
             />
           ))}
+          
+          {/* Archived Fiscal Years (hidden by default) */}
+          {showArchived && fiscalYears.filter(fy => fy.status === 'archived').length > 0 && (
+            <>
+              <div className="flex items-center gap-2 mt-6 mb-2">
+                <Archive className="w-4 h-4 text-stone-500" />
+                <span className="text-sm font-medium text-stone-500">Archived</span>
+                <div className="flex-1 h-px bg-stone-200" />
+              </div>
+              {fiscalYears.filter(fy => fy.status === 'archived').map(fy => (
+                <FiscalYearCard 
+                  key={fy.id} 
+                  fy={fy}
+                  expanded={expandedId === fy.id}
+                  onToggle={() => setExpandedId(expandedId === fy.id ? null : fy.id)}
+                  onEdit={handleOpenModal}
+                  onArchive={handleArchive}
+                />
+              ))}
+            </>
+          )}
         </div>
       )}
 
