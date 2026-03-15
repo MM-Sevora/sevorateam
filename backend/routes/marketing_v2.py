@@ -1955,6 +1955,141 @@ async def save_discovered_influencer(
     return {"success": True, "message": "Influencer saved to database", "influencer": influencer_doc}
 
 
+@marketing_v2_router.post("/influencers/public-discover/fetch-and-save")
+async def fetch_and_save_discovered_influencer(
+    data: dict,
+    user: dict = Depends(get_marketing_auth())
+):
+    """
+    Fetch real Instagram data for a discovered influencer and save to database.
+    This is the "Add to Database" flow that verifies the profile first.
+    
+    Request body:
+    {
+        "instagram_handle": "username",
+        "name": "Display Name",  # Optional, used as fallback
+        "niche": "Fashion",
+        "location": "Mumbai, India",
+        ...other discovery fields
+    }
+    
+    Returns the saved influencer with real metrics and their ID for redirect.
+    """
+    db = get_db()
+    from services.influencer_analytics import InfluencerAnalyticsService
+    
+    instagram_handle = data.get("instagram_handle", "").replace("@", "").strip()
+    
+    if not instagram_handle:
+        raise HTTPException(status_code=400, detail="Instagram handle is required")
+    
+    # Check if already exists
+    existing = await db.contacts.find_one({
+        "instagram_handle": {"$regex": f"^{instagram_handle}$", "$options": "i"},
+        "contact_type": "influencer"
+    })
+    
+    if existing:
+        return {
+            "success": False, 
+            "message": "Influencer already exists in database", 
+            "existing_id": existing.get("id"),
+            "redirect_to": f"/marketing/influencer/{existing.get('id')}"
+        }
+    
+    # Fetch real Instagram data
+    instagram_data = None
+    async with InfluencerAnalyticsService() as service:
+        instagram_data = await service.get_instagram_profile(instagram_handle)
+    
+    # Prepare influencer document - use real data if available, fallback to AI estimates
+    influencer_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc)
+    
+    # Determine tier and metrics
+    if instagram_data and instagram_data.get("success"):
+        metrics = instagram_data.get("metrics", {})
+        followers = metrics.get("followers", 0)
+        engagement_rate = metrics.get("engagement_rate", 0)
+        name = instagram_data.get("name") or data.get("name", "")
+        bio = instagram_data.get("bio") or data.get("description", "")
+        profile_pic = instagram_data.get("profile_picture", "")
+        tier = instagram_data.get("tier", "micro")
+        avg_likes = metrics.get("avg_likes", 0)
+        avg_comments = metrics.get("avg_comments", 0)
+        verified_from_api = True
+    else:
+        # Use AI-estimated data
+        followers = data.get("estimated_followers", 0)
+        engagement_rate = 0
+        name = data.get("name", "")
+        bio = data.get("description", "")
+        profile_pic = ""
+        tier = data.get("follower_tier", "micro")
+        avg_likes = 0
+        avg_comments = 0
+        verified_from_api = False
+    
+    # Parse location
+    location = data.get("location", "")
+    city = ""
+    state = ""
+    if location:
+        parts = location.split(",")
+        city = parts[0].strip() if parts else ""
+        state = parts[1].strip() if len(parts) > 1 else ""
+    
+    influencer_doc = {
+        "id": influencer_id,
+        "contact_type": "influencer",
+        "name": name,
+        "instagram_handle": instagram_handle,
+        "youtube_handle": data.get("youtube_handle", ""),
+        "primary_platform": data.get("platform", "instagram"),
+        "followers": followers,
+        "engagement_rate": engagement_rate,
+        "avg_likes": avg_likes,
+        "avg_comments": avg_comments,
+        "tier": tier,
+        "industry": data.get("niche", ""),
+        "city": city,
+        "state": state,
+        "bio": bio,
+        "profile_picture": profile_pic,
+        "email": data.get("email", ""),
+        "status": "identified",
+        "pipeline_stage": "identified",
+        "source": "ai_public_discovery",
+        "instagram_verified": verified_from_api,
+        "metrics_fetched_at": now.isoformat() if verified_from_api else None,
+        "discovered_at": now.isoformat(),
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+        "created_by": user.get("id"),
+        "discovery_metadata": {
+            "collaboration_fit": data.get("collaboration_fit", ""),
+            "content_style": data.get("content_style", ""),
+            "profile_url": data.get("profile_url", f"https://instagram.com/{instagram_handle}"),
+            "ai_estimated_followers": data.get("estimated_followers", 0),
+            "api_verified": verified_from_api
+        }
+    }
+    
+    # Calculate score
+    influencer_doc["score"] = calculate_contact_score(influencer_doc)
+    
+    await db.contacts.insert_one(influencer_doc)
+    influencer_doc.pop("_id", None)
+    
+    return {
+        "success": True, 
+        "message": f"Influencer @{instagram_handle} added to database" + (" with verified metrics" if verified_from_api else " (metrics pending verification)"),
+        "influencer": influencer_doc,
+        "verified_from_api": verified_from_api,
+        "redirect_to": f"/marketing/influencer/{influencer_id}"
+    }
+
+
 @marketing_v2_router.post("/influencers/ai-discover")
 async def ai_discover_influencers(
     data: dict,

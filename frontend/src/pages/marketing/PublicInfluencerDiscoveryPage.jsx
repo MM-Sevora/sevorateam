@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -12,7 +13,7 @@ import { toast } from 'sonner';
 import { 
   Search, Sparkles, Instagram, Youtube, Globe, MapPin, Users, 
   TrendingUp, Download, Plus, Loader2, ExternalLink, Mail,
-  CheckCircle2, AlertCircle, RefreshCw, Eye, Save, Filter
+  CheckCircle2, AlertCircle, RefreshCw, Eye, Save, Filter, UserPlus
 } from 'lucide-react';
 
 const NICHES = [
@@ -36,6 +37,7 @@ const PLATFORMS = [
 
 const PublicInfluencerDiscoveryPage = () => {
   const { api } = useAuth();
+  const navigate = useNavigate();
   
   // Search form state
   const [searchForm, setSearchForm] = useState({
@@ -109,13 +111,29 @@ const PublicInfluencerDiscoveryPage = () => {
     setSavingIds(prev => [...prev, influencer.instagram_handle]);
     
     try {
-      const response = await api.post('/marketing/v2/influencers/public-discover/save', influencer);
+      // Use the new fetch-and-save endpoint that gets real Instagram data
+      const response = await api.post('/marketing/v2/influencers/public-discover/fetch-and-save', influencer);
       
       if (response.data.success) {
-        toast.success(`${influencer.name} added to database!`);
+        toast.success(response.data.message);
         setSelectedInfluencers(prev => [...prev, influencer.instagram_handle]);
+        
+        // Redirect to the influencer's profile page
+        if (response.data.redirect_to) {
+          navigate(response.data.redirect_to);
+        }
       } else {
-        toast.info(response.data.message);
+        // Influencer already exists - offer to view
+        if (response.data.existing_id) {
+          toast.info(response.data.message, {
+            action: {
+              label: 'View Profile',
+              onClick: () => navigate(response.data.redirect_to)
+            }
+          });
+        } else {
+          toast.info(response.data.message);
+        }
       }
     } catch (error) {
       toast.error('Failed to save influencer');
@@ -126,12 +144,43 @@ const PublicInfluencerDiscoveryPage = () => {
 
   const handleSaveSelected = async () => {
     const toSave = results?.influencers?.filter(inf => 
-      selectedInfluencers.includes(inf.instagram_handle)
+      selectedInfluencers.includes(inf.instagram_handle) && 
+      !savingIds.includes(inf.instagram_handle)
     ) || [];
     
-    for (const influencer of toSave) {
-      await handleSaveInfluencer(influencer);
+    if (toSave.length === 0) {
+      toast.info('No influencers selected to save');
+      return;
     }
+    
+    // For bulk save, don't redirect - just save all
+    let successCount = 0;
+    let failCount = 0;
+    
+    for (const influencer of toSave) {
+      setSavingIds(prev => [...prev, influencer.instagram_handle]);
+      try {
+        const response = await api.post('/marketing/v2/influencers/public-discover/fetch-and-save', influencer);
+        if (response.data.success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch {
+        failCount++;
+      } finally {
+        setSavingIds(prev => prev.filter(id => id !== influencer.instagram_handle));
+      }
+    }
+    
+    if (successCount > 0) {
+      toast.success(`Added ${successCount} influencer${successCount > 1 ? 's' : ''} to database`);
+    }
+    if (failCount > 0) {
+      toast.info(`${failCount} already existed or failed`);
+    }
+    
+    setSelectedInfluencers([]);
   };
 
   const handleEnrich = async (influencer) => {
@@ -451,26 +500,30 @@ const PublicInfluencerDiscoveryPage = () => {
                         size="sm"
                         onClick={() => handleEnrich(influencer)}
                       >
-                        <Eye className="w-4 h-4 mr-1" /> Enrich
+                        <Eye className="w-4 h-4 mr-1" /> Preview
                       </Button>
                       <Button 
                         variant="outline" 
                         size="sm"
                         onClick={() => window.open(influencer.profile_url || `https://instagram.com/${influencer.instagram_handle}`, '_blank')}
                       >
-                        <ExternalLink className="w-4 h-4 mr-1" /> View
+                        <ExternalLink className="w-4 h-4 mr-1" /> Instagram
                       </Button>
                       <Button 
                         size="sm"
                         onClick={() => handleSaveInfluencer(influencer)}
                         disabled={savingIds.includes(influencer.instagram_handle)}
                         className="ml-auto bg-green-600 hover:bg-green-700"
+                        data-testid={`add-influencer-${influencer.instagram_handle}`}
                       >
                         {savingIds.includes(influencer.instagram_handle) ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <>
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                            Fetching...
+                          </>
                         ) : (
                           <>
-                            <Plus className="w-4 h-4 mr-1" /> Add
+                            <UserPlus className="w-4 h-4 mr-1" /> Add to DB
                           </>
                         )}
                       </Button>
@@ -598,8 +651,23 @@ const PublicInfluencerDiscoveryPage = () => {
           
           <DialogFooter>
             <Button variant="outline" onClick={() => setEnrichModal(null)}>Close</Button>
-            <Button onClick={() => { handleSaveInfluencer(enrichModal); setEnrichModal(null); }}>
-              <Plus className="w-4 h-4 mr-2" /> Add to Database
+            <Button 
+              onClick={() => { 
+                handleSaveInfluencer(enrichModal); 
+              }}
+              disabled={savingIds.includes(enrichModal?.instagram_handle)}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {savingIds.includes(enrichModal?.instagram_handle) ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                <>
+                  <UserPlus className="w-4 h-4 mr-2" /> Add to Database
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
