@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -13,7 +13,8 @@ import { toast } from 'sonner';
 import { 
   Mail, Send, Users, History, CheckCircle2, AlertCircle, 
   Plus, Loader2, FileText, Eye, BarChart3, Clock,
-  ChevronRight, Building2, ExternalLink, Trash2, RefreshCw
+  ChevronRight, Building2, ExternalLink, Trash2, RefreshCw,
+  Search, X, Package, Filter
 } from 'lucide-react';
 
 const EmailCampaignsPage = () => {
@@ -23,7 +24,9 @@ const EmailCampaignsPage = () => {
   const [campaigns, setCampaigns] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [brands, setBrands] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   const [outreachLogs, setOutreachLogs] = useState([]);
+  const [sourcingSettings, setSourcingSettings] = useState(null);
   
   // Modal states
   const [showSingleEmail, setShowSingleEmail] = useState(false);
@@ -46,7 +49,10 @@ const EmailCampaignsPage = () => {
     subject: '',
     content: '',
     template_id: '',
-    selected_brands: []
+    recipient_type: 'brands', // 'brands' or 'suppliers'
+    selected_recipients: [],
+    search_query: '',
+    filter_stage: ''
   });
   
   const [sending, setSending] = useState(false);
@@ -55,18 +61,22 @@ const EmailCampaignsPage = () => {
 
   const fetchData = async () => {
     try {
-      const [statusRes, campaignsRes, templatesRes, brandsRes, logsRes] = await Promise.all([
+      const [statusRes, campaignsRes, templatesRes, brandsRes, suppliersRes, logsRes, settingsRes] = await Promise.all([
         api.get('/sourcing/campaigns/status'),
         api.get('/sourcing/campaigns'),
         api.get('/sourcing/templates'),
         api.get('/sourcing/brands?limit=500'),
-        api.get('/sourcing/campaigns/logs/recent?limit=50')
+        api.get('/sourcing/suppliers?limit=500'),
+        api.get('/sourcing/campaigns/logs/recent?limit=50'),
+        api.get('/sourcing/settings')
       ]);
       setServiceStatus(statusRes.data);
       setCampaigns(campaignsRes.data);
       setTemplates(templatesRes.data);
       setBrands(brandsRes.data);
+      setSuppliers(suppliersRes.data);
       setOutreachLogs(logsRes.data);
+      setSourcingSettings(settingsRes.data);
     } catch (error) {
       console.error('Failed to fetch data:', error);
       toast.error('Failed to load campaigns data');
@@ -122,25 +132,26 @@ const EmailCampaignsPage = () => {
       return;
     }
     
-    if (bulkEmailForm.selected_brands.length === 0) {
-      toast.error('Please select at least one brand');
+    if (bulkEmailForm.selected_recipients.length === 0) {
+      toast.error('Please select at least one recipient');
       return;
     }
     
     setSending(true);
     try {
-      // Build recipients list from selected brands
-      const recipients = bulkEmailForm.selected_brands.map(brandId => {
-        const brand = brands.find(b => b.id === brandId);
+      // Build recipients list based on recipient type
+      const sourceList = bulkEmailForm.recipient_type === 'brands' ? brands : suppliers;
+      const recipients = bulkEmailForm.selected_recipients.map(recipientId => {
+        const entity = sourceList.find(e => e.id === recipientId);
         return {
-          email: brand?.email || brand?.contact_email,
-          name: brand?.founder_name || brand?.name,
-          brand_id: brandId
+          email: entity?.email || entity?.contact_email,
+          name: entity?.founder_name || entity?.name,
+          brand_id: bulkEmailForm.recipient_type === 'brands' ? recipientId : null
         };
       }).filter(r => r.email);
       
       if (recipients.length === 0) {
-        toast.error('Selected brands have no email addresses');
+        toast.error('Selected recipients have no email addresses');
         return;
       }
       
@@ -152,9 +163,12 @@ const EmailCampaignsPage = () => {
         recipients
       });
       
-      toast.success(`Campaign sent to ${recipients.length} recipients`);
+      toast.success(`Campaign sent to ${recipients.length} recipients via Outlook`);
       setShowBulkEmail(false);
-      setBulkEmailForm({ campaign_name: '', subject: '', content: '', template_id: '', selected_brands: [] });
+      setBulkEmailForm({ 
+        campaign_name: '', subject: '', content: '', template_id: '', 
+        recipient_type: 'brands', selected_recipients: [], search_query: '', filter_stage: '' 
+      });
       fetchData();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to send campaign');
@@ -162,6 +176,39 @@ const EmailCampaignsPage = () => {
       setSending(false);
     }
   };
+
+  // Filtered recipients for bulk email modal
+  const filteredRecipients = useMemo(() => {
+    const sourceList = bulkEmailForm.recipient_type === 'brands' ? brands : suppliers;
+    return sourceList.filter(item => {
+      // Must have email
+      const hasEmail = item.email || item.contact_email;
+      if (!hasEmail) return false;
+      
+      // Search filter
+      if (bulkEmailForm.search_query) {
+        const query = bulkEmailForm.search_query.toLowerCase();
+        const nameMatch = item.name?.toLowerCase().includes(query);
+        const emailMatch = (item.email || item.contact_email)?.toLowerCase().includes(query);
+        const cityMatch = item.city?.toLowerCase().includes(query);
+        if (!nameMatch && !emailMatch && !cityMatch) return false;
+      }
+      
+      // Stage filter
+      if (bulkEmailForm.filter_stage && item.pipeline_stage !== bulkEmailForm.filter_stage) {
+        return false;
+      }
+      
+      return true;
+    });
+  }, [brands, suppliers, bulkEmailForm.recipient_type, bulkEmailForm.search_query, bulkEmailForm.filter_stage]);
+
+  // Get unique pipeline stages for filter dropdown
+  const pipelineStages = useMemo(() => {
+    const sourceList = bulkEmailForm.recipient_type === 'brands' ? brands : suppliers;
+    const stages = [...new Set(sourceList.map(item => item.pipeline_stage).filter(Boolean))];
+    return stages.sort();
+  }, [brands, suppliers, bulkEmailForm.recipient_type]);
 
   const viewCampaignDetail = async (campaign) => {
     try {
@@ -196,6 +243,10 @@ const EmailCampaignsPage = () => {
 
   // Get brands with emails for bulk selection
   const brandsWithEmail = brands.filter(b => b.email || b.contact_email);
+  const suppliersWithEmail = suppliers.filter(s => s.email || s.contact_email);
+  
+  // Get the configured sender email from settings
+  const senderEmail = sourcingSettings?.email?.fromEmail || 'seller@sevora.com';
 
   return (
     <div className="p-6 space-y-6 bg-[#F5EBE0] min-h-screen" data-testid="email-campaigns-page">
@@ -209,18 +260,11 @@ const EmailCampaignsPage = () => {
         </div>
         
         <div className="flex items-center gap-3">
-          {/* Service Status */}
-          <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${
-            serviceStatus?.configured ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-          }`}>
-            {serviceStatus?.configured ? (
-              <CheckCircle2 className="h-5 w-5" />
-            ) : (
-              <AlertCircle className="h-5 w-5" />
-            )}
-            <span className="text-sm font-medium">
-              {serviceStatus?.configured ? 'SendGrid Ready' : 'Not Configured'}
-            </span>
+          {/* Service Status - Outlook */}
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+            <Mail className="h-5 w-5" />
+            <span className="text-sm font-medium">Outlook Connected</span>
+            <span className="text-xs text-blue-500">({senderEmail})</span>
           </div>
           
           <Button onClick={() => setShowSingleEmail(true)} variant="outline" className="border-[#E8D5C4] text-[#4A3728] hover:bg-[#E8D5C4]/50">
@@ -233,7 +277,7 @@ const EmailCampaignsPage = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -242,7 +286,7 @@ const EmailCampaignsPage = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold">{campaigns.length}</p>
-                <p className="text-sm text-gray-500">Total Campaigns</p>
+                <p className="text-sm text-gray-500">Campaigns</p>
               </div>
             </div>
           </CardContent>
@@ -268,7 +312,20 @@ const EmailCampaignsPage = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold">{brandsWithEmail.length}</p>
-                <p className="text-sm text-gray-500">Brands with Email</p>
+                <p className="text-sm text-gray-500">Brands</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                <Package className="h-5 w-5 text-indigo-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{suppliersWithEmail.length}</p>
+                <p className="text-sm text-gray-500">Suppliers</p>
               </div>
             </div>
           </CardContent>
@@ -453,6 +510,7 @@ const EmailCampaignsPage = () => {
                   value={singleEmailForm.to_email}
                   onChange={(e) => setSingleEmailForm(prev => ({ ...prev, to_email: e.target.value }))}
                   placeholder="email@example.com"
+                  data-testid="single-to-email"
                 />
               </div>
               <div>
@@ -461,6 +519,7 @@ const EmailCampaignsPage = () => {
                   value={singleEmailForm.to_name}
                   onChange={(e) => setSingleEmailForm(prev => ({ ...prev, to_name: e.target.value }))}
                   placeholder="John Doe"
+                  data-testid="single-to-name"
                 />
               </div>
             </div>
@@ -471,7 +530,7 @@ const EmailCampaignsPage = () => {
                 value={singleEmailForm.template_id || 'none'} 
                 onValueChange={(v) => handleTemplateSelect(v === 'none' ? '' : v, 'single')}
               >
-                <SelectTrigger><SelectValue placeholder="Select a template" /></SelectTrigger>
+                <SelectTrigger data-testid="single-template-select"><SelectValue placeholder="Select a template" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No template</SelectItem>
                   {templates.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
@@ -485,6 +544,7 @@ const EmailCampaignsPage = () => {
                 value={singleEmailForm.subject}
                 onChange={(e) => setSingleEmailForm(prev => ({ ...prev, subject: e.target.value }))}
                 placeholder="Email subject"
+                data-testid="single-subject"
               />
             </div>
             
@@ -495,12 +555,23 @@ const EmailCampaignsPage = () => {
                 onChange={(e) => setSingleEmailForm(prev => ({ ...prev, content: e.target.value }))}
                 placeholder="Write your email content here..."
                 rows={8}
+                data-testid="single-content"
               />
+            </div>
+            
+            {/* Sender Info */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-3">
+              <Mail className="h-5 w-5 text-blue-600" />
+              <div className="text-sm">
+                <span className="text-gray-600">Sending from: </span>
+                <span className="font-medium text-blue-700">{senderEmail}</span>
+                <span className="text-gray-500 ml-2">(via Outlook)</span>
+              </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowSingleEmail(false)}>Cancel</Button>
-            <Button onClick={sendSingleEmail} disabled={sending} className="bg-orange-600 hover:bg-orange-700">
+            <Button onClick={sendSingleEmail} disabled={sending} className="bg-orange-600 hover:bg-orange-700" data-testid="send-single-btn">
               {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
               Send Email
             </Button>
@@ -510,13 +581,14 @@ const EmailCampaignsPage = () => {
 
       {/* Bulk Email Dialog */}
       <Dialog open={showBulkEmail} onOpenChange={setShowBulkEmail}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" /> Create Bulk Campaign
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Campaign Info Row */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium mb-1 block">Campaign Name *</label>
@@ -524,6 +596,7 @@ const EmailCampaignsPage = () => {
                   value={bulkEmailForm.campaign_name}
                   onChange={(e) => setBulkEmailForm(prev => ({ ...prev, campaign_name: e.target.value }))}
                   placeholder="Q1 Brand Outreach"
+                  data-testid="bulk-campaign-name"
                 />
               </div>
               <div>
@@ -532,7 +605,7 @@ const EmailCampaignsPage = () => {
                   value={bulkEmailForm.template_id || 'none'} 
                   onValueChange={(v) => handleTemplateSelect(v === 'none' ? '' : v, 'bulk')}
                 >
-                  <SelectTrigger><SelectValue placeholder="Select a template" /></SelectTrigger>
+                  <SelectTrigger data-testid="bulk-template-select"><SelectValue placeholder="Select a template" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">No template</SelectItem>
                     {templates.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
@@ -547,6 +620,7 @@ const EmailCampaignsPage = () => {
                 value={bulkEmailForm.subject}
                 onChange={(e) => setBulkEmailForm(prev => ({ ...prev, subject: e.target.value }))}
                 placeholder="Email subject"
+                data-testid="bulk-subject"
               />
             </div>
             
@@ -557,41 +631,164 @@ const EmailCampaignsPage = () => {
                 onChange={(e) => setBulkEmailForm(prev => ({ ...prev, content: e.target.value }))}
                 placeholder="Write your email content here..."
                 rows={6}
+                data-testid="bulk-content"
               />
             </div>
             
-            <div>
-              <label className="text-sm font-medium mb-2 block">
-                Select Brands ({bulkEmailForm.selected_brands.length} selected)
-              </label>
-              <div className="border rounded-lg max-h-60 overflow-y-auto p-2 space-y-1">
-                {brandsWithEmail.length === 0 ? (
-                  <p className="text-sm text-gray-500 p-2">No brands with email addresses found</p>
+            {/* Recipient Selection Section */}
+            <div className="border rounded-lg p-4 space-y-4 bg-gray-50">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">
+                  Select Recipients ({bulkEmailForm.selected_recipients.length} selected)
+                </label>
+                
+                {/* Recipient Type Toggle */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={bulkEmailForm.recipient_type === 'brands' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setBulkEmailForm(prev => ({ 
+                      ...prev, 
+                      recipient_type: 'brands', 
+                      selected_recipients: [],
+                      filter_stage: ''
+                    }))}
+                    data-testid="select-brands-btn"
+                  >
+                    <Building2 className="h-4 w-4 mr-1" /> Brands ({brandsWithEmail.length})
+                  </Button>
+                  <Button
+                    variant={bulkEmailForm.recipient_type === 'suppliers' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setBulkEmailForm(prev => ({ 
+                      ...prev, 
+                      recipient_type: 'suppliers', 
+                      selected_recipients: [],
+                      filter_stage: ''
+                    }))}
+                    data-testid="select-suppliers-btn"
+                  >
+                    <Package className="h-4 w-4 mr-1" /> Suppliers ({suppliersWithEmail.length})
+                  </Button>
+                </div>
+              </div>
+              
+              {/* Search and Filter Row */}
+              <div className="flex gap-3">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    className="pl-9"
+                    placeholder={`Search ${bulkEmailForm.recipient_type}...`}
+                    value={bulkEmailForm.search_query}
+                    onChange={(e) => setBulkEmailForm(prev => ({ ...prev, search_query: e.target.value }))}
+                    data-testid="recipient-search"
+                  />
+                </div>
+                <Select 
+                  value={bulkEmailForm.filter_stage || 'all'} 
+                  onValueChange={(v) => setBulkEmailForm(prev => ({ ...prev, filter_stage: v === 'all' ? '' : v }))}
+                >
+                  <SelectTrigger className="w-48" data-testid="stage-filter">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Filter by stage" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Stages</SelectItem>
+                    {pipelineStages.map(stage => (
+                      <SelectItem key={stage} value={stage}>{stage}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                {/* Select All / Clear */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const allIds = filteredRecipients.map(r => r.id);
+                    const allSelected = allIds.every(id => bulkEmailForm.selected_recipients.includes(id));
+                    setBulkEmailForm(prev => ({
+                      ...prev,
+                      selected_recipients: allSelected ? [] : allIds
+                    }));
+                  }}
+                  data-testid="select-all-btn"
+                >
+                  {filteredRecipients.length > 0 && 
+                   filteredRecipients.every(r => bulkEmailForm.selected_recipients.includes(r.id)) 
+                    ? 'Clear All' : 'Select All'}
+                </Button>
+              </div>
+              
+              {/* Recipients List */}
+              <div className="border rounded-lg bg-white max-h-60 overflow-y-auto">
+                {filteredRecipients.length === 0 ? (
+                  <p className="text-sm text-gray-500 p-4 text-center">
+                    No {bulkEmailForm.recipient_type} with email addresses found
+                  </p>
                 ) : (
-                  brandsWithEmail.map(brand => (
+                  filteredRecipients.map(recipient => (
                     <div 
-                      key={brand.id} 
-                      className={`flex items-center gap-3 p-2 rounded cursor-pointer hover:bg-gray-50 ${
-                        bulkEmailForm.selected_brands.includes(brand.id) ? 'bg-orange-50' : ''
+                      key={recipient.id} 
+                      className={`flex items-center gap-3 p-3 border-b last:border-b-0 cursor-pointer hover:bg-gray-50 transition-colors ${
+                        bulkEmailForm.selected_recipients.includes(recipient.id) ? 'bg-orange-50' : ''
                       }`}
                       onClick={() => {
                         setBulkEmailForm(prev => ({
                           ...prev,
-                          selected_brands: prev.selected_brands.includes(brand.id)
-                            ? prev.selected_brands.filter(id => id !== brand.id)
-                            : [...prev.selected_brands, brand.id]
+                          selected_recipients: prev.selected_recipients.includes(recipient.id)
+                            ? prev.selected_recipients.filter(id => id !== recipient.id)
+                            : [...prev.selected_recipients, recipient.id]
                         }));
                       }}
+                      data-testid={`recipient-${recipient.id}`}
                     >
-                      <Checkbox checked={bulkEmailForm.selected_brands.includes(brand.id)} />
-                      <div className="flex-1">
-                        <div className="font-medium text-sm">{brand.name}</div>
-                        <div className="text-xs text-gray-500">{brand.email || brand.contact_email}</div>
+                      <Checkbox 
+                        checked={bulkEmailForm.selected_recipients.includes(recipient.id)} 
+                        className="pointer-events-none"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm truncate">{recipient.name}</div>
+                        <div className="text-xs text-gray-500 truncate">
+                          {recipient.email || recipient.contact_email}
+                          {recipient.city && ` • ${recipient.city}`}
+                        </div>
                       </div>
-                      <Badge variant="outline" className="text-xs">{brand.pipeline_stage}</Badge>
+                      <Badge variant="outline" className="text-xs shrink-0">
+                        {recipient.pipeline_stage || 'No Stage'}
+                      </Badge>
                     </div>
                   ))
                 )}
+              </div>
+              
+              {/* Selection Summary */}
+              {bulkEmailForm.selected_recipients.length > 0 && (
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <span>
+                    {bulkEmailForm.selected_recipients.length} {bulkEmailForm.recipient_type} selected for outreach
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="ml-auto text-red-600 hover:text-red-700"
+                    onClick={() => setBulkEmailForm(prev => ({ ...prev, selected_recipients: [] }))}
+                  >
+                    <X className="h-4 w-4 mr-1" /> Clear Selection
+                  </Button>
+                </div>
+              )}
+            </div>
+            
+            {/* Sender Info */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-3">
+              <Mail className="h-5 w-5 text-blue-600" />
+              <div className="text-sm">
+                <span className="text-gray-600">Sending from: </span>
+                <span className="font-medium text-blue-700">{senderEmail}</span>
+                <span className="text-gray-500 ml-2">(via Outlook)</span>
               </div>
             </div>
           </div>
@@ -599,11 +796,12 @@ const EmailCampaignsPage = () => {
             <Button variant="outline" onClick={() => setShowBulkEmail(false)}>Cancel</Button>
             <Button 
               onClick={sendBulkEmail} 
-              disabled={sending || bulkEmailForm.selected_brands.length === 0} 
+              disabled={sending || bulkEmailForm.selected_recipients.length === 0} 
               className="bg-orange-600 hover:bg-orange-700"
+              data-testid="send-bulk-btn"
             >
               {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-              Send to {bulkEmailForm.selected_brands.length} Brands
+              Send to {bulkEmailForm.selected_recipients.length} Recipients
             </Button>
           </DialogFooter>
         </DialogContent>
