@@ -96,6 +96,12 @@ export default function CampaignDetailsPage() {
   const [availableInfluencers, setAvailableInfluencers] = useState([]);
   const [loadingLinkItems, setLoadingLinkItems] = useState(false);
   const [addingInfluencer, setAddingInfluencer] = useState(false);
+  
+  // Influencer selection with deliverable & fee
+  const [selectedInfluencer, setSelectedInfluencer] = useState(null);
+  const [influencerDeliverables, setInfluencerDeliverables] = useState([]);
+  const [selectedDeliverable, setSelectedDeliverable] = useState(null);
+  const [agreedFee, setAgreedFee] = useState('');
 
   const fetchCampaignData = useCallback(async () => {
     if (!campaignId) return;
@@ -155,12 +161,20 @@ export default function CampaignDetailsPage() {
 
       // Fetch influencer deals for this campaign
       try {
-        const influencerRes = await api.get(`/marketing/v2/deals?campaign_id=${campaignId}&limit=50`);
+        const influencerRes = await api.get(`/marketing/v2/campaigns/${campaignId}/influencers`);
         if (influencerRes.data) {
-          const dealsData = influencerRes.data;
-          setInfluencers(dealsData.deals || dealsData || []);
+          setInfluencers(influencerRes.data || []);
         }
-      } catch (e) {}
+      } catch (e) {
+        // Fallback to deals endpoint
+        try {
+          const dealsRes = await api.get(`/marketing/v2/deals?campaign_id=${campaignId}&limit=50`);
+          if (dealsRes.data) {
+            const dealsData = dealsRes.data;
+            setInfluencers(dealsData.deals || dealsData || []);
+          }
+        } catch (e2) {}
+      }
 
       // Fetch PR publication pitches for PR campaigns
       try {
@@ -362,8 +376,9 @@ export default function CampaignDetailsPage() {
     try {
       const response = await api.get('/marketing/v2/contacts?contact_type=influencer');
       // Filter out already assigned influencers
-      const assignedIds = new Set(influencers.map(i => i.id || i.influencer_id));
-      setAvailableInfluencers((response.data || []).filter(inf => !assignedIds.has(inf.id)));
+      const assignedIds = new Set(influencers.map(i => i.id || i.influencer_id || i.contact_id));
+      const availableList = (response.data || []).filter(inf => !assignedIds.has(inf.id));
+      setAvailableInfluencers(availableList);
     } catch (error) {
       console.error('Failed to fetch influencers:', error);
       setAvailableInfluencers([]);
@@ -375,16 +390,73 @@ export default function CampaignDetailsPage() {
   const openAddInfluencerModal = () => {
     fetchAvailableInfluencers();
     setLinkSearchQuery('');
+    setSelectedInfluencer(null);
+    setInfluencerDeliverables([]);
+    setSelectedDeliverable(null);
+    setAgreedFee('');
     setShowAddInfluencerModal(true);
   };
 
-  const handleAddInfluencer = async (influencer) => {
+  // Select an influencer and fetch their deliverables
+  const handleSelectInfluencer = async (influencer) => {
+    setSelectedInfluencer(influencer);
+    setSelectedDeliverable(null);
+    setAgreedFee('');
+    
+    try {
+      const response = await api.get(`/marketing/v2/contacts/${influencer.id}/deliverables`);
+      setInfluencerDeliverables(response.data || []);
+    } catch (error) {
+      console.error('Failed to fetch deliverables:', error);
+      setInfluencerDeliverables([]);
+    }
+  };
+
+  // Cancel influencer selection and go back to list
+  const handleCancelInfluencerSelection = () => {
+    setSelectedInfluencer(null);
+    setInfluencerDeliverables([]);
+    setSelectedDeliverable(null);
+    setAgreedFee('');
+  };
+
+  // Confirm adding influencer with deliverable and fee
+  const handleConfirmAddInfluencer = async () => {
+    if (!selectedInfluencer) return;
+    
+    setAddingInfluencer(true);
+    try {
+      const payload = {
+        deliverable_id: selectedDeliverable?.id || null,
+        deliverable_name: selectedDeliverable?.name || null,
+        agreed_fee: parseFloat(agreedFee) || selectedDeliverable?.rate || selectedDeliverable?.price || 0
+      };
+      
+      await api.post(`/marketing/campaigns/${campaignId}/influencers/${selectedInfluencer.id}`, payload);
+      toast.success(`Added ${selectedInfluencer.name} to campaign`);
+      
+      // Reset and close
+      setSelectedInfluencer(null);
+      setInfluencerDeliverables([]);
+      setSelectedDeliverable(null);
+      setAgreedFee('');
+      setShowAddInfluencerModal(false);
+      fetchCampaignData();
+    } catch (error) {
+      toast.error('Failed to add influencer');
+    } finally {
+      setAddingInfluencer(false);
+    }
+  };
+
+  // Quick add without deliverable selection
+  const handleQuickAddInfluencer = async (influencer) => {
     setAddingInfluencer(true);
     try {
       await api.post(`/marketing/campaigns/${campaignId}/influencers/${influencer.id}`, {});
       toast.success(`Added ${influencer.name} to campaign`);
-      setShowAddInfluencerModal(false);
       fetchCampaignData();
+      fetchAvailableInfluencers();
     } catch (error) {
       toast.error('Failed to add influencer');
     } finally {
@@ -1429,75 +1501,183 @@ export default function CampaignDetailsPage() {
       </Dialog>
 
       {/* Add Influencer Modal */}
-      <Dialog open={showAddInfluencerModal} onOpenChange={setShowAddInfluencerModal}>
+      <Dialog open={showAddInfluencerModal} onOpenChange={(open) => {
+        setShowAddInfluencerModal(open);
+        if (!open) handleCancelInfluencerSelection();
+      }}>
         <DialogContent className="max-w-2xl max-h-[80vh]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="w-5 h-5 text-amber-600" />
-              Add Influencer to Campaign
+              {selectedInfluencer ? `Add ${selectedInfluencer.name} to Campaign` : 'Add Influencer to Campaign'}
             </DialogTitle>
           </DialogHeader>
+          
           <div className="space-y-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input
-                placeholder="Search influencers..."
-                value={linkSearchQuery}
-                onChange={e => setLinkSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <div className="max-h-96 overflow-y-auto space-y-2">
-              {loadingLinkItems ? (
-                <div className="text-center py-8">
-                  <RefreshCw className="w-6 h-6 animate-spin mx-auto text-gray-400" />
-                  <p className="text-sm text-gray-500 mt-2">Loading influencers...</p>
+            {/* Step 2: Deliverable & Fee Selection */}
+            {selectedInfluencer ? (
+              <div className="space-y-4">
+                {/* Selected Influencer Info */}
+                <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                  <div className="w-12 h-12 rounded-full bg-amber-200 flex items-center justify-center text-amber-800 font-semibold text-lg">
+                    {selectedInfluencer.name?.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900">{selectedInfluencer.name}</div>
+                    <div className="text-sm text-gray-600">
+                      {selectedInfluencer.instagram_handle || selectedInfluencer.youtube_handle} • {formatNumber(selectedInfluencer.followers)} followers
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={handleCancelInfluencerSelection}>
+                    <ArrowLeft className="w-4 h-4 mr-1" /> Back
+                  </Button>
                 </div>
-              ) : availableInfluencers.filter(inf => 
-                  !linkSearchQuery || 
-                  inf.name?.toLowerCase().includes(linkSearchQuery.toLowerCase()) ||
-                  inf.instagram_handle?.toLowerCase().includes(linkSearchQuery.toLowerCase())
-                ).length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Users className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                  <p>No influencers available to add</p>
-                  <p className="text-sm mt-1">All influencers are already assigned to this campaign</p>
-                </div>
-              ) : (
-                availableInfluencers
-                  .filter(inf => !linkSearchQuery || inf.name?.toLowerCase().includes(linkSearchQuery.toLowerCase()) || inf.instagram_handle?.toLowerCase().includes(linkSearchQuery.toLowerCase()))
-                  .map(influencer => (
-                    <div 
-                      key={influencer.id} 
-                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-amber-50"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-semibold">
-                          {influencer.name?.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-medium">{influencer.name}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            {influencer.instagram_handle && (
-                              <span className="text-xs text-gray-500">@{influencer.instagram_handle}</span>
-                            )}
-                            <span className="text-xs text-gray-400">•</span>
-                            <span className="text-xs text-gray-500">{formatNumber(influencer.followers)} followers</span>
+
+                {/* Deliverable Selection */}
+                <div>
+                  <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">
+                    SELECT DELIVERABLE / RATE CARD
+                  </Label>
+                  {influencerDeliverables.length === 0 ? (
+                    <p className="text-sm text-gray-500 italic p-3 bg-gray-50 rounded">
+                      No rate cards configured for this influencer. You can still add with a custom fee.
+                    </p>
+                  ) : (
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {influencerDeliverables.map(d => (
+                        <div 
+                          key={d.id}
+                          onClick={() => {
+                            setSelectedDeliverable(d);
+                            setAgreedFee(d.rate?.toString() || d.price?.toString() || '');
+                          }}
+                          className={`p-3 border rounded-lg cursor-pointer transition-all ${
+                            selectedDeliverable?.id === d.id 
+                              ? 'border-amber-500 bg-amber-50' 
+                              : 'border-gray-200 hover:border-amber-300 hover:bg-amber-50/50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="font-medium text-gray-900">{d.name}</div>
+                              {d.description && <div className="text-sm text-gray-500">{d.description}</div>}
+                            </div>
+                            <div className="text-lg font-bold text-amber-700">
+                              {formatCurrency(d.rate || d.price)}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <Button 
-                        size="sm" 
-                        onClick={() => handleAddInfluencer(influencer)}
-                        disabled={addingInfluencer}
-                        className="bg-amber-500 hover:bg-amber-600 text-white"
-                      >
-                        <Plus className="w-4 h-4 mr-1" /> Add
-                      </Button>
+                      ))}
                     </div>
-                  ))
-              )}
-            </div>
+                  )}
+                </div>
+
+                {/* Fee Input */}
+                <div>
+                  <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">
+                    AGREED FEE (₹)
+                  </Label>
+                  <Input
+                    type="number"
+                    placeholder="Enter agreed fee amount"
+                    value={agreedFee}
+                    onChange={e => setAgreedFee(e.target.value)}
+                    className="text-lg"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    This is the final negotiated fee for this campaign
+                  </p>
+                </div>
+
+                {/* Confirm Button */}
+                <div className="flex justify-end gap-2 pt-4 border-t">
+                  <Button variant="outline" onClick={handleCancelInfluencerSelection}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleConfirmAddInfluencer}
+                    disabled={addingInfluencer}
+                    className="bg-amber-500 hover:bg-amber-600 text-white"
+                  >
+                    {addingInfluencer ? 'Adding...' : 'Add to Campaign'}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              /* Step 1: Influencer Selection */
+              <>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    placeholder="Search influencers..."
+                    value={linkSearchQuery}
+                    onChange={e => setLinkSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <div className="max-h-96 overflow-y-auto space-y-2">
+                  {loadingLinkItems ? (
+                    <div className="text-center py-8">
+                      <RefreshCw className="w-6 h-6 animate-spin mx-auto text-gray-400" />
+                      <p className="text-sm text-gray-500 mt-2">Loading influencers...</p>
+                    </div>
+                  ) : availableInfluencers.filter(inf => 
+                      !linkSearchQuery || 
+                      inf.name?.toLowerCase().includes(linkSearchQuery.toLowerCase()) ||
+                      inf.instagram_handle?.toLowerCase().includes(linkSearchQuery.toLowerCase())
+                    ).length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <Users className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                      <p>No influencers available to add</p>
+                      <p className="text-sm mt-1">All influencers are already assigned to this campaign</p>
+                    </div>
+                  ) : (
+                    availableInfluencers
+                      .filter(inf => !linkSearchQuery || inf.name?.toLowerCase().includes(linkSearchQuery.toLowerCase()) || inf.instagram_handle?.toLowerCase().includes(linkSearchQuery.toLowerCase()))
+                      .map(influencer => (
+                        <div 
+                          key={influencer.id} 
+                          className="flex items-center justify-between p-3 border rounded-lg hover:bg-amber-50"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-semibold">
+                              {influencer.name?.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-medium">{influencer.name}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                {influencer.instagram_handle && (
+                                  <span className="text-xs text-gray-500">@{influencer.instagram_handle}</span>
+                                )}
+                                <span className="text-xs text-gray-400">•</span>
+                                <span className="text-xs text-gray-500">{formatNumber(influencer.followers)} followers</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handleSelectInfluencer(influencer)}
+                              disabled={addingInfluencer}
+                            >
+                              Select
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              onClick={() => handleQuickAddInfluencer(influencer)}
+                              disabled={addingInfluencer}
+                              className="bg-amber-500 hover:bg-amber-600 text-white"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>

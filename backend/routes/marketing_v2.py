@@ -1117,6 +1117,131 @@ async def bulk_delete_campaigns(data: dict, user: dict = Depends(get_marketing_a
     return {"deleted_count": total_deleted, "message": f"Deleted {total_deleted} campaigns"}
 
 
+# ============== CAMPAIGN INFLUENCER MANAGEMENT ==============
+
+@marketing_v2_router.post("/campaigns/{campaign_id}/influencers/{influencer_id}")
+async def add_influencer_to_campaign(
+    campaign_id: str,
+    influencer_id: str,
+    data: dict = None,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Add an influencer to a campaign with optional deliverable and fee"""
+    db = get_db()
+    data = data or {}
+    
+    # Verify campaign exists
+    campaign = await db.marketing_campaigns.find_one({"id": campaign_id})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Verify influencer exists
+    influencer = await db.contacts.find_one({"id": influencer_id, "contact_type": "influencer"})
+    if not influencer:
+        raise HTTPException(status_code=404, detail="Influencer not found")
+    
+    # Check if already assigned
+    assigned = campaign.get("assigned_influencers") or campaign.get("influencers") or []
+    if influencer_id in [str(i.get("influencer_id") or i) for i in assigned]:
+        raise HTTPException(status_code=400, detail="Influencer already assigned to this campaign")
+    
+    # Create influencer assignment
+    assignment = {
+        "influencer_id": influencer_id,
+        "influencer_name": influencer.get("name"),
+        "instagram_handle": influencer.get("instagram_handle"),
+        "followers": influencer.get("followers"),
+        "deliverable_id": data.get("deliverable_id"),
+        "deliverable_name": data.get("deliverable_name"),
+        "agreed_fee": data.get("agreed_fee") or 0,
+        "status": "assigned",
+        "added_at": datetime.now(timezone.utc).isoformat(),
+        "added_by": user.get("id")
+    }
+    
+    # Update campaign - use the correct field name
+    field_name = "assigned_influencers" if "assigned_influencers" in campaign else "influencers"
+    if field_name not in campaign or campaign[field_name] is None:
+        campaign[field_name] = []
+    
+    await db.marketing_campaigns.update_one(
+        {"id": campaign_id},
+        {"$push": {field_name: assignment}}
+    )
+    
+    # Also update influencer's campaign_id
+    await db.contacts.update_one(
+        {"id": influencer_id},
+        {"$set": {"campaign_id": campaign_id}}
+    )
+    
+    return {"message": f"Added {influencer.get('name')} to campaign", "assignment": assignment}
+
+
+@marketing_v2_router.delete("/campaigns/{campaign_id}/influencers/{influencer_id}")
+async def remove_influencer_from_campaign(
+    campaign_id: str,
+    influencer_id: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Remove an influencer from a campaign"""
+    db = get_db()
+    
+    # Verify campaign exists
+    campaign = await db.marketing_campaigns.find_one({"id": campaign_id})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Remove from assigned_influencers or influencers array
+    for field in ["assigned_influencers", "influencers"]:
+        await db.marketing_campaigns.update_one(
+            {"id": campaign_id},
+            {"$pull": {field: {"influencer_id": influencer_id}}}
+        )
+    
+    # Also clear campaign_id from influencer
+    await db.contacts.update_one(
+        {"id": influencer_id},
+        {"$set": {"campaign_id": None}}
+    )
+    
+    return {"message": "Influencer removed from campaign"}
+
+
+@marketing_v2_router.get("/campaigns/{campaign_id}/influencers")
+async def get_campaign_influencers(
+    campaign_id: str,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Get all influencers assigned to a campaign"""
+    db = get_db()
+    
+    campaign = await db.marketing_campaigns.find_one({"id": campaign_id}, {"_id": 0})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    assigned = campaign.get("assigned_influencers") or campaign.get("influencers") or []
+    
+    # Enrich with current influencer data
+    enriched = []
+    for item in assigned:
+        inf_id = item.get("influencer_id") if isinstance(item, dict) else item
+        influencer = await db.contacts.find_one({"id": inf_id}, {"_id": 0})
+        if influencer:
+            base_data = item if isinstance(item, dict) else {}
+            enriched.append({
+                **base_data,
+                "id": inf_id,
+                "name": influencer.get("name"),
+                "instagram_handle": influencer.get("instagram_handle"),
+                "followers": influencer.get("followers"),
+                "profile_image": influencer.get("profile_image"),
+                "engagement_rate": influencer.get("engagement_rate")
+            })
+    
+    return enriched
+
+
 @marketing_v2_router.post("/deals/bulk-delete")
 async def bulk_delete_deals(data: dict, user: dict = Depends(get_marketing_auth())):
     """Bulk delete multiple deals"""
