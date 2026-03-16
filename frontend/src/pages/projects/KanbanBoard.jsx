@@ -262,6 +262,7 @@ export default function KanbanBoard() {
   const [quickFilter, setQuickFilter] = useState('all'); // 'all', 'my_issues', 'unassigned', 'overdue'
   const [selectedEpic, setSelectedEpic] = useState('');
   const [epics, setEpics] = useState([]);
+  const [swimlaneBy, setSwimlaneBy] = useState('none'); // 'none', 'assignee', 'epic', 'priority'
   
   // Get current user from localStorage
   const currentUserId = (() => {
@@ -445,6 +446,62 @@ export default function KanbanBoard() {
     return filtered;
   };
 
+  // Get swimlane groups
+  const getSwimlanes = () => {
+    if (swimlaneBy === 'none') return null;
+    
+    const allTasks = Object.values(boardData.tasks_by_column || {}).flat();
+    const filteredAllTasks = getFilteredTasks(allTasks);
+    
+    if (swimlaneBy === 'assignee') {
+      const groups = {};
+      filteredAllTasks.forEach(task => {
+        const key = task.assigned_to || 'unassigned';
+        const name = task.assigned_to_name || 'Unassigned';
+        if (!groups[key]) groups[key] = { id: key, name, tasks: [] };
+        groups[key].tasks.push(task);
+      });
+      return Object.values(groups).sort((a, b) => {
+        if (a.id === 'unassigned') return 1;
+        if (b.id === 'unassigned') return -1;
+        return a.name.localeCompare(b.name);
+      });
+    }
+    
+    if (swimlaneBy === 'epic') {
+      const groups = {};
+      filteredAllTasks.forEach(task => {
+        const key = task.epic_id || 'no_epic';
+        const epic = epics.find(e => e.id === task.epic_id);
+        const name = epic?.name || 'No Epic';
+        if (!groups[key]) groups[key] = { id: key, name, color: epic?.color, tasks: [] };
+        groups[key].tasks.push(task);
+      });
+      return Object.values(groups).sort((a, b) => {
+        if (a.id === 'no_epic') return 1;
+        if (b.id === 'no_epic') return -1;
+        return a.name.localeCompare(b.name);
+      });
+    }
+    
+    if (swimlaneBy === 'priority') {
+      const priorityOrder = ['urgent', 'high', 'medium', 'low'];
+      const groups = {};
+      filteredAllTasks.forEach(task => {
+        const key = task.priority || 'medium';
+        if (!groups[key]) groups[key] = { id: key, name: key.charAt(0).toUpperCase() + key.slice(1), tasks: [] };
+        groups[key].tasks.push(task);
+      });
+      return priorityOrder
+        .filter(p => groups[p])
+        .map(p => groups[p]);
+    }
+    
+    return null;
+  };
+
+  const swimlanes = getSwimlanes();
+
   if (loading && !boardData) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -544,6 +601,21 @@ export default function KanbanBoard() {
               </SelectContent>
             </Select>
           )}
+          
+          {/* Swimlane Selector */}
+          <div className="h-5 w-px bg-[#E8D5C4]" />
+          <span className="text-sm text-[#6B5D52]">Group by:</span>
+          <Select value={swimlaneBy} onValueChange={setSwimlaneBy}>
+            <SelectTrigger className="w-[130px] h-8 border-[#D4BBA6] bg-white">
+              <SelectValue placeholder="None" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">None</SelectItem>
+              <SelectItem value="assignee">Assignee</SelectItem>
+              <SelectItem value="epic">Epic</SelectItem>
+              <SelectItem value="priority">Priority</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         
         {/* Filters */}
@@ -611,21 +683,104 @@ export default function KanbanBoard() {
       </div>
       
       {/* Board */}
-      <div className="flex-1 overflow-x-auto p-4">
-        <div className="flex gap-4 min-w-max">
-          {boardData?.columns?.map((column) => (
-            <KanbanColumn
-              key={column.id}
-              column={column}
-              tasks={getFilteredTasks(boardData.tasks_by_column?.[column.id] || [])}
-              onDragStart={handleDragStart}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-              onTaskClick={handleTaskClick}
-              onDuplicate={handleDuplicate}
-            />
-          ))}
-        </div>
+      <div className="flex-1 overflow-auto p-4">
+        {swimlaneBy !== 'none' && swimlanes ? (
+          // Swimlane view
+          <div className="space-y-6">
+            {swimlanes.map(swimlane => (
+              <div key={swimlane.id} className="bg-white/50 rounded-xl border border-[#E8D5C4]">
+                {/* Swimlane Header */}
+                <div className="p-3 border-b border-[#E8D5C4] bg-[#FAF7F5]/50 rounded-t-xl">
+                  <div className="flex items-center gap-2">
+                    {swimlaneBy === 'epic' && swimlane.color && (
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: swimlane.color }} />
+                    )}
+                    {swimlaneBy === 'assignee' && swimlane.id !== 'unassigned' && (
+                      <Avatar className="w-6 h-6">
+                        <AvatarFallback className="bg-teal-100 text-teal-700 text-xs">
+                          {swimlane.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
+                    {swimlaneBy === 'priority' && (
+                      <Flag className={`w-4 h-4 ${
+                        swimlane.id === 'urgent' ? 'text-red-600' :
+                        swimlane.id === 'high' ? 'text-orange-600' :
+                        swimlane.id === 'medium' ? 'text-yellow-600' :
+                        'text-gray-400'
+                      }`} />
+                    )}
+                    <span className="font-medium text-[#4A3728]">{swimlane.name}</span>
+                    <Badge variant="secondary" className="bg-[#E8D5C4] text-[#4A3728]">
+                      {swimlane.tasks.length}
+                    </Badge>
+                  </div>
+                </div>
+                
+                {/* Swimlane Columns */}
+                <div className="p-3">
+                  <div className="flex gap-4 overflow-x-auto">
+                    {boardData?.columns?.map((column) => {
+                      const columnTasks = swimlane.tasks.filter(t => t.status === column.id);
+                      return (
+                        <div 
+                          key={column.id}
+                          className="flex-1 min-w-[200px] max-w-[250px] bg-[#F5EBE0]/30 rounded-lg p-2"
+                        >
+                          <div className="text-xs font-medium text-[#6B5D52] mb-2 flex items-center justify-between">
+                            <span>{column.name}</span>
+                            <span className="text-[#8B7355]">{columnTasks.length}</span>
+                          </div>
+                          <div className="space-y-2 min-h-[60px]">
+                            {columnTasks.map(task => (
+                              <Card 
+                                key={task.id}
+                                className="cursor-pointer hover:shadow-md transition-all bg-white"
+                                onClick={() => handleTaskClick(task.id)}
+                              >
+                                <CardContent className="p-2">
+                                  <div className="text-sm font-medium text-[#4A3728] line-clamp-1">
+                                    {task.name}
+                                  </div>
+                                  <div className="flex items-center gap-1 mt-1">
+                                    {task.story_points && (
+                                      <Badge variant="secondary" className="text-[9px] py-0 px-1 h-4 bg-[#E8D5C4]">
+                                        {task.story_points} SP
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            ))}
+                            {columnTasks.length === 0 && (
+                              <div className="text-xs text-[#8B7355] text-center py-4">—</div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          // Normal view
+          <div className="flex gap-4 min-w-max">
+            {boardData?.columns?.map((column) => (
+              <KanbanColumn
+                key={column.id}
+                column={column}
+                tasks={getFilteredTasks(boardData.tasks_by_column?.[column.id] || [])}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                onTaskClick={handleTaskClick}
+                onDuplicate={handleDuplicate}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

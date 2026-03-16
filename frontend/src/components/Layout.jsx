@@ -14,7 +14,7 @@ import {
     HelpCircle, Award, Network, Shield, Flag, CalendarDays, RefreshCw, Plus, Globe,
     TrendingUp, PieChart, Activity, FileText, Package, Factory, FlaskConical, Search, Database,
     Server, Plug, Bell, ClipboardList, Bot, Cog, CheckCircle, MessageCircle, Key, Lock, Receipt,
-    CreditCard, Megaphone, FileImage, LayoutGrid, Layers, BookOpen
+    CreditCard, Megaphone, FileImage, LayoutGrid, Layers, BookOpen, Map
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -119,8 +119,10 @@ const DEPARTMENT_CONFIG = {
                 isGroup: true, 
                 items: [
                     { path: '/engineering/projects', name: 'All Projects', icon: FolderKanban },
+                    { path: '/engineering/sprint-board', name: 'Sprint Board', icon: LayoutDashboard },
                     { path: '/engineering/backlog', name: 'Product Backlog', icon: Layers },
                     { path: '/engineering/epics', name: 'Epics', icon: Target },
+                    { path: '/engineering/roadmap', name: 'Roadmap', icon: Map },
                     { path: '/engineering/sprints', name: 'Sprint Planning', icon: Zap },
                     { path: '/engineering/reports', name: 'Reports & Charts', icon: TrendingUp },
                     { path: '/engineering/workflows', name: 'Workflows', icon: RefreshCw },
