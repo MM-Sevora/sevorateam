@@ -279,15 +279,13 @@ class MicrosoftEmailService:
         cc_recipients: List[str] = None,
         bcc_recipients: List[str] = None,
         reply_to_message_id: str = None,
-        is_reply_all: bool = False,
-        send_as_user: str = None,  # The licensed user to send on behalf of shared mailbox
-        from_address: str = None   # The "from" address shown to recipient (for shared mailbox)
+        is_reply_all: bool = False
     ) -> dict:
         """
         Send a new email or reply to an existing one
         
         Args:
-            sender_email: Licensed user email that sends the email
+            sender_email: Sender's email address
             to_recipients: List of recipient emails
             subject: Email subject
             body: Email body (HTML or text)
@@ -296,21 +294,16 @@ class MicrosoftEmailService:
             bcc_recipients: BCC recipients
             reply_to_message_id: If replying, the original message ID
             is_reply_all: Whether to reply all
-            send_as_user: Alternative licensed user email to send on behalf of shared mailbox
-            from_address: The "from" address shown to recipient (for shared mailbox)
         """
         try:
             token = await self._get_app_token()
             
-            # For shared mailboxes, use a licensed user to send
-            actual_sender = send_as_user or sender_email
-            
             if reply_to_message_id:
                 # Reply to existing message
                 if is_reply_all:
-                    url = f"{GRAPH_API_ENDPOINT}/users/{actual_sender}/messages/{reply_to_message_id}/replyAll"
+                    url = f"{GRAPH_API_ENDPOINT}/users/{sender_email}/messages/{reply_to_message_id}/replyAll"
                 else:
-                    url = f"{GRAPH_API_ENDPOINT}/users/{actual_sender}/messages/{reply_to_message_id}/reply"
+                    url = f"{GRAPH_API_ENDPOINT}/users/{sender_email}/messages/{reply_to_message_id}/reply"
                 
                 request_body = {
                     "message": {
@@ -321,8 +314,8 @@ class MicrosoftEmailService:
                     }
                 }
             else:
-                # Send new email via the actual sender (licensed user)
-                url = f"{GRAPH_API_ENDPOINT}/users/{actual_sender}/sendMail"
+                # Send new email
+                url = f"{GRAPH_API_ENDPOINT}/users/{sender_email}/sendMail"
                 
                 message = {
                     "subject": subject,
@@ -334,15 +327,6 @@ class MicrosoftEmailService:
                         {"emailAddress": {"address": email}} for email in to_recipients
                     ]
                 }
-                
-                # If from_address is specified (shared mailbox), set the "from" field
-                # This allows sending from a shared mailbox using a licensed user
-                if from_address and from_address != actual_sender:
-                    message["from"] = {
-                        "emailAddress": {
-                            "address": from_address
-                        }
-                    }
                 
                 if cc_recipients:
                     message["ccRecipients"] = [

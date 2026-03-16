@@ -30,8 +30,7 @@ class MicrosoftService:
         body: str,
         is_html: bool = False,
         sender_email: str = None,
-        cc_recipients: list = None,
-        from_address: str = None  # For shared mailbox - the "from" address shown to recipient
+        cc_recipients: list = None
     ) -> dict:
         """
         Send an email via Microsoft Graph
@@ -41,9 +40,8 @@ class MicrosoftService:
             subject: Email subject
             body: Email body content
             is_html: Whether body is HTML formatted
-            sender_email: Licensed user email that actually sends the email
+            sender_email: Sender email (defaults to first available user)
             cc_recipients: Optional CC recipients
-            from_address: Optional from address (for shared mailboxes)
         
         Returns:
             dict with success status and message/error
@@ -62,8 +60,7 @@ class MicrosoftService:
                 subject=subject,
                 body=body,
                 is_html=is_html,
-                cc_recipients=cc_recipients,
-                from_address=from_address  # Pass the shared mailbox address
+                cc_recipients=cc_recipients
             )
             
             return result
