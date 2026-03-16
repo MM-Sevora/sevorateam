@@ -319,6 +319,16 @@ const BrandsPage = () => {
                 </TableHead>
                 <TableHead 
                   className="cursor-pointer hover:bg-gray-50 select-none"
+                  onClick={() => handleSort('division')}
+                >
+                  <div className="flex items-center">
+                    Division
+                    <SortIcon field="division" />
+                  </div>
+                </TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-gray-50 select-none"
                   onClick={() => handleSort('city')}
                 >
                   <div className="flex items-center">
@@ -369,13 +379,13 @@ const BrandsPage = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8">
+                  <TableCell colSpan={10} className="text-center py-8">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-600 mx-auto"></div>
                   </TableCell>
                 </TableRow>
               ) : brands.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={10} className="text-center py-8 text-gray-500">
                     No brands found. Add your first brand to get started.
                   </TableCell>
                 </TableRow>
@@ -389,6 +399,31 @@ const BrandsPage = () => {
                           <ExternalLink className="h-3 w-3" /> Website
                         </a>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="bg-gray-50">
+                        {brand.division || '-'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="max-w-[150px]">
+                        {brand.categories && brand.categories.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {brand.categories.slice(0, 2).map((cat, idx) => (
+                              <Badge key={idx} variant="secondary" className="text-xs bg-[#F5EBE0] text-[#4A3728]">
+                                {cat}
+                              </Badge>
+                            ))}
+                            {brand.categories.length > 2 && (
+                              <Badge variant="secondary" className="text-xs bg-gray-100">
+                                +{brand.categories.length - 2}
+                              </Badge>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-sm">-</span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>{brand.city}</TableCell>
                     <TableCell>
