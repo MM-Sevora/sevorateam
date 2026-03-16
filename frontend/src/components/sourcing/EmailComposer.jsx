@@ -17,6 +17,7 @@ const EmailComposer = ({
   entityName,
   defaultEmail,
   defaultRecipientName,
+  replyData, // { subject, quotedContent, isReply }
   onSuccess 
 }) => {
   const { api } = useAuth();
@@ -34,13 +35,29 @@ const EmailComposer = ({
   useEffect(() => {
     if (isOpen) {
       fetchTemplates();
-      setFormData(prev => ({
-        ...prev,
-        to_email: defaultEmail || '',
-        to_name: defaultRecipientName || ''
-      }));
+      
+      // Handle reply data
+      if (replyData?.isReply) {
+        setFormData(prev => ({
+          ...prev,
+          to_email: defaultEmail || '',
+          to_name: defaultRecipientName || '',
+          subject: replyData.subject || '',
+          content: replyData.quotedContent || '',
+          template_id: ''
+        }));
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          to_email: defaultEmail || '',
+          to_name: defaultRecipientName || '',
+          subject: '',
+          content: '',
+          template_id: ''
+        }));
+      }
     }
-  }, [isOpen, defaultEmail, defaultRecipientName]);
+  }, [isOpen, defaultEmail, defaultRecipientName, replyData]);
 
   const fetchTemplates = async () => {
     setLoading(true);
@@ -146,35 +163,43 @@ const EmailComposer = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5 text-orange-500" /> 
-            Send Email to {entityName}
+            {replyData?.isReply ? `Reply to ${entityName}` : `Send Email to ${entityName}`}
           </DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-4 py-4">
-          {/* Template Selection */}
-          <div>
-            <Label className="text-xs text-gray-500 uppercase tracking-wider">Use Template</Label>
-            <Select 
-              value={formData.template_id || 'none'} 
-              onValueChange={handleTemplateSelect}
-              disabled={loading}
-            >
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="Select a template..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No template - write from scratch</SelectItem>
-                {templates.map(t => (
-                  <SelectItem key={t.id} value={t.id}>
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-3 w-3" />
-                      {t.name}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        {replyData?.isReply && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+            Replying to conversation - original message is quoted below
           </div>
+        )}
+        
+        <div className="space-y-4 py-4">
+          {/* Template Selection - hide for replies */}
+          {!replyData?.isReply && (
+            <div>
+              <Label className="text-xs text-gray-500 uppercase tracking-wider">Use Template</Label>
+              <Select 
+                value={formData.template_id || 'none'} 
+                onValueChange={handleTemplateSelect}
+                disabled={loading}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select a template..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No template - write from scratch</SelectItem>
+                  {templates.map(t => (
+                    <SelectItem key={t.id} value={t.id}>
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-3 w-3" />
+                        {t.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           
           {/* Recipient */}
           <div className="grid grid-cols-2 gap-4">

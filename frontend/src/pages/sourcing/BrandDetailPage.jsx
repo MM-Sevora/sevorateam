@@ -66,6 +66,7 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [showAgreementModal, setShowAgreementModal] = useState(false);
   const [emailRecipient, setEmailRecipient] = useState({ email: '', name: '' });
+  const [emailReplyData, setEmailReplyData] = useState({ subject: '', quotedContent: '', isReply: false });
   const [newContact, setNewContact] = useState({ name: '', role: '', business_email: '', phone: '' });
   const [updatingStage, setUpdatingStage] = useState(false);
   const [agreementForm, setAgreementForm] = useState({
@@ -328,8 +329,42 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
     window.open(`https://wa.me/${cleanPhone}`, '_blank');
   };
 
-  const openEmailComposer = (email, name) => {
+  const openEmailComposer = (email, name, replyData = null) => {
     setEmailRecipient({ email: email || brand.email, name: name || brand.founder_name || brand.name });
+    
+    if (replyData) {
+      // This is a reply - set subject with "Re:" and include quoted content
+      const subject = replyData.subject?.startsWith('Re:') 
+        ? replyData.subject 
+        : `Re: ${replyData.subject || ''}`;
+      
+      // Format quoted content
+      const date = replyData.date ? new Date(replyData.date).toLocaleString('en-IN', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }) : '';
+      
+      const quotedContent = `
+
+---
+On ${date}, ${replyData.fromName || replyData.fromEmail} wrote:
+
+${replyData.bodyPreview || ''}`;
+      
+      setEmailReplyData({ 
+        subject, 
+        quotedContent, 
+        isReply: true 
+      });
+    } else {
+      // New email - clear reply data
+      setEmailReplyData({ subject: '', quotedContent: '', isReply: false });
+    }
+    
     setShowEmailComposer(true);
   };
 
@@ -1203,7 +1238,13 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
                                   className="mt-2 text-orange-600"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    openEmailComposer(email.from_email, email.from_name || brand?.name);
+                                    openEmailComposer(email.from_email, email.from_name || brand?.name, {
+                                      subject: email.subject,
+                                      bodyPreview: email.body_preview,
+                                      fromEmail: email.from_email,
+                                      fromName: email.from_name,
+                                      date: email.received_at || email.sent_at
+                                    });
                                   }}
                                 >
                                   Reply
@@ -1338,13 +1379,20 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
       {/* Email Composer */}
       <EmailComposer
         isOpen={showEmailComposer}
-        onClose={() => setShowEmailComposer(false)}
+        onClose={() => {
+          setShowEmailComposer(false);
+          setEmailReplyData({ subject: '', quotedContent: '', isReply: false });
+        }}
         entityType="brand"
         entityId={id}
         entityName={brand?.name}
         defaultEmail={emailRecipient.email}
         defaultRecipientName={emailRecipient.name}
-        onSuccess={fetchBrandDetails}
+        replyData={emailReplyData}
+        onSuccess={() => {
+          fetchBrandDetails();
+          fetchInboxEmails();
+        }}
       />
 
       {/* Create Task Dialog */}
