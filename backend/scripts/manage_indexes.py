@@ -35,16 +35,36 @@ INDEX_DEFINITIONS = {
     "contacts": [
         {"keys": [("email", 1)], "options": {}},
         {"keys": [("contact_type", 1), ("status", 1)], "options": {}},
+        {"keys": [("contact_type", 1), ("score", -1)], "options": {}},
         {"keys": [("campaign_id", 1)], "options": {}},
-        {"keys": [("name", "text"), ("email", "text")], "options": {}},
+        {"keys": [("pipeline_stage", 1), ("contact_type", 1)], "options": {}},
+        {"keys": [("created_at", -1)], "options": {}},
+        {"keys": [("updated_at", -1)], "options": {}},
     ],
     "pm_tasks": [
         {"keys": [("project_id", 1), ("status", 1)], "options": {}},
         {"keys": [("assigned_to", 1), ("status", 1)], "options": {}},
+        {"keys": [("sprint_id", 1), ("status", 1)], "options": {}},
+        {"keys": [("epic_id", 1)], "options": {}},
         {"keys": [("due_date", 1)], "options": {}},
+        {"keys": [("created_at", -1)], "options": {}},
+    ],
+    "pm_projects": [
+        {"keys": [("status", 1)], "options": {}},
+        {"keys": [("created_at", -1)], "options": {}},
+    ],
+    "pm_epics": [
+        {"keys": [("project_id", 1)], "options": {}},
+    ],
+    "pm_sprints": [
+        {"keys": [("project_id", 1), ("status", 1)], "options": {}},
+    ],
+    "pm_releases": [
+        {"keys": [("project_id", 1), ("status", 1)], "options": {}},
     ],
     "notifications": [
         {"keys": [("user_id", 1), ("read", 1), ("created_at", -1)], "options": {}},
+        {"keys": [("created_at", -1)], "options": {}},
     ],
     "influencers": [
         {"keys": [("score", -1)], "options": {}},
@@ -52,7 +72,12 @@ INDEX_DEFINITIONS = {
     ],
     "marketing_campaigns": [
         {"keys": [("status", 1)], "options": {}},
+        {"keys": [("campaign_type", 1)], "options": {}},
         {"keys": [("created_at", -1)], "options": {}},
+    ],
+    "communications": [
+        {"keys": [("contact_id", 1), ("created_at", -1)], "options": {}},
+        {"keys": [("campaign_id", 1)], "options": {}},
     ],
     "departments": [
         {"keys": [("code", 1)], "options": {"unique": True, "sparse": True}},
@@ -60,6 +85,10 @@ INDEX_DEFINITIONS = {
     "support_tickets": [
         {"keys": [("user_id", 1), ("status", 1)], "options": {}},
         {"keys": [("priority", 1)], "options": {}},
+    ],
+    "activity_logs": [
+        {"keys": [("entity_type", 1), ("entity_id", 1), ("created_at", -1)], "options": {}},
+        {"keys": [("user_id", 1), ("created_at", -1)], "options": {}},
     ],
 }
 
