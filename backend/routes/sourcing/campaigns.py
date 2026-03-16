@@ -84,39 +84,22 @@ def create_campaigns_router(db, get_current_user: Callable):
         # Fetch email settings from database
         settings = await db.sourcing_settings.find_one({}) or {}
         email_config = settings.get("email", {})
-        shared_mailbox = email_config.get("fromEmail", "seller@sevora.com")
-        
-        # The logged-in user's email
-        sender_user_email = current_user.get("email")
-        
-        if not sender_user_email:
-            raise HTTPException(status_code=400, detail="User email not found. Please update your profile.")
+        from_email = email_config.get("fromEmail", "seller@sevora.com")
         
         email_service = MicrosoftEmailService()
         
         try:
-            # Try sending directly FROM the shared mailbox using app permissions
-            # The Azure app with Mail.Send permission should be able to send as any mailbox
+            # Send directly from the configured email (shared mailbox)
+            # App has Mail.Send application permission which allows sending as any user/mailbox
             result = await email_service.send_email(
-                sender_email=shared_mailbox,  # Send directly from shared mailbox
+                sender_email=from_email,  # Send directly from shared mailbox
                 to_recipients=[request.to_email],
                 subject=request.subject,
                 body=request.content,
                 is_html=True
             )
         except Exception as e:
-            # If that fails, try from user's email with shared mailbox as "from"
-            try:
-                result = await email_service.send_email(
-                    sender_email=sender_user_email,
-                    to_recipients=[request.to_email],
-                    subject=request.subject,
-                    body=request.content,
-                    is_html=True,
-                    from_shared_mailbox=shared_mailbox
-                )
-            except Exception as e2:
-                result = {"success": False, "error": f"Primary: {str(e)}, Fallback: {str(e2)}"}
+            result = {"success": False, "error": str(e)}
         
         # Log the outreach
         now = datetime.now(timezone.utc).isoformat()
