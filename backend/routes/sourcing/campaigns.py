@@ -84,24 +84,28 @@ def create_campaigns_router(db, get_current_user: Callable):
         # Fetch email settings from database
         settings = await db.sourcing_settings.find_one({}) or {}
         email_config = settings.get("email", {})
-        from_email = email_config.get("fromEmail", "seller@sevora.com")
-        # Licensed user who has "Send As" permission on the shared mailbox
-        send_as_user = email_config.get("sendAsUser", "admin@sevora.com")
+        from_email = email_config.get("fromEmail", "seller@sevora.com")  # Shared mailbox
+        
+        # The logged-in user sends the email (they need "Send As" permission on shared mailbox)
+        sender_user_email = current_user.get("email")
         
         # Check if Microsoft service is configured
         if not microsoft_service:
             raise HTTPException(status_code=503, detail="Microsoft email service not configured")
         
+        if not sender_user_email:
+            raise HTTPException(status_code=400, detail="User email not found. Please update your profile.")
+        
         try:
             # Send email via Microsoft Graph API
-            # Use licensed user (send_as_user) to send, but show from_email (shared mailbox) as sender
+            # Use logged-in user to send, but show shared mailbox as "from" address
             result = await microsoft_service.send_email(
                 to_email=request.to_email,
                 subject=request.subject,
                 body=request.content,
                 is_html=True,
-                sender_email=send_as_user,  # Licensed user who actually sends
-                from_shared_mailbox=from_email  # Shared mailbox shown as "from"
+                sender_email=sender_user_email,  # Current user sends the email
+                from_shared_mailbox=from_email   # Shared mailbox shown as "from"
             )
         except Exception as e:
             result = {"success": False, "error": str(e)}
