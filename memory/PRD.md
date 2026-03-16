@@ -48,6 +48,29 @@ Build a comprehensive Marketing Operations Platform that integrates marketing, s
 - **Pages**: WYSIWYG rich text editor (TipTap) with formatting toolbar
 - **Page Hierarchy**: Parent/child page structure
 - **Version History**: Track all changes, restore previous versions
+
+### 5. Engineering Module - Enhanced (Mar 2026)
+- **Sidebar Structure**: Engineering > Project Management & Knowledge subgroups
+- **Sprint Board**: Dedicated view with burndown chart, sprint stats, task columns
+- **Kanban Board Enhancements**:
+  - Quick Filters: All, My Issues, Unassigned, Overdue
+  - Swimlanes: Group by Assignee, Epic, Priority
+- **Roadmap/Timeline View**: Visual timeline of epics across months
+  - Week/Month zoom controls
+  - Epic bars with status colors
+  - Progress tracking
+- **Release/Version Management**: Track software releases
+  - Create/Edit releases with status, dates, description
+  - Link/unlink tasks to releases
+  - Progress tracking (issues, story points)
+  - Status workflow: Planned → In Progress → Ready → Released → Archived
+- **Workflow Validation**: Backend enforcement of valid status transitions
+- **Task Detail Modal Enhancements**:
+  - Epic selector
+  - Release selector
+  - Story Points field
+  - Issue Type selector (Story, Bug, Task, etc.)
+  - Conditional fields (Acceptance Criteria for Stories, Reproduction Steps for Bugs)
 - **Comments**: Collaborate on documentation
 - **Templates**: Industry-standard templates (RFC, ADR, Design Doc, Runbook, Post-Mortem, Meeting Notes, Onboarding)
 - **Search**: Full-text search across all knowledge base content
@@ -320,8 +343,14 @@ Build a comprehensive Marketing Operations Platform that integrates marketing, s
 - Pages: `/app/frontend/src/pages/`
 - Components: `/app/frontend/src/components/`
 
-### Key Files Modified This Session
-- `/app/frontend/src/pages/sourcing/EmailCampaignsPage.jsx` - Enhanced with Outlook status, Brands/Suppliers toggle, search, filters
+### Key Files Modified This Session (Mar 16, 2026)
+- `/app/frontend/src/pages/engineering/ReleasesPage.jsx` - NEW: Release/Version management page
+- `/app/frontend/src/pages/engineering/RoadmapPage.jsx` - Roadmap timeline view with epics
+- `/app/frontend/src/pages/projects/KanbanBoard.jsx` - Swimlanes (Group by) and Quick Filters
+- `/app/frontend/src/pages/projects/TaskDetailModal.jsx` - Release selector, releases fetch
+- `/app/frontend/src/components/Layout.jsx` - Releases link in sidebar
+- `/app/backend/routes/projects.py` - Release API endpoints (CRUD, task linking)
+- `/app/backend/models/projects.py` - Release models, release_id in TaskUpdate/TaskResponse
 
 ### Key Files Modified Previous Session
 - `/app/frontend/src/pages/pulse/WorkUpdates.jsx` - Bug fix for input fields
