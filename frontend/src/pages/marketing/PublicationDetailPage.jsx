@@ -18,6 +18,7 @@ import {
   Target, CheckCircle, Clock, XCircle, Eye, Trash2, MessageSquare, User,
   History, Gift, Sparkles
 } from 'lucide-react';
+import EntityMailbox from '../../components/common/EntityMailbox';
 
 const BEAT_OPTIONS = ['Fashion', 'Beauty', 'Lifestyle', 'Tech', 'Business', 'Entertainment', 'Startup', 'Luxury', 'Travel', 'Food'];
 
@@ -542,6 +543,9 @@ const PublicationDetailPage = () => {
           <TabsTrigger value="paid" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800">
             <DollarSign className="w-4 h-4 mr-2" />Paid PR
           </TabsTrigger>
+          <TabsTrigger value="email" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800">
+            <Mail className="w-4 h-4 mr-2" />Email
+          </TabsTrigger>
           <TabsTrigger value="history" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800">
             <History className="w-4 h-4 mr-2" />History ({activities.length})
           </TabsTrigger>
@@ -1053,6 +1057,20 @@ const PublicationDetailPage = () => {
                 </CardContent>
               </Card>
             )}
+          </div>
+        </TabsContent>
+
+        {/* Email Tab */}
+        <TabsContent value="email">
+          <div className="max-w-4xl">
+            <EntityMailbox
+              entityType="publication"
+              entityId={id}
+              entityName={publication?.name}
+              entityEmail={publication?.email}
+              activityLogs={activities.filter(a => a.type === 'email')}
+              onRefresh={fetchPublication}
+            />
           </div>
         </TabsContent>
 

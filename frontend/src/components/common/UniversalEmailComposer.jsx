@@ -18,7 +18,8 @@ const MODULE_CONFIG = {
     color: 'orange',
     endpoint: '/sourcing/campaigns/send-single',
     templateEndpoint: '/sourcing/email-templates',
-    entityIdKey: 'brand_id'
+    entityIdKey: 'brand_id',
+    defaultMailbox: 'seller'
   },
   supplier: {
     icon: Users,
@@ -26,7 +27,8 @@ const MODULE_CONFIG = {
     color: 'blue',
     endpoint: '/sourcing/campaigns/send-single',
     templateEndpoint: '/sourcing/email-templates',
-    entityIdKey: 'supplier_id'
+    entityIdKey: 'supplier_id',
+    defaultMailbox: 'seller'
   },
   manufacturer: {
     icon: Factory,
@@ -34,15 +36,26 @@ const MODULE_CONFIG = {
     color: 'green',
     endpoint: '/sourcing/campaigns/send-single',
     templateEndpoint: '/sourcing/email-templates',
-    entityIdKey: 'manufacturer_id'
+    entityIdKey: 'manufacturer_id',
+    defaultMailbox: 'seller'
   },
   influencer: {
     icon: Megaphone,
     label: 'Influencer',
     color: 'purple',
-    endpoint: '/marketing/send-email',
+    endpoint: '/marketing/influencers',
     templateEndpoint: '/marketing/email-templates',
-    entityIdKey: 'influencer_id'
+    entityIdKey: 'influencer_id',
+    defaultMailbox: 'collaboration'
+  },
+  publication: {
+    icon: FileText,
+    label: 'Publication',
+    color: 'pink',
+    endpoint: '/marketing/publications',
+    templateEndpoint: '/marketing/email-templates',
+    entityIdKey: 'publication_id',
+    defaultMailbox: 'collaboration'
   },
   contact: {
     icon: User,
@@ -50,7 +63,8 @@ const MODULE_CONFIG = {
     color: 'gray',
     endpoint: '/marketing/send-email',
     templateEndpoint: '/marketing/email-templates',
-    entityIdKey: 'contact_id'
+    entityIdKey: 'contact_id',
+    defaultMailbox: 'collaboration'
   },
   general: {
     icon: Mail,
@@ -135,9 +149,12 @@ const UniversalEmailComposer = ({
       const res = await api.get('/shared-mailboxes');
       const activeMailboxes = (res.data || []).filter(m => m.is_active);
       setSharedMailboxes(activeMailboxes);
-      // Set default mailbox
+      // Set default mailbox based on entity type
       if (activeMailboxes.length > 0 && !formData.from_mailbox) {
-        const defaultMailbox = activeMailboxes.find(m => m.display_name?.toLowerCase().includes('seller')) || activeMailboxes[0];
+        const preferredMailboxName = config.defaultMailbox || 'seller';
+        const defaultMailbox = activeMailboxes.find(m => 
+          m.display_name?.toLowerCase().includes(preferredMailboxName)
+        ) || activeMailboxes[0];
         setFormData(prev => ({ ...prev, from_mailbox: defaultMailbox.id }));
       }
     } catch (error) {
@@ -213,7 +230,15 @@ const UniversalEmailComposer = ({
         payload[config.entityIdKey] = entityId;
       }
       
-      await api.post(config.endpoint, payload);
+      // Determine endpoint based on entity type
+      let endpoint = config.endpoint;
+      if (entityType === 'influencer' && entityId) {
+        endpoint = `/marketing/influencers/${entityId}/send-email`;
+      } else if (entityType === 'publication' && entityId) {
+        endpoint = `/marketing/publications/${entityId}/send-email`;
+      }
+      
+      await api.post(endpoint, payload);
       
       toast.success(`Email sent to ${formData.to_email}`);
       onClose();

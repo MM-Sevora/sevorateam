@@ -40,6 +40,7 @@ const EntityMailbox = ({
       supplier: `/sourcing/suppliers/${entityId}/inbox`,
       manufacturer: `/sourcing/manufacturers/${entityId}/inbox`,
       influencer: `/marketing/influencers/${entityId}/inbox`,
+      publication: `/marketing/publications/${entityId}/inbox`,
       contact: `/marketing/contacts/${entityId}/inbox`
     };
     return endpoints[entityType] || null;

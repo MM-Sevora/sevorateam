@@ -6577,3 +6577,239 @@ async def get_publication_advertorials(publication_id: str, user: dict = Depends
         }
     }
 
+
+# ============== INFLUENCER & PUBLICATION INBOX ==============
+
+async def get_entity_inbox_emails(entity_email: str, mailbox_name: str = "collaboration"):
+    """Helper function to fetch inbox emails for an entity"""
+    import httpx
+    
+    db = get_db()
+    
+    # Get shared mailbox for collaboration
+    shared_mailbox = await db.shared_mailboxes.find_one(
+        {"is_active": True, "display_name": {"$regex": mailbox_name, "$options": "i"}},
+        {"_id": 0}
+    )
+    if not shared_mailbox:
+        # Fallback to any active mailbox
+        shared_mailbox = await db.shared_mailboxes.find_one({"is_active": True}, {"_id": 0})
+    
+    if not shared_mailbox:
+        return []
+    
+    try:
+        from services.microsoft_email import MicrosoftEmailService
+        
+        email_svc = MicrosoftEmailService()
+        access_token = await email_svc._get_app_token()
+        if not access_token:
+            return []
+        
+        mailbox_email = shared_mailbox.get("email")
+        
+        async with httpx.AsyncClient() as client:
+            search_url = f"https://graph.microsoft.com/v1.0/users/{mailbox_email}/messages"
+            params = {
+                "$search": f'"{entity_email}"',
+                "$top": 50,
+                "$select": "id,subject,bodyPreview,from,toRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments"
+            }
+            
+            response = await client.get(
+                search_url,
+                headers={"Authorization": f"Bearer {access_token}", "ConsistencyLevel": "eventual"},
+                params=params,
+                timeout=30.0
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                emails = []
+                for msg in data.get("value", []):
+                    from_email = msg.get("from", {}).get("emailAddress", {}).get("address", "")
+                    to_emails = [r.get("emailAddress", {}).get("address", "") for r in msg.get("toRecipients", [])]
+                    is_incoming = from_email.lower() == entity_email.lower()
+                    
+                    emails.append({
+                        "id": msg.get("id"),
+                        "subject": msg.get("subject"),
+                        "body_preview": msg.get("bodyPreview"),
+                        "from_email": from_email,
+                        "from_name": msg.get("from", {}).get("emailAddress", {}).get("name"),
+                        "to_emails": to_emails,
+                        "received_at": msg.get("receivedDateTime"),
+                        "sent_at": msg.get("sentDateTime"),
+                        "is_read": msg.get("isRead", False),
+                        "has_attachments": msg.get("hasAttachments", False),
+                        "direction": "incoming" if is_incoming else "outgoing"
+                    })
+                
+                emails.sort(key=lambda x: x.get('received_at') or x.get('sent_at') or '', reverse=True)
+                return emails
+            else:
+                return []
+                
+    except Exception as e:
+        import logging
+        logging.error(f"Error fetching inbox: {e}")
+        return []
+
+
+@marketing_v2_router.get("/influencers/{influencer_id}/inbox")
+async def get_influencer_inbox(influencer_id: str, user: dict = Depends(get_marketing_auth())):
+    """Get all emails related to this influencer (sent and received)"""
+    db = get_db()
+    
+    influencer = await db.influencers.find_one({"id": influencer_id}, {"_id": 0})
+    if not influencer:
+        raise HTTPException(status_code=404, detail="Influencer not found")
+    
+    influencer_email = influencer.get("email")
+    if not influencer_email:
+        return []
+    
+    return await get_entity_inbox_emails(influencer_email, "collaboration")
+
+
+@marketing_v2_router.get("/publications/{publication_id}/inbox")
+async def get_publication_inbox(publication_id: str, user: dict = Depends(get_marketing_auth())):
+    """Get all emails related to this publication (sent and received)"""
+    db = get_db()
+    
+    publication = await db.publications.find_one({"id": publication_id}, {"_id": 0})
+    if not publication:
+        raise HTTPException(status_code=404, detail="Publication not found")
+    
+    publication_email = publication.get("email")
+    if not publication_email:
+        return []
+    
+    return await get_entity_inbox_emails(publication_email, "collaboration")
+
+
+@marketing_v2_router.post("/influencers/{influencer_id}/send-email")
+async def send_influencer_email(
+    influencer_id: str,
+    request: dict,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Send email to an influencer"""
+    db = get_db()
+    
+    influencer = await db.influencers.find_one({"id": influencer_id}, {"_id": 0})
+    if not influencer:
+        raise HTTPException(status_code=404, detail="Influencer not found")
+    
+    to_email = request.get("to_email") or influencer.get("email")
+    if not to_email:
+        raise HTTPException(status_code=400, detail="Recipient email is required")
+    
+    # Get collaboration mailbox
+    shared_mailbox = await db.shared_mailboxes.find_one(
+        {"is_active": True, "display_name": {"$regex": "collaboration", "$options": "i"}},
+        {"_id": 0}
+    )
+    if not shared_mailbox:
+        shared_mailbox = await db.shared_mailboxes.find_one({"is_active": True}, {"_id": 0})
+    
+    if not shared_mailbox:
+        raise HTTPException(status_code=400, detail="No shared mailbox configured")
+    
+    try:
+        from services.microsoft_email import MicrosoftEmailService
+        
+        email_svc = MicrosoftEmailService()
+        result = await email_svc.send_email_from_shared_mailbox(
+            shared_mailbox_email=shared_mailbox.get("email"),
+            to_email=to_email,
+            to_name=request.get("to_name") or influencer.get("name", ""),
+            subject=request.get("subject", ""),
+            body=request.get("content", ""),
+            is_html=True
+        )
+        
+        # Log the email
+        from datetime import datetime, timezone
+        await db.influencer_email_logs.insert_one({
+            "influencer_id": influencer_id,
+            "to_email": to_email,
+            "to_name": request.get("to_name") or influencer.get("name"),
+            "subject": request.get("subject"),
+            "content": request.get("content"),
+            "from_mailbox": shared_mailbox.get("email"),
+            "status": "sent",
+            "sent_at": datetime.now(timezone.utc).isoformat(),
+            "sent_by": user.get("id")
+        })
+        
+        return {"success": True, "message": "Email sent successfully"}
+        
+    except Exception as e:
+        import logging
+        logging.error(f"Failed to send influencer email: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@marketing_v2_router.post("/publications/{publication_id}/send-email")
+async def send_publication_email(
+    publication_id: str,
+    request: dict,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Send email to a publication"""
+    db = get_db()
+    
+    publication = await db.publications.find_one({"id": publication_id}, {"_id": 0})
+    if not publication:
+        raise HTTPException(status_code=404, detail="Publication not found")
+    
+    to_email = request.get("to_email") or publication.get("email")
+    if not to_email:
+        raise HTTPException(status_code=400, detail="Recipient email is required")
+    
+    # Get collaboration mailbox
+    shared_mailbox = await db.shared_mailboxes.find_one(
+        {"is_active": True, "display_name": {"$regex": "collaboration", "$options": "i"}},
+        {"_id": 0}
+    )
+    if not shared_mailbox:
+        shared_mailbox = await db.shared_mailboxes.find_one({"is_active": True}, {"_id": 0})
+    
+    if not shared_mailbox:
+        raise HTTPException(status_code=400, detail="No shared mailbox configured")
+    
+    try:
+        from services.microsoft_email import MicrosoftEmailService
+        
+        email_svc = MicrosoftEmailService()
+        result = await email_svc.send_email_from_shared_mailbox(
+            shared_mailbox_email=shared_mailbox.get("email"),
+            to_email=to_email,
+            to_name=request.get("to_name") or publication.get("name", ""),
+            subject=request.get("subject", ""),
+            body=request.get("content", ""),
+            is_html=True
+        )
+        
+        # Log the email
+        from datetime import datetime, timezone
+        await db.publication_email_logs.insert_one({
+            "publication_id": publication_id,
+            "to_email": to_email,
+            "to_name": request.get("to_name") or publication.get("name"),
+            "subject": request.get("subject"),
+            "content": request.get("content"),
+            "from_mailbox": shared_mailbox.get("email"),
+            "status": "sent",
+            "sent_at": datetime.now(timezone.utc).isoformat(),
+            "sent_by": user.get("id")
+        })
+        
+        return {"success": True, "message": "Email sent successfully"}
+        
+    except Exception as e:
+        import logging
+        logging.error(f"Failed to send publication email: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+

@@ -21,6 +21,7 @@ import {
   BarChart3, Package, History, Edit3, ExternalLink, Building2, Briefcase, ClipboardList, Loader2
 } from 'lucide-react';
 import CreateTaskDialog from '../../components/shared/CreateTaskDialog';
+import EntityMailbox from '../../components/common/EntityMailbox';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Area, AreaChart } from 'recharts';
 
 const InfluencerDetailPage = () => {
@@ -859,6 +860,9 @@ const InfluencerDetailPage = () => {
           </TabsTrigger>
           <TabsTrigger value="finance" className="data-[state=active]:bg-amber-100 data-[state=active]:text-amber-800">
             <DollarSign className="w-4 h-4 mr-2" />Finance ({payments.length})
+          </TabsTrigger>
+          <TabsTrigger value="email" className="data-[state=active]:bg-amber-100 data-[state=active]:text-amber-800">
+            <Mail className="w-4 h-4 mr-2" />Email
           </TabsTrigger>
           <TabsTrigger value="history" className="data-[state=active]:bg-amber-100 data-[state=active]:text-amber-800">
             <History className="w-4 h-4 mr-2" />History ({activities.length})
@@ -2076,6 +2080,20 @@ const InfluencerDetailPage = () => {
             </Card>
           </div>
         </div>
+        </TabsContent>
+
+        {/* Email Tab */}
+        <TabsContent value="email">
+          <div className="max-w-4xl">
+            <EntityMailbox
+              entityType="influencer"
+              entityId={influencerId}
+              entityName={form?.name}
+              entityEmail={form?.email}
+              activityLogs={communications.filter(c => c.type === 'email')}
+              onRefresh={fetchInfluencer}
+            />
+          </div>
         </TabsContent>
 
         {/* History Tab */}
