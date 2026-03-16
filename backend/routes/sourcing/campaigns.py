@@ -84,34 +84,19 @@ def create_campaigns_router(db, get_current_user: Callable):
         # Fetch email settings from database
         settings = await db.sourcing_settings.find_one({}) or {}
         email_config = settings.get("email", {})
-        shared_mailbox = email_config.get("fromEmail", "seller@sevora.com")
-        
-        # Get the logged-in user's email
-        user_email = current_user.get("email")
-        if not user_email:
-            raise HTTPException(status_code=400, detail="User email not found")
+        shared_mailbox = email_config.get("fromEmail", "sellers@sevora.com")
         
         email_service = MicrosoftEmailService()
         
         try:
-            # Send from the user's email with "from" set to shared mailbox
-            # Note: This requires the user to have "Send As" permission on the shared mailbox
-            # AND the app needs to use delegated permissions (user's token)
-            
-            # For now, send directly from the user's email
-            # The "from" will be the user's email, not the shared mailbox
+            # Send directly from the shared mailbox
             result = await email_service.send_email(
-                sender_email=user_email,
+                sender_email=shared_mailbox,
                 to_recipients=[request.to_email],
                 subject=request.subject,
                 body=request.content,
                 is_html=True
             )
-            
-            # If success but we wanted shared mailbox, log a note
-            if result.get("success"):
-                result["note"] = f"Email sent from {user_email}. To send from {shared_mailbox}, configure delegated permissions."
-                
         except Exception as e:
             result = {"success": False, "error": str(e)}
         
