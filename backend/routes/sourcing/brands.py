@@ -68,6 +68,8 @@ def create_brands_router(db, get_current_user: Callable):
         follow_up_date: Optional[str] = None
         # Onboarding fields
         onboarding_stage: Optional[str] = None
+        onboarding_sub_stage: Optional[str] = None
+        stage_changed_at: Optional[str] = None
         # Agreement fields
         agreement_status: Optional[str] = None  # draft, sent, signed, expired
         commission_rate: Optional[str] = None
