@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import { 
   ArrowLeft, Edit2, Trash2, Sparkles, Phone, Mail, Globe, MapPin,
   Calendar, Clock, Users, Plus, ExternalLink, MessageSquare, History,
-  Building2, User, Send, ClipboardList, Save, X
+  Building2, User, Send, ClipboardList, Save, X, FileText, DollarSign, CheckCircle2
 } from 'lucide-react';
 import EmailComposer from '../../components/sourcing/EmailComposer';
 import CreateTaskDialog from '../../components/shared/CreateTaskDialog';
@@ -500,6 +500,200 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Agreement & Onboarding */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-xs text-gray-500 uppercase tracking-wider font-medium flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Agreement & Onboarding
+              </CardTitle>
+              {brand?.agreement_status && (
+                <Badge className={
+                  brand.agreement_status === 'signed' ? 'bg-green-100 text-green-700' :
+                  brand.agreement_status === 'sent' ? 'bg-amber-100 text-amber-700' :
+                  brand.agreement_status === 'expired' ? 'bg-red-100 text-red-700' :
+                  'bg-gray-100 text-gray-700'
+                }>
+                  {brand.agreement_status.charAt(0).toUpperCase() + brand.agreement_status.slice(1)}
+                </Badge>
+              )}
+            </CardHeader>
+            <CardContent>
+              {isEditMode ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Onboarding Stage</Label>
+                      <Select
+                        value={editedBrand?.onboarding_stage || 'new_lead'}
+                        onValueChange={(v) => setEditedBrand({...editedBrand, onboarding_stage: v})}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="new_lead">New Lead</SelectItem>
+                          <SelectItem value="contacted">Contacted</SelectItem>
+                          <SelectItem value="negotiating">Negotiating</SelectItem>
+                          <SelectItem value="agreement_sent">Agreement Sent</SelectItem>
+                          <SelectItem value="agreement_signed">Agreement Signed</SelectItem>
+                          <SelectItem value="onboarding">Onboarding</SelectItem>
+                          <SelectItem value="active_partner">Active Partner</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Agreement Status</Label>
+                      <Select
+                        value={editedBrand?.agreement_status || ''}
+                        onValueChange={(v) => setEditedBrand({...editedBrand, agreement_status: v})}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="draft">Draft</SelectItem>
+                          <SelectItem value="sent">Sent</SelectItem>
+                          <SelectItem value="signed">Signed</SelectItem>
+                          <SelectItem value="expired">Expired</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Commission Rate (%)</Label>
+                      <Input
+                        type="number"
+                        placeholder="e.g., 15"
+                        value={editedBrand?.commission_rate || ''}
+                        onChange={(e) => setEditedBrand({...editedBrand, commission_rate: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <Label>Payment Terms</Label>
+                      <Select
+                        value={editedBrand?.payment_terms || ''}
+                        onValueChange={(v) => setEditedBrand({...editedBrand, payment_terms: v})}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select terms" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="net_15">Net 15</SelectItem>
+                          <SelectItem value="net_30">Net 30</SelectItem>
+                          <SelectItem value="net_45">Net 45</SelectItem>
+                          <SelectItem value="net_60">Net 60</SelectItem>
+                          <SelectItem value="cod">Cash on Delivery</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Contract Start Date</Label>
+                      <Input
+                        type="date"
+                        value={editedBrand?.contract_start_date || ''}
+                        onChange={(e) => setEditedBrand({...editedBrand, contract_start_date: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <Label>Contract End Date</Label>
+                      <Input
+                        type="date"
+                        value={editedBrand?.contract_end_date || ''}
+                        onChange={(e) => setEditedBrand({...editedBrand, contract_end_date: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Agreement Notes / Special Terms</Label>
+                    <Textarea
+                      placeholder="Any special terms, exclusivity clauses, etc."
+                      value={editedBrand?.agreement_notes || ''}
+                      onChange={(e) => setEditedBrand({...editedBrand, agreement_notes: e.target.value})}
+                      rows={3}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Onboarding Stage */}
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <span className="text-sm text-gray-600">Onboarding Stage</span>
+                    <Badge variant="outline" className="capitalize">
+                      {(brand?.onboarding_stage || 'new_lead').replace(/_/g, ' ')}
+                    </Badge>
+                  </div>
+                  
+                  {/* Agreement Details */}
+                  {(brand?.commission_rate || brand?.payment_terms) ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      {brand?.commission_rate && (
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
+                            <DollarSign className="h-3 w-3" /> Commission
+                          </div>
+                          <p className="font-medium">{brand.commission_rate}%</p>
+                        </div>
+                      )}
+                      {brand?.payment_terms && (
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
+                            <Clock className="h-3 w-3" /> Payment Terms
+                          </div>
+                          <p className="font-medium capitalize">{brand.payment_terms.replace(/_/g, ' ')}</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                  
+                  {/* Contract Dates */}
+                  {(brand?.contract_start_date || brand?.contract_end_date) && (
+                    <div className="grid grid-cols-2 gap-4">
+                      {brand?.contract_start_date && (
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
+                            <Calendar className="h-3 w-3" /> Contract Start
+                          </div>
+                          <p className="font-medium">{new Date(brand.contract_start_date).toLocaleDateString()}</p>
+                        </div>
+                      )}
+                      {brand?.contract_end_date && (
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
+                            <Calendar className="h-3 w-3" /> Contract End
+                          </div>
+                          <p className="font-medium">{new Date(brand.contract_end_date).toLocaleDateString()}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Agreement Notes */}
+                  {brand?.agreement_notes && (
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <div className="text-gray-500 text-xs mb-1">Special Terms</div>
+                      <p className="text-sm">{brand.agreement_notes}</p>
+                    </div>
+                  )}
+                  
+                  {/* No Agreement Data */}
+                  {!brand?.commission_rate && !brand?.payment_terms && !brand?.agreement_notes && (
+                    <div className="text-center py-4 text-gray-400">
+                      <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No agreement details added yet</p>
+                      <Button variant="outline" size="sm" className="mt-2" onClick={() => navigate(`/sourcing/brands/${id}/edit`)}>
+                        Add Agreement Details
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>

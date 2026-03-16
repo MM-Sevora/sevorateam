@@ -66,6 +66,18 @@ def create_brands_router(db, get_current_user: Callable):
         pipeline_stage: Optional[str] = None
         sub_stage: Optional[str] = None
         follow_up_date: Optional[str] = None
+        # Onboarding fields
+        onboarding_stage: Optional[str] = None
+        # Agreement fields
+        agreement_status: Optional[str] = None  # draft, sent, signed, expired
+        commission_rate: Optional[str] = None
+        payment_terms: Optional[str] = None
+        contract_start_date: Optional[str] = None
+        contract_end_date: Optional[str] = None
+        agreement_notes: Optional[str] = None
+        agreement_sent_date: Optional[str] = None
+        agreement_signed_date: Optional[str] = None
+        agreement_document_url: Optional[str] = None
 
     class BrandNoteCreate(BaseModel):
         note: str
