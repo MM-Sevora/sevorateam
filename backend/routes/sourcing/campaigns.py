@@ -84,26 +84,37 @@ def create_campaigns_router(db, get_current_user: Callable):
         # Fetch email settings from database
         settings = await db.sourcing_settings.find_one({}) or {}
         email_config = settings.get("email", {})
-        
-        # For shared mailbox, we need to send via a licensed user
-        # The logged-in user will send the email, and it will appear from their address
-        sender_email = current_user.get("email")
-        
-        if not sender_email:
-            raise HTTPException(status_code=400, detail="User email not found")
+        shared_mailbox = email_config.get("fromEmail", "seller@sevora.com")
         
         email_service = MicrosoftEmailService()
         
         try:
-            # Send from the logged-in user's email
-            # This works with Mail.Send application permission
-            result = await email_service.send_email(
-                sender_email=sender_email,
-                to_recipients=[request.to_email],
-                subject=request.subject,
-                body=request.content,
-                is_html=True
-            )
+            # First, try to get the shared mailbox's Object ID
+            # This allows us to send directly from the shared mailbox
+            mailbox_id = await email_service.get_user_id(shared_mailbox)
+            
+            if mailbox_id:
+                # Send directly from the shared mailbox using its Object ID
+                result = await email_service.send_email(
+                    sender_email=mailbox_id,  # Use Object ID instead of email
+                    to_recipients=[request.to_email],
+                    subject=request.subject,
+                    body=request.content,
+                    is_html=True
+                )
+            else:
+                # Fallback: use logged-in user's email
+                sender_email = current_user.get("email")
+                if not sender_email:
+                    raise HTTPException(status_code=400, detail="User email not found")
+                result = await email_service.send_email(
+                    sender_email=sender_email,
+                    to_recipients=[request.to_email],
+                    subject=request.subject,
+                    body=request.content,
+                    is_html=True,
+                    from_shared_mailbox=shared_mailbox
+                )
         except Exception as e:
             result = {"success": False, "error": str(e)}
         

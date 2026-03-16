@@ -269,6 +269,24 @@ class MicrosoftEmailService:
             logger.error(f"Get attachments error: {e}")
             return []
     
+    async def get_user_id(self, email: str) -> str:
+        """Get the Object ID of a user or shared mailbox by email"""
+        try:
+            token = await self._get_app_token()
+            async with httpx.AsyncClient() as client:
+                # Try to get user/mailbox by email
+                response = await client.get(
+                    f"{GRAPH_API_ENDPOINT}/users/{email}",
+                    headers=self._get_headers(token)
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get("id")
+                return None
+        except Exception as e:
+            logger.error(f"Failed to get user ID: {e}")
+            return None
+    
     async def send_email(
         self,
         sender_email: str,
