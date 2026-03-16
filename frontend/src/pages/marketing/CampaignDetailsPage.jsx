@@ -86,13 +86,16 @@ export default function CampaignDetailsPage() {
   const [showLinkAdModal, setShowLinkAdModal] = useState(false);
   const [showLinkContentModal, setShowLinkContentModal] = useState(false);
   const [showLinkPublicationModal, setShowLinkPublicationModal] = useState(false);
+  const [showAddInfluencerModal, setShowAddInfluencerModal] = useState(false);
   const [linkSearchQuery, setLinkSearchQuery] = useState('');
   
   // Available items to link
   const [availableAds, setAvailableAds] = useState([]);
   const [availableContentProjects, setAvailableContentProjects] = useState([]);
   const [availablePublications, setAvailablePublications] = useState([]);
+  const [availableInfluencers, setAvailableInfluencers] = useState([]);
   const [loadingLinkItems, setLoadingLinkItems] = useState(false);
+  const [addingInfluencer, setAddingInfluencer] = useState(false);
 
   const fetchCampaignData = useCallback(async () => {
     if (!campaignId) return;
@@ -351,6 +354,60 @@ export default function CampaignDetailsPage() {
     fetchAvailablePublications();
     setLinkSearchQuery('');
     setShowLinkPublicationModal(true);
+  };
+
+  // Influencer functions
+  const fetchAvailableInfluencers = async () => {
+    setLoadingLinkItems(true);
+    try {
+      const response = await api.get('/marketing/v2/contacts?contact_type=influencer');
+      // Filter out already assigned influencers
+      const assignedIds = new Set(influencers.map(i => i.id || i.influencer_id));
+      setAvailableInfluencers((response.data || []).filter(inf => !assignedIds.has(inf.id)));
+    } catch (error) {
+      console.error('Failed to fetch influencers:', error);
+      setAvailableInfluencers([]);
+    } finally {
+      setLoadingLinkItems(false);
+    }
+  };
+
+  const openAddInfluencerModal = () => {
+    fetchAvailableInfluencers();
+    setLinkSearchQuery('');
+    setShowAddInfluencerModal(true);
+  };
+
+  const handleAddInfluencer = async (influencer) => {
+    setAddingInfluencer(true);
+    try {
+      await api.post(`/marketing/campaigns/${campaignId}/influencers/${influencer.id}`, {});
+      toast.success(`Added ${influencer.name} to campaign`);
+      setShowAddInfluencerModal(false);
+      fetchCampaignData();
+    } catch (error) {
+      toast.error('Failed to add influencer');
+    } finally {
+      setAddingInfluencer(false);
+    }
+  };
+
+  const handleRemoveInfluencer = async (influencerId) => {
+    if (!window.confirm('Remove this influencer from the campaign?')) return;
+    try {
+      await api.delete(`/marketing/campaigns/${campaignId}/influencers/${influencerId}`);
+      toast.success('Influencer removed from campaign');
+      fetchCampaignData();
+    } catch (error) {
+      toast.error('Failed to remove influencer');
+    }
+  };
+
+  const formatNumber = (num) => {
+    if (!num) return '0';
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+    return num.toString();
   };
 
   if (loading) {
@@ -910,7 +967,7 @@ export default function CampaignDetailsPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Influencer Deals</CardTitle>
-              <Button size="sm" onClick={() => navigate('/marketing/pipeline')}>
+              <Button size="sm" onClick={openAddInfluencerModal}>
                 <Plus className="w-4 h-4 mr-2" />
                 Add Influencer
               </Button>
@@ -918,34 +975,59 @@ export default function CampaignDetailsPage() {
             <CardContent>
               {influencers.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
-                  No influencer deals linked to this campaign
+                  <Users className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                  <p>No influencers assigned to this campaign</p>
+                  <Button variant="outline" size="sm" className="mt-3" onClick={openAddInfluencerModal}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Influencer
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-3">
                   {influencers.map(deal => (
-                    <div key={deal.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
+                    <div key={deal.id || deal.influencer_id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-                          <Users className="w-5 h-5 text-gray-500" />
+                        <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-semibold">
+                          {(deal.influencer_name || deal.name || 'U').charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <p className="font-medium">{deal.influencer_name || deal.influencer?.name || 'Unknown'}</p>
+                          <p className="font-medium">{deal.influencer_name || deal.name || 'Unknown'}</p>
                           <div className="flex items-center gap-2 mt-1">
-                            <span className="text-sm text-gray-500">
-                              {formatCurrency(deal.agreed_rate || deal.rate)}
-                            </span>
-                            <Badge className={
-                              deal.status === 'contracted' ? 'bg-green-500' :
-                              deal.status === 'negotiating' ? 'bg-yellow-500' : 'bg-gray-500'
-                            }>
-                              {deal.status}
-                            </Badge>
+                            {(deal.instagram_handle || deal.influencer?.instagram_handle) && (
+                              <span className="text-xs text-gray-500">@{deal.instagram_handle || deal.influencer?.instagram_handle}</span>
+                            )}
+                            {deal.followers && (
+                              <span className="text-xs text-gray-400">{formatNumber(deal.followers)} followers</span>
+                            )}
+                            {(deal.agreed_rate || deal.rate) && (
+                              <Badge variant="outline" className="text-xs">
+                                {formatCurrency(deal.agreed_rate || deal.rate)}
+                              </Badge>
+                            )}
+                            {deal.status && (
+                              <Badge className={
+                                deal.status === 'contracted' ? 'bg-green-500' :
+                                deal.status === 'negotiating' ? 'bg-yellow-500' : 'bg-gray-500'
+                              }>
+                                {deal.status}
+                              </Badge>
+                            )}
                           </div>
                         </div>
                       </div>
-                      <Button variant="ghost" size="sm">
-                        <Eye className="w-4 h-4" />
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => navigate(`/marketing/influencer/${deal.id || deal.influencer_id}`)}>
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-red-600 hover:bg-red-50"
+                          onClick={() => handleRemoveInfluencer(deal.id || deal.influencer_id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1337,6 +1419,80 @@ export default function CampaignDetailsPage() {
                       </div>
                       <Button variant="ghost" size="sm" className="text-purple-600">
                         <Link className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Influencer Modal */}
+      <Dialog open={showAddInfluencerModal} onOpenChange={setShowAddInfluencerModal}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-amber-600" />
+              Add Influencer to Campaign
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                placeholder="Search influencers..."
+                value={linkSearchQuery}
+                onChange={e => setLinkSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="max-h-96 overflow-y-auto space-y-2">
+              {loadingLinkItems ? (
+                <div className="text-center py-8">
+                  <RefreshCw className="w-6 h-6 animate-spin mx-auto text-gray-400" />
+                  <p className="text-sm text-gray-500 mt-2">Loading influencers...</p>
+                </div>
+              ) : availableInfluencers.filter(inf => 
+                  !linkSearchQuery || 
+                  inf.name?.toLowerCase().includes(linkSearchQuery.toLowerCase()) ||
+                  inf.instagram_handle?.toLowerCase().includes(linkSearchQuery.toLowerCase())
+                ).length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Users className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                  <p>No influencers available to add</p>
+                  <p className="text-sm mt-1">All influencers are already assigned to this campaign</p>
+                </div>
+              ) : (
+                availableInfluencers
+                  .filter(inf => !linkSearchQuery || inf.name?.toLowerCase().includes(linkSearchQuery.toLowerCase()) || inf.instagram_handle?.toLowerCase().includes(linkSearchQuery.toLowerCase()))
+                  .map(influencer => (
+                    <div 
+                      key={influencer.id} 
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-amber-50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-semibold">
+                          {influencer.name?.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-medium">{influencer.name}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            {influencer.instagram_handle && (
+                              <span className="text-xs text-gray-500">@{influencer.instagram_handle}</span>
+                            )}
+                            <span className="text-xs text-gray-400">•</span>
+                            <span className="text-xs text-gray-500">{formatNumber(influencer.followers)} followers</span>
+                          </div>
+                        </div>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        onClick={() => handleAddInfluencer(influencer)}
+                        disabled={addingInfluencer}
+                        className="bg-amber-500 hover:bg-amber-600 text-white"
+                      >
+                        <Plus className="w-4 h-4 mr-1" /> Add
                       </Button>
                     </div>
                   ))

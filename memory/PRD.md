@@ -348,6 +348,7 @@ Build a comprehensive Marketing Operations Platform that integrates marketing, s
 - `/app/frontend/src/pages/engineering/RoadmapPage.jsx` - Roadmap timeline view with epics
 - `/app/frontend/src/pages/projects/KanbanBoard.jsx` - Swimlanes (Group by) and Quick Filters
 - `/app/frontend/src/pages/projects/TaskDetailModal.jsx` - Release selector, releases fetch
+- `/app/frontend/src/pages/marketing/CampaignDetailsPage.jsx` - **BUG FIX**: Add Influencer now opens modal instead of redirecting to pipeline
 - `/app/frontend/src/components/Layout.jsx` - Releases link in sidebar
 - `/app/backend/routes/projects.py` - Release API endpoints (CRUD, task linking)
 - `/app/backend/models/projects.py` - Release models, release_id in TaskUpdate/TaskResponse
