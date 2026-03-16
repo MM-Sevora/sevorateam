@@ -345,3 +345,146 @@ async def get_auth_config():
         "authority": AZURE_AUTHORITY,
         "redirectUri": os.environ.get('FRONTEND_URL', 'http://localhost:3000')
     }
+
+
+def verify_token(token: str) -> dict:
+    """Verify JWT token and return decoded payload"""
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
+async def get_current_user(authorization: str = None):
+    """Extract and verify current user from Authorization header"""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+    
+    token = authorization.replace("Bearer ", "")
+    payload = verify_token(token)
+    
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+    
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "password": 0})
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    
+    return user
+
+
+@router.get("/me")
+async def get_current_user_profile(authorization: str = __import__('fastapi').Header(None)):
+    """Get the current authenticated user's profile"""
+    # Extract token from header
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization header required")
+    
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Invalid Authorization format")
+    
+    token = authorization.replace("Bearer ", "")
+    payload = verify_token(token)
+    
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+    
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "password": 0})
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    
+    # Check if user is active
+    user_status = user.get('status', 'active')
+    if user_status == 'inactive':
+        raise HTTPException(status_code=403, detail="Your account has been deactivated")
+    
+    # Add departments and permissions
+    departments = get_user_departments(user.get('role', 'viewer'))
+    permissions = get_user_permissions(user)
+    
+    # Get module access from custom roles if any
+    merged_module_access = []
+    sub_module_access = {}
+    
+    if user.get('custom_role_ids'):
+        for role_id in user.get('custom_role_ids', []):
+            role = await db.custom_roles.find_one({"id": role_id}, {"_id": 0})
+            if role:
+                merged_module_access.extend(role.get('module_access', []))
+                for module, sub_modules in role.get('sub_module_access', {}).items():
+                    if module not in sub_module_access:
+                        sub_module_access[module] = []
+                    sub_module_access[module].extend(sub_modules)
+    
+    # Deduplicate
+    merged_module_access = list(set(merged_module_access))
+    for module in sub_module_access:
+        sub_module_access[module] = list(set(sub_module_access[module]))
+    
+    return {
+        **user,
+        "departments": departments,
+        "permissions": permissions,
+        "merged_module_access": merged_module_access,
+        "sub_module_access": sub_module_access,
+        "has_custom_permissions": bool(user.get('custom_permissions'))
+    }
+
+
+@router.post("/refresh")
+async def refresh_token_endpoint(authorization: str = __import__('fastapi').Header(None)):
+    """Refresh the JWT token to extend the session"""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization header required")
+    
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Invalid Authorization format")
+    
+    old_token = authorization.replace("Bearer ", "")
+    
+    try:
+        # Decode the token (even if expired, we want to get the user info)
+        # For refresh, we allow expired tokens within a grace period
+        try:
+            payload = jwt.decode(old_token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        except jwt.ExpiredSignatureError:
+            # Allow refresh of recently expired tokens (within 7 days)
+            payload = jwt.decode(old_token, JWT_SECRET, algorithms=[JWT_ALGORITHM], options={"verify_exp": False})
+            exp_time = datetime.fromtimestamp(payload.get('exp', 0), tz=timezone.utc)
+            now = datetime.now(timezone.utc)
+            grace_period = __import__('datetime').timedelta(days=7)
+            if now - exp_time > grace_period:
+                raise HTTPException(status_code=401, detail="Token has expired beyond grace period. Please login again.")
+        
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token payload")
+        
+        # Verify user still exists and is active
+        user = await db.users.find_one({"id": user_id}, {"_id": 0, "password": 0})
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        
+        user_status = user.get('status', 'active')
+        if user_status == 'inactive':
+            raise HTTPException(status_code=403, detail="Your account has been deactivated")
+        
+        # Generate new token
+        new_token = create_access_token({
+            "sub": user['id'],
+            "email": user['email'],
+            "role": user.get('role', 'viewer')
+        })
+        
+        logger.info(f"Token refreshed for user: {user['email']}")
+        
+        return {"access_token": new_token, "token_type": "bearer"}
+        
+    except jwt.InvalidTokenError as e:
+        logger.error(f"Token refresh failed - invalid token: {e}")
+        raise HTTPException(status_code=401, detail="Invalid token")

@@ -7,6 +7,22 @@ Build a comprehensive Marketing Operations Platform that integrates marketing, s
 
 ## Latest Updates (March 2026)
 
+### Session Management - Token Refresh (Completed ✅)
+**Date**: March 16, 2026
+
+**Problem**: Users experienced frequent session expirations and unexpected logouts. The frontend had token refresh logic calling `/auth/refresh`, but this endpoint didn't exist in the backend.
+
+**Solution Implemented**:
+- Added `/auth/me` endpoint to verify tokens and fetch user profile
+- Added `/auth/refresh` endpoint with 7-day grace period for expired tokens
+- Frontend auto-refreshes tokens every 6 hours
+- Frontend also refreshes on tab visibility change (when user returns)
+
+**Files Modified**:
+- `/app/backend/routes/auth.py` - Added `/me` and `/refresh` endpoints
+
+---
+
 ### Performance Optimization - Code Splitting (Completed ✅)
 **Date**: March 16, 2026
 
