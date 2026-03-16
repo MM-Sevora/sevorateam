@@ -1587,7 +1587,29 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
   const [editData, setEditData] = useState({});
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('subtasks');
+  const [epics, setEpics] = useState([]);
   const token = localStorage.getItem('sevora_token');
+
+  // Fetch epics for this project
+  const fetchEpics = async () => {
+    if (!projectId) return;
+    try {
+      const res = await fetch(`${API}/api/engineering/projects/${projectId}/epics`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setEpics(await res.json());
+      }
+    } catch (e) {
+      console.error('Error fetching epics:', e);
+    }
+  };
+
+  useEffect(() => {
+    if (open && projectId) {
+      fetchEpics();
+    }
+  }, [open, projectId]);
 
   const fetchTask = async () => {
     if (!taskId) return;
@@ -1852,6 +1874,39 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
                       })()}
                       <span className="text-xs font-medium">{issueTypeConfig[task.issue_type || 'task']?.label}</span>
                     </div>
+                  )}
+
+                  {/* Epic Selector */}
+                  {epics.length > 0 && (
+                    <>
+                      <div className="h-5 w-px bg-[#E8D5C4]" />
+                      {editing ? (
+                        <Select value={editData.epic_id || 'no_epic'} onValueChange={(v) => setEditData({ ...editData, epic_id: v === 'no_epic' ? '' : v })}>
+                          <SelectTrigger className="w-[140px] border-[#D4BBA6] bg-[#FDF8F3] h-8">
+                            <Layers className="w-3 h-3 mr-1 text-purple-600" />
+                            <SelectValue placeholder="No Epic" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white border-[#D4BBA6]">
+                            <SelectItem value="no_epic">No Epic</SelectItem>
+                            {epics.map(epic => (
+                              <SelectItem key={epic.id} value={epic.id}>
+                                <div className="flex items-center gap-2">
+                                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: epic.color || '#8B5CF6' }} />
+                                  {epic.name}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : task.epic_id ? (
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-purple-50 text-purple-600">
+                          <Layers className="w-3 h-3" />
+                          <span className="text-xs font-medium">
+                            {epics.find(e => e.id === task.epic_id)?.name || 'Epic'}
+                          </span>
+                        </div>
+                      ) : null}
+                    </>
                   )}
 
                   <div className="h-5 w-px bg-[#E8D5C4]" />

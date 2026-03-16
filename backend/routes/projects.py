@@ -2378,6 +2378,82 @@ async def get_task(
     return await enrich_task(task)
 
 
+@router.get("/tasks/{task_id}/available-transitions")
+async def get_task_available_transitions(
+    task_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get available status transitions for a task based on its workflow"""
+    task = await db.pm_tasks.find_one({"id": task_id}, {"_id": 0, "status": 1, "issue_type": 1})
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    current_status = task.get("status", "draft")
+    issue_type = task.get("issue_type", "task")
+    
+    # Find appropriate workflow
+    workflow = await db.workflows.find_one(
+        {"issue_types": issue_type},
+        {"_id": 0, "statuses": 1, "transitions": 1}
+    )
+    
+    if not workflow:
+        workflow = await db.workflows.find_one(
+            {"is_default": True},
+            {"_id": 0, "statuses": 1, "transitions": 1}
+        )
+    
+    if not workflow:
+        # Return default statuses if no workflow exists
+        return {
+            "current_status": current_status,
+            "available_statuses": [
+                {"id": "draft", "name": "Draft", "color": "#9CA3AF"},
+                {"id": "todo", "name": "To Do", "color": "#3B82F6"},
+                {"id": "in_progress", "name": "In Progress", "color": "#8B5CF6"},
+                {"id": "in_review", "name": "In Review", "color": "#F59E0B"},
+                {"id": "completed", "name": "Completed", "color": "#10B981"},
+            ],
+            "workflow_enabled": False
+        }
+    
+    statuses = {s["id"]: s for s in workflow.get("statuses", [])}
+    transitions = workflow.get("transitions", [])
+    
+    # Find available transitions from current status
+    available = []
+    for t in transitions:
+        from_status = t.get("from_status")
+        to_status = t.get("to_status")
+        
+        if from_status == current_status or from_status == "*":
+            status_info = statuses.get(to_status, {})
+            available.append({
+                "id": to_status,
+                "name": status_info.get("name", to_status),
+                "color": status_info.get("color", "#6B7280"),
+                "category": status_info.get("category", "todo"),
+                "transition_name": t.get("name"),
+                "requires_fields": t.get("requires_fields", []),
+                "requires_comment": t.get("requires_comment", False)
+            })
+    
+    # Also include current status
+    current_info = statuses.get(current_status, {"name": current_status, "color": "#6B7280"})
+    
+    return {
+        "current_status": current_status,
+        "current_status_info": {
+            "id": current_status,
+            "name": current_info.get("name", current_status),
+            "color": current_info.get("color", "#6B7280")
+        },
+        "available_transitions": available,
+        "all_statuses": list(statuses.values()),
+        "workflow_enabled": True
+    }
+
+
 @router.put("/tasks/{task_id}", response_model=TaskResponse)
 async def update_task(
     task_id: str,
@@ -2400,6 +2476,71 @@ async def update_task(
     # Track status changes
     old_status = task.get("status")
     new_status = update_data.get("status")
+    
+    # ===== WORKFLOW VALIDATION =====
+    # Validate status transition against workflow rules
+    if new_status and new_status != old_status:
+        issue_type = task.get("issue_type", "task")
+        
+        # Find the appropriate workflow for this issue type
+        workflow = await db.workflows.find_one(
+            {"issue_types": issue_type},
+            {"_id": 0, "statuses": 1, "transitions": 1, "name": 1}
+        )
+        
+        if not workflow:
+            # Use default workflow
+            workflow = await db.workflows.find_one(
+                {"is_default": True},
+                {"_id": 0, "statuses": 1, "transitions": 1, "name": 1}
+            )
+        
+        if workflow and workflow.get("transitions"):
+            transitions = workflow["transitions"]
+            
+            # Check if the transition is allowed
+            transition_allowed = False
+            matching_transition = None
+            
+            for t in transitions:
+                from_status = t.get("from_status")
+                to_status = t.get("to_status")
+                
+                # Wildcard "*" means transition is allowed from any status
+                if (from_status == old_status or from_status == "*") and to_status == new_status:
+                    transition_allowed = True
+                    matching_transition = t
+                    break
+            
+            if not transition_allowed:
+                # Get the current status name for better error message
+                status_names = {s["id"]: s["name"] for s in workflow.get("statuses", [])}
+                from_name = status_names.get(old_status, old_status)
+                to_name = status_names.get(new_status, new_status)
+                
+                # Check what transitions are available from current status
+                available = []
+                for t in transitions:
+                    if t.get("from_status") == old_status or t.get("from_status") == "*":
+                        available.append(status_names.get(t.get("to_status"), t.get("to_status")))
+                
+                available_str = ", ".join(available) if available else "none"
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Workflow violation: Cannot transition from '{from_name}' to '{to_name}'. Available transitions: {available_str}"
+                )
+            
+            # Check if transition requires specific fields
+            if matching_transition:
+                required_fields = matching_transition.get("requires_fields", [])
+                for field in required_fields:
+                    if not task.get(field) and not update_data.get(field):
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Workflow requires '{field}' to be set for this transition"
+                        )
+                
+                # Note: requires_comment validation would need frontend changes to include comment
     
     # Check if task is blocked before allowing status change to in_progress or beyond
     if new_status and new_status not in [TaskStatus.DRAFT.value, TaskStatus.ASSIGNED.value, TaskStatus.ON_HOLD.value]:
