@@ -809,6 +809,14 @@ async def get_contacts(
     query = get_data_scope_query(user, "marketing_ops", filter_query)
     
     contacts = await db.contacts.find(query, {"_id": 0}).sort("score", -1).skip(skip).limit(limit).to_list(limit)
+    
+    # Ensure datetime fields are converted to strings
+    for contact in contacts:
+        if contact.get("created_at") and not isinstance(contact["created_at"], str):
+            contact["created_at"] = contact["created_at"].isoformat() if hasattr(contact["created_at"], 'isoformat') else str(contact["created_at"])
+        if contact.get("updated_at") and not isinstance(contact["updated_at"], str):
+            contact["updated_at"] = contact["updated_at"].isoformat() if hasattr(contact["updated_at"], 'isoformat') else str(contact["updated_at"])
+    
     return contacts
 
 
