@@ -628,8 +628,7 @@ def create_brands_router(db, get_current_user: Callable):
 
     @router.get("/{brand_id}/inbox")
     async def get_brand_inbox(brand_id: str, current_user: dict = Depends(get_current_user)):
-        """Get inbox emails for a brand (emails received from the brand)"""
-        import os
+        """Get all emails related to this brand (sent and received)"""
         import httpx
         
         # Get brand to find their email
@@ -641,16 +640,13 @@ def create_brands_router(db, get_current_user: Callable):
         if not brand_email:
             return []
         
-        # Get shared mailbox settings
-        mail_settings = await db.settings.find_one({"type": "mail_settings"}, {"_id": 0})
-        if not mail_settings:
-            return []
-        
-        shared_mailbox = None
-        for mailbox in mail_settings.get("shared_mailboxes", []):
-            if mailbox.get("is_default") or mailbox.get("name") == "Sellers":
-                shared_mailbox = mailbox
-                break
+        # Get shared mailbox from shared_mailboxes collection
+        shared_mailbox = await db.shared_mailboxes.find_one(
+            {"is_active": True, "display_name": {"$regex": "seller", "$options": "i"}},
+            {"_id": 0}
+        )
+        if not shared_mailbox:
+            shared_mailbox = await db.shared_mailboxes.find_one({"is_active": True}, {"_id": 0})
         
         if not shared_mailbox:
             return []
@@ -664,68 +660,64 @@ def create_brands_router(db, get_current_user: Callable):
             if not access_token:
                 return []
             
-            mailbox_email = shared_mailbox.get("email", "seller@sevora.com")
+            mailbox_email = shared_mailbox.get("email")
             
-            # Search for emails from this brand's email address
+            # Search for emails that mention this brand's email (from or to)
             async with httpx.AsyncClient() as client:
-                # Use search to find emails from the brand
+                # Use $search to find all emails related to this brand
+                # Note: $orderby is not supported with $search, we'll sort client-side
                 search_url = f"https://graph.microsoft.com/v1.0/users/{mailbox_email}/messages"
                 params = {
-                    "$filter": f"from/emailAddress/address eq '{brand_email}'",
-                    "$orderby": "receivedDateTime desc",
+                    "$search": f'"{brand_email}"',
                     "$top": 50,
-                    "$select": "id,subject,bodyPreview,from,receivedDateTime,isRead,hasAttachments"
+                    "$select": "id,subject,bodyPreview,from,toRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments"
                 }
                 
                 response = await client.get(
                     search_url,
-                    headers={"Authorization": f"Bearer {access_token}"},
+                    headers={
+                        "Authorization": f"Bearer {access_token}",
+                        "ConsistencyLevel": "eventual"
+                    },
                     params=params,
                     timeout=30.0
                 )
-                
-                if response.status_code != 200:
-                    # Try alternative: search in all messages
-                    search_url = f"https://graph.microsoft.com/v1.0/users/{mailbox_email}/messages"
-                    params = {
-                        "$search": f'"from:{brand_email}"',
-                        "$orderby": "receivedDateTime desc",
-                        "$top": 50,
-                        "$select": "id,subject,bodyPreview,from,receivedDateTime,isRead,hasAttachments"
-                    }
-                    response = await client.get(
-                        search_url,
-                        headers={
-                            "Authorization": f"Bearer {access_token}",
-                            "ConsistencyLevel": "eventual"
-                        },
-                        params=params,
-                        timeout=30.0
-                    )
                 
                 if response.status_code == 200:
                     data = response.json()
                     emails = []
                     for msg in data.get("value", []):
+                        from_email = msg.get("from", {}).get("emailAddress", {}).get("address", "")
+                        to_emails = [r.get("emailAddress", {}).get("address", "") for r in msg.get("toRecipients", [])]
+                        
+                        # Determine if this is incoming (from brand) or outgoing (to brand)
+                        is_incoming = from_email.lower() == brand_email.lower()
+                        
                         emails.append({
                             "id": msg.get("id"),
                             "subject": msg.get("subject"),
                             "body_preview": msg.get("bodyPreview"),
-                            "from_email": msg.get("from", {}).get("emailAddress", {}).get("address"),
+                            "from_email": from_email,
                             "from_name": msg.get("from", {}).get("emailAddress", {}).get("name"),
+                            "to_emails": to_emails,
                             "received_at": msg.get("receivedDateTime"),
+                            "sent_at": msg.get("sentDateTime"),
                             "is_read": msg.get("isRead", False),
-                            "has_attachments": msg.get("hasAttachments", False)
+                            "has_attachments": msg.get("hasAttachments", False),
+                            "direction": "incoming" if is_incoming else "outgoing"
                         })
+                    
+                    # Sort by date descending (newest first)
+                    emails.sort(key=lambda x: x.get('received_at') or x.get('sent_at') or '', reverse=True)
                     return emails
                 else:
                     import logging
-                    logging.error(f"Failed to fetch inbox: {response.status_code} - {response.text}")
+                    logging.error(f"Failed to fetch brand emails: {response.status_code} - {response.text}")
                     return []
                     
         except Exception as e:
             import logging
-            logging.error(f"Error fetching brand inbox: {e}")
+            logging.error(f"Error fetching brand emails: {e}")
             return []
 
     @router.post("/{brand_id}/upload-agreement")

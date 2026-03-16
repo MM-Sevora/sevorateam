@@ -1137,13 +1137,13 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
                   {loadingInbox ? (
                     <div className="text-center py-12">
                       <div className="animate-spin h-8 w-8 border-2 border-orange-600 border-t-transparent rounded-full mx-auto mb-4" />
-                      <p className="text-gray-500">Loading inbox...</p>
+                      <p className="text-gray-500">Loading conversation...</p>
                     </div>
                   ) : inboxEmails.length === 0 ? (
                     <div className="text-center py-12">
                       <Mail className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                      <p className="text-gray-500 mb-2">No replies received yet</p>
-                      <p className="text-sm text-gray-400">Replies from {brand?.email || 'this brand'} will appear here</p>
+                      <p className="text-gray-500 mb-2">No email conversation yet</p>
+                      <p className="text-sm text-gray-400">Send an email to start a conversation with {brand?.name || 'this brand'}</p>
                     </div>
                   ) : (
                     <div className="space-y-3 max-h-[500px] overflow-y-auto">
@@ -1151,21 +1151,31 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
                         <div 
                           key={idx} 
                           className={`p-4 border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer ${
-                            !email.is_read ? 'bg-blue-50 border-blue-200' : ''
-                          }`}
+                            email.direction === 'incoming' && !email.is_read ? 'bg-blue-50 border-blue-200' : ''
+                          } ${email.direction === 'outgoing' ? 'border-l-4 border-l-orange-400' : 'border-l-4 border-l-blue-400'}`}
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
-                                <Badge variant="outline" className="text-xs text-blue-600 border-blue-200">
-                                  Received
-                                </Badge>
-                                {!email.is_read && (
+                                {email.direction === 'incoming' ? (
+                                  <Badge variant="outline" className="text-xs text-blue-600 border-blue-200">
+                                    ↙ Received
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-xs text-orange-600 border-orange-200">
+                                    ↗ Sent
+                                  </Badge>
+                                )}
+                                {email.direction === 'incoming' && !email.is_read && (
                                   <Badge className="text-xs bg-blue-600">New</Badge>
                                 )}
                               </div>
                               <p className="font-medium text-gray-900 truncate">{email.subject || '(No subject)'}</p>
-                              <p className="text-sm text-gray-500 mt-1">From: {email.from_email || email.from}</p>
+                              <p className="text-sm text-gray-500 mt-1">
+                                {email.direction === 'incoming' 
+                                  ? `From: ${email.from_name || email.from_email}` 
+                                  : `To: ${email.to_emails?.[0] || brand?.email}`}
+                              </p>
                               {email.body_preview && (
                                 <p className="text-sm text-gray-600 mt-2 line-clamp-2">
                                   {email.body_preview}
@@ -1174,29 +1184,31 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
                             </div>
                             <div className="text-right ml-4 flex-shrink-0">
                               <p className="text-xs text-gray-400">
-                                {email.received_at ? new Date(email.received_at).toLocaleDateString('en-IN', {
+                                {(email.received_at || email.sent_at) ? new Date(email.received_at || email.sent_at).toLocaleDateString('en-IN', {
                                   day: 'numeric',
                                   month: 'short',
                                   year: 'numeric'
                                 }) : '-'}
                               </p>
                               <p className="text-xs text-gray-400">
-                                {email.received_at ? new Date(email.received_at).toLocaleTimeString('en-IN', {
+                                {(email.received_at || email.sent_at) ? new Date(email.received_at || email.sent_at).toLocaleTimeString('en-IN', {
                                   hour: '2-digit',
                                   minute: '2-digit'
                                 }) : ''}
                               </p>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="mt-2 text-orange-600"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openEmailComposer(email.from_email || email.from, brand?.founder_name || brand?.name);
-                                }}
-                              >
-                                Reply
-                              </Button>
+                              {email.direction === 'incoming' && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="mt-2 text-orange-600"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openEmailComposer(email.from_email, email.from_name || brand?.name);
+                                  }}
+                                >
+                                  Reply
+                                </Button>
+                              )}
                             </div>
                           </div>
                         </div>
