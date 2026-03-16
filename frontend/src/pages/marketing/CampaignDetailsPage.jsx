@@ -16,7 +16,7 @@ import {
   ArrowLeft, RefreshCw, Calendar, DollarSign, Users, FileText,
   Megaphone, Image, Building2, TrendingUp, Clock, CheckCircle,
   AlertTriangle, Target, ExternalLink, Eye, Edit, Plus, BarChart3,
-  Share2, ThumbsUp, ThumbsDown, Star, Trash2, Link, Unlink, Search
+  Share2, ThumbsUp, ThumbsDown, Star, Trash2, Link, Unlink, Search, Rocket
 } from 'lucide-react';
 
 const STATUS_CONFIG = {
@@ -31,9 +31,12 @@ const CAMPAIGN_TYPE_CONFIG = {
   influencer: { label: 'Influencer', icon: Users, tabs: ['content', 'ads', 'assets', 'influencers', 'budget'] },
   ugc: { label: 'UGC', icon: Users, tabs: ['ugc', 'content', 'assets', 'budget'] },
   paid_ads: { label: 'Paid Ads', icon: Megaphone, tabs: ['ads', 'content', 'assets', 'budget'] },
-  content_production: { label: 'Content', icon: FileText, tabs: ['content', 'assets', 'budget'] },
+  content_production: { label: 'Content Production', icon: FileText, tabs: ['content', 'assets', 'budget'] },
   pr_media: { label: 'PR/Media', icon: Building2, tabs: ['publications', 'content', 'assets', 'budget'] },
   pr: { label: 'PR', icon: Building2, tabs: ['content', 'assets', 'publications', 'budget'] },
+  product_launch: { label: 'Product Launch', icon: Rocket, tabs: ['content', 'ads', 'assets', 'influencers', 'publications', 'budget'] },
+  brand_awareness: { label: 'Brand Awareness', icon: Target, tabs: ['content', 'ads', 'assets', 'influencers', 'budget'] },
+  seasonal: { label: 'Seasonal', icon: Calendar, tabs: ['content', 'ads', 'assets', 'influencers', 'budget'] },
   mixed: { label: 'Mixed', icon: Target, tabs: ['content', 'ads', 'assets', 'influencers', 'publications', 'budget'] },
   digital: { label: 'Digital', icon: Megaphone, tabs: ['content', 'ads', 'assets', 'budget'] },
 };
@@ -79,7 +82,8 @@ export default function CampaignDetailsPage() {
     start_date: '',
     end_date: '',
     budget: '',
-    status: 'planning'
+    status: 'planning',
+    campaign_type: 'mixed'
   });
   const [savingCampaign, setSavingCampaign] = useState(false);
   
@@ -560,7 +564,8 @@ export default function CampaignDetailsPage() {
       start_date: campaign?.start_date?.split('T')[0] || '',
       end_date: campaign?.end_date?.split('T')[0] || '',
       budget: campaign?.budget?.toString() || '',
-      status: campaign?.status || 'planning'
+      status: campaign?.status || 'planning',
+      campaign_type: campaign?.campaign_type || campaign?.type || 'mixed'
     });
     setShowEditCampaignModal(true);
   };
@@ -575,7 +580,8 @@ export default function CampaignDetailsPage() {
         start_date: editCampaignData.start_date,
         end_date: editCampaignData.end_date,
         budget: parseFloat(editCampaignData.budget) || 0,
-        status: editCampaignData.status
+        status: editCampaignData.status,
+        campaign_type: editCampaignData.campaign_type
       });
       toast.success('Campaign updated');
       setShowEditCampaignModal(false);
@@ -2051,6 +2057,31 @@ export default function CampaignDetailsPage() {
                   <SelectItem value="paused">Paused</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
                   <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">
+                CAMPAIGN TYPE
+              </Label>
+              <Select 
+                value={editCampaignData.campaign_type} 
+                onValueChange={(v) => setEditCampaignData({...editCampaignData, campaign_type: v})}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="influencer">Influencer Marketing</SelectItem>
+                  <SelectItem value="ugc">UGC (User Generated Content)</SelectItem>
+                  <SelectItem value="paid_ads">Paid Advertising</SelectItem>
+                  <SelectItem value="content_production">Content Production</SelectItem>
+                  <SelectItem value="pr_media">PR & Media</SelectItem>
+                  <SelectItem value="product_launch">Product Launch</SelectItem>
+                  <SelectItem value="brand_awareness">Brand Awareness</SelectItem>
+                  <SelectItem value="seasonal">Seasonal Campaign</SelectItem>
+                  <SelectItem value="mixed">Mixed / Multi-Channel</SelectItem>
                 </SelectContent>
               </Select>
             </div>
