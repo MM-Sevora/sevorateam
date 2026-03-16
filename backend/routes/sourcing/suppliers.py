@@ -202,4 +202,85 @@ def create_suppliers_router(db, get_current_user: Callable):
         sampling = await db.sourcing_suppliers.count_documents({"pipeline_stage": "Sampling"})
         return {"total": total, "active": active, "sampling": sampling}
 
+    @router.get("/{supplier_id}/inbox")
+    async def get_supplier_inbox(supplier_id: str, current_user: dict = Depends(get_current_user)):
+        """Get all emails related to this supplier (sent and received)"""
+        import httpx
+        
+        supplier = await db.sourcing_suppliers.find_one({"id": supplier_id}, {"_id": 0})
+        if not supplier:
+            raise HTTPException(status_code=404, detail="Supplier not found")
+        
+        supplier_email = supplier.get("email")
+        if not supplier_email:
+            return []
+        
+        # Get shared mailbox
+        shared_mailbox = await db.shared_mailboxes.find_one(
+            {"is_active": True, "display_name": {"$regex": "seller", "$options": "i"}},
+            {"_id": 0}
+        )
+        if not shared_mailbox:
+            shared_mailbox = await db.shared_mailboxes.find_one({"is_active": True}, {"_id": 0})
+        
+        if not shared_mailbox:
+            return []
+        
+        try:
+            from services.microsoft_email import MicrosoftEmailService
+            
+            email_svc = MicrosoftEmailService()
+            access_token = await email_svc._get_app_token()
+            if not access_token:
+                return []
+            
+            mailbox_email = shared_mailbox.get("email")
+            
+            async with httpx.AsyncClient() as client:
+                search_url = f"https://graph.microsoft.com/v1.0/users/{mailbox_email}/messages"
+                params = {
+                    "$search": f'"{supplier_email}"',
+                    "$top": 50,
+                    "$select": "id,subject,bodyPreview,from,toRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments"
+                }
+                
+                response = await client.get(
+                    search_url,
+                    headers={"Authorization": f"Bearer {access_token}", "ConsistencyLevel": "eventual"},
+                    params=params,
+                    timeout=30.0
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    emails = []
+                    for msg in data.get("value", []):
+                        from_email = msg.get("from", {}).get("emailAddress", {}).get("address", "")
+                        to_emails = [r.get("emailAddress", {}).get("address", "") for r in msg.get("toRecipients", [])]
+                        is_incoming = from_email.lower() == supplier_email.lower()
+                        
+                        emails.append({
+                            "id": msg.get("id"),
+                            "subject": msg.get("subject"),
+                            "body_preview": msg.get("bodyPreview"),
+                            "from_email": from_email,
+                            "from_name": msg.get("from", {}).get("emailAddress", {}).get("name"),
+                            "to_emails": to_emails,
+                            "received_at": msg.get("receivedDateTime"),
+                            "sent_at": msg.get("sentDateTime"),
+                            "is_read": msg.get("isRead", False),
+                            "has_attachments": msg.get("hasAttachments", False),
+                            "direction": "incoming" if is_incoming else "outgoing"
+                        })
+                    
+                    emails.sort(key=lambda x: x.get('received_at') or x.get('sent_at') or '', reverse=True)
+                    return emails
+                else:
+                    return []
+                    
+        except Exception as e:
+            import logging
+            logging.error(f"Error fetching supplier inbox: {e}")
+            return []
+
     return router

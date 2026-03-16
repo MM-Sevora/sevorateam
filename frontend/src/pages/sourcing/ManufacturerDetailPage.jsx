@@ -15,7 +15,7 @@ import {
   Calendar, Clock, Users, Plus, ExternalLink, Factory,
   FileText, User, Settings, Award, Package, FlaskConical, Send, ClipboardList
 } from 'lucide-react';
-import EmailComposer from '../../components/sourcing/EmailComposer';
+import EntityMailbox from '../../components/common/EntityMailbox';
 import CreateTaskDialog from '../../components/shared/CreateTaskDialog';
 
 const PIPELINE_STAGES = ['Discovery', 'Contacted', 'Factory Visit', 'Sampling', 'Production Trial', 'Active', 'Inactive'];
@@ -294,6 +294,16 @@ const ManufacturerDetailPage = () => {
               )}
             </CardContent>
           </Card>
+
+          {/* Manufacturer Mailbox */}
+          <EntityMailbox
+            entityType="manufacturer"
+            entityId={id}
+            entityName={manufacturer.name}
+            entityEmail={manufacturer.email}
+            activityLogs={[]}
+            onRefresh={fetchManufacturerDetails}
+          />
         </div>
 
         {/* Sidebar */}
@@ -422,18 +432,6 @@ const ManufacturerDetailPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Email Composer */}
-      <EmailComposer
-        isOpen={showEmailComposer}
-        onClose={() => setShowEmailComposer(false)}
-        entityType="manufacturer"
-        entityId={id}
-        entityName={manufacturer?.name}
-        defaultEmail={emailRecipient.email}
-        defaultRecipientName={emailRecipient.name}
-        onSuccess={fetchManufacturerDetails}
-      />
 
       {/* Create Task Dialog */}
       <CreateTaskDialog
