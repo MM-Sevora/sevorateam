@@ -657,13 +657,14 @@ def create_brands_router(db, get_current_user: Callable):
         
         # Fetch emails from Microsoft Graph API
         try:
-            from services.microsoft_email import get_graph_client_credentials_token
+            from services.microsoft_email import MicrosoftEmailService
             
-            access_token = await get_graph_client_credentials_token()
+            email_svc = MicrosoftEmailService()
+            access_token = await email_svc._get_app_token()
             if not access_token:
                 return []
             
-            mailbox_email = shared_mailbox.get("email", "sellers@sevora.com")
+            mailbox_email = shared_mailbox.get("email", "seller@sevora.com")
             
             # Search for emails from this brand's email address
             async with httpx.AsyncClient() as client:

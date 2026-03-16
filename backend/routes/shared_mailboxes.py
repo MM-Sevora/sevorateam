@@ -32,6 +32,7 @@ class SharedMailboxCreate(BaseModel):
 
 
 class SharedMailboxUpdate(BaseModel):
+    email: Optional[EmailStr] = None
     display_name: Optional[str] = None
     description: Optional[str] = None
     allowed_users: Optional[List[str]] = None

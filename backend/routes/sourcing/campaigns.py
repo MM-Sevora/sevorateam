@@ -455,4 +455,234 @@ def create_campaigns_router(db, get_current_user: Callable):
         # Use the send_single_email logic
         return await send_single_email(request, BackgroundTasks(), current_user)
     
+    @router.get("/shared-mailbox/inbox")
+    async def get_shared_mailbox_inbox(
+        limit: int = 50,
+        skip: int = 0,
+        unread_only: bool = False,
+        mailbox_id: Optional[str] = None,
+        current_user: dict = Depends(get_current_user)
+    ):
+        """Get all received emails in the shared mailbox"""
+        import httpx
+        
+        # Get shared mailbox - check shared_mailboxes collection
+        if mailbox_id:
+            shared_mailbox = await db.shared_mailboxes.find_one({"id": mailbox_id}, {"_id": 0})
+        else:
+            # Get default/first active mailbox for Sellers
+            shared_mailbox = await db.shared_mailboxes.find_one(
+                {"is_active": True, "display_name": {"$regex": "seller", "$options": "i"}},
+                {"_id": 0}
+            )
+            if not shared_mailbox:
+                # Fallback to any active mailbox
+                shared_mailbox = await db.shared_mailboxes.find_one({"is_active": True}, {"_id": 0})
+        
+        if not shared_mailbox:
+            raise HTTPException(status_code=400, detail="No shared mailbox configured")
+        
+        try:
+            from services.microsoft_email import MicrosoftEmailService
+            
+            email_service = MicrosoftEmailService()
+            access_token = await email_service._get_app_token()
+            if not access_token:
+                raise HTTPException(status_code=500, detail="Failed to get Microsoft Graph token")
+            
+            mailbox_email = shared_mailbox.get("email")
+            
+            async with httpx.AsyncClient() as client:
+                # Build the query
+                url = f"https://graph.microsoft.com/v1.0/users/{mailbox_email}/mailFolders/inbox/messages"
+                params = {
+                    "$orderby": "receivedDateTime desc",
+                    "$top": limit,
+                    "$skip": skip,
+                    "$select": "id,subject,bodyPreview,from,receivedDateTime,isRead,hasAttachments,importance,conversationId"
+                }
+                
+                if unread_only:
+                    params["$filter"] = "isRead eq false"
+                
+                response = await client.get(
+                    url,
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    params=params,
+                    timeout=30.0
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    emails = []
+                    
+                    # Get all brand emails for matching
+                    brand_emails = {}
+                    brands_cursor = db.sourcing_brands.find({}, {"_id": 0, "id": 1, "name": 1, "email": 1})
+                    async for brand in brands_cursor:
+                        if brand.get("email"):
+                            brand_emails[brand["email"].lower()] = {"id": brand["id"], "name": brand["name"]}
+                    
+                    for msg in data.get("value", []):
+                        from_email = msg.get("from", {}).get("emailAddress", {}).get("address", "")
+                        from_name = msg.get("from", {}).get("emailAddress", {}).get("name", "")
+                        
+                        # Try to match with a brand
+                        matched_brand = brand_emails.get(from_email.lower()) if from_email else None
+                        
+                        emails.append({
+                            "id": msg.get("id"),
+                            "subject": msg.get("subject"),
+                            "body_preview": msg.get("bodyPreview"),
+                            "from_email": from_email,
+                            "from_name": from_name,
+                            "received_at": msg.get("receivedDateTime"),
+                            "is_read": msg.get("isRead", False),
+                            "has_attachments": msg.get("hasAttachments", False),
+                            "importance": msg.get("importance", "normal"),
+                            "conversation_id": msg.get("conversationId"),
+                            "brand_id": matched_brand["id"] if matched_brand else None,
+                            "brand_name": matched_brand["name"] if matched_brand else None
+                        })
+                    
+                    # Get total count
+                    count_response = await client.get(
+                        f"https://graph.microsoft.com/v1.0/users/{mailbox_email}/mailFolders/inbox/messages/$count",
+                        headers={
+                            "Authorization": f"Bearer {access_token}",
+                            "ConsistencyLevel": "eventual"
+                        },
+                        timeout=30.0
+                    )
+                    total = int(count_response.text) if count_response.status_code == 200 else len(emails)
+                    
+                    return {
+                        "items": emails,
+                        "total": total,
+                        "mailbox": mailbox_email
+                    }
+                else:
+                    import logging
+                    logging.error(f"Failed to fetch inbox: {response.status_code} - {response.text}")
+                    raise HTTPException(status_code=500, detail=f"Failed to fetch inbox: {response.text}")
+                    
+        except HTTPException:
+            raise
+        except Exception as e:
+            import logging
+            logging.error(f"Error fetching shared mailbox inbox: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.get("/shared-mailbox/message/{message_id}")
+    async def get_email_message(message_id: str, mailbox_id: Optional[str] = None, current_user: dict = Depends(get_current_user)):
+        """Get full email message content"""
+        import httpx
+        
+        # Get shared mailbox
+        if mailbox_id:
+            shared_mailbox = await db.shared_mailboxes.find_one({"id": mailbox_id}, {"_id": 0})
+        else:
+            shared_mailbox = await db.shared_mailboxes.find_one(
+                {"is_active": True, "display_name": {"$regex": "seller", "$options": "i"}},
+                {"_id": 0}
+            )
+            if not shared_mailbox:
+                shared_mailbox = await db.shared_mailboxes.find_one({"is_active": True}, {"_id": 0})
+        
+        if not shared_mailbox:
+            raise HTTPException(status_code=400, detail="No shared mailbox configured")
+        
+        try:
+            from services.microsoft_email import MicrosoftEmailService
+            
+            email_svc = MicrosoftEmailService()
+            access_token = await email_svc._get_app_token()
+            if not access_token:
+                raise HTTPException(status_code=500, detail="Failed to get Microsoft Graph token")
+            
+            mailbox_email = shared_mailbox.get("email")
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"https://graph.microsoft.com/v1.0/users/{mailbox_email}/messages/{message_id}",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    params={"$select": "id,subject,body,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,isRead,hasAttachments,importance,conversationId"},
+                    timeout=30.0
+                )
+                
+                if response.status_code == 200:
+                    msg = response.json()
+                    return {
+                        "id": msg.get("id"),
+                        "subject": msg.get("subject"),
+                        "body": msg.get("body", {}).get("content"),
+                        "body_type": msg.get("body", {}).get("contentType"),
+                        "from_email": msg.get("from", {}).get("emailAddress", {}).get("address"),
+                        "from_name": msg.get("from", {}).get("emailAddress", {}).get("name"),
+                        "to": [r.get("emailAddress", {}).get("address") for r in msg.get("toRecipients", [])],
+                        "cc": [r.get("emailAddress", {}).get("address") for r in msg.get("ccRecipients", [])],
+                        "received_at": msg.get("receivedDateTime"),
+                        "sent_at": msg.get("sentDateTime"),
+                        "is_read": msg.get("isRead"),
+                        "has_attachments": msg.get("hasAttachments"),
+                        "importance": msg.get("importance"),
+                        "conversation_id": msg.get("conversationId")
+                    }
+                else:
+                    raise HTTPException(status_code=response.status_code, detail="Failed to fetch message")
+                    
+        except HTTPException:
+            raise
+        except Exception as e:
+            import logging
+            logging.error(f"Error fetching message: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.patch("/shared-mailbox/message/{message_id}/read")
+    async def mark_message_read(message_id: str, is_read: bool = True, mailbox_id: Optional[str] = None, current_user: dict = Depends(get_current_user)):
+        """Mark message as read/unread"""
+        import httpx
+        
+        # Get shared mailbox
+        if mailbox_id:
+            shared_mailbox = await db.shared_mailboxes.find_one({"id": mailbox_id}, {"_id": 0})
+        else:
+            shared_mailbox = await db.shared_mailboxes.find_one(
+                {"is_active": True, "display_name": {"$regex": "seller", "$options": "i"}},
+                {"_id": 0}
+            )
+            if not shared_mailbox:
+                shared_mailbox = await db.shared_mailboxes.find_one({"is_active": True}, {"_id": 0})
+        
+        if not shared_mailbox:
+            raise HTTPException(status_code=400, detail="No shared mailbox configured")
+        
+        try:
+            from services.microsoft_email import MicrosoftEmailService
+            
+            email_svc = MicrosoftEmailService()
+            access_token = await email_svc._get_app_token()
+            mailbox_email = shared_mailbox.get("email")
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.patch(
+                    f"https://graph.microsoft.com/v1.0/users/{mailbox_email}/messages/{message_id}",
+                    headers={
+                        "Authorization": f"Bearer {access_token}",
+                        "Content-Type": "application/json"
+                    },
+                    json={"isRead": is_read},
+                    timeout=30.0
+                )
+                
+                if response.status_code == 200:
+                    return {"success": True, "is_read": is_read}
+                else:
+                    raise HTTPException(status_code=response.status_code, detail="Failed to update message")
+                    
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    
     return router
