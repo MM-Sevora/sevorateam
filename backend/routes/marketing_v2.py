@@ -1208,6 +1208,57 @@ async def remove_influencer_from_campaign(
     return {"message": "Influencer removed from campaign"}
 
 
+@marketing_v2_router.put("/campaigns/{campaign_id}/influencers/{influencer_id}")
+async def update_campaign_influencer(
+    campaign_id: str,
+    influencer_id: str,
+    data: dict = None,
+    user: dict = Depends(get_marketing_auth())
+):
+    """Update influencer details in a campaign (fee, deliverable, status)"""
+    db = get_db()
+    data = data or {}
+    
+    # Verify campaign exists
+    campaign = await db.marketing_campaigns.find_one({"id": campaign_id})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    # Find which field contains the influencer
+    field_name = None
+    for field in ["assigned_influencers", "influencers"]:
+        if campaign.get(field):
+            for inf in campaign[field]:
+                if isinstance(inf, dict) and inf.get("influencer_id") == influencer_id:
+                    field_name = field
+                    break
+        if field_name:
+            break
+    
+    if not field_name:
+        raise HTTPException(status_code=404, detail="Influencer not found in this campaign")
+    
+    # Build update
+    update_fields = {}
+    if "deliverable_id" in data:
+        update_fields[f"{field_name}.$.deliverable_id"] = data["deliverable_id"]
+    if "deliverable_name" in data:
+        update_fields[f"{field_name}.$.deliverable_name"] = data["deliverable_name"]
+    if "agreed_fee" in data:
+        update_fields[f"{field_name}.$.agreed_fee"] = data["agreed_fee"]
+    if "status" in data:
+        update_fields[f"{field_name}.$.status"] = data["status"]
+    
+    update_fields[f"{field_name}.$.updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.marketing_campaigns.update_one(
+        {"id": campaign_id, f"{field_name}.influencer_id": influencer_id},
+        {"$set": update_fields}
+    )
+    
+    return {"message": "Influencer details updated"}
+
+
 @marketing_v2_router.get("/campaigns/{campaign_id}/influencers")
 async def get_campaign_influencers(
     campaign_id: str,

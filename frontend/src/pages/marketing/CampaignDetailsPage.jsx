@@ -102,6 +102,16 @@ export default function CampaignDetailsPage() {
   const [influencerDeliverables, setInfluencerDeliverables] = useState([]);
   const [selectedDeliverable, setSelectedDeliverable] = useState(null);
   const [agreedFee, setAgreedFee] = useState('');
+  
+  // Edit influencer state
+  const [showEditInfluencerModal, setShowEditInfluencerModal] = useState(false);
+  const [editingInfluencer, setEditingInfluencer] = useState(null);
+  const [editInfluencerData, setEditInfluencerData] = useState({
+    deliverable_id: '',
+    deliverable_name: '',
+    agreed_fee: '',
+    status: 'assigned'
+  });
 
   const fetchCampaignData = useCallback(async () => {
     if (!campaignId) return;
@@ -432,7 +442,7 @@ export default function CampaignDetailsPage() {
         agreed_fee: parseFloat(agreedFee) || selectedDeliverable?.rate || selectedDeliverable?.price || 0
       };
       
-      await api.post(`/marketing/campaigns/${campaignId}/influencers/${selectedInfluencer.id}`, payload);
+      await api.post(`/marketing/v2/campaigns/${campaignId}/influencers/${selectedInfluencer.id}`, payload);
       toast.success(`Added ${selectedInfluencer.name} to campaign`);
       
       // Reset and close
@@ -453,7 +463,7 @@ export default function CampaignDetailsPage() {
   const handleQuickAddInfluencer = async (influencer) => {
     setAddingInfluencer(true);
     try {
-      await api.post(`/marketing/campaigns/${campaignId}/influencers/${influencer.id}`, {});
+      await api.post(`/marketing/v2/campaigns/${campaignId}/influencers/${influencer.id}`, {});
       toast.success(`Added ${influencer.name} to campaign`);
       fetchCampaignData();
       fetchAvailableInfluencers();
@@ -467,11 +477,59 @@ export default function CampaignDetailsPage() {
   const handleRemoveInfluencer = async (influencerId) => {
     if (!window.confirm('Remove this influencer from the campaign?')) return;
     try {
-      await api.delete(`/marketing/campaigns/${campaignId}/influencers/${influencerId}`);
+      await api.delete(`/marketing/v2/campaigns/${campaignId}/influencers/${influencerId}`);
       toast.success('Influencer removed from campaign');
       fetchCampaignData();
     } catch (error) {
       toast.error('Failed to remove influencer');
+    }
+  };
+
+  // Open edit modal for an influencer
+  const handleOpenEditInfluencer = async (deal) => {
+    setEditingInfluencer(deal);
+    setEditInfluencerData({
+      deliverable_id: deal.deliverable_id || '',
+      deliverable_name: deal.deliverable_name || '',
+      agreed_fee: deal.agreed_fee?.toString() || '',
+      status: deal.status || 'assigned'
+    });
+    
+    // Fetch deliverables for this influencer
+    const infId = deal.influencer_id || deal.id;
+    try {
+      const response = await api.get(`/marketing/v2/contacts/${infId}/deliverables`);
+      setInfluencerDeliverables(response.data || []);
+    } catch (error) {
+      setInfluencerDeliverables([]);
+    }
+    
+    setShowEditInfluencerModal(true);
+  };
+
+  // Save edited influencer details
+  const handleSaveEditInfluencer = async () => {
+    if (!editingInfluencer) return;
+    
+    const infId = editingInfluencer.influencer_id || editingInfluencer.id;
+    setAddingInfluencer(true);
+    
+    try {
+      await api.put(`/marketing/v2/campaigns/${campaignId}/influencers/${infId}`, {
+        deliverable_id: editInfluencerData.deliverable_id || null,
+        deliverable_name: editInfluencerData.deliverable_name || null,
+        agreed_fee: parseFloat(editInfluencerData.agreed_fee) || 0,
+        status: editInfluencerData.status
+      });
+      
+      toast.success('Influencer details updated');
+      setShowEditInfluencerModal(false);
+      setEditingInfluencer(null);
+      fetchCampaignData();
+    } catch (error) {
+      toast.error('Failed to update influencer');
+    } finally {
+      setAddingInfluencer(false);
     }
   };
 
@@ -1100,6 +1158,17 @@ export default function CampaignDetailsPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenEditInfluencer(deal);
+                          }}
+                          title="Edit fee & deliverable"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => navigate(`/marketing/influencer/${deal.id || deal.influencer_id}`)}>
                           <Eye className="w-4 h-4" />
                         </Button>
@@ -1691,6 +1760,126 @@ export default function CampaignDetailsPage() {
               </>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Influencer Modal */}
+      <Dialog open={showEditInfluencerModal} onOpenChange={setShowEditInfluencerModal}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="w-5 h-5 text-amber-600" />
+              Edit Influencer Deal
+            </DialogTitle>
+          </DialogHeader>
+          
+          {editingInfluencer && (
+            <div className="space-y-4 py-4">
+              {/* Influencer Info */}
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-semibold">
+                  {(editingInfluencer.influencer_name || editingInfluencer.name || 'U').charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <div className="font-medium">{editingInfluencer.influencer_name || editingInfluencer.name}</div>
+                  <div className="text-sm text-gray-500">
+                    @{editingInfluencer.instagram_handle || 'unknown'} • {formatNumber(editingInfluencer.followers)} followers
+                  </div>
+                </div>
+              </div>
+
+              {/* Deliverable Selection */}
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">
+                  DELIVERABLE / RATE CARD
+                </Label>
+                {influencerDeliverables.length === 0 ? (
+                  <p className="text-sm text-gray-500 italic p-2 bg-gray-50 rounded">
+                    No rate cards configured for this influencer.
+                  </p>
+                ) : (
+                  <Select 
+                    value={editInfluencerData.deliverable_id || 'none'} 
+                    onValueChange={(v) => {
+                      if (v === 'none') {
+                        setEditInfluencerData({...editInfluencerData, deliverable_id: '', deliverable_name: ''});
+                      } else {
+                        const del = influencerDeliverables.find(d => d.id === v);
+                        setEditInfluencerData({
+                          ...editInfluencerData, 
+                          deliverable_id: v, 
+                          deliverable_name: del?.name || '',
+                          agreed_fee: del?.rate?.toString() || del?.price?.toString() || editInfluencerData.agreed_fee
+                        });
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select deliverable" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No deliverable selected</SelectItem>
+                      {influencerDeliverables.map(d => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.name} - {formatCurrency(d.rate || d.price)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+
+              {/* Agreed Fee */}
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">
+                  AGREED FEE (₹)
+                </Label>
+                <Input
+                  type="number"
+                  placeholder="Enter agreed fee"
+                  value={editInfluencerData.agreed_fee}
+                  onChange={e => setEditInfluencerData({...editInfluencerData, agreed_fee: e.target.value})}
+                  className="text-lg"
+                />
+              </div>
+
+              {/* Status */}
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">
+                  STATUS
+                </Label>
+                <Select 
+                  value={editInfluencerData.status} 
+                  onValueChange={(v) => setEditInfluencerData({...editInfluencerData, status: v})}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="assigned">Assigned</SelectItem>
+                    <SelectItem value="negotiating">Negotiating</SelectItem>
+                    <SelectItem value="contracted">Contracted</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button variant="outline" onClick={() => setShowEditInfluencerModal(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleSaveEditInfluencer}
+                  disabled={addingInfluencer}
+                  className="bg-amber-500 hover:bg-amber-600 text-white"
+                >
+                  {addingInfluencer ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
