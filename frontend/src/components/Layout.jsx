@@ -639,12 +639,13 @@ export const Layout = ({ children }) => {
                                                 );
                                             }
                                             
-                                            // Handle grouped routes (with children) - legacy structure
-                                            if (route.isGroup && route.children) {
+                                            // Handle grouped routes (with children or items)
+                                            if (route.isGroup && (route.children || route.items)) {
                                                 const GroupIcon = route.icon;
                                                 const groupKey = `${deptKey}-${route.name}`;
                                                 const isGroupExpanded = expandedSubgroups.includes(groupKey);
-                                                const isGroupActive = route.children.some(child => location.pathname === child.path);
+                                                const routeItems = route.children || route.items;
+                                                const isGroupActive = routeItems.some(child => location.pathname === child.path);
                                                 
                                                 return (
                                                     <div key={groupKey} className="space-y-1">
@@ -667,7 +668,7 @@ export const Layout = ({ children }) => {
                                                         </button>
                                                         {isGroupExpanded && (
                                                             <div className="ml-4 pl-3 border-l border-[#D4BBA6]/50 space-y-1">
-                                                                {route.children
+                                                                {routeItems
                                                                     .filter(child => {
                                                                         // Check sub-module access for children
                                                                         if (child.subModuleCode && dept.requiredModule) {

@@ -4,7 +4,7 @@ import {
   MessageSquare, Trash2, Edit, Save, ListTodo, Timer, ChevronDown,
   AlertTriangle, Link2, Unlink, Paperclip, Upload, FileText, Image,
   File, Download, Folder, Tag, Repeat, RefreshCw, Bell, BellRing, Copy,
-  Layers, Bug, BookOpen, Zap, Search, CheckSquare
+  Layers, Bug, BookOpen, Zap, Search, CheckSquare, Target
 } from 'lucide-react';
 
 // Animation styles
@@ -1667,6 +1667,9 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
       if (!payload.assigned_to) delete payload.assigned_to;
       if (!payload.estimated_hours) delete payload.estimated_hours;
       else payload.estimated_hours = parseFloat(payload.estimated_hours);
+      // Handle story points
+      if (payload.story_points) payload.story_points = parseInt(payload.story_points);
+      else delete payload.story_points;
 
       const res = await fetch(`${API}/api/projects/tasks/${taskId}`, {
         method: 'PUT',
@@ -1948,6 +1951,28 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
                       <span>{formatDate(task.due_date)}</span>
                     </div>
                   )}
+
+                  {/* Story Points */}
+                  <div className="h-5 w-px bg-[#E8D5C4]" />
+                  {editing ? (
+                    <div className="flex items-center gap-1">
+                      <Target className="w-3 h-3 text-violet-600" />
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={editData.story_points || ''}
+                        onChange={(e) => setEditData({ ...editData, story_points: e.target.value })}
+                        placeholder="SP"
+                        className="w-[60px] border-[#D4BBA6] bg-[#FDF8F3] h-8 text-center"
+                      />
+                    </div>
+                  ) : task.story_points ? (
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-violet-50 text-violet-700">
+                      <Target className="w-3 h-3" />
+                      <span className="text-xs font-medium">{task.story_points} pts</span>
+                    </div>
+                  ) : null}
 
                   {/* Recurring Indicator */}
                   {(task.is_recurring || editing) && (
