@@ -123,6 +123,7 @@ const DEPARTMENT_CONFIG = {
                     { path: '/engineering/backlog', name: 'Product Backlog', icon: Layers },
                     { path: '/engineering/epics', name: 'Epics', icon: Target },
                     { path: '/engineering/roadmap', name: 'Roadmap', icon: Map },
+                    { path: '/engineering/releases', name: 'Releases', icon: Package },
                     { path: '/engineering/sprints', name: 'Sprint Planning', icon: Zap },
                     { path: '/engineering/reports', name: 'Reports & Charts', icon: TrendingUp },
                     { path: '/engineering/workflows', name: 'Workflows', icon: RefreshCw },

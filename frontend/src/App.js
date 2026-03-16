@@ -134,6 +134,7 @@ import WorkflowsPage from "./pages/engineering/WorkflowsPage";
 import EngineeringProjectsPage from "./pages/engineering/EngineeringProjectsPage";
 import SprintBoardPage from "./pages/engineering/SprintBoardPage";
 import RoadmapPage from "./pages/engineering/RoadmapPage";
+import ReleasesPage from "./pages/engineering/ReleasesPage";
 
 // Knowledge Base Pages
 import KnowledgeBasePage from "./pages/knowledge/KnowledgeBasePage";
@@ -596,6 +597,7 @@ function AppRoutes() {
             <Route path="/engineering/sprints" element={<ProtectedRoute requiredModule="project_management"><GlobalSprintPlanningPage /></ProtectedRoute>} />
             <Route path="/engineering/reports" element={<ProtectedRoute requiredModule="project_management"><EngineeringReportsPage /></ProtectedRoute>} />
             <Route path="/engineering/roadmap" element={<ProtectedRoute requiredModule="project_management"><RoadmapPage /></ProtectedRoute>} />
+            <Route path="/engineering/releases" element={<ProtectedRoute requiredModule="project_management"><ReleasesPage /></ProtectedRoute>} />
             <Route path="/engineering/workflows" element={<ProtectedRoute requiredModule="project_management"><WorkflowsPage /></ProtectedRoute>} />
             <Route path="/engineering/knowledge" element={<ProtectedRoute requiredModule="project_management"><KnowledgeBasePage /></ProtectedRoute>} />
             <Route path="/engineering/knowledge/search" element={<ProtectedRoute requiredModule="project_management"><KnowledgeBasePage /></ProtectedRoute>} />

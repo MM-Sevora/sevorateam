@@ -37,7 +37,9 @@ from models.projects import (
     SprintCreate, SprintUpdate, SprintResponse, SprintStatus,
     TaskWatcherCreate, TaskWatcherResponse,
     BulkTaskUpdate, BulkTaskDelete, BulkOperationResult,
-    TaskDuplicateRequest, KanbanColumn, KanbanBoardResponse
+    TaskDuplicateRequest, KanbanColumn, KanbanBoardResponse,
+    # Release/Version models
+    ReleaseCreate, ReleaseUpdate, ReleaseResponse, ReleaseStatus
 )
 
 # Import storage utilities
@@ -302,6 +304,13 @@ async def enrich_task(task: dict) -> dict:
         task["milestone_name"] = milestone.get("name") if milestone else None
     else:
         task["milestone_name"] = None
+    
+    # Get release info
+    if task.get("release_id"):
+        release = await db.pm_releases.find_one({"id": task["release_id"]}, {"name": 1})
+        task["release_name"] = release.get("name") if release else None
+    else:
+        task["release_name"] = None
     
     # Get watchers count
     watchers = task.get("watchers", [])
@@ -1857,6 +1866,232 @@ async def move_kanban_task(
     
     return {"message": "Task moved successfully", "task_id": task_id, "new_status": new_status}
 
+# ============== RELEASE/VERSION MANAGEMENT ==============
+
+
+@router.post("/releases", response_model=ReleaseResponse)
+async def create_release(data: ReleaseCreate, user: dict = Depends(get_current_user_dep)):
+    """Create a new release/version for a project"""
+    # Verify project exists
+    project = await db.pm_projects.find_one({"id": data.project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    now = datetime.now(timezone.utc)
+    release_id = str(uuid.uuid4())
+    
+    release = {
+        "id": release_id,
+        "project_id": data.project_id,
+        "name": data.name,
+        "description": data.description,
+        "start_date": data.start_date,
+        "release_date": data.release_date,
+        "actual_release_date": None,
+        "status": data.status.value,
+        "created_by": user["id"],
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.pm_releases.insert_one(release)
+    
+    # Log activity
+    await log_activity("release", release_id, data.name, "created", user["id"], {"project_id": data.project_id})
+    
+    return await enrich_release(release)
+
+
+@router.get("/releases", response_model=List[ReleaseResponse])
+async def list_releases(
+    project_id: Optional[str] = None,
+    status: Optional[str] = None,
+    user: dict = Depends(get_current_user_dep)
+):
+    """List all releases, optionally filtered by project"""
+    query = {}
+    if project_id:
+        query["project_id"] = project_id
+    if status:
+        query["status"] = status
+    
+    releases = await db.pm_releases.find(query, {"_id": 0}).sort("release_date", -1).to_list(None)
+    
+    return [await enrich_release(r) for r in releases]
+
+
+@router.get("/releases/{release_id}", response_model=ReleaseResponse)
+async def get_release(release_id: str, user: dict = Depends(get_current_user_dep)):
+    """Get a specific release by ID"""
+    release = await db.pm_releases.find_one({"id": release_id}, {"_id": 0})
+    if not release:
+        raise HTTPException(status_code=404, detail="Release not found")
+    
+    return await enrich_release(release)
+
+
+@router.put("/releases/{release_id}", response_model=ReleaseResponse)
+async def update_release(release_id: str, data: ReleaseUpdate, user: dict = Depends(get_current_user_dep)):
+    """Update a release"""
+    release = await db.pm_releases.find_one({"id": release_id})
+    if not release:
+        raise HTTPException(status_code=404, detail="Release not found")
+    
+    now = datetime.now(timezone.utc)
+    updates = {"updated_at": now}
+    
+    if data.name is not None:
+        updates["name"] = data.name
+    if data.description is not None:
+        updates["description"] = data.description
+    if data.start_date is not None:
+        updates["start_date"] = data.start_date
+    if data.release_date is not None:
+        updates["release_date"] = data.release_date
+    if data.actual_release_date is not None:
+        updates["actual_release_date"] = data.actual_release_date
+    if data.status is not None:
+        updates["status"] = data.status.value
+        # Auto-set actual_release_date when status changes to released
+        if data.status == ReleaseStatus.RELEASED and not release.get("actual_release_date"):
+            updates["actual_release_date"] = now.isoformat()
+    
+    await db.pm_releases.update_one({"id": release_id}, {"$set": updates})
+    
+    # Log activity
+    await log_activity("release", release_id, release["name"], "updated", user["id"])
+    
+    updated = await db.pm_releases.find_one({"id": release_id}, {"_id": 0})
+    return await enrich_release(updated)
+
+
+@router.delete("/releases/{release_id}")
+async def delete_release(release_id: str, user: dict = Depends(get_current_user_dep)):
+    """Delete a release (only if no tasks are linked)"""
+    release = await db.pm_releases.find_one({"id": release_id})
+    if not release:
+        raise HTTPException(status_code=404, detail="Release not found")
+    
+    # Check for linked tasks
+    linked_tasks = await db.pm_tasks.count_documents({"release_id": release_id})
+    if linked_tasks > 0:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot delete release with {linked_tasks} linked tasks. Unlink tasks first."
+        )
+    
+    await db.pm_releases.delete_one({"id": release_id})
+    
+    # Log activity
+    await log_activity("release", release_id, release["name"], "deleted", user["id"])
+    
+    return {"message": "Release deleted", "id": release_id}
+
+
+@router.get("/releases/{release_id}/tasks", response_model=List[TaskResponse])
+async def get_release_tasks(release_id: str, user: dict = Depends(get_current_user_dep)):
+    """Get all tasks linked to a release"""
+    release = await db.pm_releases.find_one({"id": release_id})
+    if not release:
+        raise HTTPException(status_code=404, detail="Release not found")
+    
+    tasks = await db.pm_tasks.find({"release_id": release_id}, {"_id": 0}).to_list(None)
+    return [await enrich_task(t) for t in tasks]
+
+
+@router.post("/releases/{release_id}/tasks/{task_id}")
+async def link_task_to_release(release_id: str, task_id: str, user: dict = Depends(get_current_user_dep)):
+    """Link a task to a release"""
+    release = await db.pm_releases.find_one({"id": release_id})
+    if not release:
+        raise HTTPException(status_code=404, detail="Release not found")
+    
+    task = await db.pm_tasks.find_one({"id": task_id})
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    # Ensure task belongs to same project as release
+    if task.get("project_id") != release.get("project_id"):
+        raise HTTPException(status_code=400, detail="Task must belong to the same project as the release")
+    
+    await db.pm_tasks.update_one(
+        {"id": task_id}, 
+        {"$set": {"release_id": release_id, "updated_at": datetime.now(timezone.utc)}}
+    )
+    
+    # Log activity
+    await log_activity("task", task_id, task["name"], "linked_to_release", user["id"], {"release_id": release_id, "release_name": release["name"]})
+    
+    return {"message": "Task linked to release", "task_id": task_id, "release_id": release_id}
+
+
+@router.delete("/releases/{release_id}/tasks/{task_id}")
+async def unlink_task_from_release(release_id: str, task_id: str, user: dict = Depends(get_current_user_dep)):
+    """Unlink a task from a release"""
+    task = await db.pm_tasks.find_one({"id": task_id})
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    if task.get("release_id") != release_id:
+        raise HTTPException(status_code=400, detail="Task is not linked to this release")
+    
+    await db.pm_tasks.update_one(
+        {"id": task_id}, 
+        {"$set": {"release_id": None, "updated_at": datetime.now(timezone.utc)}}
+    )
+    
+    return {"message": "Task unlinked from release", "task_id": task_id}
+
+
+async def enrich_release(release: dict) -> dict:
+    """Enrich release with computed fields"""
+    if not release:
+        return None
+    
+    release_id = release.get("id")
+    project_id = release.get("project_id")
+    
+    # Get project name
+    project = await db.pm_projects.find_one({"id": project_id}, {"name": 1})
+    release["project_name"] = project.get("name") if project else None
+    
+    # Get creator name
+    release["created_by_name"] = await get_user_name(release.get("created_by"))
+    
+    # Count linked tasks and calculate progress
+    pipeline = [
+        {"$match": {"release_id": release_id}},
+        {"$group": {
+            "_id": None,
+            "total": {"$sum": 1},
+            "completed": {"$sum": {"$cond": [{"$in": ["$status", ["completed", "approved"]]}, 1, 0]}},
+            "story_points_total": {"$sum": {"$ifNull": ["$story_points", 0]}},
+            "story_points_completed": {"$sum": {"$cond": [
+                {"$in": ["$status", ["completed", "approved"]]},
+                {"$ifNull": ["$story_points", 0]},
+                0
+            ]}}
+        }}
+    ]
+    
+    stats = await db.pm_tasks.aggregate(pipeline).to_list(1)
+    if stats:
+        release["total_issues"] = stats[0].get("total", 0)
+        release["completed_issues"] = stats[0].get("completed", 0)
+        release["story_points_total"] = stats[0].get("story_points_total", 0)
+        release["story_points_completed"] = stats[0].get("story_points_completed", 0)
+        if release["total_issues"] > 0:
+            release["progress"] = round((release["completed_issues"] / release["total_issues"]) * 100, 1)
+        else:
+            release["progress"] = 0
+    else:
+        release["total_issues"] = 0
+        release["completed_issues"] = 0
+        release["story_points_total"] = 0
+        release["story_points_completed"] = 0
+        release["progress"] = 0
+    
+    return release
 
 @router.get("/{project_id}", response_model=ProjectResponse)
 async def get_project(
@@ -4830,3 +5065,4 @@ async def duplicate_task(
     await log_activity("task", new_task_id, new_task["name"], "duplicated", user["id"], {"original_task_id": data.task_id})
     
     return await enrich_task(new_task)
+

@@ -1588,6 +1588,7 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('subtasks');
   const [epics, setEpics] = useState([]);
+  const [releases, setReleases] = useState([]);
   const token = localStorage.getItem('sevora_token');
 
   // Fetch epics for this project
@@ -1605,9 +1606,25 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
     }
   };
 
+  // Fetch releases for this project
+  const fetchReleases = async () => {
+    if (!projectId) return;
+    try {
+      const res = await fetch(`${API}/api/projects/releases?project_id=${projectId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setReleases(await res.json());
+      }
+    } catch (e) {
+      console.error('Error fetching releases:', e);
+    }
+  };
+
   useEffect(() => {
     if (open && projectId) {
       fetchEpics();
+      fetchReleases();
     }
   }, [open, projectId]);
 
@@ -1636,6 +1653,7 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
           // Issue type fields
           issue_type: data.issue_type || 'task',
           epic_id: data.epic_id || '',
+          release_id: data.release_id || '',
           story_points: data.story_points || '',
           // Bug-specific fields
           bug_severity: data.bug_severity || '',
@@ -1906,6 +1924,36 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
                           <Layers className="w-3 h-3" />
                           <span className="text-xs font-medium">
                             {epics.find(e => e.id === task.epic_id)?.name || 'Epic'}
+                          </span>
+                        </div>
+                      ) : null}
+                    </>
+                  )}
+
+                  {/* Release Selector */}
+                  {releases.length > 0 && (
+                    <>
+                      <div className="h-5 w-px bg-[#E8D5C4]" />
+                      {editing ? (
+                        <Select value={editData.release_id || 'no_release'} onValueChange={(v) => setEditData({ ...editData, release_id: v === 'no_release' ? '' : v })}>
+                          <SelectTrigger className="w-[140px] border-[#D4BBA6] bg-[#FDF8F3] h-8">
+                            <Target className="w-3 h-3 mr-1 text-violet-600" />
+                            <SelectValue placeholder="No Release" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white border-[#D4BBA6]">
+                            <SelectItem value="no_release">No Release</SelectItem>
+                            {releases.map(rel => (
+                              <SelectItem key={rel.id} value={rel.id}>
+                                {rel.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : task.release_id ? (
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-violet-50 text-violet-600">
+                          <Target className="w-3 h-3" />
+                          <span className="text-xs font-medium">
+                            {releases.find(r => r.id === task.release_id)?.name || 'Release'}
                           </span>
                         </div>
                       ) : null}

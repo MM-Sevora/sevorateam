@@ -258,6 +258,7 @@ class TaskUpdate(BaseModel):
     external_links: Optional[List[ExternalLink]] = None
     sprint_id: Optional[str] = None  # Sprint this task belongs to
     milestone_id: Optional[str] = None  # Milestone this task is linked to
+    release_id: Optional[str] = None  # Release this task is linked to
     # Issue Type (Jira-like)
     issue_type: Optional[IssueType] = None
     epic_id: Optional[str] = None  # Parent epic for stories/tasks
@@ -321,6 +322,9 @@ class TaskResponse(BaseModel):
     sprint_name: Optional[str] = None
     milestone_id: Optional[str] = None
     milestone_name: Optional[str] = None
+    # Release/Version
+    release_id: Optional[str] = None
+    release_name: Optional[str] = None
     # Watchers
     watchers: List[str] = []  # User IDs watching this task
     watcher_count: int = 0
@@ -1095,3 +1099,58 @@ class KanbanBoardResponse(BaseModel):
     columns: List[KanbanColumn] = []
     tasks_by_column: Dict[str, List[TaskResponse]] = {}
     total_tasks: int = 0
+
+
+
+# ============== RELEASE/VERSION MODELS ==============
+
+class ReleaseStatus(str, Enum):
+    """Status for releases/versions"""
+    PLANNED = "planned"           # Not started
+    IN_PROGRESS = "in_progress"   # Development ongoing
+    READY_FOR_RELEASE = "ready"   # QA complete, awaiting deployment
+    RELEASED = "released"         # Live in production
+    ARCHIVED = "archived"         # Old version
+
+
+class ReleaseCreate(BaseModel):
+    """Create a new release/version"""
+    project_id: str
+    name: str  # e.g., "v1.2.0", "2024-Q1 Release"
+    description: Optional[str] = None
+    start_date: Optional[str] = None
+    release_date: Optional[str] = None  # Target release date
+    status: ReleaseStatus = ReleaseStatus.PLANNED
+
+
+class ReleaseUpdate(BaseModel):
+    """Update release/version"""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    start_date: Optional[str] = None
+    release_date: Optional[str] = None
+    actual_release_date: Optional[str] = None  # When actually released
+    status: Optional[ReleaseStatus] = None
+
+
+class ReleaseResponse(BaseModel):
+    """Release/version response"""
+    id: str
+    project_id: str
+    project_name: Optional[str] = None
+    name: str
+    description: Optional[str] = None
+    start_date: Optional[str] = None
+    release_date: Optional[str] = None
+    actual_release_date: Optional[str] = None
+    status: ReleaseStatus = ReleaseStatus.PLANNED
+    # Computed fields
+    total_issues: int = 0
+    completed_issues: int = 0
+    progress: float = 0  # Percentage
+    story_points_total: int = 0
+    story_points_completed: int = 0
+    created_by: Optional[str] = None
+    created_by_name: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
