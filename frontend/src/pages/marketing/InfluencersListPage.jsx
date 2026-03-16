@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { 
   RefreshCw, Plus, Search, Filter, Instagram, Youtube, 
   MoreHorizontal, Users, Sparkles, ChevronUp, ChevronDown, Download, User, AtSign, DollarSign, Building, X,
-  TrendingUp, Heart, Target, Eye, Send, Trash2, Edit, ExternalLink, BadgeCheck, Loader2, GitCompare, Wand2, Link2
+  TrendingUp, Heart, Target, Eye, Send, Trash2, Edit, ExternalLink, BadgeCheck, Loader2, GitCompare, Wand2, Link2, MessageSquare
 } from 'lucide-react';
 import { ExportButton } from '../../lib/exportUtils';
 import LinkToCampaign from '../../lib/LinkToCampaign';
@@ -2139,6 +2139,18 @@ const InfluencersListPage = () => {
                           >
                             <ExternalLink className="w-4 h-4 mr-2" /> View Social Profile
                           </DropdownMenuItem>
+                          {inf.phone && (
+                            <DropdownMenuItem 
+                              onClick={() => {
+                                const phone = inf.phone.replace(/[^0-9]/g, '');
+                                const message = encodeURIComponent(`Hi ${inf.name || ''},\n\nI'm reaching out regarding a potential collaboration opportunity.\n\n`);
+                                window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+                              }}
+                              className="cursor-pointer text-green-600"
+                            >
+                              <MessageSquare className="w-4 h-4 mr-2" /> Open WhatsApp
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuSeparator />
                           <DropdownMenuItem 
                             onClick={(e) => e.preventDefault()}

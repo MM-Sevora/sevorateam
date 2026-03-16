@@ -16,7 +16,7 @@ import {
   ArrowLeft, RefreshCw, Calendar, DollarSign, Users, FileText,
   Megaphone, Image, Building2, TrendingUp, Clock, CheckCircle,
   AlertTriangle, Target, ExternalLink, Eye, Edit, Plus, BarChart3,
-  Share2, ThumbsUp, ThumbsDown, Star, Trash2, Link, Unlink, Search, Rocket
+  Share2, ThumbsUp, ThumbsDown, Star, Trash2, Link, Unlink, Search, Rocket, MessageSquare
 } from 'lucide-react';
 
 const STATUS_CONFIG = {
@@ -1234,7 +1234,24 @@ export default function CampaignDetailsPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        {/* WhatsApp button - only show if phone exists */}
+                        {(deal.phone || deal.influencer?.phone) && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="text-green-600 hover:bg-green-50"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const phone = (deal.phone || deal.influencer?.phone || '').replace(/[^0-9]/g, '');
+                              const message = encodeURIComponent(`Hi ${deal.influencer_name || deal.name || ''},\n\nRegarding our campaign collaboration...\n\n`);
+                              window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+                            }}
+                            title="Open WhatsApp"
+                          >
+                            <MessageSquare className="w-4 h-4" />
+                          </Button>
+                        )}
                         <Button 
                           variant="ghost" 
                           size="sm"

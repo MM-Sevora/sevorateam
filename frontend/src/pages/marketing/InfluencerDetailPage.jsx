@@ -459,47 +459,27 @@ const InfluencerDetailPage = () => {
           toast.info('Email saved as draft (Outlook not configured)');
         }
       } else if (outreachChannel === 'whatsapp') {
-        // Send actual WhatsApp message via Twilio
+        // Open WhatsApp directly (no Twilio required)
         if (!form.phone) {
           toast.error('No phone number on file for this contact');
           return;
         }
         
-        const whatsappResult = await api.post('/communication/whatsapp/send', {
-          to: form.phone,
-          message: outreachForm.message
+        const phone = form.phone.replace(/[^0-9]/g, '');
+        const message = encodeURIComponent(outreachForm.message);
+        window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+        
+        // Record the communication in history
+        await api.post(`/marketing/v2/communications`, {
+          contact_id: influencerId,
+          comm_type: 'whatsapp',
+          subject: outreachForm.subject || 'WhatsApp Message',
+          message: outreachForm.message,
+          recipient_phone: form.phone,
+          status: 'sent'
         });
         
-        if (whatsappResult.data.success) {
-          toast.success('WhatsApp message sent successfully!');
-          
-          // Show automation notification if triggered
-          if (whatsappResult.data.automation?.success) {
-            toast.info(`✨ Auto-advanced "${whatsappResult.data.automation.contact_name}" to "${whatsappResult.data.automation.to_stage}" stage`, {
-              duration: 4000
-            });
-          }
-          
-          // Also record the communication in history
-          await api.post(`/marketing/v2/communications`, {
-            contact_id: influencerId,
-            comm_type: 'whatsapp',
-            subject: outreachForm.subject || 'WhatsApp Message',
-            message: outreachForm.message,
-            recipient_phone: form.phone,
-            status: 'sent',
-            external_id: whatsappResult.data.message_sid
-          });
-        } else {
-          // If WhatsApp fails (e.g., sandbox not configured)
-          const errorMsg = whatsappResult.data.error || 'Failed to send WhatsApp message';
-          if (errorMsg.includes('sandbox') || errorMsg.includes('21608')) {
-            toast.error('Recipient needs to join Twilio WhatsApp sandbox first. Send "join kill-ranch" to +1 415 523 8886');
-          } else {
-            toast.error(errorMsg);
-          }
-          return;
-        }
+        toast.success('WhatsApp opened - message recorded in history');
       }
       
       setShowOutreachModal(false);
@@ -2073,6 +2053,19 @@ const InfluencerDetailPage = () => {
                 <CardTitle className="text-base">Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
+                {form.phone && (
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start text-green-600 hover:bg-green-50 hover:border-green-300"
+                    onClick={() => {
+                      const phone = form.phone.replace(/[^0-9]/g, '');
+                      const message = encodeURIComponent(`Hi ${form.name || ''},\n\n`);
+                      window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+                    }}
+                  >
+                    <MessageSquare className="w-4 h-4 mr-2" /> Open WhatsApp
+                  </Button>
+                )}
                 <Button variant="outline" className="w-full justify-start" onClick={() => setShowPaymentModal(true)}>
                   <Plus className="w-4 h-4 mr-2" /> Create Payment
                 </Button>

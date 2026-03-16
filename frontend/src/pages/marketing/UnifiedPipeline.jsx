@@ -250,10 +250,16 @@ const PipelineCard = ({ contact, stage, onStageChange, onViewDetails, onSendMess
               </DropdownMenuItem>
               {contact.phone && (
                 <DropdownMenuItem 
-                  onClick={(e) => { e.stopPropagation(); onSendMessage({ ...contact, defaultChannel: 'whatsapp' }); }}
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    // Open WhatsApp directly with pre-filled message
+                    const phone = contact.phone.replace(/[^0-9]/g, '');
+                    const message = encodeURIComponent(`Hi ${contact.name || ''},\n\n`);
+                    window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+                  }}
                   className="text-green-600"
                 >
-                  <MessageSquare className="w-4 h-4 mr-2" /> Send WhatsApp
+                  <MessageSquare className="w-4 h-4 mr-2" /> Open WhatsApp
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
