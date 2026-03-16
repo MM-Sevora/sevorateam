@@ -1,0 +1,57 @@
+{
+  "summary": "Frontend testing of Brand Onboarding Pipeline and Agreement Management features - All major features PASS. Pipeline shows 7 Kanban stages with expandable sub-stages, brand cards display correctly with commission/status badges, clicking brand cards navigates to detail page with full Agreement & Onboarding section.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Brand Onboarding Pipeline",
+        "issues": ["BUYING & SOURCING breadcrumb text in page header shows as 'Buying & Sourcing' (sentence case) not 'BUYING & SOURCING' (uppercase) as per test expectations - minor styling inconsistency"]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/frontend/src/pages/sourcing/BrandOnboardingPipeline.jsx",
+    "/app/frontend/src/pages/sourcing/BrandDetailPage.jsx"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A - frontend only testing",
+    "frontend": "100%"
+  },
+  "test_credentials": {
+    "email": "admin@sevora.com",
+    "password": "admin123"
+  },
+  "seed_data_creation": "None - used existing brand data (Nappa Dori in Agreement Signed stage)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Brand Onboarding Pipeline fully functional at /sourcing/brands/onboarding. All 7 stages (New Lead, Contacted, Negotiating, Agreement Sent, Agreement Signed, Onboarding, Active Partner) with expandable sub-stages working. Brand cards show name, city, segment, commission badge, agreement status, days-in-stage indicator. Stage navigation arrows (<>) on cards work. Brand Detail page has 'Agreement & Onboarding' section with Commission Rate, Payment Terms, Contract Dates, Special Terms fields displayed in view mode. Edit mode is accessed via separate /edit route for brand information only (not inline agreement editing).",
+  "features_tested": {
+    "pipeline_page_loads": "PASS - /sourcing/brands/onboarding loads correctly",
+    "7_kanban_stages_visible": "PASS - New Lead, Contacted, Negotiating, Agreement Sent, Agreement Signed, Onboarding, Active Partner",
+    "sub_stages_expandable": "PASS - Each stage has expandable sub-stages (e.g., Identified, Researched, Qualified under New Lead)",
+    "stats_overview_cards": "PASS - 7 stat cards at top showing counts per stage (e.g., New Lead: 216, Agreement Signed: 1)",
+    "brand_cards_display": "PASS - Cards show company name, city, segment, commission badge (15%), agreement status (Signed), days-in-stage (365d)",
+    "stage_navigation_arrows": "PASS - Left/Right chevron buttons on cards for moving between stages",
+    "search_functionality": "PASS - Search brands input filters brands",
+    "brand_card_click_navigation": "PASS - Clicking brand card navigates to /sourcing/brands/{id}",
+    "brand_detail_agreement_section": "PASS - 'Agreement & Onboarding' section displays Onboarding Stage, Commission, Payment Terms, Contract Dates, Special Terms",
+    "agreement_status_badge": "PASS - Green 'Signed' badge shown on detail page",
+    "agreement_form_fields_in_view": "PASS - All fields visible: Commission Rate (15%), Payment Terms (Net 30), Contract Start (4/1/2025), Contract End (3/31/2026), Notes (Exclusive partnership...)"
+  },
+  "test_data_used": {
+    "brand_tested": "Nappa Dori",
+    "brand_id": "91f2c94f-b383-4bbe-8752-81fecf517a15",
+    "stage": "Agreement Signed > Signed",
+    "commission": "15%",
+    "payment_terms": "Net 30",
+    "contract_dates": "4/1/2025 - 3/31/2026"
+  }
+}
