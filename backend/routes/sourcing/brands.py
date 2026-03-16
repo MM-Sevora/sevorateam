@@ -176,10 +176,14 @@ def create_brands_router(db, get_current_user: Callable):
         user_map = {}
         if user_ids:
             users = await db.users.find({"id": {"$in": user_ids}}, {"_id": 0, "id": 1, "name": 1}).to_list(100)
-            user_map = {u["id"]: u.get("name", "Unknown") for u in users}
+            user_map = {u["id"]: u.get("name", "System") for u in users}
         
         for brand in brands:
-            brand["created_by_name"] = user_map.get(brand.get("created_by"), "Unknown") if brand.get("created_by") else None
+            # Show "System" for brands with no creator or unknown creator (e.g., imported data)
+            if brand.get("created_by"):
+                brand["created_by_name"] = user_map.get(brand.get("created_by"), "Imported")
+            else:
+                brand["created_by_name"] = None
             # Add permissions - if no created_by, only admin can delete
             brand["_permissions"] = {
                 "can_edit": brand.get("created_by") == user_id or is_admin,
@@ -241,9 +245,10 @@ def create_brands_router(db, get_current_user: Callable):
         user_ids = list(set([b.get("created_by") for b in brands if b.get("created_by")]))
         if user_ids:
             users = await db.users.find({"id": {"$in": user_ids}}, {"_id": 0, "id": 1, "name": 1}).to_list(100)
-            user_map = {u["id"]: u.get("name", "Unknown") for u in users}
+            user_map = {u["id"]: u.get("name", "System") for u in users}
             for brand in brands:
-                brand["created_by_name"] = user_map.get(brand.get("created_by"), "Unknown")
+                if brand.get("created_by"):
+                    brand["created_by_name"] = user_map.get(brand.get("created_by"), "Imported")
         
         # Get unique creators for the "Added by" filter dropdown
         # Include both users who have created brands AND all active team members
@@ -258,7 +263,7 @@ def create_brands_router(db, get_current_user: Callable):
         
         # Merge: prioritize active users list, but include any creator not in that list
         user_ids_set = {u["id"] for u in active_users}
-        creators_list = [{"id": u["id"], "name": u.get("name", "Unknown")} for u in active_users]
+        creators_list = [{"id": u["id"], "name": u.get("name", "Team Member")} for u in active_users]
         
         # Add any creators not in active users
         missing_creators = [c for c in all_creators if c not in user_ids_set]
@@ -267,7 +272,7 @@ def create_brands_router(db, get_current_user: Callable):
                 {"id": {"$in": missing_creators}}, 
                 {"_id": 0, "id": 1, "name": 1}
             ).to_list(100)
-            creators_list.extend([{"id": u["id"], "name": u.get("name", "Unknown")} for u in extra_users])
+            creators_list.extend([{"id": u["id"], "name": u.get("name", "Former Member")} for u in extra_users])
         
         # Sort by name
         creators_list.sort(key=lambda x: x.get("name", "").lower())

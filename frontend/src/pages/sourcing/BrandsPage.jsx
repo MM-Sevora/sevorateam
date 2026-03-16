@@ -54,8 +54,19 @@ const CATEGORIES_BY_DIVISION = {
 const CATEGORIES = CATEGORIES_BY_DIVISION['Apparel'];
 const GENDERS = ['Women', 'Men', 'Unisex'];
 const CITIES = [
-  'Delhi', 'Mumbai', 'Bengaluru', 'Jaipur', 'Kolkata', 'Chennai', 'Hyderabad',
-  'Ahmedabad', 'Pune', 'Lucknow', 'Chandigarh', 'Surat', 'Indore', 'Kochi'
+  // Metro Cities
+  'Delhi', 'Mumbai', 'Bengaluru', 'Kolkata', 'Chennai', 'Hyderabad',
+  // Tier 1 Cities
+  'Ahmedabad', 'Pune', 'Jaipur', 'Lucknow', 'Chandigarh', 'Surat', 'Kochi', 'Indore',
+  // Tier 2 Cities
+  'Coimbatore', 'Vadodara', 'Nagpur', 'Visakhapatnam', 'Bhopal', 'Patna', 'Ludhiana',
+  'Agra', 'Nashik', 'Faridabad', 'Meerut', 'Rajkot', 'Varanasi', 'Srinagar',
+  'Aurangabad', 'Dhanbad', 'Amritsar', 'Allahabad', 'Ranchi', 'Howrah', 'Gwalior',
+  'Jabalpur', 'Jodhpur', 'Madurai', 'Raipur', 'Guwahati', 'Tiruchirappalli', 'Bareilly',
+  'Moradabad', 'Mysore', 'Thiruvananthapuram', 'Gurgaon', 'Noida', 'Ghaziabad',
+  // Other Notable Cities
+  'Udaipur', 'Dehradun', 'Shimla', 'Gangtok', 'Pondicherry', 'Mangalore', 'Bhubaneswar',
+  'Other'
 ];
 
 const BrandsPage = () => {
@@ -448,7 +459,7 @@ const BrandsPage = () => {
                     </TableCell>
                     <TableCell>
                       <div className="text-sm text-gray-600">
-                        {brand.created_by_name || (brand.ai_discovered ? 'AI Discovery' : '-')}
+                        {brand.created_by_name || (brand.ai_discovered ? 'AI Discovery' : 'System')}
                       </div>
                       <div className="text-xs text-gray-400">
                         {brand.created_at ? new Date(brand.created_at).toLocaleDateString() : ''}
