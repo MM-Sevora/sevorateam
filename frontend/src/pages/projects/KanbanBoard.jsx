@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import {
   Loader2, RefreshCw, Filter, Search, User, Calendar, Flag,
   MoreVertical, Eye, Edit, Copy, Clock, AlertTriangle, CheckCircle2,
-  GripVertical, Plus, X, ChevronDown
+  GripVertical, Plus, X, ChevronDown, Layers, Target
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -258,6 +258,23 @@ export default function KanbanBoard() {
   const [selectedAssignee, setSelectedAssignee] = useState(searchParams.get('assignee') || '');
   const [searchQuery, setSearchQuery] = useState('');
   
+  // Quick filters
+  const [quickFilter, setQuickFilter] = useState('all'); // 'all', 'my_issues', 'unassigned', 'overdue'
+  const [selectedEpic, setSelectedEpic] = useState('');
+  const [epics, setEpics] = useState([]);
+  
+  // Get current user from localStorage
+  const currentUserId = (() => {
+    try {
+      const token = localStorage.getItem('sevora_token');
+      if (token) {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return payload.id || payload.sub;
+      }
+    } catch (e) {}
+    return null;
+  })();
+  
   // Drag state
   const [draggedTask, setDraggedTask] = useState(null);
   
@@ -286,6 +303,20 @@ export default function KanbanBoard() {
       ]);
       setProjects(projectsRes.data || []);
       setUsers(usersRes.data || []);
+      
+      // Fetch epics from all projects
+      const allEpics = [];
+      for (const project of (projectsRes.data || [])) {
+        try {
+          const epicsRes = await api.get(`/engineering/projects/${project.id}/epics`);
+          if (epicsRes.data) {
+            epicsRes.data.forEach(epic => {
+              allEpics.push({ ...epic, project_name: project.name });
+            });
+          }
+        } catch (e) {}
+      }
+      setEpics(allEpics);
     } catch (error) {
       console.error('Failed to fetch filters:', error);
     }
@@ -380,13 +411,38 @@ export default function KanbanBoard() {
 
   // Filter tasks by search query
   const getFilteredTasks = (tasks) => {
-    if (!searchQuery) return tasks;
-    const query = searchQuery.toLowerCase();
-    return tasks.filter(task => 
-      task.name.toLowerCase().includes(query) ||
-      task.project_name?.toLowerCase().includes(query) ||
-      task.assigned_to_name?.toLowerCase().includes(query)
-    );
+    let filtered = tasks;
+    
+    // Quick filters
+    if (quickFilter === 'my_issues' && currentUserId) {
+      filtered = filtered.filter(task => task.assigned_to === currentUserId);
+    } else if (quickFilter === 'unassigned') {
+      filtered = filtered.filter(task => !task.assigned_to);
+    } else if (quickFilter === 'overdue') {
+      filtered = filtered.filter(task => {
+        if (!task.due_date) return false;
+        return isPast(new Date(task.due_date)) && !isToday(new Date(task.due_date));
+      });
+    }
+    
+    // Epic filter
+    if (selectedEpic === 'no_epic') {
+      filtered = filtered.filter(task => !task.epic_id);
+    } else if (selectedEpic) {
+      filtered = filtered.filter(task => task.epic_id === selectedEpic);
+    }
+    
+    // Search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(task => 
+        task.name.toLowerCase().includes(query) ||
+        task.project_name?.toLowerCase().includes(query) ||
+        task.assigned_to_name?.toLowerCase().includes(query)
+      );
+    }
+    
+    return filtered;
   };
 
   if (loading && !boardData) {
@@ -425,6 +481,69 @@ export default function KanbanBoard() {
               New Task
             </Button>
           </div>
+        </div>
+        
+        {/* Quick Filters */}
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-sm font-medium text-[#6B5D52]">Quick Filters:</span>
+          <div className="flex items-center gap-1 bg-white rounded-lg p-1 border border-[#E8D5C4]">
+            <Button
+              size="sm"
+              variant={quickFilter === 'all' ? 'default' : 'ghost'}
+              onClick={() => setQuickFilter('all')}
+              className={`h-7 px-3 text-xs ${quickFilter === 'all' ? 'bg-teal-600 text-white' : ''}`}
+            >
+              All
+            </Button>
+            <Button
+              size="sm"
+              variant={quickFilter === 'my_issues' ? 'default' : 'ghost'}
+              onClick={() => setQuickFilter('my_issues')}
+              className={`h-7 px-3 text-xs ${quickFilter === 'my_issues' ? 'bg-teal-600 text-white' : ''}`}
+            >
+              <User className="w-3 h-3 mr-1" />
+              My Issues
+            </Button>
+            <Button
+              size="sm"
+              variant={quickFilter === 'unassigned' ? 'default' : 'ghost'}
+              onClick={() => setQuickFilter('unassigned')}
+              className={`h-7 px-3 text-xs ${quickFilter === 'unassigned' ? 'bg-amber-600 text-white' : ''}`}
+            >
+              Unassigned
+            </Button>
+            <Button
+              size="sm"
+              variant={quickFilter === 'overdue' ? 'default' : 'ghost'}
+              onClick={() => setQuickFilter('overdue')}
+              className={`h-7 px-3 text-xs ${quickFilter === 'overdue' ? 'bg-red-600 text-white' : ''}`}
+            >
+              <AlertTriangle className="w-3 h-3 mr-1" />
+              Overdue
+            </Button>
+          </div>
+          
+          {/* Epic Filter */}
+          {epics.length > 0 && (
+            <Select value={selectedEpic || "all_epics"} onValueChange={(v) => setSelectedEpic(v === "all_epics" ? "" : v)}>
+              <SelectTrigger className="w-[160px] h-8 border-[#D4BBA6] bg-white">
+                <Layers className="w-3 h-3 mr-1 text-purple-600" />
+                <SelectValue placeholder="All Epics" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all_epics">All Epics</SelectItem>
+                <SelectItem value="no_epic">No Epic</SelectItem>
+                {epics.map((epic) => (
+                  <SelectItem key={epic.id} value={epic.id}>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: epic.color || '#8B5CF6' }} />
+                      {epic.name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
         
         {/* Filters */}
@@ -467,7 +586,7 @@ export default function KanbanBoard() {
             </SelectContent>
           </Select>
           
-          {(selectedProject || selectedAssignee || searchQuery) && (
+          {(selectedProject || selectedAssignee || searchQuery || quickFilter !== 'all' || selectedEpic) && (
             <Button 
               variant="ghost" 
               size="sm"
@@ -475,6 +594,8 @@ export default function KanbanBoard() {
                 setSelectedProject('');
                 setSelectedAssignee('');
                 setSearchQuery('');
+                setQuickFilter('all');
+                setSelectedEpic('');
               }}
               className="text-[#8B7355]"
             >

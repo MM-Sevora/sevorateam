@@ -131,6 +131,7 @@ import GlobalEpicsPage from "./pages/engineering/GlobalEpicsPage";
 import GlobalSprintPlanningPage from "./pages/engineering/GlobalSprintPlanningPage";
 import WorkflowsPage from "./pages/engineering/WorkflowsPage";
 import EngineeringProjectsPage from "./pages/engineering/EngineeringProjectsPage";
+import SprintBoardPage from "./pages/engineering/SprintBoardPage";
 
 // Knowledge Base Pages
 import KnowledgeBasePage from "./pages/knowledge/KnowledgeBasePage";
@@ -594,6 +595,9 @@ function AppRoutes() {
             <Route path="/engineering/workflows" element={<ProtectedRoute requiredModule="project_management"><WorkflowsPage /></ProtectedRoute>} />
             <Route path="/engineering/knowledge" element={<ProtectedRoute requiredModule="project_management"><KnowledgeBasePage /></ProtectedRoute>} />
             <Route path="/engineering/knowledge/search" element={<ProtectedRoute requiredModule="project_management"><KnowledgeBasePage /></ProtectedRoute>} />
+            {/* Sprint Board View */}
+            <Route path="/projects/:projectId/sprint-board" element={<ProtectedRoute requiredModule="project_management"><SprintBoardPage /></ProtectedRoute>} />
+            <Route path="/projects/:projectId/sprint-board/:sprintId" element={<ProtectedRoute requiredModule="project_management"><SprintBoardPage /></ProtectedRoute>} />
             {/* Legacy routes - redirect to new paths */}
             <Route path="/projects/engineering/backlog" element={<ProtectedRoute requiredModule="project_management"><GlobalBacklogPage /></ProtectedRoute>} />
             <Route path="/projects/engineering/reports" element={<ProtectedRoute requiredModule="project_management"><EngineeringReportsPage /></ProtectedRoute>} />
