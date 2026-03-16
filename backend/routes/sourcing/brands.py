@@ -1,11 +1,13 @@
 """
 Brands Management - Buying & Sourcing Module
 """
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, File, UploadFile
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional, Callable
 from datetime import datetime, timezone
 import uuid
+import os
+import shutil
 
 from utils.permissions import can_delete_record, get_delete_error_message
 
@@ -70,16 +72,24 @@ def create_brands_router(db, get_current_user: Callable):
         onboarding_stage: Optional[str] = None
         onboarding_sub_stage: Optional[str] = None
         stage_changed_at: Optional[str] = None
-        # Agreement fields
+        # Agreement fields - Enhanced
         agreement_status: Optional[str] = None  # draft, sent, signed, expired
-        commission_rate: Optional[str] = None
+        inventory_model: Optional[str] = None  # 'sor' or 'outright_purchase'
+        # SOR fields
+        commission_rate: Optional[float] = None
+        payout_terms: Optional[str] = None
+        # Outright Purchase fields
+        margin: Optional[float] = None
         payment_terms: Optional[str] = None
+        credit_limit: Optional[float] = None
+        # Common fields
+        stock_correction: Optional[str] = None
         contract_start_date: Optional[str] = None
         contract_end_date: Optional[str] = None
         agreement_notes: Optional[str] = None
         agreement_sent_date: Optional[str] = None
         agreement_signed_date: Optional[str] = None
-        agreement_document_url: Optional[str] = None
+        agreement_attachment_url: Optional[str] = None
 
     class BrandNoteCreate(BaseModel):
         note: str
@@ -716,5 +726,48 @@ def create_brands_router(db, get_current_user: Callable):
             import logging
             logging.error(f"Error fetching brand inbox: {e}")
             return []
+
+    @router.post("/{brand_id}/upload-agreement")
+    async def upload_agreement_document(
+        brand_id: str,
+        file: UploadFile = File(...),
+        current_user: dict = Depends(get_current_user)
+    ):
+        """Upload agreement document for a brand"""
+        # Verify brand exists
+        brand = await db.sourcing_brands.find_one({"id": brand_id})
+        if not brand:
+            raise HTTPException(status_code=404, detail="Brand not found")
+        
+        # Create uploads directory if needed
+        upload_dir = "/app/uploads/brand_agreements"
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        # Generate unique filename
+        file_ext = os.path.splitext(file.filename)[1] if file.filename else '.pdf'
+        unique_filename = f"{brand_id}_{uuid.uuid4().hex[:8]}{file_ext}"
+        file_path = os.path.join(upload_dir, unique_filename)
+        
+        # Save file
+        try:
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+        
+        # Generate URL (relative path that can be served)
+        file_url = f"/uploads/brand_agreements/{unique_filename}"
+        
+        # Update brand with attachment URL
+        await db.sourcing_brands.update_one(
+            {"id": brand_id},
+            {"$set": {
+                "agreement_attachment_url": file_url,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "updated_by": current_user.get("id")
+            }}
+        )
+        
+        return {"url": file_url, "filename": unique_filename}
 
     return router

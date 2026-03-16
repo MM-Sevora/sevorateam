@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import { 
   ArrowLeft, Edit2, Trash2, Sparkles, Phone, Mail, Globe, MapPin,
   Calendar, Clock, Users, Plus, ExternalLink, MessageSquare, History,
-  Building2, User, Send, ClipboardList, Save, X, FileText, DollarSign, CheckCircle2
+  Building2, User, Send, ClipboardList, Save, X, FileText, DollarSign, CheckCircle2, Upload
 } from 'lucide-react';
 import EmailComposer from '../../components/sourcing/EmailComposer';
 import CreateTaskDialog from '../../components/shared/CreateTaskDialog';
@@ -69,13 +69,20 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
   const [newContact, setNewContact] = useState({ name: '', role: '', business_email: '', phone: '' });
   const [updatingStage, setUpdatingStage] = useState(false);
   const [agreementForm, setAgreementForm] = useState({
-    commission_rate: '',
-    payment_terms: '',
+    inventory_model: '', // 'outright_purchase' or 'sor'
+    commission_rate: '',  // For SOR
+    payout_terms: '',     // For SOR
+    margin: '',           // For Outright Purchase
+    payment_terms: '',    // For Outright Purchase
+    credit_limit: '',     // For Outright Purchase
+    stock_correction: '',
     contract_start_date: '',
     contract_end_date: '',
-    agreement_notes: ''
+    agreement_notes: '',
+    agreement_attachment_url: ''
   });
   const [savingAgreement, setSavingAgreement] = useState(false);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [mailboxTab, setMailboxTab] = useState('sent'); // 'sent' or 'inbox'
   const [loadingInbox, setLoadingInbox] = useState(false);
 
@@ -198,30 +205,82 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
   useEffect(() => {
     if (brand) {
       setAgreementForm({
+        inventory_model: brand.inventory_model || '',
         commission_rate: brand.commission_rate || '',
+        payout_terms: brand.payout_terms || '',
+        margin: brand.margin || '',
         payment_terms: brand.payment_terms || '',
+        credit_limit: brand.credit_limit || '',
+        stock_correction: brand.stock_correction || '',
         contract_start_date: brand.contract_start_date ? brand.contract_start_date.split('T')[0] : '',
         contract_end_date: brand.contract_end_date ? brand.contract_end_date.split('T')[0] : '',
-        agreement_notes: brand.agreement_notes || ''
+        agreement_notes: brand.agreement_notes || '',
+        agreement_attachment_url: brand.agreement_attachment_url || ''
       });
     }
   }, [brand]);
 
+  // Handle file upload for agreement attachment
+  const handleAttachmentUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setUploadingAttachment(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const res = await api.post(`/sourcing/brands/${id}/upload-agreement`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      setAgreementForm(prev => ({ ...prev, agreement_attachment_url: res.data.url }));
+      toast.success('Attachment uploaded successfully');
+    } catch (error) {
+      toast.error('Failed to upload attachment');
+    } finally {
+      setUploadingAttachment(false);
+    }
+  };
+
   // Save agreement details
   const handleSaveAgreement = async () => {
+    if (!agreementForm.inventory_model) {
+      toast.error('Please select an inventory model');
+      return;
+    }
+    
     setSavingAgreement(true);
     try {
       const updateData = {
-        commission_rate: agreementForm.commission_rate ? parseFloat(agreementForm.commission_rate) : null,
-        payment_terms: agreementForm.payment_terms || null,
+        inventory_model: agreementForm.inventory_model,
+        stock_correction: agreementForm.stock_correction || null,
         contract_start_date: agreementForm.contract_start_date || null,
         contract_end_date: agreementForm.contract_end_date || null,
         agreement_notes: agreementForm.agreement_notes || null,
+        agreement_attachment_url: agreementForm.agreement_attachment_url || null,
         // Auto-update pipeline stage to Negotiating if adding agreement details
         onboarding_stage: brand?.onboarding_stage === 'new_lead' || brand?.onboarding_stage === 'contacted' 
           ? 'negotiating' 
           : brand?.onboarding_stage
       };
+      
+      // Add model-specific fields
+      if (agreementForm.inventory_model === 'sor') {
+        updateData.commission_rate = agreementForm.commission_rate ? parseFloat(agreementForm.commission_rate) : null;
+        updateData.payout_terms = agreementForm.payout_terms || null;
+        // Clear outright fields
+        updateData.margin = null;
+        updateData.payment_terms = null;
+        updateData.credit_limit = null;
+      } else if (agreementForm.inventory_model === 'outright_purchase') {
+        updateData.margin = agreementForm.margin ? parseFloat(agreementForm.margin) : null;
+        updateData.payment_terms = agreementForm.payment_terms || null;
+        updateData.credit_limit = agreementForm.credit_limit ? parseFloat(agreementForm.credit_limit) : null;
+        // Clear SOR fields
+        updateData.commission_rate = null;
+        updateData.payout_terms = null;
+      }
       
       await api.put(`/sourcing/brands/${id}`, updateData);
       setBrand(prev => ({ ...prev, ...updateData }));
@@ -730,22 +789,74 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
                   </div>
                   
                   {/* Agreement Details */}
-                  {(brand?.commission_rate || brand?.payment_terms) ? (
-                    <div className="grid grid-cols-2 gap-4">
-                      {brand?.commission_rate && (
-                        <div className="p-3 bg-gray-50 rounded-lg">
-                          <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
-                            <DollarSign className="h-3 w-3" /> Commission
-                          </div>
-                          <p className="font-medium">{brand.commission_rate}%</p>
+                  {brand?.inventory_model ? (
+                    <div className="space-y-4">
+                      {/* Inventory Model Badge */}
+                      <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
+                        <div className="flex items-center gap-2 text-orange-700 text-xs mb-1">
+                          <Building2 className="h-3 w-3" /> Inventory Model
                         </div>
-                      )}
-                      {brand?.payment_terms && (
+                        <p className="font-semibold text-orange-800 capitalize">
+                          {brand.inventory_model === 'sor' ? 'SOR (Sale or Return)' : 'Outright Purchase'}
+                        </p>
+                      </div>
+                      
+                      {/* Model-specific fields */}
+                      <div className="grid grid-cols-2 gap-4">
+                        {brand.inventory_model === 'sor' ? (
+                          <>
+                            {brand?.commission_rate && (
+                              <div className="p-3 bg-gray-50 rounded-lg">
+                                <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
+                                  <DollarSign className="h-3 w-3" /> Commission
+                                </div>
+                                <p className="font-medium">{brand.commission_rate}%</p>
+                              </div>
+                            )}
+                            {brand?.payout_terms && (
+                              <div className="p-3 bg-gray-50 rounded-lg">
+                                <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
+                                  <Clock className="h-3 w-3" /> Payout Terms
+                                </div>
+                                <p className="font-medium capitalize">{brand.payout_terms.replace(/_/g, ' ')}</p>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            {brand?.margin && (
+                              <div className="p-3 bg-gray-50 rounded-lg">
+                                <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
+                                  <DollarSign className="h-3 w-3" /> Margin
+                                </div>
+                                <p className="font-medium">{brand.margin}%</p>
+                              </div>
+                            )}
+                            {brand?.payment_terms && (
+                              <div className="p-3 bg-gray-50 rounded-lg">
+                                <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
+                                  <Clock className="h-3 w-3" /> Payment Terms
+                                </div>
+                                <p className="font-medium capitalize">{brand.payment_terms.replace(/_/g, ' ')}</p>
+                              </div>
+                            )}
+                            {brand?.credit_limit && (
+                              <div className="p-3 bg-gray-50 rounded-lg">
+                                <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
+                                  <DollarSign className="h-3 w-3" /> Credit Limit
+                                </div>
+                                <p className="font-medium">₹{brand.credit_limit.toLocaleString()}</p>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                      
+                      {/* Stock Correction */}
+                      {brand?.stock_correction && (
                         <div className="p-3 bg-gray-50 rounded-lg">
-                          <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
-                            <Clock className="h-3 w-3" /> Payment Terms
-                          </div>
-                          <p className="font-medium capitalize">{brand.payment_terms.replace(/_/g, ' ')}</p>
+                          <div className="text-gray-500 text-xs mb-1">Stock Correction Policy</div>
+                          <p className="text-sm">{brand.stock_correction}</p>
                         </div>
                       )}
                     </div>
@@ -781,8 +892,28 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
                     </div>
                   )}
                   
+                  {/* Agreement Attachment */}
+                  {brand?.agreement_attachment_url && (
+                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-blue-700">
+                          <FileText className="h-4 w-4" />
+                          <span className="text-sm font-medium">Agreement Document</span>
+                        </div>
+                        <a 
+                          href={brand.agreement_attachment_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
+                        >
+                          <ExternalLink className="h-3 w-3" /> View
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                  
                   {/* No Agreement Data */}
-                  {!brand?.commission_rate && !brand?.payment_terms && !brand?.agreement_notes && (
+                  {!brand?.inventory_model && (
                     <div className="text-center py-4 text-gray-400">
                       <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
                       <p className="text-sm">No agreement details added yet</p>
@@ -793,7 +924,7 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
                   )}
                   
                   {/* Edit/Action Buttons when data exists */}
-                  {(brand?.commission_rate || brand?.payment_terms || brand?.agreement_notes) && (
+                  {brand?.inventory_model && (
                     <div className="flex gap-2 mt-4 pt-4 border-t">
                       <Button variant="outline" size="sm" onClick={() => setShowAgreementModal(true)}>
                         <Edit2 className="h-3 w-3 mr-1" /> Edit Details
@@ -1217,7 +1348,7 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
 
       {/* Agreement Details Modal */}
       <Dialog open={showAgreementModal} onOpenChange={setShowAgreementModal}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-orange-600" />
@@ -1225,39 +1356,124 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Commission Rate (%)</Label>
-                <Input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="100"
-                  value={agreementForm.commission_rate}
-                  onChange={(e) => setAgreementForm(prev => ({ ...prev, commission_rate: e.target.value }))}
-                  placeholder="e.g., 15"
-                />
-              </div>
-              <div>
-                <Label>Payment Terms</Label>
-                <Select 
-                  value={agreementForm.payment_terms}
-                  onValueChange={(v) => setAgreementForm(prev => ({ ...prev, payment_terms: v }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select terms" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Net 15">Net 15</SelectItem>
-                    <SelectItem value="Net 30">Net 30</SelectItem>
-                    <SelectItem value="Net 45">Net 45</SelectItem>
-                    <SelectItem value="Net 60">Net 60</SelectItem>
-                    <SelectItem value="COD">Cash on Delivery</SelectItem>
-                    <SelectItem value="Advance">Advance Payment</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* Inventory Model Selection */}
+            <div>
+              <Label className="text-sm font-medium">Inventory Model *</Label>
+              <Select 
+                value={agreementForm.inventory_model}
+                onValueChange={(v) => setAgreementForm(prev => ({ ...prev, inventory_model: v }))}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select inventory model" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sor">SOR (Sale or Return)</SelectItem>
+                  <SelectItem value="outright_purchase">Outright Purchase</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+            
+            {/* SOR Fields */}
+            {agreementForm.inventory_model === 'sor' && (
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 space-y-4">
+                <p className="text-xs text-blue-600 font-medium uppercase">SOR Terms</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Commission (%)</Label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      value={agreementForm.commission_rate}
+                      onChange={(e) => setAgreementForm(prev => ({ ...prev, commission_rate: e.target.value }))}
+                      placeholder="e.g., 15"
+                    />
+                  </div>
+                  <div>
+                    <Label>Payout Terms</Label>
+                    <Select 
+                      value={agreementForm.payout_terms}
+                      onValueChange={(v) => setAgreementForm(prev => ({ ...prev, payout_terms: v }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select payout terms" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Weekly">Weekly</SelectItem>
+                        <SelectItem value="Bi-Weekly">Bi-Weekly</SelectItem>
+                        <SelectItem value="Monthly">Monthly</SelectItem>
+                        <SelectItem value="Net 15">Net 15</SelectItem>
+                        <SelectItem value="Net 30">Net 30</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Outright Purchase Fields */}
+            {agreementForm.inventory_model === 'outright_purchase' && (
+              <div className="p-4 bg-green-50 rounded-lg border border-green-200 space-y-4">
+                <p className="text-xs text-green-600 font-medium uppercase">Outright Purchase Terms</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Margin (%)</Label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      value={agreementForm.margin}
+                      onChange={(e) => setAgreementForm(prev => ({ ...prev, margin: e.target.value }))}
+                      placeholder="e.g., 40"
+                    />
+                  </div>
+                  <div>
+                    <Label>Payment Terms</Label>
+                    <Select 
+                      value={agreementForm.payment_terms}
+                      onValueChange={(v) => setAgreementForm(prev => ({ ...prev, payment_terms: v }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select terms" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Advance">Advance</SelectItem>
+                        <SelectItem value="COD">Cash on Delivery</SelectItem>
+                        <SelectItem value="Net 15">Net 15</SelectItem>
+                        <SelectItem value="Net 30">Net 30</SelectItem>
+                        <SelectItem value="Net 45">Net 45</SelectItem>
+                        <SelectItem value="Net 60">Net 60</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div>
+                  <Label>Credit Limit (₹)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={agreementForm.credit_limit}
+                    onChange={(e) => setAgreementForm(prev => ({ ...prev, credit_limit: e.target.value }))}
+                    placeholder="e.g., 500000"
+                  />
+                </div>
+              </div>
+            )}
+            
+            {/* Stock Correction */}
+            <div>
+              <Label>Stock Correction Policy</Label>
+              <Textarea
+                value={agreementForm.stock_correction}
+                onChange={(e) => setAgreementForm(prev => ({ ...prev, stock_correction: e.target.value }))}
+                placeholder="Define stock correction terms, return policies, damage handling..."
+                rows={2}
+              />
+            </div>
+            
+            {/* Contract Dates */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Contract Start Date</Label>
@@ -1276,21 +1492,76 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
                 />
               </div>
             </div>
+            
+            {/* Special Terms */}
             <div>
               <Label>Special Terms / Notes</Label>
               <Textarea
                 value={agreementForm.agreement_notes}
                 onChange={(e) => setAgreementForm(prev => ({ ...prev, agreement_notes: e.target.value }))}
                 placeholder="Any special terms, exclusivity clauses, or notes..."
-                rows={3}
+                rows={2}
               />
+            </div>
+            
+            {/* Attachment Upload */}
+            <div>
+              <Label>Agreement Document</Label>
+              <div className="mt-1">
+                {agreementForm.agreement_attachment_url ? (
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm text-gray-700">Document attached</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <a 
+                        href={agreementForm.agreement_attachment_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 text-sm"
+                      >
+                        View
+                      </a>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-red-500 h-auto p-1"
+                        onClick={() => setAgreementForm(prev => ({ ...prev, agreement_attachment_url: '' }))}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      onChange={handleAttachmentUpload}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      disabled={uploadingAttachment}
+                    />
+                    <div className="flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg hover:bg-gray-50 transition-colors">
+                      {uploadingAttachment ? (
+                        <span className="text-sm text-gray-500">Uploading...</span>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 text-gray-400" />
+                          <span className="text-sm text-gray-500">Click to upload agreement document</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAgreementModal(false)}>Cancel</Button>
             <Button 
               onClick={handleSaveAgreement} 
-              disabled={savingAgreement}
+              disabled={savingAgreement || !agreementForm.inventory_model}
               className="bg-orange-600 hover:bg-orange-700"
             >
               {savingAgreement ? 'Saving...' : 'Save Agreement'}
