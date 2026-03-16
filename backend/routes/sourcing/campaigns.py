@@ -84,9 +84,10 @@ def create_campaigns_router(db, get_current_user: Callable):
         # Fetch email settings from database
         settings = await db.sourcing_settings.find_one({}) or {}
         email_config = settings.get("email", {})
-        from_email = email_config.get("fromEmail", "seller@sevora.com")  # Shared mailbox
+        shared_mailbox = email_config.get("fromEmail", "seller@sevora.com")  # Shared mailbox
+        use_shared_mailbox = email_config.get("useSharedMailbox", True)  # Toggle for shared mailbox
         
-        # The logged-in user sends the email (they need "Send As" permission on shared mailbox)
+        # The logged-in user sends the email
         sender_user_email = current_user.get("email")
         
         # Check if Microsoft service is configured
@@ -98,15 +99,25 @@ def create_campaigns_router(db, get_current_user: Callable):
         
         try:
             # Send email via Microsoft Graph API
-            # Use logged-in user to send, but show shared mailbox as "from" address
-            result = await microsoft_service.send_email(
-                to_email=request.to_email,
-                subject=request.subject,
-                body=request.content,
-                is_html=True,
-                sender_email=sender_user_email,  # Current user sends the email
-                from_shared_mailbox=from_email   # Shared mailbox shown as "from"
-            )
+            if use_shared_mailbox:
+                # Use shared mailbox as "from" address (requires Send As permission)
+                result = await microsoft_service.send_email(
+                    to_email=request.to_email,
+                    subject=request.subject,
+                    body=request.content,
+                    is_html=True,
+                    sender_email=sender_user_email,
+                    from_shared_mailbox=shared_mailbox
+                )
+            else:
+                # Send directly from user's email (no shared mailbox)
+                result = await microsoft_service.send_email(
+                    to_email=request.to_email,
+                    subject=request.subject,
+                    body=request.content,
+                    is_html=True,
+                    sender_email=sender_user_email
+                )
         except Exception as e:
             result = {"success": False, "error": str(e)}
         
