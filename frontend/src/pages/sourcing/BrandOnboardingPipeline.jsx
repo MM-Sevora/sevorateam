@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { 
   Building2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, GripVertical, Mail, Phone, 
   ExternalLink, FileText, Calendar, DollarSign, Search, Filter,
-  Upload, Clock, CheckCircle2, AlertCircle, Eye, Users, Sparkles, Settings
+  Upload, Clock, CheckCircle2, AlertCircle, Eye, Users, Sparkles, Settings, Send
 } from 'lucide-react';
 
 const ONBOARDING_STAGES = [
@@ -181,17 +181,95 @@ const BrandOnboardingPipeline = () => {
     setShowAgreementModal(true);
   };
 
-  const saveAgreement = async () => {
+  const saveAgreement = async (andSend = false) => {
     try {
-      await api.put(`/sourcing/brands/${selectedBrand.id}`, {
+      const updateData = {
         ...agreementData,
-        agreement_status: 'draft'
-      });
-      toast.success('Agreement details saved');
+        agreement_status: 'draft',
+        // Auto-move to Negotiating > Final Negotiation when agreement is drafted
+        onboarding_stage: 'negotiating',
+        onboarding_sub_stage: 'final_negotiation',
+        stage_changed_at: new Date().toISOString()
+      };
+      
+      if (andSend) {
+        // If sending, update status and move to Agreement Sent stage
+        updateData.agreement_status = 'sent';
+        updateData.agreement_sent_date = new Date().toISOString();
+        updateData.onboarding_stage = 'agreement_sent';
+        updateData.onboarding_sub_stage = 'draft_shared';
+      }
+      
+      await api.put(`/sourcing/brands/${selectedBrand.id}`, updateData);
+      toast.success(andSend ? 'Agreement saved and marked as sent!' : 'Agreement details saved');
       setShowAgreementModal(false);
       fetchBrands();
     } catch (error) {
       toast.error('Failed to save agreement');
+    }
+  };
+
+  const sendAgreement = async (brand) => {
+    try {
+      await api.put(`/sourcing/brands/${brand.id}`, {
+        agreement_status: 'sent',
+        agreement_sent_date: new Date().toISOString(),
+        // Auto-move to Agreement Sent > Draft Shared
+        onboarding_stage: 'agreement_sent',
+        onboarding_sub_stage: 'draft_shared',
+        stage_changed_at: new Date().toISOString()
+      });
+      toast.success('Agreement marked as sent!');
+      fetchBrands();
+    } catch (error) {
+      toast.error('Failed to send agreement');
+    }
+  };
+
+  const markAgreementSigned = async (brand) => {
+    try {
+      await api.put(`/sourcing/brands/${brand.id}`, {
+        agreement_status: 'signed',
+        agreement_signed_date: new Date().toISOString(),
+        // Auto-move to Agreement Signed > Signed
+        onboarding_stage: 'agreement_signed',
+        onboarding_sub_stage: 'signed',
+        stage_changed_at: new Date().toISOString()
+      });
+      toast.success('Agreement marked as signed! Brand moved to Agreement Signed stage.');
+      fetchBrands();
+    } catch (error) {
+      toast.error('Failed to update agreement');
+    }
+  };
+
+  const startOnboarding = async (brand) => {
+    try {
+      await api.put(`/sourcing/brands/${brand.id}`, {
+        // Auto-move to Onboarding > Documentation
+        onboarding_stage: 'onboarding',
+        onboarding_sub_stage: 'documentation',
+        stage_changed_at: new Date().toISOString()
+      });
+      toast.success('Onboarding started!');
+      fetchBrands();
+    } catch (error) {
+      toast.error('Failed to start onboarding');
+    }
+  };
+
+  const markAsActivePartner = async (brand) => {
+    try {
+      await api.put(`/sourcing/brands/${brand.id}`, {
+        // Auto-move to Active Partner > Active
+        onboarding_stage: 'active_partner',
+        onboarding_sub_stage: 'active',
+        stage_changed_at: new Date().toISOString()
+      });
+      toast.success('Brand is now an Active Partner!');
+      fetchBrands();
+    } catch (error) {
+      toast.error('Failed to update brand');
     }
   };
 
@@ -484,8 +562,11 @@ const BrandOnboardingPipeline = () => {
 
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowAgreementModal(false)}>Cancel</Button>
-            <Button onClick={saveAgreement} className="bg-orange-600 hover:bg-orange-700">
-              Save Agreement
+            <Button onClick={() => saveAgreement(false)} variant="outline">
+              Save Draft
+            </Button>
+            <Button onClick={() => saveAgreement(true)} className="bg-green-600 hover:bg-green-700">
+              <Send className="h-4 w-4 mr-2" /> Save & Send
             </Button>
           </DialogFooter>
         </DialogContent>

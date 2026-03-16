@@ -180,6 +180,7 @@ const BrandsPage = lazy(() => import("./pages/sourcing/BrandsPage"));
 const BrandDetailPage = lazy(() => import("./pages/sourcing/BrandDetailPage"));
 const BrandPipeline = lazy(() => import("./pages/sourcing/BrandPipeline"));
 const BrandOnboardingPipeline = lazy(() => import("./pages/sourcing/BrandOnboardingPipeline"));
+const EmailTemplatesPage = lazy(() => import("./pages/sourcing/EmailTemplatesPage"));
 const SuppliersPage = lazy(() => import("./pages/sourcing/SuppliersPage"));
 const SupplierDetailPage = lazy(() => import("./pages/sourcing/SupplierDetailPage"));
 const SupplierPipeline = lazy(() => import("./pages/sourcing/SupplierPipeline"));
@@ -605,6 +606,7 @@ function AppRoutes() {
                 <Route path="/sourcing/brands" element={<ProtectedRoute requiredModule="project_management"><BrandsPage /></ProtectedRoute>} />
                 <Route path="/sourcing/brands/pipeline" element={<ProtectedRoute requiredModule="project_management"><BrandPipeline /></ProtectedRoute>} />
                 <Route path="/sourcing/brands/onboarding" element={<ProtectedRoute requiredModule="project_management"><BrandOnboardingPipeline /></ProtectedRoute>} />
+                <Route path="/sourcing/templates" element={<ProtectedRoute requiredModule="project_management"><EmailTemplatesPage /></ProtectedRoute>} />
                 <Route path="/sourcing/brands/:id" element={<ProtectedRoute requiredModule="project_management"><BrandDetailPage /></ProtectedRoute>} />
                 <Route path="/sourcing/brands/:id/edit" element={<ProtectedRoute requiredModule="project_management"><BrandDetailPage editMode={true} /></ProtectedRoute>} />
                 <Route path="/sourcing/suppliers" element={<ProtectedRoute requiredModule="project_management"><SuppliersPage /></ProtectedRoute>} />
