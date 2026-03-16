@@ -6,10 +6,12 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { toast } from 'sonner';
-import { CreateProjectButton } from '../../components/engineering/QuickCreateProjectModal';
+import { CreateProjectModal } from './ProjectsList';
 import { 
-  Layers, Target, ChevronRight, Filter, ArrowRight
+  Layers, Target, ChevronRight, Filter, ArrowRight, Plus
 } from 'lucide-react';
+
+const API = process.env.REACT_APP_BACKEND_URL;
 
 // Redirect to project-specific backlog or show project selector
 const GlobalBacklogPage = () => {
@@ -17,6 +19,9 @@ const GlobalBacklogPage = () => {
   const { api } = useAuth();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [departments, setDepartments] = useState([]);
+  const [users, setUsers] = useState([]);
 
   const fetchProjects = useCallback(async () => {
     try {
@@ -33,9 +38,25 @@ const GlobalBacklogPage = () => {
     }
   }, [api, navigate]);
 
+  const fetchModalData = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const headers = { 'Authorization': `Bearer ${token}` };
+      const [deptRes, usersRes] = await Promise.all([
+        fetch(`${API}/api/departments`, { headers }).then(r => r.ok ? r.json() : []),
+        fetch(`${API}/api/auth/users`, { headers }).then(r => r.ok ? r.json() : [])
+      ]);
+      setDepartments(deptRes || []);
+      setUsers(usersRes || []);
+    } catch (e) {
+      console.error('Error fetching modal data:', e);
+    }
+  }, []);
+
   useEffect(() => {
     fetchProjects();
-  }, [fetchProjects]);
+    fetchModalData();
+  }, [fetchProjects, fetchModalData]);
 
   if (loading) {
     return (
@@ -57,10 +78,13 @@ const GlobalBacklogPage = () => {
             Select a project to view and manage its backlog
           </p>
         </div>
-        <CreateProjectButton 
-          onSuccess={fetchProjects}
+        <Button 
+          onClick={() => setShowCreateModal(true)}
           className="bg-violet-600 hover:bg-violet-700"
-        />
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Create Project
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -99,12 +123,25 @@ const GlobalBacklogPage = () => {
             <p className="text-gray-500 mt-1 mb-4">
               Create a project first to start managing your backlog
             </p>
-            <Button onClick={() => navigate('/projects/list')}>
-              Go to Projects
+            <Button onClick={() => setShowCreateModal(true)}>
+              Create Project
             </Button>
           </CardContent>
         </Card>
       )}
+
+      {/* Create Project Modal - Full Version */}
+      <CreateProjectModal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        modules={[]}
+        departments={departments}
+        users={users}
+        onSuccess={() => {
+          setShowCreateModal(false);
+          fetchProjects();
+        }}
+      />
     </div>
   );
 };

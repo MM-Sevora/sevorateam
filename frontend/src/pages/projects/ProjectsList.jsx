@@ -1538,4 +1538,5 @@ const ProjectsList = () => {
   );
 };
 
+export { CreateProjectModal };
 export default ProjectsList;

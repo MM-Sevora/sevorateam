@@ -6,10 +6,12 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Progress } from '../../components/ui/progress';
 import { toast } from 'sonner';
-import { CreateProjectButton } from '../../components/engineering/QuickCreateProjectModal';
+import { CreateProjectModal } from '../projects/ProjectsList';
 import { 
   Zap, ArrowRight, Plus, Calendar, Target, Clock, CheckCircle2
 } from 'lucide-react';
+
+const API = process.env.REACT_APP_BACKEND_URL;
 
 const GlobalSprintPlanningPage = () => {
   const navigate = useNavigate();
@@ -17,6 +19,9 @@ const GlobalSprintPlanningPage = () => {
   const [projects, setProjects] = useState([]);
   const [sprintsData, setSprintsData] = useState({});
   const [loading, setLoading] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [departments, setDepartments] = useState([]);
+  const [users, setUsers] = useState([]);
 
   const fetchProjectsAndSprints = useCallback(async () => {
     try {
@@ -48,9 +53,25 @@ const GlobalSprintPlanningPage = () => {
     }
   }, [api]);
 
+  const fetchModalData = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const headers = { 'Authorization': `Bearer ${token}` };
+      const [deptRes, usersRes] = await Promise.all([
+        fetch(`${API}/api/departments`, { headers }).then(r => r.ok ? r.json() : []),
+        fetch(`${API}/api/auth/users`, { headers }).then(r => r.ok ? r.json() : [])
+      ]);
+      setDepartments(deptRes || []);
+      setUsers(usersRes || []);
+    } catch (e) {
+      console.error('Error fetching modal data:', e);
+    }
+  }, []);
+
   useEffect(() => {
     fetchProjectsAndSprints();
-  }, [fetchProjectsAndSprints]);
+    fetchModalData();
+  }, [fetchProjectsAndSprints, fetchModalData]);
 
   const getActiveSprints = () => {
     return Object.values(sprintsData).reduce((sum, sprints) => 
@@ -88,10 +109,13 @@ const GlobalSprintPlanningPage = () => {
             Plan and manage sprints across all projects
           </p>
         </div>
-        <CreateProjectButton 
-          onSuccess={fetchProjectsAndSprints}
+        <Button 
+          onClick={() => setShowCreateModal(true)}
           className="bg-violet-600 hover:bg-violet-700"
-        />
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Create Project
+        </Button>
       </div>
 
       {/* Stats */}
@@ -259,13 +283,26 @@ const GlobalSprintPlanningPage = () => {
               <p className="text-gray-500 mt-1 mb-4">
                 Create a project first to start sprint planning
               </p>
-              <Button onClick={() => navigate('/projects')}>
-                Go to Projects
+              <Button onClick={() => setShowCreateModal(true)}>
+                Create Project
               </Button>
             </CardContent>
           </Card>
         )}
       </div>
+
+      {/* Create Project Modal - Full Version */}
+      <CreateProjectModal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        modules={[]}
+        departments={departments}
+        users={users}
+        onSuccess={() => {
+          setShowCreateModal(false);
+          fetchProjectsAndSprints();
+        }}
+      />
     </div>
   );
 };

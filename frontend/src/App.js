@@ -130,6 +130,7 @@ import EngineeringReportsPage from "./pages/projects/EngineeringReportsPage";
 import GlobalEpicsPage from "./pages/engineering/GlobalEpicsPage";
 import GlobalSprintPlanningPage from "./pages/engineering/GlobalSprintPlanningPage";
 import WorkflowsPage from "./pages/engineering/WorkflowsPage";
+import EngineeringProjectsPage from "./pages/engineering/EngineeringProjectsPage";
 
 // Knowledge Base Pages
 import KnowledgeBasePage from "./pages/knowledge/KnowledgeBasePage";
@@ -585,11 +586,14 @@ function AppRoutes() {
             <Route path="/projects/:projectId" element={<ProtectedRoute requiredModule="project_management"><ProjectDetail /></ProtectedRoute>} />
 
             {/* Engineering Module Routes */}
+            <Route path="/engineering/projects" element={<ProtectedRoute requiredModule="project_management"><EngineeringProjectsPage /></ProtectedRoute>} />
             <Route path="/engineering/backlog" element={<ProtectedRoute requiredModule="project_management"><GlobalBacklogPage /></ProtectedRoute>} />
             <Route path="/engineering/epics" element={<ProtectedRoute requiredModule="project_management"><GlobalEpicsPage /></ProtectedRoute>} />
             <Route path="/engineering/sprints" element={<ProtectedRoute requiredModule="project_management"><GlobalSprintPlanningPage /></ProtectedRoute>} />
             <Route path="/engineering/reports" element={<ProtectedRoute requiredModule="project_management"><EngineeringReportsPage /></ProtectedRoute>} />
             <Route path="/engineering/workflows" element={<ProtectedRoute requiredModule="project_management"><WorkflowsPage /></ProtectedRoute>} />
+            <Route path="/engineering/knowledge" element={<ProtectedRoute requiredModule="project_management"><KnowledgeBasePage /></ProtectedRoute>} />
+            <Route path="/engineering/knowledge/search" element={<ProtectedRoute requiredModule="project_management"><KnowledgeBasePage /></ProtectedRoute>} />
             {/* Legacy routes - redirect to new paths */}
             <Route path="/projects/engineering/backlog" element={<ProtectedRoute requiredModule="project_management"><GlobalBacklogPage /></ProtectedRoute>} />
             <Route path="/projects/engineering/reports" element={<ProtectedRoute requiredModule="project_management"><EngineeringReportsPage /></ProtectedRoute>} />

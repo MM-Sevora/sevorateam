@@ -113,11 +113,28 @@ const DEPARTMENT_CONFIG = {
         textColor: 'text-violet-700',
         requiredModule: 'project_management',
         routes: [
-            { path: '/engineering/backlog', name: 'Product Backlog', icon: Layers },
-            { path: '/engineering/epics', name: 'Epics', icon: Target },
-            { path: '/engineering/sprints', name: 'Sprint Planning', icon: Zap },
-            { path: '/engineering/reports', name: 'Reports & Charts', icon: TrendingUp },
-            { path: '/engineering/workflows', name: 'Workflows', icon: RefreshCw },
+            { 
+                name: 'Project Management', 
+                icon: FolderKanban, 
+                isGroup: true, 
+                items: [
+                    { path: '/engineering/projects', name: 'All Projects', icon: FolderKanban },
+                    { path: '/engineering/backlog', name: 'Product Backlog', icon: Layers },
+                    { path: '/engineering/epics', name: 'Epics', icon: Target },
+                    { path: '/engineering/sprints', name: 'Sprint Planning', icon: Zap },
+                    { path: '/engineering/reports', name: 'Reports & Charts', icon: TrendingUp },
+                    { path: '/engineering/workflows', name: 'Workflows', icon: RefreshCw },
+                ]
+            },
+            { 
+                name: 'Knowledge', 
+                icon: BookOpen, 
+                isGroup: true, 
+                items: [
+                    { path: '/engineering/knowledge', name: 'Documentation', icon: FileText },
+                    { path: '/engineering/knowledge/search', name: 'Search Wiki', icon: Search },
+                ]
+            },
         ]
     },
     tasks: {
