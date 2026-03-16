@@ -365,6 +365,12 @@ const BrandsPage = () => {
                     <SortIcon field="pipeline_stage" />
                   </div>
                 </TableHead>
+                <TableHead>
+                  <div className="flex items-center">
+                    <Mail className="h-4 w-4 mr-1" />
+                    Emails
+                  </div>
+                </TableHead>
                 <TableHead>Contact</TableHead>
                 <TableHead 
                   className="cursor-pointer hover:bg-gray-50 select-none"
@@ -390,13 +396,13 @@ const BrandsPage = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-8">
+                  <TableCell colSpan={11} className="text-center py-8">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-600 mx-auto"></div>
                   </TableCell>
                 </TableRow>
               ) : brands.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={11} className="text-center py-8 text-gray-500">
                     No brands found. Add your first brand to get started.
                   </TableCell>
                 </TableRow>
@@ -444,6 +450,20 @@ const BrandsPage = () => {
                       <Badge className={getStageColor(brand.pipeline_stage)}>
                         {brand.pipeline_stage}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-gray-600 hover:text-orange-600"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/sourcing/brands/${brand.id}#mailbox`);
+                        }}
+                      >
+                        <Mail className="h-4 w-4 mr-1" />
+                        {brand.email_count || 0}
+                      </Button>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">

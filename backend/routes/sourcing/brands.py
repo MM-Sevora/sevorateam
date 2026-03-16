@@ -241,6 +241,17 @@ def create_brands_router(db, get_current_user: Callable):
         
         brands = await db.sourcing_brands.find(query, {"_id": 0}).sort(sort_by, sort_direction).skip(skip).limit(page_size).to_list(length=page_size)
         
+        # Get email counts for each brand
+        brand_ids = [b.get("id") for b in brands if b.get("id")]
+        if brand_ids:
+            email_counts = await db.sourcing_outreach_logs.aggregate([
+                {"$match": {"brand_id": {"$in": brand_ids}}},
+                {"$group": {"_id": "$brand_id", "count": {"$sum": 1}}}
+            ]).to_list(length=1000)
+            email_count_map = {e["_id"]: e["count"] for e in email_counts}
+            for brand in brands:
+                brand["email_count"] = email_count_map.get(brand.get("id"), 0)
+        
         # Populate creator names
         user_ids = list(set([b.get("created_by") for b in brands if b.get("created_by")]))
         if user_ids:

@@ -563,32 +563,95 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
             </CardContent>
           </Card>
 
-          {/* Email History */}
+          {/* Brand Mailbox - Full Email View */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xs text-gray-500 uppercase tracking-wider font-medium">
-                Email History ({activityLogs.length})
+              <CardTitle className="text-xs text-gray-500 uppercase tracking-wider font-medium flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                Brand Mailbox ({activityLogs.length} emails)
               </CardTitle>
-              <Button variant="ghost" size="sm">
-                Show <History className="h-4 w-4 ml-2" />
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => openEmailComposer(brand.email, brand.founder_name || brand.name)}
+                >
+                  <Send className="h-4 w-4 mr-2" /> Compose
+                </Button>
+                <Button variant="ghost" size="sm" onClick={fetchBrandDetails}>
+                  <History className="h-4 w-4 mr-1" /> Refresh
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {activityLogs.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No emails sent yet</p>
+                <div className="text-center py-12">
+                  <Mail className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500 mb-2">No emails sent yet</p>
+                  <p className="text-sm text-gray-400 mb-4">Start a conversation with this brand</p>
+                  <Button 
+                    onClick={() => openEmailComposer(brand.email, brand.founder_name || brand.name)}
+                    className="bg-orange-600 hover:bg-orange-700"
+                  >
+                    <Send className="h-4 w-4 mr-2" /> Send First Email
+                  </Button>
+                </div>
               ) : (
-                <div className="space-y-2">
-                  {activityLogs.slice(0, 5).map((log, idx) => (
-                    <div key={idx} className="flex items-center justify-between py-2 border-b last:border-0">
-                      <div>
-                        <p className="text-sm font-medium">{log.subject || 'No subject'}</p>
-                        <p className="text-xs text-gray-500">To: {log.to_email}</p>
-                      </div>
-                      <div className="text-right">
-                        <Badge variant={log.status === 'sent' ? 'default' : 'secondary'} className="text-xs">
-                          {log.status}
-                        </Badge>
-                        <p className="text-xs text-gray-400 mt-1">{new Date(log.sent_at).toLocaleDateString()}</p>
+                <div className="space-y-3 max-h-[500px] overflow-y-auto">
+                  {activityLogs.map((log, idx) => (
+                    <div 
+                      key={idx} 
+                      className="p-4 border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                      onClick={() => {
+                        // Could open email detail modal
+                      }}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge 
+                              variant={log.status === 'sent' ? 'default' : log.status === 'failed' ? 'destructive' : 'secondary'} 
+                              className="text-xs"
+                            >
+                              {log.status === 'sent' ? 'Sent' : log.status === 'failed' ? 'Failed' : log.status}
+                            </Badge>
+                            {log.opened_at && (
+                              <Badge variant="outline" className="text-xs text-green-600 border-green-200">
+                                Opened
+                              </Badge>
+                            )}
+                            {log.replied_at && (
+                              <Badge variant="outline" className="text-xs text-blue-600 border-blue-200">
+                                Replied
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="font-medium text-gray-900 truncate">{log.subject || '(No subject)'}</p>
+                          <p className="text-sm text-gray-500 mt-1">To: {log.to_email}</p>
+                          {log.content && (
+                            <p className="text-sm text-gray-600 mt-2 line-clamp-2">
+                              {log.content.replace(/<[^>]*>/g, '').substring(0, 150)}...
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-right ml-4 flex-shrink-0">
+                          <p className="text-xs text-gray-400">
+                            {log.sent_at ? new Date(log.sent_at).toLocaleDateString('en-IN', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric'
+                            }) : '-'}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            {log.sent_at ? new Date(log.sent_at).toLocaleTimeString('en-IN', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            }) : ''}
+                          </p>
+                          {log.campaign_name && (
+                            <p className="text-xs text-orange-600 mt-1">via {log.campaign_name}</p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
