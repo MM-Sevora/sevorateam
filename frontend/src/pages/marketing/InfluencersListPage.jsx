@@ -1991,7 +1991,24 @@ const InfluencersListPage = () => {
                             )}
                           </div>
                           <div className="text-sm text-gray-500 flex items-center gap-1">
-                            @{inf.instagram_handle || inf.youtube_handle || 'unknown'} • {inf.city || 'Unknown'}
+                            {(inf.instagram_handle || inf.youtube_handle) ? (
+                              <a 
+                                href={inf.instagram_handle 
+                                  ? `https://instagram.com/${inf.instagram_handle.replace('@', '')}` 
+                                  : `https://youtube.com/@${inf.youtube_handle.replace('@', '')}`
+                                }
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-blue-600 hover:text-blue-800 hover:underline"
+                              >
+                                @{inf.instagram_handle || inf.youtube_handle}
+                              </a>
+                            ) : (
+                              <span>@unknown</span>
+                            )}
+                            <span className="text-gray-400">•</span>
+                            <span>{inf.city || 'Unknown'}</span>
                             {inf.metrics_fetched_at && (
                               <span className="text-xs text-green-500 ml-1" title={`Last updated: ${new Date(inf.metrics_fetched_at).toLocaleDateString()}`}>
                                 (Live)
@@ -2002,7 +2019,31 @@ const InfluencersListPage = () => {
                       </div>
                     </td>
                     <td className="p-4">
-                      <Badge className={`${platform.color} font-medium border-0`}>{platform.label}</Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge className={`${platform.color} font-medium border-0`}>{platform.label}</Badge>
+                        <a
+                          href={inf.instagram_handle 
+                            ? `https://instagram.com/${inf.instagram_handle.replace('@', '')}` 
+                            : inf.youtube_handle 
+                              ? `https://youtube.com/@${inf.youtube_handle.replace('@', '')}` 
+                              : '#'
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!inf.instagram_handle && !inf.youtube_handle) {
+                              e.preventDefault();
+                            }
+                          }}
+                          className={`p-1 rounded hover:bg-gray-100 transition-colors ${
+                            !inf.instagram_handle && !inf.youtube_handle ? 'opacity-30 cursor-not-allowed' : 'text-gray-500 hover:text-blue-600'
+                          }`}
+                          title={inf.instagram_handle ? `Open @${inf.instagram_handle} on Instagram` : inf.youtube_handle ? `Open @${inf.youtube_handle} on YouTube` : 'No social profile'}
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      </div>
                     </td>
                     <td className="p-4">
                       <span className="text-gray-900 font-semibold">{formatNumber(inf.followers)}</span>
