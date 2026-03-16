@@ -58,14 +58,26 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
   const [contacts, setContacts] = useState([]);
   const [notes, setNotes] = useState([]);
   const [activityLogs, setActivityLogs] = useState([]);
+  const [inboxEmails, setInboxEmails] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showAddContact, setShowAddContact] = useState(false);
   const [showEmailComposer, setShowEmailComposer] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
+  const [showAgreementModal, setShowAgreementModal] = useState(false);
   const [emailRecipient, setEmailRecipient] = useState({ email: '', name: '' });
   const [newContact, setNewContact] = useState({ name: '', role: '', business_email: '', phone: '' });
   const [updatingStage, setUpdatingStage] = useState(false);
+  const [agreementForm, setAgreementForm] = useState({
+    commission_rate: '',
+    payment_terms: '',
+    contract_start_date: '',
+    contract_end_date: '',
+    agreement_notes: ''
+  });
+  const [savingAgreement, setSavingAgreement] = useState(false);
+  const [mailboxTab, setMailboxTab] = useState('sent'); // 'sent' or 'inbox'
+  const [loadingInbox, setLoadingInbox] = useState(false);
 
   useEffect(() => {
     fetchBrandDetails();
@@ -164,6 +176,91 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
       navigate('/sourcing/brands');
     } catch (error) {
       toast.error('Failed to delete brand');
+    }
+  };
+
+  // Fetch inbox emails for this brand
+  const fetchInboxEmails = async () => {
+    if (!brand?.email) return;
+    setLoadingInbox(true);
+    try {
+      const res = await api.get(`/sourcing/brands/${id}/inbox`);
+      setInboxEmails(res.data || []);
+    } catch (error) {
+      console.error('Failed to fetch inbox:', error);
+      // Silently fail - inbox is optional
+    } finally {
+      setLoadingInbox(false);
+    }
+  };
+
+  // Initialize agreement form when brand loads
+  useEffect(() => {
+    if (brand) {
+      setAgreementForm({
+        commission_rate: brand.commission_rate || '',
+        payment_terms: brand.payment_terms || '',
+        contract_start_date: brand.contract_start_date ? brand.contract_start_date.split('T')[0] : '',
+        contract_end_date: brand.contract_end_date ? brand.contract_end_date.split('T')[0] : '',
+        agreement_notes: brand.agreement_notes || ''
+      });
+    }
+  }, [brand]);
+
+  // Save agreement details
+  const handleSaveAgreement = async () => {
+    setSavingAgreement(true);
+    try {
+      const updateData = {
+        commission_rate: agreementForm.commission_rate ? parseFloat(agreementForm.commission_rate) : null,
+        payment_terms: agreementForm.payment_terms || null,
+        contract_start_date: agreementForm.contract_start_date || null,
+        contract_end_date: agreementForm.contract_end_date || null,
+        agreement_notes: agreementForm.agreement_notes || null,
+        // Auto-update pipeline stage to Negotiating if adding agreement details
+        onboarding_stage: brand?.onboarding_stage === 'new_lead' || brand?.onboarding_stage === 'contacted' 
+          ? 'negotiating' 
+          : brand?.onboarding_stage
+      };
+      
+      await api.put(`/sourcing/brands/${id}`, updateData);
+      setBrand(prev => ({ ...prev, ...updateData }));
+      toast.success('Agreement details saved successfully');
+      setShowAgreementModal(false);
+    } catch (error) {
+      toast.error('Failed to save agreement details');
+    } finally {
+      setSavingAgreement(false);
+    }
+  };
+
+  // Send agreement to brand
+  const handleSendAgreement = async () => {
+    try {
+      await api.post(`/sourcing/brands/${id}/agreement/send`);
+      setBrand(prev => ({ 
+        ...prev, 
+        agreement_status: 'sent',
+        onboarding_stage: 'agreement_sent'
+      }));
+      toast.success('Agreement sent to brand');
+    } catch (error) {
+      toast.error('Failed to send agreement');
+    }
+  };
+
+  // Mark agreement as signed
+  const handleMarkSigned = async () => {
+    try {
+      await api.post(`/sourcing/brands/${id}/agreement/sign`);
+      setBrand(prev => ({ 
+        ...prev, 
+        agreement_status: 'signed',
+        onboarding_stage: 'agreement_signed'
+      }));
+      toast.success('Agreement marked as signed');
+    } catch (error) {
+      toast.error('Failed to update agreement status');
     }
   };
 
@@ -689,9 +786,28 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
                     <div className="text-center py-4 text-gray-400">
                       <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
                       <p className="text-sm">No agreement details added yet</p>
-                      <Button variant="outline" size="sm" className="mt-2" onClick={() => navigate(`/sourcing/brands/${id}/edit`)}>
+                      <Button variant="outline" size="sm" className="mt-2" onClick={() => setShowAgreementModal(true)}>
                         Add Agreement Details
                       </Button>
+                    </div>
+                  )}
+                  
+                  {/* Edit/Action Buttons when data exists */}
+                  {(brand?.commission_rate || brand?.payment_terms || brand?.agreement_notes) && (
+                    <div className="flex gap-2 mt-4 pt-4 border-t">
+                      <Button variant="outline" size="sm" onClick={() => setShowAgreementModal(true)}>
+                        <Edit2 className="h-3 w-3 mr-1" /> Edit Details
+                      </Button>
+                      {brand?.agreement_status !== 'sent' && brand?.agreement_status !== 'signed' && (
+                        <Button size="sm" className="bg-orange-600 hover:bg-orange-700" onClick={handleSendAgreement}>
+                          <Send className="h-3 w-3 mr-1" /> Send Agreement
+                        </Button>
+                      )}
+                      {brand?.agreement_status === 'sent' && (
+                        <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={handleMarkSigned}>
+                          <CheckCircle2 className="h-3 w-3 mr-1" /> Mark as Signed
+                        </Button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -757,12 +873,12 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
             </CardContent>
           </Card>
 
-          {/* Brand Mailbox - Full Email View */}
+          {/* Brand Mailbox - Full Email View with Tabs */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-xs text-gray-500 uppercase tracking-wider font-medium flex items-center gap-2">
                 <Mail className="h-4 w-4" />
-                Brand Mailbox ({activityLogs.length} emails)
+                Brand Mailbox
               </CardTitle>
               <div className="flex items-center gap-2">
                 <Button 
@@ -772,84 +888,191 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
                 >
                   <Send className="h-4 w-4 mr-2" /> Compose
                 </Button>
-                <Button variant="ghost" size="sm" onClick={fetchBrandDetails}>
+                <Button variant="ghost" size="sm" onClick={() => {
+                  fetchBrandDetails();
+                  if (mailboxTab === 'inbox') fetchInboxEmails();
+                }}>
                   <History className="h-4 w-4 mr-1" /> Refresh
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
-              {activityLogs.length === 0 ? (
-                <div className="text-center py-12">
-                  <Mail className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500 mb-2">No emails sent yet</p>
-                  <p className="text-sm text-gray-400 mb-4">Start a conversation with this brand</p>
-                  <Button 
-                    onClick={() => openEmailComposer(brand.email, brand.founder_name || brand.name)}
-                    className="bg-orange-600 hover:bg-orange-700"
-                  >
-                    <Send className="h-4 w-4 mr-2" /> Send First Email
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-3 max-h-[500px] overflow-y-auto">
-                  {activityLogs.map((log, idx) => (
-                    <div 
-                      key={idx} 
-                      className="p-4 border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
-                      onClick={() => {
-                        // Could open email detail modal
-                      }}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Badge 
-                              variant={log.status === 'sent' ? 'default' : log.status === 'failed' ? 'destructive' : 'secondary'} 
-                              className="text-xs"
-                            >
-                              {log.status === 'sent' ? 'Sent' : log.status === 'failed' ? 'Failed' : log.status}
-                            </Badge>
-                            {log.opened_at && (
-                              <Badge variant="outline" className="text-xs text-green-600 border-green-200">
-                                Opened
-                              </Badge>
-                            )}
-                            {log.replied_at && (
-                              <Badge variant="outline" className="text-xs text-blue-600 border-blue-200">
-                                Replied
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="font-medium text-gray-900 truncate">{log.subject || '(No subject)'}</p>
-                          <p className="text-sm text-gray-500 mt-1">To: {log.to_email}</p>
-                          {log.content && (
-                            <p className="text-sm text-gray-600 mt-2 line-clamp-2">
-                              {log.content.replace(/<[^>]*>/g, '').substring(0, 150)}...
-                            </p>
-                          )}
-                        </div>
-                        <div className="text-right ml-4 flex-shrink-0">
-                          <p className="text-xs text-gray-400">
-                            {log.sent_at ? new Date(log.sent_at).toLocaleDateString('en-IN', {
-                              day: 'numeric',
-                              month: 'short',
-                              year: 'numeric'
-                            }) : '-'}
-                          </p>
-                          <p className="text-xs text-gray-400">
-                            {log.sent_at ? new Date(log.sent_at).toLocaleTimeString('en-IN', {
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            }) : ''}
-                          </p>
-                          {log.campaign_name && (
-                            <p className="text-xs text-orange-600 mt-1">via {log.campaign_name}</p>
-                          )}
-                        </div>
-                      </div>
+              {/* Mailbox Tabs */}
+              <div className="flex gap-1 mb-4 border-b">
+                <button
+                  onClick={() => setMailboxTab('sent')}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    mailboxTab === 'sent' 
+                      ? 'border-orange-600 text-orange-600' 
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Sent ({activityLogs.length})
+                </button>
+                <button
+                  onClick={() => {
+                    setMailboxTab('inbox');
+                    if (inboxEmails.length === 0) fetchInboxEmails();
+                  }}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    mailboxTab === 'inbox' 
+                      ? 'border-orange-600 text-orange-600' 
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Inbox ({inboxEmails.length})
+                </button>
+              </div>
+
+              {/* Sent Tab Content */}
+              {mailboxTab === 'sent' && (
+                <>
+                  {activityLogs.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Mail className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500 mb-2">No emails sent yet</p>
+                      <p className="text-sm text-gray-400 mb-4">Start a conversation with this brand</p>
+                      <Button 
+                        onClick={() => openEmailComposer(brand.email, brand.founder_name || brand.name)}
+                        className="bg-orange-600 hover:bg-orange-700"
+                      >
+                        <Send className="h-4 w-4 mr-2" /> Send First Email
+                      </Button>
                     </div>
-                  ))}
-                </div>
+                  ) : (
+                    <div className="space-y-3 max-h-[500px] overflow-y-auto">
+                      {activityLogs.map((log, idx) => (
+                        <div 
+                          key={idx} 
+                          className="p-4 border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Badge 
+                                  variant={log.status === 'sent' ? 'default' : log.status === 'failed' ? 'destructive' : 'secondary'} 
+                                  className="text-xs"
+                                >
+                                  {log.status === 'sent' ? 'Sent' : log.status === 'failed' ? 'Failed' : log.status}
+                                </Badge>
+                                {log.opened_at && (
+                                  <Badge variant="outline" className="text-xs text-green-600 border-green-200">
+                                    Opened
+                                  </Badge>
+                                )}
+                                {log.replied_at && (
+                                  <Badge variant="outline" className="text-xs text-blue-600 border-blue-200">
+                                    Replied
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="font-medium text-gray-900 truncate">{log.subject || '(No subject)'}</p>
+                              <p className="text-sm text-gray-500 mt-1">To: {log.to_email}</p>
+                              {log.content && (
+                                <p className="text-sm text-gray-600 mt-2 line-clamp-2">
+                                  {log.content.replace(/<[^>]*>/g, '').substring(0, 150)}...
+                                </p>
+                              )}
+                            </div>
+                            <div className="text-right ml-4 flex-shrink-0">
+                              <p className="text-xs text-gray-400">
+                                {log.sent_at ? new Date(log.sent_at).toLocaleDateString('en-IN', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric'
+                                }) : '-'}
+                              </p>
+                              <p className="text-xs text-gray-400">
+                                {log.sent_at ? new Date(log.sent_at).toLocaleTimeString('en-IN', {
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                }) : ''}
+                              </p>
+                              {log.campaign_name && (
+                                <p className="text-xs text-orange-600 mt-1">via {log.campaign_name}</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Inbox Tab Content */}
+              {mailboxTab === 'inbox' && (
+                <>
+                  {loadingInbox ? (
+                    <div className="text-center py-12">
+                      <div className="animate-spin h-8 w-8 border-2 border-orange-600 border-t-transparent rounded-full mx-auto mb-4" />
+                      <p className="text-gray-500">Loading inbox...</p>
+                    </div>
+                  ) : inboxEmails.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Mail className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500 mb-2">No replies received yet</p>
+                      <p className="text-sm text-gray-400">Replies from {brand?.email || 'this brand'} will appear here</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-[500px] overflow-y-auto">
+                      {inboxEmails.map((email, idx) => (
+                        <div 
+                          key={idx} 
+                          className={`p-4 border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer ${
+                            !email.is_read ? 'bg-blue-50 border-blue-200' : ''
+                          }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Badge variant="outline" className="text-xs text-blue-600 border-blue-200">
+                                  Received
+                                </Badge>
+                                {!email.is_read && (
+                                  <Badge className="text-xs bg-blue-600">New</Badge>
+                                )}
+                              </div>
+                              <p className="font-medium text-gray-900 truncate">{email.subject || '(No subject)'}</p>
+                              <p className="text-sm text-gray-500 mt-1">From: {email.from_email || email.from}</p>
+                              {email.body_preview && (
+                                <p className="text-sm text-gray-600 mt-2 line-clamp-2">
+                                  {email.body_preview}
+                                </p>
+                              )}
+                            </div>
+                            <div className="text-right ml-4 flex-shrink-0">
+                              <p className="text-xs text-gray-400">
+                                {email.received_at ? new Date(email.received_at).toLocaleDateString('en-IN', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric'
+                                }) : '-'}
+                              </p>
+                              <p className="text-xs text-gray-400">
+                                {email.received_at ? new Date(email.received_at).toLocaleTimeString('en-IN', {
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                }) : ''}
+                              </p>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="mt-2 text-orange-600"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openEmailComposer(email.from_email || email.from, brand?.founder_name || brand?.name);
+                                }}
+                              >
+                                Reply
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
@@ -991,6 +1214,90 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
         sourceEntityId={id}
         sourceEntityName={brand?.name || 'Brand'}
       />
+
+      {/* Agreement Details Modal */}
+      <Dialog open={showAgreementModal} onOpenChange={setShowAgreementModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-orange-600" />
+              Agreement Details
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Commission Rate (%)</Label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="100"
+                  value={agreementForm.commission_rate}
+                  onChange={(e) => setAgreementForm(prev => ({ ...prev, commission_rate: e.target.value }))}
+                  placeholder="e.g., 15"
+                />
+              </div>
+              <div>
+                <Label>Payment Terms</Label>
+                <Select 
+                  value={agreementForm.payment_terms}
+                  onValueChange={(v) => setAgreementForm(prev => ({ ...prev, payment_terms: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select terms" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Net 15">Net 15</SelectItem>
+                    <SelectItem value="Net 30">Net 30</SelectItem>
+                    <SelectItem value="Net 45">Net 45</SelectItem>
+                    <SelectItem value="Net 60">Net 60</SelectItem>
+                    <SelectItem value="COD">Cash on Delivery</SelectItem>
+                    <SelectItem value="Advance">Advance Payment</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Contract Start Date</Label>
+                <Input
+                  type="date"
+                  value={agreementForm.contract_start_date}
+                  onChange={(e) => setAgreementForm(prev => ({ ...prev, contract_start_date: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Contract End Date</Label>
+                <Input
+                  type="date"
+                  value={agreementForm.contract_end_date}
+                  onChange={(e) => setAgreementForm(prev => ({ ...prev, contract_end_date: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>Special Terms / Notes</Label>
+              <Textarea
+                value={agreementForm.agreement_notes}
+                onChange={(e) => setAgreementForm(prev => ({ ...prev, agreement_notes: e.target.value }))}
+                placeholder="Any special terms, exclusivity clauses, or notes..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAgreementModal(false)}>Cancel</Button>
+            <Button 
+              onClick={handleSaveAgreement} 
+              disabled={savingAgreement}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              {savingAgreement ? 'Saving...' : 'Save Agreement'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

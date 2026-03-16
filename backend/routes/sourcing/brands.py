@@ -564,4 +564,157 @@ def create_brands_router(db, get_current_user: Callable):
         results = await db.sourcing_brands.aggregate(pipeline).to_list(length=20)
         return [{"city": r["_id"], "count": r["count"]} for r in results if r["_id"]]
 
+    @router.post("/{brand_id}/agreement/send")
+    async def send_agreement(brand_id: str, current_user: dict = Depends(get_current_user)):
+        """Mark agreement as sent and update pipeline stage"""
+        now = datetime.now(timezone.utc).isoformat()
+        
+        brand = await db.sourcing_brands.find_one({"id": brand_id})
+        if not brand:
+            raise HTTPException(status_code=404, detail="Brand not found")
+        
+        update_data = {
+            "agreement_status": "sent",
+            "agreement_sent_date": now,
+            "onboarding_stage": "agreement_sent",
+            "onboarding_sub_stage": "draft_shared",
+            "stage_changed_at": now,
+            "updated_by": current_user.get("id"),
+            "updated_at": now
+        }
+        
+        await db.sourcing_brands.update_one(
+            {"id": brand_id},
+            {"$set": update_data}
+        )
+        
+        return {"message": "Agreement marked as sent", "status": "sent"}
+
+    @router.post("/{brand_id}/agreement/sign")
+    async def sign_agreement(brand_id: str, current_user: dict = Depends(get_current_user)):
+        """Mark agreement as signed and update pipeline stage"""
+        now = datetime.now(timezone.utc).isoformat()
+        
+        brand = await db.sourcing_brands.find_one({"id": brand_id})
+        if not brand:
+            raise HTTPException(status_code=404, detail="Brand not found")
+        
+        update_data = {
+            "agreement_status": "signed",
+            "agreement_signed_date": now,
+            "onboarding_stage": "agreement_signed",
+            "onboarding_sub_stage": "signed",
+            "stage_changed_at": now,
+            "updated_by": current_user.get("id"),
+            "updated_at": now
+        }
+        
+        await db.sourcing_brands.update_one(
+            {"id": brand_id},
+            {"$set": update_data}
+        )
+        
+        return {"message": "Agreement marked as signed", "status": "signed"}
+
+    @router.get("/{brand_id}/inbox")
+    async def get_brand_inbox(brand_id: str, current_user: dict = Depends(get_current_user)):
+        """Get inbox emails for a brand (emails received from the brand)"""
+        import os
+        import httpx
+        
+        # Get brand to find their email
+        brand = await db.sourcing_brands.find_one({"id": brand_id}, {"_id": 0})
+        if not brand:
+            raise HTTPException(status_code=404, detail="Brand not found")
+        
+        brand_email = brand.get("email")
+        if not brand_email:
+            return []
+        
+        # Get shared mailbox settings
+        mail_settings = await db.settings.find_one({"type": "mail_settings"}, {"_id": 0})
+        if not mail_settings:
+            return []
+        
+        shared_mailbox = None
+        for mailbox in mail_settings.get("shared_mailboxes", []):
+            if mailbox.get("is_default") or mailbox.get("name") == "Sellers":
+                shared_mailbox = mailbox
+                break
+        
+        if not shared_mailbox:
+            return []
+        
+        # Fetch emails from Microsoft Graph API
+        try:
+            from services.microsoft_email import get_graph_client_credentials_token
+            
+            access_token = await get_graph_client_credentials_token()
+            if not access_token:
+                return []
+            
+            mailbox_email = shared_mailbox.get("email", "sellers@sevora.com")
+            
+            # Search for emails from this brand's email address
+            async with httpx.AsyncClient() as client:
+                # Use search to find emails from the brand
+                search_url = f"https://graph.microsoft.com/v1.0/users/{mailbox_email}/messages"
+                params = {
+                    "$filter": f"from/emailAddress/address eq '{brand_email}'",
+                    "$orderby": "receivedDateTime desc",
+                    "$top": 50,
+                    "$select": "id,subject,bodyPreview,from,receivedDateTime,isRead,hasAttachments"
+                }
+                
+                response = await client.get(
+                    search_url,
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    params=params,
+                    timeout=30.0
+                )
+                
+                if response.status_code != 200:
+                    # Try alternative: search in all messages
+                    search_url = f"https://graph.microsoft.com/v1.0/users/{mailbox_email}/messages"
+                    params = {
+                        "$search": f'"from:{brand_email}"',
+                        "$orderby": "receivedDateTime desc",
+                        "$top": 50,
+                        "$select": "id,subject,bodyPreview,from,receivedDateTime,isRead,hasAttachments"
+                    }
+                    response = await client.get(
+                        search_url,
+                        headers={
+                            "Authorization": f"Bearer {access_token}",
+                            "ConsistencyLevel": "eventual"
+                        },
+                        params=params,
+                        timeout=30.0
+                    )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    emails = []
+                    for msg in data.get("value", []):
+                        emails.append({
+                            "id": msg.get("id"),
+                            "subject": msg.get("subject"),
+                            "body_preview": msg.get("bodyPreview"),
+                            "from_email": msg.get("from", {}).get("emailAddress", {}).get("address"),
+                            "from_name": msg.get("from", {}).get("emailAddress", {}).get("name"),
+                            "received_at": msg.get("receivedDateTime"),
+                            "is_read": msg.get("isRead", False),
+                            "has_attachments": msg.get("hasAttachments", False)
+                        })
+                    return emails
+                else:
+                    import logging
+                    logging.error(f"Failed to fetch inbox: {response.status_code} - {response.text}")
+                    return []
+                    
+        except Exception as e:
+            import logging
+            logging.error(f"Error fetching brand inbox: {e}")
+            return []
+
     return router
