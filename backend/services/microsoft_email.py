@@ -279,13 +279,14 @@ class MicrosoftEmailService:
         cc_recipients: List[str] = None,
         bcc_recipients: List[str] = None,
         reply_to_message_id: str = None,
-        is_reply_all: bool = False
+        is_reply_all: bool = False,
+        from_shared_mailbox: str = None  # For sending from shared mailbox
     ) -> dict:
         """
         Send a new email or reply to an existing one
         
         Args:
-            sender_email: Sender's email address
+            sender_email: Licensed user's email address (the actual sender)
             to_recipients: List of recipient emails
             subject: Email subject
             body: Email body (HTML or text)
@@ -294,6 +295,7 @@ class MicrosoftEmailService:
             bcc_recipients: BCC recipients
             reply_to_message_id: If replying, the original message ID
             is_reply_all: Whether to reply all
+            from_shared_mailbox: Shared mailbox address to show as "from" (requires Send As permission)
         """
         try:
             token = await self._get_app_token()
@@ -314,7 +316,7 @@ class MicrosoftEmailService:
                     }
                 }
             else:
-                # Send new email
+                # Send new email via licensed user
                 url = f"{GRAPH_API_ENDPOINT}/users/{sender_email}/sendMail"
                 
                 message = {
@@ -327,6 +329,15 @@ class MicrosoftEmailService:
                         {"emailAddress": {"address": email}} for email in to_recipients
                     ]
                 }
+                
+                # If sending from shared mailbox, set the "from" field
+                # This requires the sender_email user to have "Send As" permission on the shared mailbox
+                if from_shared_mailbox:
+                    message["from"] = {
+                        "emailAddress": {
+                            "address": from_shared_mailbox
+                        }
+                    }
                 
                 if cc_recipients:
                     message["ccRecipients"] = [
