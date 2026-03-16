@@ -71,6 +71,18 @@ export default function CampaignDetailsPage() {
   const [publications, setPublications] = useState([]);
   const [budgetSummary, setBudgetSummary] = useState(null);
   
+  // Edit campaign modal
+  const [showEditCampaignModal, setShowEditCampaignModal] = useState(false);
+  const [editCampaignData, setEditCampaignData] = useState({
+    name: '',
+    description: '',
+    start_date: '',
+    end_date: '',
+    budget: '',
+    status: 'planning'
+  });
+  const [savingCampaign, setSavingCampaign] = useState(false);
+  
   // UGC state
   const [showUgcModal, setShowUgcModal] = useState(false);
   const [ugcForm, setUgcForm] = useState({
@@ -540,6 +552,67 @@ export default function CampaignDetailsPage() {
     return num.toString();
   };
 
+  // Open edit campaign modal
+  const handleOpenEditCampaign = () => {
+    setEditCampaignData({
+      name: campaign?.name || '',
+      description: campaign?.description || '',
+      start_date: campaign?.start_date?.split('T')[0] || '',
+      end_date: campaign?.end_date?.split('T')[0] || '',
+      budget: campaign?.budget?.toString() || '',
+      status: campaign?.status || 'planning'
+    });
+    setShowEditCampaignModal(true);
+  };
+
+  // Save campaign changes
+  const handleSaveCampaign = async () => {
+    setSavingCampaign(true);
+    try {
+      await api.put(`/marketing/campaigns/${campaignId}`, {
+        name: editCampaignData.name,
+        description: editCampaignData.description,
+        start_date: editCampaignData.start_date,
+        end_date: editCampaignData.end_date,
+        budget: parseFloat(editCampaignData.budget) || 0,
+        status: editCampaignData.status
+      });
+      toast.success('Campaign updated');
+      setShowEditCampaignModal(false);
+      fetchCampaignData();
+    } catch (error) {
+      toast.error('Failed to update campaign');
+    } finally {
+      setSavingCampaign(false);
+    }
+  };
+
+  // Calculate total spent from influencers, ads, publications
+  const calculateTotalSpent = () => {
+    let total = 0;
+    
+    // Influencer costs
+    influencers.forEach(inf => {
+      total += parseFloat(inf.agreed_fee || inf.agreed_rate || inf.rate || 0);
+    });
+    
+    // Ad campaign costs
+    adCampaigns.forEach(ad => {
+      total += parseFloat(ad.spend || ad.budget || 0);
+    });
+    
+    // Publication costs
+    publications.forEach(pub => {
+      total += parseFloat(pub.cost || pub.fee || 0);
+    });
+    
+    return total;
+  };
+
+  const totalSpent = calculateTotalSpent();
+  const totalBudget = campaign?.budget || 0;
+  const budgetUtilization = totalBudget > 0 ? ((totalSpent / totalBudget) * 100).toFixed(1) : 0;
+
   if (loading) {
     return (
       <div className="p-6 flex items-center justify-center min-h-[400px]">
@@ -613,10 +686,8 @@ export default function CampaignDetailsPage() {
   // Auto-select first available tab if current tab is not visible
   const effectiveActiveTab = tabKeys.includes(activeTab) ? activeTab : (tabKeys[0] || 'content');
 
-  // Calculate budget utilization
-  const totalBudget = campaign.budget || 0;
-  const spentBudget = campaign.total_spent || campaign.spent || 0;
-  const budgetUtilization = totalBudget > 0 ? (spentBudget / totalBudget) * 100 : 0;
+  // Budget calculations are done above in calculateTotalSpent()
+  // totalSpent now includes all linked costs (influencers, ads, publications)
 
   return (
     <div className="p-6 space-y-6" data-testid="campaign-details-page">
@@ -645,7 +716,7 @@ export default function CampaignDetailsPage() {
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" onClick={handleOpenEditCampaign}>
             <Edit className="w-4 h-4 mr-2" />
             Edit Campaign
           </Button>
@@ -686,7 +757,7 @@ export default function CampaignDetailsPage() {
               <TrendingUp className="w-5 h-5 text-orange-500" />
               <div>
                 <p className="text-xs text-gray-500">Spent</p>
-                <p className="text-sm font-medium">{formatCurrency(spentBudget)}</p>
+                <p className="text-sm font-medium">{formatCurrency(totalSpent)}</p>
               </div>
             </div>
           </CardContent>
@@ -698,7 +769,7 @@ export default function CampaignDetailsPage() {
               <BarChart3 className="w-5 h-5 text-purple-500" />
               <div>
                 <p className="text-xs text-gray-500">Utilization</p>
-                <p className="text-sm font-medium">{budgetUtilization.toFixed(1)}%</p>
+                <p className="text-sm font-medium">{budgetUtilization}%</p>
               </div>
             </div>
           </CardContent>
@@ -736,7 +807,7 @@ export default function CampaignDetailsPage() {
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium">Budget Utilization</span>
               <span className={`text-sm ${budgetUtilization > 90 ? 'text-red-500' : 'text-gray-500'}`}>
-                {formatCurrency(spentBudget)} / {formatCurrency(totalBudget)}
+                {formatCurrency(totalSpent)} / {formatCurrency(totalBudget)}
               </span>
             </div>
             <Progress 
@@ -1277,11 +1348,11 @@ export default function CampaignDetailsPage() {
                   </div>
                   <div className="p-4 bg-orange-50 rounded-lg">
                     <p className="text-sm text-gray-500">Spent</p>
-                    <p className="text-2xl font-bold text-orange-600">{formatCurrency(spentBudget)}</p>
+                    <p className="text-2xl font-bold text-orange-600">{formatCurrency(totalSpent)}</p>
                   </div>
                   <div className="p-4 bg-green-50 rounded-lg">
                     <p className="text-sm text-gray-500">Remaining</p>
-                    <p className="text-2xl font-bold text-green-600">{formatCurrency(totalBudget - spentBudget)}</p>
+                    <p className="text-2xl font-bold text-green-600">{formatCurrency(totalBudget - totalSpent)}</p>
                   </div>
                 </div>
 
@@ -1289,20 +1360,26 @@ export default function CampaignDetailsPage() {
                   <h4 className="font-medium mb-3">Spending by Category</h4>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm">Influencer Fees</span>
-                      <span className="text-sm font-medium">{formatCurrency(campaign.influencer_spend || 0)}</span>
+                      <span className="text-sm">Influencer Fees ({influencers.length} deals)</span>
+                      <span className="text-sm font-medium text-amber-600">
+                        {formatCurrency(influencers.reduce((sum, inf) => sum + parseFloat(inf.agreed_fee || inf.agreed_rate || 0), 0))}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm">Ad Spend</span>
-                      <span className="text-sm font-medium">{formatCurrency(campaign.ad_spend || 0)}</span>
+                      <span className="text-sm">Ad Spend ({adCampaigns.length} campaigns)</span>
+                      <span className="text-sm font-medium text-blue-600">
+                        {formatCurrency(adCampaigns.reduce((sum, ad) => sum + parseFloat(ad.spend || ad.budget || 0), 0))}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm">Production</span>
-                      <span className="text-sm font-medium">{formatCurrency(campaign.production_spend || 0)}</span>
+                      <span className="text-sm">Publication Costs ({publications.length} pitches)</span>
+                      <span className="text-sm font-medium text-purple-600">
+                        {formatCurrency(publications.reduce((sum, pub) => sum + parseFloat(pub.cost || pub.fee || 0), 0))}
+                      </span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Other</span>
-                      <span className="text-sm font-medium">{formatCurrency(campaign.other_spend || 0)}</span>
+                    <div className="flex items-center justify-between border-t pt-2 mt-2">
+                      <span className="font-medium">Total Linked Spend</span>
+                      <span className="font-medium text-orange-600">{formatCurrency(totalSpent)}</span>
                     </div>
                   </div>
                 </div>
@@ -1880,6 +1957,149 @@ export default function CampaignDetailsPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Campaign Modal */}
+      <Dialog open={showEditCampaignModal} onOpenChange={setShowEditCampaignModal}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="w-5 h-5 text-blue-600" />
+              Edit Campaign
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">
+                CAMPAIGN NAME
+              </Label>
+              <Input
+                value={editCampaignData.name}
+                onChange={e => setEditCampaignData({...editCampaignData, name: e.target.value})}
+                placeholder="Campaign name"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">
+                DESCRIPTION
+              </Label>
+              <Textarea
+                value={editCampaignData.description}
+                onChange={e => setEditCampaignData({...editCampaignData, description: e.target.value})}
+                placeholder="Campaign description"
+                rows={3}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">
+                  START DATE
+                </Label>
+                <Input
+                  type="date"
+                  value={editCampaignData.start_date}
+                  onChange={e => setEditCampaignData({...editCampaignData, start_date: e.target.value})}
+                />
+              </div>
+              <div>
+                <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">
+                  END DATE
+                </Label>
+                <Input
+                  type="date"
+                  value={editCampaignData.end_date}
+                  onChange={e => setEditCampaignData({...editCampaignData, end_date: e.target.value})}
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">
+                BUDGET (₹)
+              </Label>
+              <Input
+                type="number"
+                value={editCampaignData.budget}
+                onChange={e => setEditCampaignData({...editCampaignData, budget: e.target.value})}
+                placeholder="Total budget"
+              />
+              {totalSpent > 0 && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Current spent: {formatCurrency(totalSpent)} ({budgetUtilization}% utilized)
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">
+                STATUS
+              </Label>
+              <Select 
+                value={editCampaignData.status} 
+                onValueChange={(v) => setEditCampaignData({...editCampaignData, status: v})}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="planning">Planning</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="paused">Paused</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Budget Breakdown */}
+            <div className="bg-gray-50 rounded-lg p-4 mt-4">
+              <h4 className="font-medium text-gray-700 mb-3 flex items-center gap-2">
+                <DollarSign className="w-4 h-4" />
+                Cost Breakdown
+              </h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Influencer Costs:</span>
+                  <span className="font-medium">
+                    {formatCurrency(influencers.reduce((sum, inf) => sum + parseFloat(inf.agreed_fee || inf.agreed_rate || 0), 0))}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Ad Spend:</span>
+                  <span className="font-medium">
+                    {formatCurrency(adCampaigns.reduce((sum, ad) => sum + parseFloat(ad.spend || ad.budget || 0), 0))}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Publication Costs:</span>
+                  <span className="font-medium">
+                    {formatCurrency(publications.reduce((sum, pub) => sum + parseFloat(pub.cost || pub.fee || 0), 0))}
+                  </span>
+                </div>
+                <div className="border-t pt-2 flex justify-between font-medium">
+                  <span>Total Spent:</span>
+                  <span className="text-orange-600">{formatCurrency(totalSpent)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button variant="outline" onClick={() => setShowEditCampaignModal(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSaveCampaign}
+                disabled={savingCampaign}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {savingCampaign ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
