@@ -79,47 +79,44 @@ def create_campaigns_router(db, get_current_user: Callable):
         current_user: dict = Depends(get_current_user)
     ):
         """Send a single email to a contact using Microsoft Graph API"""
-        from services.microsoft_service import microsoft_service
+        from services.microsoft_email import MicrosoftEmailService
         
         # Fetch email settings from database
         settings = await db.sourcing_settings.find_one({}) or {}
         email_config = settings.get("email", {})
-        shared_mailbox = email_config.get("fromEmail", "seller@sevora.com")  # Shared mailbox
-        use_shared_mailbox = email_config.get("useSharedMailbox", True)  # Toggle for shared mailbox
+        shared_mailbox = email_config.get("fromEmail", "seller@sevora.com")
         
-        # The logged-in user sends the email
+        # The logged-in user's email
         sender_user_email = current_user.get("email")
-        
-        # Check if Microsoft service is configured
-        if not microsoft_service:
-            raise HTTPException(status_code=503, detail="Microsoft email service not configured")
         
         if not sender_user_email:
             raise HTTPException(status_code=400, detail="User email not found. Please update your profile.")
         
+        email_service = MicrosoftEmailService()
+        
         try:
-            # Send email via Microsoft Graph API
-            if use_shared_mailbox:
-                # Use shared mailbox as "from" address (requires Send As permission)
-                result = await microsoft_service.send_email(
-                    to_email=request.to_email,
+            # Try sending directly FROM the shared mailbox using app permissions
+            # The Azure app with Mail.Send permission should be able to send as any mailbox
+            result = await email_service.send_email(
+                sender_email=shared_mailbox,  # Send directly from shared mailbox
+                to_recipients=[request.to_email],
+                subject=request.subject,
+                body=request.content,
+                is_html=True
+            )
+        except Exception as e:
+            # If that fails, try from user's email with shared mailbox as "from"
+            try:
+                result = await email_service.send_email(
+                    sender_email=sender_user_email,
+                    to_recipients=[request.to_email],
                     subject=request.subject,
                     body=request.content,
                     is_html=True,
-                    sender_email=sender_user_email,
                     from_shared_mailbox=shared_mailbox
                 )
-            else:
-                # Send directly from user's email (no shared mailbox)
-                result = await microsoft_service.send_email(
-                    to_email=request.to_email,
-                    subject=request.subject,
-                    body=request.content,
-                    is_html=True,
-                    sender_email=sender_user_email
-                )
-        except Exception as e:
-            result = {"success": False, "error": str(e)}
+            except Exception as e2:
+                result = {"success": False, "error": f"Primary: {str(e)}, Fallback: {str(e2)}"}
         
         # Log the outreach
         now = datetime.now(timezone.utc).isoformat()
