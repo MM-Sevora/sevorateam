@@ -1057,30 +1057,42 @@ export default function CampaignDetailsPage() {
               ) : (
                 <div className="space-y-3">
                   {influencers.map(deal => (
-                    <div key={deal.id || deal.influencer_id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
+                    <div key={deal.id || deal.influencer_id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-semibold">
+                        <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-semibold text-lg">
                           {(deal.influencer_name || deal.name || 'U').charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <p className="font-medium">{deal.influencer_name || deal.name || 'Unknown'}</p>
-                          <div className="flex items-center gap-2 mt-1">
+                          <p className="font-medium text-gray-900">{deal.influencer_name || deal.name || 'Unknown'}</p>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
                             {(deal.instagram_handle || deal.influencer?.instagram_handle) && (
                               <span className="text-xs text-gray-500">@{deal.instagram_handle || deal.influencer?.instagram_handle}</span>
                             )}
                             {deal.followers && (
-                              <span className="text-xs text-gray-400">{formatNumber(deal.followers)} followers</span>
+                              <>
+                                <span className="text-xs text-gray-300">•</span>
+                                <span className="text-xs text-gray-500">{formatNumber(deal.followers)} followers</span>
+                              </>
                             )}
-                            {(deal.agreed_rate || deal.rate) && (
-                              <Badge variant="outline" className="text-xs">
-                                {formatCurrency(deal.agreed_rate || deal.rate)}
+                          </div>
+                          {/* Deliverable & Fee Row */}
+                          <div className="flex items-center gap-2 mt-2">
+                            {deal.deliverable_name && (
+                              <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+                                {deal.deliverable_name}
                               </Badge>
                             )}
+                            {(deal.agreed_fee || deal.agreed_rate || deal.rate) ? (
+                              <Badge className="text-xs bg-green-100 text-green-700">
+                                {formatCurrency(deal.agreed_fee || deal.agreed_rate || deal.rate)}
+                              </Badge>
+                            ) : null}
                             {deal.status && (
-                              <Badge className={
-                                deal.status === 'contracted' ? 'bg-green-500' :
-                                deal.status === 'negotiating' ? 'bg-yellow-500' : 'bg-gray-500'
-                              }>
+                              <Badge className={`text-xs ${
+                                deal.status === 'contracted' ? 'bg-green-500 text-white' :
+                                deal.status === 'assigned' ? 'bg-blue-500 text-white' :
+                                deal.status === 'negotiating' ? 'bg-yellow-500 text-white' : 'bg-gray-500 text-white'
+                              }`}>
                                 {deal.status}
                               </Badge>
                             )}
