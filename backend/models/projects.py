@@ -248,6 +248,7 @@ class TaskUpdate(BaseModel):
     assigned_to: Optional[str] = None
     priority: Optional[Priority] = None
     status: Optional[TaskStatus] = None
+    start_date: Optional[str] = None
     due_date: Optional[str] = None
     estimated_hours: Optional[float] = None
     actual_hours: Optional[float] = None
@@ -292,6 +293,7 @@ class TaskResponse(BaseModel):
     assigned_by_name: Optional[str] = None
     priority: Priority = Priority.MEDIUM
     status: TaskStatus = TaskStatus.DRAFT
+    start_date: Optional[str] = None
     due_date: Optional[str] = None
     estimated_hours: Optional[float] = None
     actual_hours: Optional[float] = None

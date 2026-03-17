@@ -1556,6 +1556,14 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
       // Handle story points
       if (payload.story_points) payload.story_points = parseInt(payload.story_points);
       else delete payload.story_points;
+      // Handle dates - send null for empty dates
+      if (!payload.start_date) payload.start_date = null;
+      if (!payload.due_date) payload.due_date = null;
+      // Handle recurrence dates
+      if (!payload.recurrence_end_date) payload.recurrence_end_date = null;
+      // Handle epic and release
+      if (!payload.epic_id) delete payload.epic_id;
+      if (!payload.release_id) delete payload.release_id;
 
       const res = await fetch(`${API}/api/projects/tasks/${taskId}`, {
         method: 'PUT',
@@ -1568,8 +1576,14 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
         setEditing(false);
         fetchTask();
         onUpdate?.();
+      } else {
+        const error = await res.json();
+        toast.error(error.detail || 'Failed to save');
       }
-    } catch (e) { toast.error('Failed to save'); }
+    } catch (e) { 
+      console.error('Save error:', e);
+      toast.error('Failed to save'); 
+    }
     finally { setSaving(false); }
   };
 
