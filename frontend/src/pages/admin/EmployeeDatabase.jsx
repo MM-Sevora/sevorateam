@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../../lib/api';
 import { 
   Users, Award, Building2, ChevronRight, Plus, Edit2, Trash2,
   Loader2, RefreshCw, Search, UserPlus, Mail, Phone, Calendar, Briefcase, 
   MapPin, Filter, TrendingUp, UserCheck, Shield, ChevronDown, Check, X, 
-  AlertTriangle, XCircle, ClipboardList, MoreVertical
+  AlertTriangle, XCircle, MoreVertical, Download, SlidersHorizontal, Eye
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
@@ -46,9 +46,15 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu';
-import CreateTaskDialog from '../../components/shared/CreateTaskDialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../components/ui/tooltip';
 
 const EmployeeDatabase = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -73,17 +79,11 @@ const EmployeeDatabase = () => {
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
   const [showOnboardModal, setShowOnboardModal] = useState(false);
   const [showTerminateDialog, setShowTerminateDialog] = useState(false);
-  const [showCreateTask, setShowCreateTask] = useState(false);
+  const [showEmployeeDetail, setShowEmployeeDetail] = useState(null);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [terminatingEmployee, setTerminatingEmployee] = useState(null);
-  const [taskEmployee, setTaskEmployee] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [saving, setSaving] = useState(false);
-
-  const handleCreateTask = (employee) => {
-    setTaskEmployee(employee);
-    setShowCreateTask(true);
-  };
   
   // Edit employee form
   const [editForm, setEditForm] = useState({
@@ -143,7 +143,7 @@ const EmployeeDatabase = () => {
   const fetchLookupData = async () => {
     try {
       const [deptRes, teamRes, posRes, gradeRes, roleRes] = await Promise.all([
-        api.get('/workos/departments'),
+        api.get('/hr/departments'),  // Fetch from HR departments for dynamic data
         api.get('/hr/teams'),
         api.get('/hr/positions'),
         api.get('/hr/grades'),
@@ -376,7 +376,7 @@ const EmployeeDatabase = () => {
               setShowEmployeeModal(true);
             }}
             onTerminateEmployee={openTerminateDialog}
-            onCreateTask={handleCreateTask}
+            onViewEmployee={setShowEmployeeDetail}
           />
         </TabsContent>
 
@@ -904,19 +904,103 @@ const EmployeeDatabase = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Create Task Dialog */}
-      {taskEmployee && (
-        <CreateTaskDialog
-          open={showCreateTask}
-          onOpenChange={setShowCreateTask}
-          api={api}
-          sourceModule="hr"
-          sourceEntityType="employee"
-          sourceEntityId={taskEmployee.id || taskEmployee.user_id}
-          sourceEntityName={taskEmployee.name}
-          onTaskCreated={() => setTaskEmployee(null)}
-        />
-      )}
+      {/* Employee Detail View Dialog */}
+      <Dialog open={!!showEmployeeDetail} onOpenChange={(open) => !open && setShowEmployeeDetail(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-[#4A3728]">Employee Details</DialogTitle>
+          </DialogHeader>
+          {showEmployeeDetail && (
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="flex items-center gap-4 bg-[#F5EDE5] p-4 rounded-lg">
+                <div className="w-16 h-16 rounded-full bg-[#8B7355] flex items-center justify-center">
+                  <span className="text-white text-2xl font-bold">
+                    {showEmployeeDetail.name?.charAt(0)?.toUpperCase() || 'E'}
+                  </span>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-semibold text-[#4A3728]">{showEmployeeDetail.name}</h3>
+                  <p className="text-[#5D4A3A]">{showEmployeeDetail.designation || showEmployeeDetail.title || 'Employee'}</p>
+                  <p className="text-sm text-[#8B7355]">{showEmployeeDetail.email}</p>
+                </div>
+                <Badge className={
+                  showEmployeeDetail.status === 'active' ? 'bg-green-100 text-green-800' :
+                  showEmployeeDetail.status === 'probation' ? 'bg-yellow-100 text-yellow-800' :
+                  'bg-gray-100 text-gray-800'
+                }>
+                  {showEmployeeDetail.status?.replace('_', ' ') || 'active'}
+                </Badge>
+              </div>
+
+              {/* Info Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-[#FDF8F3] p-3 rounded-lg">
+                  <p className="text-xs text-[#8B7355]">Employee ID</p>
+                  <p className="font-medium text-[#4A3728]">{showEmployeeDetail.employee_id || showEmployeeDetail.employee_code || '-'}</p>
+                </div>
+                <div className="bg-[#FDF8F3] p-3 rounded-lg">
+                  <p className="text-xs text-[#8B7355]">User ID</p>
+                  <p className="font-medium text-[#4A3728] text-sm font-mono">{showEmployeeDetail.user_id?.slice(0,12) || '-'}...</p>
+                </div>
+                <div className="bg-[#FDF8F3] p-3 rounded-lg">
+                  <p className="text-xs text-[#8B7355]">Department</p>
+                  <p className="font-medium text-[#4A3728]">{showEmployeeDetail.department_name || '-'}</p>
+                </div>
+                <div className="bg-[#FDF8F3] p-3 rounded-lg">
+                  <p className="text-xs text-[#8B7355]">Grade</p>
+                  <p className="font-medium text-[#4A3728]">{showEmployeeDetail.grade_name || '-'}</p>
+                </div>
+                <div className="bg-[#FDF8F3] p-3 rounded-lg">
+                  <p className="text-xs text-[#8B7355]">Employment Type</p>
+                  <p className="font-medium text-[#4A3728]">{showEmployeeDetail.employment_type?.replace('_', ' ') || '-'}</p>
+                </div>
+                <div className="bg-[#FDF8F3] p-3 rounded-lg">
+                  <p className="text-xs text-[#8B7355]">Work Mode</p>
+                  <p className="font-medium text-[#4A3728]">{showEmployeeDetail.work_mode || '-'}</p>
+                </div>
+                <div className="bg-[#FDF8F3] p-3 rounded-lg">
+                  <p className="text-xs text-[#8B7355]">Joining Date</p>
+                  <p className="font-medium text-[#4A3728]">{showEmployeeDetail.joining_date ? new Date(showEmployeeDetail.joining_date).toLocaleDateString() : '-'}</p>
+                </div>
+                <div className="bg-[#FDF8F3] p-3 rounded-lg">
+                  <p className="text-xs text-[#8B7355]">Reporting Manager</p>
+                  <p className="font-medium text-[#4A3728]">{showEmployeeDetail.manager_name || showEmployeeDetail.reports_to_name || '-'}</p>
+                </div>
+              </div>
+
+              {/* Roles */}
+              {showEmployeeDetail.custom_role_names?.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-[#4A3728] mb-2">Assigned Roles</p>
+                  <div className="flex flex-wrap gap-2">
+                    {showEmployeeDetail.custom_role_names.map((role, idx) => (
+                      <Badge key={idx} variant="secondary" className="bg-[#E8D5C4] text-[#4A3728]">
+                        {role}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEmployeeDetail(null)} className="border-[#E8D5C4]">
+              Close
+            </Button>
+            <Button 
+              onClick={() => {
+                setEditingEmployee(showEmployeeDetail);
+                setShowEmployeeDetail(null);
+                setShowEmployeeModal(true);
+              }}
+              className="bg-[#4A3728] hover:bg-[#5D4A3A] text-white"
+            >
+              <Edit2 className="h-4 w-4 mr-2" /> Edit Employee
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
@@ -996,8 +1080,64 @@ const OverviewTab = ({ stats, loading, departments }) => {
   );
 };
 
-// Employees Tab Component
-const EmployeesTab = ({ employees, loading, searchQuery, setSearchQuery, filters, setFilters, departments, grades, onRefresh, onEditEmployee, onTerminateEmployee, onCreateTask }) => {
+// Employees Tab Component - Enhanced with better filters and no Task button
+const EmployeesTab = ({ employees, loading, searchQuery, setSearchQuery, filters, setFilters, departments, grades, onRefresh, onEditEmployee, onTerminateEmployee, onViewEmployee }) => {
+  const [sortField, setSortField] = useState('name');
+  const [sortOrder, setSortOrder] = useState('asc');
+  const [selectedEmployees, setSelectedEmployees] = useState([]);
+  
+  // Filtered and sorted employees
+  const filteredEmployees = useMemo(() => {
+    let result = [...employees];
+    
+    // Apply client-side search
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(emp => 
+        emp.name?.toLowerCase().includes(query) ||
+        emp.email?.toLowerCase().includes(query) ||
+        emp.employee_id?.toLowerCase().includes(query) ||
+        emp.employee_code?.toLowerCase().includes(query) ||
+        emp.department_name?.toLowerCase().includes(query)
+      );
+    }
+    
+    // Sort
+    result.sort((a, b) => {
+      let aVal = a[sortField] || '';
+      let bVal = b[sortField] || '';
+      if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+      if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+      if (sortOrder === 'asc') return aVal > bVal ? 1 : -1;
+      return aVal < bVal ? 1 : -1;
+    });
+    
+    return result;
+  }, [employees, searchQuery, sortField, sortOrder]);
+
+  const toggleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedEmployees.length === filteredEmployees.length) {
+      setSelectedEmployees([]);
+    } else {
+      setSelectedEmployees(filteredEmployees.map(e => e.id));
+    }
+  };
+
+  const toggleSelectEmployee = (empId) => {
+    setSelectedEmployees(prev => 
+      prev.includes(empId) ? prev.filter(id => id !== empId) : [...prev, empId]
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -1008,87 +1148,197 @@ const EmployeesTab = ({ employees, loading, searchQuery, setSearchQuery, filters
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex items-center gap-4 flex-wrap">
-        <div className="relative flex-1 min-w-[200px] max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8B7355]" />
-          <Input
-            placeholder="Search employees..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 border-[#E8D5C4]"
-          />
+      {/* Enhanced Filters Bar */}
+      <div className="flex items-center justify-between gap-4 flex-wrap bg-[#FDF8F3] p-4 rounded-lg border border-[#E8D5C4]">
+        <div className="flex items-center gap-4 flex-wrap flex-1">
+          <div className="relative flex-1 min-w-[200px] max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8B7355]" />
+            <Input
+              placeholder="Search by name, email, ID, department..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 border-[#E8D5C4] bg-white"
+              data-testid="employee-search-input"
+            />
+          </div>
+          <Select 
+            value={filters.department_id || "all"} 
+            onValueChange={(v) => setFilters({ ...filters, department_id: v === "all" ? "" : v })}
+          >
+            <SelectTrigger className="w-48 border-[#E8D5C4] bg-white" data-testid="department-filter">
+              <Building2 className="h-4 w-4 mr-2 text-[#8B7355]" />
+              <SelectValue placeholder="Department" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Departments</SelectItem>
+              {departments.map(d => (
+                <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select 
+            value={filters.grade_id || "all"} 
+            onValueChange={(v) => setFilters({ ...filters, grade_id: v === "all" ? "" : v })}
+          >
+            <SelectTrigger className="w-40 border-[#E8D5C4] bg-white" data-testid="grade-filter">
+              <Award className="h-4 w-4 mr-2 text-[#8B7355]" />
+              <SelectValue placeholder="Grade" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Grades</SelectItem>
+              {grades.map(g => (
+                <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select 
+            value={filters.status || "all"} 
+            onValueChange={(v) => setFilters({ ...filters, status: v === "all" ? "" : v })}
+          >
+            <SelectTrigger className="w-36 border-[#E8D5C4] bg-white" data-testid="status-filter">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+              <SelectItem value="probation">Probation</SelectItem>
+              <SelectItem value="notice_period">Notice Period</SelectItem>
+              <SelectItem value="resigned">Resigned</SelectItem>
+              <SelectItem value="terminated">Terminated</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        <Select 
-          value={filters.department_id || "all"} 
-          onValueChange={(v) => setFilters({ ...filters, department_id: v === "all" ? "" : v })}
-        >
-          <SelectTrigger className="w-48 border-[#E8D5C4]">
-            <SelectValue placeholder="Department" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Departments</SelectItem>
-            {departments.map(d => (
-              <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select 
-          value={filters.status || "all"} 
-          onValueChange={(v) => setFilters({ ...filters, status: v === "all" ? "" : v })}
-        >
-          <SelectTrigger className="w-36 border-[#E8D5C4]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
-            <SelectItem value="probation">Probation</SelectItem>
-            <SelectItem value="notice_period">Notice Period</SelectItem>
-            <SelectItem value="resigned">Resigned</SelectItem>
-            <SelectItem value="terminated">Terminated</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button variant="outline" onClick={onRefresh} className="border-[#E8D5C4]">
-          <RefreshCw className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="bg-[#8B7355]/10 text-[#4A3728]">
+            {filteredEmployees.length} employee{filteredEmployees.length !== 1 ? 's' : ''}
+          </Badge>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" onClick={onRefresh} className="border-[#E8D5C4] bg-white" data-testid="refresh-btn">
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Refresh</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       </div>
 
-      {/* Table */}
+      {/* Active Filters Pills */}
+      {(filters.department_id || filters.grade_id || filters.status) && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm text-[#5D4A3A]">Active filters:</span>
+          {filters.department_id && (
+            <Badge 
+              variant="secondary" 
+              className="bg-blue-100 text-blue-800 cursor-pointer hover:bg-blue-200"
+              onClick={() => setFilters({ ...filters, department_id: '' })}
+            >
+              {departments.find(d => d.id === filters.department_id)?.name || 'Department'} ✕
+            </Badge>
+          )}
+          {filters.grade_id && (
+            <Badge 
+              variant="secondary" 
+              className="bg-purple-100 text-purple-800 cursor-pointer hover:bg-purple-200"
+              onClick={() => setFilters({ ...filters, grade_id: '' })}
+            >
+              {grades.find(g => g.id === filters.grade_id)?.name || 'Grade'} ✕
+            </Badge>
+          )}
+          {filters.status && (
+            <Badge 
+              variant="secondary" 
+              className="bg-green-100 text-green-800 cursor-pointer hover:bg-green-200"
+              onClick={() => setFilters({ ...filters, status: '' })}
+            >
+              {filters.status.replace('_', ' ')} ✕
+            </Badge>
+          )}
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setFilters({ department_id: '', grade_id: '', status: '' })}
+            className="text-[#8B7355] hover:text-[#4A3728]"
+          >
+            Clear all
+          </Button>
+        </div>
+      )}
+
+      {/* Enhanced Table */}
       <Card className="border-[#E8D5C4]">
         <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="bg-[#F5EDE5]">
-                <TableHead className="text-[#4A3728] whitespace-nowrap">User ID</TableHead>
-                <TableHead className="text-[#4A3728] whitespace-nowrap">Employee ID</TableHead>
-                <TableHead className="text-[#4A3728] whitespace-nowrap">Name</TableHead>
-                <TableHead className="text-[#4A3728] whitespace-nowrap">Email ID</TableHead>
-                <TableHead className="text-[#4A3728] whitespace-nowrap">Department</TableHead>
-                <TableHead className="text-[#4A3728] whitespace-nowrap">Role</TableHead>
+                <TableHead className="w-[40px]">
+                  <Checkbox 
+                    checked={selectedEmployees.length === filteredEmployees.length && filteredEmployees.length > 0}
+                    onCheckedChange={toggleSelectAll}
+                  />
+                </TableHead>
+                <TableHead 
+                  className="text-[#4A3728] whitespace-nowrap cursor-pointer hover:bg-[#E8D5C4] transition-colors"
+                  onClick={() => toggleSort('employee_id')}
+                >
+                  Employee ID {sortField === 'employee_id' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </TableHead>
+                <TableHead 
+                  className="text-[#4A3728] whitespace-nowrap cursor-pointer hover:bg-[#E8D5C4] transition-colors"
+                  onClick={() => toggleSort('name')}
+                >
+                  Name {sortField === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </TableHead>
+                <TableHead className="text-[#4A3728] whitespace-nowrap">Email</TableHead>
+                <TableHead 
+                  className="text-[#4A3728] whitespace-nowrap cursor-pointer hover:bg-[#E8D5C4] transition-colors"
+                  onClick={() => toggleSort('department_name')}
+                >
+                  Department {sortField === 'department_name' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </TableHead>
+                <TableHead className="text-[#4A3728] whitespace-nowrap">Role(s)</TableHead>
                 <TableHead className="text-[#4A3728] whitespace-nowrap">Grade</TableHead>
-                <TableHead className="text-[#4A3728] whitespace-nowrap">Reporting Manager</TableHead>
-                <TableHead className="text-[#4A3728] whitespace-nowrap">Joining Date</TableHead>
-                <TableHead className="text-[#4A3728] whitespace-nowrap">Employment Type</TableHead>
-                <TableHead className="text-[#4A3728] whitespace-nowrap">Employee Status</TableHead>
+                <TableHead className="text-[#4A3728] whitespace-nowrap">Manager</TableHead>
+                <TableHead 
+                  className="text-[#4A3728] whitespace-nowrap cursor-pointer hover:bg-[#E8D5C4] transition-colors"
+                  onClick={() => toggleSort('joining_date')}
+                >
+                  Joining Date {sortField === 'joining_date' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </TableHead>
+                <TableHead className="text-[#4A3728] whitespace-nowrap">Type</TableHead>
+                <TableHead 
+                  className="text-[#4A3728] whitespace-nowrap cursor-pointer hover:bg-[#E8D5C4] transition-colors"
+                  onClick={() => toggleSort('status')}
+                >
+                  Status {sortField === 'status' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </TableHead>
                 <TableHead className="text-[#4A3728] whitespace-nowrap text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {employees.length === 0 ? (
+              {filteredEmployees.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={12} className="text-center py-8 text-[#5D4A3A]">
-                    No employees found
+                  <TableCell colSpan={12} className="text-center py-12">
+                    <Users className="h-12 w-12 mx-auto text-[#C4B5A5] mb-3" />
+                    <p className="text-[#5D4A3A] font-medium">No employees found</p>
+                    <p className="text-sm text-[#8B7355]">Try adjusting your search or filters</p>
                   </TableCell>
                 </TableRow>
               ) : (
-                employees.map((emp) => (
-                  <TableRow key={emp.id} className="hover:bg-[#F5EDE5]">
+                filteredEmployees.map((emp) => (
+                  <TableRow 
+                    key={emp.id} 
+                    className={`hover:bg-[#F5EDE5] ${selectedEmployees.includes(emp.id) ? 'bg-blue-50' : ''}`}
+                    data-testid={`employee-row-${emp.id}`}
+                  >
                     <TableCell>
-                      <code className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600">
-                        {emp.user_id?.slice(0, 8) || '-'}
-                      </code>
+                      <Checkbox 
+                        checked={selectedEmployees.includes(emp.id)}
+                        onCheckedChange={() => toggleSelectEmployee(emp.id)}
+                      />
                     </TableCell>
                     <TableCell>
                       <code className="text-xs bg-[#F5EDE5] px-2 py-1 rounded font-medium text-[#4A3728]">
@@ -1097,12 +1347,17 @@ const EmployeesTab = ({ employees, loading, searchQuery, setSearchQuery, filters
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-[#E8D5C4] flex items-center justify-center flex-shrink-0">
-                          <span className="text-[#4A3728] font-medium text-sm">
+                        <div className="w-8 h-8 rounded-full bg-[#8B7355] flex items-center justify-center flex-shrink-0">
+                          <span className="text-white font-medium text-sm">
                             {emp.name?.charAt(0)?.toUpperCase() || 'E'}
                           </span>
                         </div>
-                        <span className="font-medium text-[#4A3728] whitespace-nowrap">{emp.name || '-'}</span>
+                        <div>
+                          <span className="font-medium text-[#4A3728] whitespace-nowrap block">{emp.name || '-'}</span>
+                          {emp.designation && (
+                            <span className="text-xs text-[#8B7355]">{emp.designation}</span>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="text-[#5D4A3A] text-sm">{emp.email || '-'}</TableCell>
@@ -1111,22 +1366,33 @@ const EmployeesTab = ({ employees, loading, searchQuery, setSearchQuery, filters
                         <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
                           {emp.department_name}
                         </Badge>
-                      ) : '-'}
+                      ) : <span className="text-gray-400">-</span>}
                     </TableCell>
                     <TableCell>
                       {emp.custom_role_names?.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {emp.custom_role_names.slice(0, 2).map((role, idx) => (
-                            <Badge key={idx} variant="secondary" className="text-xs">
-                              {role}
-                            </Badge>
-                          ))}
-                          {emp.custom_role_names.length > 2 && (
-                            <Badge variant="outline" className="text-xs">
-                              +{emp.custom_role_names.length - 2}
-                            </Badge>
-                          )}
-                        </div>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex flex-wrap gap-1">
+                                <Badge variant="secondary" className="text-xs bg-[#E8D5C4] text-[#4A3728]">
+                                  {emp.custom_role_names[0]}
+                                </Badge>
+                                {emp.custom_role_names.length > 1 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    +{emp.custom_role_names.length - 1}
+                                  </Badge>
+                                )}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <div className="space-y-1">
+                                {emp.custom_role_names.map((role, idx) => (
+                                  <p key={idx}>{role}</p>
+                                ))}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       ) : (
                         <span className="text-gray-400">-</span>
                       )}
@@ -1136,13 +1402,13 @@ const EmployeesTab = ({ employees, loading, searchQuery, setSearchQuery, filters
                         <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
                           {emp.grade_name}
                         </Badge>
-                      ) : '-'}
+                      ) : <span className="text-gray-400">-</span>}
                     </TableCell>
                     <TableCell className="text-[#5D4A3A] text-sm whitespace-nowrap">
-                      {emp.manager_name || emp.reports_to_name || '-'}
+                      {emp.manager_name || emp.reports_to_name || <span className="text-gray-400">-</span>}
                     </TableCell>
                     <TableCell className="text-[#5D4A3A] text-sm whitespace-nowrap">
-                      {emp.joining_date ? new Date(emp.joining_date).toLocaleDateString() : '-'}
+                      {emp.joining_date ? new Date(emp.joining_date).toLocaleDateString() : <span className="text-gray-400">-</span>}
                     </TableCell>
                     <TableCell>
                       {emp.employment_type ? (
@@ -1155,7 +1421,7 @@ const EmployeesTab = ({ employees, loading, searchQuery, setSearchQuery, filters
                         }>
                           {emp.employment_type.replace('_', ' ')}
                         </Badge>
-                      ) : '-'}
+                      ) : <span className="text-gray-400">-</span>}
                     </TableCell>
                     <TableCell>
                       <Badge className={
@@ -1171,34 +1437,30 @@ const EmployeesTab = ({ employees, loading, searchQuery, setSearchQuery, filters
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => onCreateTask(emp)}
-                          className="border-teal-200 text-teal-700 hover:bg-teal-50"
-                        >
-                          <ClipboardList className="h-4 w-4 mr-1" /> Task
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => onEditEmployee(emp)}
-                          className="border-[#E8D5C4] hover:bg-[#F5EDE5]"
-                        >
-                          <Edit2 className="h-4 w-4 mr-1" /> Edit
-                        </Button>
-                        {emp.status !== 'terminated' && (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => onTerminateEmployee(emp)}
-                            className="border-red-200 text-red-600 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4 mr-1" /> Remove
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`employee-actions-${emp.id}`}>
+                            <MoreVertical className="h-4 w-4" />
                           </Button>
-                        )}
-                      </div>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => onViewEmployee(emp)}>
+                            <Eye className="h-4 w-4 mr-2" /> View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => onEditEmployee(emp)}>
+                            <Edit2 className="h-4 w-4 mr-2" /> Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          {emp.status !== 'terminated' && (
+                            <DropdownMenuItem 
+                              onClick={() => onTerminateEmployee(emp)}
+                              className="text-red-600 focus:text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" /> Terminate
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))

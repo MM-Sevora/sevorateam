@@ -16,6 +16,7 @@ import {
   X, Eye, Home, Zap, Users, Wrench, Receipt, Briefcase, Car, ShoppingCart,
   GraduationCap, Heart, Wifi, Package, AlertCircle, Banknote, History, ExternalLink, Settings
 } from 'lucide-react';
+import useDepartments from '../../hooks/useDepartments';
 
 // Payment categories with module mapping
 const PAYMENT_CATEGORIES = [
@@ -43,11 +44,11 @@ const SOURCE_TYPES = [
   { value: 'recurring', label: 'Recurring Payment' }
 ];
 
-const DEPARTMENTS = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance', 'Operations', 'Admin', 'Production', 'IT'];
-
 const PaymentRequests = () => {
   const { api, user } = useAuth();
   const navigate = useNavigate();
+  const { departments: deptData } = useDepartments();
+  const departments = deptData.map(d => d.name);
   const [requests, setRequests] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -395,7 +396,7 @@ const PaymentRequests = () => {
               <SelectTrigger className="w-[140px] bg-white border-[#D4BBA6]"><SelectValue placeholder="Department" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Depts</SelectItem>
-                {DEPARTMENTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                {departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={filters.source_type || "all"} onValueChange={(v) => setFilters(f => ({...f, source_type: v === "all" ? "" : v}))}>
@@ -551,7 +552,7 @@ const PaymentRequests = () => {
                   <SelectTrigger className="bg-white border-[#D4BBA6]"><SelectValue placeholder="Select" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="placeholder" disabled>Select</SelectItem>
-                    {DEPARTMENTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                    {departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

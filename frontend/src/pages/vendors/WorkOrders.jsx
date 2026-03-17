@@ -16,8 +16,8 @@ import {
   X, Eye, DollarSign, CheckCircle, Clock, Package, Play, Receipt, CreditCard,
   FileCheck, ArrowUpCircle, CircleDollarSign, Milestone, CheckCircle2, RefreshCw, User
 } from 'lucide-react';
+import useDepartments from '../../hooks/useDepartments';
 
-const DEPARTMENTS = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance', 'Operations', 'Admin', 'Production'];
 const ORDER_TYPES = [
   { value: 'one_time', label: 'One-Time', icon: FileText },
   { value: 'recurring', label: 'Recurring', icon: RefreshCw },
@@ -33,6 +33,8 @@ const PAYMENT_TYPES = [
 
 const WorkOrders = () => {
   const navigate = useNavigate();
+  const { departments: deptData } = useDepartments();
+  const departments = deptData.map(d => d.name);
   const [searchParams, setSearchParams] = useSearchParams();
   const { api, user } = useAuth();
   const [orders, setOrders] = useState([]);
@@ -271,7 +273,7 @@ const WorkOrders = () => {
               <SelectTrigger className="w-[140px] bg-white border-[#D4BBA6]"><SelectValue placeholder="Department" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Departments</SelectItem>
-                {DEPARTMENTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                {departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={filters.order_type || "all"} onValueChange={(v) => setFilters(f => ({...f, order_type: v === "all" ? "" : v}))}>
@@ -399,7 +401,7 @@ const WorkOrders = () => {
               <div><label className="text-sm font-medium text-[#4A3728]">Department *</label>
                 <Select value={formData.department || "placeholder"} onValueChange={(v) => setFormData(f => ({...f, department: v === "placeholder" ? "" : v}))}>
                   <SelectTrigger className="bg-white border-[#D4BBA6]"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent><SelectItem value="placeholder" disabled>Select</SelectItem>{DEPARTMENTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                  <SelectContent><SelectItem value="placeholder" disabled>Select</SelectItem>{departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div><label className="text-sm font-medium text-[#4A3728]">Order Type</label>

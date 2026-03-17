@@ -16,12 +16,13 @@ import {
   X, Eye, Send, DollarSign, Star, CheckCircle, Clock, Scale, Package,
   ArrowRight, ArrowUpRight, Sparkles, ClipboardList, CheckCircle2, XCircle, AlertCircle, User
 } from 'lucide-react';
-
-const DEPARTMENTS = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance', 'Operations', 'Admin', 'Production'];
+import useDepartments from '../../hooks/useDepartments';
 
 const WorkRequests = () => {
   const navigate = useNavigate();
   const { api, user } = useAuth();
+  const { departments: deptData } = useDepartments();
+  const departments = deptData.map(d => d.name); // Convert to string array for compatibility
   const [requests, setRequests] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [users, setUsers] = useState([]);
@@ -308,7 +309,7 @@ const WorkRequests = () => {
               <SelectTrigger className="w-[140px] bg-white border-[#D4BBA6]"><SelectValue placeholder="Department" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Departments</SelectItem>
-                {DEPARTMENTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                {departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={filters.approval_status || "all"} onValueChange={(v) => setFilters(f => ({...f, approval_status: v === "all" ? "" : v}))}>
@@ -429,7 +430,7 @@ const WorkRequests = () => {
             <div><label className="text-sm font-medium text-[#4A3728]">Department *</label>
               <Select value={formData.department || "placeholder"} onValueChange={(v) => setFormData(f => ({...f, department: v === "placeholder" ? "" : v}))}>
                 <SelectTrigger className="bg-white border-[#D4BBA6] mt-1"><SelectValue placeholder="Select department" /></SelectTrigger>
-                <SelectContent><SelectItem value="placeholder" disabled>Select department</SelectItem>{DEPARTMENTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                <SelectContent><SelectItem value="placeholder" disabled>Select department</SelectItem>{departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div><label className="text-sm font-medium text-[#4A3728]">Expected Completion Date</label><Input type="date" value={formData.expected_completion_date} onChange={(e) => setFormData(f => ({...f, expected_completion_date: e.target.value}))} className="bg-white border-[#D4BBA6] mt-1" /></div>

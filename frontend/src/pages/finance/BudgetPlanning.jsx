@@ -13,13 +13,15 @@ import {
   BarChart3, AlertTriangle
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPie, Pie, Cell } from 'recharts';
+import useDepartments from '../../hooks/useDepartments';
 
 const COLORS = ['#4A3728', '#8B7355', '#D4BBA6', '#E8D5C4', '#6B8E23', '#CD853F'];
 const CATEGORIES = ['Operations', 'Marketing', 'Technology', 'HR', 'Sales', 'R&D', 'Admin', 'Other'];
-const DEPARTMENTS = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance', 'Operations', 'Support', 'Executive'];
 
 const BudgetPlanning = () => {
   const { api } = useAuth();
+  const { departments: deptData } = useDepartments();
+  const departments = deptData.map(d => d.name);
   const [budgets, setBudgets] = useState([]);
   const [overview, setOverview] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -265,7 +267,7 @@ const BudgetPlanning = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Departments</SelectItem>
-                {DEPARTMENTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                {departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={filters.status || "all"} onValueChange={(v) => setFilters(f => ({...f, status: v === "all" ? "" : v}))}>
@@ -369,7 +371,7 @@ const BudgetPlanning = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="placeholder" disabled>Select Department</SelectItem>
-                    {DEPARTMENTS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                    {departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
