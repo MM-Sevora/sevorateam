@@ -7,6 +7,53 @@ Build a comprehensive Marketing Operations Platform that integrates marketing, s
 
 ## Latest Updates (March 2026)
 
+### Employee Database & Dynamic Departments (Completed ✅)
+**Date**: March 17, 2026
+
+**Features Implemented**:
+
+1. **Enhanced Employee Database Table** (`/admin/employees`)
+   - Added client-side sorting on columns (name, department, status, joining date)
+   - Enhanced filter bar with department, grade, and status dropdowns
+   - Active filter pills with "Clear all" option
+   - Removed Task button from employee table actions
+   - Added "View Details" action with employee detail dialog
+   - Added row selection with checkboxes
+   - Employee count badge in filter bar
+   - Tooltips for roles when multiple assigned
+
+2. **Dynamic Department Dropdowns**
+   - Created shared `useDepartments` hook (`/app/frontend/src/hooks/useDepartments.js`)
+   - Departments now fetched from `GET /api/hr/departments` instead of hardcoded arrays
+   - Updated across 5 frontend files:
+     - Employee Database page
+     - Work Requests page
+     - Work Orders page
+     - Payment Requests page
+     - Budget Planning page
+
+3. **Backend Data Scope Enforcement** (P1)
+   - Implemented `apply_data_scope_filter()` in `/app/backend/utils/permissions.py`
+   - Reads user's custom_permissions from database
+   - Applies data scope filters (own/department/all) to MongoDB queries
+   - Applied to Projects list, Tasks list, and Employees list endpoints
+   - Admin users bypass all data scope restrictions
+
+**Files Modified**:
+- `/app/frontend/src/pages/admin/EmployeeDatabase.jsx` - Enhanced EmployeesTab component
+- `/app/frontend/src/hooks/useDepartments.js` - NEW shared hook for departments
+- `/app/frontend/src/pages/vendors/WorkRequests.jsx` - Uses dynamic departments
+- `/app/frontend/src/pages/vendors/WorkOrders.jsx` - Uses dynamic departments
+- `/app/frontend/src/pages/finance/PaymentRequests.jsx` - Uses dynamic departments
+- `/app/frontend/src/pages/finance/BudgetPlanning.jsx` - Uses dynamic departments
+- `/app/backend/utils/permissions.py` - Added async data scope filtering
+- `/app/backend/routes/projects.py` - Applied data scope to projects and tasks
+- `/app/backend/routes/hr.py` - Applied data scope to employees
+
+**Testing**: 100% pass rate (iteration_107.json)
+
+---
+
 ### Users & Permissions Admin Enhancements (Completed ✅)
 **Date**: March 17, 2026
 
