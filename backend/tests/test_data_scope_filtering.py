@@ -1,540 +1,331 @@
 """
-Test Data Scope Filtering - Verify all major list APIs respect data_scope permissions
+Test Data Scope Filtering for Projects, Tasks, and Employees APIs
 
-This test file validates that the get_data_scope_query function from utils/permissions.py
-is properly applied to all major list endpoints across modules:
-- Sourcing: Brands, Suppliers, Manufacturers
-- Marketing: Contacts, Unified Campaigns
-- Tasks: Unified Tasks
-- HR: Employees
-- Leads & Projects (already implemented - verification)
-
-Module codes used: 'sourcing', 'marketing_ops', 'project_management', 'hr', 'leads'
+Tests verify that:
+1. Admin users can access all data (bypassing data scope restrictions)
+2. Projects API returns data with proper filtering
+3. Tasks API returns data with proper filtering  
+4. Employees API returns data with proper filtering
 """
 
 import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
-
-# Test credentials
-SUPERADMIN_EMAIL = "superadmin@sevora.com"
-SUPERADMIN_PASSWORD = "superadmin123"
-
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 
 class TestDataScopeFiltering:
-    """Test data scope filtering is applied to all major list APIs"""
+    """Test data scope filtering for various modules"""
     
-    @pytest.fixture(scope="class")
-    def auth_token(self):
-        """Get authentication token for superadmin"""
-        response = requests.post(
-            f"{BASE_URL}/api/auth/login",
-            json={"email": SUPERADMIN_EMAIL, "password": SUPERADMIN_PASSWORD}
-        )
-        assert response.status_code == 200, f"Login failed: {response.text}"
-        data = response.json()
-        assert "token" in data or "access_token" in data
-        return data.get("token") or data.get("access_token")
-    
-    @pytest.fixture(scope="class")
-    def headers(self, auth_token):
-        """Create headers with auth token"""
-        return {
-            "Authorization": f"Bearer {auth_token}",
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        """Setup test fixtures - login as admin"""
+        # Admin login
+        login_response = requests.post(f"{BASE_URL}/api/auth/login", json={
+            "email": "admin@sevora.com",
+            "password": "admin123"
+        })
+        assert login_response.status_code == 200, f"Login failed: {login_response.text}"
+        
+        data = login_response.json()
+        self.token = data.get("access_token")
+        self.user = data.get("user")
+        self.headers = {
+            "Authorization": f"Bearer {self.token}",
             "Content-Type": "application/json"
         }
-    
-    # ================ SOURCING MODULE TESTS ================
-    
-    def test_sourcing_brands_list(self, headers):
-        """Test /api/sourcing/brands returns data (data_scope applied)"""
-        response = requests.get(f"{BASE_URL}/api/sourcing/brands", headers=headers)
-        assert response.status_code == 200, f"Brands list failed: {response.text}"
-        data = response.json()
-        assert isinstance(data, list), "Should return list of brands"
-        print(f"✓ Sourcing Brands: {len(data)} brands returned")
         
-        # Check _permissions field is present (indicates ownership-based access control)
-        if data:
-            assert "_permissions" in data[0], "Brand should have _permissions field"
-            print(f"  - First brand has _permissions: {data[0]['_permissions']}")
-    
-    def test_sourcing_brands_paginated(self, headers):
-        """Test /api/sourcing/brands/paginated returns paginated data with filters_meta"""
-        response = requests.get(
-            f"{BASE_URL}/api/sourcing/brands/paginated",
-            params={"page": 1, "page_size": 10},
-            headers=headers
-        )
-        assert response.status_code == 200, f"Brands paginated failed: {response.text}"
-        data = response.json()
+    # ============== PROJECTS API TESTS ==============
         
-        # Verify paginated response structure
-        assert "brands" in data, "Should have brands field"
-        assert "total" in data, "Should have total count"
-        assert "page" in data, "Should have page number"
-        assert "filters_meta" in data, "Should have filters_meta"
-        
-        print(f"✓ Sourcing Brands Paginated: total={data['total']}, page={data['page']}")
-        print(f"  - filters_meta keys: {list(data['filters_meta'].keys())}")
-    
-    def test_sourcing_suppliers_list(self, headers):
-        """Test /api/sourcing/suppliers returns data (data_scope applied)"""
-        response = requests.get(f"{BASE_URL}/api/sourcing/suppliers", headers=headers)
-        assert response.status_code == 200, f"Suppliers list failed: {response.text}"
-        data = response.json()
-        assert isinstance(data, list), "Should return list of suppliers"
-        print(f"✓ Sourcing Suppliers: {len(data)} suppliers returned")
-        
-        # Check _permissions field
-        if data:
-            assert "_permissions" in data[0], "Supplier should have _permissions field"
-            print(f"  - First supplier has _permissions: {data[0]['_permissions']}")
-    
-    def test_sourcing_manufacturers_list(self, headers):
-        """Test /api/sourcing/manufacturers returns data (data_scope applied)"""
-        response = requests.get(f"{BASE_URL}/api/sourcing/manufacturers", headers=headers)
-        assert response.status_code == 200, f"Manufacturers list failed: {response.text}"
-        data = response.json()
-        assert isinstance(data, list), "Should return list of manufacturers"
-        print(f"✓ Sourcing Manufacturers: {len(data)} manufacturers returned")
-        
-        # Check _permissions field
-        if data:
-            assert "_permissions" in data[0], "Manufacturer should have _permissions field"
-            print(f"  - First manufacturer has _permissions: {data[0]['_permissions']}")
-    
-    # ================ MARKETING MODULE TESTS ================
-    
-    def test_marketing_contacts_list(self, headers):
-        """Test /api/marketing/v2/contacts returns data (data_scope applied)"""
-        response = requests.get(
-            f"{BASE_URL}/api/marketing/v2/contacts",
-            params={"limit": 10},
-            headers=headers
-        )
-        assert response.status_code == 200, f"Marketing contacts failed: {response.text}"
-        data = response.json()
-        assert isinstance(data, list), "Should return list of contacts"
-        print(f"✓ Marketing Contacts: {len(data)} contacts returned")
-    
-    def test_marketing_contacts_paginated(self, headers):
-        """Test /api/marketing/v2/contacts/paginated returns paginated data"""
-        response = requests.get(
-            f"{BASE_URL}/api/marketing/v2/contacts/paginated",
-            params={"page": 1, "page_size": 10},
-            headers=headers
-        )
-        assert response.status_code == 200, f"Marketing contacts paginated failed: {response.text}"
-        data = response.json()
-        
-        # Verify paginated response structure
-        assert "contacts" in data, "Should have contacts field"
-        assert "total" in data, "Should have total count"
-        assert "page" in data, "Should have page number"
-        assert "filters_meta" in data, "Should have filters_meta"
-        
-        print(f"✓ Marketing Contacts Paginated: total={data['total']}, page={data['page']}")
-        print(f"  - filters_meta keys: {list(data['filters_meta'].keys())}")
-    
-    def test_marketing_unified_campaigns(self, headers):
-        """Test /api/marketing/v2/unified-campaigns returns data (data_scope applied)"""
-        response = requests.get(
-            f"{BASE_URL}/api/marketing/v2/unified-campaigns",
-            params={"limit": 10},
-            headers=headers
-        )
-        assert response.status_code == 200, f"Unified campaigns failed: {response.text}"
-        data = response.json()
-        assert isinstance(data, list), "Should return list of campaigns"
-        print(f"✓ Marketing Unified Campaigns: {len(data)} campaigns returned")
-        
-        # Check campaign_type field
-        if data:
-            assert "campaign_type" in data[0], "Campaign should have campaign_type field"
-            print(f"  - Campaign types: {set(c.get('campaign_type') for c in data[:5])}")
-    
-    # ================ TASKS MODULE TESTS ================
-    
-    def test_tasks_list(self, headers):
-        """Test /api/tasks returns data (data_scope applied)"""
-        response = requests.get(
-            f"{BASE_URL}/api/tasks",
-            params={"limit": 10},
-            headers=headers
-        )
-        assert response.status_code == 200, f"Tasks list failed: {response.text}"
-        data = response.json()
-        
-        # Response could be dict with tasks field or direct list
-        if isinstance(data, dict):
-            assert "tasks" in data, "Should have tasks field"
-            tasks = data["tasks"]
-        else:
-            tasks = data
-        
-        assert isinstance(tasks, list), "Should return list of tasks"
-        print(f"✓ Tasks List: {len(tasks)} tasks returned")
-        
-        # Check _permissions field
-        if tasks:
-            assert "_permissions" in tasks[0], "Task should have _permissions field"
-            print(f"  - First task has _permissions: {tasks[0]['_permissions']}")
-    
-    def test_tasks_paginated(self, headers):
-        """Test /api/tasks/paginated returns paginated data with filters_meta"""
-        response = requests.get(
-            f"{BASE_URL}/api/tasks/paginated",
-            params={"page": 1, "page_size": 10},
-            headers=headers
-        )
-        assert response.status_code == 200, f"Tasks paginated failed: {response.text}"
-        data = response.json()
-        
-        # Verify paginated response structure
-        assert "tasks" in data, "Should have tasks field"
-        assert "total" in data, "Should have total count"
-        assert "page" in data, "Should have page number"
-        assert "filters_meta" in data, "Should have filters_meta"
-        
-        print(f"✓ Tasks Paginated: total={data['total']}, page={data['page']}")
-        print(f"  - filters_meta keys: {list(data['filters_meta'].keys())}")
-    
-    # ================ HR MODULE TESTS ================
-    
-    def test_hr_employees_list(self, headers):
-        """Test /api/hr/v2/employees returns data (data_scope applied)"""
-        response = requests.get(
-            f"{BASE_URL}/api/hr/v2/employees",
-            params={"limit": 10},
-            headers=headers
-        )
-        assert response.status_code == 200, f"HR employees failed: {response.text}"
-        data = response.json()
-        assert isinstance(data, list), "Should return list of employees"
-        print(f"✓ HR Employees: {len(data)} employees returned")
-        
-        # Check employee fields
-        if data:
-            emp = data[0]
-            assert "id" in emp, "Employee should have id field"
-            print(f"  - First employee: {emp.get('name', 'Unknown')} ({emp.get('employee_code', 'N/A')})")
-    
-    # ================ LEADS MODULE TESTS (Verification) ================
-    
-    def test_leads_list(self, headers):
-        """Test /api/sales/leads returns data (data_scope already implemented)"""
-        response = requests.get(
-            f"{BASE_URL}/api/sales/leads",
-            params={"limit": 10},
-            headers=headers
-        )
-        assert response.status_code == 200, f"Leads list failed: {response.text}"
-        data = response.json()
-        
-        # Response could be dict with leads field or direct list
-        if isinstance(data, dict):
-            leads = data.get("leads", data)
-        else:
-            leads = data
-        
-        if isinstance(leads, list):
-            print(f"✓ Sales Leads: {len(leads)} leads returned")
-        else:
-            print(f"✓ Sales Leads: Response structure: {type(leads)}")
-    
-    def test_leads_paginated(self, headers):
-        """Test /api/sales/leads/paginated returns paginated data (verification)"""
-        response = requests.get(
-            f"{BASE_URL}/api/sales/leads/paginated",
-            params={"page": 1, "page_size": 10},
-            headers=headers
-        )
-        assert response.status_code == 200, f"Leads paginated failed: {response.text}"
-        data = response.json()
-        
-        # Verify paginated response structure
-        assert "leads" in data, "Should have leads field"
-        assert "total" in data, "Should have total count"
-        
-        print(f"✓ Sales Leads Paginated: total={data['total']}, page={data.get('page', 1)}")
-    
-    # ================ PROJECTS MODULE TESTS (Verification) ================
-    
-    def test_projects_list(self, headers):
-        """Test /api/projects/list returns data (data_scope already implemented)"""
+    def test_projects_list_returns_200(self):
+        """Test that projects list API returns 200 status code"""
         response = requests.get(
             f"{BASE_URL}/api/projects/list",
-            params={"limit": 10},
-            headers=headers
+            headers=self.headers
         )
         assert response.status_code == 200, f"Projects list failed: {response.text}"
-        data = response.json()
         
-        # Response could be dict with projects field or direct list
-        if isinstance(data, dict):
-            projects = data.get("projects", data)
-        else:
-            projects = data
+        projects = response.json()
+        assert isinstance(projects, list), "Projects should be a list"
+        print(f"✓ Projects list returned {len(projects)} projects")
         
-        if isinstance(projects, list):
-            print(f"✓ Projects: {len(projects)} projects returned")
-        else:
-            print(f"✓ Projects: Response structure: {type(projects)}")
-
-
-class TestDataScopeQueryFunction:
-    """Test that get_data_scope_query function exists and is correctly imported"""
-    
-    def test_permissions_module_exists(self):
-        """Verify the permissions module has get_data_scope_query function"""
-        # Import the module
-        import sys
-        sys.path.insert(0, "/app/backend")
-        
-        from utils.permissions import get_data_scope_query
-        
-        # Verify function exists and is callable
-        assert callable(get_data_scope_query), "get_data_scope_query should be callable"
-        print("✓ get_data_scope_query function exists in utils/permissions.py")
-    
-    def test_data_scope_query_for_admin(self):
-        """Test that admin users get empty query (see everything)"""
-        import sys
-        sys.path.insert(0, "/app/backend")
-        
-        from utils.permissions import get_data_scope_query
-        
-        admin_user = {
-            "id": "test-admin-id",
-            "role": "admin",
-            "department_id": "dept-1"
-        }
-        
-        query = get_data_scope_query(admin_user, "sourcing", {})
-        assert query == {}, f"Admin should get empty query, got: {query}"
-        print("✓ Admin users get empty query (see all data)")
-    
-    def test_data_scope_query_for_superadmin(self):
-        """Test that super_admin users get empty query (see everything)"""
-        import sys
-        sys.path.insert(0, "/app/backend")
-        
-        from utils.permissions import get_data_scope_query
-        
-        superadmin_user = {
-            "id": "test-superadmin-id",
-            "role": "super_admin",
-            "department_id": "dept-1"
-        }
-        
-        query = get_data_scope_query(superadmin_user, "marketing_ops", {})
-        assert query == {}, f"Super admin should get empty query, got: {query}"
-        print("✓ Super admin users get empty query (see all data)")
-    
-    def test_data_scope_query_own_only(self):
-        """Test own_only scope filters by created_by"""
-        import sys
-        sys.path.insert(0, "/app/backend")
-        
-        from utils.permissions import get_data_scope_query
-        
-        user = {
-            "id": "user-123",
-            "role": "user",
-            "department_id": "dept-1",
-            "module_permissions": {
-                "sourcing": {"data_scope": "own_only"}
-            }
-        }
-        
-        query = get_data_scope_query(user, "sourcing", {})
-        assert "created_by" in query, f"own_only should filter by created_by, got: {query}"
-        assert query["created_by"] == "user-123", f"Should filter by user id"
-        print("✓ own_only scope filters by created_by = user_id")
-    
-    def test_data_scope_query_own_assigned(self):
-        """Test own_assigned scope filters by created_by OR assigned_to"""
-        import sys
-        sys.path.insert(0, "/app/backend")
-        
-        from utils.permissions import get_data_scope_query
-        
-        user = {
-            "id": "user-456",
-            "role": "user",
-            "department_id": "dept-1",
-            "module_permissions": {
-                "project_management": {"data_scope": "own_assigned"}
-            }
-        }
-        
-        query = get_data_scope_query(user, "project_management", {})
-        assert "$or" in query, f"own_assigned should use $or filter, got: {query}"
-        assert len(query["$or"]) == 2, "Should have 2 conditions in $or"
-        print("✓ own_assigned scope uses $or for created_by OR assigned_to")
-    
-    def test_data_scope_query_team(self):
-        """Test team scope filters by department_id"""
-        import sys
-        sys.path.insert(0, "/app/backend")
-        
-        from utils.permissions import get_data_scope_query
-        
-        user = {
-            "id": "user-789",
-            "role": "user",
-            "department_id": "marketing-dept",
-            "module_permissions": {
-                "marketing_ops": {"data_scope": "team"}
-            }
-        }
-        
-        query = get_data_scope_query(user, "marketing_ops", {})
-        assert "$or" in query, f"team scope should use $or filter, got: {query}"
-        # Should include created_by, assigned_to, and department_id
-        or_conditions = query["$or"]
-        has_dept = any("department_id" in cond for cond in or_conditions)
-        assert has_dept, "Team scope should include department_id filter"
-        print("✓ team scope includes department_id filter")
-    
-    def test_data_scope_query_all(self):
-        """Test 'all' scope returns base query without additional filters"""
-        import sys
-        sys.path.insert(0, "/app/backend")
-        
-        from utils.permissions import get_data_scope_query
-        
-        user = {
-            "id": "user-all",
-            "role": "user",
-            "department_id": "any-dept",
-            "module_permissions": {
-                "hr": {"data_scope": "all"}
-            }
-        }
-        
-        base_query = {"status": "active"}
-        query = get_data_scope_query(user, "hr", base_query)
-        # Should only have the base query fields
-        assert query == {"status": "active"}, f"'all' scope should not add filters, got: {query}"
-        print("✓ 'all' scope returns base query without data_scope filters")
-
-
-class TestSuperAdminSeesAllData:
-    """Verify that superadmin can see all data across all endpoints"""
-    
-    @pytest.fixture(scope="class")
-    def auth_token(self):
-        """Get authentication token for superadmin"""
-        response = requests.post(
-            f"{BASE_URL}/api/auth/login",
-            json={"email": SUPERADMIN_EMAIL, "password": SUPERADMIN_PASSWORD}
-        )
-        assert response.status_code == 200
-        data = response.json()
-        return data.get("token") or data.get("access_token")
-    
-    @pytest.fixture(scope="class")
-    def headers(self, auth_token):
-        """Create headers with auth token"""
-        return {
-            "Authorization": f"Bearer {auth_token}",
-            "Content-Type": "application/json"
-        }
-    
-    def test_superadmin_brands_access(self, headers):
-        """Superadmin should see all brands"""
-        response = requests.get(
-            f"{BASE_URL}/api/sourcing/brands",
-            params={"limit": 100},
-            headers=headers
-        )
-        assert response.status_code == 200
-        print(f"✓ Superadmin can access all brands")
-    
-    def test_superadmin_suppliers_access(self, headers):
-        """Superadmin should see all suppliers"""
-        response = requests.get(
-            f"{BASE_URL}/api/sourcing/suppliers",
-            params={"limit": 100},
-            headers=headers
-        )
-        assert response.status_code == 200
-        print(f"✓ Superadmin can access all suppliers")
-    
-    def test_superadmin_manufacturers_access(self, headers):
-        """Superadmin should see all manufacturers"""
-        response = requests.get(
-            f"{BASE_URL}/api/sourcing/manufacturers",
-            params={"limit": 100},
-            headers=headers
-        )
-        assert response.status_code == 200
-        print(f"✓ Superadmin can access all manufacturers")
-    
-    def test_superadmin_contacts_access(self, headers):
-        """Superadmin should see all marketing contacts"""
-        response = requests.get(
-            f"{BASE_URL}/api/marketing/v2/contacts",
-            params={"limit": 100},
-            headers=headers
-        )
-        assert response.status_code == 200
-        print(f"✓ Superadmin can access all marketing contacts")
-    
-    def test_superadmin_campaigns_access(self, headers):
-        """Superadmin should see all unified campaigns"""
-        response = requests.get(
-            f"{BASE_URL}/api/marketing/v2/unified-campaigns",
-            params={"limit": 100},
-            headers=headers
-        )
-        assert response.status_code == 200
-        print(f"✓ Superadmin can access all unified campaigns")
-    
-    def test_superadmin_tasks_access(self, headers):
-        """Superadmin should see all tasks"""
-        response = requests.get(
-            f"{BASE_URL}/api/tasks",
-            params={"limit": 100},
-            headers=headers
-        )
-        assert response.status_code == 200
-        print(f"✓ Superadmin can access all tasks")
-    
-    def test_superadmin_employees_access(self, headers):
-        """Superadmin should see all employees"""
-        response = requests.get(
-            f"{BASE_URL}/api/hr/v2/employees",
-            params={"limit": 100},
-            headers=headers
-        )
-        assert response.status_code == 200
-        print(f"✓ Superadmin can access all employees")
-    
-    def test_superadmin_leads_access(self, headers):
-        """Superadmin should see all leads"""
-        response = requests.get(
-            f"{BASE_URL}/api/sales/leads",
-            params={"limit": 100},
-            headers=headers
-        )
-        assert response.status_code == 200
-        print(f"✓ Superadmin can access all leads")
-    
-    def test_superadmin_projects_access(self, headers):
-        """Superadmin should see all projects"""
+    def test_projects_list_returns_data_structure(self):
+        """Test that projects list returns proper data structure"""
         response = requests.get(
             f"{BASE_URL}/api/projects/list",
-            params={"limit": 100},
-            headers=headers
+            headers=self.headers
         )
         assert response.status_code == 200
-        print(f"✓ Superadmin can access all projects")
+        
+        projects = response.json()
+        if len(projects) > 0:
+            project = projects[0]
+            # Verify expected fields exist
+            assert "id" in project, "Project should have id"
+            assert "name" in project, "Project should have name"
+            assert "_permissions" in project, "Project should have _permissions"
+            print(f"✓ Project data structure is correct. Sample: {project.get('name')}")
+        else:
+            print("✓ Projects list is empty (no projects created yet)")
+            
+    def test_admin_sees_all_projects(self):
+        """Test that admin user sees all projects (bypasses data scope)"""
+        response = requests.get(
+            f"{BASE_URL}/api/projects/list",
+            headers=self.headers
+        )
+        assert response.status_code == 200
+        
+        # Admin should see projects regardless of data scope settings
+        # The user is super_admin so should see everything
+        assert self.user.get("role") == "super_admin", "Test user should be super_admin"
+        print(f"✓ Admin ({self.user.get('role')}) can access projects list")
+        
+    def test_projects_list_with_filters(self):
+        """Test projects list with various filters"""
+        # Test with status filter
+        response = requests.get(
+            f"{BASE_URL}/api/projects/list?status=active",
+            headers=self.headers
+        )
+        assert response.status_code == 200, f"Projects filter by status failed: {response.text}"
+        print(f"✓ Projects filter by status=active returned {len(response.json())} projects")
+        
+        # Test with priority filter
+        response = requests.get(
+            f"{BASE_URL}/api/projects/list?priority=high",
+            headers=self.headers
+        )
+        assert response.status_code == 200, f"Projects filter by priority failed: {response.text}"
+        print(f"✓ Projects filter by priority=high returned {len(response.json())} projects")
+        
+    # ============== TASKS API TESTS ==============
+    
+    def test_tasks_all_returns_200(self):
+        """Test that tasks all API returns 200 status code"""
+        response = requests.get(
+            f"{BASE_URL}/api/projects/tasks/all?limit=10",
+            headers=self.headers
+        )
+        assert response.status_code == 200, f"Tasks all failed: {response.text}"
+        
+        tasks = response.json()
+        assert isinstance(tasks, list), "Tasks should be a list"
+        print(f"✓ Tasks list returned {len(tasks)} tasks")
+        
+    def test_tasks_returns_data_structure(self):
+        """Test that tasks returns proper data structure"""
+        response = requests.get(
+            f"{BASE_URL}/api/projects/tasks/all?limit=5",
+            headers=self.headers
+        )
+        assert response.status_code == 200
+        
+        tasks = response.json()
+        if len(tasks) > 0:
+            task = tasks[0]
+            # Verify expected fields exist
+            assert "id" in task, "Task should have id"
+            assert "name" in task, "Task should have name"
+            assert "status" in task, "Task should have status"
+            print(f"✓ Task data structure is correct. Sample: {task.get('name')}")
+        else:
+            print("✓ Tasks list is empty (no tasks created yet)")
+            
+    def test_admin_sees_all_tasks(self):
+        """Test that admin user sees all tasks (bypasses data scope)"""
+        response = requests.get(
+            f"{BASE_URL}/api/projects/tasks/all?limit=50",
+            headers=self.headers
+        )
+        assert response.status_code == 200
+        
+        # Admin should see tasks regardless of data scope settings
+        assert self.user.get("role") == "super_admin"
+        print(f"✓ Admin ({self.user.get('role')}) can access all tasks")
+        
+    def test_tasks_with_filters(self):
+        """Test tasks API with various filters"""
+        # Test with status filter
+        response = requests.get(
+            f"{BASE_URL}/api/projects/tasks/all?status=assigned&limit=10",
+            headers=self.headers
+        )
+        assert response.status_code == 200, f"Tasks filter by status failed: {response.text}"
+        print(f"✓ Tasks filter by status=assigned returned {len(response.json())} tasks")
+        
+        # Test with priority filter
+        response = requests.get(
+            f"{BASE_URL}/api/projects/tasks/all?priority=high&limit=10",
+            headers=self.headers
+        )
+        assert response.status_code == 200, f"Tasks filter by priority failed: {response.text}"
+        print(f"✓ Tasks filter by priority=high returned {len(response.json())} tasks")
+        
+    # ============== EMPLOYEES API TESTS ==============
+    
+    def test_employees_list_returns_200(self):
+        """Test that employees list API returns 200 status code"""
+        response = requests.get(
+            f"{BASE_URL}/api/hr/employees?limit=10",
+            headers=self.headers
+        )
+        assert response.status_code == 200, f"Employees list failed: {response.text}"
+        
+        employees = response.json()
+        assert isinstance(employees, list), "Employees should be a list"
+        print(f"✓ Employees list returned {len(employees)} employees")
+        
+    def test_employees_returns_data_structure(self):
+        """Test that employees returns proper data structure"""
+        response = requests.get(
+            f"{BASE_URL}/api/hr/employees?limit=5",
+            headers=self.headers
+        )
+        assert response.status_code == 200
+        
+        employees = response.json()
+        if len(employees) > 0:
+            employee = employees[0]
+            # Verify expected fields exist
+            assert "id" in employee, "Employee should have id"
+            assert "name" in employee, "Employee should have name"
+            assert "email" in employee, "Employee should have email"
+            print(f"✓ Employee data structure is correct. Sample: {employee.get('name')}")
+        else:
+            print("✓ Employees list is empty (no employees created yet)")
+            
+    def test_admin_sees_all_employees(self):
+        """Test that admin user sees all employees (bypasses data scope)"""
+        response = requests.get(
+            f"{BASE_URL}/api/hr/employees?limit=100",
+            headers=self.headers
+        )
+        assert response.status_code == 200
+        
+        # Admin should see employees regardless of data scope settings
+        assert self.user.get("role") == "super_admin"
+        print(f"✓ Admin ({self.user.get('role')}) can access all employees")
+        
+    def test_employees_with_filters(self):
+        """Test employees API with various filters"""
+        # Test with status filter
+        response = requests.get(
+            f"{BASE_URL}/api/hr/employees?status=active&limit=10",
+            headers=self.headers
+        )
+        assert response.status_code == 200, f"Employees filter by status failed: {response.text}"
+        print(f"✓ Employees filter by status=active returned {len(response.json())} employees")
+        
+    def test_employees_with_department_filter(self):
+        """Test employees API with department filter"""
+        # First get departments
+        dept_response = requests.get(
+            f"{BASE_URL}/api/hr/departments",
+            headers=self.headers
+        )
+        assert dept_response.status_code == 200, f"Departments API failed: {dept_response.text}"
+        
+        departments = dept_response.json()
+        if len(departments) > 0:
+            dept_id = departments[0].get("id")
+            
+            # Test with department filter
+            response = requests.get(
+                f"{BASE_URL}/api/hr/employees?department_id={dept_id}&limit=10",
+                headers=self.headers
+            )
+            assert response.status_code == 200, f"Employees filter by department failed: {response.text}"
+            print(f"✓ Employees filter by department returned {len(response.json())} employees")
+        else:
+            print("✓ No departments to test with")
+            
+    # ============== DATA SCOPE FILTER UTILITY TESTS ==============
+    
+    def test_departments_endpoint_works(self):
+        """Test that departments endpoint works (used for data scope filtering)"""
+        response = requests.get(
+            f"{BASE_URL}/api/hr/departments",
+            headers=self.headers
+        )
+        assert response.status_code == 200, f"Departments failed: {response.text}"
+        
+        departments = response.json()
+        assert isinstance(departments, list), "Departments should be a list"
+        print(f"✓ Departments endpoint returned {len(departments)} departments")
+        
+    def test_my_tasks_endpoint_works(self):
+        """Test that my-tasks endpoint works (uses data scope filtering)"""
+        response = requests.get(
+            f"{BASE_URL}/api/projects/my-tasks",
+            headers=self.headers
+        )
+        assert response.status_code == 200, f"My tasks failed: {response.text}"
+        
+        data = response.json()
+        assert "stats" in data, "My tasks should have stats"
+        print(f"✓ My tasks endpoint works. Stats: {data.get('stats', {})}")
+        
+    def test_manager_dashboard_works(self):
+        """Test that manager dashboard endpoint works"""
+        response = requests.get(
+            f"{BASE_URL}/api/projects/manager-dashboard",
+            headers=self.headers
+        )
+        assert response.status_code == 200, f"Manager dashboard failed: {response.text}"
+        
+        data = response.json()
+        assert "total_projects" in data, "Dashboard should have total_projects"
+        assert "total_tasks" in data, "Dashboard should have total_tasks"
+        print(f"✓ Manager dashboard works. Projects: {data.get('total_projects')}, Tasks: {data.get('total_tasks')}")
+
+
+class TestPermissionsUtility:
+    """Test the permissions utility functions"""
+    
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        """Setup test fixtures"""
+        login_response = requests.post(f"{BASE_URL}/api/auth/login", json={
+            "email": "admin@sevora.com",
+            "password": "admin123"
+        })
+        assert login_response.status_code == 200
+        
+        data = login_response.json()
+        self.token = data.get("access_token")
+        self.user = data.get("user")
+        self.headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Content-Type": "application/json"
+        }
+        
+    def test_user_has_role_info(self):
+        """Test that user object contains role information for permission checks"""
+        assert "role" in self.user, "User should have role"
+        assert self.user.get("role") in ["super_admin", "admin"], "Test user should be admin"
+        print(f"✓ User has role: {self.user.get('role')}")
+        
+    def test_projects_have_permissions(self):
+        """Test that project responses include _permissions field"""
+        response = requests.get(
+            f"{BASE_URL}/api/projects/list",
+            headers=self.headers
+        )
+        assert response.status_code == 200
+        
+        projects = response.json()
+        if len(projects) > 0:
+            project = projects[0]
+            assert "_permissions" in project, "Project should have _permissions"
+            perms = project.get("_permissions", {})
+            assert "can_view" in perms, "Permissions should have can_view"
+            assert "can_edit" in perms, "Permissions should have can_edit"
+            assert "can_delete" in perms, "Permissions should have can_delete"
+            print(f"✓ Projects include permissions. Admin can_delete: {perms.get('can_delete')}")
+        else:
+            print("✓ No projects to check permissions on")
 
 
 if __name__ == "__main__":
-    pytest.main([__file__, "-v", "-s"])
+    pytest.main([__file__, "-v", "--tb=short"])

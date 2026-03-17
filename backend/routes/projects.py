@@ -542,7 +542,7 @@ async def list_projects(
     user: dict = Depends(get_current_user_dep)
 ):
     """List all projects with filters, respecting visibility settings and data_scope permissions"""
-    from utils.permissions import get_data_scope_query
+    from utils.permissions import apply_data_scope_filter
     
     user_id = user["id"]
     
@@ -577,8 +577,16 @@ async def list_projects(
     role_level = user.get("role_level", 10)
     is_admin = role_level >= 80 or user_role in ["super_admin", "admin"]
     
-    # Apply data scope filtering based on user's module_permissions
-    query = get_data_scope_query(user, "project_management", filter_query)
+    # Apply data scope filtering based on user's permissions
+    # Uses the "projects" category and "projects" module for permission lookup
+    query = await apply_data_scope_filter(
+        filter_query, 
+        user_id, 
+        "projects",  # category
+        "projects",  # module
+        user_field="owner_id",  # Projects use owner_id as the user field
+        department_field="department_id"
+    )
     
     projects = await db.pm_projects.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
     
@@ -2439,9 +2447,9 @@ async def list_all_tasks(
     user: dict = Depends(get_current_user_dep)
 ):
     """List all tasks with filters. By default includes tasks assigned to current user."""
+    from utils.permissions import apply_data_scope_filter
+    
     user_id = user.get("id")
-    user_role = user.get("role", "")
-    is_admin = user_role in ["super_admin", "admin"] or user.get("can_manage_users")
     
     query = {"parent_task_id": None}  # Only top-level tasks
     
@@ -2459,19 +2467,16 @@ async def list_all_tasks(
             {"description": {"$regex": search, "$options": "i"}}
         ]
     
-    # If not admin and include_my_tasks, ensure user sees their assigned tasks
-    if not is_admin and include_my_tasks and not assigned_to:
-        original_query = dict(query)
-        query = {
-            "$and": [
-                {"parent_task_id": None},
-                {"$or": [
-                    {"assigned_to": user_id},
-                    {"created_by": user_id},
-                    original_query
-                ]}
-            ]
-        }
+    # Apply data scope filtering based on user's permissions
+    # Uses the "projects" category and "tasks" module for permission lookup
+    query = await apply_data_scope_filter(
+        query, 
+        user_id, 
+        "projects",  # category
+        "tasks",  # module
+        user_field="assigned_to",  # Tasks primarily use assigned_to as user field
+        department_field="department_id"
+    )
     
     tasks = await db.pm_tasks.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
     

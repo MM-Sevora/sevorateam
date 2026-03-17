@@ -797,8 +797,11 @@ async def get_employees(
     skip: int = Query(default=0, ge=0),
     user: dict = Depends(get_current_user_dep())
 ):
-    """Get all employees with filters"""
+    """Get all employees with filters, respecting data scope permissions"""
+    from utils.permissions import apply_data_scope_filter
+    
     db = get_db()
+    user_id = user.get("id")
     
     query = {}
     
@@ -822,6 +825,16 @@ async def get_employees(
             {"email": {"$regex": search, "$options": "i"}},
             {"employee_id": {"$regex": search, "$options": "i"}}
         ]
+    
+    # Apply data scope filtering based on user's permissions
+    query = await apply_data_scope_filter(
+        query, 
+        user_id, 
+        "hr",  # category
+        "employees",  # module
+        user_field="id",  # Employee's own ID
+        department_field="department_id"
+    )
     
     employees = await db.users.find(
         query, 

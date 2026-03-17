@@ -116,6 +116,162 @@ def get_record_permissions(record: dict, current_user: dict) -> dict:
 
 # ============== DATA SCOPE FILTERING (3D Permissions) ==============
 
+# Data scope constants
+DATA_SCOPE_OWN = "own"          # User can only access their own data
+DATA_SCOPE_DEPARTMENT = "department"  # User can access data from their department
+DATA_SCOPE_ALL = "all"          # User can access all data
+
+
+async def get_user_module_permission(user_id: str, category: str, module: str) -> dict:
+    """
+    Get permission for a specific module from the database.
+    Handles both role-based and custom permissions.
+    
+    Returns: {"actions": [...], "data_scope": "own|department|all"}
+    """
+    from server import db
+    
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        return {"actions": [], "data_scope": "own"}
+    
+    # Get role permissions
+    role_permissions = {}
+    if user.get("role_id"):
+        role = await db.roles.find_one({"id": user["role_id"]}, {"_id": 0})
+        if role:
+            role_permissions = role.get("permissions", {})
+    
+    # Get custom permissions
+    custom_permissions = user.get("custom_permissions", {})
+    override_mode = user.get("permission_override_mode", "merge")
+    
+    # Determine effective permission for this module
+    result = {"actions": [], "data_scope": "own"}
+    
+    # Get from role first
+    if category in role_permissions and module in role_permissions[category]:
+        role_perm = role_permissions[category][module]
+        if isinstance(role_perm, dict):
+            result = {
+                "actions": role_perm.get("actions", []),
+                "data_scope": role_perm.get("data_scope", "all")
+            }
+        elif isinstance(role_perm, list):
+            result = {"actions": role_perm, "data_scope": "all"}
+    
+    # Apply custom permissions based on mode
+    if override_mode == "replace" and custom_permissions:
+        # Use only custom permissions
+        if category in custom_permissions and module in custom_permissions[category]:
+            custom_perm = custom_permissions[category][module]
+            if isinstance(custom_perm, dict):
+                result = {
+                    "actions": custom_perm.get("actions", []),
+                    "data_scope": custom_perm.get("data_scope", "own")
+                }
+            elif isinstance(custom_perm, list):
+                result = {"actions": custom_perm, "data_scope": "all"}
+        else:
+            # Module not in custom perms under replace mode = no access
+            result = {"actions": [], "data_scope": "own"}
+    elif custom_permissions:
+        # Merge: custom adds to role
+        if category in custom_permissions and module in custom_permissions[category]:
+            custom_perm = custom_permissions[category][module]
+            if isinstance(custom_perm, dict):
+                # Merge actions
+                existing_actions = set(result.get("actions", []))
+                new_actions = set(custom_perm.get("actions", []))
+                result["actions"] = list(existing_actions | new_actions)
+                # Custom data scope overrides role
+                if "data_scope" in custom_perm:
+                    result["data_scope"] = custom_perm["data_scope"]
+            elif isinstance(custom_perm, list):
+                existing_actions = set(result.get("actions", []))
+                new_actions = set(custom_perm)
+                result["actions"] = list(existing_actions | new_actions)
+    
+    return result
+
+
+async def get_data_scope_filter_async(
+    user_id: str, 
+    category: str, 
+    module: str,
+    user_field: str = "created_by",
+    department_field: str = "department_id"
+) -> dict:
+    """
+    Get MongoDB filter query based on user's data scope for a module.
+    
+    Args:
+        user_id: The requesting user's ID
+        category: Permission category (e.g., "hr", "projects", "finance")
+        module: The specific module (e.g., "employees", "tasks", "payments")
+        user_field: The field in the collection that stores user ID
+        department_field: The field in the collection that stores department ID
+    
+    Returns:
+        MongoDB filter dict to be merged with the query
+    """
+    from server import db
+    
+    # Check if super admin (bypass all restrictions)
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if user and user.get("role") in ["super_admin", "admin"]:
+        return {}  # No filter for admins
+    
+    perm = await get_user_module_permission(user_id, category, module)
+    data_scope = perm.get("data_scope", "own")
+    
+    if data_scope == DATA_SCOPE_ALL:
+        # User can see all data - no filter
+        return {}
+    
+    if data_scope == DATA_SCOPE_DEPARTMENT:
+        # User can see data from their department
+        department_id = user.get("department_id") if user else None
+        
+        if department_id:
+            return {"$or": [
+                {user_field: user_id},  # Own data
+                {department_field: department_id}  # Department data
+            ]}
+        else:
+            # User has no department - fall back to own data only
+            return {user_field: user_id}
+    
+    # DATA_SCOPE_OWN - User can only see their own data
+    return {user_field: user_id}
+
+
+async def apply_data_scope_filter(
+    base_query: dict,
+    user_id: str,
+    category: str,
+    module: str,
+    user_field: str = "created_by",
+    department_field: str = "department_id"
+) -> dict:
+    """
+    Apply data scope filter to an existing query.
+    
+    Returns the query with data scope filter applied
+    """
+    scope_filter = await get_data_scope_filter_async(
+        user_id, category, module, user_field, department_field
+    )
+    
+    if not scope_filter:
+        return base_query
+    
+    # Merge scope filter with existing query
+    if base_query:
+        return {"$and": [base_query, scope_filter]}
+    return scope_filter
+
+
 def get_data_scope_query(
     current_user: dict, 
     module_code: str, 
