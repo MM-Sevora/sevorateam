@@ -15,7 +15,8 @@ import { toast } from 'sonner';
 import { 
   RefreshCw, Plus, Search, Filter, Instagram, Youtube, 
   MoreHorizontal, Users, Sparkles, ChevronUp, ChevronDown, Download, User, AtSign, DollarSign, Building, X,
-  TrendingUp, Heart, Target, Eye, Send, Trash2, Edit, ExternalLink, BadgeCheck, Loader2, GitCompare, Wand2, Link2, MessageSquare
+  TrendingUp, Heart, Target, Eye, Send, Trash2, Edit, ExternalLink, BadgeCheck, Loader2, GitCompare, Wand2, Link2, MessageSquare,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
 } from 'lucide-react';
 import { ExportButton } from '../../lib/exportUtils';
 import LinkToCampaign from '../../lib/LinkToCampaign';
@@ -70,6 +71,12 @@ const InfluencersListPage = () => {
   // Verification state
   const [verified, setVerified] = useState({ instagram: false, youtube: false });
   
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [pageSize] = useState(25); // Items per page
+  
   // Auto-fetch debounce refs
   const instagramDebounceRef = useRef(null);
   const youtubeDebounceRef = useRef(null);
@@ -111,19 +118,25 @@ const InfluencersListPage = () => {
   
   const [newDeliverable, setNewDeliverable] = useState({ name: '', description: '', price: '' });
 
-  const fetchInfluencers = useCallback(async () => {
+  const fetchInfluencers = useCallback(async (page = currentPage) => {
     try {
       setLoading(true);
       const response = await api.get('/marketing/v2/contacts/paginated', {
         params: { 
           contact_type: 'influencer', 
-          page_size: 100,
+          page: page,
+          page_size: pageSize,
           ...(filterCity !== 'all' && { city: filterCity }),
           ...(filterAddedBy !== 'all' && { added_by: filterAddedBy })
         }
       });
       const data = response.data.contacts || [];
       setInfluencers(data);
+      
+      // Update pagination info
+      setTotalPages(response.data.total_pages || 1);
+      setTotalCount(response.data.total || 0);
+      setCurrentPage(response.data.page || 1);
       
       // Update filters metadata
       if (response.data.filters_meta) {
@@ -142,7 +155,7 @@ const InfluencersListPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [api, filterCity, filterAddedBy]);
+  }, [api, filterCity, filterAddedBy, currentPage, pageSize]);
 
   const fetchCampaigns = useCallback(async () => {
     try {
@@ -154,9 +167,19 @@ const InfluencersListPage = () => {
   }, [api]);
 
   useEffect(() => {
-    fetchInfluencers();
+    fetchInfluencers(1); // Reset to page 1 when filters change
     fetchCampaigns();
-  }, [fetchInfluencers, fetchCampaigns]);
+  }, [filterCity, filterAddedBy]);
+  
+  // Page change handler
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+      fetchInfluencers(newPage);
+      // Scroll to top of list
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   const handleFetchSocial = async (platform) => {
     const handle = platform === 'instagram' ? newInfluencer.instagram_handle : newInfluencer.youtube_handle;
@@ -1573,7 +1596,7 @@ const InfluencersListPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-pink-600 uppercase tracking-wider">Total Influencers</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{influencers.length}</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{totalCount || influencers.length}</p>
                 <p className="text-xs text-gray-500 mt-1">In database</p>
               </div>
               <div className="w-12 h-12 rounded-xl bg-pink-100 flex items-center justify-center">
@@ -1869,7 +1892,8 @@ const InfluencersListPage = () => {
       {/* Results Count & Sort */}
       <div className="flex items-center justify-between text-sm px-1">
         <span className="text-gray-600">
-          Showing <span className="font-medium text-gray-900">{filteredInfluencers.length}</span> of {influencers.length} influencers
+          Showing <span className="font-medium text-gray-900">{filteredInfluencers.length}</span> of {totalCount > 0 ? totalCount : influencers.length} influencers
+          {totalCount > pageSize && <span className="text-blue-600 ml-2">(page {currentPage} of {totalPages})</span>}
           {hasActiveFilters && <span className="text-amber-600 ml-2">(filtered)</span>}
         </span>
         <div className="flex items-center gap-2 text-gray-600">
@@ -2184,6 +2208,139 @@ const InfluencersListPage = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Controls */}
+      {totalCount > 0 && (
+        <div className="flex items-center justify-between px-4 py-4 border-t bg-gray-50 rounded-b-xl" data-testid="pagination-controls">
+          {/* Results Info */}
+          <div className="text-sm text-gray-600">
+            Showing <span className="font-semibold">{((currentPage - 1) * pageSize) + 1}</span> to{' '}
+            <span className="font-semibold">{Math.min(currentPage * pageSize, totalCount)}</span> of{' '}
+            <span className="font-semibold">{totalCount}</span> influencers
+          </div>
+          
+          {/* Page Navigation */}
+          <div className="flex items-center gap-2">
+            {/* First Page */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(1)}
+              disabled={currentPage === 1 || loading}
+              className="h-8 w-8 p-0"
+              data-testid="pagination-first"
+            >
+              <ChevronsLeft className="w-4 h-4" />
+            </Button>
+            
+            {/* Previous Page */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1 || loading}
+              className="h-8 w-8 p-0"
+              data-testid="pagination-prev"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            
+            {/* Page Numbers */}
+            <div className="flex items-center gap-1">
+              {(() => {
+                const pages = [];
+                const showPages = 5;
+                let startPage = Math.max(1, currentPage - Math.floor(showPages / 2));
+                let endPage = Math.min(totalPages, startPage + showPages - 1);
+                
+                if (endPage - startPage + 1 < showPages) {
+                  startPage = Math.max(1, endPage - showPages + 1);
+                }
+                
+                if (startPage > 1) {
+                  pages.push(
+                    <Button
+                      key={1}
+                      variant={currentPage === 1 ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handlePageChange(1)}
+                      className={`h-8 w-8 p-0 ${currentPage === 1 ? 'bg-[#c4a35a] text-white' : ''}`}
+                    >
+                      1
+                    </Button>
+                  );
+                  if (startPage > 2) {
+                    pages.push(<span key="dots1" className="px-1 text-gray-400">...</span>);
+                  }
+                }
+                
+                for (let i = startPage; i <= endPage; i++) {
+                  pages.push(
+                    <Button
+                      key={i}
+                      variant={currentPage === i ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handlePageChange(i)}
+                      disabled={loading}
+                      className={`h-8 w-8 p-0 ${currentPage === i ? 'bg-[#c4a35a] text-white hover:bg-[#b39349]' : ''}`}
+                    >
+                      {i}
+                    </Button>
+                  );
+                }
+                
+                if (endPage < totalPages) {
+                  if (endPage < totalPages - 1) {
+                    pages.push(<span key="dots2" className="px-1 text-gray-400">...</span>);
+                  }
+                  pages.push(
+                    <Button
+                      key={totalPages}
+                      variant={currentPage === totalPages ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handlePageChange(totalPages)}
+                      className={`h-8 w-8 p-0 ${currentPage === totalPages ? 'bg-[#c4a35a] text-white' : ''}`}
+                    >
+                      {totalPages}
+                    </Button>
+                  );
+                }
+                
+                return pages;
+              })()}
+            </div>
+            
+            {/* Next Page */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages || loading}
+              className="h-8 w-8 p-0"
+              data-testid="pagination-next"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+            
+            {/* Last Page */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(totalPages)}
+              disabled={currentPage === totalPages || loading}
+              className="h-8 w-8 p-0"
+              data-testid="pagination-last"
+            >
+              <ChevronsRight className="w-4 h-4" />
+            </Button>
+          </div>
+          
+          {/* Page Size Info */}
+          <div className="text-sm text-gray-500">
+            Page {currentPage} of {totalPages}
+          </div>
+        </div>
+      )}
 
       {/* Bulk Delete Confirmation Dialog */}
       <Dialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
