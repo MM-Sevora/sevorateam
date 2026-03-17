@@ -199,6 +199,14 @@ const UsersPermissionsPage = () => {
   const [syncingLicenses, setSyncingLicenses] = useState(false);
   const [showLicensedOnly, setShowLicensedOnly] = useState(false);
 
+  // User Permission Override Dialog
+  const [permissionDialog, setPermissionDialog] = useState({ open: false, user: null });
+  const [effectivePermissions, setEffectivePermissions] = useState(null);
+  const [customPermissions, setCustomPermissions] = useState({});
+  const [overrideMode, setOverrideMode] = useState('merge');
+  const [savingPermissions, setSavingPermissions] = useState(false);
+  const [loadingPermissions, setLoadingPermissions] = useState(false);
+
   // Fetch license stats
   const fetchLicenseStats = useCallback(async () => {
     try {
@@ -291,6 +299,140 @@ const UsersPermissionsPage = () => {
     totalModules: modules.length,
     totalCategories: categories.length,
   };
+
+  // ================== PERMISSION OVERRIDE FUNCTIONS ==================
+  const openPermissionDialog = async (user) => {
+    setPermissionDialog({ open: true, user });
+    setLoadingPermissions(true);
+    try {
+      const res = await api.get(`/workos/users/${user.id}/effective-permissions`);
+      setEffectivePermissions(res.data);
+      setCustomPermissions(res.data.custom_permissions || {});
+      setOverrideMode(res.data.override_mode || 'merge');
+    } catch (err) {
+      console.error('Failed to fetch permissions:', err);
+      toast.error('Failed to load user permissions');
+      setCustomPermissions({});
+      setOverrideMode('merge');
+    } finally {
+      setLoadingPermissions(false);
+    }
+  };
+
+  const togglePermissionAction = (category, module, action) => {
+    setCustomPermissions(prev => {
+      const newPerms = { ...prev };
+      if (!newPerms[category]) newPerms[category] = {};
+      if (!newPerms[category][module]) newPerms[category][module] = [];
+      
+      const actions = newPerms[category][module];
+      if (actions.includes(action)) {
+        newPerms[category][module] = actions.filter(a => a !== action);
+        // Clean up empty arrays/objects
+        if (newPerms[category][module].length === 0) delete newPerms[category][module];
+        if (Object.keys(newPerms[category]).length === 0) delete newPerms[category];
+      } else {
+        newPerms[category][module] = [...actions, action];
+      }
+      return newPerms;
+    });
+  };
+
+  const addModulePermission = (category, module) => {
+    setCustomPermissions(prev => {
+      const newPerms = { ...prev };
+      if (!newPerms[category]) newPerms[category] = {};
+      if (!newPerms[category][module]) {
+        newPerms[category][module] = ['view']; // Default to view permission
+      }
+      return newPerms;
+    });
+  };
+
+  const removeModulePermission = (category, module) => {
+    setCustomPermissions(prev => {
+      const newPerms = { ...prev };
+      if (newPerms[category]) {
+        delete newPerms[category][module];
+        if (Object.keys(newPerms[category]).length === 0) delete newPerms[category];
+      }
+      return newPerms;
+    });
+  };
+
+  const saveCustomPermissions = async () => {
+    if (!permissionDialog.user) return;
+    setSavingPermissions(true);
+    try {
+      await api.put(`/workos/users/${permissionDialog.user.id}/permissions`, {
+        custom_permissions: customPermissions,
+        override_mode: overrideMode
+      });
+      toast.success('User permissions updated successfully');
+      setPermissionDialog({ open: false, user: null });
+      fetchData(); // Refresh user list
+    } catch (err) {
+      console.error('Failed to save permissions:', err);
+      toast.error(err.response?.data?.detail || 'Failed to save permissions');
+    } finally {
+      setSavingPermissions(false);
+    }
+  };
+
+  const clearCustomPermissions = async () => {
+    if (!permissionDialog.user) return;
+    if (!window.confirm('Clear all custom permissions for this user? They will only have permissions from their assigned role.')) return;
+    
+    setSavingPermissions(true);
+    try {
+      await api.delete(`/workos/users/${permissionDialog.user.id}/permissions`);
+      toast.success('Custom permissions cleared');
+      setCustomPermissions({});
+      setPermissionDialog({ open: false, user: null });
+      fetchData();
+    } catch (err) {
+      toast.error('Failed to clear permissions');
+    } finally {
+      setSavingPermissions(false);
+    }
+  };
+
+  // Available module categories and their modules for permission selection
+  const availablePermissionModules = [
+    { category: 'hr', name: 'HR', modules: [
+      { code: 'employees', name: 'Employees', actions: ['view', 'create', 'edit', 'delete'] },
+      { code: 'leave', name: 'Leave Management', actions: ['view', 'create', 'edit', 'approve', 'delete'] },
+      { code: 'attendance', name: 'Attendance', actions: ['view', 'edit'] },
+      { code: 'payroll', name: 'Payroll', actions: ['view', 'create', 'edit', 'approve'] },
+      { code: 'profile', name: 'Profile', actions: ['view', 'edit'] },
+    ]},
+    { category: 'finance', name: 'Finance', modules: [
+      { code: 'expenses', name: 'Expenses', actions: ['view', 'create', 'edit', 'approve', 'delete'] },
+      { code: 'invoices', name: 'Invoices', actions: ['view', 'create', 'edit', 'delete'] },
+      { code: 'budgets', name: 'Budgets', actions: ['view', 'create', 'edit'] },
+      { code: 'reports', name: 'Reports', actions: ['view', 'export'] },
+    ]},
+    { category: 'projects', name: 'Projects', modules: [
+      { code: 'projects', name: 'Projects', actions: ['view', 'create', 'edit', 'delete'] },
+      { code: 'tasks', name: 'Tasks', actions: ['view', 'create', 'edit', 'delete', 'assign'] },
+      { code: 'milestones', name: 'Milestones', actions: ['view', 'create', 'edit'] },
+    ]},
+    { category: 'admin', name: 'Administration', modules: [
+      { code: 'users', name: 'Users', actions: ['view', 'create', 'edit', 'delete'] },
+      { code: 'departments', name: 'Departments', actions: ['view', 'create', 'edit'] },
+      { code: 'roles', name: 'Roles', actions: ['view', 'create', 'edit', 'delete'] },
+      { code: 'settings', name: 'Settings', actions: ['view', 'edit'] },
+    ]},
+    { category: 'marketing', name: 'Marketing', modules: [
+      { code: 'campaigns', name: 'Campaigns', actions: ['view', 'create', 'edit', 'delete'] },
+      { code: 'contacts', name: 'Contacts', actions: ['view', 'create', 'edit', 'delete'] },
+      { code: 'analytics', name: 'Analytics', actions: ['view', 'export'] },
+    ]},
+    { category: 'mail', name: 'Mail', modules: [
+      { code: 'inbox', name: 'Inbox', actions: ['view', 'send', 'delete'] },
+      { code: 'templates', name: 'Templates', actions: ['view', 'create', 'edit', 'delete'] },
+    ]},
+  ];
 
   // Filter users
   const filteredUsers = users.filter(user => {
@@ -1134,6 +1276,9 @@ const UsersPermissionsPage = () => {
                                   <Briefcase className="h-4 w-4" />
                                 </Button>
                               )}
+                              <Button variant="outline" size="icon" onClick={() => openPermissionDialog(user)} className="border-purple-200 text-purple-600" title="Manage Permissions">
+                                <Shield className="h-4 w-4" />
+                              </Button>
                               <Button variant="outline" size="icon" onClick={() => toggleUserStatus(user)} className={user.status === 'active' ? 'border-red-200 text-red-600' : 'border-green-200 text-green-600'}>
                                 {user.status === 'active' ? <XCircle className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
                               </Button>
@@ -2076,6 +2221,185 @@ const UsersPermissionsPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ==================== USER PERMISSION OVERRIDE DIALOG ==================== */}
+      <Sheet open={permissionDialog.open} onOpenChange={(open) => !open && setPermissionDialog({ open: false, user: null })}>
+        <SheetContent className="w-[600px] sm:max-w-[600px] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-purple-600" />
+              Manage Permissions
+            </SheetTitle>
+            <SheetDescription>
+              {permissionDialog.user && (
+                <span>Configure custom permissions for <strong>{permissionDialog.user.name}</strong> ({permissionDialog.user.email})</span>
+              )}
+            </SheetDescription>
+          </SheetHeader>
+
+          {loadingPermissions ? (
+            <div className="flex items-center justify-center py-12">
+              <RefreshCw className="h-8 w-8 animate-spin text-purple-600" />
+            </div>
+          ) : (
+            <div className="mt-6 space-y-6">
+              {/* Override Mode Selection */}
+              <div className="bg-purple-50 rounded-lg p-4 border border-purple-100">
+                <Label className="text-sm font-medium text-purple-900">Override Mode</Label>
+                <p className="text-xs text-purple-700 mt-1 mb-3">Choose how custom permissions interact with the user's role permissions</p>
+                <div className="flex gap-4">
+                  <label className={`flex-1 flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all ${overrideMode === 'merge' ? 'bg-white border-purple-400 shadow-sm' : 'bg-purple-50 border-purple-200'}`}>
+                    <input
+                      type="radio"
+                      name="overrideMode"
+                      value="merge"
+                      checked={overrideMode === 'merge'}
+                      onChange={(e) => setOverrideMode(e.target.value)}
+                      className="text-purple-600"
+                    />
+                    <div>
+                      <p className="font-medium text-sm">Merge</p>
+                      <p className="text-xs text-gray-500">Add to role permissions</p>
+                    </div>
+                  </label>
+                  <label className={`flex-1 flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all ${overrideMode === 'replace' ? 'bg-white border-purple-400 shadow-sm' : 'bg-purple-50 border-purple-200'}`}>
+                    <input
+                      type="radio"
+                      name="overrideMode"
+                      value="replace"
+                      checked={overrideMode === 'replace'}
+                      onChange={(e) => setOverrideMode(e.target.value)}
+                      className="text-purple-600"
+                    />
+                    <div>
+                      <p className="font-medium text-sm">Replace</p>
+                      <p className="text-xs text-gray-500">Override role completely</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Role Permissions Info */}
+              {effectivePermissions?.role_permissions && Object.keys(effectivePermissions.role_permissions).length > 0 && (
+                <div className="bg-gray-50 rounded-lg p-4 border">
+                  <Label className="text-sm font-medium text-gray-700">Role Permissions (from assigned role)</Label>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {Object.entries(effectivePermissions.role_permissions).map(([cat, mods]) => (
+                      <Badge key={cat} variant="outline" className="text-xs bg-gray-100">
+                        {cat}: {Object.keys(mods).length} modules
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Custom Permission Editor */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <Label className="text-sm font-medium">Custom Permissions</Label>
+                  {Object.keys(customPermissions).length > 0 && (
+                    <Button variant="ghost" size="sm" onClick={clearCustomPermissions} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                      <Trash2 className="h-4 w-4 mr-1" /> Clear All
+                    </Button>
+                  )}
+                </div>
+                
+                <div className="space-y-4">
+                  {availablePermissionModules.map(catGroup => (
+                    <Collapsible key={catGroup.category} defaultOpen={!!customPermissions[catGroup.category]}>
+                      <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg bg-white border border-gray-200 hover:bg-gray-50">
+                        <div className="flex items-center gap-2">
+                          <ChevronRight className="h-4 w-4 transition-transform ui-state-open:rotate-90" />
+                          <span className="font-medium text-sm">{catGroup.name}</span>
+                          {customPermissions[catGroup.category] && (
+                            <Badge className="bg-purple-100 text-purple-700 text-xs">
+                              {Object.keys(customPermissions[catGroup.category]).length} modules
+                            </Badge>
+                          )}
+                        </div>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="pt-2 pl-4 space-y-2">
+                        {catGroup.modules.map(mod => {
+                          const isEnabled = customPermissions[catGroup.category]?.[mod.code];
+                          const currentActions = customPermissions[catGroup.category]?.[mod.code] || [];
+                          
+                          return (
+                            <div key={mod.code} className={`p-3 rounded-lg border ${isEnabled ? 'bg-purple-50 border-purple-200' : 'bg-gray-50 border-gray-200'}`}>
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <Switch
+                                    checked={!!isEnabled}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) addModulePermission(catGroup.category, mod.code);
+                                      else removeModulePermission(catGroup.category, mod.code);
+                                    }}
+                                    className="data-[state=checked]:bg-purple-600"
+                                  />
+                                  <span className="text-sm font-medium">{mod.name}</span>
+                                </div>
+                              </div>
+                              {isEnabled && (
+                                <div className="flex flex-wrap gap-2 mt-2 ml-10">
+                                  {mod.actions.map(action => (
+                                    <label 
+                                      key={action}
+                                      className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs cursor-pointer transition-all ${
+                                        currentActions.includes(action) 
+                                          ? 'bg-purple-600 text-white' 
+                                          : 'bg-white border border-gray-300 text-gray-600 hover:border-purple-400'
+                                      }`}
+                                    >
+                                      <Checkbox
+                                        checked={currentActions.includes(action)}
+                                        onCheckedChange={() => togglePermissionAction(catGroup.category, mod.code, action)}
+                                        className="hidden"
+                                      />
+                                      {currentActions.includes(action) && <Check className="h-3 w-3" />}
+                                      {action}
+                                    </label>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </CollapsibleContent>
+                    </Collapsible>
+                  ))}
+                </div>
+              </div>
+
+              {/* Current Custom Permissions Summary */}
+              {Object.keys(customPermissions).length > 0 && (
+                <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                  <Label className="text-sm font-medium text-green-800">Custom Permissions Summary</Label>
+                  <div className="mt-2 space-y-1">
+                    {Object.entries(customPermissions).map(([cat, mods]) => (
+                      <div key={cat} className="text-xs text-green-700">
+                        <span className="font-medium">{cat}:</span>{' '}
+                        {Object.entries(mods).map(([mod, actions]) => (
+                          <span key={mod} className="mr-2">{mod} ({actions.join(', ')})</span>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Save Button */}
+              <div className="flex gap-3 pt-4 border-t">
+                <Button variant="outline" onClick={() => setPermissionDialog({ open: false, user: null })} className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={saveCustomPermissions} disabled={savingPermissions} className="flex-1 bg-purple-600 hover:bg-purple-700">
+                  {savingPermissions ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                  Save Permissions
+                </Button>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
