@@ -162,6 +162,7 @@ const HelpAdminDashboard = lazy(() => import("./pages/help/HelpAdminDashboard"))
 
 // HR Pages
 const ExpenseManagement = lazy(() => import("./pages/hr/ExpenseManagement"));
+const MyTeam = lazy(() => import("./pages/hr/MyTeam"));
 
 // Teams Pages
 const TeamsChat = lazy(() => import("./pages/teams/TeamsChat"));
@@ -589,6 +590,7 @@ function AppRoutes() {
 
                 {/* HR Routes */}
                 <Route path="/hr/expenses" element={<ProtectedRoute requiredModule="hr"><ExpenseManagement /></ProtectedRoute>} />
+                <Route path="/hr/my-team" element={<ProtectedRoute><MyTeam /></ProtectedRoute>} />
 
                 {/* Teams Routes */}
                 <Route path="/teams/chat" element={<ProtectedRoute requiredModule="communication_hub"><TeamsChat /></ProtectedRoute>} />

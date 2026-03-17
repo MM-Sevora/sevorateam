@@ -7,6 +7,36 @@ Build a comprehensive Marketing Operations Platform that integrates marketing, s
 
 ## Latest Updates (March 2026)
 
+### Role Hierarchy - Custom Manager Assignment (Completed ✅)
+**Date**: March 17, 2026
+
+**Features Implemented**:
+
+1. **Custom Manager Assignment**
+   - Each employee can have a specific manager assigned via `reports_to` field
+   - Managers can be assigned during onboarding or changed later by admins
+   - Circular reporting prevention (cannot create loops in hierarchy)
+
+2. **My Team Page** (`/hr/my-team`)
+   - **Stats Cards**: Direct Reports count, Total Team Size, Employees with Sub-teams
+   - **List View**: Table of direct reports with department, designation, report counts
+   - **Org Tree View**: Visual hierarchical tree showing current user as root with expandable branches
+   - **Change Manager**: Admin action to reassign an employee's reporting manager
+   - **Search**: Filter team members by name, email, designation, department
+
+3. **Backend Endpoints Added**:
+   - `GET /api/hr/my-team` - Get current user's direct reports
+   - `GET /api/hr/my-team/tree` - Get full reporting tree below current user
+   - `PUT /api/hr/employees/{id}/manager` - Update employee's manager
+   - `GET /api/hr/managers` - Get all users who have direct reports
+
+**Files Modified**:
+- `/app/backend/routes/hr.py` - Added my-team, managers, update manager endpoints
+- `/app/frontend/src/pages/hr/MyTeam.jsx` - New "My Team" page with list/tree views
+- `/app/frontend/src/App.js` - Added MyTeam route
+
+---
+
 ### Work Updates Enhancements (Completed ✅)
 **Date**: March 17, 2026
 

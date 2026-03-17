@@ -4,6 +4,7 @@ Includes IT Admin ↔ HR Auto-Provisioning Integration
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from pydantic import BaseModel
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
@@ -1060,10 +1061,14 @@ async def get_direct_reports(employee_id: str, user: dict = Depends(get_current_
     return reports
 
 
+class UpdateManagerRequest(BaseModel):
+    manager_id: Optional[str] = None  # None to remove manager
+
+
 @hr_router.put("/employees/{employee_id}/manager")
-async def update_manager(
+async def update_employee_manager(
     employee_id: str,
-    new_manager_id: Optional[str] = None,
+    data: UpdateManagerRequest,
     user: dict = Depends(require_admin())
 ):
     """Update an employee's reporting manager"""
@@ -1072,6 +1077,8 @@ async def update_manager(
     emp = await db.users.find_one({"id": employee_id})
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
+    
+    new_manager_id = data.manager_id
     
     if new_manager_id:
         manager = await db.users.find_one({"id": new_manager_id})
@@ -1094,12 +1101,35 @@ async def update_manager(
                 break
             current_id = mgr.get("reports_to")
     
+    old_manager_id = emp.get("reports_to")
+    
     await db.users.update_one(
         {"id": employee_id},
         {"$set": {"reports_to": new_manager_id, "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
     
-    return {"success": True, "message": "Manager updated"}
+    # Also update employees collection if exists
+    await db.employees.update_one(
+        {"id": employee_id},
+        {"$set": {"reports_to": new_manager_id, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=False
+    )
+    
+    # Get manager name for response
+    manager_name = None
+    if new_manager_id:
+        mgr = await db.users.find_one({"id": new_manager_id}, {"name": 1})
+        manager_name = mgr.get("name") if mgr else None
+    
+    return {
+        "success": True,
+        "employee_id": employee_id,
+        "employee_name": emp.get("name"),
+        "old_manager_id": old_manager_id,
+        "new_manager_id": new_manager_id,
+        "new_manager_name": manager_name,
+        "message": f"Manager updated to {manager_name}" if manager_name else "Manager removed"
+    }
 
 
 # ============== ORG CHART ==============
@@ -1448,3 +1478,126 @@ async def _enrich_employee(db, emp: dict, full_details: bool = False) -> dict:
             emp["years_of_service"] = None
     
     return emp
+
+
+
+# ============== MY TEAM - DIRECT REPORTS ==============
+
+@hr_router.get("/my-team")
+async def get_my_team(user: dict = Depends(get_current_user_dep())):
+    """Get the current user's direct reports (employees who report to them)"""
+    db = get_db()
+    
+    user_id = user.get("id")
+    
+    # Find all employees who report to this user
+    direct_reports = await db.users.find(
+        {"reports_to": user_id, "status": {"$ne": "inactive"}},
+        {"_id": 0, "password": 0}
+    ).to_list(100)
+    
+    # Enrich with department and grade info
+    for emp in direct_reports:
+        if emp.get("department_id"):
+            dept = await db.departments.find_one({"id": emp["department_id"]}, {"name": 1})
+            emp["department_name"] = dept.get("name") if dept else None
+        if emp.get("grade_id"):
+            grade = await db.grade_types.find_one({"id": emp["grade_id"]}, {"name": 1})
+            emp["grade_name"] = grade.get("name") if grade else None
+        
+        # Count their direct reports
+        emp["direct_reports_count"] = await db.users.count_documents({"reports_to": emp["id"]})
+    
+    # Sort by name
+    direct_reports.sort(key=lambda x: x.get("name", "").lower())
+    
+    return {
+        "manager_id": user_id,
+        "manager_name": user.get("name"),
+        "direct_reports_count": len(direct_reports),
+        "direct_reports": direct_reports
+    }
+
+
+@hr_router.get("/my-team/tree")
+async def get_my_team_tree(
+    depth: int = Query(default=3, ge=1, le=10),
+    user: dict = Depends(get_current_user_dep())
+):
+    """Get the current user's full reporting tree (all levels below them)"""
+    db = get_db()
+    
+    user_id = user.get("id")
+    
+    async def build_subtree(manager_id: str, current_depth: int) -> List[dict]:
+        if current_depth > depth:
+            return []
+        
+        reports = await db.users.find(
+            {"reports_to": manager_id, "status": {"$ne": "inactive"}},
+            {"_id": 0, "id": 1, "name": 1, "email": 1, "title": 1, "designation": 1, 
+             "department_id": 1, "avatar_url": 1, "status": 1}
+        ).to_list(100)
+        
+        for emp in reports:
+            if emp.get("department_id"):
+                dept = await db.departments.find_one({"id": emp["department_id"]}, {"name": 1})
+                emp["department_name"] = dept.get("name") if dept else None
+            emp["children"] = await build_subtree(emp["id"], current_depth + 1)
+            emp["direct_reports_count"] = len(emp["children"])
+        
+        return reports
+    
+    tree = await build_subtree(user_id, 1)
+    
+    # Count total team members (all levels)
+    def count_all(nodes):
+        total = len(nodes)
+        for node in nodes:
+            total += count_all(node.get("children", []))
+        return total
+    
+    return {
+        "manager_id": user_id,
+        "manager_name": user.get("name"),
+        "total_team_size": count_all(tree),
+        "direct_reports_count": len(tree),
+        "tree": tree
+    }
+
+
+@hr_router.get("/managers")
+async def get_all_managers(user: dict = Depends(get_current_user_dep())):
+    """Get list of all users who have direct reports (managers)"""
+    db = get_db()
+    
+    # Find all unique manager IDs
+    pipeline = [
+        {"$match": {"reports_to": {"$ne": None}, "status": {"$ne": "inactive"}}},
+        {"$group": {"_id": "$reports_to", "count": {"$sum": 1}}}
+    ]
+    
+    manager_stats = await db.users.aggregate(pipeline).to_list(200)
+    manager_ids = [m["_id"] for m in manager_stats]
+    manager_report_counts = {m["_id"]: m["count"] for m in manager_stats}
+    
+    # Fetch manager details
+    managers = await db.users.find(
+        {"id": {"$in": manager_ids}},
+        {"_id": 0, "id": 1, "name": 1, "email": 1, "department_id": 1, "title": 1, "designation": 1, "avatar_url": 1}
+    ).to_list(200)
+    
+    # Enrich with department names and report counts
+    for mgr in managers:
+        mgr["direct_reports_count"] = manager_report_counts.get(mgr["id"], 0)
+        if mgr.get("department_id"):
+            dept = await db.departments.find_one({"id": mgr["department_id"]}, {"name": 1})
+            mgr["department_name"] = dept.get("name") if dept else None
+    
+    # Sort by number of direct reports (descending)
+    managers.sort(key=lambda x: x.get("direct_reports_count", 0), reverse=True)
+    
+    return {
+        "total_managers": len(managers),
+        "managers": managers
+    }
