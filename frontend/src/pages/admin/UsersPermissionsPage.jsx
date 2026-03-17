@@ -397,42 +397,79 @@ const UsersPermissionsPage = () => {
     }
   };
 
-  // Available module categories and their modules for permission selection
-  const availablePermissionModules = [
-    { category: 'hr', name: 'HR', modules: [
-      { code: 'employees', name: 'Employees', actions: ['view', 'create', 'edit', 'delete'] },
-      { code: 'leave', name: 'Leave Management', actions: ['view', 'create', 'edit', 'approve', 'delete'] },
-      { code: 'attendance', name: 'Attendance', actions: ['view', 'edit'] },
-      { code: 'payroll', name: 'Payroll', actions: ['view', 'create', 'edit', 'approve'] },
-      { code: 'profile', name: 'Profile', actions: ['view', 'edit'] },
-    ]},
-    { category: 'finance', name: 'Finance', modules: [
-      { code: 'expenses', name: 'Expenses', actions: ['view', 'create', 'edit', 'approve', 'delete'] },
-      { code: 'invoices', name: 'Invoices', actions: ['view', 'create', 'edit', 'delete'] },
-      { code: 'budgets', name: 'Budgets', actions: ['view', 'create', 'edit'] },
-      { code: 'reports', name: 'Reports', actions: ['view', 'export'] },
-    ]},
-    { category: 'projects', name: 'Projects', modules: [
-      { code: 'projects', name: 'Projects', actions: ['view', 'create', 'edit', 'delete'] },
-      { code: 'tasks', name: 'Tasks', actions: ['view', 'create', 'edit', 'delete', 'assign'] },
-      { code: 'milestones', name: 'Milestones', actions: ['view', 'create', 'edit'] },
-    ]},
-    { category: 'admin', name: 'Administration', modules: [
-      { code: 'users', name: 'Users', actions: ['view', 'create', 'edit', 'delete'] },
-      { code: 'departments', name: 'Departments', actions: ['view', 'create', 'edit'] },
-      { code: 'roles', name: 'Roles', actions: ['view', 'create', 'edit', 'delete'] },
-      { code: 'settings', name: 'Settings', actions: ['view', 'edit'] },
-    ]},
-    { category: 'marketing', name: 'Marketing', modules: [
-      { code: 'campaigns', name: 'Campaigns', actions: ['view', 'create', 'edit', 'delete'] },
-      { code: 'contacts', name: 'Contacts', actions: ['view', 'create', 'edit', 'delete'] },
-      { code: 'analytics', name: 'Analytics', actions: ['view', 'export'] },
-    ]},
-    { category: 'mail', name: 'Mail', modules: [
-      { code: 'inbox', name: 'Inbox', actions: ['view', 'send', 'delete'] },
-      { code: 'templates', name: 'Templates', actions: ['view', 'create', 'edit', 'delete'] },
-    ]},
+  // Data scope options for permissions
+  const dataScopeOptions = [
+    { value: 'own', label: 'Own Data Only', description: 'User can only access their own data' },
+    { value: 'department', label: 'Department', description: 'User can access their department\'s data' },
+    { value: 'all', label: 'All Data', description: 'User can access all organization data' },
   ];
+
+  // Default actions available for all modules
+  const defaultActions = ['view', 'create', 'edit', 'delete'];
+  
+  // Module-specific actions (additional actions for certain modules)
+  const moduleSpecificActions = {
+    hr: ['approve', 'export'],
+    expense: ['approve', 'reimburse'],
+    project_management: ['assign', 'archive'],
+    sales: ['convert', 'export'],
+    marketing_ops: ['publish', 'schedule'],
+    admin: ['configure'],
+  };
+
+  // Get actions for a module
+  const getModuleActions = (moduleCode) => {
+    const specificActions = moduleSpecificActions[moduleCode] || [];
+    return [...defaultActions, ...specificActions];
+  };
+
+  // Toggle data scope for a module
+  const setModuleDataScope = (moduleCode, scope) => {
+    setCustomPermissions(prev => {
+      const newPerms = { ...prev };
+      if (!newPerms[moduleCode]) {
+        newPerms[moduleCode] = { actions: ['view'], data_scope: scope };
+      } else {
+        newPerms[moduleCode] = { ...newPerms[moduleCode], data_scope: scope };
+      }
+      return newPerms;
+    });
+  };
+
+  // Toggle permission action for a module (new format with data_scope)
+  const toggleModuleAction = (moduleCode, action) => {
+    setCustomPermissions(prev => {
+      const newPerms = { ...prev };
+      if (!newPerms[moduleCode]) {
+        newPerms[moduleCode] = { actions: [action], data_scope: 'own' };
+      } else {
+        const actions = newPerms[moduleCode].actions || [];
+        if (actions.includes(action)) {
+          newPerms[moduleCode].actions = actions.filter(a => a !== action);
+          // If no actions left, remove the module
+          if (newPerms[moduleCode].actions.length === 0) {
+            delete newPerms[moduleCode];
+          }
+        } else {
+          newPerms[moduleCode].actions = [...actions, action];
+        }
+      }
+      return newPerms;
+    });
+  };
+
+  // Enable/disable entire module
+  const toggleModuleAccess = (moduleCode, enabled) => {
+    setCustomPermissions(prev => {
+      const newPerms = { ...prev };
+      if (enabled) {
+        newPerms[moduleCode] = { actions: ['view'], data_scope: 'own' };
+      } else {
+        delete newPerms[moduleCode];
+      }
+      return newPerms;
+    });
+  };
 
   // Filter users
   const filteredUsers = users.filter(user => {
@@ -2293,10 +2330,10 @@ const UsersPermissionsPage = () => {
                 </div>
               )}
 
-              {/* Custom Permission Editor */}
+              {/* Custom Permission Editor - All Modules with Data Scope */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <Label className="text-sm font-medium">Custom Permissions</Label>
+                  <Label className="text-sm font-medium">Module Permissions</Label>
                   {Object.keys(customPermissions).length > 0 && (
                     <Button variant="ghost" size="sm" onClick={clearCustomPermissions} className="text-red-600 hover:text-red-700 hover:bg-red-50">
                       <Trash2 className="h-4 w-4 mr-1" /> Clear All
@@ -2304,84 +2341,103 @@ const UsersPermissionsPage = () => {
                   )}
                 </div>
                 
-                <div className="space-y-4">
-                  {availablePermissionModules.map(catGroup => (
-                    <Collapsible key={catGroup.category} defaultOpen={!!customPermissions[catGroup.category]}>
-                      <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg bg-white border border-gray-200 hover:bg-gray-50">
-                        <div className="flex items-center gap-2">
-                          <ChevronRight className="h-4 w-4 transition-transform ui-state-open:rotate-90" />
-                          <span className="font-medium text-sm">{catGroup.name}</span>
-                          {customPermissions[catGroup.category] && (
-                            <Badge className="bg-purple-100 text-purple-700 text-xs">
-                              {Object.keys(customPermissions[catGroup.category]).length} modules
+                <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                  {modules.map(mod => {
+                    const modulePerms = customPermissions[mod.code];
+                    const isEnabled = !!modulePerms;
+                    const currentActions = modulePerms?.actions || [];
+                    const currentScope = modulePerms?.data_scope || 'own';
+                    const availableActions = getModuleActions(mod.code);
+                    
+                    return (
+                      <div key={mod.code} className={`p-3 rounded-lg border transition-all ${isEnabled ? 'bg-purple-50 border-purple-300' : 'bg-gray-50 border-gray-200'}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <Switch
+                              checked={isEnabled}
+                              onCheckedChange={(checked) => toggleModuleAccess(mod.code, checked)}
+                              className="data-[state=checked]:bg-purple-600"
+                            />
+                            <div>
+                              <span className="text-sm font-medium">{mod.name}</span>
+                              {mod.description && (
+                                <p className="text-xs text-gray-500 mt-0.5">{mod.description?.substring(0, 50)}...</p>
+                              )}
+                            </div>
+                          </div>
+                          {isEnabled && (
+                            <Badge className={`text-xs ${currentScope === 'all' ? 'bg-green-100 text-green-700' : currentScope === 'department' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
+                              {currentScope === 'all' ? 'All Data' : currentScope === 'department' ? 'Dept' : 'Own'}
                             </Badge>
                           )}
                         </div>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent className="pt-2 pl-4 space-y-2">
-                        {catGroup.modules.map(mod => {
-                          const isEnabled = customPermissions[catGroup.category]?.[mod.code];
-                          const currentActions = customPermissions[catGroup.category]?.[mod.code] || [];
-                          
-                          return (
-                            <div key={mod.code} className={`p-3 rounded-lg border ${isEnabled ? 'bg-purple-50 border-purple-200' : 'bg-gray-50 border-gray-200'}`}>
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                  <Switch
-                                    checked={!!isEnabled}
-                                    onCheckedChange={(checked) => {
-                                      if (checked) addModulePermission(catGroup.category, mod.code);
-                                      else removeModulePermission(catGroup.category, mod.code);
-                                    }}
-                                    className="data-[state=checked]:bg-purple-600"
-                                  />
-                                  <span className="text-sm font-medium">{mod.name}</span>
-                                </div>
+                        
+                        {isEnabled && (
+                          <div className="mt-3 ml-12 space-y-3">
+                            {/* Data Scope Selection */}
+                            <div>
+                              <Label className="text-xs text-gray-600 mb-1.5 block">Data Scope</Label>
+                              <div className="flex gap-2">
+                                {dataScopeOptions.map(scope => (
+                                  <button
+                                    key={scope.value}
+                                    onClick={() => setModuleDataScope(mod.code, scope.value)}
+                                    className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                                      currentScope === scope.value
+                                        ? 'bg-purple-600 text-white'
+                                        : 'bg-white border border-gray-300 text-gray-600 hover:border-purple-400'
+                                    }`}
+                                    title={scope.description}
+                                  >
+                                    {scope.label}
+                                  </button>
+                                ))}
                               </div>
-                              {isEnabled && (
-                                <div className="flex flex-wrap gap-2 mt-2 ml-10">
-                                  {mod.actions.map(action => (
-                                    <label 
-                                      key={action}
-                                      className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs cursor-pointer transition-all ${
-                                        currentActions.includes(action) 
-                                          ? 'bg-purple-600 text-white' 
-                                          : 'bg-white border border-gray-300 text-gray-600 hover:border-purple-400'
-                                      }`}
-                                    >
-                                      <Checkbox
-                                        checked={currentActions.includes(action)}
-                                        onCheckedChange={() => togglePermissionAction(catGroup.category, mod.code, action)}
-                                        className="hidden"
-                                      />
-                                      {currentActions.includes(action) && <Check className="h-3 w-3" />}
-                                      {action}
-                                    </label>
-                                  ))}
-                                </div>
-                              )}
                             </div>
-                          );
-                        })}
-                      </CollapsibleContent>
-                    </Collapsible>
-                  ))}
+                            
+                            {/* Actions */}
+                            <div>
+                              <Label className="text-xs text-gray-600 mb-1.5 block">Actions</Label>
+                              <div className="flex flex-wrap gap-1.5">
+                                {availableActions.map(action => (
+                                  <button
+                                    key={action}
+                                    onClick={() => toggleModuleAction(mod.code, action)}
+                                    className={`px-2 py-1 rounded text-xs font-medium transition-all flex items-center gap-1 ${
+                                      currentActions.includes(action)
+                                        ? 'bg-purple-600 text-white'
+                                        : 'bg-white border border-gray-300 text-gray-600 hover:border-purple-400'
+                                    }`}
+                                  >
+                                    {currentActions.includes(action) && <Check className="h-3 w-3" />}
+                                    {action}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
               {/* Current Custom Permissions Summary */}
               {Object.keys(customPermissions).length > 0 && (
                 <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                  <Label className="text-sm font-medium text-green-800">Custom Permissions Summary</Label>
-                  <div className="mt-2 space-y-1">
-                    {Object.entries(customPermissions).map(([cat, mods]) => (
-                      <div key={cat} className="text-xs text-green-700">
-                        <span className="font-medium">{cat}:</span>{' '}
-                        {Object.entries(mods).map(([mod, actions]) => (
-                          <span key={mod} className="mr-2">{mod} ({actions.join(', ')})</span>
-                        ))}
-                      </div>
-                    ))}
+                  <Label className="text-sm font-medium text-green-800">Custom Permissions Summary ({Object.keys(customPermissions).length} modules)</Label>
+                  <div className="mt-2 space-y-1 max-h-[150px] overflow-y-auto">
+                    {Object.entries(customPermissions).map(([moduleCode, perms]) => {
+                      const mod = modules.find(m => m.code === moduleCode);
+                      return (
+                        <div key={moduleCode} className="text-xs text-green-700 flex items-center gap-2">
+                          <span className="font-medium">{mod?.name || moduleCode}:</span>
+                          <span className="text-green-600">[{perms.data_scope || 'own'}]</span>
+                          <span>{(perms.actions || []).join(', ')}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
