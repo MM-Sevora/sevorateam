@@ -178,6 +178,14 @@ const TaskCard = ({ task, onStatusChange, onEdit, onDelete, onDragStart, onClick
               {formatDate(task.due_date)}
             </span>
           )}
+          {task.subtask_count > 0 && (
+            <span className="flex items-center gap-1" title={`${task.subtask_completed || 0} of ${task.subtask_count} subtasks completed`}>
+              <ListTodo className="w-3 h-3" />
+              <span className={task.subtask_completed === task.subtask_count ? 'text-emerald-600' : ''}>
+                {task.subtask_completed || 0}/{task.subtask_count}
+              </span>
+            </span>
+          )}
           {task.checklist_count > 0 && (
             <span className="flex items-center gap-1">
               <CheckCircle2 className="w-3 h-3" />
@@ -1209,57 +1217,13 @@ const ProjectDetail = () => {
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
         {/* Main Info Card */}
         <Card className="col-span-full md:col-span-8 bg-white/50 border-[#E8D5C4]">
-          <CardContent className="p-8">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2 flex-wrap">
-                  <h1 className="text-3xl font-bold text-[#4A3728]" data-testid="project-title">{project.name}</h1>
-                  {project.visibility === 'private' ? (
-                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                      <Lock className="w-3 h-3 mr-1" />
-                      Private
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
-                      <Globe className="w-3 h-3 mr-1" />
-                      Public
-                    </Badge>
-                  )}
-                  <Badge variant="outline" className={priorityConfig[project.priority]?.color}>
-                    <Flag className="w-3 h-3 mr-1" />
-                    {project.priority}
-                  </Badge>
-                </div>
-                {project.module_name && (
-                  <p className="text-[#6B5D52] flex items-center gap-2 mb-3 font-medium">
-                    <Folder className="w-4 h-4" />
-                    {project.module_name}
-                  </p>
-                )}
-                {project.description && (
-                  <div 
-                    className="text-[#6B5D52] mb-4 prose prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{ __html: project.description }}
-                  />
-                )}
-                <div className="flex items-center gap-6 text-sm text-[#6B5D52] flex-wrap">
-                  {project.owner_name && (
-                    <span className="flex items-center gap-1">
-                      <User className="w-4 h-4" />
-                      Owner: {project.owner_name}
-                    </span>
-                  )}
-                  <span className="flex items-center gap-1">
-                    <CheckCircle2 className="w-4 h-4" />
-                    {project.completed_task_count}/{project.task_count} tasks
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Users className="w-4 h-4" />
-                    {project.team_members?.length || 0} team members
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
+          <CardContent className="p-6">
+            {/* Header Row - Title + CTAs */}
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <h1 className="text-2xl font-bold text-[#4A3728] flex-shrink-0" data-testid="project-title">
+                {project.name}
+              </h1>
+              <div className="flex items-center gap-2 flex-shrink-0">
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -1267,8 +1231,8 @@ const ProjectDetail = () => {
                   className="border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0]"
                   data-testid="schedule-meeting-btn"
                 >
-                  <Video className="w-4 h-4 mr-2" />
-                  Schedule Meeting
+                  <Video className="w-4 h-4 mr-1" />
+                  Meeting
                 </Button>
                 <Button 
                   variant="outline" 
@@ -1277,27 +1241,70 @@ const ProjectDetail = () => {
                   className="border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0]"
                   data-testid="manage-team-btn"
                 >
-                  <Users className="w-4 h-4 mr-2" />
+                  <Users className="w-4 h-4 mr-1" />
                   Team
                 </Button>
                 <Button 
                   variant="outline" 
-                  size="sm" 
+                  size="icon"
                   onClick={fetchData} 
-                  className="border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0]"
+                  className="border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0] h-9 w-9"
                 >
                   <RefreshCw className="w-4 h-4" />
                 </Button>
                 <Button 
                   size="sm" 
                   onClick={() => setShowCreateTask(true)} 
-                  className="bg-rose-600 hover:bg-rose-700 text-white" 
+                  className="bg-rose-600 hover:bg-rose-700 text-white"
                   data-testid="add-task-btn"
                 >
-                  <Plus className="w-4 h-4 mr-2" />
+                  <Plus className="w-4 h-4 mr-1" />
                   Add Task
                 </Button>
               </div>
+            </div>
+            
+            {/* Badges Row */}
+            <div className="flex items-center gap-2 mb-4 flex-wrap">
+              {project.visibility === 'private' ? (
+                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                  <Lock className="w-3 h-3 mr-1" />
+                  Private
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                  <Globe className="w-3 h-3 mr-1" />
+                  Public
+                </Badge>
+              )}
+              <Badge variant="outline" className={priorityConfig[project.priority]?.color}>
+                <Flag className="w-3 h-3 mr-1" />
+                {project.priority}
+              </Badge>
+              {project.module_name && (
+                <Badge variant="outline" className="bg-[#F5EBE0] text-[#4A3728] border-[#D4BBA6]">
+                  <Folder className="w-3 h-3 mr-1" />
+                  {project.module_name}
+                </Badge>
+              )}
+            </div>
+            
+            {/* Info Row */}
+            <div className="flex items-center gap-6 text-sm text-[#6B5D52] flex-wrap">
+              {project.owner_name && (
+                <span className="flex items-center gap-1">
+                  <User className="w-4 h-4" />
+                  Owner: {project.owner_name}
+                </span>
+              )}
+              <span className="flex items-center gap-1">
+                <CheckCircle2 className="w-4 h-4" />
+                {project.completed_task_count}/{project.task_count} tasks
+              </span>
+              <span className="flex items-center gap-1">
+                <Users className="w-4 h-4" />
+                {project.team_members?.length || 0} team members
+              </span>
             </div>
           </CardContent>
         </Card>

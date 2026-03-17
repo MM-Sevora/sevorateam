@@ -219,6 +219,7 @@ const SubtasksSection = ({ taskId, token, users = [] }) => {
   const [loading, setLoading] = useState(true);
   const [newSubtask, setNewSubtask] = useState('');
   const [newSubtaskDueDate, setNewSubtaskDueDate] = useState('');
+  const [newSubtaskPriority, setNewSubtaskPriority] = useState('medium');
   const [adding, setAdding] = useState(false);
   const [recentlyToggled, setRecentlyToggled] = useState(null);
 
@@ -238,7 +239,11 @@ const SubtasksSection = ({ taskId, token, users = [] }) => {
     if (!newSubtask.trim()) return;
     setAdding(true);
     try {
-      const payload = { parent_task_id: taskId, name: newSubtask };
+      const payload = { 
+        parent_task_id: taskId, 
+        name: newSubtask,
+        priority: newSubtaskPriority
+      };
       if (newSubtaskDueDate) payload.due_date = newSubtaskDueDate;
       
       const res = await fetch(`${API}/api/projects/subtasks`, {
@@ -249,6 +254,7 @@ const SubtasksSection = ({ taskId, token, users = [] }) => {
       if (res.ok) {
         setNewSubtask('');
         setNewSubtaskDueDate('');
+        setNewSubtaskPriority('medium');
         fetchSubtasks();
         toast.success('Subtask added');
       }
@@ -266,6 +272,17 @@ const SubtasksSection = ({ taskId, token, users = [] }) => {
       fetchSubtasks();
       toast.success('Due date updated');
     } catch (e) { toast.error('Failed to update due date'); }
+  };
+
+  const updateSubtaskPriority = async (subtaskId, priority) => {
+    try {
+      await fetch(`${API}/api/projects/subtasks/${subtaskId}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priority })
+      });
+      fetchSubtasks();
+    } catch (e) { toast.error('Failed to update priority'); }
   };
 
   const toggleSubtask = async (subtask) => {
@@ -318,6 +335,17 @@ const SubtasksSection = ({ taskId, token, users = [] }) => {
           onKeyDown={(e) => e.key === 'Enter' && addSubtask()}
           data-testid="subtask-input"
         />
+        <select
+          value={newSubtaskPriority}
+          onChange={(e) => setNewSubtaskPriority(e.target.value)}
+          className="border border-[#D4BBA6] rounded-md px-2 text-xs w-[80px] bg-white text-[#4A3728]"
+          title="Priority"
+        >
+          <option value="low">Low</option>
+          <option value="medium">Med</option>
+          <option value="high">High</option>
+          <option value="urgent">Urgent</option>
+        </select>
         <Input
           type="date"
           value={newSubtaskDueDate}
@@ -350,6 +378,23 @@ const SubtasksSection = ({ taskId, token, users = [] }) => {
               <span className={`flex-1 text-sm transition-all duration-200 ${st.status === 'completed' ? 'line-through text-[#9C8C74]' : 'text-[#4A3728]'}`}>
                 {st.name}
               </span>
+              {/* Priority */}
+              <select
+                value={st.priority || 'medium'}
+                onChange={(e) => updateSubtaskPriority(st.id, e.target.value)}
+                className={`h-7 text-xs border border-[#D4BBA6] rounded px-1 bg-white ${
+                  st.priority === 'urgent' ? 'text-red-600 border-red-300' :
+                  st.priority === 'high' ? 'text-orange-600 border-orange-300' :
+                  st.priority === 'low' ? 'text-blue-600 border-blue-300' :
+                  'text-[#4A3728]'
+                }`}
+                title="Priority"
+              >
+                <option value="low">Low</option>
+                <option value="medium">Med</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+              </select>
               {/* Due Date */}
               <Input
                 type="date"
