@@ -95,6 +95,19 @@ class RoleResponse(BaseModel):
 
 # ============== ENHANCED USER MODELS ==============
 
+class UserSimpleCreate(BaseModel):
+    """Simple user creation model for admin panel"""
+    email: EmailStr
+    password: str
+    name: str
+    status: str = "active"  # active, inactive
+    notes: Optional[str] = None
+    department_id: Optional[str] = None
+    role_id: Optional[str] = None
+    reports_to: Optional[str] = None
+    title: Optional[str] = None
+
+
 class UserEnhancedCreate(BaseModel):
     email: EmailStr
     password: str
@@ -219,10 +232,59 @@ MODULE_DEFINITIONS = {
 # Default role templates
 DEFAULT_ROLE_TEMPLATES = {
     "super_admin": {
-        "name": "Super Administrator",
+        "name": "Super Admin",
         "level": 100,
-        "description": "Full system access",
+        "description": "Full system access with all permissions",
         "permissions": {dept: {mod: defn["actions"] for mod, defn in mods.items()} for dept, mods in MODULE_DEFINITIONS.items()}
+    },
+    "hr_admin": {
+        "name": "HR Admin",
+        "level": 80,
+        "description": "Full HR department access including employee management",
+        "permissions": {
+            "hr": {mod: defn["actions"] for mod, defn in MODULE_DEFINITIONS.get("hr", {}).items()} if "hr" in MODULE_DEFINITIONS else {},
+            "admin": {"users": ["view", "create", "edit"], "departments": ["view", "create", "edit"], "roles": ["view"]},
+            "projects": {"projects": ["view"], "tasks": ["view"]},
+        }
+    },
+    "finance_admin": {
+        "name": "Finance Admin",
+        "level": 80,
+        "description": "Full finance and accounting access",
+        "permissions": {
+            "finance": {mod: defn["actions"] for mod, defn in MODULE_DEFINITIONS.get("finance", {}).items()} if "finance" in MODULE_DEFINITIONS else {},
+            "admin": {"users": ["view"], "departments": ["view"]},
+            "projects": {"projects": ["view"], "tasks": ["view"]},
+        }
+    },
+    "it_admin": {
+        "name": "IT Admin",
+        "level": 80,
+        "description": "IT infrastructure and system administration access",
+        "permissions": {
+            "admin": {mod: defn["actions"] for mod, defn in MODULE_DEFINITIONS.get("admin", {}).items()} if "admin" in MODULE_DEFINITIONS else {},
+            "projects": {mod: defn["actions"] for mod, defn in MODULE_DEFINITIONS.get("projects", {}).items()} if "projects" in MODULE_DEFINITIONS else {},
+        }
+    },
+    "project_manager": {
+        "name": "Project Manager",
+        "level": 60,
+        "description": "Full project management access",
+        "permissions": {
+            "projects": {mod: defn["actions"] for mod, defn in MODULE_DEFINITIONS.get("projects", {}).items()} if "projects" in MODULE_DEFINITIONS else {},
+            "admin": {"users": ["view"], "departments": ["view"]},
+            "mail": {"inbox": ["view", "send"], "templates": ["view"]},
+        }
+    },
+    "employee": {
+        "name": "Employee",
+        "level": 20,
+        "description": "Basic employee access for daily operations",
+        "permissions": {
+            "hr": {"profile": ["view", "edit"], "leave": ["view", "create"], "attendance": ["view"]},
+            "projects": {"projects": ["view"], "tasks": ["view", "create", "edit"]},
+            "mail": {"inbox": ["view", "send"]},
+        }
     },
     "admin": {
         "name": "Administrator",
@@ -299,7 +361,7 @@ DEFAULT_ROLE_TEMPLATES = {
     "viewer": {
         "name": "Viewer",
         "level": 10,
-        "description": "Read-only access",
+        "description": "Read-only access to view data only",
         "permissions": {
             "marketing": {mod: ["view"] for mod in MODULE_DEFINITIONS["marketing"].keys()},
             "sales": {mod: ["view"] for mod in MODULE_DEFINITIONS["sales"].keys()},

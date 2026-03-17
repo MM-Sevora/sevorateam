@@ -13,6 +13,7 @@ from models.workos import (
     DepartmentCreate, DepartmentUpdate, DepartmentResponse,
     RoleCreate, RoleUpdate, RoleResponse,
     UserEnhancedCreate, UserEnhancedUpdate, UserEnhancedResponse,
+    UserSimpleCreate,
     OrganizationSettings,
     MODULE_DEFINITIONS, DEFAULT_ROLE_TEMPLATES
 )
@@ -605,6 +606,61 @@ async def get_user_enhanced(user_id: str, current_user: dict = Depends(get_curre
     return user
 
 
+@workos_router.post("/users", response_model=UserEnhancedResponse)
+async def create_user(
+    data: UserSimpleCreate,
+    current_user: dict = Depends(require_admin())
+):
+    """Create a new user with email and password (admin only)"""
+    db = get_db()
+    
+    # Check if email already exists
+    existing = await db.users.find_one({"email": data.email.lower()})
+    if existing:
+        raise HTTPException(status_code=400, detail="User with this email already exists")
+    
+    # Hash password
+    from passlib.context import CryptContext
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    hashed_password = pwd_context.hash(data.password)
+    
+    # Create user document
+    user_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    user_doc = {
+        "id": user_id,
+        "email": data.email.lower(),
+        "password": hashed_password,
+        "name": data.name,
+        "status": data.status,
+        "notes": data.notes,
+        "department_id": data.department_id,
+        "role_id": data.role_id,
+        "reports_to": data.reports_to,
+        "title": data.title,
+        "is_active": data.status == "active",
+        "created_at": now,
+        "updated_at": now,
+        "created_by": current_user.get("id")
+    }
+    
+    await db.users.insert_one(user_doc)
+    
+    # Return the created user (without password)
+    created_user = await db.users.find_one({"id": user_id}, {"_id": 0, "password": 0})
+    
+    # Enrich with department/role names
+    if created_user.get("department_id"):
+        dept = await db.departments.find_one({"id": created_user["department_id"]}, {"name": 1})
+        created_user["department_name"] = dept.get("name") if dept else None
+    if created_user.get("role_id"):
+        role = await db.roles.find_one({"id": created_user["role_id"]}, {"name": 1})
+        created_user["role_name"] = role.get("name") if role else None
+    
+    return created_user
+
+
 @workos_router.put("/users/{user_id}", response_model=UserEnhancedResponse)
 async def update_user_enhanced(
     user_id: str,
@@ -1034,6 +1090,60 @@ async def seed_workos_data(user: dict = Depends(require_admin())):
         "message": "WorkOS data seeded successfully",
         "departments": len(default_departments),
         "roles": len(DEFAULT_ROLE_TEMPLATES)
+    }
+
+
+@workos_router.post("/sync-roles")
+async def sync_roles_from_templates(user: dict = Depends(require_admin())):
+    """Sync/update roles from DEFAULT_ROLE_TEMPLATES - adds missing roles, updates existing"""
+    db = get_db()
+    now = datetime.now(timezone.utc).isoformat()
+    
+    created = 0
+    updated = 0
+    
+    for code, template in DEFAULT_ROLE_TEMPLATES.items():
+        existing = await db.roles.find_one({"code": code})
+        
+        if existing:
+            # Update existing role with new permissions
+            await db.roles.update_one(
+                {"code": code},
+                {"$set": {
+                    "name": template["name"],
+                    "description": template["description"],
+                    "level": template["level"],
+                    "permissions": template["permissions"],
+                    "is_system": code in ["super_admin", "admin", "viewer", "hr_admin", "finance_admin", "it_admin", "employee"],
+                    "updated_at": now
+                }}
+            )
+            updated += 1
+        else:
+            # Create new role
+            role_id = str(uuid.uuid4())
+            await db.roles.insert_one({
+                "id": role_id,
+                "code": code,
+                "name": template["name"],
+                "description": template["description"],
+                "level": template["level"],
+                "permissions": template["permissions"],
+                "department_ids": [],
+                "is_system": code in ["super_admin", "admin", "viewer", "hr_admin", "finance_admin", "it_admin", "employee"],
+                "is_active": True,
+                "user_count": 0,
+                "created_at": now,
+                "updated_at": now
+            })
+            created += 1
+    
+    return {
+        "success": True,
+        "message": f"Roles synced: {created} created, {updated} updated",
+        "created": created,
+        "updated": updated,
+        "total_templates": len(DEFAULT_ROLE_TEMPLATES)
     }
 
 

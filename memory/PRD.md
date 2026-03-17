@@ -7,6 +7,44 @@ Build a comprehensive Marketing Operations Platform that integrates marketing, s
 
 ## Latest Updates (March 2026)
 
+### Users & Permissions Admin Enhancements (Completed ✅)
+**Date**: March 17, 2026
+
+**Features Implemented**:
+
+1. **Create User with Email/Password**
+   - Added `POST /api/workos/users` endpoint to create users with email and password
+   - Added `UserSimpleCreate` model in `/app/backend/models/workos.py`
+   - Users can now be created directly from the admin panel without Azure AD
+
+2. **Predefined Role Templates**
+   - Added 5 new role templates: HR Admin, Finance Admin, IT Admin, Project Manager, Employee
+   - Updated existing roles with proper permission levels
+   - Total 13 system roles now available:
+     - Super Admin (Level 100) - Full system access
+     - HR Admin (Level 80) - HR and employee management
+     - Finance Admin (Level 80) - Finance and accounting
+     - IT Admin (Level 80) - IT infrastructure and system
+     - Administrator (Level 80) - General admin access
+     - Project Manager (Level 60) - Project management
+     - Marketing Manager (Level 50) - Marketing department
+     - Sales Manager (Level 50) - Sales department
+     - Social Media Manager (Level 50) - Social media
+     - Marketing Executive (Level 30) - Marketing operations
+     - Sales Executive (Level 30) - Sales operations
+     - Employee (Level 20) - Basic employee access
+     - Viewer (Level 10) - Read-only access
+
+3. **Role Sync Endpoint**
+   - Added `POST /api/workos/sync-roles` to sync role templates to database
+   - Updates existing roles and creates missing ones
+
+**Files Modified**:
+- `/app/backend/models/workos.py` - Added UserSimpleCreate model and expanded DEFAULT_ROLE_TEMPLATES
+- `/app/backend/routes/workos.py` - Added create_user and sync-roles endpoints
+
+---
+
 ### Task Detail Modal - Labels Tab Removal & UI Enhancement (Completed ✅)
 **Date**: March 17, 2026
 
