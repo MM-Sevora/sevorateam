@@ -153,6 +153,10 @@ class EmployeeResponse(BaseModel):
     position_title: Optional[str] = None
     grade_id: Optional[str] = None
     grade_name: Optional[str] = None
+    role_id: Optional[str] = None
+    role_name: Optional[str] = None
+    custom_role_ids: List[str] = []
+    custom_role_names: List[str] = []
     reports_to: Optional[str] = None
     manager_name: Optional[str] = None
     secondary_manager_id: Optional[str] = None

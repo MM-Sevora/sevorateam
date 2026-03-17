@@ -1369,7 +1369,11 @@ const EmployeesTab = ({ employees, loading, searchQuery, setSearchQuery, filters
                       ) : <span className="text-gray-400">-</span>}
                     </TableCell>
                     <TableCell>
-                      {emp.custom_role_names?.length > 0 ? (
+                      {emp.role_name ? (
+                        <Badge variant="secondary" className="text-xs bg-[#E8D5C4] text-[#4A3728]">
+                          {emp.role_name}
+                        </Badge>
+                      ) : emp.custom_role_names?.length > 0 ? (
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>

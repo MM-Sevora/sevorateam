@@ -42,7 +42,7 @@ async def _enrich_employee(db, employee: dict, user: dict = None) -> dict:
     if not user and employee.get("user_id"):
         user = await db.users.find_one(
             {"id": employee["user_id"]}, 
-            {"_id": 0, "name": 1, "email": 1, "avatar_url": 1, "last_login": 1}
+            {"_id": 0, "name": 1, "email": 1, "avatar_url": 1, "last_login": 1, "role_id": 1, "custom_role_ids": 1}
         )
     
     if user:
@@ -50,6 +50,21 @@ async def _enrich_employee(db, employee: dict, user: dict = None) -> dict:
         employee["email"] = user.get("email", "")
         employee["avatar_url"] = user.get("avatar_url")
         employee["last_login"] = user.get("last_login")
+        employee["role_id"] = user.get("role_id")
+        employee["custom_role_ids"] = user.get("custom_role_ids", [])
+        
+        # Get role name
+        if user.get("role_id"):
+            role = await db.roles.find_one({"id": user["role_id"]}, {"name": 1})
+            employee["role_name"] = role.get("name") if role else None
+        
+        # Get custom role names
+        if user.get("custom_role_ids"):
+            custom_roles = await db.roles.find(
+                {"id": {"$in": user["custom_role_ids"]}}, 
+                {"name": 1}
+            ).to_list(20)
+            employee["custom_role_names"] = [r.get("name") for r in custom_roles if r.get("name")]
     
     # Department
     if employee.get("department_id"):

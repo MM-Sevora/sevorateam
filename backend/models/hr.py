@@ -350,7 +350,8 @@ class EmployeeResponse(BaseModel):
     updated_at: Optional[str] = None
     
     class Config:
-        extra = "ignore"  # Ignore extra fields from MongoDB
+        extra = "allow"  # Allow extra fields from enrichment
+        from_attributes = True
 
 
 class EmployeeDetailResponse(EmployeeResponse):
