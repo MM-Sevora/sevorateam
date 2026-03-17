@@ -1725,6 +1725,7 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
           priority: data.priority,
           status: data.status,
           assigned_to: data.assigned_to || '',
+          start_date: data.start_date ? data.start_date.split('T')[0] : '',
           due_date: data.due_date ? data.due_date.split('T')[0] : '',
           estimated_hours: data.estimated_hours || '',
           is_recurring: data.is_recurring || false,
@@ -1794,6 +1795,7 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
         project_id: task.project_id,
         description: task.description,
         priority: task.priority,
+        start_date: task.start_date,
         due_date: task.due_date,
         estimated_hours: task.estimated_hours,
         tags: task.tags || []
@@ -2073,18 +2075,39 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
 
                   <div className="h-5 w-px bg-[#E8D5C4]" />
 
+                  {/* Start Date */}
+                  {editing ? (
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-[#6B5D52]">Start:</span>
+                      <Input
+                        type="date"
+                        value={editData.start_date}
+                        onChange={(e) => setEditData({ ...editData, start_date: e.target.value })}
+                        className="w-[130px] border-[#D4BBA6] bg-[#FDF8F3] h-8"
+                      />
+                    </div>
+                  ) : task.start_date && (
+                    <div className="flex items-center gap-2 text-sm text-[#6B5D52]">
+                      <Clock className="w-4 h-4" />
+                      <span>Start: {formatDate(task.start_date)}</span>
+                    </div>
+                  )}
+
                   {/* Due Date */}
                   {editing ? (
-                    <Input
-                      type="date"
-                      value={editData.due_date}
-                      onChange={(e) => setEditData({ ...editData, due_date: e.target.value })}
-                      className="w-[140px] border-[#D4BBA6] bg-[#FDF8F3] h-8"
-                    />
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-[#6B5D52]">Due:</span>
+                      <Input
+                        type="date"
+                        value={editData.due_date}
+                        onChange={(e) => setEditData({ ...editData, due_date: e.target.value })}
+                        className="w-[130px] border-[#D4BBA6] bg-[#FDF8F3] h-8"
+                      />
+                    </div>
                   ) : (
                     <div className="flex items-center gap-2 text-sm text-[#6B5D52]">
                       <Calendar className="w-4 h-4" />
-                      <span>{formatDate(task.due_date)}</span>
+                      <span>Due: {formatDate(task.due_date)}</span>
                     </div>
                   )}
 

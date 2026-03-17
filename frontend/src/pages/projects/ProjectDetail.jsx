@@ -292,6 +292,7 @@ const CreateTaskModal = ({ open, onClose, projectId, users, onSuccess, defaultSt
     status: defaultStatus,
     priority: 'medium',
     assigned_to: '',
+    start_date: '',
     due_date: '',
     estimated_hours: ''
   });
@@ -319,6 +320,7 @@ const CreateTaskModal = ({ open, onClose, projectId, users, onSuccess, defaultSt
         status: formData.assigned_to && formData.assigned_to !== 'unassigned' ? 'assigned' : formData.status
       };
       if (!payload.assigned_to || payload.assigned_to === 'unassigned') delete payload.assigned_to;
+      if (!payload.start_date) delete payload.start_date;
 
       const response = await fetch(`${API}/api/projects/tasks`, {
         method: 'POST',
@@ -432,6 +434,15 @@ const CreateTaskModal = ({ open, onClose, projectId, users, onSuccess, defaultSt
 
           <div className="grid grid-cols-2 gap-4">
             <div>
+              <Label className="text-[#4A3728]">Start Date</Label>
+              <Input
+                type="date"
+                value={formData.start_date}
+                onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                className="border-[#D4BBA6] mt-1"
+              />
+            </div>
+            <div>
               <Label className="text-[#4A3728]">Due Date</Label>
               <Input
                 type="date"
@@ -440,17 +451,18 @@ const CreateTaskModal = ({ open, onClose, projectId, users, onSuccess, defaultSt
                 className="border-[#D4BBA6] mt-1"
               />
             </div>
-            <div>
-              <Label className="text-[#4A3728]">Estimated Hours</Label>
-              <Input
-                type="number"
-                step="0.5"
-                value={formData.estimated_hours}
-                onChange={(e) => setFormData({ ...formData, estimated_hours: e.target.value })}
-                placeholder="0"
-                className="border-[#D4BBA6] mt-1"
-              />
-            </div>
+          </div>
+
+          <div>
+            <Label className="text-[#4A3728]">Estimated Hours</Label>
+            <Input
+              type="number"
+              step="0.5"
+              value={formData.estimated_hours}
+              onChange={(e) => setFormData({ ...formData, estimated_hours: e.target.value })}
+              placeholder="0"
+              className="border-[#D4BBA6] mt-1 w-32"
+            />
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
