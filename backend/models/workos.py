@@ -4,7 +4,7 @@ Clean Architecture: User (Auth) <-> Employee (HR + Access)
 """
 
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 from enum import Enum
 from datetime import datetime
 
@@ -130,6 +130,13 @@ class UserEnhancedUpdate(BaseModel):
     phone: Optional[str] = None
     avatar_url: Optional[str] = None
     status: Optional[str] = None  # active, inactive, pending
+    custom_permissions: Optional[Dict[str, Dict[str, List[str]]]] = None  # User-level permission overrides
+
+
+class UserPermissionOverride(BaseModel):
+    """Model for updating user-specific permission overrides"""
+    custom_permissions: Dict[str, Dict[str, List[str]]]  # {category: {module: [actions]}}
+    override_mode: str = "merge"  # "merge" (add to role) or "replace" (override role completely)
 
 
 class UserEnhancedResponse(BaseModel):
@@ -156,6 +163,10 @@ class UserEnhancedResponse(BaseModel):
     # Contact info
     phone: Optional[str] = None
     avatar_url: Optional[str] = None
+    
+    # Permission overrides - use Any to handle legacy boolean format
+    custom_permissions: Optional[Dict[str, Any]] = None  # User-specific permissions
+    permission_override_mode: Optional[str] = None  # "merge" or "replace"
     
     # Azure AD License fields
     has_azure_license: Optional[bool] = None
@@ -283,6 +294,39 @@ DEFAULT_ROLE_TEMPLATES = {
         "permissions": {
             "hr": {"profile": ["view", "edit"], "leave": ["view", "create"], "attendance": ["view"]},
             "projects": {"projects": ["view"], "tasks": ["view", "create", "edit"]},
+            "mail": {"inbox": ["view", "send"]},
+        }
+    },
+    "hr_employee": {
+        "name": "HR Employee",
+        "level": 40,
+        "description": "Employee with HR administrative functions",
+        "permissions": {
+            "hr": {mod: defn["actions"] for mod, defn in MODULE_DEFINITIONS.get("hr", {}).items()} if "hr" in MODULE_DEFINITIONS else {"profile": ["view", "edit"], "leave": ["view", "create", "edit", "approve"], "attendance": ["view", "edit"], "employees": ["view", "create", "edit"]},
+            "admin": {"users": ["view", "create", "edit"], "departments": ["view", "edit"]},
+            "projects": {"projects": ["view"], "tasks": ["view", "create", "edit"]},
+            "mail": {"inbox": ["view", "send"]},
+        }
+    },
+    "finance_employee": {
+        "name": "Finance Employee",
+        "level": 40,
+        "description": "Employee with Finance administrative functions",
+        "permissions": {
+            "finance": {mod: defn["actions"] for mod, defn in MODULE_DEFINITIONS.get("finance", {}).items()} if "finance" in MODULE_DEFINITIONS else {"expenses": ["view", "create", "edit", "approve"], "invoices": ["view", "create", "edit"], "budgets": ["view", "edit"], "reports": ["view"]},
+            "hr": {"profile": ["view", "edit"], "leave": ["view", "create"], "attendance": ["view"]},
+            "projects": {"projects": ["view"], "tasks": ["view", "create", "edit"]},
+            "mail": {"inbox": ["view", "send"]},
+        }
+    },
+    "it_employee": {
+        "name": "IT Employee",
+        "level": 40,
+        "description": "Employee with IT administrative functions",
+        "permissions": {
+            "admin": {"users": ["view", "create", "edit"], "departments": ["view"], "roles": ["view"], "settings": ["view", "edit"]},
+            "projects": {mod: defn["actions"] for mod, defn in MODULE_DEFINITIONS.get("projects", {}).items()} if "projects" in MODULE_DEFINITIONS else {"projects": ["view", "create", "edit"], "tasks": ["view", "create", "edit", "delete"]},
+            "hr": {"profile": ["view", "edit"], "leave": ["view", "create"], "attendance": ["view"]},
             "mail": {"inbox": ["view", "send"]},
         }
     },

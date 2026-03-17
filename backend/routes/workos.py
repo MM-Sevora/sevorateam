@@ -13,7 +13,7 @@ from models.workos import (
     DepartmentCreate, DepartmentUpdate, DepartmentResponse,
     RoleCreate, RoleUpdate, RoleResponse,
     UserEnhancedCreate, UserEnhancedUpdate, UserEnhancedResponse,
-    UserSimpleCreate,
+    UserSimpleCreate, UserPermissionOverride,
     OrganizationSettings,
     MODULE_DEFINITIONS, DEFAULT_ROLE_TEMPLATES
 )
@@ -741,6 +741,115 @@ async def delete_user(user_id: str, current_user: dict = Depends(require_admin()
     )
     
     return {"success": True, "message": "User deleted successfully"}
+
+
+@workos_router.put("/users/{user_id}/permissions")
+async def update_user_permissions(
+    user_id: str,
+    data: UserPermissionOverride,
+    current_user: dict = Depends(require_admin())
+):
+    """Update user-specific permission overrides"""
+    db = get_db()
+    
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Update user with custom permissions
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {
+            "custom_permissions": data.custom_permissions,
+            "permission_override_mode": data.override_mode,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {
+        "success": True, 
+        "message": f"Permissions updated for user",
+        "custom_permissions": data.custom_permissions,
+        "override_mode": data.override_mode
+    }
+
+
+@workos_router.get("/users/{user_id}/effective-permissions")
+async def get_user_effective_permissions(
+    user_id: str,
+    current_user: dict = Depends(get_current_user_dep())
+):
+    """Get the effective permissions for a user (role + custom overrides merged)"""
+    db = get_db()
+    
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get role permissions
+    role_permissions = {}
+    if user.get("role_id"):
+        role = await db.roles.find_one({"id": user["role_id"]})
+        if role:
+            role_permissions = role.get("permissions", {})
+    
+    # Get custom permissions
+    custom_permissions = user.get("custom_permissions", {})
+    override_mode = user.get("permission_override_mode", "merge")
+    
+    # Calculate effective permissions
+    if override_mode == "replace" and custom_permissions:
+        # Custom permissions completely replace role permissions
+        effective_permissions = custom_permissions
+    else:
+        # Merge: custom permissions add to/override role permissions
+        effective_permissions = {**role_permissions}
+        for category, modules in custom_permissions.items():
+            if category not in effective_permissions:
+                effective_permissions[category] = {}
+            for module, actions in modules.items():
+                if module not in effective_permissions[category]:
+                    effective_permissions[category][module] = []
+                # Merge actions (union of both)
+                existing_actions = set(effective_permissions[category][module])
+                new_actions = set(actions)
+                effective_permissions[category][module] = list(existing_actions | new_actions)
+    
+    return {
+        "user_id": user_id,
+        "role_id": user.get("role_id"),
+        "role_permissions": role_permissions,
+        "custom_permissions": custom_permissions,
+        "override_mode": override_mode,
+        "effective_permissions": effective_permissions
+    }
+
+
+@workos_router.delete("/users/{user_id}/permissions")
+async def clear_user_permissions(
+    user_id: str,
+    current_user: dict = Depends(require_admin())
+):
+    """Clear user-specific permission overrides (revert to role-only permissions)"""
+    db = get_db()
+    
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Clear custom permissions
+    await db.users.update_one(
+        {"id": user_id},
+        {"$unset": {
+            "custom_permissions": "",
+            "permission_override_mode": ""
+        },
+        "$set": {
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {"success": True, "message": "Custom permissions cleared"}
 
 
 @workos_router.post("/users/bulk/delete")
