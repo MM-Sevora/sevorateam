@@ -218,6 +218,7 @@ const SubtasksSection = ({ taskId, token, users = [] }) => {
   const [subtasks, setSubtasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newSubtask, setNewSubtask] = useState('');
+  const [newSubtaskDueDate, setNewSubtaskDueDate] = useState('');
   const [adding, setAdding] = useState(false);
   const [recentlyToggled, setRecentlyToggled] = useState(null);
 
@@ -237,18 +238,34 @@ const SubtasksSection = ({ taskId, token, users = [] }) => {
     if (!newSubtask.trim()) return;
     setAdding(true);
     try {
+      const payload = { parent_task_id: taskId, name: newSubtask };
+      if (newSubtaskDueDate) payload.due_date = newSubtaskDueDate;
+      
       const res = await fetch(`${API}/api/projects/subtasks`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ parent_task_id: taskId, name: newSubtask })
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         setNewSubtask('');
+        setNewSubtaskDueDate('');
         fetchSubtasks();
         toast.success('Subtask added');
       }
     } catch (e) { toast.error('Failed to add subtask'); }
     finally { setAdding(false); }
+  };
+
+  const updateSubtaskDueDate = async (subtaskId, dueDate) => {
+    try {
+      await fetch(`${API}/api/projects/subtasks/${subtaskId}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ due_date: dueDate || null })
+      });
+      fetchSubtasks();
+      toast.success('Due date updated');
+    } catch (e) { toast.error('Failed to update due date'); }
   };
 
   const toggleSubtask = async (subtask) => {
@@ -301,6 +318,13 @@ const SubtasksSection = ({ taskId, token, users = [] }) => {
           onKeyDown={(e) => e.key === 'Enter' && addSubtask()}
           data-testid="subtask-input"
         />
+        <Input
+          type="date"
+          value={newSubtaskDueDate}
+          onChange={(e) => setNewSubtaskDueDate(e.target.value)}
+          className="border-[#D4BBA6] w-[130px] text-sm"
+          title="Due date"
+        />
         <Button onClick={addSubtask} disabled={adding} size="sm" className="bg-rose-600 hover:bg-rose-700 text-white btn-hover">
           <Plus className="w-4 h-4" />
         </Button>
@@ -326,6 +350,18 @@ const SubtasksSection = ({ taskId, token, users = [] }) => {
               <span className={`flex-1 text-sm transition-all duration-200 ${st.status === 'completed' ? 'line-through text-[#9C8C74]' : 'text-[#4A3728]'}`}>
                 {st.name}
               </span>
+              {/* Due Date */}
+              <Input
+                type="date"
+                value={st.due_date ? st.due_date.split('T')[0] : ''}
+                onChange={(e) => updateSubtaskDueDate(st.id, e.target.value)}
+                className={`w-[110px] h-7 text-xs border-[#D4BBA6] bg-white ${
+                  st.due_date && new Date(st.due_date) < new Date() && st.status !== 'completed' 
+                    ? 'text-red-600 border-red-300' 
+                    : ''
+                }`}
+                title="Due date"
+              />
               {/* Assignee */}
               <Select 
                 value={st.assigned_to || 'unassigned'} 
@@ -1769,9 +1805,16 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
                       onChange={(e) => setEditData({ ...editData, name: e.target.value })}
                       className="border-[#D4BBA6] text-xl font-semibold text-[#4A3728] bg-[#FDF8F3]"
                       data-testid="task-name-edit"
+                      autoFocus
                     />
                   ) : (
-                    <h2 className="text-xl font-bold text-[#4A3728] truncate pr-2">{task.name}</h2>
+                    <h2 
+                      className="text-xl font-bold text-[#4A3728] truncate pr-2 cursor-pointer hover:bg-[#F5EBE0] px-2 py-1 -mx-2 rounded transition-colors"
+                      onClick={() => setEditing(true)}
+                      title="Click to edit"
+                    >
+                      {task.name}
+                    </h2>
                   )}
                   <div className="flex items-center gap-2 mt-2 text-sm text-[#6B5D52]">
                     <Folder className="w-4 h-4" />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   ArrowLeft, Plus, Edit, Trash2, Users, Calendar, Flag, Clock,
@@ -7,7 +7,7 @@ import {
   User, Folder, AlertOctagon, LayoutGrid, CalendarDays, Search,
   Filter, X, ChevronDown, CheckSquare, Square, Move, List,
   ArrowUpDown, ArrowUp, ArrowDown, BookCopy, Lock, Globe, UserPlus, UserMinus,
-  Video
+  Video, Paperclip, Upload, FileText, Image, File, Download
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -263,6 +263,7 @@ const CreateTaskModal = ({ open, onClose, projectId, users, onSuccess }) => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
+    status: 'draft',
     priority: 'medium',
     assigned_to: '',
     due_date: '',
@@ -282,7 +283,9 @@ const CreateTaskModal = ({ open, onClose, projectId, users, onSuccess }) => {
       const payload = {
         ...formData,
         project_id: projectId,
-        estimated_hours: formData.estimated_hours ? parseFloat(formData.estimated_hours) : null
+        estimated_hours: formData.estimated_hours ? parseFloat(formData.estimated_hours) : null,
+        // Auto-set status to 'assigned' if someone is assigned
+        status: formData.assigned_to && formData.assigned_to !== 'unassigned' ? 'assigned' : formData.status
       };
       if (!payload.assigned_to || payload.assigned_to === 'unassigned') delete payload.assigned_to;
 
@@ -300,7 +303,7 @@ const CreateTaskModal = ({ open, onClose, projectId, users, onSuccess }) => {
       toast.success('Task created');
       onSuccess();
       onClose();
-      setFormData({ name: '', description: '', priority: 'medium', assigned_to: '', due_date: '', estimated_hours: '' });
+      setFormData({ name: '', description: '', status: 'draft', priority: 'medium', assigned_to: '', due_date: '', estimated_hours: '' });
     } catch (error) {
       console.error('Error:', error);
       toast.error('Failed to create task');
@@ -343,6 +346,23 @@ const CreateTaskModal = ({ open, onClose, projectId, users, onSuccess }) => {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
+              <Label className="text-[#4A3728]">Status</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(value) => setFormData({ ...formData, status: value })}
+              >
+                <SelectTrigger className="border-[#D4BBA6] mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-[#D4BBA6]">
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="assigned">Assigned</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="review">Review</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <Label className="text-[#4A3728]">Priority</Label>
               <Select
                 value={formData.priority}
@@ -359,23 +379,24 @@ const CreateTaskModal = ({ open, onClose, projectId, users, onSuccess }) => {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label className="text-[#4A3728]">Assign To</Label>
-              <Select
-                value={formData.assigned_to}
-                onValueChange={(value) => setFormData({ ...formData, assigned_to: value })}
-              >
-                <SelectTrigger className="border-[#D4BBA6] mt-1">
-                  <SelectValue placeholder="Unassigned" />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-[#D4BBA6]">
-                  <SelectItem value="unassigned">Unassigned</SelectItem>
-                  {users.map(user => (
-                    <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          </div>
+          
+          <div>
+            <Label className="text-[#4A3728]">Assign To</Label>
+            <Select
+              value={formData.assigned_to}
+              onValueChange={(value) => setFormData({ ...formData, assigned_to: value })}
+            >
+              <SelectTrigger className="border-[#D4BBA6] mt-1">
+                <SelectValue placeholder="Unassigned" />
+              </SelectTrigger>
+              <SelectContent className="bg-white border-[#D4BBA6]">
+                <SelectItem value="unassigned">Unassigned</SelectItem>
+                {users.map(user => (
+                  <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -566,29 +587,61 @@ const TeamManagementModal = ({ open, onClose, project, users, onSuccess }) => {
             {/* Add Member */}
             <div className="flex gap-2 mb-4">
               <Select
-                value={selectedMember}
-                onValueChange={setSelectedMember}
+                value=""
+                onValueChange={(userId) => {
+                  if (userId && !teamMembers.includes(userId)) {
+                    // Auto-add member on selection
+                    setSelectedMember(userId);
+                    setTimeout(() => {
+                      setLoading(true);
+                      const token = localStorage.getItem('sevora_token');
+                      fetch(`${API}/api/projects/${project.id}/members`, {
+                        method: 'POST',
+                        headers: {
+                          'Authorization': `Bearer ${token}`,
+                          'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ user_id: userId })
+                      }).then(response => {
+                        if (response.ok) {
+                          setTeamMembers(prev => [...prev, userId]);
+                          toast.success('Team member added');
+                          onSuccess();
+                        } else {
+                          toast.error('Failed to add member');
+                        }
+                      }).catch(() => {
+                        toast.error('Failed to add member');
+                      }).finally(() => {
+                        setLoading(false);
+                        setSelectedMember('');
+                      });
+                    }, 0);
+                  }
+                }}
                 disabled={loading}
               >
                 <SelectTrigger className="border-[#D4BBA6] flex-1" data-testid="add-member-select">
-                  <SelectValue placeholder="Select a user to add" />
+                  <SelectValue placeholder="Click to add team members..." />
                 </SelectTrigger>
                 <SelectContent className="bg-white border-[#D4BBA6] max-h-60">
-                  {availableUsers.map(user => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.name} ({user.email})
-                    </SelectItem>
-                  ))}
+                  {availableUsers.length === 0 ? (
+                    <div className="p-2 text-sm text-[#9C8C74] text-center">All users are already in the team</div>
+                  ) : (
+                    availableUsers.map(user => (
+                      <SelectItem key={user.id} value={user.id}>
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-rose-100 flex items-center justify-center">
+                            <User className="w-3 h-3 text-rose-600" />
+                          </div>
+                          <span>{user.name}</span>
+                          <span className="text-[#9C8C74] text-xs">({user.email})</span>
+                        </div>
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
-              <Button 
-                onClick={handleAddMember} 
-                disabled={loading || !selectedMember}
-                className="bg-rose-600 hover:bg-rose-700 text-white"
-                data-testid="add-member-btn"
-              >
-                <UserPlus className="w-4 h-4" />
-              </Button>
             </div>
 
             {/* Members List */}
@@ -657,6 +710,11 @@ const ProjectDetail = () => {
   const [draggedTask, setDraggedTask] = useState(null);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [viewMode, setViewMode] = useState('kanban'); // 'kanban' or 'calendar'
+  
+  // Attachments state
+  const [attachments, setAttachments] = useState([]);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const attachmentInputRef = useRef(null);
   
   // Handle URL parameter to open task detail
   useEffect(() => {
@@ -916,11 +974,12 @@ const ProjectDetail = () => {
       const token = localStorage.getItem('sevora_token');
       const headers = { 'Authorization': `Bearer ${token}` };
 
-      const [projectRes, tasksRes, usersRes, labelsRes] = await Promise.all([
+      const [projectRes, tasksRes, usersRes, labelsRes, attachmentsRes] = await Promise.all([
         fetch(`${API}/api/projects/${projectId}`, { headers }),
         fetch(`${API}/api/projects/${projectId}/tasks`, { headers }),
         fetch(`${API}/api/workos/users`, { headers }),
-        fetch(`${API}/api/projects/labels?project_id=${projectId}`, { headers })
+        fetch(`${API}/api/projects/labels?project_id=${projectId}`, { headers }),
+        fetch(`${API}/api/projects/${projectId}/attachments`, { headers })
       ]);
 
       if (!projectRes.ok) throw new Error('Project not found');
@@ -929,6 +988,7 @@ const ProjectDetail = () => {
       const tasksData = tasksRes.ok ? await tasksRes.json() : [];
       const usersData = usersRes.ok ? await usersRes.json() : [];
       const labelsData = labelsRes.ok ? await labelsRes.json() : [];
+      const attachmentsData = attachmentsRes.ok ? await attachmentsRes.json() : [];
 
       setProject(projectData);
       setTasks(tasksData);
@@ -936,6 +996,7 @@ const ProjectDetail = () => {
       const allUsers = usersData.users || usersData || [];
       setUsers(allUsers.filter(u => u.status === 'active'));
       setProjectLabels(labelsData);
+      setAttachments(attachmentsData);
     } catch (error) {
       console.error('Error:', error);
       toast.error('Failed to load project');
@@ -949,6 +1010,74 @@ const ProjectDetail = () => {
     fetchData();
     fetchRelatedMeetings();
   }, [fetchData, fetchRelatedMeetings]);
+
+  // Attachment handlers
+  const handleAttachmentUpload = async (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    setUploadingAttachment(true);
+    const token = localStorage.getItem('sevora_token');
+    
+    try {
+      for (const file of files) {
+        if (file.size > 10 * 1024 * 1024) {
+          toast.error(`${file.name} is too large (max 10MB)`);
+          continue;
+        }
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const response = await fetch(`${API}/api/projects/${projectId}/attachments`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData
+        });
+        
+        if (!response.ok) throw new Error('Upload failed');
+      }
+      toast.success('File(s) uploaded');
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to upload file');
+    } finally {
+      setUploadingAttachment(false);
+      if (attachmentInputRef.current) attachmentInputRef.current.value = '';
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId) => {
+    if (!window.confirm('Delete this attachment?')) return;
+    
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const response = await fetch(`${API}/api/projects/${projectId}/attachments/${attachmentId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!response.ok) throw new Error('Delete failed');
+      toast.success('Attachment deleted');
+      setAttachments(prev => prev.filter(a => a.id !== attachmentId));
+    } catch (error) {
+      toast.error('Failed to delete attachment');
+    }
+  };
+
+  const getFileIcon = (contentType) => {
+    if (contentType?.startsWith('image/')) return <Image className="w-5 h-5 text-blue-500" />;
+    if (contentType?.includes('pdf')) return <FileText className="w-5 h-5 text-red-500" />;
+    return <File className="w-5 h-5 text-gray-500" />;
+  };
+
+  const formatFileSize = (bytes) => {
+    if (!bytes) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
 
   const handleDragStart = (e, task) => {
     setDraggedTask(task);
@@ -1166,6 +1295,93 @@ const ProjectDetail = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Project Attachments Section */}
+      <Card className="bg-white/50 border-[#E8D5C4]">
+        <CardHeader className="border-b border-[#E8D5C4] py-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-[#4A3728] flex items-center gap-2 text-base">
+              <Paperclip className="w-5 h-5 text-rose-600" />
+              Attachments
+              {attachments.length > 0 && (
+                <Badge className="bg-[#E8D5C4] text-[#4A3728] ml-1">{attachments.length}</Badge>
+              )}
+            </CardTitle>
+            <div>
+              <input
+                ref={attachmentInputRef}
+                type="file"
+                multiple
+                onChange={handleAttachmentUpload}
+                className="hidden"
+                id="project-attachment-input"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => attachmentInputRef.current?.click()}
+                disabled={uploadingAttachment}
+                className="border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0]"
+                data-testid="upload-attachment-btn"
+              >
+                {uploadingAttachment ? (
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Upload className="w-4 h-4 mr-2" />
+                )}
+                Upload
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-4">
+          {attachments.length === 0 ? (
+            <div className="text-center py-8 text-[#9C8C74]">
+              <Paperclip className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">No attachments yet</p>
+              <p className="text-xs mt-1">Upload files to share with your team</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {attachments.map((att) => (
+                <div
+                  key={att.id}
+                  className="flex items-center gap-3 p-3 bg-[#FDF8F3] border border-[#E8D5C4] rounded-lg group hover:border-[#D4BBA6] transition-colors"
+                >
+                  {getFileIcon(att.content_type)}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-[#4A3728] truncate" title={att.original_filename}>
+                      {att.original_filename}
+                    </p>
+                    <p className="text-xs text-[#9C8C74]">
+                      {formatFileSize(att.size)}
+                      {att.uploaded_by_name && ` • ${att.uploaded_by_name}`}
+                    </p>
+                  </div>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <a
+                      href={`${API}${att.url}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1.5 text-[#6B5D52] hover:text-[#4A3728] hover:bg-[#E8D5C4] rounded"
+                      title="Download"
+                    >
+                      <Download className="w-4 h-4" />
+                    </a>
+                    <button
+                      onClick={() => handleDeleteAttachment(att.id)}
+                      className="p-1.5 text-[#9C8C74] hover:text-red-600 hover:bg-red-50 rounded"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Task Board - Kanban or Calendar */}
       <Card className="bg-[#FDF8F3] border-[#E8D5C4]">
