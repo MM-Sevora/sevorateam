@@ -384,16 +384,16 @@ const SubtasksSection = ({ taskId, token, users = [] }) => {
                 <option value="urgent">Urgent</option>
               </select>
               {/* Due Date */}
-              <Input
+              <input
                 type="date"
                 value={st.due_date ? st.due_date.split('T')[0] : ''}
                 onChange={(e) => updateSubtaskDueDate(st.id, e.target.value)}
-                className={`w-[110px] h-7 text-xs border-[#D4BBA6] bg-white ${
+                className={`w-[120px] h-7 text-xs border border-[#D4BBA6] rounded-md px-2 bg-white cursor-pointer focus:outline-none focus:ring-1 focus:ring-rose-400 ${
                   st.due_date && new Date(st.due_date) < new Date() && st.status !== 'completed' 
                     ? 'text-red-600 border-red-300' 
-                    : ''
+                    : 'text-[#4A3728]'
                 }`}
-                title="Due date"
+                title="Click to set due date"
               />
               {/* Assignee */}
               <Select 
