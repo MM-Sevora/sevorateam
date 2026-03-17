@@ -472,27 +472,26 @@ async def update_role(
 
 @workos_router.delete("/roles/{role_id}")
 async def delete_role(role_id: str, user: dict = Depends(require_admin())):
-    """Delete a role (soft delete)"""
+    """Delete a role (soft delete). Super Admin can delete system roles except 'super_admin'."""
     db = get_db()
     
     role = await db.roles.find_one({"id": role_id})
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
     
-    if role.get("is_system"):
-        raise HTTPException(status_code=400, detail="Cannot delete system roles")
+    # Never allow deletion of super_admin role
+    if role.get("code") == "super_admin":
+        raise HTTPException(status_code=400, detail="Cannot delete the Super Admin role - it is required for system operation")
     
     # Check if role has users
     user_count = await db.users.count_documents({"role_id": role_id})
     if user_count > 0:
         raise HTTPException(status_code=400, detail=f"Cannot delete role with {user_count} users. Reassign them first.")
     
-    await db.roles.update_one(
-        {"id": role_id},
-        {"$set": {"is_active": False, "updated_at": datetime.now(timezone.utc).isoformat()}}
-    )
+    # Hard delete the role
+    await db.roles.delete_one({"id": role_id})
     
-    return {"success": True, "message": "Role deactivated"}
+    return {"success": True, "message": f"Role '{role.get('name')}' deleted successfully"}
 
 
 # ============== ENHANCED USER MANAGEMENT ==============
