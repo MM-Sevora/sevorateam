@@ -70,6 +70,8 @@ import { Label } from '../../components/ui/label';
 import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
 
+const API = process.env.REACT_APP_BACKEND_URL;
+
 // Icon mapping for modules
 const ICON_MAP = {
   Activity, TrendingUp, Flag, CalendarDays, FolderKanban, ClipboardList,

@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { Trash2 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { toast } from 'sonner';
-import RichTextEditor from '../../../components/ui/rich-text-editor';
+import { RichTextEditor } from '../../../components/ui/rich-text-editor';
 import { API } from './taskConfig';
 
 const CommentsSection = ({ taskId, token, users = [] }) => {

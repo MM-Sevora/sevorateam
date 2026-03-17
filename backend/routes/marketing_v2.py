@@ -1,5 +1,45 @@
 """
-Marketing Routes - Unified Contacts Hub, Digital PR, Events, Content & Assets
+Marketing Routes V2 - Legacy Monolithic File (DEPRECATED)
+==========================================================
+
+WARNING: This file is being actively refactored into modular components.
+
+MIGRATION STATUS:
+-----------------
+Routes migrated to /routes/marketing/:
+  ✅ Contacts Hub -> contacts.py
+  ✅ Publications -> publications.py, publications_pipeline.py
+  ✅ Campaigns -> campaigns.py
+  ✅ Deals -> deals.py
+  ✅ Digital Ads -> ads.py
+  ✅ Creative Assets -> assets_v2.py
+  ✅ Content Production -> content_production.py
+  ✅ Content Promotion -> content_promotion.py
+  ✅ Budget Management -> budget_management.py
+  ✅ Configuration -> config.py
+
+Routes still in this file (TO BE MIGRATED):
+  ⚠️ Microsoft Integration
+  ⚠️ Email Settings/Campaigns
+  ⚠️ Influencer Analytics
+  ⚠️ Influencer Discovery
+  ⚠️ Communications
+  ⚠️ Contracts
+  ⚠️ Payments
+  ⚠️ UGC
+  ⚠️ PR (Press Releases, Media Coverage, Pitches)
+  ⚠️ Events
+  ⚠️ Approvals
+  ⚠️ Calendar
+  ⚠️ Monitoring & Alerts
+  ⚠️ Activity Feed
+  ⚠️ Relationships CRM
+  ⚠️ Press Kits
+  ⚠️ Outreach Sequences
+  ⚠️ Advertorials
+
+New routes should be added to /routes/marketing/ modules.
+This file will be removed once all routes are migrated.
 """
 
 import os
