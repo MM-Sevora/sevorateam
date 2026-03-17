@@ -41,6 +41,7 @@ import {
   PopoverTrigger,
 } from "../../components/ui/popover";
 import { toast } from 'sonner';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import TaskDetailModal from './TaskDetailModal';
 import TaskCalendarView from './TaskCalendarView';
 import TaskListView from './TaskListView';
@@ -200,7 +201,7 @@ const TaskCard = ({ task, onStatusChange, onEdit, onDelete, onDragStart, onClick
   );
 };
 
-const KanbanColumn = ({ column, tasks, onDrop, onDragOver, onStatusChange, onEditTask, onDeleteTask, onDragStart, onTaskClick, selectedTasks, onSelectTask, selectionMode, onSelectAllInColumn }) => {
+const KanbanColumn = ({ column, tasks, onDrop, onDragOver, onStatusChange, onEditTask, onDeleteTask, onDragStart, onTaskClick, selectedTasks, onSelectTask, selectionMode, onSelectAllInColumn, onAddTask }) => {
   const columnTasks = tasks.filter(t => t.status === column.id);
   const allSelected = columnTasks.length > 0 && columnTasks.every(t => selectedTasks.includes(t.id));
   const someSelected = columnTasks.some(t => selectedTasks.includes(t.id));
@@ -229,9 +230,20 @@ const KanbanColumn = ({ column, tasks, onDrop, onDragOver, onStatusChange, onEdi
           </div>
           <h3 className="font-bold text-[#4A3728] text-base">{column.label}</h3>
         </div>
-        <span className="bg-[#4A3728]/10 text-[#4A3728] px-2 py-0.5 rounded-full text-xs font-bold">
-          {columnTasks.length}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="bg-[#4A3728]/10 text-[#4A3728] px-2 py-0.5 rounded-full text-xs font-bold">
+            {columnTasks.length}
+          </span>
+          {/* Add Task Button */}
+          <button
+            onClick={() => onAddTask(column.id)}
+            className="w-6 h-6 rounded-full bg-white border border-[#D4BBA6] flex items-center justify-center text-[#6B5D52] hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600 transition-colors"
+            title={`Add task to ${column.label}`}
+            data-testid={`add-task-${column.id}`}
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
       <div className="space-y-3 min-h-[200px]">
         {columnTasks.map(task => (
@@ -250,7 +262,13 @@ const KanbanColumn = ({ column, tasks, onDrop, onDragOver, onStatusChange, onEdi
         ))}
         {columnTasks.length === 0 && (
           <div className="text-center py-8 text-[#9C8C74] text-sm">
-            No tasks
+            <button
+              onClick={() => onAddTask(column.id)}
+              className="text-rose-500 hover:text-rose-600 text-sm flex items-center gap-1 mx-auto"
+            >
+              <Plus className="w-4 h-4" />
+              Add task
+            </button>
           </div>
         )}
       </div>
@@ -258,17 +276,22 @@ const KanbanColumn = ({ column, tasks, onDrop, onDragOver, onStatusChange, onEdi
   );
 };
 
-const CreateTaskModal = ({ open, onClose, projectId, users, onSuccess }) => {
+const CreateTaskModal = ({ open, onClose, projectId, users, onSuccess, defaultStatus = 'draft' }) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    status: 'draft',
+    status: defaultStatus,
     priority: 'medium',
     assigned_to: '',
     due_date: '',
     estimated_hours: ''
   });
+
+  // Update status when defaultStatus changes
+  useEffect(() => {
+    setFormData(prev => ({ ...prev, status: defaultStatus }));
+  }, [defaultStatus]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -715,6 +738,12 @@ const ProjectDetail = () => {
   const [attachments, setAttachments] = useState([]);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const attachmentInputRef = useRef(null);
+  
+  // Project tabs state
+  const [projectTab, setProjectTab] = useState('tasks');
+  
+  // Create task with pre-selected status (for creating from Kanban column)
+  const [createTaskStatus, setCreateTaskStatus] = useState('draft');
   
   // Handle URL parameter to open task detail
   useEffect(() => {
@@ -1296,96 +1325,29 @@ const ProjectDetail = () => {
         </Card>
       </div>
 
-      {/* Project Attachments Section */}
-      <Card className="bg-white/50 border-[#E8D5C4]">
-        <CardHeader className="border-b border-[#E8D5C4] py-4">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-[#4A3728] flex items-center gap-2 text-base">
-              <Paperclip className="w-5 h-5 text-rose-600" />
-              Attachments
-              {attachments.length > 0 && (
-                <Badge className="bg-[#E8D5C4] text-[#4A3728] ml-1">{attachments.length}</Badge>
-              )}
-            </CardTitle>
-            <div>
-              <input
-                ref={attachmentInputRef}
-                type="file"
-                multiple
-                onChange={handleAttachmentUpload}
-                className="hidden"
-                id="project-attachment-input"
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => attachmentInputRef.current?.click()}
-                disabled={uploadingAttachment}
-                className="border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0]"
-                data-testid="upload-attachment-btn"
-              >
-                {uploadingAttachment ? (
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Upload className="w-4 h-4 mr-2" />
-                )}
-                Upload
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-4">
-          {attachments.length === 0 ? (
-            <div className="text-center py-8 text-[#9C8C74]">
-              <Paperclip className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">No attachments yet</p>
-              <p className="text-xs mt-1">Upload files to share with your team</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {attachments.map((att) => (
-                <div
-                  key={att.id}
-                  className="flex items-center gap-3 p-3 bg-[#FDF8F3] border border-[#E8D5C4] rounded-lg group hover:border-[#D4BBA6] transition-colors"
-                >
-                  {getFileIcon(att.content_type)}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-[#4A3728] truncate" title={att.original_filename}>
-                      {att.original_filename}
-                    </p>
-                    <p className="text-xs text-[#9C8C74]">
-                      {formatFileSize(att.size)}
-                      {att.uploaded_by_name && ` • ${att.uploaded_by_name}`}
-                    </p>
-                  </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <a
-                      href={`${API}${att.url}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-1.5 text-[#6B5D52] hover:text-[#4A3728] hover:bg-[#E8D5C4] rounded"
-                      title="Download"
-                    >
-                      <Download className="w-4 h-4" />
-                    </a>
-                    <button
-                      onClick={() => handleDeleteAttachment(att.id)}
-                      className="p-1.5 text-[#9C8C74] hover:text-red-600 hover:bg-red-50 rounded"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Project Tabs - Tasks, Files, Info */}
+      <Tabs value={projectTab} onValueChange={setProjectTab} className="space-y-4">
+        <TabsList className="bg-[#F5EBE0] border border-[#E8D5C4]">
+          <TabsTrigger value="tasks" className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728]">
+            <ListTodo className="w-4 h-4 mr-2" />
+            Tasks
+            <Badge className="ml-2 bg-[#E8D5C4] text-[#4A3728]">{tasks.length}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="files" className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728]">
+            <Paperclip className="w-4 h-4 mr-2" />
+            Files
+            {attachments.length > 0 && <Badge className="ml-2 bg-[#E8D5C4] text-[#4A3728]">{attachments.length}</Badge>}
+          </TabsTrigger>
+          <TabsTrigger value="info" className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728]">
+            <Folder className="w-4 h-4 mr-2" />
+            Project Info
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Task Board - Kanban or Calendar */}
-      <Card className="bg-[#FDF8F3] border-[#E8D5C4]">
-        <CardHeader className="border-b border-[#E8D5C4] bg-white/50 space-y-4">
+        {/* Tasks Tab */}
+        <TabsContent value="tasks" className="mt-0">
+          <Card className="bg-[#FDF8F3] border-[#E8D5C4]">
+            <CardHeader className="border-b border-[#E8D5C4] bg-white/50 space-y-4">
           <div className="flex items-center justify-between">
             <CardTitle className="text-[#4A3728] flex items-center gap-2">
               {viewMode === 'kanban' ? (
@@ -1707,6 +1669,10 @@ const ProjectDetail = () => {
                   onSelectTask={toggleTaskSelection}
                   selectionMode={selectionMode}
                   onSelectAllInColumn={selectAllInColumn}
+                  onAddTask={(status) => {
+                    setCreateTaskStatus(status);
+                    setShowCreateTask(true);
+                  }}
                 />
               ))}
             </div>
@@ -1820,13 +1786,222 @@ const ProjectDetail = () => {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
+
+        {/* Files Tab */}
+        <TabsContent value="files" className="mt-0">
+          <Card className="bg-white/50 border-[#E8D5C4]">
+            <CardHeader className="border-b border-[#E8D5C4] py-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-[#4A3728] flex items-center gap-2 text-base">
+                  <Paperclip className="w-5 h-5 text-rose-600" />
+                  Project Files & Attachments
+                </CardTitle>
+                <div>
+                  <input
+                    ref={attachmentInputRef}
+                    type="file"
+                    multiple
+                    onChange={handleAttachmentUpload}
+                    className="hidden"
+                    id="project-attachment-input"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => attachmentInputRef.current?.click()}
+                    disabled={uploadingAttachment}
+                    className="border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0]"
+                    data-testid="upload-attachment-btn"
+                  >
+                    {uploadingAttachment ? (
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Upload className="w-4 h-4 mr-2" />
+                    )}
+                    Upload Files
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              {attachments.length === 0 ? (
+                <div className="text-center py-12 text-[#9C8C74]">
+                  <Paperclip className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p className="text-lg">No files uploaded yet</p>
+                  <p className="text-sm mt-1">Upload documents, images, or any files to share with your team</p>
+                  <Button
+                    variant="outline"
+                    className="mt-4 border-[#D4BBA6]"
+                    onClick={() => attachmentInputRef.current?.click()}
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload Your First File
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {attachments.map((att) => (
+                    <div
+                      key={att.id}
+                      className="flex items-center gap-3 p-4 bg-[#FDF8F3] border border-[#E8D5C4] rounded-lg group hover:border-[#D4BBA6] hover:shadow-md transition-all"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-white border border-[#E8D5C4] flex items-center justify-center">
+                        {getFileIcon(att.content_type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-[#4A3728] truncate" title={att.original_filename}>
+                          {att.original_filename}
+                        </p>
+                        <p className="text-xs text-[#9C8C74]">
+                          {formatFileSize(att.size)}
+                          {att.uploaded_by_name && ` • ${att.uploaded_by_name}`}
+                        </p>
+                      </div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <a
+                          href={`${API}${att.url}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2 text-[#6B5D52] hover:text-[#4A3728] hover:bg-[#E8D5C4] rounded-lg"
+                          title="Download"
+                        >
+                          <Download className="w-4 h-4" />
+                        </a>
+                        <button
+                          onClick={() => handleDeleteAttachment(att.id)}
+                          className="p-2 text-[#9C8C74] hover:text-red-600 hover:bg-red-50 rounded-lg"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Project Info Tab */}
+        <TabsContent value="info" className="mt-0">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Project Details Card */}
+            <Card className="bg-white/50 border-[#E8D5C4]">
+              <CardHeader className="border-b border-[#E8D5C4] py-4">
+                <CardTitle className="text-[#4A3728] flex items-center gap-2 text-base">
+                  <Folder className="w-5 h-5 text-rose-600" />
+                  Project Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 space-y-4">
+                <div>
+                  <label className="text-sm text-[#6B5D52]">Description</label>
+                  <div className="mt-1 text-[#4A3728] prose prose-sm max-w-none"
+                    dangerouslySetInnerHTML={{ __html: project.description || '<span class="text-[#9C8C74]">No description provided</span>' }}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm text-[#6B5D52]">Start Date</label>
+                    <p className="mt-1 text-[#4A3728]">
+                      {project.start_date ? new Date(project.start_date).toLocaleDateString() : 'Not set'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm text-[#6B5D52]">Due Date</label>
+                    <p className="mt-1 text-[#4A3728]">
+                      {project.end_date ? new Date(project.end_date).toLocaleDateString() : 'Not set'}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm text-[#6B5D52]">Priority</label>
+                    <div className="mt-1">
+                      <Badge className={priorityConfig[project.priority]?.color || 'bg-stone-100'}>
+                        {priorityConfig[project.priority]?.label || project.priority}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm text-[#6B5D52]">Visibility</label>
+                    <div className="mt-1">
+                      <Badge variant="outline" className={project.visibility === 'private' ? 'border-amber-200 text-amber-700' : 'border-emerald-200 text-emerald-700'}>
+                        {project.visibility === 'private' ? <Lock className="w-3 h-3 mr-1" /> : <Globe className="w-3 h-3 mr-1" />}
+                        {project.visibility === 'private' ? 'Private' : 'Public'}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Related Meetings Card - Moved here */}
+            <Card className="bg-white/50 border-[#E8D5C4]">
+              <CardHeader className="border-b border-[#E8D5C4] py-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-[#4A3728] flex items-center gap-2 text-base">
+                    <Video className="w-5 h-5 text-rose-600" />
+                    Related Meetings
+                    {relatedMeetings.length > 0 && (
+                      <Badge className="bg-rose-100 text-rose-700 ml-1">{relatedMeetings.length}</Badge>
+                    )}
+                  </CardTitle>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => navigate(`/meetings/new?project_id=${project.id}&project_name=${encodeURIComponent(project.name)}&type=project_review`)}
+                    className="border-[#D4BBA6]"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Schedule
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4">
+                {loadingMeetings ? (
+                  <div className="text-center py-6 text-[#6B5D52]">Loading...</div>
+                ) : relatedMeetings.length === 0 ? (
+                  <div className="text-center py-6">
+                    <Video className="w-10 h-10 mx-auto text-[#D4BBA6] mb-2" />
+                    <p className="text-sm text-[#6B5D52]">No meetings linked yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {relatedMeetings.slice(0, 5).map(meeting => (
+                      <div 
+                        key={meeting.id}
+                        onClick={() => navigate(`/meetings/${meeting.id}`)}
+                        className="flex items-center justify-between p-3 bg-[#F5EBE0] rounded-lg hover:bg-[#EDE3D8] cursor-pointer"
+                      >
+                        <div className="flex-1">
+                          <p className="font-medium text-[#4A3728] text-sm">{meeting.title}</p>
+                          <p className="text-xs text-[#6B5D52]">
+                            {new Date(meeting.start_time).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
 
       <CreateTaskModal
         open={showCreateTask}
-        onClose={() => setShowCreateTask(false)}
+        onClose={() => {
+          setShowCreateTask(false);
+          setCreateTaskStatus('draft');
+        }}
         projectId={projectId}
         users={users}
         onSuccess={fetchData}
+        defaultStatus={createTaskStatus}
       />
 
       <TaskDetailModal
