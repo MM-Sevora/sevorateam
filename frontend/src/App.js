@@ -80,6 +80,7 @@ const LeadershipDashboard = lazy(() => import("./pages/pulse/LeadershipDashboard
 const DepartmentWall = lazy(() => import("./pages/pulse/DepartmentWall"));
 const Recognition = lazy(() => import("./pages/pulse/Recognition"));
 const WorkUpdates = lazy(() => import("./pages/pulse/WorkUpdates"));
+const TeamCompliance = lazy(() => import("./pages/pulse/TeamCompliance"));
 const EmployeeProfile = lazy(() => import("./pages/pulse/EmployeeProfile"));
 
 // Admin Pages
@@ -469,6 +470,7 @@ function AppRoutes() {
                 <Route path="/pulse/departments/:department" element={<ProtectedRoute><DepartmentWall /></ProtectedRoute>} />
                 <Route path="/pulse/recognition" element={<ProtectedRoute><Recognition /></ProtectedRoute>} />
                 <Route path="/pulse/updates" element={<ProtectedRoute><WorkUpdates /></ProtectedRoute>} />
+                <Route path="/pulse/compliance" element={<ProtectedRoute><TeamCompliance /></ProtectedRoute>} />
                 <Route path="/pulse/employee/:employeeId" element={<ProtectedRoute><EmployeeProfile /></ProtectedRoute>} />
                 <Route path="/social/analytics" element={<Navigate to="/social" replace />} />
                 <Route path="/social/ai-tools" element={<Navigate to="/social" replace />} />

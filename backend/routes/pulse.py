@@ -1209,6 +1209,7 @@ class DailyUpdateCreate(BaseModel):
     tomorrow_focus_items: List[LinkableTextItem] = []  # New: focus items with links
     notes: Optional[str] = None
     update_date: Optional[str] = None  # Allow specifying date (defaults to today)
+    share_publicly: bool = False  # Override department-only visibility to share with entire org
 
 class WeeklyUpdateCreate(BaseModel):
     achievements: List[str] = []  # Legacy: simple text list
@@ -1329,6 +1330,8 @@ async def submit_daily_update(update: DailyUpdateCreate, user: dict = Depends(ge
         "tomorrow_focus": [item["text"] for item in all_tomorrow_focus_items],
         "tomorrow_focus_items": all_tomorrow_focus_items,
         "notes": update.notes,
+        "share_publicly": update.share_publicly,
+        "acknowledged_by": [],  # List of manager IDs who acknowledged
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -1374,12 +1377,15 @@ async def submit_daily_update(update: DailyUpdateCreate, user: dict = Depends(ge
         for items in [all_completed_items, all_blocker_items, all_tomorrow_focus_items]:
             all_linked.extend([item["linked_item"] for item in items if item.get("linked_item")])
         
+        # Determine visibility - public if share_publicly is True, otherwise department-only
+        visibility = "public" if update.share_publicly else "department"
+        
         post_doc = {
             "id": str(uuid.uuid4()),
             "title": f"Daily Update - {update_date}",
             "content": content,
             "post_type": "daily_update",
-            "visibility": "department",
+            "visibility": visibility,
             "department": user.get("department"),
             "author_id": user["id"],
             "author_name": user.get("name"),
@@ -2944,4 +2950,339 @@ async def create_task_from_daily_update_blocker(
         "success": True,
         "message": "Task created from blocker",
         "task": task_doc
+    }
+
+
+
+# ============== ACKNOWLEDGE FEATURE ==============
+
+class AcknowledgeRequest(BaseModel):
+    """Request to acknowledge an update"""
+    note: Optional[str] = None  # Optional feedback note
+
+
+@router.post("/updates/daily/{update_id}/acknowledge")
+async def acknowledge_daily_update(
+    update_id: str,
+    request: AcknowledgeRequest = None,
+    user: dict = Depends(get_current_user)
+):
+    """Manager acknowledges a daily update"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not available")
+    
+    # Check if user is a manager
+    if user.get("role") not in ["super_admin", "admin", "department_manager", "team_lead"]:
+        raise HTTPException(status_code=403, detail="Only managers can acknowledge updates")
+    
+    # Get the update
+    update = await db.pulse_daily_updates.find_one({"id": update_id})
+    if not update:
+        raise HTTPException(status_code=404, detail="Update not found")
+    
+    # Check if already acknowledged by this user
+    acknowledged_by = update.get("acknowledged_by", [])
+    if any(ack.get("user_id") == user["id"] for ack in acknowledged_by):
+        return {"success": False, "message": "Already acknowledged by you"}
+    
+    # Add acknowledgment
+    acknowledgment = {
+        "user_id": user["id"],
+        "user_name": user.get("name"),
+        "role": user.get("role"),
+        "note": request.note if request else None,
+        "acknowledged_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.pulse_daily_updates.update_one(
+        {"id": update_id},
+        {"$push": {"acknowledged_by": acknowledgment}}
+    )
+    
+    # Send notification to the update author
+    try:
+        from routes.notifications import create_notification
+        await create_notification(
+            user_id=update["user_id"],
+            notification_type="update_acknowledged",
+            title="Update Acknowledged",
+            message=f"{user.get('name')} acknowledged your daily update",
+            link=f"/pulse/updates?highlight={update_id}"
+        )
+    except Exception as e:
+        logger.warning(f"Failed to send acknowledgment notification: {e}")
+    
+    return {
+        "success": True,
+        "message": "Update acknowledged",
+        "acknowledgment": acknowledgment
+    }
+
+
+@router.delete("/updates/daily/{update_id}/acknowledge")
+async def remove_acknowledge_daily_update(
+    update_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Manager removes their acknowledgment from a daily update"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not available")
+    
+    # Get the update
+    update = await db.pulse_daily_updates.find_one({"id": update_id})
+    if not update:
+        raise HTTPException(status_code=404, detail="Update not found")
+    
+    # Remove acknowledgment by this user
+    await db.pulse_daily_updates.update_one(
+        {"id": update_id},
+        {"$pull": {"acknowledged_by": {"user_id": user["id"]}}}
+    )
+    
+    return {"success": True, "message": "Acknowledgment removed"}
+
+
+# ============== COMPLIANCE & ANALYTICS ==============
+
+@router.get("/updates/compliance")
+async def get_team_compliance_stats(
+    department: Optional[str] = None,
+    date: Optional[str] = None,
+    user: dict = Depends(get_current_user)
+):
+    """Get team compliance stats - who submitted updates today/this week"""
+    if db is None:
+        return {"submitted": [], "not_submitted": [], "compliance_rate": 0}
+    
+    # Check if user is a manager
+    if user.get("role") not in ["super_admin", "admin", "department_manager", "team_lead"]:
+        raise HTTPException(status_code=403, detail="Only managers can view compliance stats")
+    
+    today = date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    
+    # Build user query - filter by department if specified or user's department for dept managers
+    user_query = {"status": {"$ne": "inactive"}}
+    if department and department != "all":
+        user_query["department"] = department
+    elif user.get("role") == "department_manager":
+        user_query["department"] = user.get("department")
+    
+    # Get all active users
+    all_users = await db.users.find(
+        user_query,
+        {"_id": 0, "id": 1, "name": 1, "email": 1, "department": 1, "role": 1}
+    ).to_list(500)
+    
+    # Get users who submitted today
+    submitted_query = {"date": today}
+    if department and department != "all":
+        submitted_query["department"] = department
+    elif user.get("role") == "department_manager":
+        submitted_query["department"] = user.get("department")
+    
+    submitted_updates = await db.pulse_daily_updates.find(
+        submitted_query,
+        {"_id": 0, "user_id": 1, "user_name": 1, "department": 1, "created_at": 1, "acknowledged_by": 1}
+    ).to_list(500)
+    
+    submitted_user_ids = {u["user_id"] for u in submitted_updates}
+    
+    # Categorize users
+    submitted = []
+    not_submitted = []
+    
+    for u in all_users:
+        user_info = {
+            "id": u["id"],
+            "name": u["name"],
+            "email": u.get("email"),
+            "department": u.get("department"),
+            "role": u.get("role")
+        }
+        if u["id"] in submitted_user_ids:
+            # Find the update details
+            update_info = next((upd for upd in submitted_updates if upd["user_id"] == u["id"]), {})
+            user_info["submitted_at"] = update_info.get("created_at")
+            user_info["acknowledged"] = len(update_info.get("acknowledged_by", [])) > 0
+            submitted.append(user_info)
+        else:
+            not_submitted.append(user_info)
+    
+    compliance_rate = (len(submitted) / len(all_users) * 100) if all_users else 0
+    
+    return {
+        "date": today,
+        "total_employees": len(all_users),
+        "submitted_count": len(submitted),
+        "not_submitted_count": len(not_submitted),
+        "compliance_rate": round(compliance_rate, 1),
+        "submitted": submitted,
+        "not_submitted": not_submitted,
+    }
+
+
+@router.get("/updates/compliance/weekly")
+async def get_weekly_compliance_stats(
+    department: Optional[str] = None,
+    user: dict = Depends(get_current_user)
+):
+    """Get weekly compliance stats per department"""
+    if db is None:
+        return {"departments": [], "overall_rate": 0}
+    
+    # Check if user is a manager
+    if user.get("role") not in ["super_admin", "admin", "department_manager", "team_lead"]:
+        raise HTTPException(status_code=403, detail="Only managers can view compliance stats")
+    
+    now = datetime.now(timezone.utc)
+    week_start = (now - timedelta(days=now.weekday())).strftime("%Y-%m-%d")
+    week_end = now.strftime("%Y-%m-%d")
+    
+    # Get working days this week (Mon-Fri up to today)
+    working_days = []
+    for i in range(min(now.weekday() + 1, 5)):  # Mon=0, Fri=4
+        day = now - timedelta(days=now.weekday() - i)
+        working_days.append(day.strftime("%Y-%m-%d"))
+    
+    # Get all departments or specific one
+    dept_filter = {}
+    if department and department != "all":
+        dept_filter["department"] = department
+    elif user.get("role") == "department_manager":
+        dept_filter["department"] = user.get("department")
+    
+    # Aggregate by department
+    pipeline = [
+        {"$match": {"status": {"$ne": "inactive"}, **dept_filter}},
+        {"$group": {"_id": "$department", "count": {"$sum": 1}}}
+    ]
+    dept_counts = await db.users.aggregate(pipeline).to_list(20)
+    dept_user_counts = {d["_id"]: d["count"] for d in dept_counts}
+    
+    # Get updates for this week grouped by department and date
+    update_pipeline = [
+        {"$match": {"date": {"$gte": week_start, "$lte": week_end}, **dept_filter}},
+        {"$group": {
+            "_id": {"department": "$department", "date": "$date"},
+            "submissions": {"$sum": 1}
+        }}
+    ]
+    update_stats = await db.pulse_daily_updates.aggregate(update_pipeline).to_list(100)
+    
+    # Build department stats
+    departments = {}
+    for stat in update_stats:
+        dept = stat["_id"]["department"] or "unknown"
+        if dept not in departments:
+            departments[dept] = {
+                "department": dept,
+                "total_employees": dept_user_counts.get(dept, 0),
+                "daily_stats": {},
+                "total_submissions": 0,
+                "expected_submissions": dept_user_counts.get(dept, 0) * len(working_days)
+            }
+        departments[dept]["daily_stats"][stat["_id"]["date"]] = stat["submissions"]
+        departments[dept]["total_submissions"] += stat["submissions"]
+    
+    # Add departments with no submissions
+    for dept, count in dept_user_counts.items():
+        if dept not in departments:
+            departments[dept] = {
+                "department": dept,
+                "total_employees": count,
+                "daily_stats": {},
+                "total_submissions": 0,
+                "expected_submissions": count * len(working_days)
+            }
+    
+    # Calculate compliance rates
+    dept_list = []
+    total_expected = 0
+    total_submitted = 0
+    for dept_name, stats in departments.items():
+        if stats["expected_submissions"] > 0:
+            stats["compliance_rate"] = round(
+                stats["total_submissions"] / stats["expected_submissions"] * 100, 1
+            )
+        else:
+            stats["compliance_rate"] = 0
+        total_expected += stats["expected_submissions"]
+        total_submitted += stats["total_submissions"]
+        dept_list.append(stats)
+    
+    # Sort by compliance rate
+    dept_list.sort(key=lambda x: x["compliance_rate"], reverse=True)
+    
+    overall_rate = (total_submitted / total_expected * 100) if total_expected > 0 else 0
+    
+    return {
+        "week_start": week_start,
+        "week_end": week_end,
+        "working_days": working_days,
+        "departments": dept_list,
+        "overall_rate": round(overall_rate, 1),
+        "total_expected": total_expected,
+        "total_submitted": total_submitted,
+    }
+
+
+# ============== REMINDER TRIGGER ==============
+
+@router.post("/updates/send-reminders")
+async def trigger_daily_update_reminders(
+    user: dict = Depends(get_current_user)
+):
+    """Trigger daily update reminders for users who haven't submitted (called by cron or manually)"""
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not available")
+    
+    # Only admins can trigger reminders
+    if user.get("role") not in ["super_admin", "admin"]:
+        raise HTTPException(status_code=403, detail="Only admins can trigger reminders")
+    
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    
+    # Get all active users
+    all_users = await db.users.find(
+        {"status": {"$ne": "inactive"}},
+        {"_id": 0, "id": 1, "name": 1, "email": 1, "department": 1}
+    ).to_list(1000)
+    
+    # Get users who already submitted today
+    submitted = await db.pulse_daily_updates.find(
+        {"date": today},
+        {"_id": 0, "user_id": 1}
+    ).to_list(1000)
+    submitted_ids = {s["user_id"] for s in submitted}
+    
+    # Find users who haven't submitted
+    pending_users = [u for u in all_users if u["id"] not in submitted_ids]
+    
+    # Send in-app notifications
+    notifications_sent = 0
+    try:
+        from routes.notifications import create_notification
+        for u in pending_users:
+            try:
+                await create_notification(
+                    user_id=u["id"],
+                    notification_type="daily_update_reminder",
+                    title="Daily Update Reminder",
+                    message="Don't forget to submit your daily work update before end of day!",
+                    link="/pulse/updates",
+                    priority="normal"
+                )
+                notifications_sent += 1
+            except Exception as e:
+                logger.warning(f"Failed to send reminder to {u['id']}: {e}")
+    except ImportError:
+        logger.warning("Notifications module not available")
+    
+    return {
+        "success": True,
+        "date": today,
+        "total_employees": len(all_users),
+        "already_submitted": len(submitted_ids),
+        "reminders_sent": notifications_sent,
+        "pending_users": [{"id": u["id"], "name": u["name"], "department": u.get("department")} for u in pending_users[:50]]
     }

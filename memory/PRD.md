@@ -7,6 +7,54 @@ Build a comprehensive Marketing Operations Platform that integrates marketing, s
 
 ## Latest Updates (March 2026)
 
+### Work Updates Enhancements (Completed ✅)
+**Date**: March 17, 2026
+
+**Features Implemented**:
+
+1. **Share with Entire Organization**
+   - Added checkbox in Daily Update dialog to override department-only visibility
+   - Updates marked as "Public" show a globe badge on the card
+   - Backend supports `share_publicly` flag in `DailyUpdateCreate` model
+
+2. **Edit/Delete Actions on Own Updates**
+   - Added action menu (⋯) on update cards for the update owner
+   - Edit opens pre-filled dialog with existing data
+   - Delete prompts for confirmation before removing
+   - CRUD endpoints already existed; now connected to UI
+
+3. **Manager Acknowledge Feature**
+   - Managers can acknowledge team member daily updates
+   - "Acknowledge" button appears for managers viewing others' updates
+   - Acknowledged updates show badge and list of acknowledgers
+   - `POST /api/pulse/updates/daily/{id}/acknowledge` endpoint added
+
+4. **Team Compliance Dashboard** (New Page: `/pulse/compliance`)
+   - Shows today's compliance rate and submitted/pending counts
+   - Lists all employees who submitted vs. pending
+   - Weekly Overview tab with department breakdown and progress bars
+   - "Send Reminders" button triggers in-app notifications to pending users
+
+5. **Daily Update Reminders**
+   - `POST /api/pulse/updates/send-reminders` endpoint for admins
+   - Sends in-app notifications to users who haven't submitted today
+   - Can be triggered manually or via scheduled job (6 PM EOD)
+
+**API Endpoints Added**:
+- `POST /api/pulse/updates/daily/{id}/acknowledge` - Acknowledge an update
+- `DELETE /api/pulse/updates/daily/{id}/acknowledge` - Remove acknowledgment
+- `GET /api/pulse/updates/compliance` - Today's compliance stats
+- `GET /api/pulse/updates/compliance/weekly` - Weekly compliance by department
+- `POST /api/pulse/updates/send-reminders` - Trigger reminder notifications
+
+**Files Modified**:
+- `/app/backend/routes/pulse.py` - Added compliance endpoints and acknowledge feature
+- `/app/frontend/src/pages/pulse/WorkUpdates.jsx` - Share publicly, edit/delete, acknowledge
+- `/app/frontend/src/pages/pulse/TeamCompliance.jsx` - New compliance dashboard page
+- `/app/frontend/src/App.js` - Added TeamCompliance route
+
+---
+
 ### Session Management - Token Refresh (Completed ✅)
 **Date**: March 16, 2026
 

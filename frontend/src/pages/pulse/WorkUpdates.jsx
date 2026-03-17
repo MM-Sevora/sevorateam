@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { Avatar, AvatarFallback } from '../../components/ui/avatar';
+import { Checkbox } from '../../components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -60,6 +61,10 @@ import {
     Sparkles,
     Clock,
     Trash2,
+    MoreHorizontal,
+    Pencil,
+    CheckCheck,
+    Globe,
 } from 'lucide-react';
 
 // ItemInput component - moved OUTSIDE WorkUpdates to prevent re-creation on every render
@@ -280,7 +285,13 @@ export default function WorkUpdates() {
         next_focus: [{ text: '', linked_item: null }],
         highlights: [{ text: '', linked_item: null }],
         notes: '',
+        sharePublicly: false,
     });
+    
+    // Edit mode state
+    const [editingUpdate, setEditingUpdate] = useState(null);
+    const [editType, setEditType] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
     const DEPARTMENTS = ['marketing', 'buying', 'warehouse', 'technology', 'operations', 'finance', 'hr', 'sales', 'leadership'];
     const isManager = ['super_admin', 'admin', 'department_manager', 'team_lead'].includes(user?.role);
@@ -347,12 +358,64 @@ export default function WorkUpdates() {
 
     const openUpdateDialog = (type) => {
         setUpdateType(type);
+        setEditingUpdate(null);
+        setEditType(null);
         setFormData({
             completed: [{ text: '', linked_item: null }],
             blockers: [{ text: '', linked_item: null }],
             next_focus: [{ text: '', linked_item: null }],
             highlights: [{ text: '', linked_item: null }],
             notes: '',
+            sharePublicly: false,
+        });
+        setShowUpdateDialog(true);
+    };
+    
+    // Open edit dialog with existing data
+    const openEditDialog = (update, type) => {
+        setUpdateType(type);
+        setEditingUpdate(update);
+        setEditType(type);
+        
+        // Map update data to form format based on type
+        const mapItemsToForm = (items) => {
+            if (!items || items.length === 0) return [{ text: '', linked_item: null }];
+            return items.map(item => ({
+                text: typeof item === 'string' ? item : item.text || '',
+                linked_item: typeof item === 'object' ? item.linked_item : null
+            }));
+        };
+        
+        let completed = [], blockers = [], nextFocus = [], highlights = [];
+        
+        if (type === 'daily') {
+            completed = mapItemsToForm(update.completed_items || update.completed_tasks);
+            blockers = mapItemsToForm(update.blocker_items || update.blockers);
+            nextFocus = mapItemsToForm(update.tomorrow_focus_items || update.tomorrow_focus);
+        } else if (type === 'weekly') {
+            completed = mapItemsToForm(update.achievement_items || update.achievements);
+            blockers = mapItemsToForm(update.issues_faced_items || update.issues_faced);
+            nextFocus = mapItemsToForm(update.next_week_focus_items || update.next_week_focus);
+            highlights = mapItemsToForm(update.team_highlights_items || update.team_highlights);
+        } else if (type === 'monthly') {
+            completed = mapItemsToForm(update.accomplishment_items || update.accomplishments);
+            blockers = mapItemsToForm(update.challenge_items || update.challenges);
+            nextFocus = mapItemsToForm(update.next_month_focus_items || update.next_month_focus);
+            highlights = mapItemsToForm(update.goals_progress_items || update.goals_progress);
+        } else if (type === 'quarterly') {
+            completed = mapItemsToForm(update.achievement_items || update.achievements);
+            blockers = mapItemsToForm(update.challenge_items || update.challenges);
+            nextFocus = mapItemsToForm(update.next_quarter_focus_items || update.next_quarter_focus);
+            highlights = mapItemsToForm(update.okr_progress_items || update.okr_progress);
+        }
+        
+        setFormData({
+            completed: completed.length ? completed : [{ text: '', linked_item: null }],
+            blockers: blockers.length ? blockers : [{ text: '', linked_item: null }],
+            next_focus: nextFocus.length ? nextFocus : [{ text: '', linked_item: null }],
+            highlights: highlights.length ? highlights : [{ text: '', linked_item: null }],
+            notes: update.notes || '',
+            sharePublicly: update.share_publicly || false,
         });
         setShowUpdateDialog(true);
     };
@@ -373,15 +436,20 @@ export default function WorkUpdates() {
 
         setSubmitting(true);
         try {
+            const isEdit = !!editingUpdate;
+            const method = isEdit ? 'put' : 'post';
+            const baseUrl = isEdit ? `/pulse/updates/${updateType}/${editingUpdate.id}` : `/pulse/updates/${updateType}`;
+            
             if (updateType === 'daily') {
-                await api.post('/pulse/updates/daily', {
+                await api[method](baseUrl, {
                     completed_items: formatItems(formData.completed),
                     blocker_items: formatItems(formData.blockers),
                     tomorrow_focus_items: formatItems(formData.next_focus),
                     notes: formData.notes || null,
+                    share_publicly: formData.sharePublicly,
                 });
             } else if (updateType === 'weekly') {
-                await api.post('/pulse/updates/weekly', {
+                await api[method](baseUrl, {
                     achievement_items: formatItems(formData.completed),
                     issues_faced_items: formatItems(formData.blockers),
                     next_week_focus_items: formatItems(formData.next_focus),
@@ -389,7 +457,7 @@ export default function WorkUpdates() {
                     notes: formData.notes || null,
                 });
             } else if (updateType === 'monthly') {
-                await api.post('/pulse/updates/monthly', {
+                await api[method](baseUrl, {
                     accomplishment_items: formatItems(formData.completed),
                     goals_progress_items: formatItems(formData.highlights),
                     challenge_items: formatItems(formData.blockers),
@@ -397,7 +465,7 @@ export default function WorkUpdates() {
                     notes: formData.notes || null,
                 });
             } else if (updateType === 'quarterly') {
-                await api.post('/pulse/updates/quarterly', {
+                await api[method](baseUrl, {
                     achievement_items: formatItems(formData.completed),
                     okr_progress_items: formatItems(formData.highlights),
                     challenge_items: formatItems(formData.blockers),
@@ -405,13 +473,45 @@ export default function WorkUpdates() {
                     notes: formData.notes || null,
                 });
             }
-            toast.success(`${UPDATE_TYPES[updateType].label} submitted!`);
+            toast.success(isEdit ? `${UPDATE_TYPES[updateType].label} updated!` : `${UPDATE_TYPES[updateType].label} submitted!`);
             setShowUpdateDialog(false);
+            setEditingUpdate(null);
             fetchUpdates();
         } catch (error) {
-            toast.error('Failed to submit update');
+            toast.error(editingUpdate ? 'Failed to update' : 'Failed to submit update');
         } finally {
             setSubmitting(false);
+        }
+    };
+    
+    // Delete update
+    const handleDeleteUpdate = async (updateId, type) => {
+        if (!confirm('Are you sure you want to delete this update?')) return;
+        
+        setDeleting(true);
+        try {
+            await api.delete(`/pulse/updates/${type}/${updateId}`);
+            toast.success('Update deleted');
+            fetchUpdates();
+        } catch (error) {
+            toast.error('Failed to delete update');
+        } finally {
+            setDeleting(false);
+        }
+    };
+    
+    // Acknowledge update (for managers)
+    const handleAcknowledge = async (updateId) => {
+        try {
+            const response = await api.post(`/pulse/updates/daily/${updateId}/acknowledge`);
+            if (response.data.success) {
+                toast.success('Update acknowledged');
+                fetchUpdates();
+            } else {
+                toast.info(response.data.message);
+            }
+        } catch (error) {
+            toast.error('Failed to acknowledge');
         }
     };
 
@@ -637,6 +737,11 @@ export default function WorkUpdates() {
             });
         };
 
+        const isOwnUpdate = update.user_id === user?.id;
+        const acknowledgedBy = update.acknowledged_by || [];
+        const isAcknowledged = acknowledgedBy.length > 0;
+        const hasUserAcknowledged = acknowledgedBy.some(ack => ack.user_id === user?.id);
+
         return (
             <Card className="border-[#E8D5C4] hover:border-[#D4BBA6] transition-colors">
                 <CardContent className="p-4">
@@ -658,10 +763,82 @@ export default function WorkUpdates() {
                                         {getPeriodLabel()}
                                     </Badge>
                                 )}
+                                {update.share_publicly && type === 'daily' && (
+                                    <Badge className="text-xs bg-green-100 text-green-700 gap-1">
+                                        <Globe className="w-3 h-3" />
+                                        Public
+                                    </Badge>
+                                )}
+                                {isAcknowledged && (
+                                    <Badge className="text-xs bg-teal-100 text-teal-700 gap-1">
+                                        <CheckCheck className="w-3 h-3" />
+                                        Acknowledged
+                                    </Badge>
+                                )}
                             </div>
                             <span className="text-xs text-[#8B7355]">{formatDate(update.date || update.created_at)}</span>
                         </div>
+                        
+                        {/* Action Menu & Acknowledge */}
+                        <div className="flex items-center gap-2">
+                            {/* Acknowledge button for managers (only for daily, not own update) */}
+                            {isManager && type === 'daily' && !isOwnUpdate && !hasUserAcknowledged && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleAcknowledge(update.id)}
+                                    className="h-8 text-xs border-teal-200 text-teal-600 hover:bg-teal-50"
+                                    data-testid={`acknowledge-btn-${update.id}`}
+                                >
+                                    <CheckCheck className="w-3.5 h-3.5 mr-1" />
+                                    Acknowledge
+                                </Button>
+                            )}
+                            
+                            {/* Action menu for own updates */}
+                            {isOwnUpdate && (
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-8 w-8 p-0 text-[#8B7355] hover:text-[#4A3728]"
+                                            data-testid={`update-menu-${update.id}`}
+                                        >
+                                            <MoreHorizontal className="w-4 h-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-40 bg-white">
+                                        <DropdownMenuItem
+                                            onClick={() => openEditDialog(update, type)}
+                                            className="cursor-pointer"
+                                        >
+                                            <Pencil className="w-4 h-4 mr-2" />
+                                            Edit
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                            onClick={() => handleDeleteUpdate(update.id, type)}
+                                            className="cursor-pointer text-red-600 focus:text-red-600"
+                                        >
+                                            <Trash2 className="w-4 h-4 mr-2" />
+                                            Delete
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            )}
+                        </div>
                     </div>
+                    
+                    {/* Acknowledgment details */}
+                    {isAcknowledged && (
+                        <div className="mb-3 p-2 bg-teal-50 rounded-lg border border-teal-100">
+                            <div className="flex items-center gap-2 text-xs text-teal-700">
+                                <CheckCheck className="w-3.5 h-3.5" />
+                                <span>Acknowledged by: {acknowledgedBy.map(a => a.user_name).join(', ')}</span>
+                            </div>
+                        </div>
+                    )}
                     
                     {/* Content */}
                     <div className="space-y-3">
@@ -921,20 +1098,42 @@ export default function WorkUpdates() {
             </Tabs>
 
             {/* Submit Update Dialog - Clean & Simple */}
-            <Dialog open={showUpdateDialog} onOpenChange={setShowUpdateDialog}>
+            <Dialog open={showUpdateDialog} onOpenChange={(open) => {
+                setShowUpdateDialog(open);
+                if (!open) {
+                    setEditingUpdate(null);
+                    setEditType(null);
+                }
+            }}>
                 <DialogContent className="bg-white max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-[#4A3728]">
                             {UPDATE_TYPES[updateType] && (
                                 <>
-                                    {React.createElement(UPDATE_TYPES[updateType].icon, { className: "w-5 h-5" })}
-                                    {UPDATE_TYPES[updateType].label}
+                                    {editingUpdate ? <Pencil className="w-5 h-5" /> : React.createElement(UPDATE_TYPES[updateType].icon, { className: "w-5 h-5" })}
+                                    {editingUpdate ? `Edit ${UPDATE_TYPES[updateType].label}` : UPDATE_TYPES[updateType].label}
                                 </>
                             )}
                         </DialogTitle>
                     </DialogHeader>
                     
                     <div className="space-y-6 py-4">
+                        {/* Share publicly checkbox (only for daily updates) */}
+                        {updateType === 'daily' && (
+                            <div className="flex items-center gap-3 p-3 bg-[#F5EBE0] rounded-lg border border-[#E8D5C4]">
+                                <Checkbox
+                                    id="sharePublicly"
+                                    checked={formData.sharePublicly}
+                                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, sharePublicly: checked }))}
+                                />
+                                <label htmlFor="sharePublicly" className="flex items-center gap-2 text-sm cursor-pointer">
+                                    <Globe className="w-4 h-4 text-[#6B5D52]" />
+                                    <span className="text-[#4A3728]">Share with entire organization</span>
+                                    <span className="text-xs text-[#8B7355]">(Default: department only)</span>
+                                </label>
+                            </div>
+                        )}
+                        
                         {/* Completed / Achievements */}
                         <div>
                             <label className="text-sm font-medium text-[#4A3728] flex items-center gap-2 mb-2">
@@ -1070,8 +1269,8 @@ export default function WorkUpdates() {
                             disabled={submitting}
                             className="bg-teal-600 hover:bg-teal-700"
                         >
-                            {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                            Submit
+                            {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : editingUpdate ? <Pencil className="w-4 h-4 mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+                            {editingUpdate ? 'Update' : 'Submit'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
