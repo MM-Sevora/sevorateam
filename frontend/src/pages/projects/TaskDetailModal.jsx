@@ -661,7 +661,7 @@ const CommentsSection = ({ taskId, token, users = [] }) => {
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
-              <div className="text-sm text-[#6B5D52] prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: comment.content }} />
+              <div className="text-sm text-[#6B5D52] rich-content" dangerouslySetInnerHTML={{ __html: comment.content }} />
             </div>
           ))}
         </div>
@@ -2032,7 +2032,7 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
                       minHeight="100px"
                     />
                   ) : (
-                    <div className="text-[#6B5D52] text-sm min-h-[40px] prose prose-sm max-w-none">
+                    <div className="text-[#6B5D52] text-sm min-h-[40px] rich-content">
                       {task.description ? (
                         <div dangerouslySetInnerHTML={{ __html: task.description }} />
                       ) : (
@@ -2244,6 +2244,108 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
         ) : (
           <div className="p-8 text-center text-[#9C8C74]">Task not found</div>
         )}
+        
+        {/* Styles for rich text content */}
+        <style>{`
+          .rich-content ul {
+            list-style-type: disc;
+            padding-left: 1.5rem;
+            margin: 0.5rem 0;
+          }
+          .rich-content ol {
+            list-style-type: decimal;
+            padding-left: 1.5rem;
+            margin: 0.5rem 0;
+          }
+          .rich-content li {
+            margin: 0.25rem 0;
+          }
+          .rich-content li p {
+            margin: 0;
+          }
+          .rich-content h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0.5rem 0;
+            color: #4A3728;
+          }
+          .rich-content h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 0.5rem 0;
+            color: #4A3728;
+          }
+          .rich-content h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin: 0.5rem 0;
+            color: #4A3728;
+          }
+          .rich-content p {
+            margin: 0.5rem 0;
+          }
+          .rich-content blockquote {
+            border-left: 3px solid #D4BBA6;
+            padding-left: 1rem;
+            margin: 0.5rem 0;
+            color: #6B5D52;
+            font-style: italic;
+          }
+          .rich-content pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            font-family: monospace;
+            overflow-x: auto;
+            margin: 0.5rem 0;
+          }
+          .rich-content code {
+            background: #F5EBE0;
+            padding: 0.125rem 0.25rem;
+            border-radius: 0.25rem;
+            font-family: monospace;
+            font-size: 0.875rem;
+          }
+          .rich-content pre code {
+            background: none;
+            padding: 0;
+          }
+          .rich-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 0.5rem 0;
+          }
+          .rich-content th,
+          .rich-content td {
+            border: 1px solid #D4BBA6;
+            padding: 0.5rem;
+            text-align: left;
+          }
+          .rich-content th {
+            background: #F5EBE0;
+            font-weight: 600;
+          }
+          .rich-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 0.5rem;
+          }
+          .rich-content a {
+            color: #be123c;
+            text-decoration: underline;
+          }
+          .rich-content a:hover {
+            color: #9f1239;
+          }
+          .rich-content .mention {
+            background-color: rgb(254 226 226);
+            color: rgb(185 28 28);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 500;
+          }
+        `}</style>
       </DialogContent>
     </Dialog>
   );
