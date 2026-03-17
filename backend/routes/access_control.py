@@ -250,15 +250,16 @@ async def update_custom_role(
 
 @access_control_router.delete("/roles/{role_id}")
 async def delete_custom_role(role_id: str, user: dict = Depends(require_admin())):
-    """Delete a custom role (soft delete)"""
+    """Delete a custom role. Super Admin can delete system roles except 'super_admin'."""
     db = get_db()
     
     role = await db.custom_roles.find_one({"id": role_id})
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
     
-    if role.get("is_system_role"):
-        raise HTTPException(status_code=400, detail="Cannot delete system roles")
+    # Never allow deletion of super_admin role
+    if role.get("code") == "super_admin":
+        raise HTTPException(status_code=400, detail="Cannot delete the Super Admin role - it is required for system operation")
     
     # Check if role has employees
     employee_count = await db.employees.count_documents({"custom_role_id": role_id})
@@ -268,12 +269,10 @@ async def delete_custom_role(role_id: str, user: dict = Depends(require_admin())
             detail=f"Cannot delete role with {employee_count} employees. Reassign them first."
         )
     
-    await db.custom_roles.update_one(
-        {"id": role_id},
-        {"$set": {"is_active": False, "updated_at": datetime.now(timezone.utc).isoformat()}}
-    )
+    # Hard delete the role
+    await db.custom_roles.delete_one({"id": role_id})
     
-    return {"success": True, "message": "Role deactivated"}
+    return {"success": True, "message": f"Role '{role.get('name')}' deleted successfully"}
 
 
 # ============== MODULE DEFINITIONS ==============
