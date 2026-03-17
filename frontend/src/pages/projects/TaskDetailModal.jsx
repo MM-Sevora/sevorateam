@@ -1550,20 +1550,40 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
     setSaving(true);
     try {
       const payload = { ...editData };
+      
+      // Clean up empty string fields - convert to null or delete
       if (!payload.assigned_to) delete payload.assigned_to;
       if (!payload.estimated_hours) delete payload.estimated_hours;
       else payload.estimated_hours = parseFloat(payload.estimated_hours);
+      
       // Handle story points
       if (payload.story_points) payload.story_points = parseInt(payload.story_points);
       else delete payload.story_points;
+      
       // Handle dates - send null for empty dates
       if (!payload.start_date) payload.start_date = null;
       if (!payload.due_date) payload.due_date = null;
-      // Handle recurrence dates
       if (!payload.recurrence_end_date) payload.recurrence_end_date = null;
-      // Handle epic and release
+      
+      // Handle epic and release - delete if empty
       if (!payload.epic_id) delete payload.epic_id;
       if (!payload.release_id) delete payload.release_id;
+      
+      // Handle bug-specific fields - delete if empty
+      if (!payload.bug_severity) delete payload.bug_severity;
+      if (!payload.reproduction_steps) delete payload.reproduction_steps;
+      if (!payload.expected_behavior) delete payload.expected_behavior;
+      if (!payload.actual_behavior) delete payload.actual_behavior;
+      
+      // Handle story-specific fields - delete if empty
+      if (!payload.acceptance_criteria) delete payload.acceptance_criteria;
+      
+      // Handle recurrence fields
+      if (!payload.is_recurring) {
+        delete payload.recurrence_pattern;
+        delete payload.recurrence_interval;
+        delete payload.recurrence_end_date;
+      }
 
       const res = await fetch(`${API}/api/projects/tasks/${taskId}`, {
         method: 'PUT',
@@ -1578,6 +1598,7 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
         onUpdate?.();
       } else {
         const error = await res.json();
+        console.error('Save error response:', error);
         toast.error(error.detail || 'Failed to save');
       }
     } catch (e) { 

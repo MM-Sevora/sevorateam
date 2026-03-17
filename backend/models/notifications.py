@@ -127,7 +127,7 @@ class NotificationCreate(BaseModel):
 class NotificationResponse(BaseModel):
     id: str
     user_id: str
-    type: str
+    type: str = "system"  # Default to 'system' for old notifications without type
     category: Optional[str] = "system"
     title: str
     message: str
