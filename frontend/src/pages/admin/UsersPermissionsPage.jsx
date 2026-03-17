@@ -426,7 +426,7 @@ const UsersPermissionsPage = () => {
   // Toggle data scope for a module
   const setModuleDataScope = (moduleCode, scope) => {
     setCustomPermissions(prev => {
-      const newPerms = { ...prev };
+      const newPerms = JSON.parse(JSON.stringify(prev)); // Deep clone
       if (!newPerms[moduleCode]) {
         newPerms[moduleCode] = { actions: ['view'], data_scope: scope };
       } else {
@@ -439,19 +439,27 @@ const UsersPermissionsPage = () => {
   // Toggle permission action for a module (new format with data_scope)
   const toggleModuleAction = (moduleCode, action) => {
     setCustomPermissions(prev => {
-      const newPerms = { ...prev };
+      const newPerms = JSON.parse(JSON.stringify(prev)); // Deep clone to ensure immutability
       if (!newPerms[moduleCode]) {
         newPerms[moduleCode] = { actions: [action], data_scope: 'own' };
       } else {
-        const actions = newPerms[moduleCode].actions || [];
-        if (actions.includes(action)) {
-          newPerms[moduleCode].actions = actions.filter(a => a !== action);
+        const currentActions = newPerms[moduleCode].actions || [];
+        if (currentActions.includes(action)) {
+          // Remove action
+          newPerms[moduleCode] = {
+            ...newPerms[moduleCode],
+            actions: currentActions.filter(a => a !== action)
+          };
           // If no actions left, remove the module
           if (newPerms[moduleCode].actions.length === 0) {
             delete newPerms[moduleCode];
           }
         } else {
-          newPerms[moduleCode].actions = [...actions, action];
+          // Add action
+          newPerms[moduleCode] = {
+            ...newPerms[moduleCode],
+            actions: [...currentActions, action]
+          };
         }
       }
       return newPerms;
