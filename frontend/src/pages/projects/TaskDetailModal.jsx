@@ -3,7 +3,7 @@ import {
   X, Calendar, User, Flag, Clock, CheckCircle2, Circle, Plus,
   MessageSquare, Trash2, Edit, Save, ListTodo, Timer, ChevronDown,
   AlertTriangle, Link2, Unlink, Paperclip, Upload, FileText, Image,
-  File, Download, Folder, Tag, Repeat, RefreshCw, Bell, BellRing, Copy,
+  File, Download, Folder, Repeat, RefreshCw, Bell, BellRing, Copy,
   Layers, Bug, BookOpen, Zap, Search, CheckSquare, Target
 } from 'lucide-react';
 
@@ -182,18 +182,6 @@ const bugSeverityConfig = {
   major: { label: 'Major', color: 'bg-orange-500 text-white' },
   minor: { label: 'Minor', color: 'bg-yellow-500 text-white' },
   trivial: { label: 'Trivial', color: 'bg-gray-400 text-white' }
-};
-
-// Label colors
-const labelColors = {
-  red: { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-200', dot: 'bg-red-500' },
-  orange: { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-200', dot: 'bg-orange-500' },
-  yellow: { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200', dot: 'bg-yellow-500' },
-  green: { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-200', dot: 'bg-green-500' },
-  blue: { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-200', dot: 'bg-blue-500' },
-  purple: { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-200', dot: 'bg-purple-500' },
-  pink: { bg: 'bg-pink-100', text: 'text-pink-700', border: 'border-pink-200', dot: 'bg-pink-500' },
-  gray: { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-200', dot: 'bg-gray-500' }
 };
 
 // Animated wrapper for tab content
@@ -1458,208 +1446,6 @@ const RemindersSection = ({ taskId, token }) => {
   );
 };
 
-// Labels Section
-const LabelsSection = ({ taskId, task, projectId, token, onUpdate }) => {
-  const [labels, setLabels] = useState([]);
-  const [allLabels, setAllLabels] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showCreate, setShowCreate] = useState(false);
-  const [newLabel, setNewLabel] = useState({ name: '', color: 'blue' });
-  const [creating, setCreating] = useState(false);
-
-  const fetchLabels = async () => {
-    try {
-      const res = await fetch(`${API}/api/projects/labels?project_id=${projectId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) setAllLabels(await res.json());
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  };
-
-  useEffect(() => { fetchLabels(); }, [projectId]);
-
-  const taskLabels = task?.labels || [];
-
-  const createLabel = async () => {
-    if (!newLabel.name.trim()) return;
-    setCreating(true);
-    try {
-      const res = await fetch(`${API}/api/projects/labels`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...newLabel, project_id: projectId })
-      });
-      if (res.ok) {
-        const created = await res.json();
-        setAllLabels(prev => [...prev, created]);
-        setNewLabel({ name: '', color: 'blue' });
-        setShowCreate(false);
-        // Also add to task
-        await addLabelToTask(created.id);
-        toast.success('Label created');
-      }
-    } catch (e) { toast.error('Failed to create label'); }
-    finally { setCreating(false); }
-  };
-
-  const addLabelToTask = async (labelId) => {
-    try {
-      await fetch(`${API}/api/projects/tasks/${taskId}/labels/${labelId}`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      onUpdate?.();
-    } catch (e) { toast.error('Failed to add label'); }
-  };
-
-  const removeLabelFromTask = async (labelId) => {
-    try {
-      await fetch(`${API}/api/projects/tasks/${taskId}/labels/${labelId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      onUpdate?.();
-    } catch (e) { toast.error('Failed to remove label'); }
-  };
-
-  const deleteLabel = async (labelId) => {
-    if (!window.confirm('Delete this label from all tasks?')) return;
-    try {
-      await fetch(`${API}/api/projects/labels/${labelId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      setAllLabels(prev => prev.filter(l => l.id !== labelId));
-      onUpdate?.();
-      toast.success('Label deleted');
-    } catch (e) { toast.error('Failed to delete label'); }
-  };
-
-  const isLabelOnTask = (labelId) => taskLabels.some(l => l.id === labelId);
-
-  if (loading) return <div className="animate-pulse h-20 bg-[#E8D5C4] rounded"></div>;
-
-  return (
-    <div className="space-y-4">
-      {/* Current Labels */}
-      <div>
-        <Label className="text-[#6B5D52] text-xs font-medium mb-2 block">Task Labels</Label>
-        {taskLabels.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {taskLabels.map(label => {
-              const colors = labelColors[label.color] || labelColors.gray;
-              return (
-                <span
-                  key={label.id}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm border ${colors.bg} ${colors.text} ${colors.border}`}
-                >
-                  <span className={`w-2 h-2 rounded-full ${colors.dot}`} />
-                  {label.name}
-                  <button
-                    onClick={() => removeLabelFromTask(label.id)}
-                    className="ml-1 hover:bg-black/10 rounded-full p-0.5"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="text-[#9C8C74] text-sm">No labels assigned</p>
-        )}
-      </div>
-
-      {/* Add Labels */}
-      <div>
-        <Label className="text-[#6B5D52] text-xs font-medium mb-2 block">Add Label</Label>
-        <div className="flex flex-wrap gap-2">
-          {allLabels.filter(l => !isLabelOnTask(l.id)).map(label => {
-            const colors = labelColors[label.color] || labelColors.gray;
-            return (
-              <button
-                key={label.id}
-                onClick={() => addLabelToTask(label.id)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm border ${colors.bg} ${colors.text} ${colors.border} hover:ring-2 hover:ring-offset-1 hover:ring-rose-400 transition-all`}
-              >
-                <span className={`w-2 h-2 rounded-full ${colors.dot}`} />
-                {label.name}
-              </button>
-            );
-          })}
-          <button
-            onClick={() => setShowCreate(true)}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-sm border border-dashed border-[#D4BBA6] text-[#6B5D52] hover:border-rose-400 hover:text-rose-600 transition-all"
-          >
-            <Plus className="w-3 h-3" />
-            New Label
-          </button>
-        </div>
-      </div>
-
-      {/* Create Label Form */}
-      {showCreate && (
-        <div className="p-3 bg-white border border-[#D4BBA6] rounded-lg space-y-3 tab-content-animate">
-          <div className="flex gap-2">
-            <Input
-              value={newLabel.name}
-              onChange={(e) => setNewLabel({ ...newLabel, name: e.target.value })}
-              placeholder="Label name..."
-              className="border-[#D4BBA6] flex-1"
-              onKeyDown={(e) => e.key === 'Enter' && createLabel()}
-            />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(labelColors).map(([color, config]) => (
-              <button
-                key={color}
-                onClick={() => setNewLabel({ ...newLabel, color })}
-                className={`w-6 h-6 rounded-full ${config.dot} ${newLabel.color === color ? 'ring-2 ring-offset-2 ring-rose-500' : ''} hover:scale-110 transition-transform`}
-                title={color}
-              />
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <Button onClick={createLabel} disabled={creating || !newLabel.name.trim()} size="sm" className="bg-rose-600 hover:bg-rose-700 text-white">
-              {creating ? 'Creating...' : 'Create'}
-            </Button>
-            <Button onClick={() => setShowCreate(false)} variant="outline" size="sm" className="border-[#D4BBA6] text-[#4A3728]">
-              Cancel
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Manage Labels */}
-      {allLabels.length > 0 && (
-        <div className="pt-3 border-t border-[#E8D5C4]">
-          <Label className="text-[#6B5D52] text-xs font-medium mb-2 block">Manage Labels</Label>
-          <div className="space-y-1">
-            {allLabels.map(label => {
-              const colors = labelColors[label.color] || labelColors.gray;
-              return (
-                <div key={label.id} className="flex items-center justify-between py-1 group">
-                  <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-sm ${colors.bg} ${colors.text}`}>
-                    <span className={`w-2 h-2 rounded-full ${colors.dot}`} />
-                    {label.name}
-                  </span>
-                  <button
-                    onClick={() => deleteLabel(label.id)}
-                    className="text-[#9C8C74] hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
 // Main Task Detail Modal
 const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectId }) => {
   const [task, setTask] = useState(null);
@@ -2357,71 +2143,86 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
                 )}
 
                 {/* Tabs Section */}
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="p-4">
-                  <TabsList className="bg-white border border-[#E8D5C4] mb-4 p-1 h-auto flex-wrap gap-1">
-                    <TabsTrigger value="subtasks" className="data-[state=active]:bg-[#F5EBE0] data-[state=active]:text-[#4A3728] text-[#6B5D52] rounded-md px-3 py-1.5 text-sm">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="px-4 pb-4">
+                  <TabsList className="bg-gradient-to-r from-[#FDF8F3] to-white border border-[#E8D5C4] rounded-xl mb-4 p-1.5 h-auto flex flex-wrap gap-1 shadow-sm">
+                    <TabsTrigger 
+                      value="subtasks" 
+                      className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728] data-[state=active]:shadow-sm data-[state=active]:border-[#D4BBA6] text-[#6B5D52] rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white/50 border border-transparent tab-trigger-hover"
+                    >
                       <ListTodo className="w-4 h-4 mr-1.5" />
                       Subtasks
-                      {task.subtask_count > 0 && <Badge className="ml-1.5 bg-[#E8D5C4] text-[#4A3728] text-xs px-1.5">{task.subtask_count}</Badge>}
+                      {task.subtask_count > 0 && <Badge className="ml-1.5 bg-rose-100 text-rose-700 text-xs px-1.5 py-0 h-5 font-semibold">{task.subtask_count}</Badge>}
                     </TabsTrigger>
-                    <TabsTrigger value="checklists" className="data-[state=active]:bg-[#F5EBE0] data-[state=active]:text-[#4A3728] text-[#6B5D52] rounded-md px-3 py-1.5 text-sm">
+                    <TabsTrigger 
+                      value="checklists" 
+                      className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728] data-[state=active]:shadow-sm data-[state=active]:border-[#D4BBA6] text-[#6B5D52] rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white/50 border border-transparent tab-trigger-hover"
+                    >
                       <CheckCircle2 className="w-4 h-4 mr-1.5" />
                       Checklist
-                      {task.checklist_count > 0 && <Badge className="ml-1.5 bg-[#E8D5C4] text-[#4A3728] text-xs px-1.5">{task.checklist_completed}/{task.checklist_count}</Badge>}
+                      {task.checklist_count > 0 && <Badge className="ml-1.5 bg-emerald-100 text-emerald-700 text-xs px-1.5 py-0 h-5 font-semibold">{task.checklist_completed}/{task.checklist_count}</Badge>}
                     </TabsTrigger>
-                    <TabsTrigger value="comments" className="data-[state=active]:bg-[#F5EBE0] data-[state=active]:text-[#4A3728] text-[#6B5D52] rounded-md px-3 py-1.5 text-sm">
+                    <TabsTrigger 
+                      value="comments" 
+                      className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728] data-[state=active]:shadow-sm data-[state=active]:border-[#D4BBA6] text-[#6B5D52] rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white/50 border border-transparent tab-trigger-hover"
+                    >
                       <MessageSquare className="w-4 h-4 mr-1.5" />
                       Comments
-                      {task.comment_count > 0 && <Badge className="ml-1.5 bg-[#E8D5C4] text-[#4A3728] text-xs px-1.5">{task.comment_count}</Badge>}
+                      {task.comment_count > 0 && <Badge className="ml-1.5 bg-blue-100 text-blue-700 text-xs px-1.5 py-0 h-5 font-semibold">{task.comment_count}</Badge>}
                     </TabsTrigger>
-                    <TabsTrigger value="dependencies" className="data-[state=active]:bg-[#F5EBE0] data-[state=active]:text-[#4A3728] text-[#6B5D52] rounded-md px-3 py-1.5 text-sm">
+                    <TabsTrigger 
+                      value="dependencies" 
+                      className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728] data-[state=active]:shadow-sm data-[state=active]:border-[#D4BBA6] text-[#6B5D52] rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white/50 border border-transparent tab-trigger-hover"
+                    >
                       <Link2 className="w-4 h-4 mr-1.5" />
                       Dependencies
                     </TabsTrigger>
-                    <TabsTrigger value="time" className="data-[state=active]:bg-[#F5EBE0] data-[state=active]:text-[#4A3728] text-[#6B5D52] rounded-md px-3 py-1.5 text-sm">
+                    <TabsTrigger 
+                      value="time" 
+                      className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728] data-[state=active]:shadow-sm data-[state=active]:border-[#D4BBA6] text-[#6B5D52] rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white/50 border border-transparent tab-trigger-hover"
+                    >
                       <Timer className="w-4 h-4 mr-1.5" />
                       Time
                     </TabsTrigger>
-                    <TabsTrigger value="attachments" className="data-[state=active]:bg-[#F5EBE0] data-[state=active]:text-[#4A3728] text-[#6B5D52] rounded-md px-3 py-1.5 text-sm">
+                    <TabsTrigger 
+                      value="attachments" 
+                      className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728] data-[state=active]:shadow-sm data-[state=active]:border-[#D4BBA6] text-[#6B5D52] rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white/50 border border-transparent tab-trigger-hover"
+                    >
                       <Paperclip className="w-4 h-4 mr-1.5" />
                       Files
-                      {task.attachment_count > 0 && <Badge className="ml-1.5 bg-[#E8D5C4] text-[#4A3728] text-xs px-1.5">{task.attachment_count}</Badge>}
+                      {task.attachment_count > 0 && <Badge className="ml-1.5 bg-purple-100 text-purple-700 text-xs px-1.5 py-0 h-5 font-semibold">{task.attachment_count}</Badge>}
                     </TabsTrigger>
-                    <TabsTrigger value="labels" className="data-[state=active]:bg-[#F5EBE0] data-[state=active]:text-[#4A3728] text-[#6B5D52] rounded-md px-3 py-1.5 text-sm">
-                      <Tag className="w-4 h-4 mr-1.5" />
-                      Labels
-                      {task.labels?.length > 0 && <Badge className="ml-1.5 bg-[#E8D5C4] text-[#4A3728] text-xs px-1.5">{task.labels.length}</Badge>}
-                    </TabsTrigger>
-                    <TabsTrigger value="reminders" className="data-[state=active]:bg-[#F5EBE0] data-[state=active]:text-[#4A3728] text-[#6B5D52] rounded-md px-3 py-1.5 text-sm">
+                    <TabsTrigger 
+                      value="reminders" 
+                      className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728] data-[state=active]:shadow-sm data-[state=active]:border-[#D4BBA6] text-[#6B5D52] rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white/50 border border-transparent tab-trigger-hover"
+                    >
                       <Bell className="w-4 h-4 mr-1.5" />
                       Follow-ups
                     </TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="subtasks" className="tab-content-animate mt-0">
-                    <SubtasksSection taskId={taskId} token={token} users={users} />
-                  </TabsContent>
-                  <TabsContent value="checklists" className="tab-content-animate mt-0">
-                    <ChecklistsSection taskId={taskId} token={token} />
-                  </TabsContent>
-                  <TabsContent value="comments" className="tab-content-animate mt-0">
-                    <CommentsSection taskId={taskId} token={token} users={users} />
-                  </TabsContent>
-                  <TabsContent value="dependencies" className="tab-content-animate mt-0">
-                    <DependenciesSection task={task} projectId={task.project_id} token={token} onUpdate={fetchTask} />
-                  </TabsContent>
-                  <TabsContent value="time" className="tab-content-animate mt-0">
-                    <TimeLogsSection taskId={taskId} task={task} token={token} onUpdate={fetchTask} />
-                  </TabsContent>
-                  <TabsContent value="attachments" className="tab-content-animate mt-0">
-                    <AttachmentsSection taskId={taskId} token={token} />
-                  </TabsContent>
-                  <TabsContent value="labels" className="tab-content-animate mt-0">
-                    <LabelsSection taskId={taskId} task={task} projectId={task.project_id} token={token} onUpdate={fetchTask} />
-                  </TabsContent>
-                  <TabsContent value="reminders" className="tab-content-animate mt-0">
-                    <RemindersSection taskId={taskId} token={token} />
-                  </TabsContent>
+                  <div className="bg-white rounded-xl border border-[#E8D5C4] p-4 shadow-sm">
+                    <TabsContent value="subtasks" className="tab-content-animate mt-0">
+                      <SubtasksSection taskId={taskId} token={token} users={users} />
+                    </TabsContent>
+                    <TabsContent value="checklists" className="tab-content-animate mt-0">
+                      <ChecklistsSection taskId={taskId} token={token} />
+                    </TabsContent>
+                    <TabsContent value="comments" className="tab-content-animate mt-0">
+                      <CommentsSection taskId={taskId} token={token} users={users} />
+                    </TabsContent>
+                    <TabsContent value="dependencies" className="tab-content-animate mt-0">
+                      <DependenciesSection task={task} projectId={task.project_id} token={token} onUpdate={fetchTask} />
+                    </TabsContent>
+                    <TabsContent value="time" className="tab-content-animate mt-0">
+                      <TimeLogsSection taskId={taskId} task={task} token={token} onUpdate={fetchTask} />
+                    </TabsContent>
+                    <TabsContent value="attachments" className="tab-content-animate mt-0">
+                      <AttachmentsSection taskId={taskId} token={token} />
+                    </TabsContent>
+                    <TabsContent value="reminders" className="tab-content-animate mt-0">
+                      <RemindersSection taskId={taskId} token={token} />
+                    </TabsContent>
+                  </div>
                 </Tabs>
               </div>
             </div>
