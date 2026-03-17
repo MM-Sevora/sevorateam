@@ -1276,7 +1276,7 @@ const UsersPermissionsPage = () => {
                                   <Briefcase className="h-4 w-4" />
                                 </Button>
                               )}
-                              <Button variant="outline" size="icon" onClick={() => openPermissionDialog(user)} className="border-purple-200 text-purple-600" title="Manage Permissions">
+                              <Button variant="outline" size="icon" onClick={() => openPermissionDialog(user)} className="border-purple-300 bg-purple-50 text-purple-600 hover:bg-purple-100" title="Manage Permissions">
                                 <Shield className="h-4 w-4" />
                               </Button>
                               <Button variant="outline" size="icon" onClick={() => toggleUserStatus(user)} className={user.status === 'active' ? 'border-red-200 text-red-600' : 'border-green-200 text-green-600'}>
