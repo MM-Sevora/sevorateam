@@ -459,12 +459,23 @@ const OrgChartView = ({ orgChart, loading }) => {
 // Departments Tab
 const DepartmentsTab = ({ departments, employees, loading, onEdit, onRefresh, viewMode, setViewMode, expandedDepts, setExpandedDepts }) => {
   const [deleting, setDeleting] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const deptHierarchy = useMemo(() => {
     const rootDepts = departments.filter(d => !d.parent_department_id);
     const buildTree = (parentId) => departments.filter(d => d.parent_department_id === parentId).map(dept => ({ ...dept, children: buildTree(dept.id) }));
     return rootDepts.map(dept => ({ ...dept, children: buildTree(dept.id) }));
   }, [departments]);
+
+  const filteredDepartments = useMemo(() => {
+    if (!searchTerm) return departments;
+    const term = searchTerm.toLowerCase();
+    return departments.filter(d => 
+      d.name?.toLowerCase().includes(term) || 
+      d.code?.toLowerCase().includes(term) ||
+      d.department_head_name?.toLowerCase().includes(term)
+    );
+  }, [departments, searchTerm]);
 
   const toggleDept = (deptId) => {
     setExpandedDepts(prev => { const newSet = new Set(prev); if (newSet.has(deptId)) newSet.delete(deptId); else newSet.add(deptId); return newSet; });
@@ -508,15 +519,123 @@ const DepartmentsTab = ({ departments, employees, loading, onEdit, onRefresh, vi
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-[#3D2E22]">Department Hierarchy</h3>
+        <h3 className="text-lg font-semibold text-[#3D2E22]">Departments ({departments.length})</h3>
         <div className="flex gap-2">
+          <Input
+            placeholder="Search departments..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-[200px] border-[#E8D5C4]"
+          />
+          <Button variant={viewMode === 'table' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('table')} className={viewMode === 'table' ? 'bg-[#8B7355]' : 'border-[#E8D5C4]'}><Layers className="w-4 h-4 mr-1" /> Table</Button>
           <Button variant={viewMode === 'hierarchy' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('hierarchy')} className={viewMode === 'hierarchy' ? 'bg-[#8B7355]' : 'border-[#E8D5C4]'}><Network className="w-4 h-4 mr-1" /> Hierarchy</Button>
-          <Button variant={viewMode === 'cards' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('cards')} className={viewMode === 'cards' ? 'bg-[#8B7355]' : 'border-[#E8D5C4]'}><Layers className="w-4 h-4 mr-1" /> Cards</Button>
+          <Button variant={viewMode === 'cards' ? 'default' : 'outline'} size="sm" onClick={() => setViewMode('cards')} className={viewMode === 'cards' ? 'bg-[#8B7355]' : 'border-[#E8D5C4]'}><Building2 className="w-4 h-4 mr-1" /> Cards</Button>
         </div>
       </div>
-      {viewMode === 'hierarchy' ? <div className="space-y-2">{deptHierarchy.map(dept => renderDeptNode(dept))}</div> : (
+
+      {/* Table View */}
+      {viewMode === 'table' && (
+        <div className="border border-[#E8D5C4] rounded-lg overflow-hidden">
+          <Table>
+            <TableHeader className="bg-[#F5EDE4]">
+              <TableRow>
+                <TableHead className="font-semibold text-[#3D2E22]">Department</TableHead>
+                <TableHead className="font-semibold text-[#3D2E22]">Code</TableHead>
+                <TableHead className="font-semibold text-[#3D2E22]">Department Head</TableHead>
+                <TableHead className="font-semibold text-[#3D2E22]">Parent Department</TableHead>
+                <TableHead className="font-semibold text-[#3D2E22] text-center">Members</TableHead>
+                <TableHead className="font-semibold text-[#3D2E22] text-center">Teams</TableHead>
+                <TableHead className="font-semibold text-[#3D2E22] text-center">Status</TableHead>
+                <TableHead className="font-semibold text-[#3D2E22] text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredDepartments.map(dept => (
+                <TableRow key={dept.id} className="hover:bg-[#FDF8F3]">
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${dept.color || '#8B7355'}20` }}>
+                        <Building2 className="w-4 h-4" style={{ color: dept.color || '#8B7355' }} />
+                      </div>
+                      <div>
+                        <p className="font-medium text-[#3D2E22]">{dept.name}</p>
+                        {dept.description && <p className="text-xs text-[#8B7355] truncate max-w-[200px]">{dept.description}</p>}
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="bg-[#F5EDE4] text-[#5D4A3A] border-[#E8D5C4]">{dept.code}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    {dept.department_head_name ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-[#8B7355] flex items-center justify-center text-white text-xs font-medium">
+                          {dept.department_head_name.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="text-[#3D2E22]">{dept.department_head_name}</span>
+                      </div>
+                    ) : (
+                      <span className="text-[#8B7355] italic text-sm">Not assigned</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {dept.parent_department_name ? (
+                      <Badge variant="secondary" className="bg-[#E8D5C4] text-[#5D4A3A]">{dept.parent_department_name}</Badge>
+                    ) : (
+                      <span className="text-[#8B7355] text-sm">Root</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <Users className="w-4 h-4 text-[#8B7355]" />
+                      <span className="font-medium text-[#3D2E22]">{dept.member_count || 0}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <span className="font-medium text-[#3D2E22]">{dept.team_count || 0}</span>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Badge className={dept.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+                      {dept.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(dept)}>
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-red-600 hover:text-red-700" 
+                        onClick={() => handleDelete(dept.id)}
+                        disabled={dept.member_count > 0 || deleting === dept.id}
+                      >
+                        {deleting === dept.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {filteredDepartments.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8 text-[#8B7355]">
+                    {searchTerm ? 'No departments match your search' : 'No departments found'}
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {/* Hierarchy View */}
+      {viewMode === 'hierarchy' && <div className="space-y-2">{deptHierarchy.map(dept => renderDeptNode(dept))}</div>}
+
+      {/* Cards View */}
+      {viewMode === 'cards' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {departments.map(dept => (
+          {filteredDepartments.map(dept => (
             <Card key={dept.id} className="border-[#E8D5C4] hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
@@ -525,7 +644,18 @@ const DepartmentsTab = ({ departments, employees, loading, onEdit, onRefresh, vi
                 </div>
                 <h4 className="font-semibold text-[#3D2E22]">{dept.name}</h4>
                 <p className="text-sm text-[#8B7355] mb-3">{dept.description || 'No description'}</p>
-                <div className="flex items-center justify-between text-sm"><span className="text-[#8B7355]">{dept.member_count || 0} members</span></div>
+                {dept.department_head_name && (
+                  <div className="flex items-center gap-2 mb-2">
+                    <User className="w-4 h-4 text-[#8B7355]" />
+                    <span className="text-sm text-[#5D4A3A]">Head: {dept.department_head_name}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-[#8B7355]">{dept.member_count || 0} members</span>
+                  <Badge className={dept.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+                    {dept.is_active ? 'Active' : 'Inactive'}
+                  </Badge>
+                </div>
               </CardContent>
             </Card>
           ))}
