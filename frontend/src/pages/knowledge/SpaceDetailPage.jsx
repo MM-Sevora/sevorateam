@@ -33,6 +33,21 @@ const SpaceDetailPage = () => {
   });
   const [saving, setSaving] = useState(false);
 
+  // Settings Modal
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [settingsForm, setSettingsForm] = useState({
+    name: '',
+    description: '',
+    type: 'team',
+    visibility: 'public',
+    icon: '📚',
+    color: 'blue'
+  });
+  const [savingSettings, setSavingSettings] = useState(false);
+
+  const spaceIcons = ['📚', '📁', '✏️', '🚀', '💡', '⚙️', '🎯', '📊', '🔧', '🗂️', '🎨', '📋'];
+  const spaceColors = ['blue', 'green', 'purple', 'pink', 'red', 'yellow', 'cyan', 'lime', 'orange'];
+
   const fetchSpace = useCallback(async () => {
     try {
       setLoading(true);
@@ -114,6 +129,56 @@ const SpaceDetailPage = () => {
       fetchSpace();
     } catch (error) {
       toast.error('Failed to archive page');
+    }
+  };
+
+  // Open Settings Modal
+  const openSettingsModal = () => {
+    if (space) {
+      setSettingsForm({
+        name: space.name || '',
+        description: space.description || '',
+        type: space.type || 'team',
+        visibility: space.visibility || 'public',
+        icon: space.icon || '📚',
+        color: space.color || 'blue'
+      });
+      setShowSettingsModal(true);
+    }
+  };
+
+  // Save Settings
+  const handleSaveSettings = async () => {
+    if (!settingsForm.name.trim()) {
+      toast.error('Space name is required');
+      return;
+    }
+    
+    setSavingSettings(true);
+    try {
+      await api.put(`/knowledge/spaces/${spaceId}`, settingsForm);
+      toast.success('Space settings updated');
+      setShowSettingsModal(false);
+      fetchSpace();
+    } catch (error) {
+      toast.error('Failed to update settings');
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  // Delete Space
+  const handleDeleteSpace = async () => {
+    if (!confirm(`Are you sure you want to delete "${space.name}"? This will archive all pages in this space.`)) {
+      return;
+    }
+    
+    try {
+      await api.delete(`/knowledge/spaces/${spaceId}`);
+      toast.success('Space deleted');
+      navigate('/engineering/knowledge');
+    } catch (error) {
+      toast.error('Failed to delete space');
     }
   };
 
@@ -216,7 +281,7 @@ const SpaceDetailPage = () => {
         </div>
         
         <div className="flex items-center gap-2">
-          <Button variant="outline">
+          <Button variant="outline" onClick={openSettingsModal} data-testid="space-settings-btn">
             <Settings className="w-4 h-4 mr-2" /> Settings
           </Button>
           <Button 
@@ -421,6 +486,145 @@ const SpaceDetailPage = () => {
               data-testid="save-page-btn"
             >
               {saving ? 'Creating...' : 'Create Page'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Settings Modal */}
+      <Dialog open={showSettingsModal} onOpenChange={setShowSettingsModal}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Space Settings</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label>Name *</Label>
+              <Input
+                value={settingsForm.name}
+                onChange={(e) => setSettingsForm({ ...settingsForm, name: e.target.value })}
+                placeholder="Space name"
+                data-testid="settings-name-input"
+              />
+            </div>
+            
+            <div>
+              <Label>Description</Label>
+              <Input
+                value={settingsForm.description}
+                onChange={(e) => setSettingsForm({ ...settingsForm, description: e.target.value })}
+                placeholder="What is this space for?"
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Type</Label>
+                <Select
+                  value={settingsForm.type}
+                  onValueChange={(v) => setSettingsForm({ ...settingsForm, type: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="team">Team</SelectItem>
+                    <SelectItem value="engineering">Engineering</SelectItem>
+                    <SelectItem value="product">Product</SelectItem>
+                    <SelectItem value="design">Design</SelectItem>
+                    <SelectItem value="marketing">Marketing</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label>Visibility</Label>
+                <Select
+                  value={settingsForm.visibility}
+                  onValueChange={(v) => setSettingsForm({ ...settingsForm, visibility: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="public">Public (Everyone)</SelectItem>
+                    <SelectItem value="private">Private (Invite only)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div>
+              <Label>Icon</Label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {spaceIcons.map(icon => (
+                  <button
+                    key={icon}
+                    type="button"
+                    onClick={() => setSettingsForm({ ...settingsForm, icon })}
+                    className={`w-10 h-10 flex items-center justify-center rounded-lg border-2 text-xl transition-colors ${
+                      settingsForm.icon === icon 
+                        ? 'border-blue-500 bg-blue-50' 
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    {icon}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            <div>
+              <Label>Color</Label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {spaceColors.map(color => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setSettingsForm({ ...settingsForm, color })}
+                    className={`w-8 h-8 rounded-full border-2 transition-all ${
+                      settingsForm.color === color 
+                        ? 'border-gray-800 scale-110' 
+                        : 'border-transparent'
+                    }`}
+                    style={{ 
+                      backgroundColor: {
+                        blue: '#3B82F6', green: '#22C55E', purple: '#A855F7',
+                        pink: '#EC4899', red: '#EF4444', yellow: '#EAB308',
+                        cyan: '#06B6D4', lime: '#84CC16', orange: '#F97316'
+                      }[color]
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+            
+            {/* Danger Zone */}
+            <div className="pt-4 border-t">
+              <Label className="text-red-600">Danger Zone</Label>
+              <p className="text-sm text-gray-500 mb-2">
+                Deleting this space will archive all pages within it.
+              </p>
+              <Button 
+                variant="outline" 
+                className="text-red-600 border-red-300 hover:bg-red-50"
+                onClick={handleDeleteSpace}
+              >
+                <Trash2 className="w-4 h-4 mr-2" /> Delete Space
+              </Button>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSettingsModal(false)}>Cancel</Button>
+            <Button 
+              onClick={handleSaveSettings} 
+              disabled={savingSettings}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {savingSettings ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </DialogContent>
