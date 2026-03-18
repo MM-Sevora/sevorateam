@@ -7,6 +7,46 @@ Build a comprehensive Marketing Operations Platform that integrates marketing, s
 
 ## Latest Updates (March 2026)
 
+### Engineering & Knowledge Base Modules Added to Permission System (Completed ✅)
+**Date**: March 18, 2026
+
+**Issue**: The Engineering module and Knowledge Base were not showing in the Users & Permissions page for module management. User requested automatic inclusion of new modules in the permission system.
+
+**Changes Made**:
+1. **Added Engineering Module** to `SYSTEM_MODULES` in `/app/backend/models/system_modules.py`:
+   - Code: `engineering`
+   - Category: `operations`
+   - 11 sub-modules: Projects, Sprint Board, Backlog, Epics, Sprint Planning, Reports, Roadmap, Releases, Workflows, Automations, Knowledge Base
+   
+2. **Added Knowledge Base Module** to `SYSTEM_MODULES`:
+   - Code: `knowledge_base`
+   - Category: `operations`
+   - 3 sub-modules: Spaces, Pages, Templates
+
+3. **Fixed Module Category Counts** in `/app/backend/routes/module_categories.py`:
+   - Module counts now correctly calculated from both base `SYSTEM_MODULES` definitions and custom database overrides
+   - Previously only counted custom configurations, missing base module definitions
+
+4. **Updated Route Protections** in `/app/frontend/src/App.js`:
+   - Engineering routes (`/engineering/*`) now require `engineering` module access
+   - Knowledge Base routes (`/knowledge/*`) now require `knowledge_base` module access
+   - Previously all were protected by `project_management` module
+
+**How New Modules Are Automatically Included**:
+- All modules are defined in `SYSTEM_MODULES` dictionary in `/app/backend/models/system_modules.py`
+- The `/api/system-modules/` endpoint dynamically loads all modules from this dictionary
+- Adding a new module to `SYSTEM_MODULES` automatically makes it available in the permission system
+- No database seeding or manual configuration required
+
+**Files Modified**:
+- `/app/backend/models/system_modules.py` - Added Engineering and Knowledge Base modules
+- `/app/backend/routes/module_categories.py` - Fixed module count calculation
+- `/app/frontend/src/App.js` - Updated route protections
+
+**Testing**: Users & Permissions page loads correctly with 17 modules (including new Engineering and Knowledge Base modules). Engineering Projects page accessible.
+
+---
+
 ### Influencer List Pagination Fix (Completed ✅)
 **Date**: March 17, 2026
 

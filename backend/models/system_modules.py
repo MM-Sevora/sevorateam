@@ -100,6 +100,40 @@ SYSTEM_MODULES = {
             {"code": "tasks_triggers", "name": "Smart Triggers", "path": "/tasks/triggers"},
         ]
     },
+    "engineering": {
+        "code": "engineering",
+        "name": "Engineering",
+        "description": "Software development, sprints, releases, and technical documentation",
+        "icon": "Code",
+        "category": "operations",
+        "is_default": False,
+        "sub_modules": [
+            {"code": "eng_projects", "name": "Engineering Projects", "path": "/engineering/projects"},
+            {"code": "eng_sprint_board", "name": "Sprint Board", "path": "/engineering/sprint-board"},
+            {"code": "eng_backlog", "name": "Backlog", "path": "/engineering/backlog"},
+            {"code": "eng_epics", "name": "Epics", "path": "/engineering/epics"},
+            {"code": "eng_sprints", "name": "Sprint Planning", "path": "/engineering/sprints"},
+            {"code": "eng_reports", "name": "Reports & Analytics", "path": "/engineering/reports"},
+            {"code": "eng_roadmap", "name": "Roadmap", "path": "/engineering/roadmap"},
+            {"code": "eng_releases", "name": "Releases", "path": "/engineering/releases"},
+            {"code": "eng_workflows", "name": "Workflows", "path": "/engineering/workflows"},
+            {"code": "eng_automations", "name": "Automations", "path": "/engineering/automations"},
+            {"code": "eng_knowledge", "name": "Knowledge Base", "path": "/engineering/knowledge"},
+        ]
+    },
+    "knowledge_base": {
+        "code": "knowledge_base",
+        "name": "Knowledge Base",
+        "description": "Wiki-style documentation and knowledge management",
+        "icon": "BookOpen",
+        "category": "operations",
+        "is_default": False,
+        "sub_modules": [
+            {"code": "kb_spaces", "name": "Spaces", "path": "/knowledge"},
+            {"code": "kb_pages", "name": "Pages", "path": "/knowledge/pages"},
+            {"code": "kb_templates", "name": "Templates", "path": "/knowledge/templates"},
+        ]
+    },
     "marketing_ops": {
         "code": "marketing_ops",
         "name": "Marketing Ops",

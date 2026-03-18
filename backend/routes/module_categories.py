@@ -125,10 +125,32 @@ async def get_all_categories(user: dict = Depends(get_current_user_dep())):
     categories = await db.module_categories.find({}, {"_id": 0}).sort("order", 1).to_list(100)
     
     # Get module counts per category
+    from models.system_modules import SYSTEM_MODULES
+    
     for cat in categories:
-        # Count from system_module_config (custom assignments)
-        custom_count = await db.system_module_config.count_documents({"category": cat["code"]})
-        cat["module_count"] = custom_count
+        # Count modules from base SYSTEM_MODULES that have this category
+        base_count = sum(1 for mod in SYSTEM_MODULES.values() if mod.get("category") == cat["code"])
+        
+        # Also check for custom overrides in system_module_config
+        # Get all custom configs and count those with different categories
+        custom_configs = await db.system_module_config.find({}, {"_id": 0, "code": 1, "category": 1}).to_list(100)
+        custom_overrides = {c["code"]: c.get("category") for c in custom_configs if c.get("category")}
+        
+        # Adjust: subtract modules whose base category matches but custom override changes it
+        # Add: modules whose custom override sets them to this category
+        adjusted_count = base_count
+        for mod_code, mod in SYSTEM_MODULES.items():
+            if mod_code in custom_overrides:
+                custom_cat = custom_overrides[mod_code]
+                base_cat = mod.get("category")
+                if base_cat == cat["code"] and custom_cat != cat["code"]:
+                    # Module moved away from this category
+                    adjusted_count -= 1
+                elif base_cat != cat["code"] and custom_cat == cat["code"]:
+                    # Module moved to this category
+                    adjusted_count += 1
+        
+        cat["module_count"] = adjusted_count
     
     return categories
 

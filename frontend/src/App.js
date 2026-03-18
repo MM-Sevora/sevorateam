@@ -545,26 +545,26 @@ function AppRoutes() {
                 <Route path="/projects/:projectId" element={<ProtectedRoute requiredModule="project_management"><ProjectDetail /></ProtectedRoute>} />
 
                 {/* Engineering Module Routes */}
-                <Route path="/engineering/projects" element={<ProtectedRoute requiredModule="project_management"><EngineeringProjectsPage /></ProtectedRoute>} />
-                <Route path="/engineering/sprint-board" element={<ProtectedRoute requiredModule="project_management"><GlobalSprintBoardPage /></ProtectedRoute>} />
-                <Route path="/engineering/backlog" element={<ProtectedRoute requiredModule="project_management"><GlobalBacklogPage /></ProtectedRoute>} />
-                <Route path="/engineering/epics" element={<ProtectedRoute requiredModule="project_management"><GlobalEpicsPage /></ProtectedRoute>} />
-                <Route path="/engineering/sprints" element={<ProtectedRoute requiredModule="project_management"><GlobalSprintPlanningPage /></ProtectedRoute>} />
-                <Route path="/engineering/reports" element={<ProtectedRoute requiredModule="project_management"><EngineeringReportsPage /></ProtectedRoute>} />
-                <Route path="/engineering/roadmap" element={<ProtectedRoute requiredModule="project_management"><RoadmapPage /></ProtectedRoute>} />
-                <Route path="/engineering/releases" element={<ProtectedRoute requiredModule="project_management"><ReleasesPage /></ProtectedRoute>} />
-                <Route path="/engineering/workflows" element={<ProtectedRoute requiredModule="project_management"><WorkflowsPage /></ProtectedRoute>} />
-                <Route path="/engineering/automations" element={<ProtectedRoute requiredModule="project_management"><AutomationsPage /></ProtectedRoute>} />
-                <Route path="/engineering/knowledge" element={<ProtectedRoute requiredModule="project_management"><KnowledgeBasePage /></ProtectedRoute>} />
-                <Route path="/projects/:projectId/sprint-board" element={<ProtectedRoute requiredModule="project_management"><SprintBoardPage /></ProtectedRoute>} />
-                <Route path="/projects/:projectId/sprint-board/:sprintId" element={<ProtectedRoute requiredModule="project_management"><SprintBoardPage /></ProtectedRoute>} />
-                <Route path="/projects/engineering/backlog" element={<ProtectedRoute requiredModule="project_management"><GlobalBacklogPage /></ProtectedRoute>} />
-                <Route path="/projects/engineering/reports" element={<ProtectedRoute requiredModule="project_management"><EngineeringReportsPage /></ProtectedRoute>} />
+                <Route path="/engineering/projects" element={<ProtectedRoute requiredModule="engineering"><EngineeringProjectsPage /></ProtectedRoute>} />
+                <Route path="/engineering/sprint-board" element={<ProtectedRoute requiredModule="engineering"><GlobalSprintBoardPage /></ProtectedRoute>} />
+                <Route path="/engineering/backlog" element={<ProtectedRoute requiredModule="engineering"><GlobalBacklogPage /></ProtectedRoute>} />
+                <Route path="/engineering/epics" element={<ProtectedRoute requiredModule="engineering"><GlobalEpicsPage /></ProtectedRoute>} />
+                <Route path="/engineering/sprints" element={<ProtectedRoute requiredModule="engineering"><GlobalSprintPlanningPage /></ProtectedRoute>} />
+                <Route path="/engineering/reports" element={<ProtectedRoute requiredModule="engineering"><EngineeringReportsPage /></ProtectedRoute>} />
+                <Route path="/engineering/roadmap" element={<ProtectedRoute requiredModule="engineering"><RoadmapPage /></ProtectedRoute>} />
+                <Route path="/engineering/releases" element={<ProtectedRoute requiredModule="engineering"><ReleasesPage /></ProtectedRoute>} />
+                <Route path="/engineering/workflows" element={<ProtectedRoute requiredModule="engineering"><WorkflowsPage /></ProtectedRoute>} />
+                <Route path="/engineering/automations" element={<ProtectedRoute requiredModule="engineering"><AutomationsPage /></ProtectedRoute>} />
+                <Route path="/engineering/knowledge" element={<ProtectedRoute requiredModule="knowledge_base"><KnowledgeBasePage /></ProtectedRoute>} />
+                <Route path="/projects/:projectId/sprint-board" element={<ProtectedRoute requiredModule="engineering"><SprintBoardPage /></ProtectedRoute>} />
+                <Route path="/projects/:projectId/sprint-board/:sprintId" element={<ProtectedRoute requiredModule="engineering"><SprintBoardPage /></ProtectedRoute>} />
+                <Route path="/projects/engineering/backlog" element={<ProtectedRoute requiredModule="engineering"><GlobalBacklogPage /></ProtectedRoute>} />
+                <Route path="/projects/engineering/reports" element={<ProtectedRoute requiredModule="engineering"><EngineeringReportsPage /></ProtectedRoute>} />
 
                 {/* Knowledge Base Routes */}
-                <Route path="/knowledge" element={<ProtectedRoute requiredModule="project_management"><KnowledgeBasePage /></ProtectedRoute>} />
-                <Route path="/knowledge/space/:spaceId" element={<ProtectedRoute requiredModule="project_management"><SpaceDetailPage /></ProtectedRoute>} />
-                <Route path="/knowledge/page/:pageId" element={<ProtectedRoute requiredModule="project_management"><PageEditorPage /></ProtectedRoute>} />
+                <Route path="/knowledge" element={<ProtectedRoute requiredModule="knowledge_base"><KnowledgeBasePage /></ProtectedRoute>} />
+                <Route path="/knowledge/space/:spaceId" element={<ProtectedRoute requiredModule="knowledge_base"><SpaceDetailPage /></ProtectedRoute>} />
+                <Route path="/knowledge/page/:pageId" element={<ProtectedRoute requiredModule="knowledge_base"><PageEditorPage /></ProtectedRoute>} />
 
                 {/* Unified Task Management Routes */}
                 <Route path="/tasks" element={<ProtectedRoute requiredModule="project_management"><UnifiedTasksPage /></ProtectedRoute>} />
