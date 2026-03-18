@@ -13,7 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { toast } from 'sonner';
 import { 
   Package, ArrowLeft, Plus, Calendar, CheckCircle, Clock, Rocket, Archive,
-  Edit, Trash2, Link2, Unlink, ChevronRight, Target, AlertTriangle, RefreshCw
+  Edit, Trash2, Link2, Unlink, ChevronRight, Target, AlertTriangle, RefreshCw,
+  FileText, Copy, Download
 } from 'lucide-react';
 import { format, parseISO, isPast, isFuture } from 'date-fns';
 
@@ -53,6 +54,13 @@ const ReleasesPage = () => {
   const [selectedRelease, setSelectedRelease] = useState(null);
   const [releaseTasks, setReleaseTasks] = useState([]);
   const [availableTasks, setAvailableTasks] = useState([]);
+  
+  // Release Notes modal
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [notesRelease, setNotesRelease] = useState(null);
+  const [releaseNotes, setReleaseNotes] = useState('');
+  const [notesBreakdown, setNotesBreakdown] = useState(null);
+  const [generatingNotes, setGeneratingNotes] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -146,6 +154,42 @@ const ReleasesPage = () => {
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to delete release');
     }
+  };
+
+  // Generate Release Notes
+  const handleGenerateNotes = async (release) => {
+    setNotesRelease(release);
+    setShowNotesModal(true);
+    setGeneratingNotes(true);
+    setReleaseNotes('');
+    setNotesBreakdown(null);
+    
+    try {
+      const response = await api.get(`/engineering/releases/${release.id}/notes`);
+      setReleaseNotes(response.data.content);
+      setNotesBreakdown(response.data.breakdown);
+    } catch (error) {
+      toast.error('Failed to generate release notes');
+      setReleaseNotes('# Error\n\nFailed to generate release notes. Please try again.');
+    } finally {
+      setGeneratingNotes(false);
+    }
+  };
+
+  const copyNotesToClipboard = () => {
+    navigator.clipboard.writeText(releaseNotes);
+    toast.success('Release notes copied to clipboard!');
+  };
+
+  const downloadNotes = () => {
+    const blob = new Blob([releaseNotes], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `release-notes-${notesRelease?.name || 'release'}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Release notes downloaded!');
   };
 
   const handleManageTasks = async (release) => {
@@ -363,6 +407,15 @@ const ReleasesPage = () => {
                       <Link2 className="w-3 h-3 mr-1" />
                       Tasks ({release.total_issues})
                     </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => handleGenerateNotes(release)}
+                      className="text-violet-600 hover:text-violet-700"
+                      title="Generate Release Notes"
+                    >
+                      <FileText className="w-4 h-4" />
+                    </Button>
                     <Button variant="ghost" size="sm" onClick={() => handleEditRelease(release)}>
                       <Edit className="w-4 h-4" />
                     </Button>
@@ -548,6 +601,68 @@ const ReleasesPage = () => {
           
           <DialogFooter>
             <Button onClick={() => setShowTasksModal(false)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Release Notes Modal */}
+      <Dialog open={showNotesModal} onOpenChange={setShowNotesModal}>
+        <DialogContent className="max-w-3xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-violet-600" />
+              Release Notes - {notesRelease?.name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Breakdown Stats */}
+            {notesBreakdown && (
+              <div className="flex items-center gap-4 text-sm bg-gray-50 rounded-lg p-3">
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-500">Total:</span>
+                  <span className="font-semibold">{notesBreakdown.features + notesBreakdown.bugs + notesBreakdown.improvements + notesBreakdown.other}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-green-500" />
+                  <span>Features: {notesBreakdown.features}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-red-500" />
+                  <span>Bugs: {notesBreakdown.bugs}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-blue-500" />
+                  <span>Improvements: {notesBreakdown.improvements}</span>
+                </div>
+              </div>
+            )}
+            
+            {/* Release Notes Content */}
+            <div className="bg-gray-900 rounded-lg p-4 overflow-auto max-h-[400px]">
+              {generatingNotes ? (
+                <div className="flex items-center justify-center py-12 text-gray-400">
+                  <RefreshCw className="w-5 h-5 animate-spin mr-2" />
+                  Generating release notes...
+                </div>
+              ) : (
+                <pre className="text-gray-100 text-sm whitespace-pre-wrap font-mono">
+                  {releaseNotes}
+                </pre>
+              )}
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={copyNotesToClipboard} disabled={generatingNotes}>
+              <Copy className="w-4 h-4 mr-1" /> Copy
+            </Button>
+            <Button variant="outline" onClick={downloadNotes} disabled={generatingNotes}>
+              <Download className="w-4 h-4 mr-1" /> Download
+            </Button>
+            <Button onClick={() => setShowNotesModal(false)}>
+              Close
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

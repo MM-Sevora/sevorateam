@@ -591,3 +591,578 @@ async def get_issue_type_stats(
     stats["epic"]["completed"] = completed_epics
     
     return stats
+
+
+# ============== AUTOMATION FEATURES ==============
+
+# 1. AUTO SPRINT CARRY-FORWARD
+@router.post("/sprints/{sprint_id}/complete")
+async def complete_sprint_with_carry_forward(
+    sprint_id: str,
+    target_sprint_id: Optional[str] = None,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Complete a sprint and automatically carry forward incomplete tasks.
+    - Marks sprint as completed
+    - Moves all non-done tasks to target sprint (or backlog if none specified)
+    - Creates automation log entry
+    """
+    # Get the sprint
+    sprint = await db.pm_sprints.find_one({"id": sprint_id})
+    if not sprint:
+        raise HTTPException(status_code=404, detail="Sprint not found")
+    
+    project_id = sprint.get("project_id")
+    
+    # Get incomplete tasks in this sprint
+    incomplete_statuses = ["todo", "not_started", "assigned", "in_progress", "pending_review", "on_hold", "draft"]
+    incomplete_tasks = await db.pm_tasks.find({
+        "sprint_id": sprint_id,
+        "status": {"$in": incomplete_statuses}
+    }).to_list(None)
+    
+    carried_forward_count = len(incomplete_tasks)
+    carried_task_ids = []
+    
+    # Determine target for incomplete tasks
+    if target_sprint_id:
+        # Verify target sprint exists
+        target_sprint = await db.pm_sprints.find_one({"id": target_sprint_id})
+        if not target_sprint:
+            raise HTTPException(status_code=404, detail="Target sprint not found")
+        target_name = target_sprint.get("name", "Next Sprint")
+    else:
+        # Find next planning sprint for same project
+        next_sprint = await db.pm_sprints.find_one({
+            "project_id": project_id,
+            "status": "planning",
+            "id": {"$ne": sprint_id}
+        }, sort=[("start_date", 1)])
+        
+        if next_sprint:
+            target_sprint_id = next_sprint["id"]
+            target_name = next_sprint.get("name", "Next Sprint")
+        else:
+            target_sprint_id = None
+            target_name = "Backlog"
+    
+    # Move incomplete tasks
+    for task in incomplete_tasks:
+        carried_task_ids.append(task["id"])
+        update_data = {
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        if target_sprint_id:
+            update_data["sprint_id"] = target_sprint_id
+        else:
+            # Move to backlog (remove sprint_id)
+            update_data["sprint_id"] = None
+        
+        await db.pm_tasks.update_one(
+            {"id": task["id"]},
+            {"$set": update_data}
+        )
+    
+    # Mark sprint as completed
+    await db.pm_sprints.update_one(
+        {"id": sprint_id},
+        {"$set": {
+            "status": "completed",
+            "completed_at": datetime.now(timezone.utc).isoformat(),
+            "completed_by": user.get("id"),
+            "carry_forward_count": carried_forward_count,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Create automation log
+    automation_log = {
+        "id": str(uuid.uuid4()),
+        "type": "sprint_carry_forward",
+        "trigger": "sprint_completed",
+        "sprint_id": sprint_id,
+        "sprint_name": sprint.get("name"),
+        "project_id": project_id,
+        "tasks_carried": carried_forward_count,
+        "task_ids": carried_task_ids,
+        "target_sprint_id": target_sprint_id,
+        "target_name": target_name,
+        "triggered_by": user.get("id"),
+        "triggered_by_name": user.get("name"),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.automation_logs.insert_one(automation_log)
+    
+    return {
+        "success": True,
+        "message": f"Sprint completed. {carried_forward_count} tasks moved to {target_name}",
+        "sprint_id": sprint_id,
+        "tasks_carried_forward": carried_forward_count,
+        "target": target_name,
+        "target_sprint_id": target_sprint_id,
+        "carried_task_ids": carried_task_ids
+    }
+
+
+# 2. WORKFLOW AUTOMATION TRIGGERS
+from pydantic import BaseModel
+from typing import List, Dict, Any
+
+class WorkflowTrigger(BaseModel):
+    """Automation trigger configuration"""
+    type: str  # status_changed, task_created, due_date_approaching, blocked_days
+    conditions: Optional[Dict[str, Any]] = {}
+
+class WorkflowAction(BaseModel):
+    """Automation action configuration"""
+    type: str  # update_status, send_notification, assign_user, close_subtasks, add_comment
+    config: Optional[Dict[str, Any]] = {}
+
+class AutomationRuleCreate(BaseModel):
+    """Create automation rule"""
+    name: str
+    description: Optional[str] = ""
+    project_id: Optional[str] = None  # None = global rule
+    trigger: WorkflowTrigger
+    actions: List[WorkflowAction]
+    is_active: bool = True
+
+@router.post("/automations/rules")
+async def create_automation_rule(
+    rule: AutomationRuleCreate,
+    user: dict = Depends(get_current_user)
+):
+    """Create a new workflow automation rule"""
+    rule_doc = {
+        "id": str(uuid.uuid4()),
+        "name": rule.name,
+        "description": rule.description,
+        "project_id": rule.project_id,
+        "trigger": rule.trigger.dict(),
+        "actions": [a.dict() for a in rule.actions],
+        "is_active": rule.is_active,
+        "created_by": user.get("id"),
+        "created_by_name": user.get("name"),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "execution_count": 0
+    }
+    
+    await db.automation_rules.insert_one(rule_doc)
+    del rule_doc["_id"]
+    
+    return rule_doc
+
+@router.get("/automations/rules")
+async def get_automation_rules(
+    project_id: Optional[str] = None,
+    user: dict = Depends(get_current_user)
+):
+    """Get all automation rules (optionally filtered by project)"""
+    query = {}
+    if project_id:
+        query["$or"] = [{"project_id": project_id}, {"project_id": None}]
+    
+    rules = await db.automation_rules.find(query, {"_id": 0}).to_list(100)
+    return rules
+
+@router.delete("/automations/rules/{rule_id}")
+async def delete_automation_rule(
+    rule_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Delete an automation rule"""
+    result = await db.automation_rules.delete_one({"id": rule_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Rule not found")
+    return {"success": True, "message": "Rule deleted"}
+
+@router.post("/automations/execute")
+async def execute_automation_trigger(
+    trigger_type: str,
+    context: Dict[str, Any],
+    user: dict = Depends(get_current_user)
+):
+    """
+    Execute automation rules based on a trigger.
+    Called internally when events occur (status change, task creation, etc.)
+    """
+    # Find matching rules
+    query = {
+        "is_active": True,
+        "trigger.type": trigger_type
+    }
+    
+    if context.get("project_id"):
+        query["$or"] = [
+            {"project_id": context["project_id"]},
+            {"project_id": None}
+        ]
+    
+    rules = await db.automation_rules.find(query, {"_id": 0}).to_list(50)
+    
+    executed_actions = []
+    
+    for rule in rules:
+        # Check trigger conditions
+        trigger_conditions = rule.get("trigger", {}).get("conditions", {})
+        conditions_met = True
+        
+        for key, expected_value in trigger_conditions.items():
+            if context.get(key) != expected_value:
+                conditions_met = False
+                break
+        
+        if not conditions_met:
+            continue
+        
+        # Execute actions
+        for action in rule.get("actions", []):
+            action_type = action.get("type")
+            action_config = action.get("config", {})
+            
+            result = await _execute_action(action_type, action_config, context, user)
+            executed_actions.append({
+                "rule_id": rule["id"],
+                "rule_name": rule["name"],
+                "action_type": action_type,
+                "result": result
+            })
+        
+        # Increment execution count
+        await db.automation_rules.update_one(
+            {"id": rule["id"]},
+            {"$inc": {"execution_count": 1}}
+        )
+    
+    # Log execution
+    if executed_actions:
+        log_entry = {
+            "id": str(uuid.uuid4()),
+            "type": "workflow_automation",
+            "trigger_type": trigger_type,
+            "context": context,
+            "actions_executed": executed_actions,
+            "triggered_by": user.get("id"),
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.automation_logs.insert_one(log_entry)
+    
+    return {
+        "success": True,
+        "rules_matched": len(rules),
+        "actions_executed": len(executed_actions),
+        "details": executed_actions
+    }
+
+async def _execute_action(action_type: str, config: dict, context: dict, user: dict):
+    """Execute a single automation action"""
+    task_id = context.get("task_id")
+    
+    if action_type == "update_status":
+        new_status = config.get("status")
+        if task_id and new_status:
+            await db.pm_tasks.update_one(
+                {"id": task_id},
+                {"$set": {"status": new_status, "updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+            return {"updated_status": new_status}
+    
+    elif action_type == "close_subtasks":
+        if task_id:
+            result = await db.pm_tasks.update_many(
+                {"parent_task_id": task_id},
+                {"$set": {"status": "completed", "updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+            return {"subtasks_closed": result.modified_count}
+    
+    elif action_type == "add_comment":
+        comment_text = config.get("comment", "Automation triggered")
+        if task_id:
+            comment = {
+                "id": str(uuid.uuid4()),
+                "task_id": task_id,
+                "content": f"🤖 {comment_text}",
+                "author_id": "system",
+                "author_name": "Automation",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "is_system": True
+            }
+            await db.pm_task_comments.insert_one(comment)
+            return {"comment_added": True}
+    
+    elif action_type == "send_notification":
+        # Create notification for task assignee or specified users
+        notification_title = config.get("title", "Automation Alert")
+        notification_body = config.get("body", "An automated action was triggered")
+        recipient_ids = config.get("recipient_ids", [])
+        
+        # If no recipients specified, notify task assignee
+        if not recipient_ids and task_id:
+            task = await db.pm_tasks.find_one({"id": task_id})
+            if task and task.get("assignee_id"):
+                recipient_ids = [task["assignee_id"]]
+        
+        for recipient_id in recipient_ids:
+            notification = {
+                "id": str(uuid.uuid4()),
+                "user_id": recipient_id,
+                "title": notification_title,
+                "body": notification_body,
+                "type": "automation",
+                "related_type": "task",
+                "related_id": task_id,
+                "is_read": False,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.notifications.insert_one(notification)
+        
+        return {"notifications_sent": len(recipient_ids)}
+    
+    elif action_type == "assign_user":
+        assignee_id = config.get("assignee_id")
+        if task_id and assignee_id:
+            await db.pm_tasks.update_one(
+                {"id": task_id},
+                {"$set": {"assignee_id": assignee_id, "updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+            return {"assigned_to": assignee_id}
+    
+    return {"action": action_type, "status": "no_op"}
+
+
+# 3. RELEASE NOTES GENERATOR
+@router.get("/releases/{release_id}/notes")
+async def generate_release_notes(
+    release_id: str,
+    format: str = "markdown",
+    user: dict = Depends(get_current_user)
+):
+    """
+    Auto-generate release notes from completed tasks in a release.
+    Groups by type: Features, Bug Fixes, Improvements, Other
+    """
+    # Get release
+    release = await db.pm_releases.find_one({"id": release_id})
+    if not release:
+        raise HTTPException(status_code=404, detail="Release not found")
+    
+    release_name = release.get("name", "Release")
+    release_version = release.get("version", "")
+    target_date = release.get("target_date", "")
+    
+    # Get all tasks linked to this release that are completed
+    completed_statuses = ["completed", "done", "approved"]
+    tasks = await db.pm_tasks.find({
+        "release_id": release_id,
+        "status": {"$in": completed_statuses}
+    }, {"_id": 0}).to_list(500)
+    
+    # Also get tasks by sprint if release has sprints
+    sprint_ids = release.get("sprint_ids", [])
+    if sprint_ids:
+        sprint_tasks = await db.pm_tasks.find({
+            "sprint_id": {"$in": sprint_ids},
+            "status": {"$in": completed_statuses}
+        }, {"_id": 0}).to_list(500)
+        
+        # Merge and dedupe
+        task_ids = {t["id"] for t in tasks}
+        for t in sprint_tasks:
+            if t["id"] not in task_ids:
+                tasks.append(t)
+    
+    # Group tasks by issue type
+    grouped = {
+        "feature": [],
+        "story": [],
+        "bug": [],
+        "improvement": [],
+        "task": [],
+        "other": []
+    }
+    
+    for task in tasks:
+        issue_type = task.get("issue_type", "task")
+        if issue_type in grouped:
+            grouped[issue_type].append(task)
+        else:
+            grouped["other"].append(task)
+    
+    # Generate markdown
+    lines = [
+        f"# {release_name} {release_version}",
+        f"**Release Date:** {target_date or 'TBD'}",
+        "",
+        "---",
+        ""
+    ]
+    
+    # Features & Stories
+    features = grouped["feature"] + grouped["story"]
+    if features:
+        lines.append("## ✨ New Features")
+        lines.append("")
+        for task in features:
+            title = task.get("title", "Untitled")
+            task_id = task.get("id", "")[:8]
+            description = task.get("description", "")
+            # Strip HTML tags from description
+            import re
+            clean_desc = re.sub(r'<[^>]+>', '', description) if description else ""
+            clean_desc = clean_desc[:150] + "..." if len(clean_desc) > 150 else clean_desc
+            
+            lines.append(f"- **{title}** `#{task_id}`")
+            if clean_desc:
+                lines.append(f"  - {clean_desc}")
+        lines.append("")
+    
+    # Bug Fixes
+    if grouped["bug"]:
+        lines.append("## 🐛 Bug Fixes")
+        lines.append("")
+        for task in grouped["bug"]:
+            title = task.get("title", "Untitled")
+            task_id = task.get("id", "")[:8]
+            severity = task.get("bug_severity", "")
+            severity_emoji = {"critical": "🔴", "major": "🟠", "minor": "🟡", "trivial": "⚪"}.get(severity, "")
+            lines.append(f"- {severity_emoji} **{title}** `#{task_id}`")
+        lines.append("")
+    
+    # Improvements
+    if grouped["improvement"]:
+        lines.append("## ⚡ Improvements")
+        lines.append("")
+        for task in grouped["improvement"]:
+            title = task.get("title", "Untitled")
+            task_id = task.get("id", "")[:8]
+            lines.append(f"- **{title}** `#{task_id}`")
+        lines.append("")
+    
+    # Other Tasks
+    other_tasks = grouped["task"] + grouped["other"]
+    if other_tasks:
+        lines.append("## 📋 Other Changes")
+        lines.append("")
+        for task in other_tasks:
+            title = task.get("title", "Untitled")
+            task_id = task.get("id", "")[:8]
+            lines.append(f"- {title} `#{task_id}`")
+        lines.append("")
+    
+    # Summary stats
+    lines.append("---")
+    lines.append("")
+    lines.append("### Summary")
+    lines.append(f"- **Total Changes:** {len(tasks)}")
+    lines.append(f"- **Features:** {len(features)}")
+    lines.append(f"- **Bug Fixes:** {len(grouped['bug'])}")
+    lines.append(f"- **Improvements:** {len(grouped['improvement'])}")
+    lines.append(f"- **Other:** {len(other_tasks)}")
+    
+    markdown_content = "\n".join(lines)
+    
+    # Store generated notes
+    await db.pm_releases.update_one(
+        {"id": release_id},
+        {"$set": {
+            "generated_notes": markdown_content,
+            "notes_generated_at": datetime.now(timezone.utc).isoformat(),
+            "notes_generated_by": user.get("id")
+        }}
+    )
+    
+    return {
+        "release_id": release_id,
+        "release_name": release_name,
+        "version": release_version,
+        "format": format,
+        "content": markdown_content,
+        "task_count": len(tasks),
+        "breakdown": {
+            "features": len(features),
+            "bugs": len(grouped["bug"]),
+            "improvements": len(grouped["improvement"]),
+            "other": len(other_tasks)
+        }
+    }
+
+@router.get("/automations/logs")
+async def get_automation_logs(
+    limit: int = 50,
+    automation_type: Optional[str] = None,
+    user: dict = Depends(get_current_user)
+):
+    """Get automation execution logs"""
+    query = {}
+    if automation_type:
+        query["type"] = automation_type
+    
+    logs = await db.automation_logs.find(
+        query, 
+        {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    return logs
+
+# Seed default automation rules
+@router.post("/automations/seed-defaults")
+async def seed_default_automation_rules(user: dict = Depends(get_current_user)):
+    """Create default automation rules"""
+    default_rules = [
+        {
+            "id": str(uuid.uuid4()),
+            "name": "Auto-close subtasks when parent done",
+            "description": "When a task is marked as completed, automatically close all its subtasks",
+            "project_id": None,
+            "trigger": {"type": "status_changed", "conditions": {"new_status": "completed"}},
+            "actions": [{"type": "close_subtasks", "config": {}}],
+            "is_active": True,
+            "created_by": user.get("id"),
+            "created_by_name": user.get("name"),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "execution_count": 0
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "name": "Notify on task blocked",
+            "description": "Send notification when a task is marked as blocked/on_hold",
+            "project_id": None,
+            "trigger": {"type": "status_changed", "conditions": {"new_status": "on_hold"}},
+            "actions": [{"type": "send_notification", "config": {"title": "Task Blocked", "body": "A task has been marked as blocked and needs attention"}}],
+            "is_active": True,
+            "created_by": user.get("id"),
+            "created_by_name": user.get("name"),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "execution_count": 0
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "name": "Add completion comment",
+            "description": "Add an automated comment when task is completed",
+            "project_id": None,
+            "trigger": {"type": "status_changed", "conditions": {"new_status": "completed"}},
+            "actions": [{"type": "add_comment", "config": {"comment": "Task completed! Great work! 🎉"}}],
+            "is_active": True,
+            "created_by": user.get("id"),
+            "created_by_name": user.get("name"),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "execution_count": 0
+        }
+    ]
+    
+    created = 0
+    for rule in default_rules:
+        # Check if similar rule exists
+        exists = await db.automation_rules.find_one({"name": rule["name"]})
+        if not exists:
+            await db.automation_rules.insert_one(rule)
+            created += 1
+    
+    return {"success": True, "message": f"Created {created} default automation rules"}
+

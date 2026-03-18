@@ -9,12 +9,15 @@ import { Avatar, AvatarFallback } from '../../components/ui/avatar';
 import { toast } from 'sonner';
 import { 
   Zap, ArrowLeft, RefreshCw, Calendar, Target, Clock, CheckCircle2,
-  AlertTriangle, Users, TrendingDown, Play, Pause, Flag, Layers
+  AlertTriangle, Users, TrendingDown, Play, Pause, Flag, Layers, CheckSquare
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   ReferenceLine, Area, ComposedChart
 } from 'recharts';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription
+} from '../../components/ui/dialog';
 import api from '../../lib/api';
 import { format, differenceInDays, addDays, parseISO } from 'date-fns';
 
@@ -46,6 +49,11 @@ const SprintBoardPage = () => {
   const [project, setProject] = useState(null);
   const [sprints, setSprints] = useState([]);
   const [selectedSprintId, setSelectedSprintId] = useState(sprintId || '');
+  
+  // Complete Sprint Modal
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [targetSprintId, setTargetSprintId] = useState('backlog');
+  const [completing, setCompleting] = useState(false);
 
   const fetchSprintData = useCallback(async () => {
     if (!selectedSprintId && !sprintId) {
@@ -186,7 +194,29 @@ const SprintBoardPage = () => {
     completed: tasks.filter(t => t.status === 'completed').length,
     inProgress: tasks.filter(t => t.status === 'in_progress').length,
     totalPoints: tasks.reduce((sum, t) => sum + (t.story_points || 0), 0),
-    completedPoints: tasks.filter(t => t.status === 'completed').reduce((sum, t) => sum + (t.story_points || 0), 0)
+    completedPoints: tasks.filter(t => t.status === 'completed').reduce((sum, t) => sum + (t.story_points || 0), 0),
+    incomplete: tasks.filter(t => !['completed', 'done'].includes(t.status)).length
+  };
+
+  // Handle Complete Sprint with Carry Forward
+  const handleCompleteSprint = async () => {
+    setCompleting(true);
+    try {
+      const targetId = targetSprintId === 'backlog' ? null : targetSprintId;
+      const response = await api.post(`/engineering/sprints/${selectedSprintId}/complete`, null, {
+        params: { target_sprint_id: targetId }
+      });
+      
+      toast.success(response.data.message || 'Sprint completed successfully!');
+      setShowCompleteModal(false);
+      
+      // Refresh data
+      fetchSprintData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to complete sprint');
+    } finally {
+      setCompleting(false);
+    }
   };
 
   const progress = stats.totalPoints > 0 
@@ -267,6 +297,16 @@ const SprintBoardPage = () => {
           <Button variant="outline" size="sm" onClick={fetchSprintData}>
             <RefreshCw className="w-4 h-4 mr-1" /> Refresh
           </Button>
+          
+          {(sprint?.status === 'active' || sprint?.status === 'planning') && (
+            <Button 
+              size="sm" 
+              className="bg-green-600 hover:bg-green-700"
+              onClick={() => setShowCompleteModal(true)}
+            >
+              <CheckSquare className="w-4 h-4 mr-1" /> Complete Sprint
+            </Button>
+          )}
         </div>
       </div>
 
@@ -468,6 +508,94 @@ const SprintBoardPage = () => {
           </div>
         </>
       )}
+
+      {/* Complete Sprint Modal */}
+      <Dialog open={showCompleteModal} onOpenChange={setShowCompleteModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckSquare className="w-5 h-5 text-green-600" />
+              Complete Sprint
+            </DialogTitle>
+            <DialogDescription>
+              Completing the sprint will mark it as done and move incomplete tasks.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Summary */}
+            <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+              <h4 className="font-medium text-gray-900">Sprint Summary</h4>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-500">Completed:</span>
+                  <span className="ml-2 font-semibold text-green-600">{stats.completed} tasks</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Incomplete:</span>
+                  <span className="ml-2 font-semibold text-amber-600">{stats.incomplete} tasks</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Points Done:</span>
+                  <span className="ml-2 font-semibold">{stats.completedPoints}/{stats.totalPoints}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Progress:</span>
+                  <span className="ml-2 font-semibold">{progress}%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Carry Forward Options */}
+            {stats.incomplete > 0 && (
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Move {stats.incomplete} incomplete task(s) to:
+                </label>
+                <Select value={targetSprintId} onValueChange={setTargetSprintId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select destination" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="backlog">
+                      <span className="flex items-center gap-2">
+                        <Layers className="w-4 h-4" /> Backlog
+                      </span>
+                    </SelectItem>
+                    {sprints.filter(s => s.id !== selectedSprintId && s.status === 'planning').map(s => (
+                      <SelectItem key={s.id} value={s.id}>
+                        <span className="flex items-center gap-2">
+                          <Zap className="w-4 h-4" /> {s.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {stats.incomplete === 0 && (
+              <div className="bg-green-50 text-green-700 rounded-lg p-3 text-sm flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" />
+                All tasks completed! Great work! 🎉
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCompleteModal(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCompleteSprint}
+              disabled={completing}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {completing ? 'Completing...' : 'Complete Sprint'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
