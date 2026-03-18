@@ -376,14 +376,14 @@ const SpaceDetailPage = () => {
             <div>
               <Label>Parent Page (optional)</Label>
               <Select
-                value={pageForm.parent_id}
-                onValueChange={(v) => setPageForm({ ...pageForm, parent_id: v })}
+                value={pageForm.parent_id || "none"}
+                onValueChange={(v) => setPageForm({ ...pageForm, parent_id: v === "none" ? "" : v })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="None (top-level)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None (top-level)</SelectItem>
+                  <SelectItem value="none">None (top-level)</SelectItem>
                   {space.page_tree?.map(page => (
                     <SelectItem key={page.id} value={page.id}>{page.title}</SelectItem>
                   ))}
@@ -394,14 +394,14 @@ const SpaceDetailPage = () => {
             <div>
               <Label>Template (optional)</Label>
               <Select
-                value={pageForm.template_id}
-                onValueChange={(v) => setPageForm({ ...pageForm, template_id: v })}
+                value={pageForm.template_id || "blank"}
+                onValueChange={(v) => setPageForm({ ...pageForm, template_id: v === "blank" ? "" : v })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Blank page" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Blank page</SelectItem>
+                  <SelectItem value="blank">Blank page</SelectItem>
                   {templates.map(t => (
                     <SelectItem key={t.id} value={t.id}>
                       {t.icon} {t.name}
