@@ -331,7 +331,7 @@ const ProjectListView = ({ projects, onEdit, onDelete, onView, onScheduleMeeting
   );
 };
 
-const CreateProjectModal = ({ open, onClose, modules, departments, users, onSuccess }) => {
+const CreateProjectModal = ({ open, onClose, modules, departments, users, onSuccess, defaultProjectType }) => {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
   const [objectives, setObjectives] = useState([]);
@@ -347,13 +347,22 @@ const CreateProjectModal = ({ open, onClose, modules, departments, users, onSucc
     project_manager_id: '',
     start_date: '',
     end_date: '',
-    linked_objective_id: ''
+    linked_objective_id: '',
+    project_type: defaultProjectType || 'other'
   });
 
   const projectStatuses = [
     { value: 'draft', label: 'Draft', color: 'bg-stone-100 text-stone-700' },
     { value: 'active', label: 'Active', color: 'bg-emerald-100 text-emerald-700' },
     { value: 'on_hold', label: 'On Hold', color: 'bg-amber-100 text-amber-700' }
+  ];
+
+  const projectTypes = [
+    { value: 'development', label: 'Development' },
+    { value: 'design', label: 'Design' },
+    { value: 'marketing', label: 'Marketing' },
+    { value: 'operations', label: 'Operations' },
+    { value: 'other', label: 'Other' }
   ];
 
   // Fetch objectives for dropdown
@@ -379,10 +388,11 @@ const CreateProjectModal = ({ open, onClose, modules, departments, users, onSucc
       setFormData({
         name: '', department_id: '', description: '', priority: 'medium',
         visibility: 'public', status: 'draft', project_manager_id: '',
-        start_date: '', end_date: '', linked_objective_id: ''
+        start_date: '', end_date: '', linked_objective_id: '',
+        project_type: defaultProjectType || 'other'
       });
     }
-  }, [open]);
+  }, [open, defaultProjectType]);
 
   const handleSubmit = async (e) => {
     e?.preventDefault();
@@ -546,6 +556,21 @@ const CreateProjectModal = ({ open, onClose, modules, departments, users, onSucc
                   </Select>
                 </div>
               </div>
+
+              <div>
+                <Label className="text-[#4A3728]">Project Type</Label>
+                <Select value={formData.project_type} onValueChange={(value) => setFormData({ ...formData, project_type: value })}>
+                  <SelectTrigger className="border-[#D4BBA6] mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-white border-[#D4BBA6]">
+                    {projectTypes.map(type => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
 
               <div>
                 <Label className="text-[#4A3728]">Project Manager</Label>

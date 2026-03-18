@@ -6,14 +6,24 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Input } from '../../components/ui/input';
 import { Progress } from '../../components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { CreateProjectModal } from '../projects/ProjectsList';
 import { toast } from 'sonner';
 import { 
   FolderKanban, Plus, Search, ArrowRight, Users, Calendar,
-  CheckCircle2, Clock, AlertTriangle, LayoutGrid, List
+  CheckCircle2, Clock, AlertTriangle, LayoutGrid, List, Filter
 } from 'lucide-react';
 
 const API = process.env.REACT_APP_BACKEND_URL;
+
+// Project type configuration for Engineering
+const PROJECT_TYPES = [
+  { value: 'all', label: 'All Types' },
+  { value: 'development', label: 'Development' },
+  { value: 'design', label: 'Design' },
+  { value: 'operations', label: 'Operations' },
+  { value: 'other', label: 'Other' },
+];
 
 const EngineeringProjectsPage = () => {
   const navigate = useNavigate();
@@ -23,6 +33,7 @@ const EngineeringProjectsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('grid');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [typeFilter, setTypeFilter] = useState('development'); // Default to development
   
   // Data for the modal
   const [departments, setDepartments] = useState([]);
@@ -89,16 +100,32 @@ const EngineeringProjectsPage = () => {
     return <Badge variant="outline" className={config.color}>{config.label}</Badge>;
   };
 
-  const filteredProjects = projects.filter(p => 
-    p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const getTypeBadge = (type) => {
+    const typeConfig = {
+      development: { color: 'bg-violet-100 text-violet-700', label: 'Development' },
+      design: { color: 'bg-pink-100 text-pink-700', label: 'Design' },
+      operations: { color: 'bg-cyan-100 text-cyan-700', label: 'Operations' },
+      marketing: { color: 'bg-orange-100 text-orange-700', label: 'Marketing' },
+      other: { color: 'bg-gray-100 text-gray-700', label: 'Other' }
+    };
+    const config = typeConfig[type] || typeConfig.other;
+    return <Badge variant="outline" className={config.color}>{config.label}</Badge>;
+  };
 
+  // Filter projects by type and search query
+  const filteredProjects = projects.filter(p => {
+    const matchesSearch = p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesType = typeFilter === 'all' || p.project_type === typeFilter;
+    return matchesSearch && matchesType;
+  });
+
+  // Stats based on filtered projects
   const stats = {
-    total: projects.length,
-    active: projects.filter(p => p.status === 'active').length,
-    onHold: projects.filter(p => p.status === 'on_hold').length,
-    completed: projects.filter(p => p.status === 'completed').length
+    total: filteredProjects.length,
+    active: filteredProjects.filter(p => p.status === 'active').length,
+    onHold: filteredProjects.filter(p => p.status === 'on_hold').length,
+    completed: filteredProjects.filter(p => p.status === 'completed').length
   };
 
   if (loading) {
@@ -159,17 +186,37 @@ const EngineeringProjectsPage = () => {
         </Card>
       </div>
 
-      {/* Search & View Toggle */}
+      {/* Search, Filter & View Toggle */}
       <div className="flex items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search projects..."
-            className="pl-10"
-          />
+        <div className="flex items-center gap-3 flex-1">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search projects..."
+              className="pl-10"
+            />
+          </div>
+          
+          {/* Type Filter */}
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-gray-400" />
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Filter by type" />
+              </SelectTrigger>
+              <SelectContent>
+                {PROJECT_TYPES.map(type => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
+        
         <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
           <Button
             size="sm"
@@ -211,9 +258,10 @@ const EngineeringProjectsPage = () => {
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-3 flex-wrap">
                   {getStatusBadge(project.status)}
                   {getPriorityBadge(project.priority)}
+                  {project.project_type && getTypeBadge(project.project_type)}
                 </div>
 
                 {project.progress !== undefined && (
@@ -301,6 +349,7 @@ const EngineeringProjectsPage = () => {
         modules={modules}
         departments={departments}
         users={users}
+        defaultProjectType="development"
         onSuccess={() => {
           setShowCreateModal(false);
           fetchProjects();

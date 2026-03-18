@@ -14,7 +14,7 @@ import {
     HelpCircle, Award, Network, Shield, Flag, CalendarDays, RefreshCw, Plus, Globe,
     TrendingUp, PieChart, Activity, FileText, Package, Factory, FlaskConical, Search, Database,
     Server, Plug, Bell, ClipboardList, Bot, Cog, CheckCircle, MessageCircle, Key, Lock, Receipt,
-    CreditCard, Megaphone, FileImage, LayoutGrid, Layers, BookOpen, Map
+    CreditCard, Megaphone, FileImage, LayoutGrid, Layers, BookOpen, Map, Code
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -114,28 +114,41 @@ const DEPARTMENT_CONFIG = {
         requiredModule: 'project_management',
         routes: [
             { 
-                name: 'Project Management', 
-                icon: FolderKanban, 
+                name: 'Development', 
+                icon: Code, 
                 isGroup: true, 
                 items: [
-                    { path: '/engineering/projects', name: 'All Projects', icon: FolderKanban },
+                    { path: '/engineering/projects', name: 'Projects', icon: FolderKanban },
                     { path: '/engineering/sprint-board', name: 'Sprint Board', icon: LayoutDashboard },
-                    { path: '/engineering/backlog', name: 'Product Backlog', icon: Layers },
+                    { path: '/engineering/backlog', name: 'Backlog', icon: Layers },
                     { path: '/engineering/epics', name: 'Epics', icon: Target },
+                ]
+            },
+            { 
+                name: 'Planning', 
+                icon: Calendar, 
+                isGroup: true, 
+                items: [
+                    { path: '/engineering/sprints', name: 'Sprints', icon: Zap },
                     { path: '/engineering/roadmap', name: 'Roadmap', icon: Map },
                     { path: '/engineering/releases', name: 'Releases', icon: Package },
-                    { path: '/engineering/sprints', name: 'Sprint Planning', icon: Zap },
-                    { path: '/engineering/reports', name: 'Reports & Charts', icon: TrendingUp },
+                ]
+            },
+            { 
+                name: 'Insights', 
+                icon: TrendingUp, 
+                isGroup: true, 
+                items: [
+                    { path: '/engineering/reports', name: 'Reports', icon: TrendingUp },
                     { path: '/engineering/workflows', name: 'Workflows', icon: RefreshCw },
                 ]
             },
             { 
-                name: 'Knowledge', 
+                name: 'Documentation', 
                 icon: BookOpen, 
                 isGroup: true, 
                 items: [
-                    { path: '/engineering/knowledge', name: 'Documentation', icon: FileText },
-                    { path: '/engineering/knowledge/search', name: 'Search Wiki', icon: Search },
+                    { path: '/engineering/knowledge', name: 'Knowledge Base', icon: FileText },
                 ]
             },
         ]
