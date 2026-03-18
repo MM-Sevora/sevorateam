@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { 
   ChevronRight, ArrowLeft, Edit2, Save, X, Clock, User, Eye, 
   MessageSquare, History, FileText, CheckCircle, Send, Trash2,
-  ChevronDown
+  ChevronDown, Link2, ExternalLink
 } from 'lucide-react';
 
 const PageEditorPage = () => {
@@ -37,6 +37,10 @@ const PageEditorPage = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [versions, setVersions] = useState([]);
   const [loadingVersions, setLoadingVersions] = useState(false);
+  
+  // Backlinks (Smart Linking)
+  const [backlinks, setBacklinks] = useState([]);
+  const [loadingBacklinks, setLoadingBacklinks] = useState(false);
 
   const fetchPage = useCallback(async () => {
     try {
@@ -77,10 +81,47 @@ const PageEditorPage = () => {
     }
   };
 
+  const fetchBacklinks = useCallback(async () => {
+    setLoadingBacklinks(true);
+    try {
+      const response = await api.get(`/knowledge/pages/${pageId}/backlinks`);
+      setBacklinks(response.data.backlinks || []);
+    } catch (error) {
+      console.error('Failed to load backlinks:', error);
+    } finally {
+      setLoadingBacklinks(false);
+    }
+  }, [api, pageId]);
+
   useEffect(() => {
     fetchPage();
     fetchComments();
-  }, [fetchPage, fetchComments]);
+    fetchBacklinks();
+  }, [fetchPage, fetchComments, fetchBacklinks]);
+
+  // Handle wiki link clicks
+  useEffect(() => {
+    const handleWikiLink = async (event) => {
+      const linkText = event.detail;
+      try {
+        // Search for the page by title
+        const response = await api.get(`/knowledge/search/pages`, { params: { q: linkText } });
+        const pages = response.data || [];
+        
+        if (pages.length > 0) {
+          // Navigate to the first matching page
+          navigate(`/knowledge/page/${pages[0].id}`);
+        } else {
+          toast.error(`Page "${linkText}" not found`);
+        }
+      } catch (error) {
+        toast.error('Failed to find linked page');
+      }
+    };
+    
+    window.addEventListener('wikilink', handleWikiLink);
+    return () => window.removeEventListener('wikilink', handleWikiLink);
+  }, [api, navigate]);
 
   const handleSave = async () => {
     if (!editForm.title.trim()) {
@@ -95,9 +136,18 @@ const PageEditorPage = () => {
         content: editForm.content,
         status: editForm.status
       });
+      
+      // Extract and store links for smart linking
+      try {
+        await api.post(`/knowledge/pages/${pageId}/extract-links`);
+      } catch (e) {
+        console.error('Failed to extract links:', e);
+      }
+      
       toast.success('Page saved');
       setEditing(false);
       fetchPage();
+      fetchBacklinks();
     } catch (error) {
       toast.error('Failed to save');
     } finally {
@@ -160,6 +210,34 @@ const PageEditorPage = () => {
     } catch (error) {
       toast.error('Failed to restore version');
     }
+  };
+
+  // Parse content for wiki-style links and render them
+  const renderContentWithLinks = (content) => {
+    if (!content) return '';
+    
+    // Replace [[Page Title]] with actual links
+    // This is a simple client-side replacement for display
+    let processedContent = content.replace(
+      /\[\[([^\]]+)\]\]/g,
+      (match, linkText) => {
+        return `<a href="#" class="wiki-link text-blue-600 hover:text-blue-800 underline decoration-dotted" data-link="${linkText}" onclick="event.preventDefault(); window.dispatchEvent(new CustomEvent('wikilink', {detail: '${linkText.replace(/'/g, "\\'")}'}))">📄 ${linkText}</a>`;
+      }
+    );
+    
+    // Replace @mentions with styled spans
+    processedContent = processedContent.replace(
+      /@(\w+(?:\s+\w+)?)/g,
+      '<span class="mention bg-blue-100 text-blue-700 px-1 rounded">@$1</span>'
+    );
+    
+    // Replace #task-id with styled links
+    processedContent = processedContent.replace(
+      /#([a-zA-Z0-9-]+)/g,
+      '<a href="/projects" class="task-link text-violet-600 hover:text-violet-800">#$1</a>'
+    );
+    
+    return processedContent;
   };
 
   if (loading) {
@@ -279,6 +357,18 @@ const PageEditorPage = () => {
                       placeholder="Write your content here..."
                       minHeight="400px"
                     />
+                    
+                    {/* Smart Linking Tips */}
+                    <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <h4 className="text-sm font-medium text-blue-800 flex items-center gap-2">
+                        <Link2 className="w-4 h-4" /> Smart Linking Tips
+                      </h4>
+                      <ul className="text-xs text-blue-700 mt-2 space-y-1">
+                        <li><code className="bg-blue-100 px-1 rounded">[[Page Title]]</code> — Link to another page</li>
+                        <li><code className="bg-blue-100 px-1 rounded">@username</code> — Mention a team member</li>
+                        <li><code className="bg-blue-100 px-1 rounded">#task-id</code> — Link to a task</li>
+                      </ul>
+                    </div>
                   </div>
                 ) : (
                   <div>
@@ -287,7 +377,7 @@ const PageEditorPage = () => {
                     {page.content ? (
                       <div 
                         className="prose prose-gray max-w-none prose-headings:text-gray-900 prose-a:text-blue-600 prose-code:bg-gray-100 prose-code:px-1 prose-code:rounded prose-pre:bg-gray-900 prose-pre:text-gray-100"
-                        dangerouslySetInnerHTML={{ __html: page.content }}
+                        dangerouslySetInnerHTML={{ __html: renderContentWithLinks(page.content) }}
                       />
                     ) : (
                       <div className="text-center py-12 text-gray-400">
@@ -399,6 +489,43 @@ const PageEditorPage = () => {
                   <span className="text-gray-500">Version:</span>
                   <Badge variant="outline">{page.version}</Badge>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Backlinks (Smart Linking) */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Link2 className="w-4 h-4 text-blue-500" />
+                  Pages linking here ({backlinks.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-2">
+                {loadingBacklinks ? (
+                  <div className="text-sm text-gray-400 p-2">Loading...</div>
+                ) : backlinks.length === 0 ? (
+                  <div className="text-sm text-gray-400 p-2">
+                    No pages link to this yet.
+                    <p className="text-xs mt-1">Use [[{page.title}]] in other pages to create links.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {backlinks.map(link => (
+                      <Link
+                        key={link.id}
+                        to={`/knowledge/page/${link.id}`}
+                        className="flex items-center gap-2 p-2 rounded hover:bg-blue-50 text-left group"
+                      >
+                        <FileText className="w-4 h-4 text-gray-400 group-hover:text-blue-500" />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm truncate block group-hover:text-blue-600">{link.title}</span>
+                          <span className="text-xs text-gray-400">{link.space_name}</span>
+                        </div>
+                        <ExternalLink className="w-3 h-3 text-gray-300 group-hover:text-blue-400" />
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 

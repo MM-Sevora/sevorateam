@@ -967,3 +967,241 @@ What could be improved?
             created += 1
     
     return {"success": True, "message": f"Created {created} templates"}
+
+
+# ============== SMART LINKING ==============
+
+import re
+
+@router.get("/search/pages")
+async def search_pages_for_linking(
+    q: str = Query(..., min_length=1),
+    space_id: Optional[str] = None,
+    limit: int = 10,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """
+    Search pages by title for smart linking autocomplete.
+    Used when user types [[ in the editor.
+    """
+    user = await get_current_user(credentials)
+    
+    query = {
+        "status": {"$ne": "archived"},
+        "title": {"$regex": q, "$options": "i"}
+    }
+    
+    if space_id:
+        query["space_id"] = space_id
+    
+    pages = await db.kb_pages.find(
+        query,
+        {"_id": 0, "id": 1, "title": 1, "space_id": 1, "status": 1}
+    ).limit(limit).to_list(limit)
+    
+    # Enrich with space names
+    for page in pages:
+        space = await db.kb_spaces.find_one({"id": page["space_id"]}, {"name": 1})
+        page["space_name"] = space.get("name", "") if space else ""
+    
+    return pages
+
+
+@router.get("/search/users")
+async def search_users_for_mentions(
+    q: str = Query(..., min_length=1),
+    limit: int = 10,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """
+    Search users for @mention autocomplete.
+    """
+    user = await get_current_user(credentials)
+    
+    users = await db.users.find(
+        {
+            "status": "active",
+            "$or": [
+                {"name": {"$regex": q, "$options": "i"}},
+                {"email": {"$regex": q, "$options": "i"}}
+            ]
+        },
+        {"_id": 0, "id": 1, "name": 1, "email": 1, "avatar_url": 1}
+    ).limit(limit).to_list(limit)
+    
+    return users
+
+
+@router.get("/search/tasks")
+async def search_tasks_for_linking(
+    q: str = Query(..., min_length=1),
+    limit: int = 10,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """
+    Search tasks for #task linking autocomplete.
+    """
+    user = await get_current_user(credentials)
+    
+    # Search by title or ID prefix
+    query = {
+        "$or": [
+            {"title": {"$regex": q, "$options": "i"}},
+            {"id": {"$regex": f"^{q}", "$options": "i"}}
+        ]
+    }
+    
+    tasks = await db.pm_tasks.find(
+        query,
+        {"_id": 0, "id": 1, "title": 1, "status": 1, "project_id": 1}
+    ).limit(limit).to_list(limit)
+    
+    return tasks
+
+
+@router.get("/pages/{page_id}/backlinks")
+async def get_page_backlinks(
+    page_id: str,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """
+    Get all pages that link to this page (backlinks).
+    """
+    user = await get_current_user(credentials)
+    
+    # Get the page to get its title
+    page = await db.kb_pages.find_one({"id": page_id}, {"title": 1})
+    if not page:
+        raise HTTPException(status_code=404, detail="Page not found")
+    
+    page_title = page.get("title", "")
+    
+    # Find pages that contain links to this page
+    # Look for [[Page Title]] or [[page_id]] patterns in content
+    backlinks = await db.kb_pages.find(
+        {
+            "id": {"$ne": page_id},
+            "status": {"$ne": "archived"},
+            "$or": [
+                {"content": {"$regex": f"\\[\\[{re.escape(page_title)}\\]\\]", "$options": "i"}},
+                {"content": {"$regex": f"\\[\\[{page_id}\\]\\]"}},
+                {"links": page_id}  # Also check links array if we store them
+            ]
+        },
+        {"_id": 0, "id": 1, "title": 1, "space_id": 1, "updated_at": 1}
+    ).to_list(50)
+    
+    # Enrich with space names
+    for link in backlinks:
+        space = await db.kb_spaces.find_one({"id": link["space_id"]}, {"name": 1})
+        link["space_name"] = space.get("name", "") if space else ""
+    
+    return {
+        "page_id": page_id,
+        "page_title": page_title,
+        "backlinks": backlinks,
+        "count": len(backlinks)
+    }
+
+
+@router.post("/pages/{page_id}/extract-links")
+async def extract_and_store_links(
+    page_id: str,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """
+    Parse page content and extract all links.
+    Stores them for efficient backlink queries.
+    Called automatically when page is saved.
+    """
+    user = await get_current_user(credentials)
+    
+    page = await db.kb_pages.find_one({"id": page_id})
+    if not page:
+        raise HTTPException(status_code=404, detail="Page not found")
+    
+    content = page.get("content", "")
+    
+    # Extract different link types
+    page_links = []      # [[Page Title]] links
+    user_mentions = []   # @username mentions
+    task_links = []      # #task-id links
+    
+    # Find [[Page Title]] or [[page-id]] patterns
+    wiki_link_pattern = r'\[\[([^\]]+)\]\]'
+    for match in re.finditer(wiki_link_pattern, content):
+        link_text = match.group(1)
+        # Try to resolve to a page ID
+        linked_page = await db.kb_pages.find_one(
+            {"$or": [{"title": link_text}, {"id": link_text}]},
+            {"id": 1}
+        )
+        if linked_page:
+            page_links.append(linked_page["id"])
+    
+    # Find @mentions
+    mention_pattern = r'@(\w+(?:\s+\w+)?)'
+    for match in re.finditer(mention_pattern, content):
+        user_mentions.append(match.group(1))
+    
+    # Find #task-id patterns
+    task_pattern = r'#([a-zA-Z0-9-]+)'
+    for match in re.finditer(task_pattern, content):
+        task_id = match.group(1)
+        # Verify task exists
+        task = await db.pm_tasks.find_one({"id": {"$regex": f"^{task_id}"}}, {"id": 1})
+        if task:
+            task_links.append(task["id"])
+    
+    # Update page with extracted links
+    await db.kb_pages.update_one(
+        {"id": page_id},
+        {"$set": {
+            "links": list(set(page_links)),
+            "mentions": list(set(user_mentions)),
+            "task_links": list(set(task_links)),
+            "links_updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {
+        "page_id": page_id,
+        "page_links": page_links,
+        "user_mentions": user_mentions,
+        "task_links": task_links
+    }
+
+
+@router.get("/pages/{page_id}/link-preview")
+async def get_link_preview(
+    page_id: str,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """
+    Get a preview of a page for hover tooltip.
+    """
+    user = await get_current_user(credentials)
+    
+    page = await db.kb_pages.find_one(
+        {"id": page_id},
+        {"_id": 0, "id": 1, "title": 1, "content": 1, "space_id": 1, "status": 1, "updated_at": 1, "created_by_name": 1}
+    )
+    
+    if not page:
+        raise HTTPException(status_code=404, detail="Page not found")
+    
+    # Get space name
+    space = await db.kb_spaces.find_one({"id": page["space_id"]}, {"name": 1})
+    page["space_name"] = space.get("name", "") if space else ""
+    
+    # Truncate content for preview (strip HTML and limit length)
+    content = page.get("content", "")
+    # Simple HTML strip
+    clean_content = re.sub(r'<[^>]+>', '', content)
+    # Remove markdown headers
+    clean_content = re.sub(r'^#+\s*', '', clean_content, flags=re.MULTILINE)
+    # Limit to 200 chars
+    page["preview"] = clean_content[:200] + "..." if len(clean_content) > 200 else clean_content
+    
+    return page
+
