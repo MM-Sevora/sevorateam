@@ -416,9 +416,26 @@ async def get_sprint_burndown(
         if t.get("status") in ["completed", "approved"]
     )
     
-    # Generate data points
-    start = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
-    end = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+    # Generate data points - ensure timezone aware datetimes
+    def parse_date(date_str):
+        """Parse date string to timezone-aware datetime"""
+        if not date_str:
+            return None
+        # Handle various date formats
+        date_str = str(date_str)
+        if 'T' not in date_str:
+            # Just a date like "2026-03-14"
+            return datetime.strptime(date_str[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        # ISO format with potential timezone
+        if date_str.endswith('Z'):
+            date_str = date_str.replace("Z", "+00:00")
+        elif '+' not in date_str and '-' not in date_str[10:]:
+            # No timezone info, assume UTC
+            date_str = date_str + "+00:00"
+        return datetime.fromisoformat(date_str)
+    
+    start = parse_date(start_date)
+    end = parse_date(end_date)
     today = datetime.now(timezone.utc)
     
     total_days = (end - start).days or 1
