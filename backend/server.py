@@ -6216,6 +6216,57 @@ async def start_scheduler():
     except Exception as e:
         logger.warning(f"Automation service init failed (non-fatal): {e}")
     
+    # Load API keys from database into environment variables
+    # This ensures API keys persist across deployments
+    try:
+        api_keys_settings = await db.api_keys_settings.find_one({}, {"_id": 0})
+        if api_keys_settings:
+            logger.info("Loading API keys from database...")
+            # Meta/Instagram/Facebook
+            meta = api_keys_settings.get("meta", {})
+            if meta.get("access_token"):
+                os.environ["INSTAGRAM_ACCESS_TOKEN"] = meta["access_token"]
+                os.environ["FACEBOOK_PAGE_ACCESS_TOKEN"] = meta["access_token"]
+            if meta.get("app_id"):
+                os.environ["META_APP_ID"] = meta["app_id"]
+            if meta.get("app_secret"):
+                os.environ["META_APP_SECRET"] = meta["app_secret"]
+            if meta.get("instagram_business_account_id"):
+                os.environ["INSTAGRAM_BUSINESS_ACCOUNT_ID"] = meta["instagram_business_account_id"]
+            if meta.get("facebook_page_id"):
+                os.environ["FACEBOOK_PAGE_ID"] = meta["facebook_page_id"]
+            
+            # YouTube
+            youtube = api_keys_settings.get("youtube", {})
+            if youtube.get("api_key"):
+                os.environ["YOUTUBE_API_KEY"] = youtube["api_key"]
+            if youtube.get("client_id"):
+                os.environ["YOUTUBE_CLIENT_ID"] = youtube["client_id"]
+            if youtube.get("client_secret"):
+                os.environ["YOUTUBE_CLIENT_SECRET"] = youtube["client_secret"]
+            
+            # LinkedIn
+            linkedin = api_keys_settings.get("linkedin", {})
+            if linkedin.get("client_id"):
+                os.environ["LINKEDIN_CLIENT_ID"] = linkedin["client_id"]
+            if linkedin.get("client_secret"):
+                os.environ["LINKEDIN_CLIENT_SECRET"] = linkedin["client_secret"]
+            if linkedin.get("company_id"):
+                os.environ["LINKEDIN_COMPANY_ID"] = linkedin["company_id"]
+            
+            # Google
+            google = api_keys_settings.get("google", {})
+            if google.get("search_api_key"):
+                os.environ["GOOGLE_SEARCH_API_KEY"] = google["search_api_key"]
+            if google.get("search_engine_id"):
+                os.environ["GOOGLE_SEARCH_ENGINE_ID"] = google["search_engine_id"]
+            
+            logger.info("API keys loaded from database successfully")
+        else:
+            logger.info("No API keys found in database, using environment defaults")
+    except Exception as e:
+        logger.warning(f"Failed to load API keys from database (non-fatal): {e}")
+    
     # Initialize cross-module automation triggers
     try:
         from services.automation_triggers import init_automation_triggers
