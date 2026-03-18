@@ -47,12 +47,13 @@ const EngineeringProjectsPage = () => {
       const headers = { 'Authorization': `Bearer ${token}` };
       
       const [deptRes, usersRes] = await Promise.all([
-        fetch(`${API}/api/departments`, { headers }).then(r => r.ok ? r.json() : []),
-        fetch(`${API}/api/auth/users`, { headers }).then(r => r.ok ? r.json() : [])
+        fetch(`${API}/api/workos/departments`, { headers }).then(r => r.ok ? r.json() : []),
+        fetch(`${API}/api/workos/users`, { headers }).then(r => r.ok ? r.json() : { users: [] })
       ]);
       
       setDepartments(deptRes || []);
-      setUsers(usersRes || []);
+      const allUsers = usersRes.users || usersRes || [];
+      setUsers(allUsers.filter(u => u.status === 'active'));
     } catch (e) {
       console.error('Error fetching modal data:', e);
     }
