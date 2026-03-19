@@ -61,6 +61,14 @@ class ModuleResponse(BaseModel):
     is_active: bool = True
 
 
+class UserModuleAccessUpdate(BaseModel):
+    """Request model for updating user module access"""
+    granted_modules: List[str] = []
+    denied_modules: List[str] = []
+    sub_module_access: Dict[str, List[str]] = {}
+    module_permissions: Dict[str, dict] = {}
+
+
 # ============== ENDPOINTS ==============
 
 @router.get("/", response_model=List[ModuleResponse])
@@ -247,10 +255,7 @@ async def get_user_module_access(user_id: str, user: dict = Depends(require_admi
 @router.put("/user/{user_id}/access")
 async def update_user_module_access(
     user_id: str,
-    granted_modules: List[str],
-    denied_modules: List[str] = [],
-    sub_module_access: Dict[str, List[str]] = {},
-    module_permissions: Dict[str, dict] = {},
+    data: UserModuleAccessUpdate,
     user: dict = Depends(require_admin())
 ):
     """
@@ -263,6 +268,11 @@ async def update_user_module_access(
         - data_scope: all | team | own_assigned | own_only
         - can_edit_others, can_delete_others
     """
+    granted_modules = data.granted_modules
+    denied_modules = data.denied_modules
+    sub_module_access = data.sub_module_access
+    module_permissions = data.module_permissions
+    
     target_user = await db.users.find_one({"id": user_id}, {"_id": 0})
     if not target_user:
         raise HTTPException(status_code=404, detail="User not found")
