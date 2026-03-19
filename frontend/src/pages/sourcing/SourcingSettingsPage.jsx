@@ -44,7 +44,9 @@ const SourcingSettingsPage = () => {
       fromEmail: 'sourcing@sevora.com',
       replyTo: 'sourcing@sevora.com',
       signature: 'Best regards,\nSevora Sourcing Team',
-      defaultSubjectPrefix: '[Sevora] '
+      defaultSubjectPrefix: '[Sevora] ',
+      sendAsUser: '',
+      useSharedMailbox: false
     },
     notifications: {
       followUpReminders: true,
@@ -399,6 +401,49 @@ const SourcingSettingsPage = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Microsoft 365 Sender Configuration */}
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Mail className="w-5 h-5 text-blue-600" />
+                  <Label className="text-blue-800 font-medium">Microsoft 365 Sender</Label>
+                </div>
+                <p className="text-xs text-blue-700">
+                  Emails are sent via a licensed Microsoft 365 user. The "From Email" below can be a shared mailbox 
+                  if the sender has "Send As" permissions.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-[#4A3728]">Send As User (Licensed M365 User)</Label>
+                    <Input
+                      type="email"
+                      value={settings.email?.sendAsUser || ''}
+                      onChange={(e) => setSettings({
+                        ...settings,
+                        email: { ...settings.email, sendAsUser: e.target.value }
+                      })}
+                      className="border-[#E8D5C4]"
+                      placeholder="admin@sevora.com"
+                    />
+                    <p className="text-xs text-gray-500">Licensed user who will send emails (required)</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[#4A3728]">Use Shared Mailbox as "From"</Label>
+                    <div className="flex items-center gap-3 mt-2">
+                      <Switch
+                        checked={settings.email?.useSharedMailbox || false}
+                        onCheckedChange={(checked) => setSettings({
+                          ...settings,
+                          email: { ...settings.email, useSharedMailbox: checked }
+                        })}
+                      />
+                      <span className="text-sm text-[#6B5D52]">
+                        {settings.email?.useSharedMailbox ? 'Emails will show From Email as sender' : 'Emails will show Send As User as sender'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label className="text-[#4A3728]">From Name</Label>
@@ -412,7 +457,7 @@ const SourcingSettingsPage = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[#4A3728]">From Email</Label>
+                  <Label className="text-[#4A3728]">From Email {settings.email?.useSharedMailbox && '(Shared Mailbox)'}</Label>
                   <Input
                     type="email"
                     value={settings.email.fromEmail}
@@ -422,6 +467,9 @@ const SourcingSettingsPage = () => {
                     })}
                     className="border-[#E8D5C4]"
                   />
+                  {settings.email?.useSharedMailbox && (
+                    <p className="text-xs text-gray-500">This shared mailbox will appear as the sender</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[#4A3728]">Reply-To Email</Label>

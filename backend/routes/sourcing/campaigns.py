@@ -84,18 +84,25 @@ def create_campaigns_router(db, get_current_user: Callable):
         # Fetch email settings from database
         settings = await db.sourcing_settings.find_one({}) or {}
         email_config = settings.get("email", {})
-        shared_mailbox = email_config.get("fromEmail", "sellers@sevora.com")
+        
+        # Get sender configuration
+        # sendAsUser = licensed user who can send emails (required by Microsoft Graph)
+        # fromEmail = shared mailbox or address to show as "from" (optional)
+        sender_user = email_config.get("sendAsUser", "admin@sevora.com")
+        from_mailbox = email_config.get("fromEmail")
+        use_shared_mailbox = email_config.get("useSharedMailbox", False)
         
         email_service = MicrosoftEmailService()
         
         try:
-            # Send directly from the shared mailbox
+            # Send via licensed user, optionally showing shared mailbox as "from"
             result = await email_service.send_email(
-                sender_email=shared_mailbox,
+                sender_email=sender_user,  # Licensed user
                 to_recipients=[request.to_email],
                 subject=request.subject,
                 body=request.content,
-                is_html=True
+                is_html=True,
+                from_shared_mailbox=from_mailbox if use_shared_mailbox else None
             )
         except Exception as e:
             result = {"success": False, "error": str(e)}
@@ -158,7 +165,13 @@ def create_campaigns_router(db, get_current_user: Callable):
         # Fetch email settings from database
         settings = await db.sourcing_settings.find_one({}) or {}
         email_config = settings.get("email", {})
-        from_email = email_config.get("fromEmail", "seller@sevora.com")
+        
+        # Get sender configuration
+        # sendAsUser = licensed user who can send emails (required by Microsoft Graph)
+        # fromEmail = shared mailbox or address to show as "from" (optional, requires Send As permission)
+        sender_user = email_config.get("sendAsUser", "admin@sevora.com")
+        from_mailbox = email_config.get("fromEmail")  # Optional shared mailbox
+        use_shared_mailbox = email_config.get("useSharedMailbox", False)
         
         # Create campaign record
         now = datetime.now(timezone.utc).isoformat()
@@ -192,12 +205,14 @@ def create_campaigns_router(db, get_current_user: Callable):
                     subject=request.subject,
                     body=request.content,
                     is_html=True,
-                    sender_email=from_email
+                    sender_email=sender_user,  # Licensed user who sends the email
+                    from_shared_mailbox=from_mailbox if use_shared_mailbox else None  # Optional "from" address
                 )
                 if result.get("success"):
                     sent_count += 1
                 else:
                     failed_count += 1
+                    logger.error(f"Failed to send email to {recipient.email}: {result.get('error')}")
             except Exception as e:
                 failed_count += 1
                 logger.error(f"Failed to send email to {recipient.email}: {e}")
