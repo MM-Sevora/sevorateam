@@ -438,11 +438,12 @@ async def create_artifacts(
                     "id": story_id,
                     "project_id": project_id,
                     "epic_id": epic_id,
+                    "name": story.title,  # Use 'name' for compatibility with TaskResponse model
                     "title": story.title,
                     "description": story.description,
-                    "acceptance_criteria": story.acceptance_criteria,
+                    "acceptance_criteria": "\n".join(story.acceptance_criteria) if story.acceptance_criteria else "",  # Convert list to string
                     "story_points": story.story_points,
-                    "status": "backlog",
+                    "status": "todo",  # Use valid TaskStatus enum value
                     "priority": "medium",
                     "type": "user_story",
                     "created_by": current_user.get("id"),
@@ -460,11 +461,12 @@ async def create_artifacts(
                         "id": task_id,
                         "project_id": project_id,
                         "epic_id": epic_id,
-                        "parent_id": story_id,  # Link to user story
+                        "parent_task_id": story_id,  # Link to user story (use parent_task_id for consistency)
+                        "name": task.title,  # Use 'name' for compatibility with TaskResponse model
                         "title": task.title,
                         "description": task.description,
                         "story_points": task.story_points,
-                        "status": "backlog",
+                        "status": "todo",  # Use valid TaskStatus enum value
                         "priority": "medium",
                         "type": task.type,  # design, frontend, backend, qa
                         "created_by": current_user.get("id"),
