@@ -7,12 +7,13 @@ import { Badge } from '../../components/ui/badge';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { TipTapEditor } from '../../components/ui/tiptap-editor';
 import { toast } from 'sonner';
 import { 
   ChevronRight, ArrowLeft, Edit2, Save, X, Clock, User, Eye, 
   MessageSquare, History, FileText, CheckCircle, Send, Trash2,
-  ChevronDown, Link2, ExternalLink, Sparkles
+  ChevronDown, Link2, ExternalLink, Sparkles, Loader2, Plus, FolderPlus
 } from 'lucide-react';
 
 const PageEditorPage = () => {
@@ -41,6 +42,16 @@ const PageEditorPage = () => {
   // Backlinks (Smart Linking)
   const [backlinks, setBacklinks] = useState([]);
   const [loadingBacklinks, setLoadingBacklinks] = useState(false);
+
+  // Feature Parser state
+  const [parsing, setParsing] = useState(false);
+  const [showParseModal, setShowParseModal] = useState(false);
+  const [parsedData, setParsedData] = useState(null);
+  const [projects, setProjects] = useState([]);
+  const [projectChoice, setProjectChoice] = useState('new');
+  const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [newProjectName, setNewProjectName] = useState('');
+  const [creating, setCreating] = useState(false);
 
   const fetchPage = useCallback(async () => {
     try {
@@ -212,6 +223,87 @@ const PageEditorPage = () => {
     }
   };
 
+  // Feature Parser functions
+  const handleParseAsFeature = async () => {
+    if (!page?.content) {
+      toast.error('Page has no content to parse');
+      return;
+    }
+    
+    setParsing(true);
+    try {
+      // Strip HTML tags to get plain text
+      const plainText = page.content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      
+      const response = await api.post('/engineering/feature-parser/parse-text', {
+        content: plainText,
+        title: page.title
+      });
+      
+      setParsedData(response.data.data);
+      setNewProjectName(response.data.data?.feature_title || page.title);
+      
+      // Fetch projects for selection
+      const projectsRes = await api.get('/engineering/feature-parser/projects');
+      setProjects(projectsRes.data || []);
+      
+      setShowParseModal(true);
+      toast.success('Page parsed successfully!');
+    } catch (err) {
+      console.error('Parse error:', err);
+      toast.error(err.response?.data?.detail || 'Failed to parse page content');
+    } finally {
+      setParsing(false);
+    }
+  };
+
+  const handleCreateArtifacts = async () => {
+    if (projectChoice === 'existing' && !selectedProjectId) {
+      toast.error('Please select a project');
+      return;
+    }
+    if (projectChoice === 'new' && !newProjectName.trim()) {
+      toast.error('Please enter a project name');
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const payload = {
+        project_id: projectChoice === 'existing' ? selectedProjectId : null,
+        new_project_name: projectChoice === 'new' ? newProjectName : null,
+        new_project_description: projectChoice === 'new' ? parsedData?.feature_description : null,
+        parsed_data: parsedData
+      };
+      
+      const response = await api.post('/engineering/feature-parser/create-artifacts', payload);
+      
+      toast.success(response.data.message);
+      setShowParseModal(false);
+      setParsedData(null);
+      
+      // Navigate to the project
+      navigate('/engineering/projects');
+    } catch (err) {
+      console.error('Create error:', err);
+      toast.error(err.response?.data?.detail || 'Failed to create artifacts');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const getTotals = () => {
+    if (!parsedData) return { epics: 0, stories: 0, tasks: 0 };
+    let stories = 0, tasks = 0;
+    parsedData.epics?.forEach(e => {
+      stories += e.user_stories?.length || 0;
+      e.user_stories?.forEach(s => {
+        tasks += s.tasks?.length || 0;
+      });
+    });
+    return { epics: parsedData.epics?.length || 0, stories, tasks };
+  };
+
   // Parse content for wiki-style links and render them
   const renderContentWithLinks = (content) => {
     if (!content) return '';
@@ -288,11 +380,16 @@ const PageEditorPage = () => {
             <Button 
               variant="outline" 
               size="sm"
-              onClick={() => navigate('/engineering/feature-parser')}
+              onClick={handleParseAsFeature}
+              disabled={parsing}
               className="border-purple-300 text-purple-700 hover:bg-purple-50"
               title="Parse this document as a feature to generate Epics, Stories & Tasks"
             >
-              <Sparkles className="w-4 h-4 mr-1" /> Parse as Feature
+              {parsing ? (
+                <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Parsing...</>
+              ) : (
+                <><Sparkles className="w-4 h-4 mr-1" /> Parse as Feature</>
+              )}
             </Button>
             
             {editing ? (
@@ -612,6 +709,107 @@ const PageEditorPage = () => {
           </div>
         </div>
       )}
+
+      {/* Feature Parser Modal */}
+      <Dialog open={showParseModal} onOpenChange={setShowParseModal}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-purple-600" />
+              Generated Project Artifacts
+            </DialogTitle>
+          </DialogHeader>
+          
+          {parsedData && (
+            <div className="space-y-4">
+              {/* Summary */}
+              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-4 rounded-lg border border-purple-200">
+                <h3 className="font-semibold text-purple-800">{parsedData.feature_title}</h3>
+                <p className="text-sm text-purple-700 mt-1">{parsedData.feature_description}</p>
+                <div className="flex gap-2 mt-3">
+                  <Badge className="bg-purple-100 text-purple-700">{getTotals().epics} Epics</Badge>
+                  <Badge className="bg-blue-100 text-blue-700">{getTotals().stories} Stories</Badge>
+                  <Badge className="bg-green-100 text-green-700">{getTotals().tasks} Tasks</Badge>
+                </div>
+              </div>
+
+              {/* Epics Preview */}
+              <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                {parsedData.epics?.map((epic, idx) => (
+                  <div key={idx} className="border rounded-lg p-3 bg-white">
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-purple-100 text-purple-800 text-xs">Epic</Badge>
+                      <span className="font-medium text-sm">{epic.title}</span>
+                    </div>
+                    <div className="mt-2 pl-4 space-y-1">
+                      {epic.user_stories?.map((story, sIdx) => (
+                        <div key={sIdx} className="text-xs text-gray-600 flex items-center gap-1">
+                          <Badge className="bg-blue-50 text-blue-700 text-xs">Story</Badge>
+                          {story.title}
+                          {story.story_points && <span className="text-gray-400">({story.story_points} pts)</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Project Selection */}
+              <div className="border-t pt-4 space-y-3">
+                <label className="text-sm font-medium">Create in Project:</label>
+                <div className="flex gap-2">
+                  <Button
+                    variant={projectChoice === 'new' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setProjectChoice('new')}
+                  >
+                    <FolderPlus className="w-4 h-4 mr-1" /> New Project
+                  </Button>
+                  <Button
+                    variant={projectChoice === 'existing' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setProjectChoice('existing')}
+                  >
+                    <Link2 className="w-4 h-4 mr-1" /> Existing Project
+                  </Button>
+                </div>
+
+                {projectChoice === 'new' ? (
+                  <Input
+                    value={newProjectName}
+                    onChange={(e) => setNewProjectName(e.target.value)}
+                    placeholder="Project name"
+                  />
+                ) : (
+                  <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select project..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projects.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowParseModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateArtifacts} disabled={creating} className="bg-green-600 hover:bg-green-700">
+              {creating ? (
+                <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Creating...</>
+              ) : (
+                <><Plus className="w-4 h-4 mr-1" /> Create Artifacts</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

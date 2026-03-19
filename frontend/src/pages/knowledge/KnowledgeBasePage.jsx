@@ -148,11 +148,12 @@ const KnowledgeBasePage = () => {
             variant="outline" 
             onClick={() => navigate('/engineering/feature-parser')}
             className="border-purple-300 text-purple-700 hover:bg-purple-50"
+            title="Upload DOCX or parse feature documents to generate project artifacts"
           >
-            <FileText className="w-4 h-4 mr-2" /> Feature Parser
+            <Sparkles className="w-4 h-4 mr-2" /> Feature Parser
           </Button>
           <Button variant="outline" onClick={handleSeedTemplates}>
-            <Sparkles className="w-4 h-4 mr-2" /> Add Templates
+            <FileText className="w-4 h-4 mr-2" /> Add Templates
           </Button>
           <Button 
             onClick={() => setShowCreateModal(true)}

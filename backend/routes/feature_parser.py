@@ -283,6 +283,49 @@ def add_ids_to_parsed_data(parsed: Dict[str, Any]) -> ParsedFeatureDocument:
 
 # ============== API Endpoints ==============
 
+class ParseTextRequest(BaseModel):
+    """Request model for parsing text content directly"""
+    content: str
+    title: Optional[str] = None
+
+
+@router.post("/parse-text")
+async def parse_text_content(
+    request: ParseTextRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Parse text content directly (from Knowledge Base page) and return structured preview.
+    """
+    if not request.content or not request.content.strip():
+        raise HTTPException(status_code=400, detail="Content is empty")
+    
+    try:
+        document_text = request.content
+        if request.title:
+            document_text = f"# {request.title}\n\n{document_text}"
+        
+        logger.info(f"Parsing {len(document_text)} chars of text content")
+        
+        # Parse with AI
+        parsed_data = await parse_with_ai(document_text)
+        
+        # Add IDs and structure the response
+        result = add_ids_to_parsed_data(parsed_data)
+        
+        return {
+            "success": True,
+            "data": result.model_dump(),
+            "document_text": document_text[:2000] + "..." if len(document_text) > 2000 else document_text
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to parse text content: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to parse content: {str(e)}")
+
+
 @router.post("/parse")
 async def parse_feature_document(
     file: UploadFile = File(...),
