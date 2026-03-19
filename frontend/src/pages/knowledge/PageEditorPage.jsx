@@ -734,19 +734,36 @@ const PageEditorPage = () => {
               </div>
 
               {/* Epics Preview */}
-              <div className="space-y-2 max-h-[200px] overflow-y-auto">
+              <div className="space-y-3 max-h-[300px] overflow-y-auto">
                 {parsedData.epics?.map((epic, idx) => (
                   <div key={idx} className="border rounded-lg p-3 bg-white">
                     <div className="flex items-center gap-2">
                       <Badge className="bg-purple-100 text-purple-800 text-xs">Epic</Badge>
                       <span className="font-medium text-sm">{epic.title}</span>
                     </div>
-                    <div className="mt-2 pl-4 space-y-1">
+                    <div className="mt-2 pl-4 space-y-2">
                       {epic.user_stories?.map((story, sIdx) => (
-                        <div key={sIdx} className="text-xs text-gray-600 flex items-center gap-1">
-                          <Badge className="bg-blue-50 text-blue-700 text-xs">Story</Badge>
-                          {story.title}
-                          {story.story_points && <span className="text-gray-400">({story.story_points} pts)</span>}
+                        <div key={sIdx} className="border-l-2 border-blue-200 pl-3">
+                          <div className="flex items-center gap-1 text-sm">
+                            <Badge className="bg-blue-50 text-blue-700 text-xs">Story</Badge>
+                            <span className="font-medium">{story.title}</span>
+                            {story.story_points && <span className="text-gray-400 text-xs">({story.story_points} pts)</span>}
+                          </div>
+                          {/* Tasks for this story */}
+                          <div className="mt-1 pl-4 space-y-1">
+                            {story.tasks?.map((task, tIdx) => (
+                              <div key={tIdx} className="flex items-center gap-1 text-xs text-gray-500">
+                                <span className={`w-2 h-2 rounded-full ${
+                                  task.type === 'design' ? 'bg-pink-400' :
+                                  task.type === 'frontend' ? 'bg-blue-400' :
+                                  task.type === 'backend' ? 'bg-green-400' :
+                                  task.type === 'qa' ? 'bg-orange-400' : 'bg-gray-400'
+                                }`}></span>
+                                <span className="capitalize">{task.type}</span>
+                                <span className="text-gray-400">- {task.title}</span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       ))}
                     </div>
