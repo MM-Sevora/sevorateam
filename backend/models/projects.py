@@ -309,6 +309,7 @@ class TaskResponse(BaseModel):
     is_individual: bool = False  # True if not linked to any project
     # Issue Type (Jira-like)
     issue_type: IssueType = IssueType.TASK
+    type: Optional[str] = None  # Custom type for Feature Parser: design, frontend, backend, qa, user_story
     epic_id: Optional[str] = None
     epic_name: Optional[str] = None
     # Bug-specific fields

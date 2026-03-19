@@ -7,6 +7,46 @@ Build a comprehensive Marketing Operations Platform that integrates marketing, s
 
 ## Latest Updates (March 2026)
 
+### Project Detail Page UI/UX Enhancements + Auto-Attach Feature (Completed ✅)
+**Date**: March 19, 2026
+
+**Enhancements Implemented**:
+
+1. **Task Type Breakdown in Header**
+   - Shows visual breakdown by type: Stories, Design, Frontend, Backend, QA
+   - Color-coded badges with icons
+
+2. **Task Type Badges on Cards**
+   - Added `type` field to `TaskResponse` model in `/app/backend/models/projects.py`
+   - TaskCard displays color-coded type badges (📖 Story, 🎨 Design, 💻 Frontend, ⚙️ Backend, 🧪 QA)
+
+3. **Quick Status Change Buttons**
+   - One-click "→ Assigned" / "→ In Progress" buttons on task card hover
+   - Instant status advancement with optimistic UI update
+
+4. **Epic Grouping in Kanban**
+   - Added `/api/projects/{project_id}/epics` endpoint
+   - Tasks grouped by Epic with collapsible headers
+   - "Group by Epic" toggle button in toolbar
+
+5. **Improved Drag & Drop Visual Feedback**
+   - Column highlights when dragging over (rose border + scale effect)
+   - Dragged card opacity changes
+
+6. **Auto-Attach DOCX in Feature Parser**
+   - New endpoint: `POST /api/engineering/feature-parser/create-artifacts-with-file`
+   - Automatically attaches source DOCX file to the created project
+   - File stored in `/app/uploads/projects/` with metadata in `project_attachments` collection
+
+**Files Modified**:
+- `/app/frontend/src/pages/projects/ProjectDetail.jsx`
+- `/app/frontend/src/pages/engineering/FeatureParserPage.jsx`
+- `/app/backend/routes/feature_parser.py`
+- `/app/backend/routes/projects.py` (added epics endpoint)
+- `/app/backend/models/projects.py` (added `type` field)
+
+---
+
 ### Feature Parser Task Visibility Bug Fix (Completed ✅)
 **Date**: March 19, 2026
 

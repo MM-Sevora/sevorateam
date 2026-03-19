@@ -87,6 +87,7 @@ class CreateArtifactsRequest(BaseModel):
     new_project_name: Optional[str] = None
     new_project_description: Optional[str] = None
     parsed_data: ParsedFeatureDocument
+    source_filename: Optional[str] = None  # Original filename for attachment
 
 
 # ============== Helper Functions ==============
@@ -493,6 +494,175 @@ async def create_artifacts(
         raise
     except Exception as e:
         logger.error(f"Failed to create artifacts: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create artifacts: {str(e)}")
+
+
+@router.post("/create-artifacts-with-file")
+async def create_artifacts_with_file(
+    file: UploadFile = File(...),
+    project_id: Optional[str] = Form(None),
+    new_project_name: Optional[str] = Form(None),
+    new_project_description: Optional[str] = Form(None),
+    parsed_data_json: str = Form(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Create artifacts AND automatically attach the source DOCX file to the project.
+    This is the preferred endpoint when creating from a file upload.
+    """
+    import json
+    
+    try:
+        parsed_data_dict = json.loads(parsed_data_json)
+        parsed_data = ParsedFeatureDocument(**parsed_data_dict)
+    except (json.JSONDecodeError, Exception) as e:
+        raise HTTPException(status_code=400, detail=f"Invalid parsed_data_json: {str(e)}")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    try:
+        # Determine project
+        final_project_id = project_id
+        
+        if not final_project_id and new_project_name:
+            # Create new project
+            final_project_id = str(uuid.uuid4())
+            new_project = {
+                "id": final_project_id,
+                "name": new_project_name,
+                "description": new_project_description or parsed_data.feature_description,
+                "project_type": "development",
+                "status": "active",
+                "created_by": current_user.get("id"),
+                "created_at": now,
+                "updated_at": now,
+                "team_members": [current_user.get("id")],
+                "tags": ["auto-generated", "feature-parser"]
+            }
+            await db.pm_projects.insert_one(new_project)
+            logger.info(f"Created new project: {final_project_id}")
+        
+        if not final_project_id:
+            raise HTTPException(status_code=400, detail="Either project_id or new_project_name is required")
+        
+        # === Attach the source file to the project ===
+        if file and file.filename:
+            import os
+            content = await file.read()
+            file_size = len(content)
+            
+            # Generate unique filename
+            unique_filename = f"{final_project_id}_{uuid.uuid4().hex[:8]}_{file.filename}"
+            
+            # Save to uploads directory
+            upload_dir = "/app/uploads/projects"
+            os.makedirs(upload_dir, exist_ok=True)
+            file_path = os.path.join(upload_dir, unique_filename)
+            
+            with open(file_path, 'wb') as f:
+                f.write(content)
+            
+            attachment_id = str(uuid.uuid4())
+            attachment_doc = {
+                "id": attachment_id,
+                "project_id": final_project_id,
+                "filename": file.filename,
+                "file_path": file_path,
+                "file_type": file.content_type or 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                "size": file_size,
+                "url": f"/api/projects/attachments/{attachment_id}/download",
+                "uploaded_by": current_user.get("id"),
+                "created_at": now,
+                "is_deleted": False,
+                "description": "Source feature document (auto-attached by Feature Parser)"
+            }
+            await db.project_attachments.insert_one(attachment_doc)
+            logger.info(f"Attached source file to project: {file.filename}")
+        
+        # === Create Epics, Stories, Tasks ===
+        created_epics = []
+        created_stories = []
+        created_tasks = []
+        
+        for epic in parsed_data.epics:
+            epic_id = str(uuid.uuid4())
+            epic_doc = {
+                "id": epic_id,
+                "project_id": final_project_id,
+                "title": epic.title,
+                "description": epic.description,
+                "status": "open",
+                "priority": "medium",
+                "created_by": current_user.get("id"),
+                "created_at": now,
+                "updated_at": now,
+                "tags": ["auto-generated"]
+            }
+            await db.pm_epics.insert_one(epic_doc)
+            created_epics.append({"id": epic_id, "title": epic.title})
+            
+            for story in epic.user_stories:
+                story_id = str(uuid.uuid4())
+                story_doc = {
+                    "id": story_id,
+                    "project_id": final_project_id,
+                    "epic_id": epic_id,
+                    "name": story.title,
+                    "title": story.title,
+                    "description": story.description,
+                    "acceptance_criteria": "\n".join(story.acceptance_criteria) if story.acceptance_criteria else "",
+                    "story_points": story.story_points,
+                    "status": "draft",
+                    "priority": "medium",
+                    "type": "user_story",
+                    "parent_task_id": None,
+                    "created_by": current_user.get("id"),
+                    "created_at": now,
+                    "updated_at": now,
+                    "tags": ["auto-generated"]
+                }
+                await db.pm_tasks.insert_one(story_doc)
+                created_stories.append(story_id)
+                
+                for task in story.tasks:
+                    task_id = str(uuid.uuid4())
+                    task_doc = {
+                        "id": task_id,
+                        "project_id": final_project_id,
+                        "epic_id": epic_id,
+                        "parent_task_id": story_id,
+                        "name": task.title,
+                        "title": task.title,
+                        "description": task.description,
+                        "story_points": task.story_points,
+                        "status": "draft",
+                        "priority": "medium",
+                        "type": task.type,
+                        "created_by": current_user.get("id"),
+                        "created_at": now,
+                        "updated_at": now,
+                        "tags": ["auto-generated", task.type]
+                    }
+                    await db.pm_tasks.insert_one(task_doc)
+                    created_tasks.append(task_id)
+        
+        return {
+            "success": True,
+            "message": f"Successfully created {len(created_epics)} epics, {len(created_stories)} user stories, and {len(created_tasks)} tasks",
+            "project_id": final_project_id,
+            "file_attached": bool(file and file.filename),
+            "created": {
+                "epics": len(created_epics),
+                "epic_details": created_epics,
+                "user_stories": len(created_stories),
+                "tasks": len(created_tasks)
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to create artifacts with file: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to create artifacts: {str(e)}")
 
 

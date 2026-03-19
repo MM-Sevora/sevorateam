@@ -2516,6 +2516,24 @@ async def list_project_tasks(
     return enriched_tasks
 
 
+@router.get("/{project_id}/epics")
+async def get_project_epics(
+    project_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get all epics for a project"""
+    project = await db.pm_projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    epics = await db.pm_epics.find(
+        {"project_id": project_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    
+    return epics
+
+
 @router.post("/tasks", response_model=TaskResponse)
 async def create_task(
     data: TaskCreate,

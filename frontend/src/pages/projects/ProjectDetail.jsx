@@ -7,7 +7,8 @@ import {
   User, Folder, AlertOctagon, LayoutGrid, CalendarDays, Search,
   Filter, X, ChevronDown, CheckSquare, Square, Move, List,
   ArrowUpDown, ArrowUp, ArrowDown, BookCopy, Lock, Globe, UserPlus, UserMinus,
-  Video, Paperclip, Upload, FileText, Image, File, Download
+  Video, Paperclip, Upload, FileText, Image, File, Download, ChevronUp, ChevronRight,
+  ArrowRightCircle, Layers
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -57,12 +58,21 @@ const priorityConfig = {
 };
 
 const statusColumns = [
-  { id: 'draft', label: 'Draft', color: 'border-t-stone-400', bgColor: 'bg-stone-50/50' },
-  { id: 'assigned', label: 'Assigned', color: 'border-t-blue-500', bgColor: 'bg-blue-50/30' },
-  { id: 'in_progress', label: 'In Progress', color: 'border-t-purple-500', bgColor: 'bg-purple-50/30' },
-  { id: 'pending_review', label: 'Review', color: 'border-t-amber-500', bgColor: 'bg-amber-50/30' },
-  { id: 'completed', label: 'Completed', color: 'border-t-emerald-500', bgColor: 'bg-emerald-50/30' }
+  { id: 'draft', label: 'Draft', color: 'border-t-stone-400', bgColor: 'bg-stone-50/50', nextStatus: 'assigned' },
+  { id: 'assigned', label: 'Assigned', color: 'border-t-blue-500', bgColor: 'bg-blue-50/30', nextStatus: 'in_progress' },
+  { id: 'in_progress', label: 'In Progress', color: 'border-t-purple-500', bgColor: 'bg-purple-50/30', nextStatus: 'pending_review' },
+  { id: 'pending_review', label: 'Review', color: 'border-t-amber-500', bgColor: 'bg-amber-50/30', nextStatus: 'completed' },
+  { id: 'completed', label: 'Completed', color: 'border-t-emerald-500', bgColor: 'bg-emerald-50/30', nextStatus: null }
 ];
+
+// Task type configuration for visual badges
+const taskTypeConfig = {
+  design: { label: 'Design', color: 'bg-purple-100 text-purple-700', icon: '🎨' },
+  frontend: { label: 'Frontend', color: 'bg-blue-100 text-blue-700', icon: '💻' },
+  backend: { label: 'Backend', color: 'bg-green-100 text-green-700', icon: '⚙️' },
+  qa: { label: 'QA', color: 'bg-orange-100 text-orange-700', icon: '🧪' },
+  user_story: { label: 'Story', color: 'bg-indigo-100 text-indigo-700', icon: '📖' }
+};
 
 // Label colors
 const labelColors = {
@@ -76,7 +86,7 @@ const labelColors = {
   gray: 'bg-gray-100 text-gray-700 border-gray-200'
 };
 
-const TaskCard = ({ task, onStatusChange, onEdit, onDelete, onDragStart, onClick, isSelected, onSelect, selectionMode }) => {
+const TaskCard = ({ task, onStatusChange, onEdit, onDelete, onDragStart, onClick, isSelected, onSelect, selectionMode, onQuickStatusChange }) => {
   const formatDate = (dateStr) => {
     if (!dateStr) return null;
     const date = new Date(dateStr);
@@ -87,7 +97,7 @@ const TaskCard = ({ task, onStatusChange, onEdit, onDelete, onDragStart, onClick
     !['completed', 'approved'].includes(task.status);
 
   const handleClick = (e) => {
-    if (e.target.closest('[role="menu"]') || e.target.closest('button') || e.target.closest('[data-checkbox]')) return;
+    if (e.target.closest('[role="menu"]') || e.target.closest('button') || e.target.closest('[data-checkbox]') || e.target.closest('[data-quick-action]')) return;
     onClick?.(task);
   };
 
@@ -95,6 +105,14 @@ const TaskCard = ({ task, onStatusChange, onEdit, onDelete, onDragStart, onClick
     e.stopPropagation();
     onSelect?.(task.id);
   };
+
+  // Get next status for quick action
+  const currentColumn = statusColumns.find(col => col.id === task.status);
+  const nextStatus = currentColumn?.nextStatus;
+  const nextColumn = statusColumns.find(col => col.id === nextStatus);
+  
+  // Get task type config
+  const typeConfig = taskTypeConfig[task.type];
 
   return (
     <div
@@ -107,118 +125,192 @@ const TaskCard = ({ task, onStatusChange, onEdit, onDelete, onDragStart, onClick
         onDragStart(e, task);
       }}
       onClick={handleClick}
-      className={`bg-white p-4 rounded-lg border shadow-sm hover:shadow-md transition-all group cursor-pointer border-l-4 ${priorityConfig[task.priority]?.borderColor} ${
+      className={`bg-white p-3 rounded-xl border shadow-sm hover:shadow-lg transition-all duration-200 group cursor-pointer border-l-4 ${priorityConfig[task.priority]?.borderColor} ${
         task.is_blocked ? 'ring-2 ring-rose-400 ring-offset-1 bg-rose-50/50' : ''
-      } ${isSelected ? 'ring-2 ring-rose-500 bg-rose-50/30 border-[#E8D5C4]' : 'border-[#E8D5C4]/50'}`}
+      } ${isSelected ? 'ring-2 ring-rose-500 bg-rose-50/30 border-[#E8D5C4]' : 'border-[#E8D5C4]/50 hover:border-[#D4BBA6]'}`}
       data-testid={`kanban-task-${task.id}`}
     >
-      <div className="flex items-start justify-between gap-2 mb-2">
+      {/* Top row: Type badge, Priority, Menu */}
+      <div className="flex items-center justify-between gap-2 mb-2">
         <div className="flex items-center gap-2">
           {/* Selection Checkbox */}
           <div 
             data-checkbox
             onClick={handleCheckboxClick}
-            className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer transition-all ${
+            className={`w-4 h-4 rounded border-2 flex items-center justify-center cursor-pointer transition-all ${
               isSelected 
                 ? 'bg-rose-500 border-rose-500' 
                 : 'border-[#D4BBA6] hover:border-rose-400 bg-white'
             } ${selectionMode ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
           >
-            {isSelected && <CheckCircle2 className="w-3 h-3 text-white" />}
+            {isSelected && <CheckCircle2 className="w-2.5 h-2.5 text-white" />}
           </div>
+          
+          {/* Task Type Badge */}
+          {typeConfig && (
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${typeConfig.color}`}>
+              {typeConfig.icon} {typeConfig.label}
+            </span>
+          )}
+          
           {task.is_blocked && (
-            <div className="w-5 h-5 rounded bg-rose-100 flex items-center justify-center" title="Blocked by dependencies">
-              <AlertOctagon className="w-3 h-3 text-rose-600" />
+            <div className="w-4 h-4 rounded bg-rose-100 flex items-center justify-center" title="Blocked by dependencies">
+              <AlertOctagon className="w-2.5 h-2.5 text-rose-600" />
             </div>
           )}
-          <div className={`w-2 h-2 rounded-full ${priorityConfig[task.priority]?.dotColor}`} />
-          <span className="text-xs text-[#6B5D52] capitalize">{task.priority}</span>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 hover:bg-[#E8D5C4]">
-              <MoreVertical className="w-3 h-3 text-[#4A3728]" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="bg-white border-[#D4BBA6]">
-            <DropdownMenuItem onClick={() => onEdit(task)} className="text-[#4A3728] hover:bg-[#F5EBE0]">
-              <Edit className="w-4 h-4 mr-2" /> Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onDelete(task)} className="text-red-600 hover:bg-red-50">
-              <Trash2 className="w-4 h-4 mr-2" /> Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        
+        <div className="flex items-center gap-1">
+          {/* Priority dot */}
+          <div className={`w-2 h-2 rounded-full ${priorityConfig[task.priority]?.dotColor}`} title={priorityConfig[task.priority]?.label} />
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 hover:bg-[#E8D5C4]">
+                <MoreVertical className="w-3 h-3 text-[#4A3728]" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-white border-[#D4BBA6]">
+              <DropdownMenuItem onClick={() => onEdit(task)} className="text-[#4A3728] hover:bg-[#F5EBE0]">
+                <Edit className="w-4 h-4 mr-2" /> Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onDelete(task)} className="text-red-600 hover:bg-red-50">
+                <Trash2 className="w-4 h-4 mr-2" /> Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
-      <h4 className="font-medium text-[#4A3728] text-sm mb-2 line-clamp-2 group-hover:text-rose-600 transition-colors">{task.name}</h4>
+      {/* Task Name */}
+      <h4 className="font-medium text-[#4A3728] text-sm mb-2 line-clamp-2 group-hover:text-rose-600 transition-colors leading-tight">{task.name}</h4>
 
       {/* Labels */}
       {task.labels && task.labels.length > 0 && (
         <div className="flex flex-wrap gap-1 mb-2">
-          {task.labels.slice(0, 3).map(label => (
+          {task.labels.slice(0, 2).map(label => (
             <span 
               key={label.id}
-              className={`text-[10px] px-1.5 py-0.5 rounded border ${labelColors[label.color] || labelColors.gray}`}
+              className={`text-[9px] px-1.5 py-0.5 rounded border ${labelColors[label.color] || labelColors.gray}`}
             >
               {label.name}
             </span>
           ))}
-          {task.labels.length > 3 && (
-            <span className="text-[10px] px-1.5 py-0.5 text-[#6B5D52]">+{task.labels.length - 3}</span>
+          {task.labels.length > 2 && (
+            <span className="text-[9px] px-1.5 py-0.5 text-[#6B5D52]">+{task.labels.length - 2}</span>
           )}
         </div>
       )}
 
+      {/* Bottom row: Stats + Quick Action */}
       <div className="flex items-center justify-between text-xs text-[#6B5D52] mt-2 pt-2 border-t border-[#F5EBE0]">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {task.due_date && (
-            <span className={`flex items-center gap-1 ${isOverdue ? 'text-red-600 font-medium' : ''}`}>
+            <span className={`flex items-center gap-0.5 ${isOverdue ? 'text-red-600 font-medium' : ''}`}>
               <Calendar className="w-3 h-3" />
               {formatDate(task.due_date)}
             </span>
           )}
           {task.subtask_count > 0 && (
-            <span className="flex items-center gap-1" title={`${task.subtask_completed || 0} of ${task.subtask_count} subtasks completed`}>
+            <span className="flex items-center gap-0.5" title={`${task.subtask_completed || 0} of ${task.subtask_count} subtasks`}>
               <ListTodo className="w-3 h-3" />
               <span className={task.subtask_completed === task.subtask_count ? 'text-emerald-600' : ''}>
                 {task.subtask_completed || 0}/{task.subtask_count}
               </span>
             </span>
           )}
-          {task.checklist_count > 0 && (
-            <span className="flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3" />
-              {task.checklist_completed}/{task.checklist_count}
-            </span>
-          )}
           {task.comment_count > 0 && (
-            <span className="flex items-center gap-1">
+            <span className="flex items-center gap-0.5">
               <MessageSquare className="w-3 h-3" />
               {task.comment_count}
             </span>
           )}
         </div>
-        {task.assigned_to_name && (
-          <div className="w-6 h-6 rounded-full bg-[#E8D5C4] flex items-center justify-center text-xs font-medium text-[#4A3728]" title={task.assigned_to_name}>
-            {task.assigned_to_name.charAt(0)}
-          </div>
-        )}
+        
+        <div className="flex items-center gap-2">
+          {/* Assignee Avatar */}
+          {task.assigned_to_name && (
+            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-[#E8D5C4] to-[#D4BBA6] flex items-center justify-center text-[10px] font-bold text-[#4A3728]" title={task.assigned_to_name}>
+              {task.assigned_to_name.charAt(0)}
+            </div>
+          )}
+          
+          {/* Quick Status Change Button */}
+          {nextStatus && onQuickStatusChange && (
+            <button
+              data-quick-action
+              onClick={(e) => {
+                e.stopPropagation();
+                onQuickStatusChange(task.id, nextStatus);
+              }}
+              className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#F5EBE0] hover:bg-rose-100 text-[10px] font-medium text-[#4A3728] hover:text-rose-600 transition-all"
+              title={`Move to ${nextColumn?.label}`}
+            >
+              <ArrowRightCircle className="w-3 h-3" />
+              {nextColumn?.label}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
 };
 
-const KanbanColumn = ({ column, tasks, onDrop, onDragOver, onStatusChange, onEditTask, onDeleteTask, onDragStart, onTaskClick, selectedTasks, onSelectTask, selectionMode, onSelectAllInColumn, onAddTask }) => {
+const KanbanColumn = ({ column, tasks, onDrop, onDragOver, onStatusChange, onEditTask, onDeleteTask, onDragStart, onTaskClick, selectedTasks, onSelectTask, selectionMode, onSelectAllInColumn, onAddTask, onQuickStatusChange, epics, groupByEpic, collapsedEpics, onToggleEpic, isDragOver }) => {
   const columnTasks = tasks.filter(t => t.status === column.id);
   const allSelected = columnTasks.length > 0 && columnTasks.every(t => selectedTasks.includes(t.id));
   const someSelected = columnTasks.some(t => selectedTasks.includes(t.id));
   
+  // Group tasks by epic if groupByEpic is enabled
+  const groupedTasks = useMemo(() => {
+    if (!groupByEpic || !epics?.length) {
+      return { ungrouped: columnTasks };
+    }
+    
+    const groups = { ungrouped: [] };
+    epics.forEach(epic => {
+      groups[epic.id] = [];
+    });
+    
+    columnTasks.forEach(task => {
+      if (task.epic_id && groups[task.epic_id]) {
+        groups[task.epic_id].push(task);
+      } else {
+        groups.ungrouped.push(task);
+      }
+    });
+    
+    return groups;
+  }, [columnTasks, groupByEpic, epics]);
+  
+  const renderTaskList = (taskList) => (
+    taskList.map(task => (
+      <TaskCard
+        key={task.id}
+        task={task}
+        onStatusChange={onStatusChange}
+        onEdit={onEditTask}
+        onDelete={onDeleteTask}
+        onDragStart={onDragStart}
+        onClick={onTaskClick}
+        isSelected={selectedTasks.includes(task.id)}
+        onSelect={onSelectTask}
+        selectionMode={selectionMode}
+        onQuickStatusChange={onQuickStatusChange}
+      />
+    ))
+  );
+  
   return (
     <div
-      className={`flex-1 min-w-[280px] max-w-[320px] rounded-xl ${column.bgColor} p-4 border border-transparent hover:border-[#E8D5C4]/50 transition-colors border-t-4 ${column.color}`}
+      className={`flex-1 min-w-[280px] max-w-[320px] rounded-xl ${column.bgColor} p-4 border-2 transition-all duration-200 border-t-4 ${column.color} ${
+        isDragOver 
+          ? 'border-rose-400 bg-rose-50/50 scale-[1.02] shadow-lg' 
+          : 'border-transparent hover:border-[#E8D5C4]/50'
+      }`}
       onDrop={(e) => onDrop(e, column.id)}
-      onDragOver={onDragOver}
+      onDragOver={(e) => onDragOver(e, column.id)}
+      onDragLeave={() => {}}
       data-testid={`kanban-column-${column.id}`}
     >
       <div className="flex items-center justify-between mb-4 px-1">
@@ -253,21 +345,50 @@ const KanbanColumn = ({ column, tasks, onDrop, onDragOver, onStatusChange, onEdi
           </button>
         </div>
       </div>
-      <div className="space-y-3 min-h-[200px]">
-        {columnTasks.map(task => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            onStatusChange={onStatusChange}
-            onEdit={onEditTask}
-            onDelete={onDeleteTask}
-            onDragStart={onDragStart}
-            onClick={onTaskClick}
-            isSelected={selectedTasks.includes(task.id)}
-            onSelect={onSelectTask}
-            selectionMode={selectionMode}
-          />
-        ))}
+      <div className="space-y-3 min-h-[200px] max-h-[calc(100vh-350px)] overflow-y-auto scrollbar-thin">
+        {groupByEpic && epics?.length > 0 ? (
+          <>
+            {/* Render grouped by epic */}
+            {epics.map(epic => {
+              const epicTasks = groupedTasks[epic.id] || [];
+              if (epicTasks.length === 0) return null;
+              const isCollapsed = collapsedEpics?.[epic.id];
+              
+              return (
+                <div key={epic.id} className="mb-3">
+                  <button
+                    onClick={() => onToggleEpic?.(epic.id)}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white/60 hover:bg-white/80 border border-[#E8D5C4]/50 mb-2 transition-colors"
+                  >
+                    {isCollapsed ? (
+                      <ChevronRight className="w-4 h-4 text-[#6B5D52]" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-[#6B5D52]" />
+                    )}
+                    <Layers className="w-3.5 h-3.5 text-indigo-500" />
+                    <span className="text-xs font-medium text-[#4A3728] truncate flex-1 text-left">{epic.title}</span>
+                    <Badge variant="outline" className="text-[10px] bg-white/80">{epicTasks.length}</Badge>
+                  </button>
+                  {!isCollapsed && (
+                    <div className="space-y-2 pl-2 border-l-2 border-indigo-200/50 ml-2">
+                      {renderTaskList(epicTasks)}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {/* Ungrouped tasks */}
+            {groupedTasks.ungrouped?.length > 0 && (
+              <div className="space-y-2">
+                {renderTaskList(groupedTasks.ungrouped)}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {renderTaskList(columnTasks)}
+          </>
+        )}
         {columnTasks.length === 0 && (
           <div className="text-center py-8 text-[#9C8C74] text-sm">
             <button
@@ -751,6 +872,7 @@ const ProjectDetail = () => {
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [showTeamModal, setShowTeamModal] = useState(false);
   const [draggedTask, setDraggedTask] = useState(null);
+  const [dragOverColumn, setDragOverColumn] = useState(null);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [viewMode, setViewMode] = useState('kanban'); // 'kanban' or 'calendar'
   
@@ -865,6 +987,11 @@ const ProjectDetail = () => {
   const [showTemplates, setShowTemplates] = useState(false);
   const [projectLabels, setProjectLabels] = useState([]);
   
+  // Epic grouping
+  const [groupByEpic, setGroupByEpic] = useState(false);
+  const [epics, setEpics] = useState([]);
+  const [collapsedEpics, setCollapsedEpics] = useState({});
+  
   // Related meetings
   const [relatedMeetings, setRelatedMeetings] = useState([]);
   const [loadingMeetings, setLoadingMeetings] = useState(false);
@@ -889,6 +1016,20 @@ const ProjectDetail = () => {
       setLoadingMeetings(false);
     }
   }, [projectId]);
+
+  // Compute task counts by type
+  const taskCountsByType = useMemo(() => {
+    const counts = { design: 0, frontend: 0, backend: 0, qa: 0, user_story: 0, other: 0 };
+    tasks.forEach(task => {
+      const type = task.type || 'other';
+      if (counts.hasOwnProperty(type)) {
+        counts[type]++;
+      } else {
+        counts.other++;
+      }
+    });
+    return counts;
+  }, [tasks]);
 
   const toggleTaskSelection = (taskId) => {
     setSelectedTasks(prev => 
@@ -921,6 +1062,39 @@ const ProjectDetail = () => {
 
   const clearSelection = () => {
     setSelectedTasks([]);
+  };
+
+  // Toggle epic collapse
+  const toggleEpicCollapse = (epicId) => {
+    setCollapsedEpics(prev => ({
+      ...prev,
+      [epicId]: !prev[epicId]
+    }));
+  };
+
+  // Quick status change handler (single task)
+  const handleQuickStatusChange = async (taskId, newStatus) => {
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const response = await fetch(`${API}/api/projects/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      
+      if (!response.ok) throw new Error('Failed to update');
+      
+      // Optimistically update local state
+      setTasks(prev => prev.map(t => 
+        t.id === taskId ? { ...t, status: newStatus } : t
+      ));
+      
+      const statusLabel = statusColumns.find(c => c.id === newStatus)?.label;
+      toast.success(`Task moved to ${statusLabel}`);
+    } catch (error) {
+      toast.error('Failed to update task status');
+      fetchData(); // Refresh on error
+    }
   };
 
   // Bulk actions
@@ -1023,12 +1197,13 @@ const ProjectDetail = () => {
       const token = localStorage.getItem('sevora_token');
       const headers = { 'Authorization': `Bearer ${token}` };
 
-      const [projectRes, tasksRes, usersRes, labelsRes, attachmentsRes] = await Promise.all([
+      const [projectRes, tasksRes, usersRes, labelsRes, attachmentsRes, epicsRes] = await Promise.all([
         fetch(`${API}/api/projects/${projectId}`, { headers }),
         fetch(`${API}/api/projects/${projectId}/tasks`, { headers }),
         fetch(`${API}/api/workos/users`, { headers }),
         fetch(`${API}/api/projects/labels?project_id=${projectId}`, { headers }),
-        fetch(`${API}/api/projects/${projectId}/attachments`, { headers })
+        fetch(`${API}/api/projects/${projectId}/attachments`, { headers }),
+        fetch(`${API}/api/projects/${projectId}/epics`, { headers })
       ]);
 
       if (!projectRes.ok) throw new Error('Project not found');
@@ -1038,6 +1213,7 @@ const ProjectDetail = () => {
       const usersData = usersRes.ok ? await usersRes.json() : [];
       const labelsData = labelsRes.ok ? await labelsRes.json() : [];
       const attachmentsData = attachmentsRes.ok ? await attachmentsRes.json() : [];
+      const epicsData = epicsRes.ok ? await epicsRes.json() : [];
 
       setProject(projectData);
       setTasks(tasksData);
@@ -1046,6 +1222,12 @@ const ProjectDetail = () => {
       setUsers(allUsers.filter(u => u.status === 'active'));
       setProjectLabels(labelsData);
       setAttachments(attachmentsData);
+      setEpics(epicsData);
+      
+      // Auto-enable epic grouping if epics exist
+      if (epicsData.length > 0 && !groupByEpic) {
+        setGroupByEpic(true);
+      }
     } catch (error) {
       console.error('Error:', error);
       toast.error('Failed to load project');
@@ -1053,7 +1235,7 @@ const ProjectDetail = () => {
     } finally {
       setLoading(false);
     }
-  }, [projectId, navigate]);
+  }, [projectId, navigate, groupByEpic]);
 
   useEffect(() => {
     fetchData();
@@ -1131,15 +1313,25 @@ const ProjectDetail = () => {
   const handleDragStart = (e, task) => {
     setDraggedTask(task);
     e.dataTransfer.effectAllowed = 'move';
+    // Add visual feedback class
+    e.target.classList.add('opacity-50', 'scale-95');
   };
 
-  const handleDragOver = (e) => {
+  const handleDragOver = (e, columnId) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
+    if (columnId) setDragOverColumn(columnId);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedTask(null);
+    setDragOverColumn(null);
   };
 
   const handleDrop = async (e, newStatus) => {
     e.preventDefault();
+    setDragOverColumn(null);
+    
     if (!draggedTask || draggedTask.status === newStatus) {
       setDraggedTask(null);
       return;
@@ -1302,22 +1494,54 @@ const ProjectDetail = () => {
             </div>
             
             {/* Info Row */}
-            <div className="flex items-center gap-6 text-sm text-[#6B5D52] flex-wrap">
+            <div className="flex items-center gap-4 text-sm text-[#6B5D52] flex-wrap">
               {project.owner_name && (
                 <span className="flex items-center gap-1">
                   <User className="w-4 h-4" />
-                  Owner: {project.owner_name}
+                  {project.owner_name}
                 </span>
               )}
               <span className="flex items-center gap-1">
-                <CheckCircle2 className="w-4 h-4" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                 {project.completed_task_count}/{project.task_count} tasks
               </span>
               <span className="flex items-center gap-1">
                 <Users className="w-4 h-4" />
-                {project.team_members?.length || 0} team members
+                {project.team_members?.length || 0} members
               </span>
             </div>
+            
+            {/* Task Type Breakdown */}
+            {(taskCountsByType.design > 0 || taskCountsByType.frontend > 0 || taskCountsByType.backend > 0 || taskCountsByType.qa > 0) && (
+              <div className="flex items-center gap-2 mt-3 flex-wrap">
+                <span className="text-xs text-[#6B5D52] mr-1">By type:</span>
+                {taskCountsByType.user_story > 0 && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">
+                    📖 {taskCountsByType.user_story} Stories
+                  </span>
+                )}
+                {taskCountsByType.design > 0 && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">
+                    🎨 {taskCountsByType.design} Design
+                  </span>
+                )}
+                {taskCountsByType.frontend > 0 && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">
+                    💻 {taskCountsByType.frontend} Frontend
+                  </span>
+                )}
+                {taskCountsByType.backend > 0 && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
+                    ⚙️ {taskCountsByType.backend} Backend
+                  </span>
+                )}
+                {taskCountsByType.qa > 0 && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium">
+                    🧪 {taskCountsByType.qa} QA
+                  </span>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -1430,6 +1654,23 @@ const ProjectDetail = () => {
               <BookCopy className="w-4 h-4 mr-1" />
               Templates
             </Button>
+            
+            {/* Epic Grouping Toggle (only show if epics exist) */}
+            {epics.length > 0 && viewMode === 'kanban' && (
+              <Button
+                variant={groupByEpic ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setGroupByEpic(!groupByEpic)}
+                className={groupByEpic 
+                  ? 'bg-indigo-500 hover:bg-indigo-600 text-white' 
+                  : 'border-[#D4BBA6] text-[#6B5D52] hover:text-[#4A3728] hover:bg-[#F5EBE0]'
+                }
+                data-testid="group-by-epic-btn"
+              >
+                <Layers className="w-4 h-4 mr-1" />
+                Group by Epic
+              </Button>
+            )}
           </div>
 
           {/* Filter Bar */}
@@ -1671,7 +1912,7 @@ const ProjectDetail = () => {
         </CardHeader>
         <CardContent className="p-6">
           {viewMode === 'kanban' && (
-            <div className="flex gap-6 overflow-x-auto pb-4 snap-x">
+            <div className="flex gap-5 overflow-x-auto pb-4 snap-x scrollbar-thin" onDragEnd={handleDragEnd}>
               {statusColumns.map(column => (
                 <KanbanColumn
                   key={column.id}
@@ -1692,6 +1933,12 @@ const ProjectDetail = () => {
                     setCreateTaskStatus(status);
                     setShowCreateTask(true);
                   }}
+                  onQuickStatusChange={handleQuickStatusChange}
+                  epics={epics}
+                  groupByEpic={groupByEpic}
+                  collapsedEpics={collapsedEpics}
+                  onToggleEpic={toggleEpicCollapse}
+                  isDragOver={dragOverColumn === column.id}
                 />
               ))}
             </div>

@@ -116,20 +116,51 @@ const FeatureParserPage = () => {
 
     setCreating(true);
     try {
-      const payload = {
-        project_id: projectChoice === 'existing' ? selectedProjectId : null,
-        new_project_name: projectChoice === 'new' ? newProjectName : null,
-        new_project_description: projectChoice === 'new' ? newProjectDesc : null,
-        parsed_data: parsedData
-      };
+      let response;
       
-      const response = await api.post('/engineering/feature-parser/create-artifacts', payload);
+      // If we have a file, use the new endpoint that auto-attaches it
+      if (file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('parsed_data_json', JSON.stringify(parsedData));
+        
+        if (projectChoice === 'existing') {
+          formData.append('project_id', selectedProjectId);
+        } else {
+          formData.append('new_project_name', newProjectName);
+          formData.append('new_project_description', newProjectDesc || '');
+        }
+        
+        response = await api.post('/engineering/feature-parser/create-artifacts-with-file', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        
+        if (response.data.file_attached) {
+          toast.success(`${response.data.message} (Source document attached)`);
+        } else {
+          toast.success(response.data.message);
+        }
+      } else {
+        // No file - use original endpoint
+        const payload = {
+          project_id: projectChoice === 'existing' ? selectedProjectId : null,
+          new_project_name: projectChoice === 'new' ? newProjectName : null,
+          new_project_description: projectChoice === 'new' ? newProjectDesc : null,
+          parsed_data: parsedData
+        };
+        
+        response = await api.post('/engineering/feature-parser/create-artifacts', payload);
+        toast.success(response.data.message);
+      }
       
-      toast.success(response.data.message);
       setShowProjectDialog(false);
       
-      // Navigate to the project
-      navigate(`/engineering/projects`);
+      // Navigate to the specific project
+      if (response.data.project_id) {
+        navigate(`/projects/${response.data.project_id}`);
+      } else {
+        navigate(`/engineering/projects`);
+      }
     } catch (err) {
       console.error('Create error:', err);
       toast.error(err.response?.data?.detail || 'Failed to create artifacts');
