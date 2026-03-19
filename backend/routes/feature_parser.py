@@ -382,7 +382,6 @@ async def create_artifacts(
     Create actual Epics, User Stories, and Tasks from parsed data.
     Can either link to existing project or create a new one.
     """
-    db = get_db()
     now = datetime.now(timezone.utc).isoformat()
     
     try:
@@ -499,7 +498,6 @@ async def get_engineering_projects(
     current_user: dict = Depends(get_current_user)
 ):
     """Get list of engineering projects for selection"""
-    db = get_db()
     
     projects = await db.pm_projects.find(
         {"project_type": "development"},
