@@ -144,6 +144,13 @@ const KnowledgeBasePage = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/engineering/feature-parser')}
+            className="border-purple-300 text-purple-700 hover:bg-purple-50"
+          >
+            <FileText className="w-4 h-4 mr-2" /> Feature Parser
+          </Button>
           <Button variant="outline" onClick={handleSeedTemplates}>
             <Sparkles className="w-4 h-4 mr-2" /> Add Templates
           </Button>
