@@ -7,6 +7,28 @@ Build a comprehensive Marketing Operations Platform that integrates marketing, s
 
 ## Latest Updates (March 2026)
 
+### Feature Parser Task Visibility Bug Fix (Completed ✅)
+**Date**: March 19, 2026
+
+**Issue**: Tasks created by the Feature Document Parser (AI-powered project automation) were not visible on the Project Detail page's Kanban board. The page showed "Tasks (30)" in the header but "0" tasks in all Kanban columns.
+
+**Root Cause**: 
+- The Feature Parser was creating tasks with `status: "todo"` 
+- The frontend Kanban board columns only recognize: `draft`, `assigned`, `in_progress`, `pending_review`, `completed`
+- `"todo"` status doesn't match any column, so tasks weren't displayed
+
+**Fix Applied**:
+1. Updated `/app/backend/routes/feature_parser.py`:
+   - Changed User Story creation to use `status: "draft"` instead of `"todo"`
+   - Changed Task creation to use `status: "draft"` instead of `"todo"`
+   - Added explicit `parent_task_id: None` for User Stories (top-level items)
+
+2. Database Migration: Updated 38 existing tasks from `status: "todo"` to `status: "draft"`
+
+**Verification**: Screenshot confirmed 30 tasks now visible in Draft column of Kanban board.
+
+---
+
 ### Engineering & Knowledge Base Modules Added to Permission System (Completed ✅)
 **Date**: March 18, 2026
 

@@ -443,9 +443,10 @@ async def create_artifacts(
                     "description": story.description,
                     "acceptance_criteria": "\n".join(story.acceptance_criteria) if story.acceptance_criteria else "",  # Convert list to string
                     "story_points": story.story_points,
-                    "status": "todo",  # Use valid TaskStatus enum value
+                    "status": "draft",  # Use 'draft' for unassigned tasks - shown in Kanban 'Draft' column
                     "priority": "medium",
                     "type": "user_story",
+                    "parent_task_id": None,  # Explicitly set for top-level tasks
                     "created_by": current_user.get("id"),
                     "created_at": now,
                     "updated_at": now,
@@ -461,12 +462,12 @@ async def create_artifacts(
                         "id": task_id,
                         "project_id": project_id,
                         "epic_id": epic_id,
-                        "parent_task_id": story_id,  # Link to user story (use parent_task_id for consistency)
+                        "parent_task_id": story_id,  # Link to user story (subtask)
                         "name": task.title,  # Use 'name' for compatibility with TaskResponse model
                         "title": task.title,
                         "description": task.description,
                         "story_points": task.story_points,
-                        "status": "todo",  # Use valid TaskStatus enum value
+                        "status": "draft",  # Use 'draft' for unassigned tasks - shown in Kanban 'Draft' column
                         "priority": "medium",
                         "type": task.type,  # design, frontend, backend, qa
                         "created_by": current_user.get("id"),
