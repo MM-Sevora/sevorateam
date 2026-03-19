@@ -142,6 +142,13 @@ const DEPARTMENT_CONFIG = {
                     { path: '/engineering/reports', name: 'Reports', icon: TrendingUp },
                     { path: '/engineering/workflows', name: 'Workflows', icon: RefreshCw },
                     { path: '/engineering/automations', name: 'Automations', icon: Zap },
+                ]
+            },
+            { 
+                name: 'Tools', 
+                icon: Sparkles, 
+                isGroup: true, 
+                items: [
                     { path: '/engineering/feature-parser', name: 'Feature Parser', icon: Sparkles },
                 ]
             },
@@ -399,7 +406,7 @@ export const Layout = ({ children }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(true);
-    const [expandedDepts, setExpandedDepts] = useState(['analytics', 'goals', 'meetings', 'projects', 'tasks', 'marketing', 'sales', 'social', 'hr', 'sourcing', 'admin', 'systems']);
+    const [expandedDepts, setExpandedDepts] = useState(['analytics', 'goals', 'meetings', 'projects', 'tasks', 'marketing', 'sales', 'social', 'hr', 'sourcing', 'admin', 'systems', 'engineering']);
     
     // Auto-expand subgroups based on current path
     const getDefaultExpandedSubgroups = () => {
@@ -412,6 +419,23 @@ export const Layout = ({ children }) => {
         }
         if (path.includes('/marketing/publications')) {
             groups.push('marketing-Publication');
+        }
+        
+        // Engineering subgroups
+        if (path.includes('/engineering/feature-parser')) {
+            groups.push('engineering-Tools');
+        }
+        if (path.includes('/engineering/knowledge') || path.startsWith('/knowledge')) {
+            groups.push('engineering-Documentation');
+        }
+        if (path.includes('/engineering/reports') || path.includes('/engineering/workflows') || path.includes('/engineering/automations')) {
+            groups.push('engineering-Insights');
+        }
+        if (path.includes('/engineering/sprints') || path.includes('/engineering/roadmap') || path.includes('/engineering/releases')) {
+            groups.push('engineering-Planning');
+        }
+        if (path.includes('/engineering/projects') || path.includes('/engineering/sprint-board') || path.includes('/engineering/backlog') || path.includes('/engineering/epics')) {
+            groups.push('engineering-Development');
         }
         
         return groups;
@@ -449,6 +473,7 @@ export const Layout = ({ children }) => {
         if (path.startsWith('/goals')) return 'goals';
         if (path.startsWith('/marketing')) return 'marketing';
         if (path.startsWith('/tasks')) return 'tasks';
+        if (path.startsWith('/engineering')) return 'engineering';
         if (path.startsWith('/projects')) return 'projects';
         if (path.startsWith('/mail')) return 'mail';
         if (path.startsWith('/sales')) return 'sales';
@@ -457,6 +482,7 @@ export const Layout = ({ children }) => {
         if (path.startsWith('/hr')) return 'hr';
         if (path.startsWith('/sourcing')) return 'sourcing';
         if (path.startsWith('/systems')) return 'systems';
+        if (path.startsWith('/knowledge')) return 'engineering'; // Knowledge Base is part of Engineering
         return null;
     };
 
