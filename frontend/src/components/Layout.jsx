@@ -142,6 +142,7 @@ const DEPARTMENT_CONFIG = {
                     { path: '/engineering/reports', name: 'Reports', icon: TrendingUp },
                     { path: '/engineering/workflows', name: 'Workflows', icon: RefreshCw },
                     { path: '/engineering/automations', name: 'Automations', icon: Zap },
+                    { path: '/engineering/feature-parser', name: 'Feature Parser', icon: Sparkles },
                 ]
             },
             { 

@@ -126,6 +126,7 @@ const EngineeringProjectsPage = lazy(() => import("./pages/engineering/Engineeri
 const SprintBoardPage = lazy(() => import("./pages/engineering/SprintBoardPage"));
 const RoadmapPage = lazy(() => import("./pages/engineering/RoadmapPage"));
 const ReleasesPage = lazy(() => import("./pages/engineering/ReleasesPage"));
+const FeatureParserPage = lazy(() => import("./pages/engineering/FeatureParserPage"));
 
 // Knowledge Base Pages
 const KnowledgeBasePage = lazy(() => import("./pages/knowledge/KnowledgeBasePage"));
@@ -555,6 +556,7 @@ function AppRoutes() {
                 <Route path="/engineering/releases" element={<ProtectedRoute requiredModule="project_management"><ReleasesPage /></ProtectedRoute>} />
                 <Route path="/engineering/workflows" element={<ProtectedRoute requiredModule="project_management"><WorkflowsPage /></ProtectedRoute>} />
                 <Route path="/engineering/automations" element={<ProtectedRoute requiredModule="project_management"><AutomationsPage /></ProtectedRoute>} />
+                <Route path="/engineering/feature-parser" element={<ProtectedRoute requiredModule="project_management"><FeatureParserPage /></ProtectedRoute>} />
                 <Route path="/engineering/knowledge" element={<ProtectedRoute requiredModule="project_management"><KnowledgeBasePage /></ProtectedRoute>} />
                 <Route path="/projects/:projectId/sprint-board" element={<ProtectedRoute requiredModule="project_management"><SprintBoardPage /></ProtectedRoute>} />
                 <Route path="/projects/:projectId/sprint-board/:sprintId" element={<ProtectedRoute requiredModule="project_management"><SprintBoardPage /></ProtectedRoute>} />

@@ -4628,6 +4628,14 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Engineering Tools routes: {e}")
 
+# Register Feature Document Parser routes
+try:
+    from routes.feature_parser import router as feature_parser_router
+    api_router.include_router(feature_parser_router, prefix="/engineering")
+    logger.info("Feature Parser routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Feature Parser routes: {e}")
+
 # Register Knowledge Base routes (Wiki/Confluence-like)
 try:
     from routes.knowledge_base import router as knowledge_base_router
