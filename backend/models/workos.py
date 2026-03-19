@@ -133,9 +133,16 @@ class UserEnhancedUpdate(BaseModel):
     custom_permissions: Optional[Dict[str, Dict[str, List[str]]]] = None  # User-level permission overrides
 
 
+class ModulePermission(BaseModel):
+    """Model for a single module's permission settings"""
+    actions: List[str] = []
+    data_scope: str = "own"  # all | department | team | own
+
+
 class UserPermissionOverride(BaseModel):
     """Model for updating user-specific permission overrides"""
-    custom_permissions: Dict[str, Dict[str, List[str]]]  # {category: {module: [actions]}}
+    # New format: {moduleCode: {actions: [...], data_scope: "..."}}
+    custom_permissions: Dict[str, ModulePermission] = {}
     override_mode: str = "merge"  # "merge" (add to role) or "replace" (override role completely)
 
 

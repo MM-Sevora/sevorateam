@@ -756,11 +756,20 @@ async def update_user_permissions(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
+    # Convert Pydantic models to dicts for storage
+    permissions_dict = {
+        mod_code: {
+            "actions": perm.actions,
+            "data_scope": perm.data_scope
+        } 
+        for mod_code, perm in data.custom_permissions.items()
+    }
+    
     # Update user with custom permissions
     await db.users.update_one(
         {"id": user_id},
         {"$set": {
-            "custom_permissions": data.custom_permissions,
+            "custom_permissions": permissions_dict,
             "permission_override_mode": data.override_mode,
             "updated_at": datetime.now(timezone.utc).isoformat()
         }}
@@ -769,7 +778,7 @@ async def update_user_permissions(
     return {
         "success": True, 
         "message": f"Permissions updated for user",
-        "custom_permissions": data.custom_permissions,
+        "custom_permissions": permissions_dict,
         "override_mode": data.override_mode
     }
 
