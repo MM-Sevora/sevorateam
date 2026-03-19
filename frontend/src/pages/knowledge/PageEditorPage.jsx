@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { 
   ChevronRight, ArrowLeft, Edit2, Save, X, Clock, User, Eye, 
   MessageSquare, History, FileText, CheckCircle, Send, Trash2,
-  ChevronDown, Link2, ExternalLink
+  ChevronDown, Link2, ExternalLink, Sparkles
 } from 'lucide-react';
 
 const PageEditorPage = () => {
@@ -283,6 +283,16 @@ const PageEditorPage = () => {
               onClick={() => { setShowHistory(true); fetchVersions(); }}
             >
               <History className="w-4 h-4 mr-1" /> History
+            </Button>
+
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => navigate('/engineering/feature-parser')}
+              className="border-purple-300 text-purple-700 hover:bg-purple-50"
+              title="Parse this document as a feature to generate Epics, Stories & Tasks"
+            >
+              <Sparkles className="w-4 h-4 mr-1" /> Parse as Feature
             </Button>
             
             {editing ? (

@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { toast } from 'sonner';
 import { 
   BookOpen, Plus, ChevronRight, FileText, FolderOpen, Clock,
-  ChevronDown, Edit2, Trash2, ArrowLeft, Settings, Lock
+  ChevronDown, Edit2, Trash2, ArrowLeft, Settings, Lock, Sparkles
 } from 'lucide-react';
 
 const SpaceDetailPage = () => {
@@ -281,6 +281,13 @@ const SpaceDetailPage = () => {
         </div>
         
         <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/engineering/feature-parser')}
+            className="border-purple-300 text-purple-700 hover:bg-purple-50"
+          >
+            <Sparkles className="w-4 h-4 mr-2" /> Feature Parser
+          </Button>
           <Button variant="outline" onClick={openSettingsModal} data-testid="space-settings-btn">
             <Settings className="w-4 h-4 mr-2" /> Settings
           </Button>
