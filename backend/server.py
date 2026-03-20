@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, BackgroundTasks, Query, WebSocket, WebSocketDisconnect, Body, File, UploadFile
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, BackgroundTasks, Query, WebSocket, WebSocketDisconnect, Body, File, UploadFile, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import StreamingResponse, JSONResponse
 from dotenv import load_dotenv
@@ -44,15 +44,39 @@ AZURE_AUTHORITY = f"https://login.microsoftonline.com/{AZURE_TENANT_ID}"
 # Create the main app
 app = FastAPI(title="SEVORA Team API - Unified Platform")
 
-# CORS Middleware - MUST be added immediately after app creation
+# CORS Middleware - Allow all origins for production
+# Using explicit origins list as fallback if wildcard doesn't work
+ALLOWED_ORIGINS = [
+    "https://teams.sevora.com",
+    "https://www.teams.sevora.com",
+    "https://sevora-hub.emergent.host",
+    "https://sevora-hub.preview.emergentagent.com",
+    "http://localhost:3000",
+    "http://localhost:8001",
+]
+
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins
     allow_credentials=True,
-    allow_origins=["*"],
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],
     allow_headers=["*"],
     expose_headers=["*"],
+    max_age=86400,  # Cache preflight for 24 hours
 )
+
+# Explicit OPTIONS handler for preflight requests
+@app.options("/{rest_of_path:path}")
+async def preflight_handler(rest_of_path: str):
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "86400",
+        }
+    )
 
 # Create routers
 api_router = APIRouter(prefix="/api")
