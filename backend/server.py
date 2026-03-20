@@ -45,10 +45,21 @@ AZURE_AUTHORITY = f"https://login.microsoftonline.com/{AZURE_TENANT_ID}"
 app = FastAPI(title="SEVORA Team API - Unified Platform")
 
 # CORS Middleware - MUST be added immediately after app creation
+# Hardcoded origins as fallback for production deployment issues
+CORS_ORIGINS_HARDCODED = [
+    "https://teams.sevora.com",
+    "https://www.teams.sevora.com", 
+    "https://sevora-hub.emergent.host",
+    "https://sevora-hub.preview.emergentagent.com",
+    "http://localhost:3000",
+    "*"
+]
+cors_origins = os.environ.get('CORS_ORIGINS', '').split(',') if os.environ.get('CORS_ORIGINS') else CORS_ORIGINS_HARDCODED
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=["*"],  # Allow all origins for now to fix production
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
