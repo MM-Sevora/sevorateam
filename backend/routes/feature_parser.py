@@ -420,10 +420,12 @@ async def create_artifacts(
             epic_doc = {
                 "id": epic_id,
                 "project_id": project_id,
+                "name": epic.title,  # Use 'name' for compatibility with EpicResponse model
                 "title": epic.title,
                 "description": epic.description,
-                "status": "open",
+                "status": "todo",  # Use valid EpicStatus enum value
                 "priority": "medium",
+                "color": "#8B5CF6",  # Default purple
                 "created_by": current_user.get("id"),
                 "created_at": now,
                 "updated_at": now,

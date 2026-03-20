@@ -79,10 +79,10 @@ async def list_project_epics(
         if epic.get("owner_id"):
             epic["owner_name"] = await get_user_name(epic["owner_id"])
         
-        # Count linked issues
+        # Count linked issues - include 'id' and 'type' fields
         linked_tasks = await db.pm_tasks.find(
             {"epic_id": epic["id"]},
-            {"status": 1, "story_points": 1, "issue_type": 1}
+            {"_id": 0, "id": 1, "status": 1, "story_points": 1, "issue_type": 1, "type": 1}
         ).to_list(500)
         
         total = len(linked_tasks)
@@ -100,10 +100,10 @@ async def list_project_epics(
         epic["completed_story_points"] = completed_points
         epic["progress_percent"] = round((completed / total * 100), 1) if total > 0 else 0
         
-        # Categorize linked items
-        epic["story_ids"] = [t["id"] for t in linked_tasks if t.get("issue_type") == "story"]
-        epic["task_ids"] = [t["id"] for t in linked_tasks if t.get("issue_type") in ["task", None]]
-        epic["bug_ids"] = [t["id"] for t in linked_tasks if t.get("issue_type") == "bug"]
+        # Categorize linked items - check both 'type' (Feature Parser) and 'issue_type' (manual)
+        epic["story_ids"] = [t["id"] for t in linked_tasks if t.get("id") and (t.get("type") == "user_story" or t.get("issue_type") == "story")]
+        epic["task_ids"] = [t["id"] for t in linked_tasks if t.get("id") and (t.get("type") in ["design", "frontend", "backend", "qa"] or t.get("issue_type") in ["task", None])]
+        epic["bug_ids"] = [t["id"] for t in linked_tasks if t.get("id") and t.get("issue_type") == "bug"]
     
     return epics
 
