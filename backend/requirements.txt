@@ -1,3 +1,7 @@
+# Core dependencies - install first
+uvicorn[standard]==0.29.0
+
+# Other dependencies
 aiohappyeyeballs==2.6.1
 aiohttp==3.13.3
 aiohttp-retry==2.9.1
@@ -144,7 +148,6 @@ tzdata==2025.3
 tzlocal==5.3.1
 uritemplate==4.2.0
 urllib3==2.6.3
-uvicorn[standard]==0.29.0
 watchfiles==1.1.1
 websockets==16.0
 Werkzeug==3.1.6
