@@ -406,7 +406,13 @@ export const Layout = ({ children }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [expandedDepts, setExpandedDepts] = useState(['analytics', 'goals', 'meetings', 'projects', 'tasks', 'marketing', 'sales', 'social', 'hr', 'sourcing', 'admin', 'systems', 'engineering']);
+    
+    // Close mobile menu on route change
+    useEffect(() => {
+        setMobileMenuOpen(false);
+    }, [location.pathname]);
     
     // Auto-expand subgroups based on current path
     const getDefaultExpandedSubgroups = () => {
@@ -551,9 +557,30 @@ export const Layout = ({ children }) => {
 
     return (
         <div className="flex h-screen bg-white text-gray-900 overflow-hidden">
+            {/* Mobile Menu Button */}
+            <button 
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-[#4A3728] text-white rounded-lg shadow-lg"
+            >
+                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+
+            {/* Mobile Overlay */}
+            {mobileMenuOpen && (
+                <div 
+                    className="lg:hidden fixed inset-0 bg-black/50 z-30"
+                    onClick={() => setMobileMenuOpen(false)}
+                />
+            )}
+
             {/* Sidebar */}
             <aside 
-                className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-[#F5EDE5] border-r border-[#D4BBA6] flex flex-col transition-all duration-300 ease-in-out`}
+                className={`
+                    ${sidebarOpen ? 'w-64' : 'w-20'} 
+                    bg-[#F5EDE5] border-r border-[#D4BBA6] flex flex-col transition-all duration-300 ease-in-out
+                    fixed lg:relative inset-y-0 left-0 z-40
+                    ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+                `}
             >
                 {/* Logo */}
                 <div className="h-16 flex items-center justify-between px-4 border-b border-[#D4BBA6]">
@@ -896,10 +923,10 @@ export const Layout = ({ children }) => {
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-auto bg-white">
+            <main className="flex-1 overflow-auto bg-white lg:ml-0">
                 {/* Top Header Bar */}
-                <div className="h-14 border-b border-[#E8D5C4] bg-white flex items-center justify-between px-6 sticky top-0 z-10">
-                    <div className="flex items-center gap-4">
+                <div className="h-14 border-b border-[#E8D5C4] bg-white flex items-center justify-between px-4 lg:px-6 sticky top-0 z-10">
+                    <div className="flex items-center gap-4 ml-10 lg:ml-0">
                         <OnlineUsersIndicator />
                         <GlobalSearch />
                     </div>
