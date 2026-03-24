@@ -1222,6 +1222,10 @@ async def get_influencers(
         ]
     
     influencers = await db.contacts.find(query, {"_id": 0}).sort("score", -1).to_list(500)
+    # Convert datetime to string for response
+    for inf in influencers:
+        if inf.get("created_at") and not isinstance(inf["created_at"], str):
+            inf["created_at"] = inf["created_at"].isoformat() if hasattr(inf["created_at"], 'isoformat') else str(inf["created_at"])
     return influencers
 
 @marketing_router.get("/influencers/{influencer_id}", response_model=InfluencerResponse)
@@ -2609,24 +2613,6 @@ async def get_pulse_integration_types(current_user: dict = Depends(get_current_u
         }
     }
 
-
-    if 'admin' in departments or 'sales' in departments:
-        result['stats']['sales'] = {
-            "leads": await db.leads.count_documents({}),
-            "customers": await db.customers.count_documents({}),
-            "new_leads_today": await db.leads.count_documents({
-                "created_at": {"$gte": datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()}
-            })
-        }
-    
-    if 'admin' in departments or 'social' in departments:
-        result['stats']['social'] = {
-            "content": await db.content.count_documents({}),
-            "scheduled": await db.content.count_documents({"status": "scheduled"}),
-            "published": await db.content.count_documents({"status": "published"})
-        }
-    
-    return result
 
 # ============== ADMIN ROUTES - USER MANAGEMENT ==============
 
