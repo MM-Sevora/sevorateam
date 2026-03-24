@@ -158,3 +158,4 @@ sendgrid==6.12.5
 feedparser==6.0.12
 vaderSentiment==3.3.2
 textblob==0.19.0
+python-docx==1.1.0
