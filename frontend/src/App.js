@@ -273,11 +273,7 @@ const MsalInitializer = ({ children }) => {
                             } else if (loginType === 'app') {
                                 console.log('Processing app login...');
                                 try {
-                                    // Determine backend URL based on hostname
-                                    const hostname = window.location.hostname;
-                                    const backendUrl = hostname === 'teams.sevora.com' 
-                                        ? 'https://sevorateam-production.up.railway.app' 
-                                        : (process.env.REACT_APP_BACKEND_URL || '');
+                                    const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
                                     console.log('Calling backend:', backendUrl + '/api/auth/azure');
                                     
                                     const authResponse = await fetch(`${backendUrl}/api/auth/azure`, {

@@ -6,18 +6,7 @@ import axios from 'axios';
 
 const AuthContext = createContext(null);
 
-// Determine backend URL based on hostname
-const getBackendUrl = () => {
-    const hostname = window.location.hostname;
-    // Production: teams.sevora.com -> Railway backend
-    if (hostname === 'teams.sevora.com') {
-        return 'https://sevorateam-production.up.railway.app';
-    }
-    // Preview/Development: use environment variable
-    return process.env.REACT_APP_BACKEND_URL || '';
-};
-
-const BACKEND_URL = getBackendUrl();
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 // Create axios instance with timeout
