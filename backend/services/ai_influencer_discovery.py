@@ -120,7 +120,10 @@ class AIInfluencerDiscoveryService:
         """Use GPT-4o to suggest influencer handles"""
         
         try:
-            from emergentintegrations.llm.chat import LlmChat, UserMessage
+            try:
+                from emergentintegrations.llm.chat import LlmChat, UserMessage
+            except ImportError:
+                return []
             
             follower_desc = ""
             if follower_range:

@@ -8,10 +8,18 @@ import httpx
 import random
 from typing import Optional, List, Dict
 from datetime import datetime, timezone
-from emergentintegrations.llm.chat import LlmChat, UserMessage
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Optional import for emergentintegrations
+try:
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    EMERGENT_AVAILABLE = True
+except ImportError:
+    LlmChat = None
+    UserMessage = None
+    EMERGENT_AVAILABLE = False
 
 
 class PublicInfluencerDiscoveryService:

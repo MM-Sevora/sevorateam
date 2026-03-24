@@ -2392,7 +2392,10 @@ Format your response as JSON with this structure:
     
     try:
         # Use OpenAI for AI discovery
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        try:
+            from emergentintegrations.llm.chat import LlmChat, UserMessage
+        except ImportError:
+            return {"influencers": [], "error": "AI features not available - emergentintegrations not installed"}
         
         chat = LlmChat(
             api_key=os.environ.get("EMERGENT_LLM_KEY"),

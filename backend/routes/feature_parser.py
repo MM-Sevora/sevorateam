@@ -156,7 +156,11 @@ def extract_text_from_docx(doc: Document) -> str:
 
 async def parse_with_ai(document_text: str) -> Dict[str, Any]:
     """Use AI to parse the document and generate structured artifacts"""
-    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+    except ImportError:
+        raise HTTPException(status_code=500, detail="AI parsing not available. emergentintegrations package not installed.")
+    
     from dotenv import load_dotenv
     
     load_dotenv()

@@ -2433,7 +2433,10 @@ async def generate_meeting_summary(
     user: dict = Depends(get_current_user_dep)
 ):
     """Generate AI summary of meeting notes, action items, and decisions"""
-    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+    except ImportError:
+        raise HTTPException(status_code=500, detail="AI features not available - emergentintegrations not installed")
     from dotenv import load_dotenv
     load_dotenv()
     

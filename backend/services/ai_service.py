@@ -1,6 +1,6 @@
 """
 AI Services Module - Text, Image, and Video Generation
-Using Emergent LLM Key with OpenAI models
+Using Emergent LLM Key with OpenAI models (optional - graceful degradation if not available)
 """
 import os
 import base64
@@ -15,14 +15,28 @@ logger = logging.getLogger(__name__)
 
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
 
+# Check if emergentintegrations is available
+EMERGENT_AVAILABLE = False
+try:
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    EMERGENT_AVAILABLE = True
+except ImportError:
+    logger.warning("emergentintegrations not available - AI features will be disabled")
+    LlmChat = None
+    UserMessage = None
+
 # ============== TEXT GENERATION (GPT-5.2) ==============
 async def generate_text(prompt: str, system_message: str = None, model: str = "gpt-5.2") -> dict:
     """
     Generate text using GPT-5.2 via Emergent LLM Key
     """
+    if not EMERGENT_AVAILABLE:
+        return {
+            "success": False,
+            "error": "AI features not available - emergentintegrations not installed"
+        }
+    
     try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
-        
         chat = LlmChat(
             api_key=EMERGENT_LLM_KEY,
             session_id=f"sevora-{datetime.now(timezone.utc).timestamp()}",
@@ -50,6 +64,12 @@ async def generate_image(prompt: str, model: str = "gpt-image-1", num_images: in
     """
     Generate images using OpenAI GPT Image 1 via Emergent LLM Key
     """
+    if not EMERGENT_AVAILABLE:
+        return {
+            "success": False,
+            "error": "AI features not available - emergentintegrations not installed"
+        }
+    
     try:
         from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
         
@@ -92,6 +112,12 @@ def generate_video_sync(prompt: str, output_path: str = None, model: str = "sora
     Generate video using Sora 2 via Emergent LLM Key
     Note: This is synchronous as Sora 2 SDK doesn't support async
     """
+    if not EMERGENT_AVAILABLE:
+        return {
+            "success": False,
+            "error": "AI features not available - emergentintegrations not installed"
+        }
+    
     try:
         from emergentintegrations.llm.openai.video_generation import OpenAIVideoGeneration
         
