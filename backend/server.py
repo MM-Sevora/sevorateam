@@ -21,6 +21,31 @@ from enum import Enum
 import qrcode
 import io
 import base64
+from functools import lru_cache
+import time
+
+# Simple in-memory cache for performance
+class SimpleCache:
+    def __init__(self, ttl=60):
+        self._cache = {}
+        self._ttl = ttl
+    
+    def get(self, key):
+        if key in self._cache:
+            value, timestamp = self._cache[key]
+            if time.time() - timestamp < self._ttl:
+                return value
+            del self._cache[key]
+        return None
+    
+    def set(self, key, value):
+        self._cache[key] = (value, time.time())
+    
+    def clear(self):
+        self._cache.clear()
+
+# Global cache instance (60 second TTL)
+app_cache = SimpleCache(ttl=60)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
