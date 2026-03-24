@@ -6701,3 +6701,10 @@ logger.info("Admin API Keys routes loaded successfully")
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+
+
+
+# Allow running with: python server.py
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("server:app", host="0.0.0.0", port=8001, reload=False)
