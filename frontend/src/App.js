@@ -128,6 +128,8 @@ const RoadmapPage = lazy(() => import("./pages/engineering/RoadmapPage"));
 const ReleasesPage = lazy(() => import("./pages/engineering/ReleasesPage"));
 const FeatureParserPage = lazy(() => import("./pages/engineering/FeatureParserPage"));
 const EngineeringSprintPlanningPage = lazy(() => import("./pages/engineering/SprintPlanningPage"));
+const DailyStandupPage = lazy(() => import("./pages/engineering/DailyStandupPage"));
+const AppReleasesPage = lazy(() => import("./pages/engineering/AppReleasesPage"));
 
 // Knowledge Base Pages
 const KnowledgeBasePage = lazy(() => import("./pages/knowledge/KnowledgeBasePage"));
@@ -581,6 +583,8 @@ function AppRoutes() {
                 <Route path="/engineering/automations" element={<ProtectedRoute requiredModule="project_management"><AutomationsPage /></ProtectedRoute>} />
                 <Route path="/engineering/feature-parser" element={<ProtectedRoute requiredModule="project_management"><FeatureParserPage /></ProtectedRoute>} />
                 <Route path="/engineering/knowledge" element={<ProtectedRoute requiredModule="project_management"><KnowledgeBasePage /></ProtectedRoute>} />
+                <Route path="/engineering/standups" element={<ProtectedRoute requiredModule="project_management"><DailyStandupPage /></ProtectedRoute>} />
+                <Route path="/engineering/app-releases" element={<ProtectedRoute requiredModule="project_management"><AppReleasesPage /></ProtectedRoute>} />
                 <Route path="/projects/:projectId/sprint-board" element={<ProtectedRoute requiredModule="project_management"><SprintBoardPage /></ProtectedRoute>} />
                 <Route path="/projects/:projectId/sprint-board/:sprintId" element={<ProtectedRoute requiredModule="project_management"><SprintBoardPage /></ProtectedRoute>} />
                 <Route path="/projects/engineering/backlog" element={<ProtectedRoute requiredModule="project_management"><GlobalBacklogPage /></ProtectedRoute>} />

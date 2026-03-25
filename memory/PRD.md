@@ -7,6 +7,55 @@ Build a comprehensive Marketing Operations Platform that integrates marketing, s
 
 ## Latest Updates (March 2026)
 
+### Daily Standup & App Releases Features (Completed ✅)
+**Date**: March 25, 2026
+
+**Implementation**:
+
+1. **Daily Standup Tracker** (`/engineering/standups`)
+   - Track daily team standup updates (Yesterday, Today, Blockers)
+   - Mood tracking (Happy, Neutral, Stressed)
+   - Date navigator to view historical standups
+   - Auto-populate tasks completed and in-progress
+   - Team participation metrics and blocker count
+
+2. **App Releases Management** (`/engineering/app-releases`)
+   - Track iOS, Android, and Web app releases
+   - Version and build number tracking
+   - Release status workflow: Draft → Building → Testing → Submitted → In Review → Approved/Rejected → Released
+   - Link tasks to releases
+   - Store URL tracking for App Store / Play Store
+   - Release notes management
+
+**Backend Routes Added** (`/app/backend/routes/standups_releases.py`):
+- `POST /engineering/standups/entry` - Create/update standup entry
+- `GET /engineering/standups/my-entry` - Get user's standup
+- `GET /engineering/standups/team` - Get team standups
+- `GET /engineering/standups/history` - Get standup history
+- `POST /engineering/app-releases` - Create release
+- `GET /engineering/app-releases` - List releases
+- `PUT /engineering/app-releases/{id}` - Update release
+
+**Models Added** (`/app/backend/models/projects.py`):
+- `StandupEntryCreate/Response` - Standup data models
+- `StandupMeetingCreate/Response` - Meeting session models
+- `AppReleaseCreate/Update/Response` - App release models
+- `TeamRole` enum (Designer, Frontend, Backend, QA, DevOps, Lead)
+- `WorkflowStage` enum (Design, Development, Review, Testing, Deployment, Done)
+
+---
+
+### Component Refactoring (Completed ✅)
+**Date**: March 25, 2026
+
+**Extracted Reusable Components** (`/app/frontend/src/components/engineering/`):
+- `TaskCard.jsx` - TaskCardCompact and TaskCardKanban components
+- `SprintComponents.jsx` - SprintSelector, CapacityIndicator, SprintMetricsCards, SprintGoal, SprintStatusBadge
+- `SprintModals.jsx` - SprintReviewModal, TeamCapacityModal, CreateSprintModal
+- `index.js` - Barrel exports for all components
+
+---
+
 ### Sprint Planning Enhancement for Engineering Module (Completed ✅)
 **Date**: March 25, 2026
 

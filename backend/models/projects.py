@@ -70,6 +70,26 @@ class BugSeverity(str, Enum):
     TRIVIAL = "trivial"     # Cosmetic issues
 
 
+class TeamRole(str, Enum):
+    """Team roles for task workflow assignments"""
+    DESIGNER = "designer"
+    FRONTEND = "frontend"
+    BACKEND = "backend"
+    QA = "qa"
+    DEVOPS = "devops"
+    LEAD = "lead"
+
+
+class WorkflowStage(str, Enum):
+    """Workflow stages for engineering tasks"""
+    DESIGN = "design"
+    DEVELOPMENT = "development"
+    REVIEW = "review"
+    TESTING = "testing"
+    DEPLOYMENT = "deployment"
+    DONE = "done"
+
+
 class EpicStatus(str, Enum):
     """Status for Epics"""
     DRAFT = "draft"
@@ -271,6 +291,12 @@ class TaskUpdate(BaseModel):
     environment: Optional[str] = None
     # Story-specific fields
     acceptance_criteria: Optional[str] = None
+    # Team Role Assignments (for workflow)
+    designer_id: Optional[str] = None
+    frontend_dev_id: Optional[str] = None
+    backend_dev_id: Optional[str] = None
+    qa_id: Optional[str] = None
+    workflow_stage: Optional[str] = None  # design, development, review, testing, deployment, done
     # Recurrence fields
     is_recurring: Optional[bool] = None
     recurrence_pattern: Optional[str] = None
@@ -328,6 +354,16 @@ class TaskResponse(BaseModel):
     # Release/Version
     release_id: Optional[str] = None
     release_name: Optional[str] = None
+    # Team Role Assignments (for workflow)
+    designer_id: Optional[str] = None
+    designer_name: Optional[str] = None
+    frontend_dev_id: Optional[str] = None
+    frontend_dev_name: Optional[str] = None
+    backend_dev_id: Optional[str] = None
+    backend_dev_name: Optional[str] = None
+    qa_id: Optional[str] = None
+    qa_name: Optional[str] = None
+    workflow_stage: Optional[str] = None  # design, development, review, testing, deployment, done
     # Watchers
     watchers: List[str] = []  # User IDs watching this task
     watcher_count: int = 0
@@ -1153,6 +1189,140 @@ class ReleaseResponse(BaseModel):
     progress: float = 0  # Percentage
     story_points_total: int = 0
     story_points_completed: int = 0
+    created_by: Optional[str] = None
+    created_by_name: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+# ============== DAILY STANDUP MODELS ==============
+
+class StandupEntryCreate(BaseModel):
+    """Create a standup entry for a team member"""
+    project_id: Optional[str] = None  # Optional - can be global standup
+    sprint_id: Optional[str] = None
+    yesterday: str  # What was done yesterday
+    today: str  # What will be done today
+    blockers: Optional[str] = None  # Any blockers
+    mood: Optional[str] = None  # happy, neutral, stressed
+
+
+class StandupEntryUpdate(BaseModel):
+    """Update a standup entry"""
+    yesterday: Optional[str] = None
+    today: Optional[str] = None
+    blockers: Optional[str] = None
+    mood: Optional[str] = None
+
+
+class StandupEntryResponse(BaseModel):
+    """Standup entry response"""
+    id: str
+    user_id: str
+    user_name: Optional[str] = None
+    project_id: Optional[str] = None
+    project_name: Optional[str] = None
+    sprint_id: Optional[str] = None
+    sprint_name: Optional[str] = None
+    date: str  # YYYY-MM-DD
+    yesterday: str
+    today: str
+    blockers: Optional[str] = None
+    mood: Optional[str] = None  # happy, neutral, stressed
+    tasks_completed_yesterday: List[Dict] = []  # Auto-populated from task updates
+    tasks_in_progress: List[Dict] = []  # Auto-populated from assigned tasks
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class StandupMeetingCreate(BaseModel):
+    """Create a standup meeting session"""
+    project_id: Optional[str] = None
+    sprint_id: Optional[str] = None
+    date: str  # YYYY-MM-DD
+    notes: Optional[str] = None
+    action_items: Optional[List[str]] = None
+
+
+class StandupMeetingResponse(BaseModel):
+    """Standup meeting response with all entries"""
+    id: str
+    project_id: Optional[str] = None
+    project_name: Optional[str] = None
+    sprint_id: Optional[str] = None
+    sprint_name: Optional[str] = None
+    date: str
+    notes: Optional[str] = None
+    action_items: List[str] = []
+    entries: List[StandupEntryResponse] = []  # All team member entries
+    participation_rate: float = 0  # Percentage of team who submitted
+    total_blockers: int = 0
+    created_by: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+# ============== APP RELEASE MODELS ==============
+
+class AppPlatform(str, Enum):
+    """App store platforms"""
+    IOS = "ios"
+    ANDROID = "android"
+    WEB = "web"
+
+
+class AppReleaseStatus(str, Enum):
+    """App release status"""
+    DRAFT = "draft"
+    BUILDING = "building"
+    TESTING = "testing"
+    SUBMITTED = "submitted"
+    IN_REVIEW = "in_review"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    RELEASED = "released"
+    ROLLED_BACK = "rolled_back"
+
+
+class AppReleaseCreate(BaseModel):
+    """Create an app release"""
+    project_id: str
+    version: str  # e.g., "1.0.0"
+    build_number: Optional[str] = None  # e.g., "123"
+    platform: AppPlatform
+    release_notes: Optional[str] = None
+    target_date: Optional[str] = None
+
+
+class AppReleaseUpdate(BaseModel):
+    """Update an app release"""
+    version: Optional[str] = None
+    build_number: Optional[str] = None
+    release_notes: Optional[str] = None
+    target_date: Optional[str] = None
+    actual_release_date: Optional[str] = None
+    status: Optional[AppReleaseStatus] = None
+    store_url: Optional[str] = None  # App Store / Play Store URL
+    review_notes: Optional[str] = None  # Notes from store review
+
+
+class AppReleaseResponse(BaseModel):
+    """App release response"""
+    id: str
+    project_id: str
+    project_name: Optional[str] = None
+    version: str
+    build_number: Optional[str] = None
+    platform: AppPlatform
+    release_notes: Optional[str] = None
+    target_date: Optional[str] = None
+    actual_release_date: Optional[str] = None
+    status: AppReleaseStatus = AppReleaseStatus.DRAFT
+    store_url: Optional[str] = None
+    review_notes: Optional[str] = None
+    # Linked items
+    linked_tasks: List[str] = []  # Task IDs included in this release
+    total_tasks: int = 0
+    completed_tasks: int = 0
     created_by: Optional[str] = None
     created_by_name: Optional[str] = None
     created_at: Optional[datetime] = None

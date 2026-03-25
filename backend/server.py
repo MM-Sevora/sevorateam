@@ -4977,6 +4977,14 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Entity Links routes: {e}")
 
+# Daily Standups & App Releases routes
+try:
+    from routes.standups_releases import router as standups_releases_router
+    api_router.include_router(standups_releases_router)
+    logger.info("Standups & App Releases routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Standups & Releases routes: {e}")
+
 app.include_router(api_router)
 
 # ============== WEBSOCKET FOR REAL-TIME NOTIFICATIONS ==============
