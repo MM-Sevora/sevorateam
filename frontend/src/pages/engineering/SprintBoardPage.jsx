@@ -186,6 +186,10 @@ const SprintBoardPage = () => {
   }, [selectedSprintId]);
 
   const getTasksByStatus = (status) => {
+    // Map 'draft' and 'assigned' to 'todo' column for display purposes
+    if (status === 'todo') {
+      return tasks.filter(t => ['todo', 'draft', 'assigned'].includes(t.status));
+    }
     return tasks.filter(t => t.status === status);
   };
 
@@ -193,6 +197,7 @@ const SprintBoardPage = () => {
     total: tasks.length,
     completed: tasks.filter(t => t.status === 'completed').length,
     inProgress: tasks.filter(t => t.status === 'in_progress').length,
+    todo: tasks.filter(t => ['todo', 'draft', 'assigned'].includes(t.status)).length,
     totalPoints: tasks.reduce((sum, t) => sum + (t.story_points || 0), 0),
     completedPoints: tasks.filter(t => t.status === 'completed').reduce((sum, t) => sum + (t.story_points || 0), 0),
     incomplete: tasks.filter(t => !['completed', 'done'].includes(t.status)).length
