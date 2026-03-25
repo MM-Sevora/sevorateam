@@ -403,9 +403,12 @@ async def create_artifacts(
                 "project_type": "development",
                 "status": "active",
                 "created_by": current_user.get("id"),
+                "owner_id": current_user.get("id"),
+                "project_manager_id": current_user.get("id"),
                 "created_at": now,
                 "updated_at": now,
                 "team_members": [current_user.get("id")],
+                "stakeholders": [current_user.get("id")],
                 "tags": ["auto-generated", "feature-parser"]
             }
             await db.pm_projects.insert_one(new_project)

@@ -410,6 +410,7 @@ const CreateTaskModal = ({ open, onClose, projectId, users, onSuccess, defaultSt
   const [formData, setFormData] = useState({
     name: '',
     description: '',
+    issue_type: 'task',
     status: defaultStatus,
     priority: 'medium',
     assigned_to: '',
@@ -417,6 +418,17 @@ const CreateTaskModal = ({ open, onClose, projectId, users, onSuccess, defaultSt
     due_date: '',
     estimated_hours: ''
   });
+
+  // Task type options for Agile workflow
+  const taskTypes = [
+    { value: 'task', label: 'Task', icon: '✓', color: 'bg-blue-100 text-blue-700' },
+    { value: 'user_story', label: 'Story', icon: '📖', color: 'bg-indigo-100 text-indigo-700' },
+    { value: 'bug', label: 'Bug', icon: '🐛', color: 'bg-red-100 text-red-700' },
+    { value: 'design', label: 'Design', icon: '🎨', color: 'bg-pink-100 text-pink-700' },
+    { value: 'frontend', label: 'Frontend', icon: '🖥️', color: 'bg-cyan-100 text-cyan-700' },
+    { value: 'backend', label: 'Backend', icon: '⚙️', color: 'bg-amber-100 text-amber-700' },
+    { value: 'qa', label: 'QA', icon: '🧪', color: 'bg-emerald-100 text-emerald-700' }
+  ];
 
   // Update status when defaultStatus changes
   useEffect(() => {
@@ -454,10 +466,11 @@ const CreateTaskModal = ({ open, onClose, projectId, users, onSuccess, defaultSt
 
       if (!response.ok) throw new Error('Failed to create task');
       
-      toast.success('Task created');
+      const taskTypeLabel = taskTypes.find(t => t.value === formData.issue_type)?.label || 'Task';
+      toast.success(`${taskTypeLabel} created`);
       onSuccess();
       onClose();
-      setFormData({ name: '', description: '', status: 'draft', priority: 'medium', assigned_to: '', due_date: '', estimated_hours: '' });
+      setFormData({ name: '', description: '', issue_type: 'task', status: 'draft', priority: 'medium', assigned_to: '', due_date: '', estimated_hours: '' });
     } catch (error) {
       console.error('Error:', error);
       toast.error('Failed to create task');
@@ -472,16 +485,42 @@ const CreateTaskModal = ({ open, onClose, projectId, users, onSuccess, defaultSt
         <DialogHeader>
           <DialogTitle className="text-[#4A3728] flex items-center gap-2">
             <ListTodo className="w-5 h-5 text-rose-600" />
-            Create New Task
+            Create New Item
           </DialogTitle>
+          <p className="text-sm text-[#6B5D52]">Select the issue type and fill in the details</p>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Task Type Selector - Agile Workflow */}
           <div>
-            <Label className="text-[#4A3728]">Task Name *</Label>
+            <Label className="text-[#4A3728] mb-2 block">Issue Type *</Label>
+            <div className="flex flex-wrap gap-2">
+              {taskTypes.map(type => (
+                <button
+                  key={type.value}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, issue_type: type.value })}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
+                    formData.issue_type === type.value 
+                      ? `${type.color} ring-2 ring-offset-1 ring-[#4A3728]` 
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                  data-testid={`task-type-${type.value}`}
+                >
+                  <span>{type.icon}</span>
+                  {type.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-[#4A3728]">
+              {formData.issue_type === 'user_story' ? 'Story' : formData.issue_type === 'bug' ? 'Bug' : 'Task'} Name *
+            </Label>
             <Input
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Enter task name"
+              placeholder={formData.issue_type === 'user_story' ? 'As a user, I want to...' : formData.issue_type === 'bug' ? 'Bug description' : 'Enter task name'}
               className="border-[#D4BBA6] focus:border-rose-500 mt-1"
               data-testid="task-name-input"
             />
