@@ -100,7 +100,6 @@ const DEPARTMENT_CONFIG = {
             { path: '/projects/my-tasks', name: 'My Tasks', icon: ListTodo },
             { path: '/projects', name: 'All Projects', icon: FolderKanban },
             { path: '/projects/kanban', name: 'Kanban Board', icon: LayoutGrid },
-            { path: '/projects/sprints', name: 'Sprints', icon: Zap },
             { path: '/projects/milestones', name: 'Milestones', icon: Flag },
             { path: '/projects/recurring', name: 'Recurring Tasks', icon: RefreshCw },
         ]

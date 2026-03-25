@@ -557,8 +557,9 @@ function AppRoutes() {
                 <Route path="/projects/my-tasks" element={<ProtectedRoute requiredModule="project_management"><MyTasks /></ProtectedRoute>} />
                 <Route path="/projects/recurring" element={<ProtectedRoute requiredModule="project_management"><RecurringTasks /></ProtectedRoute>} />
                 <Route path="/projects/kanban" element={<ProtectedRoute requiredModule="project_management"><KanbanBoard /></ProtectedRoute>} />
-                <Route path="/projects/sprints" element={<ProtectedRoute requiredModule="project_management"><SprintsPage /></ProtectedRoute>} />
-                <Route path="/projects/sprints/:projectId" element={<ProtectedRoute requiredModule="project_management"><SprintsPage /></ProtectedRoute>} />
+                {/* Sprint management moved to Engineering module - redirect old URLs */}
+                <Route path="/projects/sprints" element={<Navigate to="/engineering/sprints" replace />} />
+                <Route path="/projects/sprints/:projectId" element={<Navigate to="/engineering/sprints" replace />} />
                 <Route path="/projects/milestones" element={<ProtectedRoute requiredModule="project_management"><MilestonesPage /></ProtectedRoute>} />
                 <Route path="/projects/:projectId/epics" element={<ProtectedRoute requiredModule="project_management"><EpicsPage /></ProtectedRoute>} />
                 <Route path="/projects/:projectId/backlog" element={<ProtectedRoute requiredModule="project_management"><BacklogPage /></ProtectedRoute>} />
