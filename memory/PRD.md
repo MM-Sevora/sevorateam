@@ -7,6 +7,58 @@ Build a comprehensive Marketing Operations Platform that integrates marketing, s
 
 ## Latest Updates (March 2026)
 
+### Sprint Planning Enhancement for Engineering Module (Completed ✅)
+**Date**: March 25, 2026
+
+**User Request**: Implement a proper Sprint Planning workflow in the Engineering module with:
+1. Sprint Creation Panel (Name, Goal, Dates)
+2. Backlog Picker with drag-and-drop
+3. Capacity Indicator (Green/Red based on load)
+4. Task Breakdown Section with inline editing
+5. Final Review Screen before starting sprint
+
+**Implementation**:
+
+1. **New Engineering Sprint Planning Page** (`/app/frontend/src/pages/engineering/SprintPlanningPage.jsx`)
+   - Full-featured sprint planning with two-column layout (Backlog | Sprint Scope)
+   - Sprint selector dropdown with status indicators
+   - Sprint Goal display in highlighted card
+   - Capacity metrics cards: Duration, Planned Points, Capacity indicator, Team Hours
+
+2. **Drag-and-Drop Support**
+   - Tasks can be dragged from Backlog to Sprint and vice versa
+   - Visual feedback: Ring highlight and background color change on drag-over
+   - Grip handles visible on each task item
+
+3. **Inline Task Editing**
+   - Edit button appears on hover
+   - Quick assignment dropdown with team members
+   - Story points input field
+   - Save/Cancel inline actions
+
+4. **Review & Start Sprint Modal**
+   - Sprint summary: Name, Goal, Date range
+   - Stats grid: Total Items, Story Points, Team Capacity
+   - Item breakdown: Stories, Tasks, Bugs count
+   - **Warnings displayed**:
+     - Unassigned items (amber)
+     - Items without estimates (amber)
+     - Over capacity (red with calculation)
+   - Cancel and Start Sprint buttons
+
+5. **Bug Fix**: Changed status check from `'planned'` to `'planning'` to match backend
+
+**Routes Added**:
+- `/engineering/projects/:projectId/sprint-planning` → EngineeringSprintPlanningPage
+
+**Files Modified**:
+- `/app/frontend/src/pages/engineering/SprintPlanningPage.jsx` (NEW)
+- `/app/frontend/src/pages/engineering/GlobalSprintPlanningPage.jsx` (navigation links)
+- `/app/frontend/src/pages/projects/SprintPlanningPage.jsx` (bug fix)
+- `/app/frontend/src/App.js` (route + lazy import)
+
+---
+
 ### Project Detail Page UI/UX Enhancements + Auto-Attach Feature (Completed ✅)
 **Date**: March 19, 2026
 

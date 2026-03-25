@@ -164,7 +164,7 @@ const GlobalSprintPlanningPage = () => {
                 <Card 
                   key={sprint.id} 
                   className="border-green-200 bg-green-50/50 hover:shadow-md transition-shadow cursor-pointer"
-                  onClick={() => navigate(`/projects/${project.id}/sprint-planning`)}
+                  onClick={() => navigate(`/engineering/projects/${project.id}/sprint-planning`)}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-2">
@@ -205,7 +205,7 @@ const GlobalSprintPlanningPage = () => {
                 {/* Project Header */}
                 <div 
                   className="p-4 border-b flex items-center justify-between cursor-pointer hover:bg-gray-50"
-                  onClick={() => navigate(`/projects/${project.id}/sprint-planning`)}
+                  onClick={() => navigate(`/engineering/projects/${project.id}/sprint-planning`)}
                 >
                   <div className="flex items-center gap-3">
                     <Zap className="w-5 h-5 text-violet-600" />
@@ -239,7 +239,7 @@ const GlobalSprintPlanningPage = () => {
                       <div 
                         key={sprint.id}
                         className="p-3 rounded-lg border bg-gray-50 hover:bg-gray-100 cursor-pointer"
-                        onClick={() => navigate(`/projects/${project.id}/sprint-planning`)}
+                        onClick={() => navigate(`/engineering/projects/${project.id}/sprint-planning`)}
                       >
                         <div className="flex items-center justify-between mb-2">
                           <span className="font-medium text-sm text-gray-900 truncate">{sprint.name}</span>

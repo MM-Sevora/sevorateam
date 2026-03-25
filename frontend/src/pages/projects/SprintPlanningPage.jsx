@@ -237,7 +237,7 @@ const SprintPlanningPage = () => {
             <Users className="w-4 h-4 mr-2" /> Team Capacity
           </Button>
           
-          {selectedSprint?.status === 'planned' && (
+          {selectedSprint?.status === 'planning' && (
             <Button onClick={handleStartSprint} className="bg-green-600 hover:bg-green-700">
               <Play className="w-4 h-4 mr-2" /> Start Sprint
             </Button>
