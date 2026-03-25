@@ -265,6 +265,157 @@ async def log_activity(entity_type: str, entity_id: str, entity_name: str, actio
     await db.pm_activity_logs.insert_one(log_doc)
 
 
+async def enrich_tasks_batch(tasks: list) -> list:
+    """Batch enrich tasks with related data - optimized for performance"""
+    if not tasks:
+        return []
+    
+    # Collect all IDs for batch lookup
+    user_ids = set()
+    project_ids = set()
+    task_ids = [t["id"] for t in tasks]
+    sprint_ids = set()
+    milestone_ids = set()
+    release_ids = set()
+    
+    for task in tasks:
+        if task.get("assigned_to"):
+            user_ids.add(task["assigned_to"])
+        if task.get("assigned_by"):
+            user_ids.add(task["assigned_by"])
+        if task.get("project_id"):
+            project_ids.add(task["project_id"])
+        if task.get("sprint_id"):
+            sprint_ids.add(task["sprint_id"])
+        if task.get("milestone_id"):
+            milestone_ids.add(task["milestone_id"])
+        if task.get("release_id"):
+            release_ids.add(task["release_id"])
+    
+    # Batch fetch all related data
+    users_map = {}
+    if user_ids:
+        users = await db.users.find({"id": {"$in": list(user_ids)}}, {"id": 1, "name": 1, "_id": 0}).to_list(100)
+        users_map = {u["id"]: u.get("name", "Unknown") for u in users}
+    
+    projects_map = {}
+    module_ids = set()
+    if project_ids:
+        projects = await db.pm_projects.find({"id": {"$in": list(project_ids)}}, {"id": 1, "name": 1, "module_id": 1, "_id": 0}).to_list(100)
+        for p in projects:
+            projects_map[p["id"]] = p
+            if p.get("module_id"):
+                module_ids.add(p["module_id"])
+    
+    modules_map = {}
+    if module_ids:
+        modules = await db.pm_modules.find({"id": {"$in": list(module_ids)}}, {"id": 1, "name": 1, "_id": 0}).to_list(50)
+        modules_map = {m["id"]: m.get("name") for m in modules}
+    
+    sprints_map = {}
+    if sprint_ids:
+        sprints = await db.pm_sprints.find({"id": {"$in": list(sprint_ids)}}, {"id": 1, "name": 1, "_id": 0}).to_list(50)
+        sprints_map = {s["id"]: s.get("name") for s in sprints}
+    
+    milestones_map = {}
+    if milestone_ids:
+        milestones = await db.pm_milestones.find({"id": {"$in": list(milestone_ids)}}, {"id": 1, "name": 1, "_id": 0}).to_list(50)
+        milestones_map = {m["id"]: m.get("name") for m in milestones}
+    
+    releases_map = {}
+    if release_ids:
+        releases = await db.pm_releases.find({"id": {"$in": list(release_ids)}}, {"id": 1, "name": 1, "_id": 0}).to_list(50)
+        releases_map = {r["id"]: r.get("name") for r in releases}
+    
+    # Batch count aggregations
+    subtask_counts = {}
+    checklist_counts = {}
+    checklist_completed = {}
+    comment_counts = {}
+    attachment_counts = {}
+    
+    # Subtask counts
+    subtask_agg = await db.pm_subtasks.aggregate([
+        {"$match": {"parent_task_id": {"$in": task_ids}}},
+        {"$group": {"_id": "$parent_task_id", "count": {"$sum": 1}}}
+    ]).to_list(500)
+    subtask_counts = {a["_id"]: a["count"] for a in subtask_agg}
+    
+    # Checklist counts
+    checklist_agg = await db.pm_checklists.aggregate([
+        {"$match": {"task_id": {"$in": task_ids}}},
+        {"$group": {"_id": "$task_id", "total": {"$sum": 1}, "completed": {"$sum": {"$cond": ["$is_completed", 1, 0]}}}}
+    ]).to_list(500)
+    for a in checklist_agg:
+        checklist_counts[a["_id"]] = a["total"]
+        checklist_completed[a["_id"]] = a["completed"]
+    
+    # Comment counts
+    comment_agg = await db.pm_comments.aggregate([
+        {"$match": {"task_id": {"$in": task_ids}}},
+        {"$group": {"_id": "$task_id", "count": {"$sum": 1}}}
+    ]).to_list(500)
+    comment_counts = {a["_id"]: a["count"] for a in comment_agg}
+    
+    # Attachment counts
+    attachment_agg = await db.pm_attachments.aggregate([
+        {"$match": {"task_id": {"$in": task_ids}, "is_deleted": False}},
+        {"$group": {"_id": "$task_id", "count": {"$sum": 1}}}
+    ]).to_list(500)
+    attachment_counts = {a["_id"]: a["count"] for a in attachment_agg}
+    
+    # Enrich each task using the maps
+    enriched = []
+    for task in tasks:
+        # User names
+        if task.get("assigned_to"):
+            task["assigned_to_name"] = users_map.get(task["assigned_to"])
+        if task.get("assigned_by"):
+            task["assigned_by_name"] = users_map.get(task["assigned_by"])
+        
+        # Project info
+        if task.get("project_id"):
+            project = projects_map.get(task["project_id"])
+            if project:
+                task["project_name"] = project.get("name")
+                task["module_id"] = project.get("module_id")
+                if project.get("module_id"):
+                    task["module_name"] = modules_map.get(project["module_id"])
+            task["is_individual"] = False
+        else:
+            task["is_individual"] = True
+            task["project_name"] = None
+            task["module_name"] = None
+        
+        # Sprint, milestone, release names
+        task["sprint_name"] = sprints_map.get(task.get("sprint_id")) if task.get("sprint_id") else None
+        task["milestone_name"] = milestones_map.get(task.get("milestone_id")) if task.get("milestone_id") else None
+        task["release_name"] = releases_map.get(task.get("release_id")) if task.get("release_id") else None
+        
+        # Watchers
+        watchers = task.get("watchers", [])
+        task["watchers"] = watchers
+        task["watcher_count"] = len(watchers)
+        
+        # Counts from aggregations
+        task["subtask_count"] = subtask_counts.get(task["id"], 0)
+        task["checklist_count"] = checklist_counts.get(task["id"], 0)
+        task["checklist_completed"] = checklist_completed.get(task["id"], 0)
+        task["comment_count"] = comment_counts.get(task["id"], 0)
+        task["attachment_count"] = attachment_counts.get(task["id"], 0)
+        
+        # Dependencies
+        blocked_by = task.get("blocked_by", [])
+        blocks = task.get("blocks", [])
+        task["is_blocked"] = len(blocked_by) > 0
+        task["blocked_by_count"] = len(blocked_by)
+        task["blocks_count"] = len(blocks)
+        
+        enriched.append(task)
+    
+    return enriched
+
+
 async def enrich_task(task: dict) -> dict:
     """Enrich task with related data"""
     # Get assigned user name
@@ -2115,38 +2266,60 @@ async def get_project(
     if not project.get("project_id"):
         project["project_id"] = f"PRJ-{project['id'][:4].upper()}"
     
+    # Collect all user IDs to fetch in one query
+    user_ids = set()
+    if project.get("project_manager_id"):
+        user_ids.add(project["project_manager_id"])
+    if project.get("owner_id"):
+        user_ids.add(project["owner_id"])
+    user_ids.update(project.get("team_members", []))
+    user_ids.update(project.get("stakeholders", []))
+    
+    # Fetch all users in one query
+    user_names_map = {}
+    if user_ids:
+        users = await db.users.find({"id": {"$in": list(user_ids)}}, {"id": 1, "name": 1, "_id": 0}).to_list(100)
+        user_names_map = {u["id"]: u.get("name", "Unknown") for u in users}
+    
     # Get department name
     if project.get("department_id"):
         project["department_name"] = await get_department_name(project["department_id"])
     
-    # Get project manager name
+    # Assign user names from map
     if project.get("project_manager_id"):
-        project["project_manager_name"] = await get_user_name(project["project_manager_id"])
+        project["project_manager_name"] = user_names_map.get(project["project_manager_id"], "Unknown")
     
-    # Enrich
+    # Enrich module
     if project.get("module_id"):
         module = await db.pm_modules.find_one({"id": project["module_id"]}, {"name": 1})
         project["module_name"] = module.get("name") if module else None
     
     if project.get("owner_id"):
-        project["owner_name"] = await get_user_name(project["owner_id"])
+        project["owner_name"] = user_names_map.get(project["owner_id"], "Unknown")
     
-    team_members = project.get("team_members", [])
-    project["team_member_names"] = []
-    for member_id in team_members:
-        name = await get_user_name(member_id)
-        if name:
-            project["team_member_names"].append(name)
+    # Assign team member names from map
+    project["team_member_names"] = [user_names_map.get(mid, "Unknown") for mid in project.get("team_members", []) if mid in user_names_map]
     
-    stakeholders = project.get("stakeholders", [])
-    project["stakeholder_names"] = []
-    for stakeholder_id in stakeholders:
-        name = await get_user_name(stakeholder_id)
-        if name:
-            project["stakeholder_names"].append(name)
+    # Assign stakeholder names from map
+    project["stakeholder_names"] = [user_names_map.get(sid, "Unknown") for sid in project.get("stakeholders", []) if sid in user_names_map]
     
-    total_tasks = await db.pm_tasks.count_documents({"project_id": project_id})
-    completed_tasks = await db.pm_tasks.count_documents({"project_id": project_id, "status": "completed"})
+    # Get task counts in one aggregation
+    pipeline = [
+        {"$match": {"project_id": project_id}},
+        {"$group": {
+            "_id": None,
+            "total": {"$sum": 1},
+            "completed": {"$sum": {"$cond": [{"$eq": ["$status", "completed"]}, 1, 0]}}
+        }}
+    ]
+    task_stats = await db.pm_tasks.aggregate(pipeline).to_list(1)
+    if task_stats:
+        total_tasks = task_stats[0]["total"]
+        completed_tasks = task_stats[0]["completed"]
+    else:
+        total_tasks = 0
+        completed_tasks = 0
+    
     project["task_count"] = total_tasks
     project["completed_task_count"] = completed_tasks
     project["progress"] = round((completed_tasks / total_tasks * 100), 1) if total_tasks > 0 else 0
@@ -2509,9 +2682,8 @@ async def list_project_tasks(
     
     tasks = await db.pm_tasks.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
     
-    enriched_tasks = []
-    for task in tasks:
-        enriched_tasks.append(await enrich_task(task))
+    # Use batch enrichment for better performance
+    enriched_tasks = await enrich_tasks_batch(tasks)
     
     return enriched_tasks
 
