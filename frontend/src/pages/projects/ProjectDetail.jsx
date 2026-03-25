@@ -1423,11 +1423,11 @@ const ProjectDetail = () => {
         <Card className="col-span-full md:col-span-8 bg-white/50 border-[#E8D5C4]">
           <CardContent className="p-6">
             {/* Header Row - Title + CTAs */}
-            <div className="flex items-start justify-between gap-4 mb-4">
-              <h1 className="text-2xl font-bold text-[#4A3728] flex-shrink-0" data-testid="project-title">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+              <h1 className="text-2xl font-bold text-[#4A3728]" data-testid="project-title">
                 {project.name}
               </h1>
-              <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -1547,10 +1547,10 @@ const ProjectDetail = () => {
 
         {/* Stats Card */}
         <Card className="col-span-full md:col-span-4 bg-[#E8D5C4]/30 border-[#E8D5C4]">
-          <CardContent className="p-8 flex flex-col justify-center h-full">
+          <CardContent className="p-6 md:p-8 flex flex-col justify-center h-full">
             <div className="text-center mb-4">
               <p className="text-[#6B5D52] text-sm mb-1">Overall Progress</p>
-              <p className="text-4xl font-bold text-[#4A3728]">{project.progress}%</p>
+              <p className="text-3xl md:text-4xl font-bold text-[#4A3728]">{project.progress}%</p>
             </div>
             <div className="h-3 bg-white rounded-full overflow-hidden shadow-inner">
               <div 
