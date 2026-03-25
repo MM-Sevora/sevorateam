@@ -239,18 +239,38 @@ const MsalInitializer = ({ children }) => {
                 await msalInstance.initialize();
                 console.log('MSAL initialized');
                 
-                const hasAuthCode = window.location.hash.includes('code=');
+                // Check for auth response in URL (code or error)
+                const hasAuthCode = window.location.hash.includes('code=') || 
+                                   window.location.search.includes('code=');
+                const hasError = window.location.hash.includes('error=') || 
+                                window.location.search.includes('error=');
+                
                 console.log('Has auth code in URL:', hasAuthCode);
+                console.log('Has error in URL:', hasError);
                 
                 const loginType = sessionStorage.getItem('msalLoginType');
                 const redirectPath = sessionStorage.getItem('msalRedirectPath');
                 console.log('Login type from session:', loginType);
                 console.log('Redirect path from session:', redirectPath);
                 
+                // Handle errors first
+                if (hasError) {
+                    console.error('Auth error in URL');
+                    sessionStorage.removeItem('msalLoginType');
+                    sessionStorage.removeItem('msalRedirectPath');
+                    window.history.replaceState({}, document.title, '/');
+                    setInitError('Microsoft login failed. Please try again.');
+                    setIsInitialized(true);
+                    return;
+                }
+                
                 if (hasAuthCode) {
                     console.log('Processing redirect response...');
                     
                     try {
+                        // Add a small delay to ensure MSAL is ready
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                        
                         const response = await msalInstance.handleRedirectPromise();
                         console.log('Redirect response:', response ? 'GOT RESPONSE with token' : 'NO RESPONSE');
                         

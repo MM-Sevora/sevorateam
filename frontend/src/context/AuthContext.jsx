@@ -166,6 +166,45 @@ export const AuthProvider = ({ children }) => {
             azureLoginProcessed.current = false;
             
             console.log('Starting Azure redirect login...');
+            
+            // Clear any stale MSAL state
+            sessionStorage.removeItem('msal.interaction.status');
+            
+            // Check if there's already an interaction in progress
+            const accounts = instance.getAllAccounts();
+            if (accounts.length > 0) {
+                console.log('Found existing account, trying silent login first...');
+                try {
+                    const silentRequest = {
+                        ...loginRequest,
+                        account: accounts[0]
+                    };
+                    const response = await instance.acquireTokenSilent(silentRequest);
+                    if (response && response.accessToken) {
+                        // Process the token
+                        const authResponse = await fetch(`${API}/auth/azure`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ azure_token: response.accessToken })
+                        });
+                        
+                        if (authResponse.ok) {
+                            const data = await authResponse.json();
+                            localStorage.setItem('sevora_token', data.access_token);
+                            localStorage.setItem('sevora_auth_method', 'azure');
+                            setToken(data.access_token);
+                            data.user.departments = getUserDepartments(data.user.role);
+                            setUser(data.user);
+                            setAuthMethod('azure');
+                            setLoading(false);
+                            return data.user;
+                        }
+                    }
+                } catch (silentError) {
+                    console.log('Silent login failed, proceeding with redirect...');
+                }
+            }
+            
             // Mark this as app login (not email login)
             sessionStorage.setItem('msalLoginType', 'app');
             // Use redirect instead of popup (popup has issues with some browsers/configs)

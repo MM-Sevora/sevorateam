@@ -8,14 +8,19 @@ export const msalConfig = {
         navigateToLoginRequestUrl: true,
     },
     cache: {
-        cacheLocation: "localStorage", // Changed to localStorage for persistence across tabs
-        storeAuthStateInCookie: true, // Enable for IE11/Edge compatibility
+        cacheLocation: "localStorage",
+        storeAuthStateInCookie: true,
     },
     system: {
         allowRedirectInIframe: false,
-        windowHashTimeout: 60000,
-        iframeHashTimeout: 6000,
-        loadFrameTimeout: 0,
+        windowHashTimeout: 90000,  // Increased timeout
+        iframeHashTimeout: 10000,  // Increased timeout
+        loadFrameTimeout: 10000,   // Increased timeout
+        asyncPopups: false,
+        loggerOptions: {
+            logLevel: 3, // Warning level only
+            piiLoggingEnabled: false
+        }
     }
 };
 
