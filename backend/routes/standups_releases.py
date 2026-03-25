@@ -1,5 +1,5 @@
 """
-Daily Standup & App Releases Routes
+Daily Standup, App Releases & Sprint Retrospective Routes
 """
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -13,11 +13,13 @@ from models.projects import (
     StandupEntryCreate, StandupEntryUpdate, StandupEntryResponse,
     StandupMeetingCreate, StandupMeetingResponse,
     AppReleaseCreate, AppReleaseUpdate, AppReleaseResponse,
-    AppPlatform, AppReleaseStatus
+    AppPlatform, AppReleaseStatus,
+    RetroItemCreate, RetroItemUpdate, RetroItemResponse, RetroItemType,
+    SprintRetroCreate, SprintRetroResponse
 )
 from server import db
 
-router = APIRouter(prefix="/engineering", tags=["Engineering - Standups & Releases"])
+router = APIRouter(prefix="/engineering", tags=["Engineering - Standups, Releases & Retros"])
 
 # Auth setup
 security = HTTPBearer()
@@ -496,3 +498,281 @@ async def get_app_release_response(release_id: str) -> AppReleaseResponse:
         release["completed_tasks"] = 0
     
     return AppReleaseResponse(**release)
+
+
+
+# ============== SPRINT RETROSPECTIVE ROUTES ==============
+
+@router.post("/retros", response_model=SprintRetroResponse)
+async def create_retrospective(
+    data: SprintRetroCreate,
+    user: dict = Depends(get_current_user)
+):
+    """Create a new sprint retrospective"""
+    # Check if retro already exists for this sprint
+    existing = await db.sprint_retros.find_one({"sprint_id": data.sprint_id})
+    if existing:
+        raise HTTPException(status_code=400, detail="Retrospective already exists for this sprint")
+    
+    retro_id = str(uuid.uuid4())
+    
+    retro = {
+        "id": retro_id,
+        "sprint_id": data.sprint_id,
+        "facilitator_id": data.facilitator_id or user["id"],
+        "notes": data.notes,
+        "created_by": user["id"],
+        "created_at": datetime.now(timezone.utc)
+    }
+    
+    await db.sprint_retros.insert_one(retro)
+    
+    return await get_retro_response(retro_id)
+
+
+@router.get("/retros/sprint/{sprint_id}", response_model=Optional[SprintRetroResponse])
+async def get_sprint_retrospective(
+    sprint_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Get retrospective for a specific sprint"""
+    retro = await db.sprint_retros.find_one({"sprint_id": sprint_id}, {"_id": 0})
+    if not retro:
+        return None
+    
+    return await get_retro_response(retro["id"])
+
+
+@router.get("/retros", response_model=List[SprintRetroResponse])
+async def get_retrospectives(
+    project_id: Optional[str] = None,
+    limit: int = 20,
+    user: dict = Depends(get_current_user)
+):
+    """Get all retrospectives, optionally filtered by project"""
+    pipeline = []
+    
+    # If project_id is specified, we need to join with sprints first
+    if project_id:
+        # Get sprint IDs for this project
+        sprints = await db.pm_sprints.find(
+            {"project_id": project_id},
+            {"_id": 0, "id": 1}
+        ).to_list(100)
+        sprint_ids = [s["id"] for s in sprints]
+        pipeline.append({"$match": {"sprint_id": {"$in": sprint_ids}}})
+    
+    pipeline.extend([
+        {"$sort": {"created_at": -1}},
+        {"$limit": limit},
+        {"$project": {"_id": 0}}
+    ])
+    
+    retros = await db.sprint_retros.aggregate(pipeline).to_list(limit)
+    
+    results = []
+    for retro in retros:
+        enriched = await get_retro_response(retro["id"])
+        results.append(enriched)
+    
+    return results
+
+
+@router.put("/retros/{retro_id}")
+async def update_retrospective(
+    retro_id: str,
+    notes: Optional[str] = None,
+    facilitator_id: Optional[str] = None,
+    user: dict = Depends(get_current_user)
+):
+    """Update retrospective notes or facilitator"""
+    update_data = {}
+    if notes is not None:
+        update_data["notes"] = notes
+    if facilitator_id:
+        update_data["facilitator_id"] = facilitator_id
+    
+    if update_data:
+        await db.sprint_retros.update_one(
+            {"id": retro_id},
+            {"$set": update_data}
+        )
+    
+    return await get_retro_response(retro_id)
+
+
+@router.post("/retros/{retro_id}/complete")
+async def complete_retrospective(
+    retro_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Mark retrospective as complete"""
+    await db.sprint_retros.update_one(
+        {"id": retro_id},
+        {"$set": {"completed_at": datetime.now(timezone.utc)}}
+    )
+    
+    return await get_retro_response(retro_id)
+
+
+@router.post("/retros/items", response_model=RetroItemResponse)
+async def create_retro_item(
+    data: RetroItemCreate,
+    user: dict = Depends(get_current_user)
+):
+    """Add an item to a retrospective"""
+    item_id = str(uuid.uuid4())
+    
+    item = {
+        "id": item_id,
+        "sprint_id": data.sprint_id,
+        "item_type": data.item_type.value if isinstance(data.item_type, RetroItemType) else data.item_type,
+        "content": data.content,
+        "votes": data.votes,
+        "is_resolved": False,
+        "created_by": user["id"],
+        "created_at": datetime.now(timezone.utc)
+    }
+    
+    await db.retro_items.insert_one(item)
+    
+    return await get_retro_item_response(item_id)
+
+
+@router.put("/retros/items/{item_id}", response_model=RetroItemResponse)
+async def update_retro_item(
+    item_id: str,
+    data: RetroItemUpdate,
+    user: dict = Depends(get_current_user)
+):
+    """Update a retrospective item"""
+    update_data = {}
+    for k, v in data.model_dump().items():
+        if v is not None:
+            update_data[k] = v
+    
+    if update_data:
+        await db.retro_items.update_one(
+            {"id": item_id},
+            {"$set": update_data}
+        )
+    
+    return await get_retro_item_response(item_id)
+
+
+@router.post("/retros/items/{item_id}/vote")
+async def vote_retro_item(
+    item_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Add a vote to a retrospective item"""
+    await db.retro_items.update_one(
+        {"id": item_id},
+        {"$inc": {"votes": 1}}
+    )
+    
+    return await get_retro_item_response(item_id)
+
+
+@router.delete("/retros/items/{item_id}")
+async def delete_retro_item(
+    item_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Delete a retrospective item"""
+    result = await db.retro_items.delete_one({"id": item_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Item not found")
+    
+    return {"message": "Item deleted"}
+
+
+# ============== RETRO HELPER FUNCTIONS ==============
+
+async def get_retro_response(retro_id: str) -> SprintRetroResponse:
+    """Get enriched retrospective response"""
+    retro = await db.sprint_retros.find_one({"id": retro_id}, {"_id": 0})
+    if not retro:
+        raise HTTPException(status_code=404, detail="Retrospective not found")
+    
+    # Get sprint info
+    sprint = await db.pm_sprints.find_one(
+        {"id": retro["sprint_id"]},
+        {"_id": 0, "name": 1, "project_id": 1}
+    )
+    if sprint:
+        retro["sprint_name"] = sprint.get("name")
+        retro["project_id"] = sprint.get("project_id")
+        
+        # Get project name
+        project = await db.pm_projects.find_one(
+            {"id": sprint.get("project_id")},
+            {"_id": 0, "name": 1}
+        )
+        retro["project_name"] = project.get("name") if project else None
+    
+    # Get facilitator name
+    if retro.get("facilitator_id"):
+        facilitator = await db.users.find_one(
+            {"id": retro["facilitator_id"]},
+            {"_id": 0, "name": 1}
+        )
+        retro["facilitator_name"] = facilitator.get("name") if facilitator else None
+    
+    # Get all items for this sprint
+    items = await db.retro_items.find(
+        {"sprint_id": retro["sprint_id"]},
+        {"_id": 0}
+    ).to_list(100)
+    
+    went_well = []
+    didnt_go_well = []
+    action_items = []
+    total_votes = 0
+    action_items_resolved = 0
+    
+    for item in items:
+        enriched = await get_retro_item_response(item["id"])
+        total_votes += enriched.votes
+        
+        if item["item_type"] == "went_well":
+            went_well.append(enriched)
+        elif item["item_type"] == "didnt_go_well":
+            didnt_go_well.append(enriched)
+        elif item["item_type"] == "action_item":
+            action_items.append(enriched)
+            if item.get("is_resolved"):
+                action_items_resolved += 1
+    
+    # Sort by votes (descending)
+    went_well.sort(key=lambda x: x.votes, reverse=True)
+    didnt_go_well.sort(key=lambda x: x.votes, reverse=True)
+    action_items.sort(key=lambda x: x.votes, reverse=True)
+    
+    retro["went_well"] = went_well
+    retro["didnt_go_well"] = didnt_go_well
+    retro["action_items"] = action_items
+    retro["total_items"] = len(items)
+    retro["total_votes"] = total_votes
+    retro["action_items_total"] = len(action_items)
+    retro["action_items_resolved"] = action_items_resolved
+    
+    return SprintRetroResponse(**retro)
+
+
+async def get_retro_item_response(item_id: str) -> RetroItemResponse:
+    """Get enriched retro item response"""
+    item = await db.retro_items.find_one({"id": item_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    
+    # Get creator name
+    creator = await db.users.find_one({"id": item["created_by"]}, {"_id": 0, "name": 1})
+    item["created_by_name"] = creator.get("name") if creator else None
+    
+    # Get assignee name if action item
+    if item.get("assigned_to"):
+        assignee = await db.users.find_one({"id": item["assigned_to"]}, {"_id": 0, "name": 1})
+        item["assigned_to_name"] = assignee.get("name") if assignee else None
+    
+    return RetroItemResponse(**item)

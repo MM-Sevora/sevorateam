@@ -1327,3 +1327,76 @@ class AppReleaseResponse(BaseModel):
     created_by_name: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
+
+
+# ============== SPRINT RETROSPECTIVE MODELS ==============
+
+class RetroItemType(str, Enum):
+    """Types of retrospective items"""
+    WENT_WELL = "went_well"
+    DIDNT_GO_WELL = "didnt_go_well"
+    ACTION_ITEM = "action_item"
+
+
+class RetroItemCreate(BaseModel):
+    """Create a retrospective item"""
+    sprint_id: str
+    item_type: RetroItemType
+    content: str
+    votes: int = 0
+
+
+class RetroItemUpdate(BaseModel):
+    """Update a retrospective item"""
+    content: Optional[str] = None
+    votes: Optional[int] = None
+    is_resolved: Optional[bool] = None
+    assigned_to: Optional[str] = None
+
+
+class RetroItemResponse(BaseModel):
+    """Retrospective item response"""
+    id: str
+    sprint_id: str
+    item_type: RetroItemType
+    content: str
+    votes: int = 0
+    is_resolved: bool = False
+    assigned_to: Optional[str] = None
+    assigned_to_name: Optional[str] = None
+    created_by: str
+    created_by_name: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class SprintRetroCreate(BaseModel):
+    """Create a sprint retrospective"""
+    sprint_id: str
+    facilitator_id: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class SprintRetroResponse(BaseModel):
+    """Sprint retrospective response"""
+    id: str
+    sprint_id: str
+    sprint_name: Optional[str] = None
+    project_id: Optional[str] = None
+    project_name: Optional[str] = None
+    facilitator_id: Optional[str] = None
+    facilitator_name: Optional[str] = None
+    notes: Optional[str] = None
+    # Items
+    went_well: List[RetroItemResponse] = []
+    didnt_go_well: List[RetroItemResponse] = []
+    action_items: List[RetroItemResponse] = []
+    # Stats
+    total_items: int = 0
+    total_votes: int = 0
+    action_items_resolved: int = 0
+    action_items_total: int = 0
+    # Metadata
+    created_by: Optional[str] = None
+    created_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
