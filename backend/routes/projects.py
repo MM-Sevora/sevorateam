@@ -1013,23 +1013,31 @@ async def get_my_tasks(
 ):
     """Get dashboard of tasks for current user"""
     user_id = user["id"]
+    user_email = user.get("email", "")
     today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     today_str = today.isoformat()
     tomorrow_str = (today + timedelta(days=1)).isoformat()
     
     # Tasks assigned to me (not completed) - from pm_tasks
+    # Check both by user_id and email for flexibility
     assigned_query = {
-        "assigned_to": user_id,
+        "$or": [
+            {"assigned_to": user_id},
+            {"assigned_to": user_email}
+        ],
         "status": {"$nin": [TaskStatus.COMPLETED.value, TaskStatus.APPROVED.value]}
     }
-    tasks_assigned = await db.pm_tasks.find(assigned_query, {"_id": 0}).sort("due_date", 1).to_list(50)
+    tasks_assigned = await db.pm_tasks.find(assigned_query, {"_id": 0}).sort("due_date", 1).to_list(100)
     
     # Also get tasks from unified_tasks (sourcing, marketing, etc. modules)
     unified_assigned_query = {
-        "assigned_to": user_id,
+        "$or": [
+            {"assigned_to": user_id},
+            {"assigned_to": user_email}
+        ],
         "status": {"$nin": ["completed", "cancelled"]}
     }
-    unified_tasks_assigned = await db.unified_tasks.find(unified_assigned_query, {"_id": 0}).sort("due_date", 1).to_list(50)
+    unified_tasks_assigned = await db.unified_tasks.find(unified_assigned_query, {"_id": 0}).sort("due_date", 1).to_list(100)
     
     # Merge and deduplicate by id
     all_assigned_ids = {t.get("id") for t in tasks_assigned}
@@ -1040,18 +1048,24 @@ async def get_my_tasks(
     
     # Tasks due today
     due_today_query = {
-        "assigned_to": user_id,
+        "$or": [
+            {"assigned_to": user_id},
+            {"assigned_to": user_email}
+        ],
         "due_date": {"$gte": today_str, "$lt": tomorrow_str},
         "status": {"$nin": [TaskStatus.COMPLETED.value, TaskStatus.APPROVED.value]}
     }
-    tasks_due_today = await db.pm_tasks.find(due_today_query, {"_id": 0}).to_list(50)
+    tasks_due_today = await db.pm_tasks.find(due_today_query, {"_id": 0}).to_list(100)
     
     # Also from unified_tasks
     unified_due_today = await db.unified_tasks.find({
-        "assigned_to": user_id,
+        "$or": [
+            {"assigned_to": user_id},
+            {"assigned_to": user_email}
+        ],
         "due_date": {"$gte": today_str, "$lt": tomorrow_str},
         "status": {"$nin": ["completed", "cancelled"]}
-    }, {"_id": 0}).to_list(50)
+    }, {"_id": 0}).to_list(100)
     due_today_ids = {t.get("id") for t in tasks_due_today}
     for ut in unified_due_today:
         if ut.get("id") not in due_today_ids:
@@ -1059,18 +1073,24 @@ async def get_my_tasks(
     
     # Overdue tasks
     overdue_query = {
-        "assigned_to": user_id,
+        "$or": [
+            {"assigned_to": user_id},
+            {"assigned_to": user_email}
+        ],
         "due_date": {"$lt": today_str},
         "status": {"$nin": [TaskStatus.COMPLETED.value, TaskStatus.APPROVED.value]}
     }
-    tasks_overdue = await db.pm_tasks.find(overdue_query, {"_id": 0}).sort("due_date", 1).to_list(50)
+    tasks_overdue = await db.pm_tasks.find(overdue_query, {"_id": 0}).sort("due_date", 1).to_list(100)
     
     # Also from unified_tasks
     unified_overdue = await db.unified_tasks.find({
-        "assigned_to": user_id,
+        "$or": [
+            {"assigned_to": user_id},
+            {"assigned_to": user_email}
+        ],
         "due_date": {"$lt": today_str, "$ne": None},
         "status": {"$nin": ["completed", "cancelled"]}
-    }, {"_id": 0}).to_list(50)
+    }, {"_id": 0}).to_list(100)
     overdue_ids = {t.get("id") for t in tasks_overdue}
     for ut in unified_overdue:
         if ut.get("id") not in overdue_ids:
@@ -1078,16 +1098,22 @@ async def get_my_tasks(
     
     # Tasks in progress
     in_progress_query = {
-        "assigned_to": user_id,
+        "$or": [
+            {"assigned_to": user_id},
+            {"assigned_to": user_email}
+        ],
         "status": TaskStatus.IN_PROGRESS.value
     }
-    tasks_in_progress = await db.pm_tasks.find(in_progress_query, {"_id": 0}).to_list(50)
+    tasks_in_progress = await db.pm_tasks.find(in_progress_query, {"_id": 0}).to_list(100)
     
     # Also from unified_tasks
     unified_in_progress = await db.unified_tasks.find({
-        "assigned_to": user_id,
+        "$or": [
+            {"assigned_to": user_id},
+            {"assigned_to": user_email}
+        ],
         "status": "in_progress"
-    }, {"_id": 0}).to_list(50)
+    }, {"_id": 0}).to_list(100)
     in_progress_ids = {t.get("id") for t in tasks_in_progress}
     for ut in unified_in_progress:
         if ut.get("id") not in in_progress_ids:
@@ -1095,10 +1121,13 @@ async def get_my_tasks(
     
     # Tasks pending review
     pending_review_query = {
-        "assigned_to": user_id,
+        "$or": [
+            {"assigned_to": user_id},
+            {"assigned_to": user_email}
+        ],
         "status": TaskStatus.PENDING_REVIEW.value
     }
-    tasks_pending_review = await db.pm_tasks.find(pending_review_query, {"_id": 0}).to_list(50)
+    tasks_pending_review = await db.pm_tasks.find(pending_review_query, {"_id": 0}).to_list(100)
     
     # Recently completed (last 7 days)
     week_ago = (today - timedelta(days=7)).isoformat()
