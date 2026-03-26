@@ -132,6 +132,8 @@ const DailyStandupPage = lazy(() => import("./pages/engineering/DailyStandupPage
 const AppReleasesPage = lazy(() => import("./pages/engineering/AppReleasesPage"));
 const SprintRetroPage = lazy(() => import("./pages/engineering/SprintRetroPage"));
 const SprintIntelligencePage = lazy(() => import("./pages/engineering/SprintIntelligencePage"));
+const SprintReviewPage = lazy(() => import("./pages/engineering/SprintReviewPage"));
+const BugReleaseIntegrationPage = lazy(() => import("./pages/engineering/BugReleaseIntegrationPage"));
 
 // Knowledge Base Pages
 const KnowledgeBasePage = lazy(() => import("./pages/knowledge/KnowledgeBasePage"));
@@ -591,6 +593,8 @@ function AppRoutes() {
                 <Route path="/engineering/retro/:sprintId" element={<ProtectedRoute requiredModule="project_management"><SprintRetroPage /></ProtectedRoute>} />
                 <Route path="/engineering/intelligence" element={<ProtectedRoute requiredModule="project_management"><SprintIntelligencePage /></ProtectedRoute>} />
                 <Route path="/engineering/intelligence/:projectId" element={<ProtectedRoute requiredModule="project_management"><SprintIntelligencePage /></ProtectedRoute>} />
+                <Route path="/engineering/sprint-review" element={<ProtectedRoute requiredModule="project_management"><SprintReviewPage /></ProtectedRoute>} />
+                <Route path="/engineering/bug-release" element={<ProtectedRoute requiredModule="project_management"><BugReleaseIntegrationPage /></ProtectedRoute>} />
                 <Route path="/projects/:projectId/sprint-board" element={<ProtectedRoute requiredModule="project_management"><SprintBoardPage /></ProtectedRoute>} />
                 <Route path="/projects/:projectId/sprint-board/:sprintId" element={<ProtectedRoute requiredModule="project_management"><SprintBoardPage /></ProtectedRoute>} />
                 <Route path="/projects/engineering/backlog" element={<ProtectedRoute requiredModule="project_management"><GlobalBacklogPage /></ProtectedRoute>} />

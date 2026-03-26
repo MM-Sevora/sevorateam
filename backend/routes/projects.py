@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 from models.projects import (
     PMModuleCreate, PMModuleUpdate, PMModuleResponse,
     ProjectCreate, ProjectUpdate, ProjectResponse, ProjectStatus, ProjectType,
-    TaskCreate, TaskUpdate, TaskResponse, TaskStatus, Priority,
+    TaskCreate, TaskUpdate, TaskResponse, TaskStatus, Priority, IssueType,
     SubtaskCreate, SubtaskUpdate, SubtaskResponse,
     ChecklistItemCreate, ChecklistItemUpdate, ChecklistItemResponse,
     TaskCommentCreate, TaskCommentResponse,
@@ -2967,8 +2967,10 @@ async def list_all_tasks(
     status: Optional[TaskStatus] = None,
     assigned_to: Optional[str] = None,
     priority: Optional[Priority] = None,
+    issue_type: Optional[IssueType] = None,
     search: Optional[str] = None,
     include_my_tasks: bool = True,
+    limit: int = 500,
     user: dict = Depends(get_current_user_dep)
 ):
     """List all tasks with filters. By default includes tasks assigned to current user."""
@@ -2986,6 +2988,8 @@ async def list_all_tasks(
         query["assigned_to"] = assigned_to
     if priority:
         query["priority"] = priority.value
+    if issue_type:
+        query["issue_type"] = issue_type.value
     if search:
         query["$or"] = [
             {"name": {"$regex": search, "$options": "i"}},
@@ -3003,7 +3007,7 @@ async def list_all_tasks(
         department_field="department_id"
     )
     
-    tasks = await db.pm_tasks.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    tasks = await db.pm_tasks.find(query, {"_id": 0}).sort("created_at", -1).to_list(limit)
     
     # Enrich tasks
     enriched_tasks = []
@@ -3099,6 +3103,27 @@ async def create_task(
         "blocks": data.blocks,
         "external_links": [link.model_dump() for link in data.external_links] if data.external_links else [],
         "is_individual": data.project_id is None,  # Flag for individual tasks
+        # Issue type fields (Jira-like)
+        "issue_type": data.issue_type.value if data.issue_type else IssueType.TASK.value,
+        "epic_id": data.epic_id,
+        "parent_story_id": data.parent_story_id,
+        "story_points": data.story_points,
+        "sprint_id": data.sprint_id,
+        "milestone_id": data.milestone_id,
+        # Bug-specific fields
+        "bug_severity": data.bug_severity.value if data.bug_severity else None,
+        "reproduction_steps": data.reproduction_steps,
+        "expected_behavior": data.expected_behavior,
+        "actual_behavior": data.actual_behavior,
+        "environment": data.environment,
+        # Story-specific fields
+        "acceptance_criteria": data.acceptance_criteria,
+        # Recurrence fields
+        "is_recurring": data.is_recurring,
+        "recurrence_pattern": data.recurrence_pattern,
+        "recurrence_interval": data.recurrence_interval,
+        "recurrence_days": data.recurrence_days,
+        "recurrence_end_date": data.recurrence_end_date,
         "created_by": user["id"],
         "created_at": now,
         "updated_at": now

@@ -14,7 +14,8 @@ import {
     HelpCircle, Award, Network, Shield, Flag, CalendarDays, RefreshCw, Plus, Globe,
     TrendingUp, PieChart, Activity, FileText, Package, Factory, FlaskConical, Search, Database,
     Server, Plug, Bell, ClipboardList, Bot, Cog, CheckCircle, MessageCircle, Key, Lock, Receipt,
-    CreditCard, Megaphone, FileImage, LayoutGrid, Layers, BookOpen, Map, Code, Smartphone
+    CreditCard, Megaphone, FileImage, LayoutGrid, Layers, BookOpen, Map, Code, Smartphone,
+    Eye, Bug
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -130,10 +131,12 @@ const DEPARTMENT_CONFIG = {
                 items: [
                     { path: '/engineering/sprints', name: 'Sprints', icon: Zap },
                     { path: '/engineering/intelligence', name: 'Sprint Intelligence', icon: BarChart3 },
+                    { path: '/engineering/sprint-review', name: 'Sprint Review', icon: Eye },
                     { path: '/engineering/retro', name: 'Retrospectives', icon: MessageSquare },
                     { path: '/engineering/roadmap', name: 'Roadmap', icon: Map },
                     { path: '/engineering/standups', name: 'Daily Standups', icon: Users },
                     { path: '/engineering/app-releases', name: 'App Releases', icon: Smartphone },
+                    { path: '/engineering/bug-release', name: 'Bug + Releases', icon: Bug },
                 ]
             },
             { 

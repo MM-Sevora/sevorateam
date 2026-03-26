@@ -1478,3 +1478,152 @@ class SprintRetroResponse(BaseModel):
     created_by: Optional[str] = None
     created_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
+
+
+
+# ============== SPRINT REVIEW MODELS ==============
+
+class SprintReviewStatus(str, Enum):
+    """Sprint review status"""
+    DRAFT = "draft"
+    IN_REVIEW = "in_review"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    NEEDS_CHANGES = "needs_changes"
+
+
+class DemoItem(BaseModel):
+    """Demo item for sprint review"""
+    id: Optional[str] = None
+    task_id: Optional[str] = None
+    task_name: Optional[str] = None
+    demo_notes: str = ""
+    demo_video_url: Optional[str] = None
+    presenter_id: Optional[str] = None
+    presenter_name: Optional[str] = None
+    order: int = 0
+
+
+class StakeholderFeedback(BaseModel):
+    """Stakeholder feedback on sprint review"""
+    id: Optional[str] = None
+    stakeholder_id: str
+    stakeholder_name: Optional[str] = None
+    rating: Optional[int] = None  # 1-5 stars
+    feedback: str = ""
+    approval_status: str = "pending"  # pending, approved, rejected, needs_changes
+    created_at: Optional[str] = None
+
+
+class SprintReviewCreate(BaseModel):
+    """Create a sprint review"""
+    sprint_id: str
+    project_id: str
+    title: Optional[str] = None
+    summary: Optional[str] = None
+    demo_items: List[Dict] = []  # List of DemoItem dicts
+    stakeholder_ids: List[str] = []  # IDs of stakeholders to invite
+
+
+class SprintReviewUpdate(BaseModel):
+    """Update a sprint review"""
+    title: Optional[str] = None
+    summary: Optional[str] = None
+    demo_items: Optional[List[Dict]] = None
+    stakeholder_ids: Optional[List[str]] = None
+    status: Optional[SprintReviewStatus] = None
+    scheduled_date: Optional[str] = None
+    meeting_link: Optional[str] = None
+
+
+class SprintReviewResponse(BaseModel):
+    """Sprint review response"""
+    id: str
+    sprint_id: str
+    sprint_name: Optional[str] = None
+    project_id: str
+    project_name: Optional[str] = None
+    title: Optional[str] = None
+    summary: Optional[str] = None
+    demo_items: List[Dict] = []
+    stakeholder_ids: List[str] = []
+    stakeholder_feedback: List[Dict] = []  # List of StakeholderFeedback
+    status: SprintReviewStatus = SprintReviewStatus.DRAFT
+    scheduled_date: Optional[str] = None
+    meeting_link: Optional[str] = None
+    approval_count: int = 0
+    rejection_count: int = 0
+    pending_count: int = 0
+    overall_rating: Optional[float] = None  # Average rating
+    created_by: Optional[str] = None
+    created_by_name: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+# ============== BUG + RELEASE INTEGRATION MODELS ==============
+
+class BugStatus(str, Enum):
+    """Bug lifecycle status"""
+    REPORTED = "reported"
+    TRIAGED = "triaged"
+    IN_SPRINT = "in_sprint"
+    IN_PROGRESS = "in_progress"
+    FIXED = "fixed"
+    VERIFIED = "verified"
+    RELEASED = "released"
+    CLOSED = "closed"
+    WONT_FIX = "wont_fix"
+
+
+class BugSeverity(str, Enum):
+    """Bug severity levels"""
+    CRITICAL = "critical"  # System down, data loss
+    HIGH = "high"          # Major feature broken
+    MEDIUM = "medium"      # Feature partially working
+    LOW = "low"            # Minor issue, workaround exists
+
+
+class BugReleaseLink(BaseModel):
+    """Link between bug and release"""
+    bug_id: str
+    bug_name: Optional[str] = None
+    release_id: str
+    release_name: Optional[str] = None
+    status: str = "pending"  # pending, fixed, verified, released
+    fixed_in_commit: Optional[str] = None
+    verified_by: Optional[str] = None
+    verified_at: Optional[str] = None
+
+
+class BugToReleaseRequest(BaseModel):
+    """Request to link bug to release"""
+    bug_task_id: str
+    release_id: str
+    sprint_id: Optional[str] = None  # Sprint where bug will be fixed
+
+
+class ReleaseWithBugsResponse(BaseModel):
+    """Release response with linked bugs"""
+    id: str
+    project_id: str
+    project_name: Optional[str] = None
+    name: str
+    description: Optional[str] = None
+    version: Optional[str] = None
+    release_date: Optional[str] = None
+    status: ReleaseStatus = ReleaseStatus.PLANNED
+    # Bug tracking
+    linked_bugs: List[Dict] = []  # List of BugReleaseLink
+    bugs_total: int = 0
+    bugs_fixed: int = 0
+    bugs_verified: int = 0
+    bugs_pending: int = 0
+    # Tasks/features
+    linked_tasks: List[str] = []
+    tasks_total: int = 0
+    tasks_completed: int = 0
+    # Metadata
+    created_by: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None

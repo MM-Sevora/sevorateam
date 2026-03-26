@@ -15,7 +15,11 @@ from models.projects import (
     AppReleaseCreate, AppReleaseUpdate, AppReleaseResponse,
     AppPlatform, AppReleaseStatus,
     RetroItemCreate, RetroItemUpdate, RetroItemResponse, RetroItemType,
-    SprintRetroCreate, SprintRetroResponse
+    SprintRetroCreate, SprintRetroResponse,
+    # Sprint Review models
+    SprintReviewCreate, SprintReviewUpdate, SprintReviewResponse, SprintReviewStatus,
+    # Bug + Release models
+    BugToReleaseRequest, ReleaseWithBugsResponse, BugStatus, BugSeverity
 )
 from server import db
 
@@ -776,3 +780,565 @@ async def get_retro_item_response(item_id: str) -> RetroItemResponse:
         item["assigned_to_name"] = assignee.get("name") if assignee else None
     
     return RetroItemResponse(**item)
+
+
+# ============== SPRINT REVIEW ROUTES ==============
+
+@router.post("/sprint-reviews", response_model=SprintReviewResponse)
+async def create_sprint_review(
+    data: SprintReviewCreate,
+    user: dict = Depends(get_current_user)
+):
+    """Create a sprint review for demo and stakeholder feedback"""
+    # Verify sprint exists
+    sprint = await db.pm_sprints.find_one({"id": data.sprint_id}, {"_id": 0})
+    if not sprint:
+        raise HTTPException(status_code=404, detail="Sprint not found")
+    
+    # Get project
+    project = await db.pm_projects.find_one({"id": data.project_id}, {"_id": 0, "name": 1})
+    
+    now = datetime.now(timezone.utc).isoformat()
+    review_id = str(uuid.uuid4())
+    
+    # Initialize demo items with IDs
+    demo_items = []
+    for idx, item in enumerate(data.demo_items):
+        demo_items.append({
+            "id": f"demo_{review_id}_{idx}",
+            "task_id": item.get("task_id"),
+            "task_name": item.get("task_name"),
+            "demo_notes": item.get("demo_notes", ""),
+            "demo_video_url": item.get("demo_video_url"),
+            "presenter_id": item.get("presenter_id"),
+            "presenter_name": item.get("presenter_name"),
+            "order": idx
+        })
+    
+    review = {
+        "id": review_id,
+        "sprint_id": data.sprint_id,
+        "sprint_name": sprint.get("name"),
+        "project_id": data.project_id,
+        "project_name": project.get("name") if project else None,
+        "title": data.title or f"Sprint Review: {sprint.get('name')}",
+        "summary": data.summary,
+        "demo_items": demo_items,
+        "stakeholder_ids": data.stakeholder_ids,
+        "stakeholder_feedback": [],
+        "status": SprintReviewStatus.DRAFT.value,
+        "scheduled_date": None,
+        "meeting_link": None,
+        "approval_count": 0,
+        "rejection_count": 0,
+        "pending_count": len(data.stakeholder_ids),
+        "overall_rating": None,
+        "created_by": user["id"],
+        "created_by_name": user.get("name"),
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.sprint_reviews.insert_one(review)
+    
+    # Remove _id before returning
+    review.pop("_id", None)
+    return SprintReviewResponse(**review)
+
+
+@router.get("/sprint-reviews", response_model=List[SprintReviewResponse])
+async def list_sprint_reviews(
+    project_id: Optional[str] = None,
+    sprint_id: Optional[str] = None,
+    status: Optional[str] = None,
+    user: dict = Depends(get_current_user)
+):
+    """List sprint reviews with optional filters"""
+    query = {}
+    if project_id:
+        query["project_id"] = project_id
+    if sprint_id:
+        query["sprint_id"] = sprint_id
+    if status:
+        query["status"] = status
+    
+    reviews = await db.sprint_reviews.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return [SprintReviewResponse(**r) for r in reviews]
+
+
+@router.get("/sprint-reviews/{review_id}", response_model=SprintReviewResponse)
+async def get_sprint_review(
+    review_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Get a specific sprint review"""
+    review = await db.sprint_reviews.find_one({"id": review_id}, {"_id": 0})
+    if not review:
+        raise HTTPException(status_code=404, detail="Sprint review not found")
+    
+    # Enrich stakeholder feedback with names
+    for feedback in review.get("stakeholder_feedback", []):
+        if feedback.get("stakeholder_id") and not feedback.get("stakeholder_name"):
+            stakeholder = await db.users.find_one({"id": feedback["stakeholder_id"]}, {"name": 1})
+            feedback["stakeholder_name"] = stakeholder.get("name") if stakeholder else None
+    
+    return SprintReviewResponse(**review)
+
+
+@router.put("/sprint-reviews/{review_id}", response_model=SprintReviewResponse)
+async def update_sprint_review(
+    review_id: str,
+    data: SprintReviewUpdate,
+    user: dict = Depends(get_current_user)
+):
+    """Update a sprint review"""
+    review = await db.sprint_reviews.find_one({"id": review_id})
+    if not review:
+        raise HTTPException(status_code=404, detail="Sprint review not found")
+    
+    update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    
+    if data.title is not None:
+        update_data["title"] = data.title
+    if data.summary is not None:
+        update_data["summary"] = data.summary
+    if data.demo_items is not None:
+        # Add IDs to new demo items
+        demo_items = []
+        for idx, item in enumerate(data.demo_items):
+            demo_items.append({
+                "id": item.get("id") or f"demo_{review_id}_{idx}",
+                "task_id": item.get("task_id"),
+                "task_name": item.get("task_name"),
+                "demo_notes": item.get("demo_notes", ""),
+                "demo_video_url": item.get("demo_video_url"),
+                "presenter_id": item.get("presenter_id"),
+                "presenter_name": item.get("presenter_name"),
+                "order": idx
+            })
+        update_data["demo_items"] = demo_items
+    if data.stakeholder_ids is not None:
+        update_data["stakeholder_ids"] = data.stakeholder_ids
+        update_data["pending_count"] = len(data.stakeholder_ids)
+    if data.status is not None:
+        update_data["status"] = data.status.value
+    if data.scheduled_date is not None:
+        update_data["scheduled_date"] = data.scheduled_date
+    if data.meeting_link is not None:
+        update_data["meeting_link"] = data.meeting_link
+    
+    await db.sprint_reviews.update_one({"id": review_id}, {"$set": update_data})
+    
+    return await get_sprint_review(review_id, user)
+
+
+@router.post("/sprint-reviews/{review_id}/feedback")
+async def submit_stakeholder_feedback(
+    review_id: str,
+    rating: Optional[int] = None,
+    feedback: str = "",
+    approval_status: str = "pending",  # approved, rejected, needs_changes
+    user: dict = Depends(get_current_user)
+):
+    """Submit stakeholder feedback on a sprint review"""
+    review = await db.sprint_reviews.find_one({"id": review_id})
+    if not review:
+        raise HTTPException(status_code=404, detail="Sprint review not found")
+    
+    # Create feedback entry
+    feedback_entry = {
+        "id": f"feedback_{review_id}_{user['id']}",
+        "stakeholder_id": user["id"],
+        "stakeholder_name": user.get("name"),
+        "rating": rating,
+        "feedback": feedback,
+        "approval_status": approval_status,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    # Check if this stakeholder already submitted feedback
+    existing_feedback = review.get("stakeholder_feedback", [])
+    updated = False
+    for idx, f in enumerate(existing_feedback):
+        if f.get("stakeholder_id") == user["id"]:
+            existing_feedback[idx] = feedback_entry
+            updated = True
+            break
+    
+    if not updated:
+        existing_feedback.append(feedback_entry)
+    
+    # Calculate counts
+    approval_count = sum(1 for f in existing_feedback if f.get("approval_status") == "approved")
+    rejection_count = sum(1 for f in existing_feedback if f.get("approval_status") == "rejected")
+    pending_count = len(review.get("stakeholder_ids", [])) - len(existing_feedback)
+    
+    # Calculate average rating
+    ratings = [f.get("rating") for f in existing_feedback if f.get("rating")]
+    overall_rating = sum(ratings) / len(ratings) if ratings else None
+    
+    # Update review status based on feedback
+    new_status = review.get("status")
+    if approval_status == "rejected" and rejection_count > 0:
+        new_status = SprintReviewStatus.REJECTED.value
+    elif approval_status == "needs_changes":
+        new_status = SprintReviewStatus.NEEDS_CHANGES.value
+    elif approval_count > 0 and rejection_count == 0 and pending_count == 0:
+        new_status = SprintReviewStatus.APPROVED.value
+    elif len(existing_feedback) > 0:
+        new_status = SprintReviewStatus.IN_REVIEW.value
+    
+    await db.sprint_reviews.update_one(
+        {"id": review_id},
+        {"$set": {
+            "stakeholder_feedback": existing_feedback,
+            "approval_count": approval_count,
+            "rejection_count": rejection_count,
+            "pending_count": max(0, pending_count),
+            "overall_rating": overall_rating,
+            "status": new_status,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {
+        "message": "Feedback submitted",
+        "approval_count": approval_count,
+        "rejection_count": rejection_count,
+        "pending_count": max(0, pending_count),
+        "overall_rating": overall_rating,
+        "status": new_status
+    }
+
+
+@router.delete("/sprint-reviews/{review_id}")
+async def delete_sprint_review(
+    review_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Delete a sprint review"""
+    result = await db.sprint_reviews.delete_one({"id": review_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Sprint review not found")
+    return {"message": "Sprint review deleted"}
+
+
+# ============== BUG + RELEASE INTEGRATION ROUTES ==============
+
+@router.post("/bugs/link-to-release")
+async def link_bug_to_release(
+    data: BugToReleaseRequest,
+    user: dict = Depends(get_current_user)
+):
+    """Link a bug to a release and optionally to a sprint for fixing"""
+    # Verify bug exists (it's a task with issue_type='bug')
+    bug_task = await db.pm_tasks.find_one({"id": data.bug_task_id}, {"_id": 0})
+    if not bug_task:
+        raise HTTPException(status_code=404, detail="Bug task not found")
+    if bug_task.get("issue_type") != "bug":
+        raise HTTPException(status_code=400, detail="Task is not a bug")
+    
+    # Verify release exists
+    release = await db.pm_releases.find_one({"id": data.release_id}, {"_id": 0})
+    if not release:
+        raise HTTPException(status_code=404, detail="Release not found")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Create bug-release link
+    link = {
+        "id": str(uuid.uuid4()),
+        "bug_id": data.bug_task_id,
+        "bug_name": bug_task.get("name"),
+        "release_id": data.release_id,
+        "release_name": release.get("name"),
+        "status": "pending",  # pending, fixed, verified, released
+        "fixed_in_commit": None,
+        "verified_by": None,
+        "verified_at": None,
+        "created_by": user["id"],
+        "created_at": now
+    }
+    
+    # Add link to release
+    await db.pm_releases.update_one(
+        {"id": data.release_id},
+        {"$push": {"linked_bugs": link}, "$set": {"updated_at": now}}
+    )
+    
+    # Update task with release info
+    update_task = {
+        "linked_release_id": data.release_id,
+        "linked_release_name": release.get("name"),
+        "bug_status": BugStatus.TRIAGED.value,
+        "updated_at": now
+    }
+    
+    # If sprint specified, add to sprint
+    if data.sprint_id:
+        sprint = await db.pm_sprints.find_one({"id": data.sprint_id}, {"_id": 0})
+        if sprint:
+            update_task["sprint_id"] = data.sprint_id
+            update_task["sprint_name"] = sprint.get("name")
+            update_task["bug_status"] = BugStatus.IN_SPRINT.value
+    
+    await db.pm_tasks.update_one({"id": data.bug_task_id}, {"$set": update_task})
+    
+    return {
+        "message": "Bug linked to release",
+        "bug_id": data.bug_task_id,
+        "release_id": data.release_id,
+        "sprint_id": data.sprint_id
+    }
+
+
+@router.put("/bugs/{bug_id}/status")
+async def update_bug_status(
+    bug_id: str,
+    status: str,
+    fixed_in_commit: Optional[str] = None,
+    user: dict = Depends(get_current_user)
+):
+    """Update bug status in the Bug → Sprint → Fix → Release → Production flow"""
+    bug_task = await db.pm_tasks.find_one({"id": bug_id})
+    if not bug_task:
+        raise HTTPException(status_code=404, detail="Bug not found")
+    
+    # Validate status
+    valid_statuses = [s.value for s in BugStatus]
+    if status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    update_data = {
+        "bug_status": status,
+        "updated_at": now
+    }
+    
+    if fixed_in_commit:
+        update_data["fixed_in_commit"] = fixed_in_commit
+    
+    # Map bug status to task status
+    status_map = {
+        "reported": "draft",
+        "triaged": "todo",
+        "in_sprint": "todo",
+        "in_progress": "in_progress",
+        "fixed": "pending_review",
+        "verified": "approved",
+        "released": "completed",
+        "closed": "completed",
+        "wont_fix": "cancelled"
+    }
+    
+    if status in status_map:
+        update_data["status"] = status_map[status]
+    
+    await db.pm_tasks.update_one({"id": bug_id}, {"$set": update_data})
+    
+    # Update bug link in release if exists
+    if bug_task.get("linked_release_id"):
+        bug_link_status = "pending"
+        if status in ["fixed", "in_progress"]:
+            bug_link_status = "fixed"
+        elif status == "verified":
+            bug_link_status = "verified"
+        elif status == "released":
+            bug_link_status = "released"
+        
+        await db.pm_releases.update_one(
+            {"id": bug_task["linked_release_id"], "linked_bugs.bug_id": bug_id},
+            {"$set": {
+                "linked_bugs.$.status": bug_link_status,
+                "linked_bugs.$.fixed_in_commit": fixed_in_commit,
+                "linked_bugs.$.verified_by": user["id"] if status == "verified" else None,
+                "linked_bugs.$.verified_at": now if status == "verified" else None,
+                "updated_at": now
+            }}
+        )
+    
+    return {"message": "Bug status updated", "bug_id": bug_id, "status": status}
+
+
+@router.get("/releases/{release_id}/bugs")
+async def get_release_bugs(
+    release_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Get all bugs linked to a release with their status"""
+    release = await db.pm_releases.find_one({"id": release_id}, {"_id": 0})
+    if not release:
+        raise HTTPException(status_code=404, detail="Release not found")
+    
+    linked_bugs = release.get("linked_bugs", [])
+    
+    # Enrich with current bug details
+    enriched_bugs = []
+    for link in linked_bugs:
+        bug_task = await db.pm_tasks.find_one({"id": link["bug_id"]}, {"_id": 0})
+        if bug_task:
+            enriched_bugs.append({
+                **link,
+                "bug_name": bug_task.get("name"),
+                "bug_status": bug_task.get("bug_status", bug_task.get("status")),
+                "priority": bug_task.get("priority"),
+                "severity": bug_task.get("severity"),
+                "assignee_id": bug_task.get("assignee_id"),
+                "assignee_name": bug_task.get("assignee_name"),
+                "sprint_id": bug_task.get("sprint_id"),
+                "sprint_name": bug_task.get("sprint_name")
+            })
+    
+    # Calculate stats
+    bugs_total = len(enriched_bugs)
+    bugs_fixed = sum(1 for b in enriched_bugs if b.get("status") in ["fixed", "verified", "released"])
+    bugs_verified = sum(1 for b in enriched_bugs if b.get("status") in ["verified", "released"])
+    bugs_pending = bugs_total - bugs_fixed
+    
+    return {
+        "release_id": release_id,
+        "release_name": release.get("name"),
+        "bugs": enriched_bugs,
+        "bugs_total": bugs_total,
+        "bugs_fixed": bugs_fixed,
+        "bugs_verified": bugs_verified,
+        "bugs_pending": bugs_pending
+    }
+
+
+@router.post("/releases/{release_id}/verify-bug/{bug_id}")
+async def verify_bug_in_release(
+    release_id: str,
+    bug_id: str,
+    verified: bool = True,
+    notes: Optional[str] = None,
+    user: dict = Depends(get_current_user)
+):
+    """Mark a bug as verified in a release (QA verification)"""
+    now = datetime.now(timezone.utc).isoformat()
+    
+    new_status = BugStatus.VERIFIED.value if verified else BugStatus.FIXED.value
+    
+    # Update task
+    await db.pm_tasks.update_one(
+        {"id": bug_id},
+        {"$set": {
+            "bug_status": new_status,
+            "verified_by": user["id"] if verified else None,
+            "verified_at": now if verified else None,
+            "verification_notes": notes,
+            "updated_at": now
+        }}
+    )
+    
+    # Update release link
+    await db.pm_releases.update_one(
+        {"id": release_id, "linked_bugs.bug_id": bug_id},
+        {"$set": {
+            "linked_bugs.$.status": "verified" if verified else "fixed",
+            "linked_bugs.$.verified_by": user["id"] if verified else None,
+            "linked_bugs.$.verified_at": now if verified else None,
+            "updated_at": now
+        }}
+    )
+    
+    return {
+        "message": "Bug verification updated",
+        "bug_id": bug_id,
+        "verified": verified
+    }
+
+
+@router.post("/releases/{release_id}/mark-released")
+async def mark_release_released(
+    release_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Mark a release as released and update all linked bugs to 'released' status"""
+    release = await db.pm_releases.find_one({"id": release_id})
+    if not release:
+        raise HTTPException(status_code=404, detail="Release not found")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Update release status
+    await db.pm_releases.update_one(
+        {"id": release_id},
+        {"$set": {
+            "status": "released",
+            "actual_release_date": now,
+            "updated_at": now
+        }}
+    )
+    
+    # Update all linked bugs to 'released' status
+    linked_bugs = release.get("linked_bugs", [])
+    for bug_link in linked_bugs:
+        if bug_link.get("status") == "verified":
+            await db.pm_tasks.update_one(
+                {"id": bug_link["bug_id"]},
+                {"$set": {
+                    "bug_status": BugStatus.RELEASED.value,
+                    "status": "completed",
+                    "updated_at": now
+                }}
+            )
+    
+    # Update release bug links
+    await db.pm_releases.update_many(
+        {"id": release_id, "linked_bugs.status": "verified"},
+        {"$set": {"linked_bugs.$[elem].status": "released"}},
+        array_filters=[{"elem.status": "verified"}]
+    )
+    
+    return {
+        "message": "Release marked as released",
+        "release_id": release_id,
+        "bugs_released": len([b for b in linked_bugs if b.get("status") == "verified"])
+    }
+
+
+@router.get("/bugs/workflow-status")
+async def get_bug_workflow_status(
+    project_id: Optional[str] = None,
+    user: dict = Depends(get_current_user)
+):
+    """Get overview of bug workflow status across all stages"""
+    query = {"issue_type": "bug"}
+    if project_id:
+        query["project_id"] = project_id
+    
+    bugs = await db.pm_tasks.find(query, {"_id": 0}).to_list(1000)
+    
+    # Group by bug_status
+    workflow_stats = {
+        "reported": [],
+        "triaged": [],
+        "in_sprint": [],
+        "in_progress": [],
+        "fixed": [],
+        "verified": [],
+        "released": [],
+        "closed": [],
+        "wont_fix": []
+    }
+    
+    for bug in bugs:
+        status = bug.get("bug_status", "reported")
+        if status in workflow_stats:
+            workflow_stats[status].append({
+                "id": bug["id"],
+                "name": bug.get("name"),
+                "priority": bug.get("priority"),
+                "severity": bug.get("severity"),
+                "sprint_id": bug.get("sprint_id"),
+                "release_id": bug.get("linked_release_id")
+            })
+    
+    return {
+        "workflow": workflow_stats,
+        "counts": {k: len(v) for k, v in workflow_stats.items()},
+        "total": len(bugs)
+    }
+
