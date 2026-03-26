@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -6,7 +6,7 @@ import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { toast } from 'sonner';
-import { ClipboardList, Loader2 } from 'lucide-react';
+import { ClipboardList, Loader2, Users, User } from 'lucide-react';
 
 /**
  * Reusable Create Task Dialog for creating operational tasks from any module
@@ -31,6 +31,9 @@ export default function CreateTaskDialog({
     onTaskCreated
 }) {
     const [loading, setLoading] = useState(false);
+    const [employees, setEmployees] = useState([]);
+    const [loadingEmployees, setLoadingEmployees] = useState(false);
+    const [assignmentType, setAssignmentType] = useState('team'); // 'team' or 'employee'
     const [taskData, setTaskData] = useState({
         title: '',
         description: '',
@@ -40,6 +43,32 @@ export default function CreateTaskDialog({
         assigned_team: sourceModule || ''
     });
 
+    // Fetch employees when dialog opens
+    useEffect(() => {
+        if (open) {
+            fetchEmployees();
+        }
+    }, [open]);
+
+    const fetchEmployees = async () => {
+        setLoadingEmployees(true);
+        try {
+            const response = await api.get('/workos/users');
+            setEmployees(response.data || []);
+        } catch (error) {
+            console.error('Failed to fetch employees:', error);
+            // Try fallback endpoint
+            try {
+                const fallback = await api.get('/users');
+                setEmployees(fallback.data || []);
+            } catch (e) {
+                console.error('Fallback also failed:', e);
+            }
+        } finally {
+            setLoadingEmployees(false);
+        }
+    };
+
     const handleCreate = async () => {
         if (!taskData.title.trim()) {
             toast.error('Task title is required');
@@ -48,12 +77,20 @@ export default function CreateTaskDialog({
 
         setLoading(true);
         try {
+            // Get assignee name if assigned to employee
+            let assigneeName = null;
+            if (taskData.assigned_to) {
+                const employee = employees.find(e => e.id === taskData.assigned_to);
+                assigneeName = employee?.name || employee?.email || null;
+            }
+
             const payload = {
                 title: taskData.title,
                 description: taskData.description,
                 priority: taskData.priority,
                 due_date: taskData.due_date || null,
                 assigned_to: taskData.assigned_to || null,
+                assigned_to_name: assigneeName,
                 assigned_team: taskData.assigned_team || null,
                 source_module: sourceModule,
                 source_entity_type: sourceEntityType,
@@ -74,6 +111,7 @@ export default function CreateTaskDialog({
                 assigned_to: '',
                 assigned_team: sourceModule || ''
             });
+            setAssignmentType('team');
             
             onOpenChange(false);
             if (onTaskCreated) {
@@ -96,6 +134,7 @@ export default function CreateTaskDialog({
             assigned_to: '',
             assigned_team: sourceModule || ''
         });
+        setAssignmentType('team');
         onOpenChange(false);
     };
 
@@ -181,24 +220,83 @@ export default function CreateTaskDialog({
                         </div>
                     </div>
 
-                    {/* Team Assignment */}
+                    {/* Assignment Type Toggle */}
                     <div>
-                        <Label className="text-[#5C4033]">Assign to Team</Label>
-                        <Select 
-                            value={taskData.assigned_team} 
-                            onValueChange={(v) => setTaskData({ ...taskData, assigned_team: v })}
-                        >
-                            <SelectTrigger className="border-[#DDD0C8]">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="sourcing">Sourcing Team</SelectItem>
-                                <SelectItem value="marketing">Marketing Team</SelectItem>
-                                <SelectItem value="sales">Sales Team</SelectItem>
-                                <SelectItem value="hr">HR Team</SelectItem>
-                                <SelectItem value="operations">Operations Team</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <Label className="text-[#5C4033] mb-2 block">Assign To</Label>
+                        <div className="flex gap-2 mb-3">
+                            <Button
+                                type="button"
+                                variant={assignmentType === 'team' ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => {
+                                    setAssignmentType('team');
+                                    setTaskData({ ...taskData, assigned_to: '' });
+                                }}
+                                className={assignmentType === 'team' ? 'bg-[#8B7355] hover:bg-[#5C4033]' : 'border-[#DDD0C8]'}
+                            >
+                                <Users className="w-4 h-4 mr-1" />
+                                Team
+                            </Button>
+                            <Button
+                                type="button"
+                                variant={assignmentType === 'employee' ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => {
+                                    setAssignmentType('employee');
+                                    setTaskData({ ...taskData, assigned_team: '' });
+                                }}
+                                className={assignmentType === 'employee' ? 'bg-[#8B7355] hover:bg-[#5C4033]' : 'border-[#DDD0C8]'}
+                            >
+                                <User className="w-4 h-4 mr-1" />
+                                Individual
+                            </Button>
+                        </div>
+
+                        {/* Team Selection */}
+                        {assignmentType === 'team' && (
+                            <Select 
+                                value={taskData.assigned_team} 
+                                onValueChange={(v) => setTaskData({ ...taskData, assigned_team: v })}
+                            >
+                                <SelectTrigger className="border-[#DDD0C8]">
+                                    <SelectValue placeholder="Select team" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="sourcing">Sourcing Team</SelectItem>
+                                    <SelectItem value="marketing">Marketing Team</SelectItem>
+                                    <SelectItem value="sales">Sales Team</SelectItem>
+                                    <SelectItem value="hr">HR Team</SelectItem>
+                                    <SelectItem value="operations">Operations Team</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        )}
+
+                        {/* Employee Selection */}
+                        {assignmentType === 'employee' && (
+                            <Select 
+                                value={taskData.assigned_to} 
+                                onValueChange={(v) => setTaskData({ ...taskData, assigned_to: v })}
+                            >
+                                <SelectTrigger className="border-[#DDD0C8]">
+                                    <SelectValue placeholder={loadingEmployees ? "Loading..." : "Select employee"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {employees.map((emp) => (
+                                        <SelectItem key={emp.id} value={emp.id}>
+                                            <span className="flex items-center gap-2">
+                                                <span className="w-6 h-6 rounded-full bg-[#8B7355] text-white flex items-center justify-center text-xs">
+                                                    {(emp.name || emp.email || '?')[0].toUpperCase()}
+                                                </span>
+                                                {emp.name || emp.email}
+                                                {emp.department && (
+                                                    <span className="text-xs text-gray-500">({emp.department})</span>
+                                                )}
+                                            </span>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
                     </div>
                 </div>
 
