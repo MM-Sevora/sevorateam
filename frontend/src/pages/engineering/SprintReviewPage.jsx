@@ -4,7 +4,7 @@ import {
   Presentation, Users, Star, ThumbsUp, ThumbsDown, AlertCircle,
   Calendar, Video, Link2, Plus, Edit2, Trash2, Save, X, Loader2,
   ChevronRight, CheckCircle2, XCircle, Clock, MessageSquare, Send,
-  Play, ExternalLink
+  Play, ExternalLink, Command
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -13,8 +13,10 @@ import { Badge } from '../../components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
 import { toast } from 'sonner';
 import api from '../../lib/api';
+import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 
 const STATUS_CONFIG = {
   draft: { label: 'Draft', color: 'bg-gray-100 text-gray-700', icon: Edit2 },
@@ -54,6 +56,15 @@ const SprintReviewPage = () => {
     rating: 0,
     feedback: '',
     approval_status: 'pending'
+  });
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    'ctrl+n': () => setShowCreateModal(true),
+    'escape': () => {
+      setShowCreateModal(false);
+      setShowFeedbackModal(false);
+    }
   });
 
   const fetchData = async () => {
@@ -205,10 +216,22 @@ const SprintReviewPage = () => {
             Demo completed work, gather stakeholder feedback, and track approvals
           </p>
         </div>
-        <Button onClick={() => setShowCreateModal(true)} className="bg-violet-600 hover:bg-violet-700">
-          <Plus className="w-4 h-4 mr-1" />
-          New Sprint Review
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button onClick={() => setShowCreateModal(true)} className="bg-violet-600 hover:bg-violet-700">
+                <Plus className="w-4 h-4 mr-1" />
+                New Sprint Review
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p className="flex items-center gap-1">
+                <Command className="w-3 h-3" />
+                <span>Ctrl+N</span>
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       {/* Reviews Grid */}

@@ -2604,6 +2604,58 @@ async def initialize_task_dod_endpoint(
     }
 
 
+@router.post("/sprints/{sprint_id}/initialize-dod")
+async def initialize_dod_for_sprint_tasks(
+    sprint_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Bulk initialize DoD for all tasks in a sprint that don't have DoD yet"""
+    # Get sprint
+    sprint = await db.pm_sprints.find_one({"id": sprint_id})
+    if not sprint:
+        raise HTTPException(status_code=404, detail="Sprint not found")
+    
+    project_id = sprint.get("project_id")
+    if not project_id:
+        raise HTTPException(status_code=400, detail="Sprint has no project_id")
+    
+    # Get DoD config for project
+    dod_config = await get_dod_config_for_project(project_id)
+    enabled_types = dod_config.get("enabled_for_issue_types", ["task", "bug"])
+    
+    # Find all tasks in sprint without DoD
+    tasks = await db.pm_tasks.find({
+        "sprint_id": sprint_id,
+        "issue_type": {"$in": enabled_types},
+        "$or": [
+            {"dod_checklist": {"$exists": False}},
+            {"dod_checklist": []},
+            {"dod_checklist": None}
+        ]
+    }).to_list(500)
+    
+    initialized_count = 0
+    for task in tasks:
+        dod_checklist = await initialize_task_dod(task["id"], project_id, task.get("issue_type", "task"))
+        if dod_checklist:
+            await db.pm_tasks.update_one(
+                {"id": task["id"]},
+                {"$set": {
+                    "dod_checklist": dod_checklist,
+                    "dod_complete": False,
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+            initialized_count += 1
+    
+    return {
+        "message": f"DoD initialized for {initialized_count} tasks",
+        "sprint_id": sprint_id,
+        "tasks_updated": initialized_count,
+        "tasks_skipped": len(tasks) - initialized_count
+    }
+
+
 @router.get("/{project_id}", response_model=ProjectResponse)
 async def get_project(
     project_id: str,

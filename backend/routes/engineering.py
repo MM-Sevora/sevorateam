@@ -320,6 +320,63 @@ async def get_project_backlog(
     )
 
 
+@router.get("/sprints/{sprint_id}/quick-stats")
+async def get_sprint_quick_stats(
+    sprint_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Get quick stats for a sprint (used in headers/badges)"""
+    sprint = await db.pm_sprints.find_one({"id": sprint_id}, {"_id": 0})
+    if not sprint:
+        raise HTTPException(status_code=404, detail="Sprint not found")
+    
+    # Get task stats
+    tasks = await db.pm_tasks.find({"sprint_id": sprint_id}, {"_id": 0}).to_list(500)
+    
+    total_tasks = len(tasks)
+    completed_tasks = sum(1 for t in tasks if t.get("status") in ["completed", "approved"])
+    in_progress = sum(1 for t in tasks if t.get("status") == "in_progress")
+    
+    total_points = sum(t.get("story_points", 0) or 0 for t in tasks)
+    completed_points = sum(t.get("story_points", 0) or 0 for t in tasks if t.get("status") in ["completed", "approved"])
+    
+    # DoD stats
+    dod_complete = sum(1 for t in tasks if t.get("dod_complete"))
+    dod_incomplete = sum(1 for t in tasks if t.get("dod_checklist") and not t.get("dod_complete"))
+    
+    # Bugs
+    bugs_total = sum(1 for t in tasks if t.get("issue_type") == "bug")
+    bugs_fixed = sum(1 for t in tasks if t.get("issue_type") == "bug" and t.get("status") in ["completed", "approved"])
+    
+    completion_percent = round((completed_tasks / total_tasks * 100) if total_tasks > 0 else 0)
+    points_percent = round((completed_points / total_points * 100) if total_points > 0 else 0)
+    
+    return {
+        "sprint_id": sprint_id,
+        "sprint_name": sprint.get("name"),
+        "status": sprint.get("status"),
+        "tasks": {
+            "total": total_tasks,
+            "completed": completed_tasks,
+            "in_progress": in_progress,
+            "completion_percent": completion_percent
+        },
+        "points": {
+            "total": total_points,
+            "completed": completed_points,
+            "completion_percent": points_percent
+        },
+        "dod": {
+            "complete": dod_complete,
+            "incomplete": dod_incomplete
+        },
+        "bugs": {
+            "total": bugs_total,
+            "fixed": bugs_fixed
+        }
+    }
+
+
 @router.post("/tasks/{task_id}/move-to-sprint")
 async def move_task_to_sprint(
     task_id: str,
