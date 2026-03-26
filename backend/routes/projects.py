@@ -969,6 +969,43 @@ async def list_activity(
 
 # ============== MY TASKS DASHBOARD (Must be before /{project_id}) ==============
 
+def normalize_unified_task(ut: dict) -> dict:
+    """Normalize a unified_task document to match pm_tasks format"""
+    # Map unified_tasks status to pm_tasks TaskStatus
+    status_map = {
+        "pending": TaskStatus.TODO.value,
+        "in_progress": TaskStatus.IN_PROGRESS.value,
+        "completed": TaskStatus.COMPLETED.value,
+        "cancelled": TaskStatus.ON_HOLD.value,
+    }
+    
+    return {
+        "id": ut.get("id"),
+        "name": ut.get("title"),  # pm_tasks uses 'name', unified uses 'title'
+        "title": ut.get("title"),
+        "description": ut.get("description"),
+        "status": status_map.get(ut.get("status", "pending"), TaskStatus.TODO.value),
+        "priority": ut.get("priority", "medium"),
+        "due_date": ut.get("due_date"),
+        "assigned_to": ut.get("assigned_to"),
+        "assigned_to_name": ut.get("assigned_to_name"),
+        "created_by": ut.get("created_by"),
+        "created_by_name": ut.get("created_by_name"),
+        "created_at": ut.get("created_at"),
+        "updated_at": ut.get("updated_at"),
+        "project_id": None,  # Unified tasks don't have projects
+        "sprint_id": None,
+        "source_type": "unified",
+        "source_module": ut.get("source_module"),
+        "source_entity_type": ut.get("source_entity_type"),
+        "source_entity_id": ut.get("source_entity_id"),
+        "related_url": ut.get("related_url"),
+        "tags": ut.get("tags", []),
+        "story_points": None,
+        "subtasks": [],
+        "dod_checklist": [],
+    }
+
 @router.get("/my-tasks", response_model=MyTasksResponse)
 async def get_my_tasks(
     user: dict = Depends(get_current_user_dep)
@@ -979,12 +1016,26 @@ async def get_my_tasks(
     today_str = today.isoformat()
     tomorrow_str = (today + timedelta(days=1)).isoformat()
     
-    # Tasks assigned to me (not completed)
+    # Tasks assigned to me (not completed) - from pm_tasks
     assigned_query = {
         "assigned_to": user_id,
         "status": {"$nin": [TaskStatus.COMPLETED.value, TaskStatus.APPROVED.value]}
     }
     tasks_assigned = await db.pm_tasks.find(assigned_query, {"_id": 0}).sort("due_date", 1).to_list(50)
+    
+    # Also get tasks from unified_tasks (sourcing, marketing, etc. modules)
+    unified_assigned_query = {
+        "assigned_to": user_id,
+        "status": {"$nin": ["completed", "cancelled"]}
+    }
+    unified_tasks_assigned = await db.unified_tasks.find(unified_assigned_query, {"_id": 0}).sort("due_date", 1).to_list(50)
+    
+    # Merge and deduplicate by id
+    all_assigned_ids = {t.get("id") for t in tasks_assigned}
+    for ut in unified_tasks_assigned:
+        if ut.get("id") not in all_assigned_ids:
+            # Normalize unified task format to match pm_tasks
+            tasks_assigned.append(normalize_unified_task(ut))
     
     # Tasks due today
     due_today_query = {
@@ -994,6 +1045,17 @@ async def get_my_tasks(
     }
     tasks_due_today = await db.pm_tasks.find(due_today_query, {"_id": 0}).to_list(50)
     
+    # Also from unified_tasks
+    unified_due_today = await db.unified_tasks.find({
+        "assigned_to": user_id,
+        "due_date": {"$gte": today_str, "$lt": tomorrow_str},
+        "status": {"$nin": ["completed", "cancelled"]}
+    }, {"_id": 0}).to_list(50)
+    due_today_ids = {t.get("id") for t in tasks_due_today}
+    for ut in unified_due_today:
+        if ut.get("id") not in due_today_ids:
+            tasks_due_today.append(normalize_unified_task(ut))
+    
     # Overdue tasks
     overdue_query = {
         "assigned_to": user_id,
@@ -1002,12 +1064,33 @@ async def get_my_tasks(
     }
     tasks_overdue = await db.pm_tasks.find(overdue_query, {"_id": 0}).sort("due_date", 1).to_list(50)
     
+    # Also from unified_tasks
+    unified_overdue = await db.unified_tasks.find({
+        "assigned_to": user_id,
+        "due_date": {"$lt": today_str, "$ne": None},
+        "status": {"$nin": ["completed", "cancelled"]}
+    }, {"_id": 0}).to_list(50)
+    overdue_ids = {t.get("id") for t in tasks_overdue}
+    for ut in unified_overdue:
+        if ut.get("id") not in overdue_ids:
+            tasks_overdue.append(normalize_unified_task(ut))
+    
     # Tasks in progress
     in_progress_query = {
         "assigned_to": user_id,
         "status": TaskStatus.IN_PROGRESS.value
     }
     tasks_in_progress = await db.pm_tasks.find(in_progress_query, {"_id": 0}).to_list(50)
+    
+    # Also from unified_tasks
+    unified_in_progress = await db.unified_tasks.find({
+        "assigned_to": user_id,
+        "status": "in_progress"
+    }, {"_id": 0}).to_list(50)
+    in_progress_ids = {t.get("id") for t in tasks_in_progress}
+    for ut in unified_in_progress:
+        if ut.get("id") not in in_progress_ids:
+            tasks_in_progress.append(normalize_unified_task(ut))
     
     # Tasks pending review
     pending_review_query = {
@@ -1025,6 +1108,17 @@ async def get_my_tasks(
     }
     recently_completed = await db.pm_tasks.find(completed_query, {"_id": 0}).sort("updated_at", -1).to_list(20)
     
+    # Also from unified_tasks
+    unified_completed = await db.unified_tasks.find({
+        "assigned_to": user_id,
+        "status": "completed",
+        "updated_at": {"$gte": week_ago}
+    }, {"_id": 0}).sort("updated_at", -1).to_list(20)
+    completed_ids = {t.get("id") for t in recently_completed}
+    for ut in unified_completed:
+        if ut.get("id") not in completed_ids:
+            recently_completed.append(normalize_unified_task(ut))
+    
     # Enrich all tasks
     enriched_assigned = [await enrich_task(t) for t in tasks_assigned]
     enriched_due_today = [await enrich_task(t) for t in tasks_due_today]
@@ -1033,9 +1127,14 @@ async def get_my_tasks(
     enriched_pending_review = [await enrich_task(t) for t in tasks_pending_review]
     enriched_completed = [await enrich_task(t) for t in recently_completed]
     
-    # Calculate stats
-    total_assigned = await db.pm_tasks.count_documents({"assigned_to": user_id, "status": {"$nin": [TaskStatus.COMPLETED.value, TaskStatus.APPROVED.value]}})
-    total_completed_ever = await db.pm_tasks.count_documents({"assigned_to": user_id, "status": {"$in": [TaskStatus.COMPLETED.value, TaskStatus.APPROVED.value]}})
+    # Calculate stats (include unified_tasks)
+    pm_total_assigned = await db.pm_tasks.count_documents({"assigned_to": user_id, "status": {"$nin": [TaskStatus.COMPLETED.value, TaskStatus.APPROVED.value]}})
+    unified_total_assigned = await db.unified_tasks.count_documents({"assigned_to": user_id, "status": {"$nin": ["completed", "cancelled"]}})
+    total_assigned = pm_total_assigned + unified_total_assigned
+    
+    pm_total_completed = await db.pm_tasks.count_documents({"assigned_to": user_id, "status": {"$in": [TaskStatus.COMPLETED.value, TaskStatus.APPROVED.value]}})
+    unified_total_completed = await db.unified_tasks.count_documents({"assigned_to": user_id, "status": "completed"})
+    total_completed_ever = pm_total_completed + unified_total_completed
     
     stats = {
         "total_assigned": total_assigned,
