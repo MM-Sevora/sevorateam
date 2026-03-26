@@ -765,21 +765,50 @@ async def update_user_permissions(
         for mod_code, perm in data.custom_permissions.items()
     }
     
-    # Update user with custom permissions
+    # Extract module codes from permissions for module_access
+    module_access = list(data.custom_permissions.keys())
+    
+    # Calculate merged_module_access based on override mode
+    if data.override_mode == "replace":
+        # Replace mode: Use ONLY custom modules
+        merged_module_access = module_access.copy()
+    else:
+        # Merge mode: Combine with role-based modules
+        merged_module_access = module_access.copy()
+        
+        # Get role-based modules
+        custom_role_ids = user.get("custom_role_ids", [])
+        if custom_role_ids:
+            roles = await db.custom_roles.find({"id": {"$in": custom_role_ids}}).to_list(20)
+            for role in roles:
+                merged_module_access.extend(role.get("module_access", []))
+    
+    # Add default modules
+    default_modules = ["dashboard", "notifications", "help_support"]
+    merged_module_access.extend(default_modules)
+    
+    # Deduplicate
+    merged_module_access = list(set(merged_module_access))
+    
+    # Update user with custom permissions AND module access
     await db.users.update_one(
         {"id": user_id},
         {"$set": {
             "custom_permissions": permissions_dict,
             "permission_override_mode": data.override_mode,
+            "module_access": module_access,
+            "merged_module_access": merged_module_access,
             "updated_at": datetime.now(timezone.utc).isoformat()
         }}
     )
     
     return {
         "success": True, 
-        "message": f"Permissions updated for user",
+        "message": "Permissions updated for user",
         "custom_permissions": permissions_dict,
-        "override_mode": data.override_mode
+        "override_mode": data.override_mode,
+        "module_access": module_access,
+        "merged_module_access": merged_module_access
     }
 
 
@@ -846,14 +875,29 @@ async def clear_user_permissions(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Clear custom permissions
+    # Recalculate merged_module_access from roles only
+    merged_module_access = []
+    custom_role_ids = user.get("custom_role_ids", [])
+    if custom_role_ids:
+        roles = await db.custom_roles.find({"id": {"$in": custom_role_ids}}).to_list(20)
+        for role in roles:
+            merged_module_access.extend(role.get("module_access", []))
+    
+    # Add default modules
+    default_modules = ["dashboard", "notifications", "help_support"]
+    merged_module_access.extend(default_modules)
+    merged_module_access = list(set(merged_module_access))
+    
+    # Clear custom permissions and reset module access to role-based
     await db.users.update_one(
         {"id": user_id},
         {"$unset": {
             "custom_permissions": "",
-            "permission_override_mode": ""
+            "permission_override_mode": "",
+            "module_access": ""
         },
         "$set": {
+            "merged_module_access": merged_module_access,
             "updated_at": datetime.now(timezone.utc).isoformat()
         }}
     )
