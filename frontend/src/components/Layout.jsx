@@ -442,7 +442,10 @@ export const Layout = ({ children }) => {
         if (path.includes('/engineering/reports') || path.includes('/engineering/workflows') || path.includes('/engineering/automations')) {
             groups.push('engineering-Insights');
         }
-        if (path.includes('/engineering/sprints') || path.includes('/engineering/roadmap') || path.includes('/engineering/releases')) {
+        if (path.includes('/engineering/sprints') || path.includes('/engineering/roadmap') || path.includes('/engineering/releases') || 
+            path.includes('/engineering/intelligence') || path.includes('/engineering/sprint-review') || 
+            path.includes('/engineering/retro') || path.includes('/engineering/standups') || 
+            path.includes('/engineering/app-releases') || path.includes('/engineering/bug-release')) {
             groups.push('engineering-Planning');
         }
         if (path.includes('/engineering/projects') || path.includes('/engineering/sprint-board') || path.includes('/engineering/backlog') || path.includes('/engineering/epics')) {

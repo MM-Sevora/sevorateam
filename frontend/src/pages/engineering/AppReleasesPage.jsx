@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import { 
   Smartphone, Apple, Globe, Plus, Rocket, Clock, CheckCircle, 
   AlertTriangle, Package, RefreshCw, Eye, Edit, Trash2, Link2,
-  ExternalLink, Loader2, Filter, Calendar, FileText, XCircle
+  ExternalLink, Loader2, Filter, Calendar, FileText, XCircle, ChevronRight
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
@@ -287,6 +287,15 @@ const AppReleasesPage = () => {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6" data-testid="app-releases-page">
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2 text-sm text-gray-500">
+        <span className="hover:text-violet-600 cursor-pointer" onClick={() => navigate('/engineering/sprints')}>
+          Engineering
+        </span>
+        <ChevronRight className="w-4 h-4" />
+        <span className="text-gray-900">App Releases</span>
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

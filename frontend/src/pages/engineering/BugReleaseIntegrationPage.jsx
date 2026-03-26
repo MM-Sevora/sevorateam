@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Bug, Package, GitBranch, ArrowRight, CheckCircle2, Circle, 
   AlertTriangle, Loader2, Plus, Search, Filter, RefreshCw,
@@ -37,6 +38,7 @@ const SEVERITY_CONFIG = {
 const WORKFLOW_STAGES = ['reported', 'triaged', 'in_sprint', 'in_progress', 'fixed', 'verified', 'released'];
 
 const BugReleaseIntegrationPage = () => {
+  const navigate = useNavigate();
   const [workflowData, setWorkflowData] = useState(null);
   const [releases, setReleases] = useState([]);
   const [sprints, setSprints] = useState([]);
@@ -185,6 +187,15 @@ const BugReleaseIntegrationPage = () => {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2 text-sm text-gray-500">
+        <span className="hover:text-violet-600 cursor-pointer" onClick={() => navigate('/engineering/sprints')}>
+          Engineering
+        </span>
+        <ChevronRight className="w-4 h-4" />
+        <span className="text-gray-900">Bug + Release Integration</span>
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

@@ -185,6 +185,15 @@ const SprintReviewPage = () => {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2 text-sm text-gray-500">
+        <span className="hover:text-violet-600 cursor-pointer" onClick={() => navigate('/engineering/sprints')}>
+          Engineering
+        </span>
+        <ChevronRight className="w-4 h-4" />
+        <span className="text-gray-900">Sprint Reviews</span>
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
