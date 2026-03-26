@@ -73,10 +73,11 @@ const BugReleaseIntegrationPage = () => {
 
   const fetchSprintsForProject = async (projectId) => {
     try {
-      const res = await api.get(`/projects/sprints?project_id=${projectId}`);
+      const res = await api.get(`/projects/${projectId}/sprints`);
       setSprints(res.data || []);
     } catch (error) {
       console.error('Failed to fetch sprints:', error);
+      setSprints([]);
     }
   };
 

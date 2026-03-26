@@ -77,10 +77,11 @@ const SprintReviewPage = () => {
 
   const fetchSprintsForProject = async (pid) => {
     try {
-      const res = await api.get(`/projects/sprints?project_id=${pid}`);
+      const res = await api.get(`/projects/${pid}/sprints`);
       setSprints(res.data || []);
     } catch (error) {
       console.error('Failed to fetch sprints:', error);
+      setSprints([]);
     }
   };
 
