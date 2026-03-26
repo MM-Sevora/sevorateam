@@ -25,5 +25,11 @@ export {
   CreateSprintModal
 } from './SprintModals';
 
+// Hierarchical Task Modal
+export {
+  HierarchicalTaskModal,
+  HierarchyCreateButton
+} from './HierarchicalTaskModal';
+
 // Quick Create Modal
 export { default as QuickCreateProjectModal } from './QuickCreateProjectModal';

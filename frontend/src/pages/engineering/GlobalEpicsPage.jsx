@@ -7,8 +7,9 @@ import { Badge } from '../../components/ui/badge';
 import { Progress } from '../../components/ui/progress';
 import { toast } from 'sonner';
 import { CreateProjectModal } from '../projects/ProjectsList';
+import { HierarchicalTaskModal } from '../../components/engineering/HierarchicalTaskModal';
 import { 
-  Target, ArrowRight, Plus, Layers, ChevronRight
+  Target, ArrowRight, Plus, Layers, ChevronRight, BookOpen
 } from 'lucide-react';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -22,6 +23,10 @@ const GlobalEpicsPage = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [departments, setDepartments] = useState([]);
   const [users, setUsers] = useState([]);
+  
+  // Hierarchical task creation state
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [selectedParent, setSelectedParent] = useState({ type: null, id: null, name: null, projectId: null });
 
   const fetchProjectsAndEpics = useCallback(async () => {
     try {
@@ -201,6 +206,25 @@ const GlobalEpicsPage = () => {
                           </div>
                         </div>
                         <div className="flex items-center gap-4">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedParent({ 
+                                type: 'epic', 
+                                id: epic.id, 
+                                name: epic.name, 
+                                projectId: project.id 
+                              });
+                              setShowTaskModal(true);
+                            }}
+                          >
+                            <Plus className="w-3 h-3 mr-1" />
+                            <BookOpen className="w-3 h-3 mr-1" />
+                            Story
+                          </Button>
                           <div className="w-32">
                             <Progress value={epic.progress || 0} className="h-2" />
                             <div className="text-xs text-gray-500 text-right mt-1">
@@ -270,6 +294,27 @@ const GlobalEpicsPage = () => {
         onSuccess={() => {
           setShowCreateModal(false);
           fetchProjectsAndEpics();
+        }}
+      />
+
+      {/* Hierarchical Task Creation Modal */}
+      <HierarchicalTaskModal
+        open={showTaskModal}
+        onClose={() => {
+          setShowTaskModal(false);
+          setSelectedParent({ type: null, id: null, name: null, projectId: null });
+        }}
+        projectId={selectedParent.projectId}
+        users={users}
+        parentType={selectedParent.type}
+        parentId={selectedParent.id}
+        parentName={selectedParent.name}
+        defaultIssueType="story"
+        onSuccess={() => {
+          setShowTaskModal(false);
+          setSelectedParent({ type: null, id: null, name: null, projectId: null });
+          fetchProjectsAndEpics();
+          toast.success('Story created under epic');
         }}
       />
     </div>

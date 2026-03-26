@@ -238,6 +238,7 @@ class TaskCreate(BaseModel):
     story_points: Optional[int] = None  # For sprint planning
     tags: List[str] = []
     parent_task_id: Optional[str] = None  # For subtasks
+    parent_story_id: Optional[str] = None  # For tasks/bugs linked to stories
     blocked_by: List[str] = []  # Task IDs that block this task
     blocks: List[str] = []  # Task IDs that this task blocks
     external_links: List[ExternalLink] = []  # External URLs/documents
@@ -283,6 +284,8 @@ class TaskUpdate(BaseModel):
     # Issue Type (Jira-like)
     issue_type: Optional[IssueType] = None
     epic_id: Optional[str] = None  # Parent epic for stories/tasks
+    parent_story_id: Optional[str] = None  # For tasks/bugs linked to stories
+    parent_task_id: Optional[str] = None  # For subtasks
     # Bug-specific fields
     bug_severity: Optional[BugSeverity] = None
     reproduction_steps: Optional[str] = None
@@ -338,6 +341,10 @@ class TaskResponse(BaseModel):
     type: Optional[str] = None  # Custom type for Feature Parser: design, frontend, backend, qa, user_story
     epic_id: Optional[str] = None
     epic_name: Optional[str] = None
+    parent_story_id: Optional[str] = None
+    parent_story_name: Optional[str] = None
+    parent_task_id: Optional[str] = None
+    parent_task_name: Optional[str] = None
     # Bug-specific fields
     bug_severity: Optional[BugSeverity] = None
     reproduction_steps: Optional[str] = None
