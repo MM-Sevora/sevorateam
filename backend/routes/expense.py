@@ -13,7 +13,7 @@ import logging
 
 from models.expense import (
     ExpenseClaimCreate, ExpenseClaimUpdate, ExpenseClaimResponse,
-    ExpenseCategory, ClaimStatus
+    ExpenseClaimEmployeeUpdate, ExpenseCategory, ClaimStatus
 )
 
 expense_router = APIRouter(prefix="/expense", tags=["Expense & Reimbursement"])
@@ -37,6 +37,11 @@ def get_current_user_dep():
 def require_hr():
     from server import require_department
     return require_department(["admin", "hr"])
+
+def require_hr_or_finance():
+    """Require HR Admin or Finance Admin access"""
+    from server import require_department
+    return require_department(["admin", "hr", "finance"])
 
 
 async def generate_claim_id(db) -> str:
@@ -379,15 +384,129 @@ async def get_claim_detail(claim_id: str, user: dict = Depends(get_current_user_
     return claim
 
 
+@expense_router.put("/claims/{claim_id}")
+async def update_expense_claim(
+    claim_id: str,
+    data: ExpenseClaimEmployeeUpdate,
+    user: dict = Depends(get_current_user_dep())
+):
+    """Update an expense claim (only pending claims can be edited by owner)"""
+    db = get_db()
+    
+    # Find the claim
+    claim = await db.expense_claims.find_one({"id": claim_id})
+    if not claim:
+        claim = await db.expense_claims.find_one({"claim_id": claim_id})
+    
+    if not claim:
+        raise HTTPException(status_code=404, detail="Claim not found")
+    
+    # Only owner can edit their own claim
+    if claim.get("employee_id") != user.get("id"):
+        raise HTTPException(status_code=403, detail="You can only edit your own claims")
+    
+    # Only pending claims can be edited
+    if claim.get("status") != "pending":
+        raise HTTPException(status_code=400, detail="Only pending claims can be edited")
+    
+    # Build update data
+    update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    
+    if data.entries is not None:
+        entries_list = [entry.dict() for entry in data.entries]
+        update_data["entries"] = entries_list
+        update_data["total_amount"] = sum(entry.amount for entry in data.entries)
+    
+    if data.notes is not None:
+        update_data["notes"] = data.notes
+    
+    await db.expense_claims.update_one({"id": claim["id"]}, {"$set": update_data})
+    
+    # Log activity
+    activity_doc = {
+        "id": str(uuid.uuid4()),
+        "user_id": user.get("id"),
+        "user_name": user.get("name"),
+        "entity_type": "expense_claim",
+        "entity_id": claim["id"],
+        "action": "updated",
+        "message": f"{user.get('name')} updated expense claim {claim.get('claim_id')}",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.activity_logs.insert_one(activity_doc)
+    
+    # Return updated claim
+    updated_claim = await db.expense_claims.find_one({"id": claim["id"]}, {"_id": 0})
+    return updated_claim
+
+
+@expense_router.delete("/claims/{claim_id}")
+async def delete_expense_claim(
+    claim_id: str,
+    user: dict = Depends(get_current_user_dep())
+):
+    """Delete/Cancel an expense claim (only pending claims can be deleted by owner)"""
+    db = get_db()
+    
+    # Find the claim
+    claim = await db.expense_claims.find_one({"id": claim_id})
+    if not claim:
+        claim = await db.expense_claims.find_one({"claim_id": claim_id})
+    
+    if not claim:
+        raise HTTPException(status_code=404, detail="Claim not found")
+    
+    # Only owner can delete their own claim
+    if claim.get("employee_id") != user.get("id"):
+        raise HTTPException(status_code=403, detail="You can only delete your own claims")
+    
+    # Only pending claims can be deleted
+    if claim.get("status") != "pending":
+        raise HTTPException(status_code=400, detail="Only pending claims can be deleted")
+    
+    # Soft delete by updating status to 'cancelled'
+    now = datetime.now(timezone.utc).isoformat()
+    await db.expense_claims.update_one(
+        {"id": claim["id"]},
+        {"$set": {
+            "status": "cancelled",
+            "cancelled_at": now,
+            "cancelled_by": user.get("id"),
+            "updated_at": now
+        }}
+    )
+    
+    # Delete associated approval task
+    await db.unified_tasks.delete_one({
+        "source_entity_id": claim["id"],
+        "source_entity_type": "expense"
+    })
+    
+    # Log activity
+    activity_doc = {
+        "id": str(uuid.uuid4()),
+        "user_id": user.get("id"),
+        "user_name": user.get("name"),
+        "entity_type": "expense_claim",
+        "entity_id": claim["id"],
+        "action": "cancelled",
+        "message": f"{user.get('name')} cancelled expense claim {claim.get('claim_id')}",
+        "created_at": now
+    }
+    await db.activity_logs.insert_one(activity_doc)
+    
+    return {"success": True, "message": f"Expense claim {claim.get('claim_id')} has been cancelled"}
+
+
 @expense_router.put("/claims/{claim_id}/approve")
 async def approve_claim(
     claim_id: str,
     background_tasks: BackgroundTasks,
     approved_amount: Optional[float] = None,
     hr_notes: Optional[str] = None,
-    user: dict = Depends(require_hr())
+    user: dict = Depends(require_hr_or_finance())
 ):
-    """Approve an expense claim"""
+    """Approve an expense claim (HR Admin or Finance Admin)"""
     db = get_db()
     
     claim = await db.expense_claims.find_one({"id": claim_id})
@@ -468,9 +587,9 @@ async def reject_claim(
     rejection_reason: str,
     background_tasks: BackgroundTasks,
     hr_notes: Optional[str] = None,
-    user: dict = Depends(require_hr())
+    user: dict = Depends(require_hr_or_finance())
 ):
-    """Reject an expense claim"""
+    """Reject an expense claim (HR Admin or Finance Admin)"""
     db = get_db()
     
     claim = await db.expense_claims.find_one({"id": claim_id})

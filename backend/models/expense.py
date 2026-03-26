@@ -49,6 +49,12 @@ class ExpenseClaimUpdate(BaseModel):
     hr_notes: Optional[str] = None
 
 
+class ExpenseClaimEmployeeUpdate(BaseModel):
+    """Update expense claim by employee (only for pending claims)"""
+    entries: Optional[List[ExpenseEntry]] = None
+    notes: Optional[str] = None
+
+
 class ExpenseClaimResponse(BaseModel):
     """Expense claim response"""
     id: str

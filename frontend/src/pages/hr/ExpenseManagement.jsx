@@ -37,8 +37,18 @@ import { toast } from 'sonner';
 import { 
   Plus, Trash2, Upload, FileText, DollarSign, Clock, CheckCircle, 
   XCircle, Download, Eye, Filter, RefreshCw, Send, Receipt,
-  TrendingUp, Calendar, Building2, User, Users
+  TrendingUp, Calendar, Building2, User, Users, Edit2
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../components/ui/alert-dialog";
 
 const EXPENSE_CATEGORIES = [
   { value: 'travel', label: 'Travel' },
@@ -91,7 +101,13 @@ const ExpenseManagement = () => {
   const [rejectReason, setRejectReason] = useState('');
   const [hrNotes, setHrNotes] = useState('');
   
-  const isHR = user?.role === 'admin' || user?.department === 'admin' || user?.department === 'hr';
+  // Edit and Delete
+  const [editingClaim, setEditingClaim] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [claimToDelete, setClaimToDelete] = useState(null);
+  
+  const isHR = user?.role === 'admin' || user?.department === 'admin' || user?.department === 'hr' || user?.department === 'finance';
 
   useEffect(() => {
     fetchMyStats();
@@ -290,6 +306,91 @@ const ExpenseManagement = () => {
     setRejectReason('');
     setHrNotes('');
     setShowReviewModal(true);
+  };
+
+  // Edit claim handler
+  const openEditModal = (claim) => {
+    setEditingClaim({
+      ...claim,
+      entries: claim.entries.map(e => ({
+        ...e,
+        amount: e.amount.toString()
+      }))
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditSave = async () => {
+    if (!editingClaim) return;
+    
+    try {
+      const payload = {
+        entries: editingClaim.entries.map(e => ({
+          ...e,
+          amount: parseFloat(e.amount)
+        })),
+        notes: editingClaim.notes
+      };
+      
+      await api.put(`/expense/claims/${editingClaim.id}`, payload);
+      toast.success('Claim updated successfully');
+      setShowEditModal(false);
+      setEditingClaim(null);
+      fetchMyClaims();
+      fetchMyStats();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to update claim');
+    }
+  };
+
+  const updateEditEntry = (index, field, value) => {
+    setEditingClaim(prev => ({
+      ...prev,
+      entries: prev.entries.map((e, i) => i === index ? { ...e, [field]: value } : e)
+    }));
+  };
+
+  const addEditEntry = () => {
+    setEditingClaim(prev => ({
+      ...prev,
+      entries: [...prev.entries, {
+        expense_date_from: '',
+        expense_date_to: '',
+        category: '',
+        description: '',
+        amount: '',
+        receipt_url: null
+      }]
+    }));
+  };
+
+  const removeEditEntry = (index) => {
+    if (editingClaim.entries.length <= 1) return;
+    setEditingClaim(prev => ({
+      ...prev,
+      entries: prev.entries.filter((_, i) => i !== index)
+    }));
+  };
+
+  // Delete claim handler
+  const confirmDelete = (claim) => {
+    setClaimToDelete(claim);
+    setShowDeleteDialog(true);
+  };
+
+  const handleDelete = async () => {
+    if (!claimToDelete) return;
+    
+    try {
+      await api.delete(`/expense/claims/${claimToDelete.id}`);
+      toast.success('Claim cancelled successfully');
+      setShowDeleteDialog(false);
+      setClaimToDelete(null);
+      fetchMyClaims();
+      fetchMyStats();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to cancel claim');
+    }
   };
 
   const exportCSV = async () => {
@@ -615,9 +716,21 @@ const ExpenseManagement = () => {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <Button variant="ghost" size="sm" onClick={() => openReview(claim)}>
-                              <Eye className="w-4 h-4" />
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button variant="ghost" size="sm" onClick={() => openReview(claim)} title="View Details">
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                              {claim.status === 'pending' && (
+                                <>
+                                  <Button variant="ghost" size="sm" onClick={() => openEditModal(claim)} title="Edit Claim">
+                                    <Edit2 className="w-4 h-4 text-blue-600" />
+                                  </Button>
+                                  <Button variant="ghost" size="sm" onClick={() => confirmDelete(claim)} title="Cancel Claim">
+                                    <Trash2 className="w-4 h-4 text-red-600" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
@@ -896,6 +1009,138 @@ const ExpenseManagement = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Edit Claim Modal */}
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Expense Claim</DialogTitle>
+          </DialogHeader>
+          {editingClaim && (
+            <div className="space-y-6">
+              <div className="text-sm text-gray-500">
+                Claim ID: <span className="font-mono">{editingClaim.claim_id}</span>
+              </div>
+              
+              {/* Entries */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label>Expense Entries</Label>
+                  <Button variant="outline" size="sm" onClick={addEditEntry}>
+                    <Plus className="w-4 h-4 mr-1" /> Add Entry
+                  </Button>
+                </div>
+                
+                {editingClaim.entries.map((entry, index) => (
+                  <Card key={index} className="p-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Date From</Label>
+                        <Input
+                          type="date"
+                          value={entry.expense_date_from?.split('T')[0] || ''}
+                          onChange={(e) => updateEditEntry(index, 'expense_date_from', e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label>Date To (Optional)</Label>
+                        <Input
+                          type="date"
+                          value={entry.expense_date_to?.split('T')[0] || ''}
+                          onChange={(e) => updateEditEntry(index, 'expense_date_to', e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label>Category</Label>
+                        <Select value={entry.category} onValueChange={(v) => updateEditEntry(index, 'category', v)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {EXPENSE_CATEGORIES.map(cat => (
+                              <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Amount (₹)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={entry.amount}
+                          onChange={(e) => updateEditEntry(index, 'amount', e.target.value)}
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <Label>Description</Label>
+                        <Input
+                          value={entry.description || ''}
+                          onChange={(e) => updateEditEntry(index, 'description', e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    {editingClaim.entries.length > 1 && (
+                      <Button variant="ghost" size="sm" className="mt-2 text-red-600" onClick={() => removeEditEntry(index)}>
+                        <Trash2 className="w-4 h-4 mr-1" /> Remove
+                      </Button>
+                    )}
+                  </Card>
+                ))}
+              </div>
+              
+              {/* Notes */}
+              <div>
+                <Label>Notes</Label>
+                <Textarea
+                  value={editingClaim.notes || ''}
+                  onChange={(e) => setEditingClaim(prev => ({ ...prev, notes: e.target.value }))}
+                  rows={2}
+                />
+              </div>
+              
+              {/* Total */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <span className="font-medium">Total Amount:</span>
+                <span className="text-xl font-bold text-green-600">
+                  ₹{editingClaim.entries.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0).toLocaleString()}
+                </span>
+              </div>
+              
+              {/* Actions */}
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => setShowEditModal(false)}>Cancel</Button>
+                <Button onClick={handleEditSave}>Save Changes</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Expense Claim?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel this expense claim? 
+              {claimToDelete && (
+                <span className="block mt-2 font-medium">
+                  Claim ID: {claimToDelete.claim_id} | Amount: ₹{claimToDelete.total_amount?.toLocaleString()}
+                </span>
+              )}
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Claim</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+              Cancel Claim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
