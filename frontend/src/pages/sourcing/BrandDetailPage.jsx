@@ -14,7 +14,8 @@ import { toast } from 'sonner';
 import { 
   ArrowLeft, Edit2, Trash2, Sparkles, Phone, Mail, Globe, MapPin,
   Calendar, Clock, Users, Plus, ExternalLink, MessageSquare, History,
-  Building2, User, Send, ClipboardList, Save, X, FileText, DollarSign, CheckCircle2, Upload
+  Building2, User, Send, ClipboardList, Save, X, FileText, DollarSign, CheckCircle2, Upload,
+  CheckSquare, Circle, AlertCircle, Loader2
 } from 'lucide-react';
 import EmailComposer from '../../components/sourcing/EmailComposer';
 import CreateTaskDialog from '../../components/shared/CreateTaskDialog';
@@ -86,6 +87,8 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [mailboxTab, setMailboxTab] = useState('sent'); // 'sent' or 'inbox'
   const [loadingInbox, setLoadingInbox] = useState(false);
+  const [brandTasks, setBrandTasks] = useState([]);
+  const [loadingTasks, setLoadingTasks] = useState(false);
 
   useEffect(() => {
     fetchBrandDetails();
@@ -116,11 +119,35 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
       setContacts(contactsRes.data || []);
       setNotes(notesRes.data || []);
       setActivityLogs(logsRes.data || []);
+      // Also fetch tasks for this brand
+      fetchBrandTasks();
     } catch (error) {
       toast.error('Failed to load brand details');
       navigate('/sourcing/brands');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchBrandTasks = async () => {
+    setLoadingTasks(true);
+    try {
+      const response = await api.get(`/tasks?source_module=sourcing&source_entity_id=${id}`);
+      setBrandTasks(response.data?.tasks || []);
+    } catch (error) {
+      console.error('Failed to fetch brand tasks:', error);
+    } finally {
+      setLoadingTasks(false);
+    }
+  };
+
+  const handleUpdateTaskStatus = async (taskId, newStatus) => {
+    try {
+      await api.put(`/tasks/${taskId}`, { status: newStatus });
+      toast.success('Task updated');
+      fetchBrandTasks();
+    } catch (error) {
+      toast.error('Failed to update task');
     }
   };
 
@@ -1260,6 +1287,131 @@ ${replyData.bodyPreview || ''}`;
               )}
             </CardContent>
           </Card>
+
+          {/* Tasks Section */}
+          <Card id="tasks">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <ClipboardList className="h-5 w-5 text-teal-600" />
+                Tasks ({brandTasks.length})
+              </CardTitle>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowCreateTask(true)}
+                className="border-teal-200 text-teal-700 hover:bg-teal-50"
+              >
+                <Plus className="h-4 w-4 mr-1" /> Add Task
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {loadingTasks ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                </div>
+              ) : brandTasks.length === 0 ? (
+                <div className="text-center py-8">
+                  <ClipboardList className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500 mb-2">No tasks yet</p>
+                  <p className="text-sm text-gray-400 mb-4">Create tasks to track follow-ups and actions</p>
+                  <Button 
+                    onClick={() => setShowCreateTask(true)}
+                    className="bg-teal-600 hover:bg-teal-700"
+                  >
+                    <Plus className="h-4 w-4 mr-2" /> Create First Task
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                  {brandTasks.map((task) => (
+                    <div 
+                      key={task.id} 
+                      className={`p-4 border rounded-lg transition-colors ${
+                        task.status === 'completed' ? 'bg-green-50 border-green-200' : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3 flex-1 min-w-0">
+                          <button
+                            onClick={() => handleUpdateTaskStatus(
+                              task.id, 
+                              task.status === 'completed' ? 'pending' : 'completed'
+                            )}
+                            className="mt-0.5 flex-shrink-0"
+                          >
+                            {task.status === 'completed' ? (
+                              <CheckSquare className="h-5 w-5 text-green-600" />
+                            ) : (
+                              <Circle className="h-5 w-5 text-gray-400 hover:text-teal-600" />
+                            )}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <p className={`font-medium ${task.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'}`}>
+                              {task.title}
+                            </p>
+                            {task.description && (
+                              <p className="text-sm text-gray-500 mt-1 line-clamp-2">{task.description}</p>
+                            )}
+                            <div className="flex flex-wrap items-center gap-2 mt-2">
+                              <Badge 
+                                variant="outline" 
+                                className={`text-xs ${
+                                  task.priority === 'urgent' ? 'border-red-300 text-red-700 bg-red-50' :
+                                  task.priority === 'high' ? 'border-orange-300 text-orange-700 bg-orange-50' :
+                                  task.priority === 'medium' ? 'border-yellow-300 text-yellow-700 bg-yellow-50' :
+                                  'border-gray-300 text-gray-600'
+                                }`}
+                              >
+                                {task.priority}
+                              </Badge>
+                              {task.assigned_to_name && (
+                                <Badge variant="outline" className="text-xs">
+                                  <User className="h-3 w-3 mr-1" />
+                                  {task.assigned_to_name}
+                                </Badge>
+                              )}
+                              {task.assigned_team && !task.assigned_to_name && (
+                                <Badge variant="outline" className="text-xs">
+                                  <Users className="h-3 w-3 mr-1" />
+                                  {task.assigned_team}
+                                </Badge>
+                              )}
+                              {task.due_date && (
+                                <span className={`text-xs flex items-center gap-1 ${
+                                  new Date(task.due_date) < new Date() && task.status !== 'completed'
+                                    ? 'text-red-600'
+                                    : 'text-gray-500'
+                                }`}>
+                                  <Calendar className="h-3 w-3" />
+                                  {new Date(task.due_date).toLocaleDateString('en-IN', {
+                                    day: 'numeric',
+                                    month: 'short'
+                                  })}
+                                  {new Date(task.due_date) < new Date() && task.status !== 'completed' && (
+                                    <AlertCircle className="h-3 w-3 ml-1" />
+                                  )}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <Badge 
+                          className={`flex-shrink-0 ${
+                            task.status === 'completed' ? 'bg-green-100 text-green-700' :
+                            task.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          {task.status === 'completed' ? 'Done' : 
+                           task.status === 'in_progress' ? 'In Progress' : 'Pending'}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Sidebar */}
@@ -1404,6 +1556,7 @@ ${replyData.bodyPreview || ''}`;
         sourceEntityType="brand"
         sourceEntityId={id}
         sourceEntityName={brand?.name || 'Brand'}
+        onTaskCreated={fetchBrandTasks}
       />
 
       {/* Agreement Details Modal */}

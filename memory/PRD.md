@@ -36,6 +36,7 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 - [x] Contact management
 - [x] Agreement details & onboarding workflows
 - [x] **CreateTaskDialog** with Team & Individual assignment (Mar 26, 2026)
+- [x] **Brand Detail Tasks Section** - Display and manage tasks linked to brands (Mar 26, 2026)
 
 ### Marketing Module
 - [x] Influencer management
