@@ -377,7 +377,27 @@ export default function KanbanBoard() {
       toast.success('Task moved');
     } catch (error) {
       console.error('Failed to move task:', error);
-      toast.error(error.response?.data?.detail || 'Failed to move task');
+      
+      // Handle DoD incomplete error specially
+      const errorDetail = error.response?.data?.detail;
+      if (errorDetail?.code === 'DOD_INCOMPLETE') {
+        const incompleteItems = errorDetail.incomplete_items || [];
+        toast.error(
+          <div>
+            <p className="font-medium">Definition of Done incomplete</p>
+            <p className="text-sm mt-1">Complete the following items first:</p>
+            <ul className="text-sm mt-1 list-disc list-inside">
+              {incompleteItems.slice(0, 3).map((item, i) => (
+                <li key={i}>{item}</li>
+              ))}
+              {incompleteItems.length > 3 && <li>...and {incompleteItems.length - 3} more</li>}
+            </ul>
+          </div>,
+          { duration: 6000 }
+        );
+      } else {
+        toast.error(typeof errorDetail === 'string' ? errorDetail : 'Failed to move task');
+      }
       fetchBoard(); // Revert on failure
     }
     

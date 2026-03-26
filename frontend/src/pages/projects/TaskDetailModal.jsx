@@ -4,7 +4,7 @@ import {
   MessageSquare, Trash2, Edit, Save, ListTodo, Timer, ChevronDown,
   AlertTriangle, Link2, Unlink, Paperclip, Upload, FileText, Image,
   File, Download, Folder, Repeat, RefreshCw, Bell, BellRing, Copy,
-  Layers, Bug, BookOpen, Zap, Search, CheckSquare, Target
+  Layers, Bug, BookOpen, Zap, Search, CheckSquare, Target, ShieldCheck
 } from 'lucide-react';
 
 // Import extracted sub-components (refactored)
@@ -15,6 +15,7 @@ import TimeLogsSection from './components/TimeLogsSection';
 import DependenciesSection from './components/DependenciesSection';
 import AttachmentsSection from './components/AttachmentsSection';
 import RemindersSection from './components/RemindersSection';
+import DoDSection from './components/DoDSection';
 
 // Animation styles
 const animationStyles = `
@@ -997,6 +998,18 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
                       <Bell className="w-4 h-4 mr-1.5" />
                       Follow-ups
                     </TabsTrigger>
+                    <TabsTrigger 
+                      value="dod" 
+                      className="data-[state=active]:bg-white data-[state=active]:text-[#4A3728] data-[state=active]:shadow-sm data-[state=active]:border-[#D4BBA6] text-[#6B5D52] rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white/50 border border-transparent tab-trigger-hover"
+                    >
+                      <ShieldCheck className={`w-4 h-4 mr-1.5 ${task.dod_complete ? 'text-green-600' : ''}`} />
+                      DoD
+                      {task.dod_checklist?.length > 0 && (
+                        <Badge className={`ml-1.5 text-xs px-1.5 py-0 h-5 font-semibold ${task.dod_complete ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {task.dod_complete ? '✓' : task.dod_checklist.filter(i => i.completed).length + '/' + task.dod_checklist.length}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
                   </TabsList>
 
                   <div className="bg-white rounded-xl border border-[#E8D5C4] p-4 shadow-sm">
@@ -1020,6 +1033,9 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
                     </TabsContent>
                     <TabsContent value="reminders" className="tab-content-animate mt-0">
                       <RemindersSection taskId={taskId} token={token} />
+                    </TabsContent>
+                    <TabsContent value="dod" className="tab-content-animate mt-0">
+                      <DoDSection taskId={taskId} task={task} token={token} onUpdate={fetchTask} />
                     </TabsContent>
                   </div>
                 </Tabs>

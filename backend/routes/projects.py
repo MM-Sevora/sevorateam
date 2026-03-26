@@ -39,7 +39,9 @@ from models.projects import (
     BulkTaskUpdate, BulkTaskDelete, BulkOperationResult,
     TaskDuplicateRequest, KanbanColumn, KanbanBoardResponse,
     # Release/Version models
-    ReleaseCreate, ReleaseUpdate, ReleaseResponse, ReleaseStatus
+    ReleaseCreate, ReleaseUpdate, ReleaseResponse, ReleaseStatus,
+    # Definition of Done models
+    DoDConfigCreate, DoDConfigUpdate, DoDConfigResponse, TaskDoDStatus, SYSTEM_DOD_ITEMS
 )
 
 # Import storage utilities
@@ -1969,6 +1971,7 @@ async def get_kanban_board(
 async def move_kanban_task(
     task_id: str = Query(...),
     new_status: str = Query(...),
+    skip_dod_check: bool = Query(False, description="Skip DoD validation (admin only)"),
     user: dict = Depends(get_current_user_dep)
 ):
     """Move a task to a different status column (for drag-and-drop)"""
@@ -1994,8 +1997,47 @@ async def move_kanban_task(
                     detail=f"Cannot move task: blocked by '{blocking_task.get('name')}' which is not completed"
                 )
     
+    # ===== DEFINITION OF DONE (DoD) VALIDATION =====
+    # Check DoD completion when moving to "completed" or "approved"
+    if new_status in ["completed", "approved"] and not skip_dod_check:
+        issue_type = task.get("issue_type", "task")
+        project_id = task.get("project_id")
+        
+        if project_id:
+            # Get DoD config to check if DoD is enabled for this issue type
+            dod_config = await get_dod_config_for_project(project_id)
+            
+            if dod_config.get("is_enabled") and issue_type in dod_config.get("enabled_for_issue_types", []):
+                dod_checklist = task.get("dod_checklist", [])
+                
+                # If DoD not initialized yet, initialize it first
+                if not dod_checklist:
+                    dod_checklist = await initialize_task_dod(task_id, project_id, issue_type)
+                    if dod_checklist:
+                        await db.pm_tasks.update_one(
+                            {"id": task_id},
+                            {"$set": {"dod_checklist": dod_checklist}}
+                        )
+                
+                # Check if DoD is complete
+                if dod_checklist:
+                    incomplete_items = get_incomplete_dod_items(dod_checklist)
+                    if incomplete_items:
+                        raise HTTPException(
+                            status_code=400,
+                            detail={
+                                "message": "Definition of Done incomplete",
+                                "incomplete_items": incomplete_items,
+                                "code": "DOD_INCOMPLETE"
+                            }
+                        )
+    
     now = datetime.now(timezone.utc).isoformat()
     update_data = {"status": new_status, "updated_at": now}
+    
+    # If moving to done, mark dod_complete
+    if new_status in ["completed", "approved"]:
+        update_data["dod_complete"] = True
     
     await db.pm_tasks.update_one({"id": task_id}, {"$set": update_data})
     
@@ -2251,6 +2293,316 @@ async def enrich_release(release: dict) -> dict:
         release["progress"] = 0
     
     return release
+
+
+# ============== DEFINITION OF DONE (DoD) CONFIGURATION ==============
+
+
+async def get_dod_config_for_project(project_id: str) -> dict:
+    """Get DoD configuration for a project, or return system defaults"""
+    config = await db.dod_configs.find_one({"project_id": project_id}, {"_id": 0})
+    if config and config.get("is_enabled"):
+        return config
+    # Return system defaults
+    return {
+        "id": "system_default",
+        "project_id": project_id,
+        "items": SYSTEM_DOD_ITEMS,
+        "enabled_for_issue_types": ["task", "bug"],  # Default: only tasks and bugs
+        "is_enabled": True
+    }
+
+
+async def initialize_task_dod(task_id: str, project_id: str, issue_type: str) -> List[dict]:
+    """Initialize DoD checklist for a task based on project config"""
+    config = await get_dod_config_for_project(project_id)
+    
+    # Check if DoD is enabled for this issue type
+    if issue_type not in config.get("enabled_for_issue_types", ["task", "bug"]):
+        return []
+    
+    # Create checklist items from config
+    dod_items = []
+    for idx, item in enumerate(config.get("items", [])):
+        dod_items.append({
+            "id": f"dod_{task_id}_{idx}",
+            "label": item.get("label", ""),
+            "description": item.get("description"),
+            "is_required": item.get("is_required", True),
+            "completed": False,
+            "completed_by": None,
+            "completed_at": None
+        })
+    
+    return dod_items
+
+
+def check_dod_complete(dod_checklist: List[dict]) -> bool:
+    """Check if all required DoD items are completed"""
+    if not dod_checklist:
+        return True  # No DoD items means it's complete by default
+    
+    for item in dod_checklist:
+        if item.get("is_required", True) and not item.get("completed", False):
+            return False
+    return True
+
+
+def get_incomplete_dod_items(dod_checklist: List[dict]) -> List[str]:
+    """Get list of incomplete required DoD item labels"""
+    incomplete = []
+    for item in dod_checklist:
+        if item.get("is_required", True) and not item.get("completed", False):
+            incomplete.append(item.get("label", "Unknown"))
+    return incomplete
+
+
+@router.get("/dod/config/{project_id}", response_model=DoDConfigResponse)
+async def get_project_dod_config(
+    project_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get DoD configuration for a project"""
+    config = await db.dod_configs.find_one({"project_id": project_id}, {"_id": 0})
+    
+    if not config:
+        # Return system defaults
+        project = await db.pm_projects.find_one({"id": project_id}, {"name": 1})
+        return {
+            "id": "system_default",
+            "project_id": project_id,
+            "project_name": project.get("name") if project else None,
+            "items": SYSTEM_DOD_ITEMS,
+            "enabled_for_issue_types": ["task", "bug"],
+            "is_enabled": True,
+            "created_by": None,
+            "created_at": None,
+            "updated_at": None
+        }
+    
+    # Enrich with project name
+    project = await db.pm_projects.find_one({"id": project_id}, {"name": 1})
+    config["project_name"] = project.get("name") if project else None
+    
+    return config
+
+
+@router.post("/dod/config", response_model=DoDConfigResponse)
+async def create_dod_config(
+    data: DoDConfigCreate,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Create or update DoD configuration for a project"""
+    # Verify project exists
+    project = await db.pm_projects.find_one({"id": data.project_id}, {"name": 1})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    config_id = str(uuid.uuid4())
+    
+    # Prepare items with IDs
+    items = []
+    for idx, item in enumerate(data.items):
+        items.append({
+            "id": f"dod_item_{idx}",
+            "label": item.get("label", ""),
+            "description": item.get("description"),
+            "is_required": item.get("is_required", True)
+        })
+    
+    # If no custom items provided, use system defaults
+    if not items:
+        items = SYSTEM_DOD_ITEMS
+    
+    config = {
+        "id": config_id,
+        "project_id": data.project_id,
+        "items": items,
+        "enabled_for_issue_types": data.enabled_for_issue_types,
+        "is_enabled": data.is_enabled,
+        "created_by": user["id"],
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    # Upsert - update if exists, create if not
+    await db.dod_configs.update_one(
+        {"project_id": data.project_id},
+        {"$set": config},
+        upsert=True
+    )
+    
+    config["project_name"] = project.get("name")
+    return config
+
+
+@router.put("/dod/config/{project_id}", response_model=DoDConfigResponse)
+async def update_dod_config(
+    project_id: str,
+    data: DoDConfigUpdate,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Update DoD configuration for a project"""
+    update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    
+    if data.items is not None:
+        items = []
+        for idx, item in enumerate(data.items):
+            items.append({
+                "id": f"dod_item_{idx}",
+                "label": item.get("label", ""),
+                "description": item.get("description"),
+                "is_required": item.get("is_required", True)
+            })
+        update_data["items"] = items
+    
+    if data.enabled_for_issue_types is not None:
+        update_data["enabled_for_issue_types"] = data.enabled_for_issue_types
+    
+    if data.is_enabled is not None:
+        update_data["is_enabled"] = data.is_enabled
+    
+    result = await db.dod_configs.update_one(
+        {"project_id": project_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="DoD config not found")
+    
+    return await get_project_dod_config(project_id, user)
+
+
+@router.get("/tasks/{task_id}/dod", response_model=TaskDoDStatus)
+async def get_task_dod_status(
+    task_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get DoD checklist status for a task"""
+    task = await db.pm_tasks.find_one({"id": task_id}, {"_id": 0})
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    dod_checklist = task.get("dod_checklist", [])
+    
+    # If task doesn't have DoD checklist yet, initialize it
+    if not dod_checklist and task.get("project_id"):
+        issue_type = task.get("issue_type", "task")
+        dod_checklist = await initialize_task_dod(task_id, task["project_id"], issue_type)
+        
+        # Save to task
+        if dod_checklist:
+            await db.pm_tasks.update_one(
+                {"id": task_id},
+                {"$set": {"dod_checklist": dod_checklist}}
+            )
+    
+    # Calculate completion
+    total_required = sum(1 for item in dod_checklist if item.get("is_required", True))
+    completed_required = sum(1 for item in dod_checklist if item.get("is_required", True) and item.get("completed", False))
+    
+    completion_percentage = (completed_required / total_required * 100) if total_required > 0 else 100
+    is_complete = check_dod_complete(dod_checklist)
+    
+    return {
+        "task_id": task_id,
+        "items": dod_checklist,
+        "is_complete": is_complete,
+        "completion_percentage": round(completion_percentage, 1),
+        "can_move_to_done": is_complete
+    }
+
+
+@router.put("/tasks/{task_id}/dod/{item_id}")
+async def update_dod_item(
+    task_id: str,
+    item_id: str,
+    completed: bool = Query(...),
+    user: dict = Depends(get_current_user_dep)
+):
+    """Update a single DoD checklist item"""
+    task = await db.pm_tasks.find_one({"id": task_id})
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    dod_checklist = task.get("dod_checklist", [])
+    
+    # Find and update the item
+    item_found = False
+    for item in dod_checklist:
+        if item.get("id") == item_id:
+            item["completed"] = completed
+            if completed:
+                item["completed_by"] = user["id"]
+                item["completed_at"] = datetime.now(timezone.utc).isoformat()
+            else:
+                item["completed_by"] = None
+                item["completed_at"] = None
+            item_found = True
+            break
+    
+    if not item_found:
+        raise HTTPException(status_code=404, detail="DoD item not found")
+    
+    # Update dod_complete flag
+    dod_complete = check_dod_complete(dod_checklist)
+    
+    await db.pm_tasks.update_one(
+        {"id": task_id},
+        {"$set": {
+            "dod_checklist": dod_checklist,
+            "dod_complete": dod_complete,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Log activity
+    await log_activity(
+        "task", task_id, task.get("name"), "dod_updated", user["id"],
+        {"item_id": item_id, "completed": completed}
+    )
+    
+    return {
+        "message": "DoD item updated",
+        "task_id": task_id,
+        "item_id": item_id,
+        "completed": completed,
+        "dod_complete": dod_complete
+    }
+
+
+@router.post("/tasks/{task_id}/dod/initialize")
+async def initialize_task_dod_endpoint(
+    task_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Initialize or reset DoD checklist for a task"""
+    task = await db.pm_tasks.find_one({"id": task_id})
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    if not task.get("project_id"):
+        raise HTTPException(status_code=400, detail="Task must be associated with a project to have DoD")
+    
+    issue_type = task.get("issue_type", "task")
+    dod_checklist = await initialize_task_dod(task_id, task["project_id"], issue_type)
+    
+    await db.pm_tasks.update_one(
+        {"id": task_id},
+        {"$set": {
+            "dod_checklist": dod_checklist,
+            "dod_complete": False,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {
+        "message": "DoD checklist initialized",
+        "task_id": task_id,
+        "items_count": len(dod_checklist)
+    }
+
 
 @router.get("/{project_id}", response_model=ProjectResponse)
 async def get_project(

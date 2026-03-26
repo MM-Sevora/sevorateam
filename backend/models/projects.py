@@ -306,6 +306,8 @@ class TaskUpdate(BaseModel):
     recurrence_interval: Optional[int] = None
     recurrence_days: Optional[List[int]] = None
     recurrence_end_date: Optional[str] = None
+    # Definition of Done (DoD) checklist
+    dod_checklist: Optional[List[Dict]] = None  # [{id, label, completed, completed_by, completed_at}]
 
 
 class TaskResponse(BaseModel):
@@ -381,6 +383,9 @@ class TaskResponse(BaseModel):
     recurrence_days: Optional[List[int]] = None
     recurrence_end_date: Optional[str] = None
     parent_recurring_id: Optional[str] = None  # ID of the parent recurring task
+    # Definition of Done (DoD)
+    dod_checklist: List[Dict] = []  # [{id, label, completed, completed_by, completed_at}]
+    dod_complete: bool = False  # True if all required DoD items are completed
     # Counts
     subtask_count: int = 0
     checklist_count: int = 0
@@ -1125,6 +1130,72 @@ class TaskDuplicateRequest(BaseModel):
     include_attachments: bool = False
     new_name: Optional[str] = None  # If not provided, will use "Copy of {original_name}"
     assigned_to: Optional[str] = None  # Override assignee
+
+
+# ============== DEFINITION OF DONE (DoD) MODELS ==============
+
+class DoDItemStatus(str, Enum):
+    """Status of a DoD checklist item"""
+    PENDING = "pending"
+    COMPLETED = "completed"
+    SKIPPED = "skipped"  # For optional items
+
+
+class DoDItem(BaseModel):
+    """Single Definition of Done checklist item"""
+    id: str
+    label: str
+    description: Optional[str] = None
+    is_required: bool = True  # If true, must be completed before task can move to Done
+    completed: bool = False
+    completed_by: Optional[str] = None
+    completed_at: Optional[str] = None
+
+
+class DoDConfigCreate(BaseModel):
+    """Create DoD configuration for a project"""
+    project_id: str
+    items: List[Dict] = []  # List of {label, description, is_required}
+    enabled_for_issue_types: List[str] = ["task", "bug"]  # Which issue types require DoD
+    is_enabled: bool = True
+
+
+class DoDConfigUpdate(BaseModel):
+    """Update DoD configuration"""
+    items: Optional[List[Dict]] = None
+    enabled_for_issue_types: Optional[List[str]] = None
+    is_enabled: Optional[bool] = None
+
+
+class DoDConfigResponse(BaseModel):
+    """DoD configuration response"""
+    id: str
+    project_id: str
+    project_name: Optional[str] = None
+    items: List[Dict] = []
+    enabled_for_issue_types: List[str] = ["task", "bug"]
+    is_enabled: bool = True
+    created_by: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class TaskDoDStatus(BaseModel):
+    """DoD status for a specific task"""
+    task_id: str
+    items: List[DoDItem] = []
+    is_complete: bool = False  # True if all required items are completed
+    completion_percentage: float = 0.0
+    can_move_to_done: bool = False
+
+
+# System default DoD items (used when project doesn't have custom config)
+SYSTEM_DOD_ITEMS = [
+    {"label": "Code Review Completed", "description": "Code has been reviewed by at least one team member", "is_required": True},
+    {"label": "QA Testing Passed", "description": "All test cases passed, no critical bugs", "is_required": True},
+    {"label": "Documentation Updated", "description": "Technical docs and user guides updated if needed", "is_required": False},
+    {"label": "Deployed to Staging", "description": "Changes deployed and verified on staging environment", "is_required": True},
+]
 
 
 # ============== KANBAN BOARD MODELS ==============
