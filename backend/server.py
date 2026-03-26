@@ -659,6 +659,7 @@ MODULE_DEPARTMENT_MAP = {
     "social": ["social", "marketing", "admin"],
     "admin": ["admin"],
     "hr": ["admin", "hr"],
+    "expense": ["admin", "hr", "finance"],  # HR & Finance Admin expense approvals
     "help_support": ["admin", "marketing", "sales", "social", "mail"],
     "automations": ["admin"],
     "meetings": ["admin", "marketing", "sales"],
