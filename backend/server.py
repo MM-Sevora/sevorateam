@@ -336,8 +336,8 @@ class UserResponse(BaseModel):
     id: str
     email: str
     name: str
-    department: str
-    role: str
+    department: Optional[str] = None
+    role: Optional[str] = None
     departments: List[str] = []
     status: str = "active"
     avatar_url: Optional[str] = None
@@ -2664,9 +2664,15 @@ async def get_all_users(
     
     for u in users:
         u['departments'] = get_user_departments(u.get('role', 'viewer'))
-        # Ensure status field exists
+        # Ensure required fields have defaults
         if 'status' not in u:
             u['status'] = 'active'
+        if 'department' not in u or u['department'] is None:
+            u['department'] = u['departments'][0] if u['departments'] else ''
+        if 'role' not in u or u['role'] is None:
+            u['role'] = 'viewer'
+        if 'name' not in u or u['name'] is None:
+            u['name'] = u.get('email', 'Unknown User').split('@')[0]
         
         # Enrich with custom_role_names and merged_module_access from custom_role_ids
         custom_role_ids = u.get("custom_role_ids", [])

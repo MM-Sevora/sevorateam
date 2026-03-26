@@ -422,14 +422,33 @@ const MyTasks = () => {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('sevora_token');
-      const response = await fetch(`${API}/api/admin/users`, {
+      // Try workos/users first (more reliable), fallback to admin/users
+      let response = await fetch(`${API}/api/workos/users`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
       if (response.ok) {
         const data = await response.json();
+        // Handle both array and object with users key
+        const usersList = data.users || data || [];
         // Filter to active users only
-        setUsers(data.filter(u => u.status === 'active'));
+        const activeUsers = usersList.filter(u => u.status === 'active');
+        console.log('MyTasks: Loaded', activeUsers.length, 'active users from workos/users');
+        setUsers(activeUsers);
+      } else {
+        // Fallback to admin/users
+        console.log('MyTasks: workos/users failed, trying admin/users');
+        response = await fetch(`${API}/api/admin/users`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const activeUsers = data.filter(u => u.status === 'active');
+          console.log('MyTasks: Loaded', activeUsers.length, 'active users from admin/users');
+          setUsers(activeUsers);
+        } else {
+          console.error('MyTasks: Both user endpoints failed');
+        }
       }
     } catch (error) {
       console.error('Error fetching users:', error);
