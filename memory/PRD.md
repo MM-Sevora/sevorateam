@@ -7,6 +7,57 @@ Build a comprehensive Marketing Operations Platform that integrates marketing, s
 
 ## Latest Updates (March 2026)
 
+### 🔥 Priority 3: Definition of Done (DoD) Feature (Completed ✅)
+**Date**: March 26, 2026
+
+**Implementation**:
+
+1. **DoD Configuration per Project** (`/api/projects/dod/config/{project_id}`)
+   - System defaults + project-specific customization
+   - Configurable per issue type (Epic, Story, Task, Subtask, Bug)
+   - Enable/disable DoD enforcement globally or per type
+   - Default enabled for: Task, Bug
+
+2. **System Default DoD Items**:
+   - ✅ Code Review Completed (Required)
+   - ✅ QA Testing Passed (Required)
+   - ☐ Documentation Updated (Optional)
+   - ✅ Deployed to Staging (Required)
+
+3. **Task DoD Checklist** (`/api/projects/tasks/{task_id}/dod`)
+   - Auto-initialize DoD checklist for tasks based on project config
+   - Track completion status per item
+   - Timestamp and user tracking for completed items
+   - Progress percentage calculation
+
+4. **Kanban Board Enforcement**
+   - Block drag-to-Done if DoD incomplete
+   - Show friendly error with list of incomplete items
+   - Admin override option (`skip_dod_check=true`)
+
+**Backend Routes Added** (`/app/backend/routes/projects.py`):
+- `GET /api/projects/dod/config/{project_id}` - Get DoD config (or system defaults)
+- `POST /api/projects/dod/config` - Create/update DoD config
+- `PUT /api/projects/dod/config/{project_id}` - Update DoD config
+- `GET /api/projects/tasks/{task_id}/dod` - Get task DoD status
+- `PUT /api/projects/tasks/{task_id}/dod/{item_id}` - Update DoD item
+- `POST /api/projects/tasks/{task_id}/dod/initialize` - Initialize task DoD
+
+**Frontend Components Added**:
+- `/app/frontend/src/pages/projects/components/DoDSection.jsx` - DoD checklist UI
+- `/app/frontend/src/pages/projects/components/DoDConfigModal.jsx` - DoD config modal
+- DoD tab added to Task Detail Modal with progress indicator
+- Kanban board shows DoD incomplete error on drag-to-Done
+
+**Models Added** (`/app/backend/models/projects.py`):
+- `DoDItemStatus` enum
+- `DoDItem` - Single checklist item model
+- `DoDConfigCreate/Update/Response` - Configuration models
+- `TaskDoDStatus` - Task DoD status with completion tracking
+- `SYSTEM_DOD_ITEMS` - Default DoD items
+
+---
+
 ### Daily Standup & App Releases Features (Completed ✅)
 **Date**: March 25, 2026
 
