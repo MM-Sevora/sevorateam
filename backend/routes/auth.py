@@ -407,19 +407,58 @@ async def get_current_user_profile(authorization: str = __import__('fastapi').He
     departments = get_user_departments(user.get('role', 'viewer'))
     permissions = get_user_permissions(user)
     
-    # Get module access from custom roles if any
+    # Get module access - respecting permission override mode
     merged_module_access = []
     sub_module_access = {}
+    
+    # Check for user's custom permissions and override mode
+    custom_permissions = user.get('custom_permissions', {})
+    override_mode = user.get('permission_override_mode', 'merge')
+    
+    # Get role-based module access first
+    role_module_access = []
+    role_sub_module_access = {}
     
     if user.get('custom_role_ids'):
         for role_id in user.get('custom_role_ids', []):
             role = await db.custom_roles.find_one({"id": role_id}, {"_id": 0})
             if role:
-                merged_module_access.extend(role.get('module_access', []))
+                role_module_access.extend(role.get('module_access', []))
                 for module, sub_modules in role.get('sub_module_access', {}).items():
-                    if module not in sub_module_access:
-                        sub_module_access[module] = []
-                    sub_module_access[module].extend(sub_modules)
+                    if module not in role_sub_module_access:
+                        role_sub_module_access[module] = []
+                    role_sub_module_access[module].extend(sub_modules)
+    
+    # Check for user-specific module access overrides
+    user_module_access = user.get('module_access', [])
+    user_sub_module_access = user.get('sub_module_access', {})
+    
+    # Apply override mode logic
+    if override_mode == 'replace' and (user_module_access or custom_permissions):
+        # Replace mode: Use ONLY user-specific permissions, ignore role permissions
+        if user_module_access:
+            merged_module_access = user_module_access
+            sub_module_access = user_sub_module_access
+        else:
+            # Extract modules from custom_permissions
+            for category, modules in custom_permissions.items():
+                for module_name in modules.keys():
+                    # Convert module name to module code (snake_case)
+                    module_code = module_name.lower().replace(' ', '_')
+                    merged_module_access.append(module_code)
+    else:
+        # Merge mode (default): Combine role and user permissions
+        merged_module_access = role_module_access.copy()
+        sub_module_access = role_sub_module_access.copy()
+        
+        # Add user-specific overrides
+        if user_module_access:
+            merged_module_access.extend(user_module_access)
+        
+        for module, sub_modules in user_sub_module_access.items():
+            if module not in sub_module_access:
+                sub_module_access[module] = []
+            sub_module_access[module].extend(sub_modules)
     
     # Deduplicate
     merged_module_access = list(set(merged_module_access))

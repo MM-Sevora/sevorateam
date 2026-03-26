@@ -302,7 +302,11 @@ async def update_user_module_access(
     
     # IMPORTANT: Also update merged_module_access in user document
     # This is what the frontend uses for sidebar access control
-    # Merge: role-based + granted - denied + defaults
+    
+    # Check the user's permission override mode
+    override_mode = target_user.get('permission_override_mode', 'merge')
+    
+    # Get role-based modules
     role_modules = set()
     custom_role_ids = target_user.get("custom_role_ids", [])
     if custom_role_ids:
@@ -310,9 +314,15 @@ async def update_user_module_access(
         for role in roles:
             role_modules.update(role.get("module_access", []))
     
-    # Calculate final merged access
-    final_access = (role_modules | set(granted_modules)) - set(denied_modules)
-    # Add default modules
+    # Calculate final merged access based on override mode
+    if override_mode == 'replace' and granted_modules:
+        # Replace mode: Use ONLY granted modules, ignore role modules
+        final_access = set(granted_modules)
+    else:
+        # Merge mode (default): Combine role-based + granted - denied
+        final_access = (role_modules | set(granted_modules)) - set(denied_modules)
+    
+    # Add default modules (these are always accessible)
     default_modules = get_default_modules()
     final_access.update(default_modules)
     
@@ -320,6 +330,7 @@ async def update_user_module_access(
     await db.users.update_one(
         {"id": user_id},
         {"$set": {
+            "module_access": granted_modules,  # Store user-specific granted modules
             "merged_module_access": list(final_access),
             "sub_module_access": sub_module_access,
             "module_permissions": module_permissions,
