@@ -637,7 +637,6 @@ function AppRoutes() {
 
                 {/* Employee Self-Service Routes */}
                 <Route path="/employee/expenses" element={<ProtectedRoute requiredModule="employee_self_service"><MyExpenses /></ProtectedRoute>} />
-                <Route path="/employee/profile" element={<ProtectedRoute requiredModule="employee_self_service"><Navigate to="/pulse/employee/me" replace /></ProtectedRoute>} />
 
                 {/* Teams Routes */}
                 <Route path="/teams/chat" element={<ProtectedRoute requiredModule="communication_hub"><TeamsChat /></ProtectedRoute>} />

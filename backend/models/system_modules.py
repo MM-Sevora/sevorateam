@@ -290,13 +290,12 @@ SYSTEM_MODULES = {
     "employee_self_service": {
         "code": "employee_self_service",
         "name": "Employee Self-Service",
-        "description": "Employee tools for expense claims, leave requests, and personal information",
+        "description": "Employee tools for expense claims and reimbursements",
         "icon": "UserCircle",
         "category": "general",
         "is_default": True,  # All authenticated users get access
         "sub_modules": [
             {"code": "ess_expenses", "name": "My Expense Claims", "path": "/employee/expenses"},
-            {"code": "ess_profile", "name": "My Profile", "path": "/employee/profile"},
         ]
     },
 }
