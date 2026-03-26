@@ -37,7 +37,8 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 - [x] Agreement details & onboarding workflows
 - [x] **CreateTaskDialog** with Team & Individual assignment (Mar 26, 2026)
 - [x] **Brand Detail Tasks Section** - Display and manage tasks linked to brands (Mar 26, 2026)
-- [x] **Customer Payment Terms** - Added to Agreement Details modal (Mar 26, 2026)
+- [x] **Custom Payout Terms** - Added "Custom" option in Payout Terms dropdown with text input (Mar 26, 2026)
+- [x] **Brand Details Page Redesign** - Swiss & High-Contrast design with 4-column Control Room layout (Mar 26, 2026)
 
 ### Marketing Module
 - [x] Influencer management
