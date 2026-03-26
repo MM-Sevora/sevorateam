@@ -173,6 +173,9 @@ const HelpAdminDashboard = lazy(() => import("./pages/help/HelpAdminDashboard"))
 const ExpenseManagement = lazy(() => import("./pages/hr/ExpenseManagement"));
 const MyTeam = lazy(() => import("./pages/hr/MyTeam"));
 
+// Employee Self-Service Pages
+const MyExpenses = lazy(() => import("./pages/employee/MyExpenses"));
+
 // Teams Pages
 const TeamsChat = lazy(() => import("./pages/teams/TeamsChat"));
 const TeamsCallback = lazy(() => import("./pages/teams/TeamsCallback"));
@@ -629,8 +632,12 @@ function AppRoutes() {
                 <Route path="/meetings/:meetingId/edit" element={<ProtectedRoute requiredModule="meetings"><CreateMeeting /></ProtectedRoute>} />
 
                 {/* HR Routes */}
-                <Route path="/hr/expenses" element={<ProtectedRoute requiredModule="hr"><ExpenseManagement /></ProtectedRoute>} />
+                <Route path="/hr/expenses" element={<ProtectedRoute requiredModule="expense"><ExpenseManagement /></ProtectedRoute>} />
                 <Route path="/hr/my-team" element={<ProtectedRoute><MyTeam /></ProtectedRoute>} />
+
+                {/* Employee Self-Service Routes */}
+                <Route path="/employee/expenses" element={<ProtectedRoute requiredModule="employee_self_service"><MyExpenses /></ProtectedRoute>} />
+                <Route path="/employee/profile" element={<ProtectedRoute requiredModule="employee_self_service"><Navigate to="/pulse/employee/me" replace /></ProtectedRoute>} />
 
                 {/* Teams Routes */}
                 <Route path="/teams/chat" element={<ProtectedRoute requiredModule="communication_hub"><TeamsChat /></ProtectedRoute>} />

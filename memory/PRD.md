@@ -55,6 +55,8 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 - [x] Employee directory
 - [x] Leave management with approvals
 - [x] Attendance tracking
+- [x] **Expense Reimbursement** - Employees submit, edit, delete claims; HR/Finance Admin approval (Mar 26, 2026)
+- [x] **Employee Self-Service Module** - New default module for all employees with expense claims access (Mar 26, 2026)
 
 ### Engineering Module (Completed Mar 2026)
 - [x] Project Management with Kanban boards
@@ -142,6 +144,14 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 - `GET /api/tasks` - List tasks with filters
 - `PUT /api/tasks/{id}` - Update task
 
+### Expense Claims (Employee Self-Service)
+- `POST /api/expense/claims` - Submit new expense claim
+- `GET /api/expense/claims/my` - Get employee's own claims
+- `PUT /api/expense/claims/{id}` - Edit pending claim (employee only)
+- `DELETE /api/expense/claims/{id}` - Cancel pending claim (employee only)
+- `PUT /api/expense/claims/{id}/approve` - Approve claim (HR/Finance Admin)
+- `PUT /api/expense/claims/{id}/reject` - Reject claim (HR/Finance Admin)
+
 ### Engineering
 - `GET /api/projects/{project_id}/sprints` - Get project sprints
 - `PUT /api/projects/kanban/move-task` - Move task with DoD validation
@@ -171,3 +181,20 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 ---
 
 *Last Updated: March 26, 2026*
+
+---
+
+## Recent Changes (March 26, 2026)
+
+### Employee Self-Service Module
+- Added new `employee_self_service` module to `SYSTEM_MODULES` with `is_default: true`
+- Created sidebar entry for "Employee Self-Service" with routes:
+  - `/employee/expenses` - My Expense Claims
+  - `/employee/profile` - My Profile
+- Created dedicated `MyExpenses.jsx` page for employees to:
+  - Submit new expense claims
+  - View their claim history
+  - Edit pending claims
+  - Cancel/delete pending claims
+- Updated `AuthContext.jsx` to include `employee_self_service` in default access modules
+- All authenticated users automatically get access to this module

@@ -352,7 +352,7 @@ export const AuthProvider = ({ children }) => {
         if (user.role === 'super_admin') return true;
         
         // Default access modules - everyone has access
-        const DEFAULT_ACCESS_MODULES = ['dashboard', 'sevora_pulse', 'notifications', 'help_support'];
+        const DEFAULT_ACCESS_MODULES = ['dashboard', 'sevora_pulse', 'notifications', 'help_support', 'employee_self_service', 'analytics_insights'];
         if (DEFAULT_ACCESS_MODULES.includes(moduleKey)) return true;
         
         // Check merged_module_access from user object

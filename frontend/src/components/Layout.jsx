@@ -15,7 +15,7 @@ import {
     TrendingUp, PieChart, Activity, FileText, Package, Factory, FlaskConical, Search, Database,
     Server, Plug, Bell, ClipboardList, Bot, Cog, CheckCircle, MessageCircle, Key, Lock, Receipt,
     CreditCard, Megaphone, FileImage, LayoutGrid, Layers, BookOpen, Map, Code, Smartphone,
-    Eye, Bug
+    Eye, Bug, UserCircle, User
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -33,6 +33,18 @@ import {
 } from './ui/dropdown-menu';
 
 const DEPARTMENT_CONFIG = {
+    employee: {
+        name: 'Employee Self-Service',
+        icon: UserCircle,
+        color: 'from-sky-600 to-sky-700',
+        bgColor: 'bg-sky-50',
+        textColor: 'text-sky-700',
+        requiredModule: 'employee_self_service',  // Default access for all users
+        routes: [
+            { path: '/employee/expenses', name: 'My Expense Claims', icon: Receipt },
+            { path: '/employee/profile', name: 'My Profile', icon: User },
+        ]
+    },
     pulse: {
         name: 'Sevora Pulse',
         icon: Activity,
