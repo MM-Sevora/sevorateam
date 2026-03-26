@@ -129,6 +129,7 @@ const DEPARTMENT_CONFIG = {
                 isGroup: true, 
                 items: [
                     { path: '/engineering/sprints', name: 'Sprints', icon: Zap },
+                    { path: '/engineering/intelligence', name: 'Sprint Intelligence', icon: BarChart3 },
                     { path: '/engineering/retro', name: 'Retrospectives', icon: MessageSquare },
                     { path: '/engineering/roadmap', name: 'Roadmap', icon: Map },
                     { path: '/engineering/standups', name: 'Daily Standups', icon: Users },

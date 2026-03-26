@@ -131,6 +131,7 @@ const EngineeringSprintPlanningPage = lazy(() => import("./pages/engineering/Spr
 const DailyStandupPage = lazy(() => import("./pages/engineering/DailyStandupPage"));
 const AppReleasesPage = lazy(() => import("./pages/engineering/AppReleasesPage"));
 const SprintRetroPage = lazy(() => import("./pages/engineering/SprintRetroPage"));
+const SprintIntelligencePage = lazy(() => import("./pages/engineering/SprintIntelligencePage"));
 
 // Knowledge Base Pages
 const KnowledgeBasePage = lazy(() => import("./pages/knowledge/KnowledgeBasePage"));
@@ -588,6 +589,8 @@ function AppRoutes() {
                 <Route path="/engineering/app-releases" element={<ProtectedRoute requiredModule="project_management"><AppReleasesPage /></ProtectedRoute>} />
                 <Route path="/engineering/retro" element={<ProtectedRoute requiredModule="project_management"><SprintRetroPage /></ProtectedRoute>} />
                 <Route path="/engineering/retro/:sprintId" element={<ProtectedRoute requiredModule="project_management"><SprintRetroPage /></ProtectedRoute>} />
+                <Route path="/engineering/intelligence" element={<ProtectedRoute requiredModule="project_management"><SprintIntelligencePage /></ProtectedRoute>} />
+                <Route path="/engineering/intelligence/:projectId" element={<ProtectedRoute requiredModule="project_management"><SprintIntelligencePage /></ProtectedRoute>} />
                 <Route path="/projects/:projectId/sprint-board" element={<ProtectedRoute requiredModule="project_management"><SprintBoardPage /></ProtectedRoute>} />
                 <Route path="/projects/:projectId/sprint-board/:sprintId" element={<ProtectedRoute requiredModule="project_management"><SprintBoardPage /></ProtectedRoute>} />
                 <Route path="/projects/engineering/backlog" element={<ProtectedRoute requiredModule="project_management"><GlobalBacklogPage /></ProtectedRoute>} />

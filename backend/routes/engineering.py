@@ -545,6 +545,92 @@ async def get_project_velocity(
     )
 
 
+# ============== SPILLOVER TRACKING ==============
+
+@router.get("/projects/{project_id}/spillover")
+async def get_spillover_tracking(
+    project_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Get spillover tracking data - items that moved between sprints"""
+    # Get all completed sprints for the project
+    sprints = await db.pm_sprints.find(
+        {"project_id": project_id, "status": {"$in": ["completed", "active"]}},
+        {"_id": 0}
+    ).sort("end_date", -1).to_list(10)
+    
+    spillover_data = []
+    
+    for i, sprint in enumerate(sprints):
+        sprint_id = sprint["id"]
+        
+        # Get tasks that were in this sprint
+        tasks = await db.pm_tasks.find(
+            {"sprint_id": sprint_id},
+            {"_id": 0, "id": 1, "name": 1, "status": 1, "story_points": 1, "issue_type": 1}
+        ).to_list(200)
+        
+        total_items = len(tasks)
+        completed_items = len([t for t in tasks if t.get("status") in ["completed", "approved"]])
+        incomplete_items = total_items - completed_items
+        
+        total_points = sum(t.get("story_points", 0) or 0 for t in tasks)
+        completed_points = sum(
+            t.get("story_points", 0) or 0 
+            for t in tasks 
+            if t.get("status") in ["completed", "approved"]
+        )
+        spillover_points = total_points - completed_points
+        
+        # Calculate spillover rate
+        spillover_rate = round((incomplete_items / total_items * 100), 1) if total_items > 0 else 0
+        
+        # Get incomplete items details
+        incomplete_tasks = [
+            {
+                "id": t["id"],
+                "name": t["name"],
+                "story_points": t.get("story_points", 0),
+                "issue_type": t.get("issue_type", "task")
+            }
+            for t in tasks
+            if t.get("status") not in ["completed", "approved"]
+        ]
+        
+        spillover_data.append({
+            "sprint_id": sprint_id,
+            "sprint_name": sprint.get("name"),
+            "status": sprint.get("status"),
+            "start_date": sprint.get("start_date"),
+            "end_date": sprint.get("end_date"),
+            "total_items": total_items,
+            "completed_items": completed_items,
+            "incomplete_items": incomplete_items,
+            "total_points": total_points,
+            "completed_points": completed_points,
+            "spillover_points": spillover_points,
+            "spillover_rate": spillover_rate,
+            "incomplete_tasks": incomplete_tasks[:10]  # Limit to top 10
+        })
+    
+    # Calculate overall spillover trend
+    if len(spillover_data) >= 2:
+        recent_rate = sum(s["spillover_rate"] for s in spillover_data[:3]) / min(3, len(spillover_data))
+        older_rate = sum(s["spillover_rate"] for s in spillover_data[-3:]) / min(3, len(spillover_data))
+        trend = "improving" if recent_rate < older_rate else "worsening" if recent_rate > older_rate else "stable"
+    else:
+        trend = "insufficient_data"
+    
+    avg_spillover = sum(s["spillover_rate"] for s in spillover_data) / len(spillover_data) if spillover_data else 0
+    
+    return {
+        "sprints": spillover_data,
+        "average_spillover_rate": round(avg_spillover, 1),
+        "trend": trend,
+        "total_sprints_analyzed": len(spillover_data)
+    }
+
+
 # ============== ISSUE TYPE STATS ==============
 
 @router.get("/projects/{project_id}/issue-stats")
