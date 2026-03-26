@@ -730,51 +730,52 @@ async def list_projects(
     role_level = user.get("role_level", 10)
     is_admin = role_level >= 80 or user_role in ["super_admin", "admin"]
     
-    # Apply data scope filtering based on user's permissions
-    # Uses the "projects" category and "projects" module for permission lookup
-    query = await apply_data_scope_filter(
-        filter_query, 
-        user_id, 
-        "projects",  # category
-        "projects",  # module
-        user_field="owner_id",  # Projects use owner_id as the user field
-        department_field="department_id"
-    )
+    # For projects, we need a special query that includes:
+    # 1. Projects the user owns
+    # 2. Projects where user is PM
+    # 3. Projects where user is a team member
+    # 4. Public projects
+    # This is done INSTEAD of apply_data_scope_filter because project access is more complex
+    
+    if is_admin:
+        # Admins see all projects
+        query = filter_query
+    else:
+        # Build visibility-aware query
+        visibility_query = {
+            "$or": [
+                {"visibility": "public"},  # Public projects
+                {"owner_id": user_id},  # Owner
+                {"project_manager_id": user_id},  # Project Manager
+                {"team_members": user_id},  # Team member
+            ]
+        }
+        
+        if filter_query:
+            query = {"$and": [filter_query, visibility_query]}
+        else:
+            query = visibility_query
     
     projects = await db.pm_projects.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
     
-    # Filter projects based on visibility
+    # For non-admins, also include projects where user has assigned tasks
+    # (This catches edge cases not covered by the main query)
     filtered_projects = []
     for project in projects:
-        project_visibility = project.get("visibility", "public")
-        team_members = project.get("team_members", [])
-        owner_id_proj = project.get("owner_id")
-        project_manager_id = project.get("project_manager_id")
+        filtered_projects.append(project)
+    
+    # If not admin, check for additional projects where user has tasks assigned
+    if not is_admin:
+        project_ids_seen = {p["id"] for p in filtered_projects}
         
-        # Admins can see all projects
-        if is_admin:
-            filtered_projects.append(project)
-            continue
-        
-        # Public projects are visible to all
-        if project_visibility == "public":
-            filtered_projects.append(project)
-            continue
-        
-        # Private projects: check if user is owner, PM, or team member
-        if (user_id == owner_id_proj or 
-            user_id == project_manager_id or 
-            user_id in team_members):
-            filtered_projects.append(project)
-            continue
-        
-        # Also check if user has tasks assigned in this project
-        task_count = await db.pm_tasks.count_documents({
-            "project_id": project["id"],
-            "assigned_to": user_id
-        })
-        if task_count > 0:
-            filtered_projects.append(project)
+        # Find private projects where user has tasks but isn't in team
+        task_project_ids = await db.pm_tasks.distinct("project_id", {"assigned_to": user_id})
+        for project_id in task_project_ids:
+            if project_id and project_id not in project_ids_seen:
+                extra_project = await db.pm_projects.find_one({"id": project_id}, {"_id": 0})
+                if extra_project:
+                    filtered_projects.append(extra_project)
+                    project_ids_seen.add(project_id)
     
     # Enrich projects
     for project in filtered_projects:
