@@ -7,6 +7,75 @@ Build a comprehensive Marketing Operations Platform that integrates marketing, s
 
 ## Latest Updates (March 2026)
 
+### 🔥 Priority 4: Sprint Review Module (Completed ✅)
+**Date**: March 26, 2026
+
+**Implementation**:
+
+1. **Sprint Reviews** (`/engineering/sprint-review`)
+   - Create sprint reviews for demo presentations
+   - Add demo items with notes and video links
+   - Invite stakeholders to review
+   - Track approval status (Draft, In Review, Approved, Rejected, Needs Changes)
+
+2. **Stakeholder Feedback**:
+   - Submit ratings (1-5 stars)
+   - Add written feedback
+   - Approval workflow: Approve / Needs Changes / Reject
+   - Automatic status updates based on feedback
+
+3. **Demo Items**:
+   - Link tasks/features to demos
+   - Add presenter and notes
+   - Reorderable demo sequence
+
+**Backend Routes** (`/app/backend/routes/standups_releases.py`):
+- `POST /api/engineering/sprint-reviews` - Create sprint review
+- `GET /api/engineering/sprint-reviews` - List reviews
+- `PUT /api/engineering/sprint-reviews/{id}` - Update review
+- `POST /api/engineering/sprint-reviews/{id}/feedback` - Submit feedback
+- `DELETE /api/engineering/sprint-reviews/{id}` - Delete review
+
+---
+
+### 🔥 Priority 5: Bug + Release Integration (Completed ✅)
+**Date**: March 26, 2026
+
+**Implementation**:
+
+1. **Bug Workflow Pipeline** (`/engineering/bug-release`)
+   - Visual pipeline: Reported → Triaged → In Sprint → In Progress → Fixed → Verified → Released
+   - Track bugs through entire lifecycle
+   - Link bugs to releases and sprints
+
+2. **Release Bug Tracking**:
+   - Link bugs to target releases
+   - Track bug fix and verification status
+   - Progress indicators per release
+   - Mark releases as released (auto-updates all verified bugs)
+
+3. **Bug Verification**:
+   - QA can verify fixed bugs in releases
+   - Track who verified and when
+   - Verification required before release
+
+**Backend Routes** (`/app/backend/routes/standups_releases.py`):
+- `POST /api/engineering/bugs/link-to-release` - Link bug to release
+- `PUT /api/engineering/bugs/{id}/status` - Update bug status
+- `GET /api/engineering/releases/{id}/bugs` - Get release bugs
+- `POST /api/engineering/releases/{id}/verify-bug/{bug_id}` - Verify bug
+- `POST /api/engineering/releases/{id}/mark-released` - Mark release released
+- `GET /api/engineering/bugs/workflow-status` - Get workflow overview
+
+**Models Added** (`/app/backend/models/projects.py`):
+- `SprintReviewCreate/Update/Response` - Sprint review models
+- `SprintReviewStatus` enum
+- `DemoItem`, `StakeholderFeedback` - Review component models
+- `BugStatus`, `BugSeverity` enums
+- `BugToReleaseRequest`, `ReleaseWithBugsResponse` - Bug+Release models
+
+---
+
 ### 🔥 Priority 3: Definition of Done (DoD) Feature (Completed ✅)
 **Date**: March 26, 2026
 
