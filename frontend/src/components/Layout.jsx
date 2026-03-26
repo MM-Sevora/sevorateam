@@ -286,14 +286,14 @@ const DEPARTMENT_CONFIG = {
         ]
     },
     hr: {
-        name: 'HR & Finance',
+        name: 'HR & Finance Admin',
         icon: Briefcase,
         color: 'from-emerald-600 to-emerald-700',
         bgColor: 'bg-emerald-50',
         textColor: 'text-emerald-700',
         requiredModule: 'expense',
         routes: [
-            { path: '/hr/expenses', name: 'Expenses & Reimbursement', icon: DollarSign, subModuleCode: 'hr_expenses' },
+            { path: '/hr/expenses', name: 'Expense Approvals', icon: DollarSign, subModuleCode: 'hr_expenses' },
         ]
     },
     sourcing: {

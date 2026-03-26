@@ -298,6 +298,17 @@ SYSTEM_MODULES = {
             {"code": "ess_expenses", "name": "My Expense Claims", "path": "/employee/expenses"},
         ]
     },
+    "expense": {
+        "code": "expense",
+        "name": "HR & Finance Admin",
+        "description": "Expense approvals and reimbursement management for HR and Finance teams",
+        "icon": "DollarSign",
+        "category": "hr",
+        "is_default": False,
+        "sub_modules": [
+            {"code": "hr_expenses", "name": "Expense Approvals", "path": "/hr/expenses"},
+        ]
+    },
 }
 
 
