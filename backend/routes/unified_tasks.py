@@ -263,6 +263,7 @@ async def get_tasks(
     assigned_to: Optional[str] = None,
     assigned_team: Optional[str] = None,
     source_module: Optional[str] = None,
+    source_entity_id: Optional[str] = None,
     priority: Optional[str] = None,
     is_overdue: Optional[bool] = None,
     search: Optional[str] = None,
@@ -288,6 +289,8 @@ async def get_tasks(
         filter_query["assigned_team"] = assigned_team
     if source_module:
         filter_query["source_module"] = source_module
+    if source_entity_id:
+        filter_query["source_entity_id"] = source_entity_id
     if priority:
         filter_query["priority"] = priority
     if search:
