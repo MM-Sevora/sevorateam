@@ -73,7 +73,7 @@ export const HierarchicalTaskModal = ({
   open,
   onClose,
   projectId,
-  users = [],
+  users: propUsers = [],
   epics = [],
   stories = [],
   tasks = [],
@@ -89,6 +89,7 @@ export const HierarchicalTaskModal = ({
   editTask = null
 }) => {
   const [loading, setLoading] = useState(false);
+  const [users, setUsers] = useState(propUsers);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -111,6 +112,36 @@ export const HierarchicalTaskModal = ({
     if (parentType === 'task') return ['subtask'];
     return ['epic', 'story', 'task', 'bug'];
   };
+
+  // Update local users when prop changes
+  useEffect(() => {
+    if (propUsers && propUsers.length > 0) {
+      setUsers(propUsers);
+    }
+  }, [propUsers]);
+
+  // Fetch users if not provided when modal opens
+  useEffect(() => {
+    const fetchUsers = async () => {
+      if (open && users.length === 0) {
+        try {
+          const token = localStorage.getItem('sevora_token');
+          const response = await fetch(`${API}/api/workos/users`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (response.ok) {
+            const data = await response.json();
+            const allUsers = data.users || data || [];
+            const activeUsers = allUsers.filter(u => u.status === 'active');
+            setUsers(activeUsers);
+          }
+        } catch (error) {
+          console.error('Failed to fetch users:', error);
+        }
+      }
+    };
+    fetchUsers();
+  }, [open, users.length]);
 
   // Initialize form based on props
   useEffect(() => {
