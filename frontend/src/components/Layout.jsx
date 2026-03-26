@@ -34,7 +34,7 @@ import {
 
 const DEPARTMENT_CONFIG = {
     employee: {
-        name: 'Employee Self-Service',
+        name: 'Self Service',
         icon: UserCircle,
         color: 'from-sky-600 to-sky-700',
         bgColor: 'bg-sky-50',
