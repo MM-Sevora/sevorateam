@@ -4,7 +4,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, ListTodo, ChevronRight,
   Calendar, User, Flag, Folder, LayoutGrid, PlayCircle, Eye,
   RefreshCw, Plus, ChevronDown, FolderKanban, Link as LinkIcon, ExternalLink,
-  Zap, Target, TrendingUp, ChevronUp, Check, Pencil, Clock3
+  Zap, Target, TrendingUp, ChevronUp, Check, Pencil, Clock3, Trash2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -98,7 +98,7 @@ const statusConfig = {
   on_hold: { label: 'On Hold', color: 'bg-stone-100 text-stone-500', icon: Clock }
 };
 
-const TaskCard = ({ task, onStatusChange, onClick }) => {
+const TaskCard = ({ task, onStatusChange, onDelete, onClick }) => {
   const StatusIcon = statusConfig[task.status]?.icon || ListTodo;
   const [isHovered, setIsHovered] = useState(false);
   
@@ -216,6 +216,17 @@ const TaskCard = ({ task, onStatusChange, onClick }) => {
                       {config.label}
                     </DropdownMenuItem>
                   ))}
+                  <div className="border-t border-[#E8D5C4] my-1" />
+                  <DropdownMenuItem 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete?.(task.id);
+                    }}
+                    className="cursor-pointer text-red-600 hover:bg-red-50"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Task
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -298,7 +309,7 @@ const TaskCard = ({ task, onStatusChange, onClick }) => {
   );
 };
 
-const TaskSection = ({ title, icon: Icon, tasks, count, color, onStatusChange, onTaskClick, showCompleteAll = false }) => {
+const TaskSection = ({ title, icon: Icon, tasks, count, color, onStatusChange, onDelete, onTaskClick, showCompleteAll = false }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   
   if (tasks.length === 0) return null;
@@ -346,7 +357,7 @@ const TaskSection = ({ title, icon: Icon, tasks, count, color, onStatusChange, o
         isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
       }`}>
         {tasks.map(task => (
-          <TaskCard key={task.id} task={task} onStatusChange={onStatusChange} onClick={onTaskClick} />
+          <TaskCard key={task.id} task={task} onStatusChange={onStatusChange} onDelete={onDelete} onClick={onTaskClick} />
         ))}
       </div>
     </div>
@@ -532,6 +543,47 @@ const MyTasks = () => {
     } catch (error) {
       console.error('Error updating task:', error);
       toast.error(error.message || 'Failed to update task status');
+    }
+  };
+
+  const handleDeleteTask = async (taskId) => {
+    if (!window.confirm('Are you sure you want to delete this task? This action cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      const token = localStorage.getItem('sevora_token');
+      // Try deleting from pm_tasks first
+      let response = await fetch(`${API}/api/projects/tasks/${taskId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        // Try unified_tasks endpoint
+        response = await fetch(`${API}/api/tasks/${taskId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+      }
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.detail || 'Failed to delete task');
+      }
+      
+      toast.success('Task deleted successfully');
+      fetchMyTasks();
+      fetchAssignedByMe();
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      toast.error(error.message || 'Failed to delete task');
     }
   };
 
@@ -854,6 +906,7 @@ const MyTasks = () => {
                   tasks={data.tasks_overdue}
                   color="bg-red-100 text-red-600"
                   onStatusChange={handleStatusChange}
+                  onDelete={handleDeleteTask}
                   onTaskClick={handleTaskClick}
                   showCompleteAll={true}
                 />
@@ -866,6 +919,7 @@ const MyTasks = () => {
                   tasks={data.tasks_due_today}
                   color="bg-amber-100 text-amber-700"
                   onStatusChange={handleStatusChange}
+                  onDelete={handleDeleteTask}
                   onTaskClick={handleTaskClick}
                   showCompleteAll={true}
                 />
@@ -878,6 +932,7 @@ const MyTasks = () => {
                   tasks={data.tasks_in_progress}
                   color="bg-purple-100 text-purple-700"
                   onStatusChange={handleStatusChange}
+                  onDelete={handleDeleteTask}
                   onTaskClick={handleTaskClick}
                 />
               )}
@@ -889,6 +944,7 @@ const MyTasks = () => {
                   tasks={data.tasks_pending_review}
                   color="bg-blue-100 text-blue-700"
                   onStatusChange={handleStatusChange}
+                  onDelete={handleDeleteTask}
                   onTaskClick={handleTaskClick}
                 />
               )}
@@ -900,6 +956,7 @@ const MyTasks = () => {
                   tasks={data.tasks_assigned}
                   color="bg-stone-100 text-stone-600"
                   onStatusChange={handleStatusChange}
+                  onDelete={handleDeleteTask}
                   onTaskClick={handleTaskClick}
                 />
               )}
@@ -930,6 +987,7 @@ const MyTasks = () => {
                   tasks={data.tasks_in_progress}
                   color="bg-purple-100 text-purple-700"
                   onStatusChange={handleStatusChange}
+                  onDelete={handleDeleteTask}
                   onTaskClick={handleTaskClick}
                 />
               ) : (
@@ -1028,6 +1086,7 @@ const MyTasks = () => {
                   tasks={data.tasks_pending_review}
                   color="bg-blue-100 text-blue-700"
                   onStatusChange={handleStatusChange}
+                  onDelete={handleDeleteTask}
                   onTaskClick={handleTaskClick}
                 />
               ) : (
@@ -1049,6 +1108,7 @@ const MyTasks = () => {
                   tasks={data.recently_completed}
                   color="bg-emerald-100 text-emerald-700"
                   onStatusChange={handleStatusChange}
+                  onDelete={handleDeleteTask}
                   onTaskClick={handleTaskClick}
                 />
               ) : (
@@ -1084,6 +1144,7 @@ const MyTasks = () => {
                   key={task.id} 
                   task={task} 
                   onStatusChange={handleStatusChange}
+                  onDelete={handleDeleteTask}
                   onClick={handleTaskClick}
                 />
               ))}
