@@ -74,10 +74,10 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
     inventory_model: '', // 'outright_purchase' or 'sor'
     commission_rate: '',  // For SOR
     payout_terms: '',     // For SOR
+    custom_payout_terms: '', // Custom payout terms when 'Custom' is selected
     margin: '',           // For Outright Purchase
     payment_terms: '',    // For Outright Purchase
     credit_limit: '',     // For Outright Purchase
-    customer_payment_terms: '', // Customer payment terms (common to both)
     stock_correction: '',
     contract_start_date: '',
     contract_end_date: '',
@@ -233,14 +233,18 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
   // Initialize agreement form when brand loads
   useEffect(() => {
     if (brand) {
+      // Check if payout_terms is a custom value (not in standard options)
+      const standardPayoutTerms = ['Weekly', 'Bi-Weekly', 'Monthly', 'Net 15', 'Net 30', 'Net 45', 'Net 60'];
+      const isCustomPayout = brand.payout_terms && !standardPayoutTerms.includes(brand.payout_terms);
+      
       setAgreementForm({
         inventory_model: brand.inventory_model || '',
         commission_rate: brand.commission_rate || '',
-        payout_terms: brand.payout_terms || '',
+        payout_terms: isCustomPayout ? 'Custom' : (brand.payout_terms || ''),
+        custom_payout_terms: isCustomPayout ? brand.payout_terms : '',
         margin: brand.margin || '',
         payment_terms: brand.payment_terms || '',
         credit_limit: brand.credit_limit || '',
-        customer_payment_terms: brand.customer_payment_terms || '',
         stock_correction: brand.stock_correction || '',
         contract_start_date: brand.contract_start_date ? brand.contract_start_date.split('T')[0] : '',
         contract_end_date: brand.contract_end_date ? brand.contract_end_date.split('T')[0] : '',
@@ -284,7 +288,6 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
     try {
       const updateData = {
         inventory_model: agreementForm.inventory_model,
-        customer_payment_terms: agreementForm.customer_payment_terms || null,
         stock_correction: agreementForm.stock_correction || null,
         contract_start_date: agreementForm.contract_start_date || null,
         contract_end_date: agreementForm.contract_end_date || null,
@@ -299,7 +302,10 @@ const BrandDetailPage = ({ editMode: initialEditMode = false }) => {
       // Add model-specific fields
       if (agreementForm.inventory_model === 'sor') {
         updateData.commission_rate = agreementForm.commission_rate ? parseFloat(agreementForm.commission_rate) : null;
-        updateData.payout_terms = agreementForm.payout_terms || null;
+        // Use custom_payout_terms if 'Custom' is selected, otherwise use selected value
+        updateData.payout_terms = agreementForm.payout_terms === 'Custom' 
+          ? agreementForm.custom_payout_terms 
+          : agreementForm.payout_terms || null;
         // Clear outright fields
         updateData.margin = null;
         updateData.payment_terms = null;
@@ -1610,7 +1616,7 @@ ${replyData.bodyPreview || ''}`;
                     <Label>Payout Terms</Label>
                     <Select 
                       value={agreementForm.payout_terms}
-                      onValueChange={(v) => setAgreementForm(prev => ({ ...prev, payout_terms: v }))}
+                      onValueChange={(v) => setAgreementForm(prev => ({ ...prev, payout_terms: v, custom_payout_terms: v !== 'Custom' ? '' : prev.custom_payout_terms }))}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select payout terms" />
@@ -1621,8 +1627,19 @@ ${replyData.bodyPreview || ''}`;
                         <SelectItem value="Monthly">Monthly</SelectItem>
                         <SelectItem value="Net 15">Net 15</SelectItem>
                         <SelectItem value="Net 30">Net 30</SelectItem>
+                        <SelectItem value="Net 45">Net 45</SelectItem>
+                        <SelectItem value="Net 60">Net 60</SelectItem>
+                        <SelectItem value="Custom">Custom</SelectItem>
                       </SelectContent>
                     </Select>
+                    {agreementForm.payout_terms === 'Custom' && (
+                      <Input
+                        className="mt-2"
+                        value={agreementForm.custom_payout_terms}
+                        onChange={(e) => setAgreementForm(prev => ({ ...prev, custom_payout_terms: e.target.value }))}
+                        placeholder="Enter custom payout terms (e.g., Net 7, Every 10 days)"
+                      />
+                    )}
                   </div>
                 </div>
               </div>
@@ -1687,31 +1704,6 @@ ${replyData.bodyPreview || ''}`;
                 placeholder="Define stock correction terms, return policies, damage handling..."
                 rows={2}
               />
-            </div>
-
-            {/* Customer Payment Terms */}
-            <div>
-              <Label>Customer Payment Terms</Label>
-              <Select 
-                value={agreementForm.customer_payment_terms}
-                onValueChange={(v) => setAgreementForm(prev => ({ ...prev, customer_payment_terms: v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select customer payment terms" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Advance">Advance</SelectItem>
-                  <SelectItem value="COD">Cash on Delivery (COD)</SelectItem>
-                  <SelectItem value="Net 7">Net 7</SelectItem>
-                  <SelectItem value="Net 15">Net 15</SelectItem>
-                  <SelectItem value="Net 30">Net 30</SelectItem>
-                  <SelectItem value="Net 45">Net 45</SelectItem>
-                  <SelectItem value="Net 60">Net 60</SelectItem>
-                  <SelectItem value="Net 90">Net 90</SelectItem>
-                  <SelectItem value="2/10 Net 30">2/10 Net 30</SelectItem>
-                  <SelectItem value="Custom">Custom</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
             
             {/* Contract Dates */}

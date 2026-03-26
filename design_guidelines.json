@@ -1,168 +1,67 @@
 {
-  "design_system": {
-    "name": "Organic Productivity",
-    "theme": "light",
-    "description": "A calm, tactile, and focused interface that mimics the warmth of paper and physical organization tools. Avoids cold digital grays.",
-    "colors": {
-      "palette": {
-        "background": {
-          "primary": "#F5EBE0",
-          "secondary": "#F0E4D4",
-          "card": "#FFFBF7",
-          "column": "rgba(232, 213, 196, 0.4)"
-        },
-        "text": {
-          "primary": "#4A3728",
-          "secondary": "#6B5D52",
-          "muted": "#9C8C74",
-          "inverse": "#FFFBF7"
-        },
-        "border": {
-          "default": "#E8D5C4",
-          "subtle": "#F0E4D4",
-          "strong": "#8B6E5B"
-        },
-        "accent": {
-          "primary": "#e11d48",
-          "success": "#5F8D4E",
-          "warning": "#D97706",
-          "info": "#4A7C8C"
-        }
-      },
-      "usage_rules": {
-        "text_contrast": "Always use #4A3728 for main text on #F5EBE0 backgrounds. Never use pure black.",
-        "borders": "Use #E8D5C4 for structural dividers. Use #e11d48 (Rose) only for high-priority actions or blocked states.",
-        "shadows": "Use colored shadows (e.g., shadow-amber-900/5) instead of gray shadows to maintain warmth."
-      }
+  "theme": "Light",
+  "archetype": "Swiss & High-Contrast",
+  "archetype_number": 4,
+  "colors": {
+    "background": "#F5F5F5",
+    "surface": "#FFFFFF",
+    "text": {
+      "primary": "#111111",
+      "secondary": "#555555",
+      "accent": "#002FA7"
     },
-    "typography": {
-      "font_family": {
-        "headings": "font-serif tracking-tight",
-        "body": "font-sans tracking-normal",
-        "mono": "font-mono"
-      },
-      "scale": {
-        "h1": "text-4xl md:text-5xl font-bold tracking-tight text-[#4A3728]",
-        "h2": "text-2xl md:text-3xl font-semibold tracking-tight text-[#4A3728]",
-        "h3": "text-xl font-medium text-[#4A3728]",
-        "body": "text-base text-[#6B5D52]",
-        "small": "text-sm text-[#9C8C74]"
-      }
+    "accents": {
+      "primary": "#002FA7",
+      "danger": "#FF3B30",
+      "warning": "#FFCC00",
+      "success": "#00B050"
     },
-    "spacing": {
-      "container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
-      "section_gap": "gap-8",
-      "component_gap": "gap-4",
-      "internal_padding": "p-6"
-    },
-    "visual_enhancers": {
-      "radius": "rounded-xl",
-      "shadows": {
-        "card": "shadow-[0_2px_8px_-2px_rgba(74,55,40,0.1)]",
-        "card_hover": "shadow-[0_8px_16px_-4px_rgba(74,55,40,0.15)]",
-        "dropdown": "shadow-lg shadow-stone-900/5"
-      },
-      "textures": {
-        "paper_grain": "bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')] opacity-50",
-        "glass": "bg-white/60 backdrop-blur-xl border border-white/40"
-      },
-      "animations": {
-        "hover": "transition-all duration-300 ease-out hover:-translate-y-1",
-        "drag_active": "scale-105 shadow-xl rotate-1 cursor-grabbing",
-        "drag_overlay": "opacity-80"
-      }
+    "border": "#E5E5E5"
+  },
+  "typography": {
+    "heading_font": "Cabinet Grotesk",
+    "body_font": "IBM Plex Sans",
+    "hierarchy": {
+      "h1": "text-4xl tracking-tight font-cabinet font-medium",
+      "h2": "text-2xl tracking-tight font-cabinet font-medium",
+      "h3": "text-lg font-cabinet font-medium",
+      "body": "text-sm font-ibm-plex text-[#555555]",
+      "label": "text-xs font-ibm-plex uppercase tracking-[0.2em] font-medium text-[#111111]"
     }
+  },
+  "layout": {
+    "grid_system": "Control Room Pattern. Base Grid: grid-cols-1 md:grid-cols-4. Gap Strategy: gap-6.",
+    "spacing_scale": "Tailwind standard p-4 to p-8. Dashboard cards should have p-6 inner padding.",
+    "surface_strategy": "Grid Borders (The 'Technical' Look). Use flat solid surfaces. No glassmorphism. Use 1px sharp borders `border-[#E5E5E5]` with no shadow. Maintain optical clarity."
   },
   "components": {
-    "ProjectHeader": {
-      "path": "/app/frontend/src/components/project/ProjectHeader.js",
-      "structure": "Bento Grid Layout (Mode A)",
-      "specs": {
-        "container": "grid grid-cols-1 md:grid-cols-12 gap-6 mb-8",
-        "title_section": "col-span-full md:col-span-8 bg-white/50 p-8 rounded-2xl border border-[#E8D5C4]",
-        "stats_section": "col-span-full md:col-span-4 bg-[#E8D5C4]/30 p-8 rounded-2xl flex flex-col justify-center",
-        "title_text": "text-4xl font-serif text-[#4A3728] mb-2",
-        "meta_text": "text-[#8B6E5B] font-medium flex items-center gap-4"
-      }
-    },
-    "KanbanBoard": {
-      "path": "/app/frontend/src/components/project/KanbanBoard.js",
-      "structure": "Horizontal Flex Container",
-      "specs": {
-        "wrapper": "flex gap-6 overflow-x-auto pb-8 snap-x",
-        "column": "min-w-[320px] w-[320px] bg-[#E8D5C4]/20 rounded-xl p-4 flex flex-col gap-3 snap-center border border-transparent hover:border-[#E8D5C4]/50 transition-colors",
-        "column_header": "flex justify-between items-center mb-4 px-2",
-        "column_title": "font-bold text-[#4A3728] text-lg flex items-center gap-2",
-        "count_badge": "bg-[#4A3728]/10 text-[#4A3728] px-2 py-0.5 rounded-full text-xs font-bold"
-      }
-    },
-    "TaskCard": {
-      "path": "/app/frontend/src/components/project/TaskCard.js",
-      "structure": "Card Component with DndKit DragHandle",
-      "specs": {
-        "card": "bg-white p-4 rounded-lg border border-[#E8D5C4]/50 shadow-sm hover:shadow-md transition-all group relative touch-none select-none",
-        "dragging_state": "z-50 shadow-2xl scale-105 rotate-2 opacity-90 cursor-grabbing ring-2 ring-[#4A3728]/20",
-        "priority_indicator": {
-          "high": "border-l-4 border-l-rose-500",
-          "medium": "border-l-4 border-l-amber-500",
-          "low": "border-l-4 border-l-emerald-500"
-        },
-        "blocked_state": "ring-2 ring-rose-400 ring-offset-1 bg-rose-50/50",
-        "content_wrapper": "flex flex-col gap-3",
-        "title": "font-medium text-[#4A3728] leading-snug group-hover:text-rose-600 transition-colors",
-        "footer": "flex items-center justify-between mt-2 pt-2 border-t border-[#F5EBE0]",
-        "avatar_group": "flex -space-x-2"
-      }
-    }
+    "buttons": "Square or rounded-sm. Solid background for primary (#002FA7), transparent with 1px black border for secondary. High contrast hover states. Use `data-testid` on all buttons.",
+    "cards": "bg-white border border-[#E5E5E5] rounded-sm flex flex-col items-start p-6",
+    "stepper": "Horizontal pipeline timeline with sharp connected lines. Active node uses #002FA7.",
+    "tabs": "Minimalist tabs with sharp 1px bottom border. Active tab has #111111 bottom border, inactive has transparent.",
+    "badges": "Square or very slightly rounded. High contrast (e.g., bg-[#002FA7] text-white for Active, bg-[#E5E5E5] text-[#111111] for Draft)"
   },
-  "assets": {
-    "images": {
-      "avatars": [
-        "https://images.unsplash.com/photo-1657152042392-c1f39e52e7c9?crop=entropy&cs=srgb&fm=jpg&q=85",
-        "https://images.unsplash.com/photo-1589220286904-3dcef62c68ee?crop=entropy&cs=srgb&fm=jpg&q=85",
-        "https://images.unsplash.com/photo-1575299833801-85ce40813bac?crop=entropy&cs=srgb&fm=jpg&q=85",
-        "https://images.unsplash.com/photo-1659100947220-48b5d5738148?crop=entropy&cs=srgb&fm=jpg&q=85"
-      ]
-    },
-    "icons": {
-      "library": "lucide-react",
-      "recommendations": {
-        "priority": "Flag",
-        "date": "Calendar",
-        "comments": "MessageSquare",
-        "blocked": "AlertOctagon",
-        "add": "Plus"
-      }
-    }
-  },
-  "functionality_rules": {
-    "drag_and_drop": {
-      "library": "@dnd-kit/core @dnd-kit/sortable",
-      "requirements": "Use closestCorners collision detection. Implement DragOverlay for smooth visuals. Ensure accessibility with keyboard sensors.",
-      "sensors": "MouseSensor, TouchSensor, KeyboardSensor"
-    },
-    "interaction": {
-      "blocked_tasks": "Cannot be moved to 'Completed'. Shake animation if tried.",
-      "click_action": "Clicking card opens Task Detail modal (placeholder).",
-      "add_task": "Button at bottom of column or top header."
-    }
-  },
-  "testing": {
-    "attributes": "data-testid required on all interactive elements (e.g., 'task-card-123', 'column-todo', 'add-task-btn')",
-    "accessibility": "Ensure contrast ratios for text on cream backgrounds. Drag handles must be keyboard accessible."
+  "media": {
+    "brand_logo": "https://images.pexels.com/photos/812262/pexels-photo-812262.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "contact_avatars": [
+      "https://images.unsplash.com/photo-1576558656222-ba66febe3dec?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2OTV8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMHBvcnRyYWl0fGVufDB8fHx8MTc3NDUwMjUyMnww&ixlib=rb-4.1.0&q=85",
+      "https://images.unsplash.com/photo-1762522926157-bcc04bf0b10a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2OTV8MHwxfHNlYXJjaHw0fHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMHBvcnRyYWl0fGVufDB8fHx8MTc3NDUwMjUyMnww&ixlib=rb-4.1.0&q=85",
+      "https://images.pexels.com/photos/30004324/pexels-photo-30004324.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
+    ]
   },
   "instructions_to_main_agent": [
-    "1. Refactor 'ProjectDetails.js' to use the Bento Grid header layout.",
-    "2. Implement 'KanbanBoard.js' using DndKit. Create columns dynamically.",
-    "3. Create 'TaskCard.js' with the 'Organic' styling (cream/white/brown palette).",
-    "4. Ensure the DndKit 'DragOverlay' is used so the dragged item appears above everything else with a slight rotation.",
-    "5. Use the specific colors provided: #F5EBE0 (bg), #4A3728 (text), #E8D5C4 (border).",
-    "6. Do NOT use default gray/blue colors. Every surface must be warm.",
-    "7. Mock data for tasks if backend is not ready, but structure it for real API integration."
-  ],
-  "universal_guidelines": {
-    "general": "Avoid 'AI Slop' aesthetics. No generic gradients. Use texture and warmth.",
-    "files": "Use .js extension for components as per project structure (not .tsx).",
-    "imports": "Import Shadcn UI components from '@/components/ui/...'. Import icons from 'lucide-react'."
-  }
+    "Build the dashboard detail page adhering strictly to the 'Swiss & High-Contrast' archetype.",
+    "Add 'Cabinet Grotesk' and 'IBM Plex Sans' to the application via Google Fonts or standard imports.",
+    "Install and use `@phosphor-icons/react` or standard `lucide-react` with 1.5px stroke.",
+    "The layout must start with a Header (Logo, Name, Category, Badges, and Action Buttons).",
+    "Immediately below the Header, render the Pipeline/Onboarding stepper horizontally spanning full width.",
+    "Below the Stepper, deploy a 4-column Grid: `grid-cols-1 md:grid-cols-4 gap-6`.",
+    "Left Column (`col-span-1`): Place 'Company Details' and 'Contacts' list.",
+    "Middle Column (`col-span-2`): Place 'Agreement & Financial Terms' at the top (with clear SOR/Outright split), followed by a Tabbed Interface for 'Activity Logs', 'Emails (Sent/Received)', and 'Notes'.",
+    "Right Column (`col-span-1`): Place the 'Tasks' section, allowing quick additions and checkboxes for completion.",
+    "Apply sharp borders (`border border-[#E5E5E5]`) on all cards instead of shadows. No soft shadows allowed.",
+    "Ensure all interactive elements have explicit `data-testid` attributes.",
+    "Hover states must trigger explicit color shifts (e.g., `hover:bg-[#E5E5E5] hover:text-[#111111]`), no generic opacity drops.",
+    "Keep typography strict: `text-xs uppercase tracking-[0.2em]` for labels, `text-2xl font-cabinet font-medium` for major headings."
+  ]
 }
