@@ -847,7 +847,10 @@ async def login(credentials: UserLogin):
     if not user:
         logger.error(f"Login failed: user not found for {credentials.email}")
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    if not verify_password(credentials.password, user.get('password', '')):
+    
+    # Check both 'password' and 'hashed_password' fields for compatibility
+    stored_password = user.get('password') or user.get('hashed_password', '')
+    if not verify_password(credentials.password, stored_password):
         logger.error(f"Login failed: password mismatch for {credentials.email}")
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
