@@ -129,6 +129,23 @@ async def get_custom_roles(
     
     roles = await db.custom_roles.find(query, {"_id": 0}).to_list(100)
     
+    # Auto-seed default roles if none exist
+    if len(roles) == 0:
+        now = datetime.now(timezone.utc).isoformat()
+        for role_data in DEFAULT_CUSTOM_ROLES:
+            role_id = str(uuid.uuid4())
+            role_doc = {
+                "id": role_id,
+                **role_data,
+                "is_active": True,
+                "employee_count": 0,
+                "created_at": now,
+                "updated_at": now
+            }
+            await db.custom_roles.insert_one(role_doc)
+        # Re-fetch after seeding
+        roles = await db.custom_roles.find(query, {"_id": 0}).to_list(100)
+    
     # Enrich with employee counts and module names
     for role in roles:
         # Count from both employees collection (legacy) and users collection (new)
