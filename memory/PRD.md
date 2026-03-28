@@ -190,7 +190,7 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 
 ---
 
-*Last Updated: March 28, 2026*
+*Last Updated: March 28, 2026 (Session 3)*
 
 ---
 
@@ -370,6 +370,22 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 - **Routes** (`App.js`):
   - `/approvals` - Approval Dashboard
   - `/approvals/:id` - Approval Detail Page
+
+**Critical Bug Fix: WCC Approval Workflow Submission (March 28, 2026 - Session 3)**
+- **Issue**: Users with hierarchy data only in `employees` collection (not `users`) could not submit approval requests
+- **Root Cause**: 
+  1. The `reports_to` field in `employees` collection contained **employee IDs**, not **user IDs**
+  2. The approval engine only queried `users` collection for hierarchy data
+  3. When requester is the department head, Level 2 was incorrectly failing instead of being skipped
+- **Fix Applied** (`routes/approvals.py`):
+  - Updated `get_approver_for_level()` to properly resolve manager from employee ID → user ID
+  - Added skip marker `{"skip": True, "reason": "..."}` for self-approval scenarios
+  - Updated `build_approval_chain()` to gracefully handle skip markers
+  - Department head level is now correctly skipped when requester IS the department head
+- **Test Result**: Sutanu Upadhyay (Department Head of Product Development) can now submit WCC workflow requests
+  - Level 1 (Reporting Manager): Resolves to Mashum Mollah
+  - Level 2 (Department Head): Correctly skipped (requester is dept head)
+  - Request submitted successfully with total_levels: 1
 
 **RBAC Fixes (March 28, 2026)**
 - **Duplicate Roles Fix** (`routes/rbac.py`):

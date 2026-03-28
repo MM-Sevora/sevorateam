@@ -40,7 +40,10 @@ async def get_approver_for_level(db, requester_id: str, level_config: dict) -> O
     """
     Determine the approver for a given level based on configuration.
     
-    Returns approver dict with id, name, email or None if not found.
+    Returns:
+        - approver dict with id, name, email if found
+        - {"skip": True, "reason": "..."} if this level should be skipped (e.g., requester is dept head)
+        - None if approver not found and it's an error condition
     """
     approver_type = level_config.get("approver_type", "reporting_manager")
     
@@ -58,41 +61,54 @@ async def get_approver_for_level(db, requester_id: str, level_config: dict) -> O
             manager_id = employee.get("reports_to") if employee else None
         
         if manager_id:
-            # Manager ID might be user_id or employee_id, try both
+            # First try: manager_id is a user_id
             manager = await db.users.find_one(
                 {"id": manager_id},
                 {"_id": 0, "id": 1, "name": 1, "email": 1}
             )
-            if not manager:
-                # Try finding by employee record
-                manager_emp = await db.employees.find_one(
-                    {"$or": [{"id": manager_id}, {"user_id": manager_id}]},
-                    {"user_id": 1, "name": 1, "email": 1}
+            if manager:
+                return manager
+            
+            # Second try: manager_id is an employee_id - look up the employee's user_id
+            manager_emp = await db.employees.find_one(
+                {"id": manager_id},
+                {"user_id": 1, "name": 1, "email": 1}
+            )
+            if manager_emp and manager_emp.get("user_id"):
+                # Get the user record using the employee's user_id
+                manager_user = await db.users.find_one(
+                    {"id": manager_emp["user_id"]},
+                    {"_id": 0, "id": 1, "name": 1, "email": 1}
                 )
-                if manager_emp:
-                    manager = {
-                        "id": manager_emp.get("user_id") or manager_id,
-                        "name": manager_emp.get("name"),
-                        "email": manager_emp.get("email")
-                    }
-            return manager
+                if manager_user:
+                    return manager_user
+                # Fallback: use employee data if user record not found
+                return {
+                    "id": manager_emp["user_id"],
+                    "name": manager_emp.get("name"),
+                    "email": manager_emp.get("email")
+                }
         return None
     
     elif approver_type == "department_head":
         # Get requester's department head - check both users and employees collections
         department_id = None
+        requester_employee_id = None
         
         # First check users collection
-        requester = await db.users.find_one({"id": requester_id}, {"department_id": 1})
+        requester = await db.users.find_one({"id": requester_id}, {"department_id": 1, "employee_id_ref": 1})
         department_id = requester.get("department_id") if requester else None
+        requester_employee_id = requester.get("employee_id_ref") if requester else None
         
         # If not found, check employees collection
         if not department_id:
             employee = await db.employees.find_one(
                 {"$or": [{"user_id": requester_id}, {"id": requester_id}]},
-                {"department_id": 1}
+                {"department_id": 1, "id": 1}
             )
-            department_id = employee.get("department_id") if employee else None
+            if employee:
+                department_id = employee.get("department_id")
+                requester_employee_id = employee.get("id")
         
         if department_id:
             dept = await db.departments.find_one(
@@ -101,24 +117,42 @@ async def get_approver_for_level(db, requester_id: str, level_config: dict) -> O
             )
             if dept and dept.get("department_head_id"):
                 head_id = dept["department_head_id"]
-                # Head ID might be user_id or employee_id
+                
+                # Check if requester IS the department head (skip this level)
+                if head_id == requester_id or head_id == requester_employee_id:
+                    return {"skip": True, "reason": "Requester is department head"}  # Requester is the dept head, skip this level
+                
+                # First try: head_id is a user_id
                 head = await db.users.find_one(
                     {"id": head_id},
                     {"_id": 0, "id": 1, "name": 1, "email": 1}
                 )
-                if not head:
-                    # Try finding by employee record
-                    head_emp = await db.employees.find_one(
-                        {"$or": [{"id": head_id}, {"user_id": head_id}]},
-                        {"user_id": 1, "name": 1, "email": 1}
+                if head:
+                    return head
+                
+                # Second try: head_id is an employee_id - look up the employee's user_id
+                head_emp = await db.employees.find_one(
+                    {"id": head_id},
+                    {"user_id": 1, "name": 1, "email": 1}
+                )
+                if head_emp and head_emp.get("user_id"):
+                    # Check if requester is the dept head via user_id match
+                    if head_emp["user_id"] == requester_id:
+                        return {"skip": True, "reason": "Requester is department head"}  # Requester is the dept head, skip this level
+                    
+                    # Get the user record using the employee's user_id
+                    head_user = await db.users.find_one(
+                        {"id": head_emp["user_id"]},
+                        {"_id": 0, "id": 1, "name": 1, "email": 1}
                     )
-                    if head_emp:
-                        head = {
-                            "id": head_emp.get("user_id") or head_id,
-                            "name": head_emp.get("name"),
-                            "email": head_emp.get("email")
-                        }
-                return head
+                    if head_user:
+                        return head_user
+                    # Fallback: use employee data if user record not found
+                    return {
+                        "id": head_emp["user_id"],
+                        "name": head_emp.get("name"),
+                        "email": head_emp.get("email")
+                    }
         return None
     
     elif approver_type == "specific_user":
@@ -182,6 +216,11 @@ async def build_approval_chain(db, requester_id: str, workflow: dict) -> List[di
     
     for level_config in levels:
         approver = await get_approver_for_level(db, requester_id, level_config)
+        
+        # Handle skip marker (e.g., requester is the department head)
+        if approver and approver.get("skip"):
+            # Skip this level gracefully - requester themselves would be the approver
+            continue
         
         if not approver:
             # Skip if approver not found and level is not required
