@@ -1060,9 +1060,9 @@ const MyTasks = () => {
                       <div 
                         key={subtask.id}
                         onClick={() => {
-                          // Navigate to parent task
+                          // Open parent task in modal to see/edit subtasks
                           if (subtask.parent_task_id) {
-                            navigate(`/projects/tasks/${subtask.parent_task_id}`);
+                            setSelectedTaskId(subtask.parent_task_id);
                           }
                         }}
                         className="bg-white p-4 rounded-lg border border-[#E8D5C4] hover:shadow-md transition-all cursor-pointer"
