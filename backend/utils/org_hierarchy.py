@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 async def get_direct_reportees(db, manager_id: str) -> List[str]:
     """
     Get all users who directly report to a manager.
+    Checks both users and employees collections.
     
     Args:
         db: Database connection
@@ -20,12 +21,26 @@ async def get_direct_reportees(db, manager_id: str) -> List[str]:
     Returns:
         List of user IDs who report directly to this manager
     """
-    reportees = await db.users.find(
+    reportee_ids = set()
+    
+    # Check users collection
+    user_reportees = await db.users.find(
         {"reports_to": manager_id, "status": {"$ne": "inactive"}},
         {"id": 1, "_id": 0}
     ).to_list(500)
+    for r in user_reportees:
+        reportee_ids.add(r["id"])
     
-    return [r["id"] for r in reportees]
+    # Also check employees collection
+    emp_reportees = await db.employees.find(
+        {"reports_to": manager_id, "status": {"$ne": "inactive"}},
+        {"user_id": 1, "id": 1, "_id": 0}
+    ).to_list(500)
+    for r in emp_reportees:
+        # Use user_id if available, otherwise use employee id
+        reportee_ids.add(r.get("user_id") or r["id"])
+    
+    return list(reportee_ids)
 
 
 async def get_all_reportees(db, manager_id: str, max_depth: int = 10) -> Set[str]:
@@ -135,6 +150,7 @@ async def is_user_reportee_of(db, user_id: str, potential_manager_id: str) -> bo
 async def get_department_head(db, department_id: str) -> Optional[Dict[str, Any]]:
     """
     Get the department head for a given department.
+    Checks both users and employees collections.
     
     Args:
         db: Database connection
@@ -151,10 +167,28 @@ async def get_department_head(db, department_id: str) -> Optional[Dict[str, Any]
     if not department or not department.get("department_head_id"):
         return None
     
+    head_id = department["department_head_id"]
+    
+    # Try users collection first
     head = await db.users.find_one(
-        {"id": department["department_head_id"]},
+        {"id": head_id},
         {"_id": 0, "id": 1, "name": 1, "email": 1, "department_id": 1, "designation": 1}
     )
+    
+    if not head:
+        # Try employees collection - head_id might be employee_id
+        head_emp = await db.employees.find_one(
+            {"$or": [{"id": head_id}, {"user_id": head_id}]},
+            {"user_id": 1, "name": 1, "email": 1, "department_id": 1, "designation": 1}
+        )
+        if head_emp:
+            head = {
+                "id": head_emp.get("user_id") or head_id,
+                "name": head_emp.get("name"),
+                "email": head_emp.get("email"),
+                "department_id": head_emp.get("department_id"),
+                "designation": head_emp.get("designation")
+            }
     
     return head
 
@@ -182,6 +216,7 @@ async def is_department_head(db, user_id: str, department_id: str = None) -> boo
 async def get_user_org_context(db, user_id: str) -> Dict[str, Any]:
     """
     Get complete organizational context for a user.
+    Checks both users and employees collections for data.
     
     Returns:
         Dict with:
@@ -193,6 +228,7 @@ async def get_user_org_context(db, user_id: str) -> Dict[str, Any]:
         - is_department_head: Boolean
         - is_manager: Boolean (has any reportees)
     """
+    # Check users collection first
     user = await db.users.find_one(
         {"id": user_id},
         {"_id": 0, "id": 1, "name": 1, "department_id": 1, "reports_to": 1}
@@ -201,27 +237,53 @@ async def get_user_org_context(db, user_id: str) -> Dict[str, Any]:
     if not user:
         return {"error": "User not found"}
     
+    # Get additional data from employees collection if not in users
+    department_id = user.get("department_id")
+    reports_to_id = user.get("reports_to")
+    
+    if not department_id or not reports_to_id:
+        employee = await db.employees.find_one(
+            {"$or": [{"user_id": user_id}, {"id": user_id}]},
+            {"department_id": 1, "reports_to": 1}
+        )
+        if employee:
+            department_id = department_id or employee.get("department_id")
+            reports_to_id = reports_to_id or employee.get("reports_to")
+    
     # Get reportees
     direct_reportees = await get_direct_reportees(db, user_id)
     all_reportees = await get_all_reportees(db, user_id)
     
     # Get manager
     manager = None
-    if user.get("reports_to"):
+    if reports_to_id:
         manager = await db.users.find_one(
-            {"id": user["reports_to"]},
+            {"id": reports_to_id},
             {"_id": 0, "id": 1, "name": 1, "email": 1, "designation": 1}
         )
+        if not manager:
+            # Try employees collection
+            manager_emp = await db.employees.find_one(
+                {"$or": [{"id": reports_to_id}, {"user_id": reports_to_id}]},
+                {"user_id": 1, "name": 1, "email": 1, "designation": 1}
+            )
+            if manager_emp:
+                manager = {
+                    "id": manager_emp.get("user_id") or reports_to_id,
+                    "name": manager_emp.get("name"),
+                    "email": manager_emp.get("email"),
+                    "designation": manager_emp.get("designation")
+                }
     
     # Get reporting chain
     reporting_chain = await get_reporting_chain_up(db, user_id)
     
-    # Get department info
+    # Get department info - use department_id from either users or employees
     department = None
     dept_head_status = False
-    if user.get("department_id"):
+    if department_id:
         department = await db.departments.find_one(
-            {"id": user["department_id"]},
+            {"id": department_id},
             {"_id": 0, "id": 1, "name": 1, "department_head_id": 1}
         )
         if department:
@@ -244,6 +306,7 @@ async def get_user_org_context(db, user_id: str) -> Dict[str, Any]:
 async def get_approval_chain(db, user_id: str, approval_type: str = "standard") -> List[Dict[str, Any]]:
     """
     Build the approval chain for a user based on their reporting structure.
+    Checks both users and employees collections.
     
     Approval types:
     - "standard": reports_to → department_head (if different) → final_approver
@@ -259,6 +322,8 @@ async def get_approval_chain(db, user_id: str, approval_type: str = "standard") 
         List of approvers in order with their level
     """
     chain = []
+    
+    # Get user data from users collection
     user = await db.users.find_one(
         {"id": user_id},
         {"_id": 0, "id": 1, "reports_to": 1, "department_id": 1}
@@ -267,12 +332,40 @@ async def get_approval_chain(db, user_id: str, approval_type: str = "standard") 
     if not user:
         return chain
     
+    # Get additional data from employees collection if not in users
+    reports_to_id = user.get("reports_to")
+    department_id = user.get("department_id")
+    
+    if not reports_to_id or not department_id:
+        employee = await db.employees.find_one(
+            {"$or": [{"user_id": user_id}, {"id": user_id}]},
+            {"reports_to": 1, "department_id": 1}
+        )
+        if employee:
+            reports_to_id = reports_to_id or employee.get("reports_to")
+            department_id = department_id or employee.get("department_id")
+    
     # Level 1: Direct Manager
-    if approval_type != "skip_level" and user.get("reports_to"):
+    if approval_type != "skip_level" and reports_to_id:
+        # Try users collection first
         manager = await db.users.find_one(
-            {"id": user["reports_to"]},
+            {"id": reports_to_id},
             {"_id": 0, "id": 1, "name": 1, "email": 1, "designation": 1}
         )
+        if not manager:
+            # Try employees collection
+            manager_emp = await db.employees.find_one(
+                {"$or": [{"id": reports_to_id}, {"user_id": reports_to_id}]},
+                {"user_id": 1, "name": 1, "email": 1, "designation": 1}
+            )
+            if manager_emp:
+                manager = {
+                    "id": manager_emp.get("user_id") or reports_to_id,
+                    "name": manager_emp.get("name"),
+                    "email": manager_emp.get("email"),
+                    "designation": manager_emp.get("designation")
+                }
+        
         if manager:
             chain.append({
                 "level": 1,
@@ -284,8 +377,8 @@ async def get_approval_chain(db, user_id: str, approval_type: str = "standard") 
             })
     
     # Level 2: Department Head (if not the same as direct manager)
-    if user.get("department_id"):
-        dept_head = await get_department_head(db, user["department_id"])
+    if department_id:
+        dept_head = await get_department_head(db, department_id)
         if dept_head:
             # Don't add if same as direct manager or if it's the requester
             existing_ids = [a["approver_id"] for a in chain]

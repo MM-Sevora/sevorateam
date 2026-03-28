@@ -45,29 +45,79 @@ async def get_approver_for_level(db, requester_id: str, level_config: dict) -> O
     approver_type = level_config.get("approver_type", "reporting_manager")
     
     if approver_type == "reporting_manager":
-        # Get requester's manager
+        # Get requester's manager - check both users and employees collections
         requester = await db.users.find_one({"id": requester_id}, {"reports_to": 1})
-        if requester and requester.get("reports_to"):
+        manager_id = requester.get("reports_to") if requester else None
+        
+        # If not found in users, check employees collection
+        if not manager_id:
+            employee = await db.employees.find_one(
+                {"$or": [{"user_id": requester_id}, {"id": requester_id}]},
+                {"reports_to": 1}
+            )
+            manager_id = employee.get("reports_to") if employee else None
+        
+        if manager_id:
+            # Manager ID might be user_id or employee_id, try both
             manager = await db.users.find_one(
-                {"id": requester["reports_to"]},
+                {"id": manager_id},
                 {"_id": 0, "id": 1, "name": 1, "email": 1}
             )
+            if not manager:
+                # Try finding by employee record
+                manager_emp = await db.employees.find_one(
+                    {"$or": [{"id": manager_id}, {"user_id": manager_id}]},
+                    {"user_id": 1, "name": 1, "email": 1}
+                )
+                if manager_emp:
+                    manager = {
+                        "id": manager_emp.get("user_id") or manager_id,
+                        "name": manager_emp.get("name"),
+                        "email": manager_emp.get("email")
+                    }
             return manager
         return None
     
     elif approver_type == "department_head":
-        # Get requester's department head
+        # Get requester's department head - check both users and employees collections
+        department_id = None
+        
+        # First check users collection
         requester = await db.users.find_one({"id": requester_id}, {"department_id": 1})
-        if requester and requester.get("department_id"):
+        department_id = requester.get("department_id") if requester else None
+        
+        # If not found, check employees collection
+        if not department_id:
+            employee = await db.employees.find_one(
+                {"$or": [{"user_id": requester_id}, {"id": requester_id}]},
+                {"department_id": 1}
+            )
+            department_id = employee.get("department_id") if employee else None
+        
+        if department_id:
             dept = await db.departments.find_one(
-                {"id": requester["department_id"]},
+                {"id": department_id},
                 {"department_head_id": 1}
             )
             if dept and dept.get("department_head_id"):
+                head_id = dept["department_head_id"]
+                # Head ID might be user_id or employee_id
                 head = await db.users.find_one(
-                    {"id": dept["department_head_id"]},
+                    {"id": head_id},
                     {"_id": 0, "id": 1, "name": 1, "email": 1}
                 )
+                if not head:
+                    # Try finding by employee record
+                    head_emp = await db.employees.find_one(
+                        {"$or": [{"id": head_id}, {"user_id": head_id}]},
+                        {"user_id": 1, "name": 1, "email": 1}
+                    )
+                    if head_emp:
+                        head = {
+                            "id": head_emp.get("user_id") or head_id,
+                            "name": head_emp.get("name"),
+                            "email": head_emp.get("email")
+                        }
                 return head
         return None
     
