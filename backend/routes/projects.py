@@ -1232,14 +1232,44 @@ async def get_my_tasks(
         if not subtask.get("title") and subtask.get("name"):
             subtask["title"] = subtask.get("name")
         
+        # Mark as subtask for UI differentiation
+        subtask["is_subtask"] = True
+        subtask["issue_type"] = "subtask"
+        
         # Get assignee name
         if subtask.get("assigned_to"):
             subtask["assigned_to_name"] = await get_user_name(subtask["assigned_to"])
         
         enriched_subtasks.append(subtask)
     
-    # Update stats to include subtasks
+    # Add subtasks to tasks_assigned so they appear in "All Tasks"
+    # Convert subtask format to match task format for unified display
+    for subtask in enriched_subtasks:
+        task_like_subtask = {
+            "id": subtask.get("id"),
+            "name": subtask.get("name") or subtask.get("title"),
+            "title": subtask.get("title") or subtask.get("name"),
+            "status": "in_progress" if not subtask.get("is_completed") else "completed",
+            "priority": subtask.get("priority", "medium"),
+            "due_date": subtask.get("due_date"),
+            "assigned_to": subtask.get("assigned_to"),
+            "assigned_to_name": subtask.get("assigned_to_name"),
+            "project_id": subtask.get("project_id"),
+            "project_name": subtask.get("project_name"),
+            "is_subtask": True,
+            "issue_type": "subtask",
+            "parent_task_id": subtask.get("parent_task_id"),
+            "parent_task_title": subtask.get("parent_task_title"),
+            "created_at": subtask.get("created_at"),
+            "updated_at": subtask.get("updated_at")
+        }
+        # Only add if not already in tasks_assigned (avoid duplicates)
+        if not any(t.get("id") == task_like_subtask["id"] for t in enriched_assigned):
+            enriched_assigned.append(task_like_subtask)
+    
+    # Update stats to include subtasks in total
     stats["subtasks_assigned"] = len(enriched_subtasks)
+    stats["total_assigned"] = total_assigned + len(enriched_subtasks)  # Include subtasks in total
     
     return MyTasksResponse(
         tasks_assigned=enriched_assigned,

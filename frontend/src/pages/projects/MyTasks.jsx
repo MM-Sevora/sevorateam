@@ -133,7 +133,15 @@ const TaskCard = ({ task, onStatusChange, onDelete, onClick }) => {
   // Quick complete handler
   const handleQuickComplete = (e) => {
     e.stopPropagation();
-    onStatusChange(task.id, 'completed');
+    // For subtasks, we need to call a different handler
+    if (task.is_subtask && task.parent_task_id) {
+      // Call subtask completion handler if provided
+      if (typeof onStatusChange === 'function') {
+        onStatusChange(task.id, 'completed', { isSubtask: true, parentTaskId: task.parent_task_id });
+      }
+    } else {
+      onStatusChange(task.id, 'completed');
+    }
   };
 
   return (
@@ -238,6 +246,17 @@ const TaskCard = ({ task, onStatusChange, onDelete, onClick }) => {
               <span className="flex items-center gap-1 bg-[#F5EBE0] px-2 py-0.5 rounded-full">
                 <FolderKanban className="w-3 h-3" />
                 {task.project_name}
+              </span>
+            )}
+            {task.is_subtask && (
+              <span className="flex items-center gap-1 bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">
+                <ListTodo className="w-3 h-3" />
+                Subtask
+              </span>
+            )}
+            {task.parent_task_title && (
+              <span className="flex items-center gap-1 bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full">
+                Parent: {task.parent_task_title}
               </span>
             )}
             {isIndividualTask && (
@@ -540,9 +559,33 @@ const MyTasks = () => {
     }
   };
 
-  const handleStatusChange = async (taskId, newStatus) => {
+  const handleStatusChange = async (taskId, newStatus, options = {}) => {
     try {
       const token = localStorage.getItem('sevora_token');
+      
+      // Handle subtask completion differently
+      if (options.isSubtask) {
+        const response = await fetch(`${API}/api/projects/subtasks/${taskId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            is_completed: newStatus === 'completed'
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to update subtask');
+        }
+        
+        toast.success(newStatus === 'completed' ? 'Subtask completed' : 'Subtask reopened');
+        fetchMyTasks();
+        return;
+      }
+      
+      // Regular task update
       const response = await fetch(`${API}/api/projects/tasks/${taskId}`, {
         method: 'PUT',
         headers: {
@@ -646,8 +689,13 @@ const MyTasks = () => {
   }, [searchParams, setSearchParams]);
 
   const handleTaskClick = (task) => {
-    // Open task detail modal instead of navigating to project
-    setSelectedTaskId(task.id);
+    // If it's a subtask, open the parent task modal
+    if (task.is_subtask && task.parent_task_id) {
+      setSelectedTaskId(task.parent_task_id);
+    } else {
+      // Open task detail modal
+      setSelectedTaskId(task.id);
+    }
   };
 
   const handleQuickRecurring = async (templateType) => {

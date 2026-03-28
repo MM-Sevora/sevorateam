@@ -338,6 +338,8 @@ class TaskResponse(BaseModel):
     blocks_names: List[str] = []  # Names of tasks this blocks
     is_blocked: bool = False  # True if any blocking task is incomplete
     is_individual: bool = False  # True if not linked to any project
+    is_subtask: bool = False  # True if this is a subtask
+    parent_task_title: Optional[str] = None  # Parent task title for subtasks
     # Issue Type (Jira-like)
     issue_type: IssueType = IssueType.TASK
     type: Optional[str] = None  # Custom type for Feature Parser: design, frontend, backend, qa, user_story
