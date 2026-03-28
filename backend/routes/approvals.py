@@ -681,13 +681,23 @@ async def get_available_request_types(
     }
 
 
+class AttachmentData(BaseModel):
+    """Attachment data structure"""
+    name: Optional[str] = None
+    filename: Optional[str] = None
+    url: Optional[str] = None
+    size: Optional[int] = None
+    type: Optional[str] = None
+    data: Optional[str] = None  # Base64 data if no URL
+
+
 class DirectApprovalRequest(BaseModel):
     """Direct approval request from user"""
     workflow_id: str                          # Which workflow to use
     title: str                                # Request title
     description: Optional[str] = None         # Request description
     amount: Optional[float] = None            # Amount if applicable
-    attachments: List[str] = []               # List of attachment URLs/IDs
+    attachments: List[AttachmentData] = []    # List of attachment objects
     custom_fields: Dict[str, Any] = {}        # Additional custom fields
     notes: Optional[str] = None               # Notes for approvers
 
@@ -762,6 +772,10 @@ async def create_approval_request_direct(
     
     # Create request document
     request_id = str(uuid.uuid4())
+    
+    # Convert attachments to dicts for storage
+    attachments_data = [att.model_dump() for att in data.attachments] if data.attachments else []
+    
     request_doc = {
         "id": request_id,
         "approval_type": workflow.get("approval_type"),
@@ -770,7 +784,7 @@ async def create_approval_request_direct(
         "entity_title": data.title,
         "entity_details": {
             "description": data.description,
-            "attachments": data.attachments,
+            "attachments": attachments_data,
             **data.custom_fields
         },
         
