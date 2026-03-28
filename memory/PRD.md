@@ -196,6 +196,11 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 
 ## Recent Changes (March 28, 2026)
 
+### User List Role Display Fix
+- **Fixed role display in user list**: Users now correctly show their assigned roles in the Roles column
+- **Root cause**: `/api/workos/users` endpoint returned `role=None`, switched to `/api/admin/users` which includes the `role` field
+- **Updated getUserRoleNames**: Now matches by role_ids, custom_role_ids, AND legacy role field (e.g., `role: "super_admin"` → "Super Admin")
+
 ### Role CRUD Permissions Fix & Role-Based Dashboard Widgets
 - **CRUD Checkboxes Fix**: Role Edit Sheet now properly shows CRUD checkboxes checked for each module:
   - Super Admin/Administrator: All 4 checkboxes (Create, Read, Update, Delete) checked

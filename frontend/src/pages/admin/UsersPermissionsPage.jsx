@@ -255,7 +255,7 @@ const UsersPermissionsPage = () => {
     setLoading(true);
     try {
       const [usersRes, rolesRes, modulesRes, categoriesRes, deptsRes, teamsRes, employeesRes, gradesRes] = await Promise.all([
-        api.get('/workos/users'),
+        api.get('/admin/users'),  // Use admin/users to get role field
         api.get('/rbac/roles'),  // Use RBAC endpoint for enriched role data
         api.get('/system-modules/'),
         api.get('/module-categories/'),
@@ -493,8 +493,28 @@ const UsersPermissionsPage = () => {
 
   // Get role names for display
   const getUserRoleNames = (user) => {
+    // Bail early if roles haven't loaded yet
+    if (!roles || roles.length === 0) {
+      return [];
+    }
+    
     const roleIds = user.custom_role_ids || [];
-    return roles.filter(r => roleIds.includes(r.id)).map(r => r.name);
+    const userRoleIds = user.role_ids || [];
+    const legacyRole = user.role || '';
+    
+    // Match by custom_role_ids and role_ids (may be old IDs)
+    let matchedRoles = roles.filter(r => roleIds.includes(r.id) || userRoleIds.includes(r.id));
+    
+    // If no matches by ID, try matching by legacy role field (e.g., "viewer" -> "Viewer")
+    if (matchedRoles.length === 0 && legacyRole) {
+      matchedRoles = roles.filter(r => 
+        r.code === legacyRole || 
+        r.name?.toLowerCase().replace(/ /g, '_') === legacyRole ||
+        r.name?.toLowerCase() === legacyRole
+      );
+    }
+    
+    return matchedRoles.map(r => r.name);
   };
 
   // ================== USER CRUD ==================
