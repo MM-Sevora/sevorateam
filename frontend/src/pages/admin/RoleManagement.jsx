@@ -1,0 +1,693 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  Shield, Plus, Edit, Trash2, RefreshCw, CheckCircle, XCircle,
+  ChevronDown, ChevronRight, Users, Save, X, Eye, Lock, Unlock,
+  Settings, Package, Server, Building2, Activity, Layers
+} from 'lucide-react';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Textarea } from '../../components/ui/textarea';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
+import { Badge } from '../../components/ui/badge';
+import { Checkbox } from '../../components/ui/checkbox';
+import { Switch } from '../../components/ui/switch';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../../components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../../components/ui/alert-dialog';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '../../components/ui/sheet';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '../../components/ui/collapsible';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '../../components/ui/accordion';
+import { Label } from '../../components/ui/label';
+import { toast } from 'sonner';
+import api from '../../lib/api';
+
+// Permission presets
+const PERMISSION_PRESETS = {
+  viewer: { create: false, read: true, update: false, delete: false, data_scope: 'own_assigned', can_edit_others: false, can_delete_others: false },
+  editor: { create: true, read: true, update: true, delete: false, data_scope: 'team', can_edit_others: false, can_delete_others: false },
+  manager: { create: true, read: true, update: true, delete: true, data_scope: 'department', can_edit_others: true, can_delete_others: false },
+  admin: { create: true, read: true, update: true, delete: true, data_scope: 'all', can_edit_others: true, can_delete_others: true }
+};
+
+const DATA_SCOPE_OPTIONS = [
+  { value: 'own', label: 'Own Only', description: 'Can only see their own records' },
+  { value: 'own_assigned', label: 'Own + Assigned', description: 'Can see own and assigned records' },
+  { value: 'team', label: 'Team', description: 'Can see all team records' },
+  { value: 'department', label: 'Department', description: 'Can see all department records' },
+  { value: 'all', label: 'All', description: 'Can see all records in the system' },
+];
+
+const CATEGORY_LABELS = {
+  core: 'Core',
+  collaboration: 'Collaboration',
+  operations: 'Operations',
+  business: 'Business',
+  hr_finance: 'HR & Finance',
+  analytics: 'Analytics',
+  admin: 'Administration'
+};
+
+const RoleManagement = () => {
+  // State
+  const [roles, setRoles] = useState([]);
+  const [modules, setModules] = useState([]);
+  const [modulesByCategory, setModulesByCategory] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [presets, setPresets] = useState(PERMISSION_PRESETS);
+  
+  // Modal states
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [selectedRole, setSelectedRole] = useState(null);
+  const [showPermissionsPreview, setShowPermissionsPreview] = useState(false);
+  const [previewUserId, setPreviewUserId] = useState(null);
+  const [previewData, setPreviewData] = useState(null);
+  
+  // Form state
+  const [roleForm, setRoleForm] = useState({
+    name: '',
+    code: '',
+    description: '',
+    module_access: [],
+    module_permissions: {},
+    can_manage_users: false,
+    can_manage_roles: false
+  });
+  const [saving, setSaving] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState(['core', 'operations', 'business']);
+
+  // Fetch data
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [rolesRes, modulesRes, presetsRes] = await Promise.all([
+        api.get('/rbac/roles'),
+        api.get('/rbac/modules'),
+        api.get('/rbac/presets')
+      ]);
+      
+      setRoles(rolesRes.data || []);
+      setModules(modulesRes.data?.modules || []);
+      setPresets(presetsRes.data || PERMISSION_PRESETS);
+      
+      // Group modules by category
+      const grouped = {};
+      (modulesRes.data?.modules || []).forEach(m => {
+        if (!grouped[m.category]) grouped[m.category] = [];
+        grouped[m.category].push(m);
+      });
+      setModulesByCategory(grouped);
+    } catch (err) {
+      console.error('Failed to fetch RBAC data:', err);
+      toast.error('Failed to load roles and modules');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Open create/edit modal
+  const openCreateModal = (role = null) => {
+    if (role) {
+      setRoleForm({
+        id: role.id,
+        name: role.name,
+        code: role.code,
+        description: role.description || '',
+        module_access: role.module_access || [],
+        module_permissions: role.module_permissions || {},
+        can_manage_users: role.can_manage_users || false,
+        can_manage_roles: role.can_manage_roles || false
+      });
+    } else {
+      setRoleForm({
+        name: '',
+        code: '',
+        description: '',
+        module_access: [],
+        module_permissions: {},
+        can_manage_users: false,
+        can_manage_roles: false
+      });
+    }
+    setShowCreateModal(true);
+  };
+
+  // Toggle module access
+  const toggleModuleAccess = (moduleCode) => {
+    const isEnabled = roleForm.module_access.includes(moduleCode);
+    
+    if (isEnabled) {
+      // Remove module
+      setRoleForm(prev => ({
+        ...prev,
+        module_access: prev.module_access.filter(m => m !== moduleCode),
+        module_permissions: { ...prev.module_permissions, [moduleCode]: undefined }
+      }));
+    } else {
+      // Add module with default permissions (viewer)
+      setRoleForm(prev => ({
+        ...prev,
+        module_access: [...prev.module_access, moduleCode],
+        module_permissions: { 
+          ...prev.module_permissions, 
+          [moduleCode]: { ...presets.viewer }
+        }
+      }));
+    }
+  };
+
+  // Apply preset to module
+  const applyPresetToModule = (moduleCode, presetName) => {
+    const preset = presets[presetName];
+    if (!preset) return;
+    
+    setRoleForm(prev => ({
+      ...prev,
+      module_permissions: {
+        ...prev.module_permissions,
+        [moduleCode]: { ...preset }
+      }
+    }));
+  };
+
+  // Update module permission
+  const updateModulePermission = (moduleCode, field, value) => {
+    setRoleForm(prev => ({
+      ...prev,
+      module_permissions: {
+        ...prev.module_permissions,
+        [moduleCode]: {
+          ...(prev.module_permissions[moduleCode] || presets.viewer),
+          [field]: value
+        }
+      }
+    }));
+  };
+
+  // Save role
+  const handleSaveRole = async () => {
+    if (!roleForm.name.trim()) {
+      toast.error('Role name is required');
+      return;
+    }
+    if (!roleForm.code.trim()) {
+      toast.error('Role code is required');
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      // Clean up permissions - only include enabled modules
+      const cleanPermissions = {};
+      roleForm.module_access.forEach(moduleCode => {
+        if (roleForm.module_permissions[moduleCode]) {
+          cleanPermissions[moduleCode] = roleForm.module_permissions[moduleCode];
+        }
+      });
+      
+      const payload = {
+        name: roleForm.name,
+        code: roleForm.code,
+        description: roleForm.description,
+        module_access: roleForm.module_access,
+        module_permissions: cleanPermissions,
+        can_manage_users: roleForm.can_manage_users,
+        can_manage_roles: roleForm.can_manage_roles
+      };
+      
+      if (roleForm.id) {
+        await api.put(`/rbac/roles/${roleForm.id}`, payload);
+        toast.success('Role updated successfully');
+      } else {
+        await api.post('/rbac/roles', payload);
+        toast.success('Role created successfully');
+      }
+      
+      setShowCreateModal(false);
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to save role');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Delete role
+  const handleDeleteRole = async () => {
+    if (!selectedRole) return;
+    
+    try {
+      await api.delete(`/rbac/roles/${selectedRole.id}`);
+      toast.success('Role deleted');
+      setShowDeleteDialog(false);
+      setSelectedRole(null);
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to delete role');
+    }
+  };
+
+  // Get module permission display
+  const getModulePermissionBadge = (permissions) => {
+    if (!permissions) return <Badge variant="outline">No Access</Badge>;
+    
+    const { create, read, update, delete: del } = permissions;
+    const crud = [create && 'C', read && 'R', update && 'U', del && 'D'].filter(Boolean).join('');
+    
+    let variant = 'outline';
+    if (crud === 'CRUD') variant = 'default';
+    else if (crud.includes('C') || crud.includes('U') || crud.includes('D')) variant = 'secondary';
+    
+    return <Badge variant={variant}>{crud || 'None'}</Badge>;
+  };
+
+  return (
+    <div className="p-6 space-y-6" data-testid="role-management">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <Shield className="w-7 h-7 text-indigo-600" />
+            Role Management
+          </h1>
+          <p className="text-gray-500 mt-1">
+            Create and manage roles with granular CRUD permissions and data scope controls
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={fetchData}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
+          <Button onClick={() => openCreateModal()}>
+            <Plus className="w-4 h-4 mr-2" />
+            Create Role
+          </Button>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Total Roles</p>
+                <p className="text-2xl font-bold">{roles.length}</p>
+              </div>
+              <Shield className="w-8 h-8 text-indigo-500 opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">System Roles</p>
+                <p className="text-2xl font-bold">{roles.filter(r => r.is_system_role).length}</p>
+              </div>
+              <Lock className="w-8 h-8 text-amber-500 opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Total Modules</p>
+                <p className="text-2xl font-bold">{modules.length}</p>
+              </div>
+              <Package className="w-8 h-8 text-teal-500 opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Categories</p>
+                <p className="text-2xl font-bold">{Object.keys(modulesByCategory).length}</p>
+              </div>
+              <Layers className="w-8 h-8 text-purple-500 opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Roles Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>All Roles</CardTitle>
+          <CardDescription>
+            Click on a role to edit its permissions
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="text-center py-8 text-gray-500">Loading roles...</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Modules</TableHead>
+                  <TableHead>Users</TableHead>
+                  <TableHead>Admin Access</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {roles.map(role => (
+                  <TableRow key={role.id} className="cursor-pointer hover:bg-gray-50" onClick={() => openCreateModal(role)}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Shield className={`w-4 h-4 ${role.is_system_role ? 'text-amber-500' : 'text-gray-400'}`} />
+                        <div>
+                          <p className="font-medium">{role.name}</p>
+                          <p className="text-xs text-gray-500">{role.code}</p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{role.module_access?.length || 0} modules</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Users className="w-4 h-4 text-gray-400" />
+                        <span>{role.user_count || 0}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        {role.can_manage_users && <Badge variant="secondary">Users</Badge>}
+                        {role.can_manage_roles && <Badge variant="secondary">Roles</Badge>}
+                        {!role.can_manage_users && !role.can_manage_roles && <span className="text-gray-400">-</span>}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {role.is_system_role ? (
+                        <Badge className="bg-amber-100 text-amber-700">System</Badge>
+                      ) : role.is_active !== false ? (
+                        <Badge className="bg-green-100 text-green-700">Active</Badge>
+                      ) : (
+                        <Badge variant="outline">Inactive</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
+                        <Button variant="ghost" size="sm" onClick={() => openCreateModal(role)}>
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        {!role.is_system_role && (
+                          <Button variant="ghost" size="sm" onClick={() => { setSelectedRole(role); setShowDeleteDialog(true); }}>
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Create/Edit Role Modal */}
+      <Sheet open={showCreateModal} onOpenChange={setShowCreateModal}>
+        <SheetContent className="sm:max-w-3xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5" />
+              {roleForm.id ? 'Edit Role' : 'Create Role'}
+            </SheetTitle>
+          </SheetHeader>
+          
+          <div className="space-y-6 py-6">
+            {/* Basic Info */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Role Name *</Label>
+                <Input
+                  value={roleForm.name}
+                  onChange={e => setRoleForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g., Marketing Manager"
+                />
+              </div>
+              <div>
+                <Label>Role Code *</Label>
+                <Input
+                  value={roleForm.code}
+                  onChange={e => setRoleForm(prev => ({ ...prev, code: e.target.value.toLowerCase().replace(/\s+/g, '_') }))}
+                  placeholder="e.g., marketing_manager"
+                  disabled={roleForm.id && roles.find(r => r.id === roleForm.id)?.is_system_role}
+                />
+              </div>
+            </div>
+            
+            <div>
+              <Label>Description</Label>
+              <Textarea
+                value={roleForm.description}
+                onChange={e => setRoleForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Describe the role's purpose..."
+                rows={2}
+              />
+            </div>
+            
+            {/* Administrative Access */}
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <h3 className="font-medium text-amber-800 mb-3 flex items-center gap-2">
+                <Settings className="w-4 h-4" />
+                Administrative Access
+              </h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm">Can Manage Users</p>
+                    <p className="text-xs text-gray-500">Create, edit, and deactivate user accounts</p>
+                  </div>
+                  <Switch
+                    checked={roleForm.can_manage_users}
+                    onCheckedChange={v => setRoleForm(prev => ({ ...prev, can_manage_users: v }))}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm">Can Manage Roles</p>
+                    <p className="text-xs text-gray-500">Create, edit, and delete roles (except system roles)</p>
+                  </div>
+                  <Switch
+                    checked={roleForm.can_manage_roles}
+                    onCheckedChange={v => setRoleForm(prev => ({ ...prev, can_manage_roles: v }))}
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Module Permissions */}
+            <div>
+              <h3 className="font-medium mb-3 flex items-center gap-2">
+                <Package className="w-4 h-4" />
+                Module Access & Permissions
+              </h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Enable modules and configure CRUD permissions with data scope for each
+              </p>
+              
+              <Accordion type="multiple" defaultValue={expandedCategories}>
+                {Object.entries(modulesByCategory).map(([category, categoryModules]) => (
+                  <AccordionItem key={category} value={category}>
+                    <AccordionTrigger className="hover:no-underline">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">{CATEGORY_LABELS[category] || category}</Badge>
+                        <span className="text-sm text-gray-500">
+                          ({categoryModules.filter(m => roleForm.module_access.includes(m.code)).length}/{categoryModules.length} enabled)
+                        </span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-3 pt-2">
+                        {categoryModules.map(module => {
+                          const isEnabled = roleForm.module_access.includes(module.code);
+                          const permissions = roleForm.module_permissions[module.code] || {};
+                          
+                          return (
+                            <div key={module.code} className={`p-3 rounded-lg border ${isEnabled ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-3">
+                                  <Checkbox
+                                    checked={isEnabled}
+                                    onCheckedChange={() => toggleModuleAccess(module.code)}
+                                  />
+                                  <div>
+                                    <p className="font-medium text-sm">{module.name}</p>
+                                    <p className="text-xs text-gray-500">{module.description}</p>
+                                  </div>
+                                </div>
+                                {isEnabled && (
+                                  <Select onValueChange={v => applyPresetToModule(module.code, v)}>
+                                    <SelectTrigger className="w-32 h-8">
+                                      <SelectValue placeholder="Apply Preset" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="viewer">Viewer</SelectItem>
+                                      <SelectItem value="editor">Editor</SelectItem>
+                                      <SelectItem value="manager">Manager</SelectItem>
+                                      <SelectItem value="admin">Admin</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                )}
+                              </div>
+                              
+                              {isEnabled && (
+                                <div className="ml-7 mt-3 space-y-3">
+                                  {/* CRUD Permissions */}
+                                  <div className="flex flex-wrap gap-4">
+                                    {['create', 'read', 'update', 'delete'].map(action => (
+                                      <label key={action} className="flex items-center gap-2 cursor-pointer">
+                                        <Checkbox
+                                          checked={permissions[action] || false}
+                                          onCheckedChange={v => updateModulePermission(module.code, action, v)}
+                                        />
+                                        <span className="text-sm capitalize">{action}</span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                  
+                                  {/* Data Scope */}
+                                  <div className="flex items-center gap-4">
+                                    <Label className="text-sm w-24">Data Scope:</Label>
+                                    <Select
+                                      value={permissions.data_scope || 'own'}
+                                      onValueChange={v => updateModulePermission(module.code, 'data_scope', v)}
+                                    >
+                                      <SelectTrigger className="w-48 h-8">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {DATA_SCOPE_OPTIONS.map(opt => (
+                                          <SelectItem key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  
+                                  {/* Advanced Permissions */}
+                                  <div className="flex flex-wrap gap-4">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                      <Checkbox
+                                        checked={permissions.can_edit_others || false}
+                                        onCheckedChange={v => updateModulePermission(module.code, 'can_edit_others', v)}
+                                      />
+                                      <span className="text-sm">Edit Others' Records</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                      <Checkbox
+                                        checked={permissions.can_delete_others || false}
+                                        onCheckedChange={v => updateModulePermission(module.code, 'can_delete_others', v)}
+                                      />
+                                      <span className="text-sm">Delete Others' Records</span>
+                                    </label>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </div>
+            
+            {/* Save Button */}
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button variant="outline" onClick={() => setShowCreateModal(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveRole} disabled={saving}>
+                {saving ? 'Saving...' : roleForm.id ? 'Update Role' : 'Create Role'}
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Role?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{selectedRole?.name}"? This action cannot be undone.
+              {selectedRole?.user_count > 0 && (
+                <span className="block mt-2 text-red-500 font-medium">
+                  Warning: This role is assigned to {selectedRole.user_count} user(s).
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteRole} className="bg-red-600 hover:bg-red-700">
+              Delete Role
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+};
+
+export default RoleManagement;

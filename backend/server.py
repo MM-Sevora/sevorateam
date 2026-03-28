@@ -4648,6 +4648,14 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Access Control routes: {e}")
 
+# Register RBAC routes (Unified Role-Based Access Control)
+try:
+    from routes.rbac import rbac_router
+    api_router.include_router(rbac_router)
+    logger.info("RBAC routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load RBAC routes: {e}")
+
 # Register Scheduler routes (Background jobs)
 try:
     from routes.scheduler import scheduler_router
