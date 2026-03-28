@@ -518,6 +518,7 @@ async def sync_default_roles(
     """
     Sync default roles with correct module_access.
     This ensures production roles have the correct permissions.
+    Also removes duplicates and ensures Super Admin has all modules.
     Only accessible by admins.
     """
     # Check if user has admin access
@@ -530,13 +531,30 @@ async def sync_default_roles(
     results = {
         "created": [],
         "updated": [],
-        "skipped": []
+        "skipped": [],
+        "duplicates_removed": []
     }
     
+    # First, remove duplicate roles
+    for role_data in DEFAULT_ROLES:
+        role_code = role_data["code"]
+        duplicates = await db.roles.find({"code": role_code}).to_list(100)
+        
+        if len(duplicates) > 1:
+            # Keep the one with most modules, delete others
+            duplicates_sorted = sorted(duplicates, key=lambda r: len(r.get("module_access", [])), reverse=True)
+            for dup in duplicates_sorted[1:]:
+                await db.roles.delete_one({"_id": dup["_id"]})
+                results["duplicates_removed"].append({
+                    "code": role_code,
+                    "id": str(dup.get("id", dup.get("_id")))
+                })
+    
+    # Now sync default roles
     for role_data in DEFAULT_ROLES:
         role_code = role_data["code"]
         
-        # Check if role exists
+        # Check if role exists (after duplicate cleanup)
         existing = await db.roles.find_one({"code": role_code}, {"_id": 0})
         
         if not existing:
@@ -580,5 +598,96 @@ async def sync_default_roles(
     return {
         "status": "success",
         "message": f"Synced {len(results['created'])} created, {len(results['updated'])} updated, {len(results['skipped'])} skipped",
+        "details": results
+    }
+
+
+@rbac_router.post("/cleanup-duplicates")
+async def cleanup_duplicate_roles(
+    user: dict = Depends(get_current_user_dep())
+):
+    """
+    Remove duplicate roles keeping only one copy per role code.
+    Also ensures Super Admin has all modules.
+    Only accessible by admins.
+    """
+    # Check if user has admin access
+    if user.get("role") not in ["super_admin", "admin"] and not user.get("can_manage_roles"):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    db = get_db()
+    now = datetime.now(timezone.utc).isoformat()
+    
+    results = {
+        "duplicates_removed": [],
+        "super_admin_fixed": False,
+        "total_roles_before": 0,
+        "total_roles_after": 0
+    }
+    
+    # Get all roles
+    all_roles = await db.roles.find({}, {"_id": 0}).to_list(500)
+    results["total_roles_before"] = len(all_roles)
+    
+    # Group roles by code
+    roles_by_code = {}
+    for role in all_roles:
+        code = role.get("code", "")
+        if code not in roles_by_code:
+            roles_by_code[code] = []
+        roles_by_code[code].append(role)
+    
+    # Process duplicates
+    for code, roles in roles_by_code.items():
+        if len(roles) > 1:
+            # Keep the one with most module_access, delete the rest
+            roles_sorted = sorted(roles, key=lambda r: len(r.get("module_access", [])), reverse=True)
+            
+            # Delete duplicates (all except the first/best one)
+            for role in roles_sorted[1:]:
+                await db.roles.delete_one({"id": role["id"]})
+                results["duplicates_removed"].append({
+                    "code": code,
+                    "name": role.get("name"),
+                    "id": role["id"],
+                    "modules_count": len(role.get("module_access", []))
+                })
+    
+    # Ensure Super Admin has ALL modules
+    all_module_codes = list(SYSTEM_MODULES.keys())
+    super_admin = await db.roles.find_one({"code": "super_admin"}, {"_id": 0})
+    
+    if super_admin:
+        current_modules = set(super_admin.get("module_access", []))
+        expected_modules = set(all_module_codes)
+        
+        if current_modules != expected_modules:
+            # Update Super Admin with all modules
+            await db.roles.update_one(
+                {"code": "super_admin"},
+                {"$set": {
+                    "module_access": all_module_codes,
+                    "module_permissions": {
+                        module: PERMISSION_PRESETS["admin"].to_dict()
+                        for module in all_module_codes
+                    },
+                    "can_manage_users": True,
+                    "can_manage_roles": True,
+                    "updated_at": now
+                }}
+            )
+            results["super_admin_fixed"] = True
+            results["super_admin_modules"] = {
+                "before": len(current_modules),
+                "after": len(expected_modules)
+            }
+    
+    # Get final count
+    final_count = await db.roles.count_documents({})
+    results["total_roles_after"] = final_count
+    
+    return {
+        "status": "success",
+        "message": f"Cleanup complete. Removed {len(results['duplicates_removed'])} duplicates. Roles: {results['total_roles_before']} → {results['total_roles_after']}",
         "details": results
     }

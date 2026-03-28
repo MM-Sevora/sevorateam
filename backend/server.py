@@ -6320,7 +6320,7 @@ async def process_scheduled_posts():
 # Start scheduler on app startup
 @app.on_event("startup")
 async def start_scheduler():
-    # Sync RBAC default roles on startup
+    # Sync RBAC default roles on startup (with duplicate prevention)
     try:
         from models.rbac import DEFAULT_ROLES, SYSTEM_MODULES, PERMISSION_PRESETS
         from datetime import datetime, timezone
@@ -6328,10 +6328,23 @@ async def start_scheduler():
         
         now = datetime.now(timezone.utc).isoformat()
         synced = 0
+        cleaned = 0
         
+        # First, cleanup any duplicate roles by code
+        all_role_codes = [r["code"] for r in DEFAULT_ROLES]
+        for role_code in all_role_codes:
+            duplicates = await db.roles.find({"code": role_code}).to_list(100)
+            if len(duplicates) > 1:
+                # Keep the one with most modules, delete others
+                duplicates_sorted = sorted(duplicates, key=lambda r: len(r.get("module_access", [])), reverse=True)
+                for dup in duplicates_sorted[1:]:
+                    await db.roles.delete_one({"_id": dup["_id"]})
+                    cleaned += 1
+        
+        # Now sync default roles
         for role_data in DEFAULT_ROLES:
             role_code = role_data["code"]
-            existing = await db.roles.find_one({"code": role_code}, {"_id": 0, "module_access": 1})
+            existing = await db.roles.find_one({"code": role_code}, {"_id": 0, "id": 1, "module_access": 1})
             
             if not existing:
                 # Create new role
@@ -6358,8 +6371,25 @@ async def start_scheduler():
                 )
                 synced += 1
         
-        if synced > 0:
-            logger.info(f"RBAC: Synced {synced} default roles")
+        # Always ensure Super Admin has ALL modules
+        all_module_codes = list(SYSTEM_MODULES.keys())
+        super_admin = await db.roles.find_one({"code": "super_admin"}, {"_id": 0, "module_access": 1})
+        if super_admin and set(super_admin.get("module_access", [])) != set(all_module_codes):
+            await db.roles.update_one(
+                {"code": "super_admin"},
+                {"$set": {
+                    "module_access": all_module_codes,
+                    "module_permissions": {
+                        module: PERMISSION_PRESETS["admin"].to_dict()
+                        for module in all_module_codes
+                    },
+                    "updated_at": now
+                }}
+            )
+            logger.info(f"RBAC: Super Admin updated with {len(all_module_codes)} modules")
+        
+        if synced > 0 or cleaned > 0:
+            logger.info(f"RBAC: Synced {synced} roles, cleaned {cleaned} duplicates")
         else:
             logger.info("RBAC: Default roles already configured")
     except Exception as e:
