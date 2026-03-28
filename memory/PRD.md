@@ -200,6 +200,7 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 - **User Details Modal Role Selection**: FIXED & VERIFIED - Role checkbox now correctly pre-selects based on user's legacy `role` field (e.g., `role: "viewer"` → Viewer checkbox checked)
 - **Audit Log Date Filters**: FIXED & VERIFIED - Date filtering properly applies, showing only entries within the selected date range
 - **Inherited Permissions Preview**: Working correctly - Shows merged modules from selected roles with clear label
+- **"Invalid Role" Error on Save**: FIXED - Updated `access_control.py` to check both `roles` collection (new RBAC) and `custom_roles` collection (legacy) when validating role IDs
 
 ### Audit Log Module (NEW)
 - **Backend API** (`/api/audit/*`):

@@ -342,10 +342,14 @@ async def onboard_user(
     
     validated_roles = []
     for role_id in data.custom_role_ids:
-        custom_role = await db.custom_roles.find_one({"id": role_id})
-        if not custom_role:
+        # First check the new 'roles' collection (RBAC system)
+        role = await db.roles.find_one({"id": role_id, "is_active": {"$ne": False}})
+        if not role:
+            # Fallback to legacy 'custom_roles' collection
+            role = await db.custom_roles.find_one({"id": role_id})
+        if not role:
             raise HTTPException(status_code=400, detail=f"Invalid custom role ID: {role_id}")
-        validated_roles.append(custom_role)
+        validated_roles.append(role)
     
     # 3. Validate department exists
     department = await db.departments.find_one({"id": data.department_id})
@@ -487,12 +491,17 @@ async def update_user_roles(
         raise HTTPException(status_code=404, detail="User not found")
     
     # 2. Validate all role IDs exist (allow empty list)
+    # Check both 'roles' collection (new RBAC) and 'custom_roles' collection (legacy)
     validated_roles = []
     for role_id in (data.custom_role_ids or []):
-        custom_role = await db.custom_roles.find_one({"id": role_id})
-        if not custom_role:
+        # First check the new 'roles' collection (RBAC system)
+        role = await db.roles.find_one({"id": role_id, "is_active": {"$ne": False}})
+        if not role:
+            # Fallback to legacy 'custom_roles' collection
+            role = await db.custom_roles.find_one({"id": role_id})
+        if not role:
             raise HTTPException(status_code=400, detail=f"Invalid role ID: {role_id}")
-        validated_roles.append(custom_role)
+        validated_roles.append(role)
     
     # 3. Merge module access from all assigned roles
     merged_module_access = set()
@@ -692,7 +701,11 @@ async def check_module_access(
             reason="User not onboarded - no custom role assigned"
         )
     
-    custom_role = await db.custom_roles.find_one({"id": custom_role_id}, {"_id": 0})
+    # First check the new 'roles' collection (RBAC system)
+    custom_role = await db.roles.find_one({"id": custom_role_id, "is_active": {"$ne": False}}, {"_id": 0})
+    if not custom_role:
+        # Fallback to legacy 'custom_roles' collection
+        custom_role = await db.custom_roles.find_one({"id": custom_role_id}, {"_id": 0})
     if not custom_role:
         return PermissionCheckResponse(
             has_access=False,
@@ -795,7 +808,11 @@ async def get_my_access(user: dict = Depends(get_current_user_dep())):
     can_manage_roles = False
     
     for role_id in custom_role_ids:
-        role = await db.custom_roles.find_one({"id": role_id}, {"_id": 0})
+        # First check the new 'roles' collection (RBAC system)
+        role = await db.roles.find_one({"id": role_id, "is_active": {"$ne": False}}, {"_id": 0})
+        if not role:
+            # Fallback to legacy 'custom_roles' collection
+            role = await db.custom_roles.find_one({"id": role_id}, {"_id": 0})
         if role:
             custom_roles.append({
                 "id": role.get("id"),
