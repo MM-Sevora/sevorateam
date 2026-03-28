@@ -5062,6 +5062,22 @@ try:
 except Exception as e:
     logger.error(f"Failed to load Standups & Releases routes: {e}")
 
+# Organization Hierarchy routes
+try:
+    from routes.org_hierarchy import org_router
+    api_router.include_router(org_router)
+    logger.info("Organization Hierarchy routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Organization Hierarchy routes: {e}")
+
+# Approval Workflows routes
+try:
+    from routes.approvals import approvals_router
+    api_router.include_router(approvals_router)
+    logger.info("Approval Workflows routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Approval Workflows routes: {e}")
+
 app.include_router(api_router)
 
 # ============== WEBSOCKET FOR REAL-TIME NOTIFICATIONS ==============

@@ -42,6 +42,7 @@ const DEPARTMENT_CONFIG = {
         requiredModule: 'employee_self_service',  // Default access for all users
         routes: [
             { path: '/employee/expenses', name: 'My Expense Claims', icon: Receipt },
+            { path: '/approvals', name: 'Approvals', icon: CheckCircle },
         ]
     },
     pulse: {

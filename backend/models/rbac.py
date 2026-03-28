@@ -21,6 +21,7 @@ class DataScope(str, Enum):
     OWN_ASSIGNED = "own_assigned"  # See own + assigned records
     TEAM = "team"                  # See team/department records
     DEPARTMENT = "department"      # See department records
+    REPORTEES = "reportees"        # See data of all direct/indirect reports
     ALL = "all"                    # See all records
 
 

@@ -275,14 +275,17 @@ async def apply_data_scope_filter(
 def get_data_scope_query(
     current_user: dict, 
     module_code: str, 
-    base_query: dict = None
+    base_query: dict = None,
+    reportee_ids: list = None
 ) -> dict:
     """
     Build MongoDB query filter based on user's data scope for a module.
     
     Data scope options:
     - "all": No filter (see everything with module access)
+    - "reportees": Filter by user's reportees (requires reportee_ids parameter)
     - "team": Filter by department_id (same department)
+    - "department": Same as team
     - "own_assigned": Filter by created_by OR assigned_to
     - "own_only": Filter by created_by only
     
@@ -290,6 +293,7 @@ def get_data_scope_query(
         current_user: User dict with module_permissions
         module_code: Module code to check permissions for
         base_query: Optional existing query to extend
+        reportee_ids: Pre-fetched list of reportee IDs (for "reportees" scope)
         
     Returns:
         MongoDB query dict
@@ -317,7 +321,21 @@ def get_data_scope_query(
     if data_scope == "all":
         # No additional filtering - user sees all data in module
         pass
-    elif data_scope == "team":
+    elif data_scope == "reportees":
+        # Manager sees own data + all reportees' data
+        if reportee_ids:
+            allowed_ids = list(reportee_ids) + [user_id]
+            query["$or"] = [
+                {"created_by": {"$in": allowed_ids}},
+                {"assigned_to": {"$in": allowed_ids}},
+            ]
+        else:
+            # Fallback to own + assigned if no reportee_ids provided
+            query["$or"] = [
+                {"created_by": user_id},
+                {"assigned_to": user_id},
+            ]
+    elif data_scope == "team" or data_scope == "department":
         # User sees records from same department/team
         if department_id:
             query["$or"] = [
@@ -337,7 +355,7 @@ def get_data_scope_query(
             {"created_by": user_id},
             {"assigned_to": user_id},
         ]
-    elif data_scope == "own_only":
+    elif data_scope == "own_only" or data_scope == "own":
         # User sees only their own records
         query["created_by"] = user_id
     
@@ -498,6 +516,18 @@ async def apply_data_scope_to_query(
     
     if data_scope == "all":
         return query
+    elif data_scope == "reportees":
+        # Manager sees own data + all reportees' data
+        from utils.org_hierarchy import get_all_reportees
+        from server import db
+        reportee_ids = await get_all_reportees(db, user_id)
+        reportee_ids_list = list(reportee_ids)
+        reportee_ids_list.append(user_id)  # Include self
+        
+        query["$or"] = [
+            {owner_field: {"$in": reportee_ids_list}},
+            {assigned_field: {"$in": reportee_ids_list}}
+        ]
     elif data_scope == "department":
         if department_id:
             query["$or"] = [

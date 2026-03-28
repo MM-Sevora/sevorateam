@@ -148,6 +148,10 @@ const ActivityFeedPage = lazy(() => import("./pages/tasks/ActivityFeedPage"));
 const TaskTriggersPage = lazy(() => import("./pages/tasks/TaskTriggersPage"));
 const ApprovalsPage = lazy(() => import("./pages/tasks/ApprovalsPage"));
 
+// Approval Workflow Pages
+const ApprovalDashboard = lazy(() => import("./pages/approvals/ApprovalDashboard"));
+const ApprovalDetailPage = lazy(() => import("./pages/approvals/ApprovalDetail"));
+
 // Goals & Objectives Pages
 const GoalsDashboard = lazy(() => import("./pages/goals/GoalsDashboard"));
 const StrategicGoals = lazy(() => import("./pages/goals/StrategicGoals"));
@@ -620,6 +624,10 @@ function AppRoutes() {
 
                 {/* Notifications */}
                 <Route path="/notifications" element={<ProtectedRoute><NotificationCenter /></ProtectedRoute>} />
+
+                {/* Approval Workflows */}
+                <Route path="/approvals" element={<ProtectedRoute><ApprovalDashboard /></ProtectedRoute>} />
+                <Route path="/approvals/:id" element={<ProtectedRoute><ApprovalDetailPage /></ProtectedRoute>} />
 
                 {/* Help & Support */}
                 <Route path="/help" element={<ProtectedRoute requiredModule="help_support"><HelpCenter /></ProtectedRoute>} />
