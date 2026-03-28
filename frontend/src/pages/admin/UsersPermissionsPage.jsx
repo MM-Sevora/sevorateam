@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { 
   Users, Search, Plus, Edit, Trash2, RefreshCw, CheckCircle, XCircle, 
@@ -120,6 +121,7 @@ const DEFAULT_MODULE_PERMISSION = {
 
 const UsersPermissionsPage = () => {
   const { api } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('users');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -1446,11 +1448,21 @@ const UsersPermissionsPage = () => {
 
         {/* ==================== ROLES TAB ==================== */}
         <TabsContent value="roles" className="mt-4 space-y-4">
-          <div className="flex justify-end">
-            <Button onClick={openCreateRoleDialog} className="bg-purple-600 hover:bg-purple-700">
-              <Plus className="h-4 w-4 mr-2" /> Create Role
+          {/* Quick View Header with link to full Roles Management */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Shield className="h-5 w-5 text-purple-600" />
+              <div>
+                <h3 className="font-medium text-gray-900">Roles Overview</h3>
+                <p className="text-sm text-gray-500">Quick view of system roles. For full management, use the dedicated Roles page.</p>
+              </div>
+            </div>
+            <Button onClick={() => navigate('/admin/roles')} className="bg-purple-600 hover:bg-purple-700">
+              <Settings className="h-4 w-4 mr-2" /> Manage Roles
+              <ExternalLink className="h-4 w-4 ml-2" />
             </Button>
           </div>
+          
           <Card className="border-[#E8D5C4]">
             <CardContent className="p-0">
               <Table>
@@ -1461,7 +1473,7 @@ const UsersPermissionsPage = () => {
                     <TableHead>Description</TableHead>
                     <TableHead className="text-center">Modules</TableHead>
                     <TableHead className="text-center">Users</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="text-center">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1469,17 +1481,23 @@ const UsersPermissionsPage = () => {
                     <TableRow><TableCell colSpan={6} className="text-center py-8 text-gray-400">No roles created yet</TableCell></TableRow>
                   ) : (
                     roles.map(role => (
-                      <TableRow key={role.id}>
-                        <TableCell className="font-medium">{role.name}</TableCell>
-                        <TableCell><code className="text-xs bg-gray-100 px-1 py-0.5 rounded">{role.code}</code></TableCell>
-                        <TableCell className="text-gray-500 max-w-xs truncate">{role.description}</TableCell>
+                      <TableRow key={role.id} className="hover:bg-gray-50">
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <Shield className="h-4 w-4 text-gray-400" />
+                            {role.name}
+                          </div>
+                        </TableCell>
+                        <TableCell><code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">{role.code}</code></TableCell>
+                        <TableCell className="text-gray-500 max-w-xs truncate">{role.description || '-'}</TableCell>
                         <TableCell className="text-center"><Badge variant="secondary">{role.module_access?.length || 0}</Badge></TableCell>
                         <TableCell className="text-center"><Badge variant="outline">{role.user_count || 0}</Badge></TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button variant="ghost" size="sm" onClick={() => openEditRoleDialog(role)}><Edit className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="sm" className="text-red-600" onClick={() => setDeleteRoleDialog({ open: true, role })}><Trash2 className="h-4 w-4" /></Button>
-                          </div>
+                        <TableCell className="text-center">
+                          {role.is_active !== false ? (
+                            <Badge className="bg-green-100 text-green-700">Active</Badge>
+                          ) : (
+                            <Badge variant="secondary">Inactive</Badge>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))
@@ -1488,6 +1506,43 @@ const UsersPermissionsPage = () => {
               </Table>
             </CardContent>
           </Card>
+          
+          {/* Summary Stats */}
+          <div className="grid grid-cols-3 gap-4">
+            <Card className="border-[#E8D5C4]">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <Shield className="h-5 w-5 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{roles.length}</p>
+                  <p className="text-sm text-gray-500">Total Roles</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-[#E8D5C4]">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Users className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{roles.reduce((sum, r) => sum + (r.user_count || 0), 0)}</p>
+                  <p className="text-sm text-gray-500">Users Assigned</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-[#E8D5C4]">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{roles.filter(r => r.is_active !== false).length}</p>
+                  <p className="text-sm text-gray-500">Active Roles</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* ==================== CATEGORIES TAB ==================== */}
@@ -2063,193 +2118,8 @@ const UsersPermissionsPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* ==================== ROLE DIALOG ==================== */}
-      <Dialog open={roleDialog.open} onOpenChange={(open) => !open && setRoleDialog({ open: false, role: null, mode: 'create' })}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Shield className="h-5 w-5" /> {roleDialog.mode === 'create' ? 'Create Role' : 'Edit Role'}</DialogTitle>
-            <DialogDescription>{roleDialog.mode === 'create' ? 'Create a new access role' : `Edit ${roleDialog.role?.name}`}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Role Name *</Label>
-                <Input value={roleForm.name} onChange={(e) => setRoleForm(prev => ({ ...prev, name: e.target.value }))} placeholder="e.g., Marketing Manager" />
-              </div>
-              <div className="space-y-2">
-                <Label>Code *</Label>
-                <Input value={roleForm.code} onChange={(e) => setRoleForm(prev => ({ ...prev, code: e.target.value.toLowerCase().replace(/\s/g, '_') }))} placeholder="e.g., marketing_manager" disabled={roleDialog.mode === 'edit'} />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Description</Label>
-              <Textarea value={roleForm.description} onChange={(e) => setRoleForm(prev => ({ ...prev, description: e.target.value }))} placeholder="What is this role for?" rows={2} />
-            </div>
-            <div className="space-y-2">
-              <Label>Admin Capabilities</Label>
-              <div className="flex flex-wrap gap-4 p-3 bg-gray-50 rounded-lg">
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox checked={roleForm.can_manage_users} onCheckedChange={(checked) => setRoleForm(prev => ({ ...prev, can_manage_users: checked }))} />
-                  Manage Users
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox checked={roleForm.can_manage_employees} onCheckedChange={(checked) => setRoleForm(prev => ({ ...prev, can_manage_employees: checked }))} />
-                  Manage Employees
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox checked={roleForm.can_manage_roles} onCheckedChange={(checked) => setRoleForm(prev => ({ ...prev, can_manage_roles: checked }))} />
-                  Manage Roles
-                </label>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label className="flex items-center justify-between">
-                <span>Module Permissions ({roleForm.module_access.length} modules)</span>
-                <span className="text-xs text-gray-500 font-normal">Configure CRUD, data scope, and access rules</span>
-              </Label>
-              <div className="border rounded-lg max-h-[400px] overflow-y-auto">
-                {categories.map(cat => {
-                  const catModules = modules.filter(m => m.category === cat.code);
-                  if (catModules.length === 0) return null;
-                  const colorOpt = COLOR_OPTIONS.find(c => c.value === cat.color) || COLOR_OPTIONS[0];
-                  return (
-                    <div key={cat.code} className="border-b last:border-0">
-                      <div className={`px-3 py-2 ${colorOpt.badge} text-xs font-medium sticky top-0 z-10`}>{cat.name}</div>
-                      <div className="divide-y">
-                        {catModules.map(mod => {
-                          const isSelected = roleForm.module_access.includes(mod.code);
-                          const isExpanded = expandedRoleModules.includes(mod.code);
-                          const modPerm = roleForm.module_permissions[mod.code] || DEFAULT_MODULE_PERMISSION;
-                          return (
-                            <Collapsible key={mod.code} open={isExpanded && isSelected}>
-                              <div className="flex items-center justify-between py-2 px-3 hover:bg-gray-50">
-                                <label className="flex items-center gap-2 text-sm cursor-pointer flex-1">
-                                  <Checkbox checked={isSelected} onCheckedChange={() => toggleRoleModule(mod.code)} />
-                                  <span className={isSelected ? 'font-medium' : ''}>{mod.name}</span>
-                                </label>
-                                {isSelected && (
-                                  <div className="flex items-center gap-3">
-                                    {/* Quick CRUD indicators */}
-                                    <div className="flex items-center gap-1 text-xs">
-                                      <span className={modPerm.create ? 'text-green-600' : 'text-gray-300'}>C</span>
-                                      <span className={modPerm.read ? 'text-green-600' : 'text-gray-300'}>R</span>
-                                      <span className={modPerm.update ? 'text-green-600' : 'text-gray-300'}>U</span>
-                                      <span className={modPerm.delete ? 'text-green-600' : 'text-gray-300'}>D</span>
-                                    </div>
-                                    {/* Data scope badge */}
-                                    <Badge variant="outline" className="text-xs">
-                                      {DATA_SCOPE_OPTIONS.find(o => o.value === modPerm.data_scope)?.label || 'All'}
-                                    </Badge>
-                                    <CollapsibleTrigger asChild>
-                                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => toggleRoleModuleExpand(mod.code)}>
-                                        {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                                      </Button>
-                                    </CollapsibleTrigger>
-                                  </div>
-                                )}
-                              </div>
-                              {isSelected && (
-                                <CollapsibleContent>
-                                  <div className="px-4 py-3 bg-amber-50/50 border-t space-y-3">
-                                    {/* Dimension 1: CRUD */}
-                                    <div>
-                                      <Label className="text-xs font-semibold text-gray-600 mb-2 block">CRUD Permissions</Label>
-                                      <div className="flex flex-wrap gap-4">
-                                        {['create', 'read', 'update', 'delete'].map(perm => (
-                                          <label key={perm} className="flex items-center gap-1.5 text-xs cursor-pointer">
-                                            <Checkbox 
-                                              checked={modPerm[perm]} 
-                                              onCheckedChange={() => toggleRolePermission(mod.code, perm)} 
-                                              className="h-3.5 w-3.5"
-                                            />
-                                            <span className="capitalize">{perm}</span>
-                                          </label>
-                                        ))}
-                                      </div>
-                                    </div>
-                                    
-                                    {/* Dimension 3: Data Scope */}
-                                    <div>
-                                      <Label className="text-xs font-semibold text-gray-600 mb-2 block">Data Visibility Scope</Label>
-                                      <Select 
-                                        value={modPerm.data_scope || 'all'} 
-                                        onValueChange={(value) => updateRoleModulePermission(mod.code, 'data_scope', value)}
-                                      >
-                                        <SelectTrigger className="h-8 text-xs w-full max-w-[220px]">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {DATA_SCOPE_OPTIONS.map(opt => (
-                                            <SelectItem key={opt.value} value={opt.value}>
-                                              <div className="flex flex-col">
-                                                <span className="font-medium">{opt.label}</span>
-                                                <span className="text-xs text-gray-500">{opt.description}</span>
-                                              </div>
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                    
-                                    {/* Dimension 2: Others' Data */}
-                                    <div>
-                                      <Label className="text-xs font-semibold text-gray-600 mb-2 block">Others' Data Permissions</Label>
-                                      <div className="flex flex-wrap gap-4">
-                                        <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                                          <Checkbox 
-                                            checked={modPerm.can_edit_others} 
-                                            onCheckedChange={(checked) => updateRoleModulePermission(mod.code, 'can_edit_others', checked)} 
-                                            className="h-3.5 w-3.5"
-                                          />
-                                          <span>Can Edit Others' Data</span>
-                                        </label>
-                                        <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                                          <Checkbox 
-                                            checked={modPerm.can_delete_others} 
-                                            onCheckedChange={(checked) => updateRoleModulePermission(mod.code, 'can_delete_others', checked)} 
-                                            className="h-3.5 w-3.5"
-                                          />
-                                          <span>Can Delete Others' Data</span>
-                                        </label>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </CollapsibleContent>
-                              )}
-                            </Collapsible>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              {/* Legend */}
-              <div className="text-xs text-gray-500 mt-2 p-2 bg-gray-50 rounded">
-                <strong>Legend:</strong> CRUD = Create/Read/Update/Delete | Data Scope = Whose data users can see | Others' = Can modify data created by others
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRoleDialog({ open: false, role: null, mode: 'create' })}>Cancel</Button>
-            <Button onClick={saveRole} disabled={saving || !roleForm.name.trim() || !roleForm.code.trim()}>{saving ? 'Saving...' : roleDialog.mode === 'create' ? 'Create Role' : 'Save'}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
-      {/* ==================== DELETE ROLE DIALOG ==================== */}
-      <Dialog open={deleteRoleDialog.open} onOpenChange={(open) => !open && setDeleteRoleDialog({ open: false, role: null })}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="text-red-600">Delete Role</DialogTitle>
-            <DialogDescription>Are you sure you want to delete "{deleteRoleDialog.role?.name}"? This will remove the role from all users.</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteRoleDialog({ open: false, role: null })}>Cancel</Button>
-            <Button variant="destructive" onClick={deleteRole}>Delete Role</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Role management moved to /admin/roles page */}
 
       {/* ==================== BULK ASSIGN ROLES DIALOG ==================== */}
       <Dialog open={bulkRolesDialog} onOpenChange={setBulkRolesDialog}>
