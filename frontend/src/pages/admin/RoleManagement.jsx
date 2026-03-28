@@ -347,13 +347,48 @@ const RoleManagement = () => {
   // Open create/edit modal
   const openCreateModal = (role = null) => {
     if (role) {
+      // Build module_permissions with defaults for modules that don't have explicit permissions
+      const moduleAccess = role.module_access || [];
+      const existingPerms = role.module_permissions || {};
+      const enrichedPerms = { ...existingPerms };
+      
+      // For each enabled module, ensure it has permissions set
+      moduleAccess.forEach(moduleCode => {
+        if (!enrichedPerms[moduleCode] || Object.keys(enrichedPerms[moduleCode]).length === 0) {
+          // Check if this is an admin-type role
+          const isAdminRole = ['super_admin', 'admin'].includes(role.code);
+          
+          if (isAdminRole) {
+            // Admin roles get full CRUD by default
+            enrichedPerms[moduleCode] = {
+              create: true,
+              read: true,
+              update: true,
+              delete: true,
+              data_scope: 'all',
+              can_edit_others: true,
+              can_delete_others: true
+            };
+          } else {
+            // Other roles get read-only by default
+            enrichedPerms[moduleCode] = {
+              create: false,
+              read: true,
+              update: false,
+              delete: false,
+              data_scope: 'own_assigned'
+            };
+          }
+        }
+      });
+      
       setRoleForm({
         id: role.id,
         name: role.name,
         code: role.code,
         description: role.description || '',
-        module_access: role.module_access || [],
-        module_permissions: role.module_permissions || {},
+        module_access: moduleAccess,
+        module_permissions: enrichedPerms,
         can_manage_users: role.can_manage_users || false,
         can_manage_roles: role.can_manage_roles || false
       });

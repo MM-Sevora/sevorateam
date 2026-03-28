@@ -1,9 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { dashboardAPI } from '../lib/api';
+import api from '../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Users, Target, MessageSquare, UserPlus, ShoppingBag, PenTool, TrendingUp, Clock } from 'lucide-react';
+import { 
+    Users, Target, MessageSquare, UserPlus, ShoppingBag, PenTool, TrendingUp, Clock,
+    DollarSign, Receipt, FileText, CheckCircle, AlertCircle, BarChart3, 
+    Briefcase, UserCheck, Calendar, ClipboardList, Settings, Shield, Activity
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { Badge } from '../components/ui/badge';
 
 const StatCard = ({ title, value, icon: Icon, color, link }) => (
     <Link to={link}>
@@ -33,15 +39,69 @@ const DepartmentSection = ({ title, color, children }) => (
 );
 
 export const DashboardPage = () => {
-    const { user, hasAccessToDepartment } = useAuth();
+    const { user, hasAccessToDepartment, hasModuleAccess } = useAuth();
     const [stats, setStats] = useState(null);
+    const [hrStats, setHrStats] = useState(null);
+    const [expenseStats, setExpenseStats] = useState(null);
+    const [adminStats, setAdminStats] = useState(null);
+    const [taskStats, setTaskStats] = useState(null);
     const [loading, setLoading] = useState(true);
+
+    // Check if user has specific role
+    const userRole = user?.role || '';
+    const isAdmin = ['super_admin', 'admin'].includes(userRole);
+    const isHR = ['hr_admin', 'hr_employee'].includes(userRole) || hasModuleAccess?.('hr');
+    const isFinance = ['finance_admin', 'finance_employee'].includes(userRole) || hasModuleAccess?.('expense');
+    const isManager = userRole.includes('manager') || user?.can_manage_users;
 
     useEffect(() => {
         const fetchStats = async () => {
             try {
+                // Fetch base stats
                 const response = await dashboardAPI.getUnified();
                 setStats(response.data);
+
+                // Fetch HR stats if user has access
+                if (isHR || isAdmin) {
+                    try {
+                        const hrRes = await api.get('/hr/v2/dashboard-stats');
+                        setHrStats(hrRes.data);
+                    } catch (e) { console.log('HR stats not available'); }
+                }
+
+                // Fetch expense stats if user has access
+                if (isFinance || isAdmin) {
+                    try {
+                        const expRes = await api.get('/expense/claims/stats');
+                        setExpenseStats(expRes.data);
+                    } catch (e) { console.log('Expense stats not available'); }
+                }
+
+                // Fetch admin stats if admin
+                if (isAdmin) {
+                    try {
+                        const adminRes = await api.get('/admin/users');
+                        setAdminStats({ 
+                            total_users: adminRes.data?.length || 0,
+                            active_users: adminRes.data?.filter(u => u.status === 'active').length || 0
+                        });
+                    } catch (e) { console.log('Admin stats not available'); }
+                }
+
+                // Fetch task stats for managers
+                if (isManager || isAdmin) {
+                    try {
+                        const taskRes = await api.get('/tasks?limit=100');
+                        const tasks = taskRes.data || [];
+                        setTaskStats({
+                            total: tasks.length,
+                            pending: tasks.filter(t => t.status === 'pending').length,
+                            in_progress: tasks.filter(t => t.status === 'in_progress').length,
+                            completed: tasks.filter(t => t.status === 'completed').length
+                        });
+                    } catch (e) { console.log('Task stats not available'); }
+                }
+
             } catch (error) {
                 console.error('Failed to fetch dashboard stats:', error);
             } finally {
@@ -49,7 +109,7 @@ export const DashboardPage = () => {
             }
         };
         fetchStats();
-    }, []);
+    }, [isHR, isFinance, isAdmin, isManager]);
 
     if (loading) {
         return (
@@ -66,12 +126,127 @@ export const DashboardPage = () => {
     return (
         <div className="p-8 space-y-8" data-testid="dashboard-page">
             {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold text-[#4A3728]">
-                    Welcome back, {user?.name?.split(' ')[0]}
-                </h1>
-                <p className="text-[#5D4A3A] mt-1">Here's what's happening across your teams</p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-[#4A3728]">
+                        Welcome back, {user?.name?.split(' ')[0]}
+                    </h1>
+                    <p className="text-[#5D4A3A] mt-1">Here's what's happening across your teams</p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">
+                        {userRole.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </Badge>
+                </div>
             </div>
+
+            {/* Admin Overview Section - Only for admins */}
+            {isAdmin && adminStats && (
+                <DepartmentSection title="System Overview" color="text-purple-800">
+                    <StatCard 
+                        title="Total Users" 
+                        value={adminStats.total_users || 0}
+                        icon={Users}
+                        color="bg-purple-600"
+                        link="/admin/users"
+                    />
+                    <StatCard 
+                        title="Active Users" 
+                        value={adminStats.active_users || 0}
+                        icon={UserCheck}
+                        color="bg-purple-500"
+                        link="/admin/users"
+                    />
+                    <StatCard 
+                        title="Roles" 
+                        value={16}
+                        icon={Shield}
+                        color="bg-purple-700"
+                        link="/admin/roles"
+                    />
+                </DepartmentSection>
+            )}
+
+            {/* Task Overview - For Managers and Admins */}
+            {(isManager || isAdmin) && taskStats && (
+                <DepartmentSection title="Task Overview" color="text-indigo-800">
+                    <StatCard 
+                        title="Total Tasks" 
+                        value={taskStats.total || 0}
+                        icon={ClipboardList}
+                        color="bg-indigo-600"
+                        link="/projects/my-tasks"
+                    />
+                    <StatCard 
+                        title="In Progress" 
+                        value={taskStats.in_progress || 0}
+                        icon={Activity}
+                        color="bg-indigo-500"
+                        link="/projects/my-tasks"
+                    />
+                    <StatCard 
+                        title="Completed" 
+                        value={taskStats.completed || 0}
+                        icon={CheckCircle}
+                        color="bg-green-600"
+                        link="/projects/my-tasks"
+                    />
+                </DepartmentSection>
+            )}
+
+            {/* HR Section - Only for HR roles */}
+            {(isHR || isAdmin) && (
+                <DepartmentSection title="HR & People" color="text-teal-800">
+                    <StatCard 
+                        title="Total Employees" 
+                        value={hrStats?.total_employees || 0}
+                        icon={Briefcase}
+                        color="bg-teal-600"
+                        link="/hr/employees"
+                    />
+                    <StatCard 
+                        title="Active Employees" 
+                        value={hrStats?.active_employees || 0}
+                        icon={UserCheck}
+                        color="bg-teal-500"
+                        link="/hr/employees"
+                    />
+                    <StatCard 
+                        title="On Leave" 
+                        value={hrStats?.on_leave || 0}
+                        icon={Calendar}
+                        color="bg-teal-700"
+                        link="/hr/leaves"
+                    />
+                </DepartmentSection>
+            )}
+
+            {/* Finance/Expense Section - Only for Finance roles */}
+            {(isFinance || isAdmin) && (
+                <DepartmentSection title="Finance & Expenses" color="text-emerald-800">
+                    <StatCard 
+                        title="Pending Claims" 
+                        value={expenseStats?.pending || 0}
+                        icon={Receipt}
+                        color="bg-emerald-600"
+                        link="/hr/expenses"
+                    />
+                    <StatCard 
+                        title="Approved This Month" 
+                        value={expenseStats?.approved || 0}
+                        icon={CheckCircle}
+                        color="bg-emerald-500"
+                        link="/hr/expenses"
+                    />
+                    <StatCard 
+                        title="Total Amount" 
+                        value={`₹${((expenseStats?.total_amount || 0) / 1000).toFixed(0)}K`}
+                        icon={DollarSign}
+                        color="bg-emerald-700"
+                        link="/hr/expenses"
+                    />
+                </DepartmentSection>
+            )}
 
             {/* Marketing Ops Section */}
             {hasAccessToDepartment('marketing') && (
