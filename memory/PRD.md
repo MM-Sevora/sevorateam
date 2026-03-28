@@ -196,6 +196,24 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 
 ## Recent Changes (March 28, 2026)
 
+### UI Bug Fixes Verified (Session 2)
+- **User Details Modal Role Selection**: FIXED & VERIFIED - Role checkbox now correctly pre-selects based on user's legacy `role` field (e.g., `role: "viewer"` → Viewer checkbox checked)
+- **Audit Log Date Filters**: FIXED & VERIFIED - Date filtering properly applies, showing only entries within the selected date range
+- **Inherited Permissions Preview**: Working correctly - Shows merged modules from selected roles with clear label
+
+### Audit Log Module (NEW)
+- **Backend API** (`/api/audit/*`):
+  - `GET /api/audit/logs` - List audit logs with filters (search, module, action, user, date range)
+  - `GET /api/audit/stats` - Dashboard statistics (total entries, today, this week, active users)
+  - `POST /api/audit/export` - Export logs to CSV
+- **Frontend UI** (`/admin/audit-log`):
+  - Summary cards showing total entries, today's entries, weekly entries, active users
+  - Filterable table with Timestamp, User, Action, Module, Description, Status columns
+  - Expandable filters panel (Search, Module, Action, Status, User, Date From/To)
+  - Export to CSV functionality
+  - Detail view modal for individual log entries
+- **Integration**: Added `audit_log` as a new system module under Administration category
+
 ### User List Role Display Fix
 - **Fixed role display in user list**: Users now correctly show their assigned roles in the Roles column
 - **Root cause**: `/api/workos/users` endpoint returned `role=None`, switched to `/api/admin/users` which includes the `role` field
