@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Shield, Plus, Edit, Trash2, RefreshCw, CheckCircle, XCircle,
   ChevronDown, ChevronRight, Users, Save, X, Eye, Lock, Unlock,
-  Settings, Package, Server, Building2, Activity, Layers, Search, UserCheck
+  Settings, Package, Server, Building2, Activity, Layers, Search, UserCheck,
+  Copy, Sparkles, FileText
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -122,6 +123,90 @@ const RoleManagement = () => {
   });
   const [saving, setSaving] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState(['core', 'operations', 'business']);
+  
+  // Role templates dialog
+  const [showTemplatesDialog, setShowTemplatesDialog] = useState(false);
+  
+  // Users list for a role
+  const [roleUsersDialog, setRoleUsersDialog] = useState({ open: false, role: null, users: [] });
+  const [loadingRoleUsers, setLoadingRoleUsers] = useState(false);
+
+  // Role templates for quick setup
+  const ROLE_TEMPLATES = [
+    {
+      name: 'Marketing Viewer',
+      code: 'marketing_viewer',
+      description: 'Read-only access to marketing modules',
+      module_access: ['dashboard', 'marketing_ops', 'social', 'analytics_insights', 'notifications'],
+      module_permissions: {
+        marketing_ops: { create: false, read: true, update: false, delete: false, data_scope: 'all' },
+        social: { create: false, read: true, update: false, delete: false, data_scope: 'all' },
+        analytics_insights: { create: false, read: true, update: false, delete: false, data_scope: 'all' },
+      },
+      can_manage_users: false,
+      can_manage_roles: false,
+      icon: 'eye',
+      color: 'blue'
+    },
+    {
+      name: 'Sales Manager',
+      code: 'sales_manager_template',
+      description: 'Full sales access with team management',
+      module_access: ['dashboard', 'sales', 'analytics_insights', 'meetings', 'mail', 'notifications'],
+      module_permissions: {
+        sales: { create: true, read: true, update: true, delete: true, data_scope: 'department', can_edit_others: true },
+        analytics_insights: { create: false, read: true, update: false, delete: false, data_scope: 'department' },
+        meetings: { create: true, read: true, update: true, delete: false, data_scope: 'team' },
+      },
+      can_manage_users: false,
+      can_manage_roles: false,
+      icon: 'trending-up',
+      color: 'green'
+    },
+    {
+      name: 'Project Contributor',
+      code: 'project_contributor',
+      description: 'Can contribute to projects and tasks',
+      module_access: ['dashboard', 'project_management', 'operational_tasks', 'meetings', 'notifications'],
+      module_permissions: {
+        project_management: { create: true, read: true, update: true, delete: false, data_scope: 'team' },
+        operational_tasks: { create: true, read: true, update: true, delete: false, data_scope: 'own_assigned' },
+        meetings: { create: true, read: true, update: true, delete: false, data_scope: 'team' },
+      },
+      can_manage_users: false,
+      can_manage_roles: false,
+      icon: 'folder-kanban',
+      color: 'purple'
+    },
+    {
+      name: 'HR Specialist',
+      code: 'hr_specialist',
+      description: 'HR operations with limited admin access',
+      module_access: ['dashboard', 'hr', 'expense', 'employee_self_service', 'notifications'],
+      module_permissions: {
+        hr: { create: true, read: true, update: true, delete: false, data_scope: 'all', can_approve: true },
+        expense: { create: false, read: true, update: true, delete: false, data_scope: 'all', can_approve: true },
+      },
+      can_manage_users: true,
+      can_manage_roles: false,
+      icon: 'users',
+      color: 'amber'
+    },
+    {
+      name: 'Finance Approver',
+      code: 'finance_approver',
+      description: 'Can approve expenses and view financial data',
+      module_access: ['dashboard', 'expense', 'analytics_insights', 'notifications'],
+      module_permissions: {
+        expense: { create: false, read: true, update: true, delete: false, data_scope: 'all', can_approve: true },
+        analytics_insights: { create: false, read: true, update: false, delete: false, data_scope: 'all' },
+      },
+      can_manage_users: false,
+      can_manage_roles: false,
+      icon: 'receipt',
+      color: 'teal'
+    },
+  ];
 
   // Fetch data
   const fetchData = useCallback(async () => {
@@ -203,6 +288,61 @@ const RoleManagement = () => {
     u.name?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
     u.email?.toLowerCase().includes(userSearchQuery.toLowerCase())
   );
+
+  // Clone a role (create new role from template or existing role)
+  const cloneRole = (sourceRole) => {
+    setRoleForm({
+      name: `${sourceRole.name} (Copy)`,
+      code: `${sourceRole.code}_copy`,
+      description: sourceRole.description || '',
+      module_access: [...(sourceRole.module_access || [])],
+      module_permissions: JSON.parse(JSON.stringify(sourceRole.module_permissions || {})),
+      can_manage_users: sourceRole.can_manage_users || false,
+      can_manage_roles: sourceRole.can_manage_roles || false
+    });
+    setShowTemplatesDialog(false);
+    setShowCreateModal(true);
+  };
+
+  // Create role from template
+  const createFromTemplate = (template) => {
+    setRoleForm({
+      name: template.name,
+      code: template.code,
+      description: template.description,
+      module_access: [...template.module_access],
+      module_permissions: JSON.parse(JSON.stringify(template.module_permissions)),
+      can_manage_users: template.can_manage_users,
+      can_manage_roles: template.can_manage_roles
+    });
+    setShowTemplatesDialog(false);
+    setShowCreateModal(true);
+  };
+
+  // Fetch users for a specific role
+  const fetchRoleUsers = async (role) => {
+    setRoleUsersDialog({ open: true, role, users: [] });
+    setLoadingRoleUsers(true);
+    try {
+      const res = await api.get('/admin/users');
+      const allUsers = res.data || [];
+      // Filter users who have this role (check role_ids, custom_role_ids, and legacy role field)
+      const roleCode = role.code || '';
+      const roleName = role.name?.toLowerCase().replace(/ /g, '_') || '';
+      const roleUsers = allUsers.filter(u => 
+        (u.role_ids || []).includes(role.id) || 
+        (u.custom_role_ids || []).includes(role.id) ||
+        u.role === roleCode ||
+        u.role === roleName
+      );
+      setRoleUsersDialog(prev => ({ ...prev, users: roleUsers }));
+    } catch (err) {
+      console.error('Failed to fetch role users:', err);
+      toast.error('Failed to load users for this role');
+    } finally {
+      setLoadingRoleUsers(false);
+    }
+  };
 
   // Open create/edit modal
   const openCreateModal = (role = null) => {
@@ -374,6 +514,10 @@ const RoleManagement = () => {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowTemplatesDialog(true)} data-testid="use-template-btn">
+            <Sparkles className="w-4 h-4 mr-2" />
+            Use Template
+          </Button>
           <Button variant="outline" onClick={() => openPermissionsPreview()} data-testid="preview-permissions-btn">
             <Eye className="w-4 h-4 mr-2" />
             Preview User Permissions
@@ -476,9 +620,13 @@ const RoleManagement = () => {
                       <Badge variant="outline">{role.module_access?.length || 0} modules</Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
+                      <div 
+                        className="flex items-center gap-1 cursor-pointer hover:text-indigo-600"
+                        onClick={(e) => { e.stopPropagation(); if (role.user_count > 0) fetchRoleUsers(role); }}
+                        title={role.user_count > 0 ? "Click to view users" : "No users assigned"}
+                      >
                         <Users className="w-4 h-4 text-gray-400" />
-                        <span>{role.user_count || 0}</span>
+                        <span className={role.user_count > 0 ? "text-indigo-600 underline" : ""}>{role.user_count || 0}</span>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -499,6 +647,9 @@ const RoleManagement = () => {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
+                        <Button variant="ghost" size="sm" onClick={() => cloneRole(role)} title="Clone Role">
+                          <Copy className="w-4 h-4" />
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => openCreateModal(role)}>
                           <Edit className="w-4 h-4" />
                         </Button>
@@ -920,6 +1071,125 @@ const RoleManagement = () => {
                 </Card>
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Role Templates Dialog */}
+      <Dialog open={showTemplatesDialog} onOpenChange={setShowTemplatesDialog}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-amber-500" />
+              Role Templates
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <p className="text-sm text-gray-500">
+              Choose a template to quickly create a new role with pre-configured permissions.
+            </p>
+            
+            <div className="grid grid-cols-2 gap-4">
+              {ROLE_TEMPLATES.map(template => (
+                <div 
+                  key={template.code}
+                  className="p-4 border rounded-lg hover:border-indigo-300 hover:bg-indigo-50 cursor-pointer transition-colors"
+                  onClick={() => createFromTemplate(template)}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`p-2 rounded-lg ${
+                      template.color === 'blue' ? 'bg-blue-100' :
+                      template.color === 'green' ? 'bg-green-100' :
+                      template.color === 'purple' ? 'bg-purple-100' :
+                      template.color === 'amber' ? 'bg-amber-100' :
+                      template.color === 'teal' ? 'bg-teal-100' : 'bg-gray-100'
+                    }`}>
+                      <FileText className={`w-5 h-5 ${
+                        template.color === 'blue' ? 'text-blue-600' :
+                        template.color === 'green' ? 'text-green-600' :
+                        template.color === 'purple' ? 'text-purple-600' :
+                        template.color === 'amber' ? 'text-amber-600' :
+                        template.color === 'teal' ? 'text-teal-600' : 'text-gray-600'
+                      }`} />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium">{template.name}</p>
+                      <p className="text-sm text-gray-500 mt-1">{template.description}</p>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        <Badge variant="outline" className="text-xs">
+                          {template.module_access.length} modules
+                        </Badge>
+                        {template.can_manage_users && (
+                          <Badge className="bg-amber-100 text-amber-700 text-xs">Manage Users</Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="pt-4 border-t">
+              <p className="text-sm text-gray-500 mb-3">Or clone an existing role:</p>
+              <div className="flex flex-wrap gap-2">
+                {roles.slice(0, 6).map(role => (
+                  <Button 
+                    key={role.id} 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => cloneRole(role)}
+                  >
+                    <Copy className="w-3 h-3 mr-1" />
+                    {role.name}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Role Users Dialog */}
+      <Dialog open={roleUsersDialog.open} onOpenChange={(open) => setRoleUsersDialog(prev => ({ ...prev, open }))}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-indigo-600" />
+              Users with "{roleUsersDialog.role?.name}" Role
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {loadingRoleUsers ? (
+              <div className="text-center py-8 text-gray-500">Loading users...</div>
+            ) : roleUsersDialog.users.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">No users assigned to this role</div>
+            ) : (
+              <div className="border rounded-lg max-h-80 overflow-y-auto divide-y">
+                {roleUsersDialog.users.map(user => (
+                  <div key={user.id} className="p-3 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                      <span className="text-indigo-600 font-medium">{user.name?.charAt(0)?.toUpperCase()}</span>
+                    </div>
+                    <div>
+                      <p className="font-medium">{user.name}</p>
+                      <p className="text-sm text-gray-500">{user.email}</p>
+                    </div>
+                    <Badge 
+                      variant="outline" 
+                      className={`ml-auto ${user.status === 'active' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'}`}
+                    >
+                      {user.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            <div className="text-sm text-gray-500 text-center">
+              Total: {roleUsersDialog.users.length} user(s)
+            </div>
           </div>
         </DialogContent>
       </Dialog>

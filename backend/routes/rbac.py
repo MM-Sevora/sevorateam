@@ -110,7 +110,20 @@ async def get_roles(
     
     # Enrich with user counts and module names
     for role in roles:
-        user_count = await db.users.count_documents({"role_ids": role["id"]})
+        # Count users with this role (check multiple assignment methods)
+        role_id = role["id"]
+        role_code = role.get("code", "")
+        role_name = role.get("name", "")
+        
+        # Check role_ids, custom_role_ids, and legacy role field
+        user_count = await db.users.count_documents({
+            "$or": [
+                {"role_ids": role_id},
+                {"custom_role_ids": role_id},
+                {"role": role_code},  # Legacy: role field matches role code
+                {"role": role_name.lower().replace(" ", "_")}  # Legacy: role field matches role name as snake_case
+            ]
+        })
         role["user_count"] = user_count
         
         # Add human-readable module names

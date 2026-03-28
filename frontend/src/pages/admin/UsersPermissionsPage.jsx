@@ -256,7 +256,7 @@ const UsersPermissionsPage = () => {
     try {
       const [usersRes, rolesRes, modulesRes, categoriesRes, deptsRes, teamsRes, employeesRes, gradesRes] = await Promise.all([
         api.get('/workos/users'),
-        api.get('/access/roles'),
+        api.get('/rbac/roles'),  // Use RBAC endpoint for enriched role data
         api.get('/system-modules/'),
         api.get('/module-categories/'),
         api.get('/workos/departments'),
@@ -943,10 +943,10 @@ const UsersPermissionsPage = () => {
     setSaving(true);
     try {
       if (roleDialog.mode === 'create') {
-        await api.post('/access/roles', roleForm);
+        await api.post('/rbac/roles', roleForm);
         toast.success('Role created');
       } else {
-        await api.put(`/access/roles/${roleDialog.role.id}`, roleForm);
+        await api.put(`/rbac/roles/${roleDialog.role.id}`, roleForm);
         toast.success('Role updated');
       }
       setRoleDialog({ open: false, role: null, mode: 'create' });
@@ -961,7 +961,7 @@ const UsersPermissionsPage = () => {
   const deleteRole = async () => {
     if (!deleteRoleDialog.role) return;
     try {
-      await api.delete(`/access/roles/${deleteRoleDialog.role.id}`);
+      await api.delete(`/rbac/roles/${deleteRoleDialog.role.id}`);
       toast.success('Role deleted');
       setDeleteRoleDialog({ open: false, role: null });
       fetchData();
