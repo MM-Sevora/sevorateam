@@ -256,9 +256,9 @@ const UsersPermissionsPage = () => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [usersRes, rolesRes, modulesRes, categoriesRes, deptsRes, teamsRes, employeesRes, gradesRes] = await Promise.all([
-        api.get('/admin/users'),  // Use admin/users to get role field
-        api.get('/rbac/roles'),  // Use RBAC endpoint for enriched role data
+      const results = await Promise.allSettled([
+        api.get('/admin/users'),
+        api.get('/rbac/roles'),
         api.get('/system-modules/'),
         api.get('/module-categories/'),
         api.get('/workos/departments'),
@@ -266,17 +266,30 @@ const UsersPermissionsPage = () => {
         api.get('/hr/v2/employees'),
         api.get('/hr/grades'),
       ]);
-      setUsers(usersRes.data || []);
-      setRoles(rolesRes.data || []);
-      setModules(modulesRes.data || []);
-      setCategories(categoriesRes.data || []);
-      setDepartments(deptsRes.data || []);
-      setTeams(teamsRes.data || []);
-      setEmployees(employeesRes.data || []);
-      setGrades(gradesRes.data || []);
+      
+      const endpoints = ['users', 'roles', 'modules', 'categories', 'departments', 'teams', 'employees', 'grades'];
+      const setters = [setUsers, setRoles, setModules, setCategories, setDepartments, setTeams, setEmployees, setGrades];
+      
+      let hasErrors = false;
+      const errors = [];
+      
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          setters[index](result.value.data || []);
+        } else {
+          hasErrors = true;
+          errors.push(`${endpoints[index]}: ${result.reason?.response?.data?.detail || result.reason?.message || 'Unknown error'}`);
+          setters[index]([]);
+        }
+      });
+      
+      if (hasErrors) {
+        console.error('Some API calls failed:', errors);
+        toast.error(`Failed to load: ${errors.join(', ')}`);
+      }
     } catch (error) {
       console.error('Failed to fetch data:', error);
-      toast.error('Failed to load data');
+      toast.error(error.response?.data?.detail || error.message || 'Failed to load data');
     } finally {
       setLoading(false);
     }
