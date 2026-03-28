@@ -6277,6 +6277,51 @@ async def process_scheduled_posts():
 # Start scheduler on app startup
 @app.on_event("startup")
 async def start_scheduler():
+    # Sync RBAC default roles on startup
+    try:
+        from models.rbac import DEFAULT_ROLES, SYSTEM_MODULES, PERMISSION_PRESETS
+        from datetime import datetime, timezone
+        import uuid as uuid_module
+        
+        now = datetime.now(timezone.utc).isoformat()
+        synced = 0
+        
+        for role_data in DEFAULT_ROLES:
+            role_code = role_data["code"]
+            existing = await db.roles.find_one({"code": role_code}, {"_id": 0, "module_access": 1})
+            
+            if not existing:
+                # Create new role
+                role_id = str(uuid_module.uuid4())
+                role_doc = {
+                    "id": role_id,
+                    **role_data,
+                    "is_active": True,
+                    "user_count": 0,
+                    "created_at": now,
+                    "updated_at": now
+                }
+                await db.roles.insert_one(role_doc)
+                synced += 1
+            elif len(existing.get("module_access", [])) == 0:
+                # Update role with empty module_access
+                await db.roles.update_one(
+                    {"code": role_code},
+                    {"$set": {
+                        "module_access": role_data["module_access"],
+                        "module_permissions": role_data.get("module_permissions", {}),
+                        "updated_at": now
+                    }}
+                )
+                synced += 1
+        
+        if synced > 0:
+            logger.info(f"RBAC: Synced {synced} default roles")
+        else:
+            logger.info("RBAC: Default roles already configured")
+    except Exception as e:
+        logger.warning(f"RBAC sync failed (non-fatal): {e}")
+    
     # Initialize object storage
     try:
         from utils.storage import init_storage

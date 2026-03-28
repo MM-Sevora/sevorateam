@@ -506,3 +506,79 @@ async def compute_effective_permissions(db, user: dict) -> Dict[str, Any]:
         "can_manage_roles": merged["can_manage_roles"],
         "is_admin": user.get("role") in ["super_admin", "admin"] or merged["can_manage_users"]
     }
+
+
+
+# ============== ADMIN: SYNC DEFAULT ROLES ==============
+
+@rbac_router.post("/sync-defaults")
+async def sync_default_roles(
+    user: dict = Depends(get_current_user_dep())
+):
+    """
+    Sync default roles with correct module_access.
+    This ensures production roles have the correct permissions.
+    Only accessible by admins.
+    """
+    # Check if user has admin access
+    if user.get("role") not in ["super_admin", "admin"] and not user.get("can_manage_roles"):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    db = get_db()
+    now = datetime.now(timezone.utc).isoformat()
+    
+    results = {
+        "created": [],
+        "updated": [],
+        "skipped": []
+    }
+    
+    for role_data in DEFAULT_ROLES:
+        role_code = role_data["code"]
+        
+        # Check if role exists
+        existing = await db.roles.find_one({"code": role_code}, {"_id": 0})
+        
+        if not existing:
+            # Create new role
+            role_id = str(uuid.uuid4())
+            role_doc = {
+                "id": role_id,
+                **role_data,
+                "is_active": True,
+                "user_count": 0,
+                "created_at": now,
+                "updated_at": now
+            }
+            await db.roles.insert_one(role_doc)
+            results["created"].append(role_code)
+        else:
+            # Check if module_access needs updating
+            existing_modules = set(existing.get("module_access", []))
+            expected_modules = set(role_data.get("module_access", []))
+            
+            if existing_modules != expected_modules or len(existing_modules) == 0:
+                # Update with correct module_access and permissions
+                await db.roles.update_one(
+                    {"code": role_code},
+                    {"$set": {
+                        "module_access": role_data["module_access"],
+                        "module_permissions": role_data.get("module_permissions", {}),
+                        "can_manage_users": role_data.get("can_manage_users", False),
+                        "can_manage_roles": role_data.get("can_manage_roles", False),
+                        "updated_at": now
+                    }}
+                )
+                results["updated"].append({
+                    "code": role_code,
+                    "old_modules": len(existing_modules),
+                    "new_modules": len(expected_modules)
+                })
+            else:
+                results["skipped"].append(role_code)
+    
+    return {
+        "status": "success",
+        "message": f"Synced {len(results['created'])} created, {len(results['updated'])} updated, {len(results['skipped'])} skipped",
+        "details": results
+    }
