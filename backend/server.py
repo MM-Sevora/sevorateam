@@ -3341,6 +3341,49 @@ async def check_user_permission(
 async def health_check():
     return {"status": "healthy", "service": "sevora-team"}
 
+@api_router.get("/health/detailed")
+async def health_check_detailed():
+    """Detailed health check for debugging production issues"""
+    results = {
+        "status": "healthy",
+        "service": "sevora-team",
+        "checks": {}
+    }
+    
+    # Check database connection
+    try:
+        user_count = await db.users.count_documents({})
+        results["checks"]["database"] = {"status": "ok", "users": user_count}
+    except Exception as e:
+        results["checks"]["database"] = {"status": "error", "error": str(e)}
+        results["status"] = "unhealthy"
+    
+    # Check roles collection
+    try:
+        role_count = await db.roles.count_documents({})
+        results["checks"]["roles"] = {"status": "ok", "count": role_count}
+    except Exception as e:
+        results["checks"]["roles"] = {"status": "error", "error": str(e)}
+    
+    # Check if admin user exists
+    try:
+        admin = await db.users.find_one({"email": "admin@sevora.com"}, {"_id": 0, "id": 1, "status": 1})
+        results["checks"]["admin_user"] = {
+            "status": "ok" if admin else "missing",
+            "exists": bool(admin),
+            "user_status": admin.get("status") if admin else None
+        }
+    except Exception as e:
+        results["checks"]["admin_user"] = {"status": "error", "error": str(e)}
+    
+    # Check JWT config
+    results["checks"]["jwt"] = {
+        "secret_set": bool(os.environ.get('JWT_SECRET')),
+        "using_default": not bool(os.environ.get('JWT_SECRET'))
+    }
+    
+    return results
+
 # ============== SALES PARTNERS ==============
 @sales_router.get("/partners")
 async def get_partners(
