@@ -16,8 +16,10 @@ import {
   ArrowLeft, RefreshCw, Calendar, DollarSign, Users, FileText,
   Megaphone, Image, Building2, TrendingUp, Clock, CheckCircle,
   AlertTriangle, Target, ExternalLink, Eye, Edit, Plus, BarChart3,
-  Share2, ThumbsUp, ThumbsDown, Star, Trash2, Link, Unlink, Search, Rocket, MessageSquare
+  Share2, ThumbsUp, ThumbsDown, Star, Trash2, Link, Unlink, Search, Rocket, MessageSquare,
+  ListTodo, User
 } from 'lucide-react';
+import { Checkbox } from '../../components/ui/checkbox';
 
 const STATUS_CONFIG = {
   draft: { label: 'Draft', color: 'bg-gray-500' },
@@ -28,17 +30,17 @@ const STATUS_CONFIG = {
 };
 
 const CAMPAIGN_TYPE_CONFIG = {
-  influencer: { label: 'Influencer', icon: Users, tabs: ['content', 'ads', 'assets', 'influencers', 'budget'] },
-  ugc: { label: 'UGC', icon: Users, tabs: ['ugc', 'content', 'assets', 'budget'] },
-  paid_ads: { label: 'Paid Ads', icon: Megaphone, tabs: ['ads', 'content', 'assets', 'budget'] },
-  content_production: { label: 'Content Production', icon: FileText, tabs: ['content', 'assets', 'budget'] },
-  pr_media: { label: 'PR/Media', icon: Building2, tabs: ['publications', 'content', 'assets', 'budget'] },
-  pr: { label: 'PR', icon: Building2, tabs: ['content', 'assets', 'publications', 'budget'] },
-  product_launch: { label: 'Product Launch', icon: Rocket, tabs: ['content', 'ads', 'assets', 'influencers', 'publications', 'budget'] },
-  brand_awareness: { label: 'Brand Awareness', icon: Target, tabs: ['content', 'ads', 'assets', 'influencers', 'budget'] },
-  seasonal: { label: 'Seasonal', icon: Calendar, tabs: ['content', 'ads', 'assets', 'influencers', 'budget'] },
-  mixed: { label: 'Mixed', icon: Target, tabs: ['content', 'ads', 'assets', 'influencers', 'publications', 'budget'] },
-  digital: { label: 'Digital', icon: Megaphone, tabs: ['content', 'ads', 'assets', 'budget'] },
+  influencer: { label: 'Influencer', icon: Users, tabs: ['tasks', 'content', 'ads', 'assets', 'influencers', 'budget'] },
+  ugc: { label: 'UGC', icon: Users, tabs: ['tasks', 'ugc', 'content', 'assets', 'budget'] },
+  paid_ads: { label: 'Paid Ads', icon: Megaphone, tabs: ['tasks', 'ads', 'content', 'assets', 'budget'] },
+  content_production: { label: 'Content Production', icon: FileText, tabs: ['tasks', 'content', 'assets', 'budget'] },
+  pr_media: { label: 'PR/Media', icon: Building2, tabs: ['tasks', 'publications', 'content', 'assets', 'budget'] },
+  pr: { label: 'PR', icon: Building2, tabs: ['tasks', 'content', 'assets', 'publications', 'budget'] },
+  product_launch: { label: 'Product Launch', icon: Rocket, tabs: ['tasks', 'content', 'ads', 'assets', 'influencers', 'publications', 'budget'] },
+  brand_awareness: { label: 'Brand Awareness', icon: Target, tabs: ['tasks', 'content', 'ads', 'assets', 'influencers', 'budget'] },
+  seasonal: { label: 'Seasonal', icon: Calendar, tabs: ['tasks', 'content', 'ads', 'assets', 'influencers', 'budget'] },
+  mixed: { label: 'Mixed', icon: Target, tabs: ['tasks', 'content', 'ads', 'assets', 'influencers', 'publications', 'budget'] },
+  digital: { label: 'Digital', icon: Megaphone, tabs: ['tasks', 'content', 'ads', 'assets', 'budget'] },
 };
 
 const formatCurrency = (amount, currency = 'INR') => {
@@ -64,7 +66,7 @@ export default function CampaignDetailsPage() {
   const { api } = useAuth();
   const [loading, setLoading] = useState(true);
   const [campaign, setCampaign] = useState(null);
-  const [activeTab, setActiveTab] = useState('content');
+  const [activeTab, setActiveTab] = useState('tasks');
 
   // Related data
   const [contentProjects, setContentProjects] = useState([]);
@@ -73,6 +75,21 @@ export default function CampaignDetailsPage() {
   const [influencers, setInfluencers] = useState([]);
   const [publications, setPublications] = useState([]);
   const [budgetSummary, setBudgetSummary] = useState(null);
+  
+  // Tasks state
+  const [tasks, setTasks] = useState([]);
+  const [tasksLoading, setTasksLoading] = useState(false);
+  const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [taskForm, setTaskForm] = useState({
+    title: '',
+    description: '',
+    assigned_to: '',
+    priority: 'medium',
+    due_date: '',
+    status: 'pending'
+  });
+  const [savingTask, setSavingTask] = useState(false);
   
   // Edit campaign modal
   const [showEditCampaignModal, setShowEditCampaignModal] = useState(false);
@@ -218,9 +235,89 @@ export default function CampaignDetailsPage() {
     }
   }, [campaignId, navigate, api]);
 
+  // Fetch tasks for this campaign
+  const fetchTasks = useCallback(async () => {
+    if (!campaignId) return;
+    setTasksLoading(true);
+    try {
+      const res = await api.get(`/tasks?source_module=marketing&source_entity_id=${campaignId}`);
+      setTasks(res.data?.tasks || []);
+    } catch (e) {
+      console.error('Failed to fetch tasks:', e);
+    } finally {
+      setTasksLoading(false);
+    }
+  }, [campaignId, api]);
+
+  // Fetch users for task assignment
+  const fetchUsers = useCallback(async () => {
+    try {
+      const res = await api.get('/workos/users');
+      const data = res.data?.users || res.data || [];
+      setUsers(data.filter(u => u.status === 'active'));
+    } catch (e) {
+      console.error('Failed to fetch users:', e);
+    }
+  }, [api]);
+
   useEffect(() => {
     fetchCampaignData();
-  }, [fetchCampaignData]);
+    fetchTasks();
+    fetchUsers();
+  }, [fetchCampaignData, fetchTasks, fetchUsers]);
+
+  // Create task
+  const handleCreateTask = async () => {
+    if (!taskForm.title.trim()) {
+      toast.error('Task title is required');
+      return;
+    }
+    setSavingTask(true);
+    try {
+      await api.post('/tasks', {
+        title: taskForm.title,
+        description: taskForm.description,
+        assigned_to: taskForm.assigned_to || null,
+        priority: taskForm.priority,
+        due_date: taskForm.due_date || null,
+        status: taskForm.status,
+        source_module: 'marketing',
+        source_entity_type: 'campaign',
+        source_entity_id: campaignId,
+        related_url: `/marketing/campaigns/${campaignId}`
+      });
+      toast.success('Task created successfully');
+      setShowCreateTaskModal(false);
+      setTaskForm({ title: '', description: '', assigned_to: '', priority: 'medium', due_date: '', status: 'pending' });
+      fetchTasks();
+    } catch (e) {
+      toast.error('Failed to create task');
+    } finally {
+      setSavingTask(false);
+    }
+  };
+
+  // Update task status
+  const handleUpdateTaskStatus = async (taskId, newStatus) => {
+    try {
+      await api.put(`/tasks/${taskId}`, { status: newStatus });
+      toast.success('Task updated');
+      fetchTasks();
+    } catch (e) {
+      toast.error('Failed to update task');
+    }
+  };
+
+  // Delete task
+  const handleDeleteTask = async (taskId) => {
+    try {
+      await api.delete(`/tasks/${taskId}`);
+      toast.success('Task deleted');
+      fetchTasks();
+    } catch (e) {
+      toast.error('Failed to delete task');
+    }
+  };
 
   // UGC Handlers
   const handleAddUgcSubmission = async () => {
@@ -644,6 +741,11 @@ export default function CampaignDetailsPage() {
     const typeTabs = typeConfig.tabs;
     const visibleTabs = [];
     
+    // Tasks tab - always shown first if type supports it (core tab)
+    if (typeTabs.includes('tasks')) {
+      visibleTabs.push({ key: 'tasks', count: tasks.length, alwaysShow: true });
+    }
+    
     // Content tab - always shown if type supports it (core tab)
     if (typeTabs.includes('content')) {
       visibleTabs.push({ key: 'content', count: contentProjects.length, alwaysShow: true });
@@ -833,6 +935,12 @@ export default function CampaignDetailsPage() {
       {/* Tabs - Only show relevant tabs based on campaign type and data */}
       <Tabs value={effectiveActiveTab} onValueChange={setActiveTab}>
         <TabsList>
+          {tabKeys.includes('tasks') && (
+            <TabsTrigger value="tasks" className="flex items-center gap-2">
+              <ListTodo className="w-4 h-4" />
+              Tasks ({tasks.length})
+            </TabsTrigger>
+          )}
           {tabKeys.includes('ugc') && (
             <TabsTrigger value="ugc" className="flex items-center gap-2">
               <Share2 className="w-4 h-4" />
@@ -876,6 +984,103 @@ export default function CampaignDetailsPage() {
             </TabsTrigger>
           )}
         </TabsList>
+
+        {/* Tasks Tab */}
+        <TabsContent value="tasks" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-lg">Campaign Tasks</CardTitle>
+              <Button size="sm" onClick={() => setShowCreateTaskModal(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Task
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {tasksLoading ? (
+                <div className="text-center py-8 text-gray-500">Loading tasks...</div>
+              ) : tasks.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <ListTodo className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p className="mb-2">No tasks yet</p>
+                  <p className="text-sm">Create tasks to manage campaign activities</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {/* Task Stats */}
+                  <div className="grid grid-cols-4 gap-4 mb-4">
+                    <div className="bg-yellow-50 p-3 rounded-lg text-center">
+                      <p className="text-2xl font-bold text-yellow-600">{tasks.filter(t => t.status === 'pending').length}</p>
+                      <p className="text-xs text-yellow-700">Pending</p>
+                    </div>
+                    <div className="bg-blue-50 p-3 rounded-lg text-center">
+                      <p className="text-2xl font-bold text-blue-600">{tasks.filter(t => t.status === 'in_progress').length}</p>
+                      <p className="text-xs text-blue-700">In Progress</p>
+                    </div>
+                    <div className="bg-green-50 p-3 rounded-lg text-center">
+                      <p className="text-2xl font-bold text-green-600">{tasks.filter(t => t.status === 'completed').length}</p>
+                      <p className="text-xs text-green-700">Completed</p>
+                    </div>
+                    <div className="bg-red-50 p-3 rounded-lg text-center">
+                      <p className="text-2xl font-bold text-red-600">{tasks.filter(t => new Date(t.due_date) < new Date() && t.status !== 'completed').length}</p>
+                      <p className="text-xs text-red-700">Overdue</p>
+                    </div>
+                  </div>
+                  
+                  {/* Task List */}
+                  <div className="space-y-2">
+                    {tasks.map(task => {
+                      const assignee = users.find(u => u.id === task.assigned_to);
+                      const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'completed';
+                      return (
+                        <div key={task.id} className={`flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 ${isOverdue ? 'border-red-200 bg-red-50/30' : ''}`}>
+                          <div className="flex items-center gap-4">
+                            <Checkbox 
+                              checked={task.status === 'completed'}
+                              onCheckedChange={(checked) => handleUpdateTaskStatus(task.id, checked ? 'completed' : 'pending')}
+                            />
+                            <div>
+                              <div className={`font-medium ${task.status === 'completed' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                                {task.title}
+                              </div>
+                              <div className="text-sm text-gray-500 flex items-center gap-2">
+                                {assignee && (
+                                  <>
+                                    <User className="w-3 h-3" />
+                                    <span>{assignee.name}</span>
+                                    <span>•</span>
+                                  </>
+                                )}
+                                {task.due_date && (
+                                  <>
+                                    <Calendar className="w-3 h-3" />
+                                    <span className={isOverdue ? 'text-red-500 font-medium' : ''}>
+                                      {new Date(task.due_date).toLocaleDateString()}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={task.priority === 'high' ? 'destructive' : task.priority === 'medium' ? 'default' : 'secondary'}>
+                              {task.priority}
+                            </Badge>
+                            <Badge variant={task.status === 'completed' ? 'default' : task.status === 'in_progress' ? 'outline' : 'secondary'}>
+                              {task.status?.replace('_', ' ')}
+                            </Badge>
+                            <Button variant="ghost" size="sm" onClick={() => handleDeleteTask(task.id)}>
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* UGC Tab */}
         <TabsContent value="ugc" className="space-y-4">
@@ -2145,6 +2350,107 @@ export default function CampaignDetailsPage() {
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {savingCampaign ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Task Modal */}
+      <Dialog open={showCreateTaskModal} onOpenChange={setShowCreateTaskModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ListTodo className="w-5 h-5" />
+              Create Campaign Task
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Task Title *</Label>
+              <Input
+                placeholder="Enter task title"
+                value={taskForm.title}
+                onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea
+                placeholder="Task description..."
+                value={taskForm.description}
+                onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
+                rows={3}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Assign To</Label>
+                <Select
+                  value={taskForm.assigned_to}
+                  onValueChange={(v) => setTaskForm({ ...taskForm, assigned_to: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select user" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {users.map(user => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Priority</Label>
+                <Select
+                  value={taskForm.priority}
+                  onValueChange={(v) => setTaskForm({ ...taskForm, priority: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Due Date</Label>
+                <Input
+                  type="date"
+                  value={taskForm.due_date}
+                  onChange={(e) => setTaskForm({ ...taskForm, due_date: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Status</Label>
+                <Select
+                  value={taskForm.status}
+                  onValueChange={(v) => setTaskForm({ ...taskForm, status: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button variant="outline" onClick={() => setShowCreateTaskModal(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleCreateTask} disabled={savingTask}>
+                {savingTask ? 'Creating...' : 'Create Task'}
               </Button>
             </div>
           </div>
