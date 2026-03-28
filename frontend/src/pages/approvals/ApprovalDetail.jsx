@@ -291,18 +291,36 @@ const ApprovalDetail = () => {
                         <div className="flex items-center gap-2">
                           <FileText className="h-4 w-4 text-muted-foreground" />
                           <span className="text-sm">{attachment.name || attachment.filename || `Attachment ${index + 1}`}</span>
+                          {attachment.size && (
+                            <span className="text-xs text-muted-foreground">
+                              ({(attachment.size / 1024).toFixed(1)} KB)
+                            </span>
+                          )}
                         </div>
-                        {attachment.url && (
-                          <a 
-                            href={attachment.url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline flex items-center gap-1 text-sm"
-                          >
-                            <Download className="h-3 w-3" />
-                            Download
-                          </a>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {attachment.url ? (
+                            <a 
+                              href={attachment.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline flex items-center gap-1 text-sm"
+                            >
+                              <Download className="h-3 w-3" />
+                              Download
+                            </a>
+                          ) : attachment.data ? (
+                            <a 
+                              href={attachment.data}
+                              download={attachment.name || attachment.filename || 'attachment'}
+                              className="text-primary hover:underline flex items-center gap-1 text-sm"
+                            >
+                              <Download className="h-3 w-3" />
+                              Download
+                            </a>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">No download available</span>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
