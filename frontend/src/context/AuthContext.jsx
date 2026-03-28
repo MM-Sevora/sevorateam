@@ -346,10 +346,15 @@ export const AuthProvider = ({ children }) => {
 
     // Check if user has access to a specific module (new module-based system)
     const hasModuleAccess = (moduleKey) => {
-        if (!user) return false;
+        if (!user) {
+            console.warn(`[hasModuleAccess] No user object for module: ${moduleKey}`);
+            return false;
+        }
         
         // Super admin always has access
-        if (user.role === 'super_admin') return true;
+        if (user.role === 'super_admin') {
+            return true;
+        }
         
         // Default access modules - everyone has access
         const DEFAULT_ACCESS_MODULES = ['dashboard', 'sevora_pulse', 'notifications', 'help_support', 'employee_self_service', 'analytics_insights'];
@@ -358,6 +363,9 @@ export const AuthProvider = ({ children }) => {
         // Check merged_module_access from user object
         const userModules = user.merged_module_access || [];
         if (userModules.includes(moduleKey)) return true;
+        
+        // Log denial for debugging
+        console.warn(`[hasModuleAccess] Access denied for module: ${moduleKey}, user role: ${user.role}, modules: ${userModules.join(', ')}`);
         
         // Fallback: check if module is in custom_role_ids-based access
         // This requires the user object to have the merged access

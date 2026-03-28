@@ -286,6 +286,13 @@ const UsersPermissionsPage = () => {
       if (hasErrors) {
         console.error('Some API calls failed:', errors);
         toast.error(`Failed to load: ${errors.join(', ')}`);
+      } else {
+        // Log success for debugging
+        console.log('[UsersPermissions] Data loaded successfully:', {
+          users: results[0].value?.data?.length || 0,
+          roles: results[1].value?.data?.length || 0,
+          modules: results[2].value?.data?.length || 0,
+        });
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);

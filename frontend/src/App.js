@@ -387,17 +387,19 @@ const MsalInitializer = ({ children }) => {
 
 // Protected Route Component
 const ProtectedRoute = ({ children, requiredDepartment, requiredModule }) => {
-    const { isAuthenticated, loading, hasAccessToDepartment, hasModuleAccess } = useAuth();
+    const { isAuthenticated, loading, hasAccessToDepartment, hasModuleAccess, user } = useAuth();
 
     if (loading) {
         return <LazyLoader />;
     }
 
     if (!isAuthenticated) {
+        console.warn('[ProtectedRoute] Not authenticated, redirecting to login');
         return <Navigate to="/login" replace />;
     }
 
     if (requiredModule && !hasModuleAccess(requiredModule)) {
+        console.warn(`[ProtectedRoute] Access denied for module: ${requiredModule}, user: ${user?.email}, role: ${user?.role}`);
         return <Navigate to="/" replace />;
     }
 
