@@ -67,8 +67,18 @@ const AuditLogPage = () => {
       if (actionFilter) params.append('action', actionFilter);
       if (userFilter) params.append('user_id', userFilter);
       if (statusFilter) params.append('status', statusFilter);
-      if (dateFrom) params.append('date_from', dateFrom);
-      if (dateTo) params.append('date_to', dateTo);
+      
+      // Format dates properly for ISO comparison
+      if (dateFrom) {
+        const fromDate = new Date(dateFrom);
+        fromDate.setHours(0, 0, 0, 0);
+        params.append('date_from', fromDate.toISOString());
+      }
+      if (dateTo) {
+        const toDate = new Date(dateTo);
+        toDate.setHours(23, 59, 59, 999);
+        params.append('date_to', toDate.toISOString());
+      }
       params.append('limit', '100');
       
       const res = await api.get(`/audit/logs?${params.toString()}`);

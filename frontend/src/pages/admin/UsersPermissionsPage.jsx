@@ -671,18 +671,42 @@ const UsersPermissionsPage = () => {
   const openUserPanel = async (user) => {
     setSelectedUser(user);
     setExpandedModules([]);
+    
+    // Match user's roles - check custom_role_ids, role_ids, AND legacy role field
+    let matchedRoleIds = [];
+    const existingRoleIds = [...(user.custom_role_ids || []), ...(user.role_ids || [])];
+    
+    // Add any existing role IDs that match current roles
+    existingRoleIds.forEach(rid => {
+      if (roles.some(r => r.id === rid) && !matchedRoleIds.includes(rid)) {
+        matchedRoleIds.push(rid);
+      }
+    });
+    
+    // Also match by legacy role field (e.g., "super_admin" -> Super Admin role)
+    const legacyRole = user.role || '';
+    if (legacyRole && matchedRoleIds.length === 0) {
+      const matchedRole = roles.find(r => 
+        r.code === legacyRole || 
+        r.name?.toLowerCase().replace(/ /g, '_') === legacyRole
+      );
+      if (matchedRole && !matchedRoleIds.includes(matchedRole.id)) {
+        matchedRoleIds.push(matchedRole.id);
+      }
+    }
+    
     try {
       const res = await api.get(`/system-modules/user/${user.id}/access`);
       const userModules = res.data?.modules || [];
       setUserPermForm({
-        role_ids: user.custom_role_ids || [],
+        role_ids: matchedRoleIds,
         module_access: userModules.filter(m => m.has_access).map(m => m.code),
         sub_module_access: user.sub_module_access || {},
         module_permissions: user.module_permissions || {},
       });
     } catch (error) {
       setUserPermForm({
-        role_ids: user.custom_role_ids || [],
+        role_ids: matchedRoleIds,
         module_access: user.merged_module_access || [],
         sub_module_access: user.sub_module_access || {},
         module_permissions: user.module_permissions || {},
