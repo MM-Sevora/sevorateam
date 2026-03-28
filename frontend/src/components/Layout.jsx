@@ -384,6 +384,7 @@ const DEPARTMENT_CONFIG = {
                 items: [
                     { path: '/admin/users-permissions', name: 'Users & Permissions', icon: Shield },
                     { path: '/admin/roles', name: 'Role Management', icon: Lock },
+                    { path: '/admin/approval-workflows', name: 'Approval Workflows', icon: CheckCircle },
                     { path: '/admin/audit-log', name: 'Audit Log', icon: FileSearch, requiredModule: 'audit_log' },
                     { path: '/admin/api-keys', name: 'API Keys & Tokens', icon: Key },
                 ]

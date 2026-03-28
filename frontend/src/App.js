@@ -99,6 +99,7 @@ const SharedMailboxesPage = lazy(() => import("./pages/admin/SharedMailboxesPage
 const MailSettingsPage = lazy(() => import("./pages/admin/MailSettingsPage"));
 const NotificationSettingsPage = lazy(() => import("./pages/admin/NotificationSettingsPage"));
 const APIKeysSettingsPage = lazy(() => import("./pages/admin/APIKeysSettingsPage"));
+const ApprovalWorkflowsAdmin = lazy(() => import("./pages/admin/ApprovalWorkflowsAdmin"));
 
 // Settings Pages
 const AutomationSettings = lazy(() => import("./pages/settings/AutomationSettings"));
@@ -533,6 +534,7 @@ function AppRoutes() {
                 <Route path="/admin/mail-settings" element={<ProtectedRoute requiredModule="admin"><MailSettingsPage /></ProtectedRoute>} />
                 <Route path="/admin/notification-settings" element={<ProtectedRoute requiredModule="admin"><NotificationSettingsPage /></ProtectedRoute>} />
                 <Route path="/admin/api-keys" element={<ProtectedRoute requiredModule="admin"><APIKeysSettingsPage /></ProtectedRoute>} />
+                <Route path="/admin/approval-workflows" element={<ProtectedRoute requiredModule="admin"><ApprovalWorkflowsAdmin /></ProtectedRoute>} />
 
                 {/* Systems Module Routes */}
                 <Route path="/systems" element={<ProtectedRoute requiredModule="systems"><SystemsPage /></ProtectedRoute>} />
