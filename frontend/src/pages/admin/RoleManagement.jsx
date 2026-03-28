@@ -500,6 +500,47 @@ const RoleManagement = () => {
     return <Badge variant={variant}>{crud || 'None'}</Badge>;
   };
 
+  // Get role CRUD summary - shows overall permissions across all modules
+  const getRoleCrudSummary = (role) => {
+    const perms = role.module_permissions || {};
+    const modules = role.module_access || [];
+    
+    if (modules.length === 0) return { summary: 'No Access', color: 'gray' };
+    
+    let hasCreate = false, hasRead = false, hasUpdate = false, hasDelete = false;
+    let totalPerms = 0;
+    
+    Object.values(perms).forEach(p => {
+      if (p.create) { hasCreate = true; totalPerms++; }
+      if (p.read) { hasRead = true; totalPerms++; }
+      if (p.update) { hasUpdate = true; totalPerms++; }
+      if (p.delete) { hasDelete = true; totalPerms++; }
+    });
+    
+    // If no explicit permissions but has modules, assume read access
+    if (totalPerms === 0 && modules.length > 0) {
+      return { 
+        summary: 'Read Only',
+        badges: [{ label: 'R', color: 'bg-blue-100 text-blue-700' }],
+        color: 'blue'
+      };
+    }
+    
+    const badges = [];
+    if (hasCreate) badges.push({ label: 'C', color: 'bg-green-100 text-green-700' });
+    if (hasRead) badges.push({ label: 'R', color: 'bg-blue-100 text-blue-700' });
+    if (hasUpdate) badges.push({ label: 'U', color: 'bg-yellow-100 text-yellow-700' });
+    if (hasDelete) badges.push({ label: 'D', color: 'bg-red-100 text-red-700' });
+    
+    const crud = [hasCreate && 'C', hasRead && 'R', hasUpdate && 'U', hasDelete && 'D'].filter(Boolean).join('');
+    
+    return {
+      summary: crud || 'Custom',
+      badges,
+      color: crud === 'CRUD' ? 'purple' : 'gray'
+    };
+  };
+
   return (
     <div className="p-6 space-y-6" data-testid="role-management">
       {/* Header */}
@@ -598,6 +639,7 @@ const RoleManagement = () => {
                 <TableRow>
                   <TableHead>Role</TableHead>
                   <TableHead>Modules</TableHead>
+                  <TableHead>Permissions</TableHead>
                   <TableHead>Users</TableHead>
                   <TableHead>Admin Access</TableHead>
                   <TableHead>Status</TableHead>
@@ -605,7 +647,9 @@ const RoleManagement = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {roles.map(role => (
+                {roles.map(role => {
+                  const crudSummary = getRoleCrudSummary(role);
+                  return (
                   <TableRow key={role.id} className="cursor-pointer hover:bg-gray-50" onClick={() => openCreateModal(role)}>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -618,6 +662,19 @@ const RoleManagement = () => {
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{role.module_access?.length || 0} modules</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-0.5">
+                        {crudSummary.badges?.length > 0 ? (
+                          crudSummary.badges.map((b, i) => (
+                            <span key={i} className={`px-1.5 py-0.5 text-xs font-medium rounded ${b.color}`}>
+                              {b.label}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-gray-400">{crudSummary.summary}</span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div 
@@ -661,7 +718,8 @@ const RoleManagement = () => {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}

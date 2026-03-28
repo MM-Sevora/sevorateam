@@ -196,6 +196,15 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 
 ## Recent Changes (March 28, 2026)
 
+### Bulk Role Assignment & CRUD Permissions Display
+- **Bulk Role Assignment**: Already implemented - select multiple users, click "Assign Roles" button to assign roles to all selected users at once
+- **CRUD Permissions Column**: Added "Permissions" column to Roles table showing C/R/U/D badges:
+  - C (Create): Green badge
+  - R (Read): Blue badge
+  - U (Update): Yellow badge
+  - D (Delete): Red badge
+- **Permission Summary**: Roles now show visual summary of their CRUD capabilities at a glance
+
 ### RBAC Data Migration Complete
 - **Migrated role module_access**: All 16 roles now have proper module_access configured
 - **Updated RBAC routes**: Switched from `custom_roles` to `roles` collection for consistency
