@@ -620,21 +620,29 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         user['permissions'] = get_user_permissions_from_role(workos_role) if workos_role else get_user_permissions(user)
         user['role_level'] = workos_role.get('level', ROLE_HIERARCHY.get(user.get('role'), 10)) if workos_role else 10
         
-        # Compute merged_module_access if not already present
-        if not user.get('merged_module_access'):
-            custom_role_ids = user.get('custom_role_ids', [])
-            if custom_role_ids:
+        # Always compute merged_module_access dynamically from roles (don't use stale cached values)
+        custom_role_ids = user.get('custom_role_ids', [])
+        if custom_role_ids:
+            # First check the new 'roles' collection (RBAC system)
+            roles = await db.roles.find({"id": {"$in": custom_role_ids}, "is_active": {"$ne": False}}).to_list(10)
+            if not roles:
+                # Fallback to legacy 'custom_roles' collection
                 roles = await db.custom_roles.find({"id": {"$in": custom_role_ids}}).to_list(10)
-                module_set = set()
-                role_names = []
-                for role in roles:
-                    module_set.update(role.get('module_access', []))
-                    role_names.append(role.get('name', ''))
-                user['merged_module_access'] = list(module_set)
-                user['custom_role_names'] = role_names
-            else:
-                user['merged_module_access'] = []
-                user['custom_role_names'] = []
+            module_set = set()
+            role_names = []
+            for role in roles:
+                module_set.update(role.get('module_access', []))
+                role_names.append(role.get('name', ''))
+            # Also include any user-level module overrides
+            user_modules = user.get('module_access', [])
+            if user_modules:
+                module_set.update(user_modules)
+            user['merged_module_access'] = list(module_set)
+            user['custom_role_names'] = role_names
+        else:
+            # No roles assigned, use user-level module access or defaults
+            user['merged_module_access'] = user.get('module_access', [])
+            user['custom_role_names'] = []
         
         # Ensure sub_module_access is included (if not already in user doc)
         if not user.get('sub_module_access'):

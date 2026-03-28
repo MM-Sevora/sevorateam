@@ -413,7 +413,7 @@ async def get_current_user_profile(authorization: str = __import__('fastapi').He
     
     # Check for user's custom permissions and override mode
     custom_permissions = user.get('custom_permissions', {})
-    override_mode = user.get('permission_override_mode', 'merge')
+    override_mode = user.get('permission_override_mode') or 'merge'  # Default to 'merge' if None
     
     # Get role-based module access first
     role_module_access = []
@@ -421,9 +421,17 @@ async def get_current_user_profile(authorization: str = __import__('fastapi').He
     
     if user.get('custom_role_ids'):
         for role_id in user.get('custom_role_ids', []):
-            role = await db.custom_roles.find_one({"id": role_id}, {"_id": 0})
+            # First check the new 'roles' collection (RBAC system)
+            role = await db.roles.find_one({"id": role_id, "is_active": {"$ne": False}}, {"_id": 0})
+            if not role:
+                # Fallback to legacy 'custom_roles' collection
+                role = await db.custom_roles.find_one({"id": role_id}, {"_id": 0})
             if role:
                 role_module_access.extend(role.get('module_access', []))
+                for module, sub_modules in role.get('sub_module_access', {}).items():
+                    if module not in role_sub_module_access:
+                        role_sub_module_access[module] = []
+                    role_sub_module_access[module].extend(sub_modules)
                 for module, sub_modules in role.get('sub_module_access', {}).items():
                     if module not in role_sub_module_access:
                         role_sub_module_access[module] = []

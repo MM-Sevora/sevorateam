@@ -201,6 +201,10 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 - **Audit Log Date Filters**: FIXED & VERIFIED - Date filtering properly applies, showing only entries within the selected date range
 - **Inherited Permissions Preview**: Working correctly - Shows merged modules from selected roles with clear label
 - **"Invalid Role" Error on Save**: FIXED - Updated `access_control.py` to check both `roles` collection (new RBAC) and `custom_roles` collection (legacy) when validating role IDs
+- **Role Permissions Not Reflecting on Login**: FIXED - Updated `get_current_user()` in `server.py` to:
+  1. Always compute `merged_module_access` dynamically (not use stale cached values)
+  2. Check `roles` collection first (RBAC system), fallback to `custom_roles`
+  3. Include user-level module overrides in the merged access list
 
 ### Audit Log Module (NEW)
 - **Backend API** (`/api/audit/*`):
