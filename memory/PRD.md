@@ -196,6 +196,22 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 
 ## Recent Changes (March 28, 2026)
 
+### RBAC Data Migration Complete
+- **Migrated role module_access**: All 16 roles now have proper module_access configured
+- **Updated RBAC routes**: Switched from `custom_roles` to `roles` collection for consistency
+- **Role permissions populated**:
+  - Super Admin: 20 modules (full access)
+  - Administrator: 10 modules (admin access)
+  - Marketing Manager/Executive: 11/7 modules
+  - Sales Manager/Executive: 12/7 modules
+  - HR Admin/Employee: 9/6 modules
+  - Finance Admin/Employee: 7/6 modules
+  - Project Manager: 8 modules
+  - IT Admin/Employee: 7/5 modules
+  - Social Media Manager: 8 modules
+  - Viewer: 4 modules (basic access)
+- **User counts now accurate**: Roles show correct user assignments based on `role`, `role_ids`, and `custom_role_ids`
+
 ### Role Templates & User Count Enhancement
 - **Role Templates**: Added 5 preset role templates for quick setup:
   - Marketing Viewer (5 modules, read-only marketing access)

@@ -90,6 +90,7 @@ async def get_roles(
     if not include_inactive:
         query["is_active"] = {"$ne": False}
     
+    # Use custom_roles collection (main roles collection)
     roles = await db.roles.find(query, {"_id": 0}).to_list(100)
     
     # Auto-seed default roles if none exist
