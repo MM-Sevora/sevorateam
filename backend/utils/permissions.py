@@ -424,3 +424,110 @@ def can_user_modify_others_data(
         return module_perm.get("can_delete_others", False)
     
     return False
+
+
+
+# ============== RBAC-AWARE DEPENDENCIES ==============
+
+def require_module_access(module_code: str, action: str = "read"):
+    """
+    FastAPI dependency to check module access with RBAC.
+    
+    Usage:
+        @router.get("/items")
+        async def get_items(user: dict = Depends(require_module_access("expense", "read"))):
+            ...
+    
+    Args:
+        module_code: The module code to check (e.g., "expense", "marketing_ops")
+        action: CRUD action to check ("create", "read", "update", "delete")
+    """
+    async def check_access(user: dict):
+        from server import get_current_user
+        
+        # Check if user has the required permission
+        if not can_user_crud(user, module_code, action):
+            from fastapi import HTTPException
+            raise HTTPException(
+                status_code=403, 
+                detail=f"You don't have {action} permission for {module_code} module"
+            )
+        
+        return user
+    
+    return check_access
+
+
+async def apply_data_scope_to_query(
+    user: dict,
+    module_code: str, 
+    base_query: dict = None,
+    owner_field: str = "created_by",
+    assigned_field: str = "assigned_to"
+) -> dict:
+    """
+    Apply RBAC data scope filtering to a MongoDB query.
+    
+    Args:
+        user: Current user dict with module_permissions
+        module_code: Module code to check scope for
+        base_query: Existing query to extend
+        owner_field: Field name that stores the owner/creator ID
+        assigned_field: Field name that stores assigned user ID
+    
+    Returns:
+        MongoDB query with data scope filters applied
+    """
+    user_id = user.get("id")
+    user_role = user.get("role", "")
+    department_id = user.get("department_id")
+    
+    query = dict(base_query) if base_query else {}
+    
+    # Super admin/admin sees all
+    if user_role in ["super_admin", "admin"]:
+        return query
+    
+    if user.get("can_manage_users") or user.get("can_manage_roles"):
+        return query
+    
+    # Get module permissions
+    module_permissions = user.get("module_permissions", {})
+    module_perm = module_permissions.get(module_code, {})
+    data_scope = module_perm.get("data_scope", "all")
+    
+    if data_scope == "all":
+        return query
+    elif data_scope == "department":
+        if department_id:
+            query["$or"] = [
+                {owner_field: user_id},
+                {assigned_field: user_id},
+                {"department_id": department_id}
+            ]
+        else:
+            query["$or"] = [
+                {owner_field: user_id},
+                {assigned_field: user_id}
+            ]
+    elif data_scope == "team":
+        if department_id:
+            query["$or"] = [
+                {owner_field: user_id},
+                {assigned_field: user_id},
+                {"department_id": department_id}
+            ]
+        else:
+            query["$or"] = [
+                {owner_field: user_id},
+                {assigned_field: user_id}
+            ]
+    elif data_scope == "own_assigned":
+        query["$or"] = [
+            {owner_field: user_id},
+            {assigned_field: user_id}
+        ]
+    elif data_scope == "own" or data_scope == "own_only":
+        query[owner_field] = user_id
+    
+    return query

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Shield, Plus, Edit, Trash2, RefreshCw, CheckCircle, XCircle,
   ChevronDown, ChevronRight, Users, Save, X, Eye, Lock, Unlock,
-  Settings, Package, Server, Building2, Activity, Layers
+  Settings, Package, Server, Building2, Activity, Layers, Search, UserCheck
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -105,6 +105,11 @@ const RoleManagement = () => {
   const [previewUserId, setPreviewUserId] = useState(null);
   const [previewData, setPreviewData] = useState(null);
   
+  // Users for preview
+  const [users, setUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  
   // Form state
   const [roleForm, setRoleForm] = useState({
     name: '',
@@ -150,6 +155,54 @@ const RoleManagement = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Fetch users for permissions preview
+  const fetchUsers = useCallback(async () => {
+    setUsersLoading(true);
+    try {
+      const res = await api.get('/admin/users');
+      setUsers(res.data || []);
+    } catch (err) {
+      console.error('Failed to fetch users:', err);
+    } finally {
+      setUsersLoading(false);
+    }
+  }, []);
+
+  // Fetch user's effective permissions
+  const fetchUserPermissions = async (userId) => {
+    try {
+      const res = await api.get(`/rbac/users/${userId}/permissions`);
+      setPreviewData(res.data);
+    } catch (err) {
+      console.error('Failed to fetch user permissions:', err);
+      toast.error('Failed to load user permissions');
+    }
+  };
+
+  // Open permissions preview dialog
+  const openPermissionsPreview = async (userId = null) => {
+    setShowPermissionsPreview(true);
+    setPreviewData(null);
+    
+    // Fetch users if not loaded
+    if (users.length === 0) {
+      await fetchUsers();
+    }
+    
+    // If userId provided, fetch their permissions
+    if (userId) {
+      setPreviewUserId(userId);
+      await fetchUserPermissions(userId);
+    }
+  };
+
+  // Get filtered users for search
+  const filteredUsers = users.filter(u => 
+    userSearchQuery === '' || 
+    u.name?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+    u.email?.toLowerCase().includes(userSearchQuery.toLowerCase())
+  );
 
   // Open create/edit modal
   const openCreateModal = (role = null) => {
@@ -321,6 +374,10 @@ const RoleManagement = () => {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => openPermissionsPreview()} data-testid="preview-permissions-btn">
+            <Eye className="w-4 h-4 mr-2" />
+            Preview User Permissions
+          </Button>
           <Button variant="outline" onClick={fetchData}>
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
@@ -686,6 +743,186 @@ const RoleManagement = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Permissions Preview Dialog */}
+      <Dialog open={showPermissionsPreview} onOpenChange={setShowPermissionsPreview}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserCheck className="w-5 h-5 text-indigo-600" />
+              User Permissions Preview
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* User Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                placeholder="Search users by name or email..."
+                value={userSearchQuery}
+                onChange={e => setUserSearchQuery(e.target.value)}
+                className="pl-10"
+                data-testid="user-search-input"
+              />
+            </div>
+            
+            {/* User List */}
+            {!previewData && (
+              <div className="border rounded-lg max-h-64 overflow-y-auto">
+                {usersLoading ? (
+                  <div className="p-4 text-center text-gray-500">Loading users...</div>
+                ) : filteredUsers.length === 0 ? (
+                  <div className="p-4 text-center text-gray-500">No users found</div>
+                ) : (
+                  <div className="divide-y">
+                    {filteredUsers.slice(0, 20).map(user => (
+                      <div
+                        key={user.id}
+                        className="p-3 hover:bg-gray-50 cursor-pointer flex items-center justify-between"
+                        onClick={() => {
+                          setPreviewUserId(user.id);
+                          fetchUserPermissions(user.id);
+                        }}
+                        data-testid={`user-item-${user.id}`}
+                      >
+                        <div>
+                          <p className="font-medium">{user.name}</p>
+                          <p className="text-sm text-gray-500">{user.email}</p>
+                        </div>
+                        <Badge variant="outline">{user.role || 'No role'}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Permissions Preview Panel */}
+            {previewData && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setPreviewData(null);
+                      setPreviewUserId(null);
+                    }}
+                  >
+                    <ChevronRight className="w-4 h-4 mr-1 rotate-180" />
+                    Back to user list
+                  </Button>
+                </div>
+                
+                {/* User Info */}
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
+                        <Users className="w-6 h-6 text-indigo-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-lg">{previewData.user_name}</p>
+                        <p className="text-sm text-gray-500">{previewData.user_email}</p>
+                      </div>
+                      <div className="ml-auto flex gap-2">
+                        {previewData.is_admin && <Badge className="bg-red-100 text-red-700">Admin</Badge>}
+                        {previewData.can_manage_users && <Badge className="bg-amber-100 text-amber-700">Manage Users</Badge>}
+                        {previewData.can_manage_roles && <Badge className="bg-purple-100 text-purple-700">Manage Roles</Badge>}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                {/* Assigned Roles */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Shield className="w-4 h-4" />
+                      Assigned Roles ({previewData.roles?.length || 0})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    {previewData.roles?.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {previewData.roles.map(role => (
+                          <Badge key={role.id} variant="secondary" className="py-1">
+                            {role.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">No roles assigned</p>
+                    )}
+                  </CardContent>
+                </Card>
+                
+                {/* Module Access */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Package className="w-4 h-4" />
+                      Module Access ({previewData.modules?.length || 0})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    {previewData.modules?.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {previewData.modules.map(module => (
+                          <Badge key={module} variant="outline" className="py-1">
+                            {module.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">No modules accessible</p>
+                    )}
+                  </CardContent>
+                </Card>
+                
+                {/* Detailed Permissions */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Settings className="w-4 h-4" />
+                      Module Permissions Detail
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    {Object.keys(previewData.permissions || {}).length > 0 ? (
+                      <div className="space-y-3">
+                        {Object.entries(previewData.permissions).map(([module, perms]) => (
+                          <div key={module} className="p-3 bg-gray-50 rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="font-medium">
+                                {module.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                              </p>
+                              <Badge variant="outline" className="text-xs">
+                                {perms.data_scope?.replace(/_/g, ' ') || 'All'}
+                              </Badge>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {perms.create && <Badge className="bg-green-100 text-green-700 text-xs">Create</Badge>}
+                              {perms.read && <Badge className="bg-blue-100 text-blue-700 text-xs">Read</Badge>}
+                              {perms.update && <Badge className="bg-yellow-100 text-yellow-700 text-xs">Update</Badge>}
+                              {perms.delete && <Badge className="bg-red-100 text-red-700 text-xs">Delete</Badge>}
+                              {perms.can_edit_others && <Badge className="bg-purple-100 text-purple-700 text-xs">Edit Others</Badge>}
+                              {perms.can_delete_others && <Badge className="bg-pink-100 text-pink-700 text-xs">Delete Others</Badge>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">No detailed permissions set (using defaults)</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

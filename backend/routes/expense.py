@@ -285,25 +285,53 @@ async def get_all_claims(
     date_to: Optional[str] = None,
     limit: int = Query(default=100, le=500),
     skip: int = Query(default=0, ge=0),
-    user: dict = Depends(require_hr())
+    user: dict = Depends(require_hr_or_finance())
 ):
-    """Get all expense claims (HR only)"""
+    """
+    Get all expense claims.
+    
+    Access Control:
+    - HR/Finance Admin: Can see all claims
+    - Regular users: Use /claims/my endpoint
+    
+    Data scope filtering applied based on user's RBAC permissions.
+    """
     db = get_db()
     
-    query = {}
+    # Import RBAC utilities
+    from utils.permissions import can_user_crud, apply_data_scope_to_query
+    
+    # Check RBAC permission for expense module
+    if not can_user_crud(user, "expense", "read"):
+        raise HTTPException(
+            status_code=403, 
+            detail="You don't have permission to view expense claims"
+        )
+    
+    # Build base query
+    base_query = {}
     if status:
-        query["status"] = status
+        base_query["status"] = status
     if employee_id:
-        query["employee_id"] = employee_id
+        base_query["employee_id"] = employee_id
     if department_id:
-        query["department_id"] = department_id
+        base_query["department_id"] = department_id
     if date_from:
-        query["created_at"] = {"$gte": date_from}
+        base_query["created_at"] = {"$gte": date_from}
     if date_to:
-        if "created_at" in query:
-            query["created_at"]["$lte"] = date_to
+        if "created_at" in base_query:
+            base_query["created_at"]["$lte"] = date_to
         else:
-            query["created_at"] = {"$lte": date_to}
+            base_query["created_at"] = {"$lte": date_to}
+    
+    # Apply RBAC data scope filtering
+    query = await apply_data_scope_to_query(
+        user=user,
+        module_code="expense",
+        base_query=base_query,
+        owner_field="employee_id",  # Claims use employee_id as owner
+        assigned_field="approver_id"
+    )
     
     claims = await db.expense_claims.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).to_list(limit)
     return claims
@@ -506,8 +534,31 @@ async def approve_claim(
     hr_notes: Optional[str] = None,
     user: dict = Depends(require_hr_or_finance())
 ):
-    """Approve an expense claim (HR Admin or Finance Admin)"""
+    """
+    Approve an expense claim (HR Admin or Finance Admin).
+    
+    RBAC: Requires 'update' permission on 'expense' module + can_approve flag.
+    """
     db = get_db()
+    
+    # Check RBAC permissions
+    from utils.permissions import can_user_crud
+    
+    if not can_user_crud(user, "expense", "update"):
+        raise HTTPException(
+            status_code=403, 
+            detail="You don't have permission to approve expense claims"
+        )
+    
+    # Check if user has approval permission
+    module_perms = user.get("module_permissions", {}).get("expense", {})
+    if not module_perms.get("can_approve", True):  # Default True for backward compatibility
+        # Also allow if user is HR/Finance admin
+        if user.get("role") not in ["super_admin", "admin"]:
+            raise HTTPException(
+                status_code=403,
+                detail="You don't have approval permission for expense claims"
+            )
     
     claim = await db.expense_claims.find_one({"id": claim_id})
     if not claim:
