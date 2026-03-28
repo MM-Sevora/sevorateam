@@ -87,16 +87,19 @@ const SubtasksSection = ({ taskId, token, users = [] }) => {
   };
 
   const toggleSubtask = async (subtask) => {
-    const newStatus = subtask.status === 'completed' ? 'draft' : 'completed';
+    const isCurrentlyCompleted = subtask.status === 'completed' || subtask.is_completed;
+    const newStatus = isCurrentlyCompleted ? 'draft' : 'completed';
+    const newIsCompleted = !isCurrentlyCompleted;
     setRecentlyToggled(subtask.id);
     setTimeout(() => setRecentlyToggled(null), 300);
     try {
       await fetch(`${API}/api/projects/subtasks/${subtask.id}`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ status: newStatus, is_completed: newIsCompleted })
       });
       fetchSubtasks();
+      toast.success(newIsCompleted ? 'Subtask completed' : 'Subtask reopened');
     } catch (e) { toast.error('Failed to update'); }
   };
 
@@ -162,79 +165,87 @@ const SubtasksSection = ({ taskId, token, users = [] }) => {
       {subtasks.length === 0 ? (
         <p className="text-[#9C8C74] text-sm text-center py-4 tab-content-animate">No subtasks yet</p>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1 scrollbar-thin">
           {subtasks.map((st, index) => (
             <div 
               key={st.id} 
-              className={`flex items-center gap-3 p-3 bg-[#FDF8F3] border border-[#E8D5C4] rounded-lg group item-hover stagger-${Math.min(index + 1, 5)}`}
+              className={`flex flex-wrap items-center gap-2 p-3 bg-[#FDF8F3] border border-[#E8D5C4] rounded-lg group hover:border-[#D4BBA6] hover:shadow-sm transition-all stagger-${Math.min(index + 1, 5)}`}
               style={{ animationFillMode: 'both' }}
             >
-              <button onClick={() => toggleSubtask(st)} className="text-[#6B5D52] hover:text-[#4A3728] transition-colors">
-                {st.status === 'completed' ? (
-                  <CheckCircle2 className={`w-5 h-5 text-emerald-600 ${recentlyToggled === st.id ? 'check-animate' : ''}`} />
-                ) : (
-                  <Circle className={`w-5 h-5 ${recentlyToggled === st.id ? 'check-animate' : ''}`} />
-                )}
-              </button>
-              <span className={`flex-1 text-sm transition-all duration-200 ${st.status === 'completed' ? 'line-through text-[#9C8C74]' : 'text-[#4A3728]'}`}>
-                {st.name}
-              </span>
-              <select
-                value={st.priority || 'medium'}
-                onChange={(e) => updateSubtaskPriority(st.id, e.target.value)}
-                className={`h-7 text-xs border border-[#D4BBA6] rounded px-1 bg-white ${
-                  st.priority === 'urgent' ? 'text-red-600 border-red-300' :
-                  st.priority === 'high' ? 'text-orange-600 border-orange-300' :
-                  st.priority === 'low' ? 'text-blue-600 border-blue-300' :
-                  'text-[#4A3728]'
-                }`}
-                title="Priority"
-              >
-                <option value="low">Low</option>
-                <option value="medium">Med</option>
-                <option value="high">High</option>
-                <option value="urgent">Urgent</option>
-              </select>
-              <input
-                type="date"
-                value={st.due_date ? st.due_date.split('T')[0] : ''}
-                onChange={(e) => updateSubtaskDueDate(st.id, e.target.value)}
-                className={`w-[120px] h-7 text-xs border border-[#D4BBA6] rounded-md px-2 bg-white cursor-pointer focus:outline-none focus:ring-1 focus:ring-rose-400 ${
-                  st.due_date && new Date(st.due_date) < new Date() && st.status !== 'completed' 
-                    ? 'text-red-600 border-red-300' 
-                    : 'text-[#4A3728]'
-                }`}
-                title="Click to set due date"
-              />
-              <Select 
-                value={st.assigned_to || 'unassigned'} 
-                onValueChange={(v) => assignSubtask(st.id, v)}
-              >
-                <SelectTrigger className="w-[110px] h-7 text-xs border-[#D4BBA6] bg-white">
-                  {st.assigned_to_name ? (
-                    <div className="flex items-center gap-1">
-                      <div className="w-4 h-4 rounded-full bg-[#E8D5C4] flex items-center justify-center text-[10px] font-medium">
-                        {st.assigned_to_name.charAt(0)}
-                      </div>
-                      <span className="truncate">{st.assigned_to_name.split(' ')[0]}</span>
-                    </div>
+              {/* Checkbox & Name Row */}
+              <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                <button onClick={() => toggleSubtask(st)} className="text-[#6B5D52] hover:text-[#4A3728] transition-colors flex-shrink-0">
+                  {st.status === 'completed' || st.is_completed ? (
+                    <CheckCircle2 className={`w-5 h-5 text-emerald-600 ${recentlyToggled === st.id ? 'check-animate' : ''}`} />
                   ) : (
-                    <span className="text-[#9C8C74]">Assign</span>
+                    <Circle className={`w-5 h-5 ${recentlyToggled === st.id ? 'check-animate' : ''}`} />
                   )}
-                </SelectTrigger>
-                <SelectContent className="bg-white border-[#D4BBA6]">
-                  <SelectItem value="unassigned">Unassigned</SelectItem>
-                  {users.map(u => (
-                    <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <button 
-                onClick={() => deleteSubtask(st.id)} 
-                className="text-[#9C8C74] hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+                </button>
+                <span className={`text-sm transition-all duration-200 line-clamp-2 ${st.status === 'completed' || st.is_completed ? 'line-through text-[#9C8C74]' : 'text-[#4A3728]'}`}>
+                  {st.name}
+                </span>
+              </div>
+              
+              {/* Controls Row */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <select
+                  value={st.priority || 'medium'}
+                  onChange={(e) => updateSubtaskPriority(st.id, e.target.value)}
+                  className={`h-7 text-xs border rounded px-1.5 bg-white cursor-pointer focus:outline-none focus:ring-1 focus:ring-rose-400 ${
+                    st.priority === 'urgent' ? 'text-red-600 border-red-300 bg-red-50' :
+                    st.priority === 'high' ? 'text-orange-600 border-orange-300 bg-orange-50' :
+                    st.priority === 'low' ? 'text-blue-600 border-blue-300 bg-blue-50' :
+                    'text-[#4A3728] border-[#D4BBA6]'
+                  }`}
+                  title="Priority"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Med</option>
+                  <option value="high">High</option>
+                  <option value="urgent">Urgent</option>
+                </select>
+                <input
+                  type="date"
+                  value={st.due_date ? st.due_date.split('T')[0] : ''}
+                  onChange={(e) => updateSubtaskDueDate(st.id, e.target.value)}
+                  className={`w-[115px] h-7 text-xs border rounded-md px-2 bg-white cursor-pointer focus:outline-none focus:ring-1 focus:ring-rose-400 ${
+                    st.due_date && new Date(st.due_date) < new Date() && st.status !== 'completed' && !st.is_completed
+                      ? 'text-red-600 border-red-300 bg-red-50' 
+                      : 'text-[#4A3728] border-[#D4BBA6]'
+                  }`}
+                  title="Click to set due date"
+                />
+                <Select 
+                  value={st.assigned_to || 'unassigned'} 
+                  onValueChange={(v) => assignSubtask(st.id, v)}
+                >
+                  <SelectTrigger className="w-[100px] h-7 text-xs border-[#D4BBA6] bg-white">
+                    {st.assigned_to_name ? (
+                      <div className="flex items-center gap-1">
+                        <div className="w-5 h-5 rounded-full bg-gradient-to-br from-rose-400 to-amber-400 flex items-center justify-center text-[10px] font-medium text-white flex-shrink-0">
+                          {st.assigned_to_name.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="truncate">{st.assigned_to_name.split(' ')[0]}</span>
+                      </div>
+                    ) : (
+                      <span className="text-[#9C8C74]">Assign</span>
+                    )}
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-[#D4BBA6]">
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {users.map(u => (
+                      <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <button 
+                  onClick={() => deleteSubtask(st.id)} 
+                  className="text-[#9C8C74] hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110 p-1"
+                  title="Delete subtask"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           ))}
         </div>
