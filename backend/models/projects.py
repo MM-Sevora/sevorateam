@@ -414,6 +414,8 @@ class SubtaskUpdate(BaseModel):
     assigned_to: Optional[str] = None
     status: Optional[TaskStatus] = None
     due_date: Optional[str] = None
+    is_completed: Optional[bool] = None
+    priority: Optional[str] = None
 
 
 class SubtaskResponse(BaseModel):
@@ -424,6 +426,8 @@ class SubtaskResponse(BaseModel):
     assigned_to_name: Optional[str] = None
     status: TaskStatus = TaskStatus.DRAFT
     due_date: Optional[str] = None
+    is_completed: Optional[bool] = None
+    priority: Optional[str] = None
     created_at: str
     updated_at: str
 
