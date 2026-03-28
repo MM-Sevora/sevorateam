@@ -7,6 +7,7 @@ Approval Workflow Routes
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 import uuid
@@ -221,6 +222,73 @@ async def send_approval_notification(db, request: dict, action: str, actor: dict
     pass
 
 
+async def check_user_eligibility(user: dict, workflow: dict) -> bool:
+    """
+    Check if a user is eligible to use a workflow.
+    
+    Returns True if eligible, False otherwise.
+    """
+    user_id = user.get("id")
+    user_department_id = user.get("department_id")
+    user_role_ids = user.get("role_ids", []) or user.get("custom_role_ids", [])
+    user_grade = user.get("grade") or user.get("grade_id")
+    
+    # Check if explicitly excluded
+    excluded_users = workflow.get("excluded_user_ids", [])
+    if excluded_users and user_id in excluded_users:
+        return False
+    
+    # Check eligible users (if specified)
+    eligible_users = workflow.get("eligible_user_ids", [])
+    if eligible_users:
+        if user_id not in eligible_users:
+            return False
+    
+    # Check eligible departments (if specified)
+    eligible_depts = workflow.get("eligible_department_ids", [])
+    if eligible_depts:
+        if not user_department_id or user_department_id not in eligible_depts:
+            return False
+    
+    # Check eligible roles (if specified)
+    eligible_roles = workflow.get("eligible_role_ids", [])
+    if eligible_roles:
+        if not any(role in eligible_roles for role in user_role_ids):
+            # Also check the 'role' field
+            user_role = user.get("role")
+            if not user_role or user_role not in eligible_roles:
+                return False
+    
+    # Check eligible grades (if specified)
+    eligible_grades = workflow.get("eligible_grade_ids", [])
+    if eligible_grades:
+        if not user_grade or user_grade not in eligible_grades:
+            return False
+    
+    return True
+
+
+async def get_eligible_workflows_for_user(db, user: dict, approval_type: str = None) -> list:
+    """
+    Get all workflows that a user is eligible to use.
+    """
+    query = {"is_active": True}
+    if approval_type:
+        query["approval_type"] = approval_type
+    
+    workflows = await db.approval_workflows.find(query, {"_id": 0}).to_list(100)
+    
+    # Filter by eligibility - only include workflows with levels (new system)
+    eligible = []
+    for wf in workflows:
+        if not wf.get("levels"):
+            continue
+        if await check_user_eligibility(user, wf):
+            eligible.append(wf)
+    
+    return eligible
+
+
 async def log_approval_history(db, request_id: str, action: str, actor_id: str, actor_name: str, level: int = None, comments: str = None, details: dict = None):
     """Log an action to approval history"""
     now = datetime.now(timezone.utc).isoformat()
@@ -433,6 +501,239 @@ async def seed_default_workflows(
         "created": created,
         "skipped": skipped,
         "message": f"Created {len(created)} workflows, skipped {len(skipped)} existing"
+    }
+
+
+# ============== USER-FACING ENDPOINTS ==============
+
+@approvals_router.get("/my-eligible-workflows")
+async def get_my_eligible_workflows(
+    approval_type: Optional[str] = None,
+    user: dict = Depends(get_current_user_dep())
+):
+    """
+    Get all approval workflows that the current user is eligible to use.
+    This endpoint helps users see which request types they can submit.
+    """
+    db = get_db()
+    
+    workflows = await get_eligible_workflows_for_user(db, user, approval_type)
+    
+    # Group by approval type for easier display
+    by_type = {}
+    for wf in workflows:
+        wf_type = wf.get("approval_type", "other")
+        if wf_type not in by_type:
+            by_type[wf_type] = []
+        by_type[wf_type].append({
+            "id": wf.get("id"),
+            "name": wf.get("name"),
+            "description": wf.get("description"),
+            "approval_type": wf_type,
+            "levels_count": len(wf.get("levels", [])),
+            "min_amount": wf.get("min_amount"),
+            "max_amount": wf.get("max_amount"),
+            "is_default": wf.get("is_default", False)
+        })
+    
+    return {
+        "workflows": workflows,
+        "by_type": by_type,
+        "total": len(workflows)
+    }
+
+
+@approvals_router.get("/request-types")
+async def get_available_request_types(
+    user: dict = Depends(get_current_user_dep())
+):
+    """
+    Get all approval types that the user can submit requests for.
+    Returns a summary suitable for displaying in a "New Request" form.
+    """
+    db = get_db()
+    
+    workflows = await get_eligible_workflows_for_user(db, user)
+    
+    # Get unique approval types with their details
+    types_map = {}
+    for wf in workflows:
+        wf_type = wf.get("approval_type")
+        if wf_type not in types_map:
+            types_map[wf_type] = {
+                "type": wf_type,
+                "label": wf_type.replace("_", " ").title(),
+                "workflows_count": 0,
+                "has_amount_based": False,
+                "description": ""
+            }
+        types_map[wf_type]["workflows_count"] += 1
+        if wf.get("min_amount") or wf.get("max_amount"):
+            types_map[wf_type]["has_amount_based"] = True
+    
+    # Add descriptions
+    type_descriptions = {
+        "expense_claim": "Submit expense reimbursement requests",
+        "leave_request": "Request time off or leave",
+        "purchase_requisition": "Request approval for purchases",
+        "travel_request": "Submit travel plans for approval",
+        "vendor_payment": "Request vendor/supplier payments",
+        "budget_request": "Request budget allocation or changes",
+        "content_approval": "Submit content for review and approval",
+        "custom": "General approval requests"
+    }
+    
+    for type_key, type_info in types_map.items():
+        type_info["description"] = type_descriptions.get(type_key, "")
+    
+    return {
+        "request_types": list(types_map.values()),
+        "total": len(types_map)
+    }
+
+
+class DirectApprovalRequest(BaseModel):
+    """Direct approval request from user"""
+    workflow_id: str                          # Which workflow to use
+    title: str                                # Request title
+    description: Optional[str] = None         # Request description
+    amount: Optional[float] = None            # Amount if applicable
+    attachments: List[str] = []               # List of attachment URLs/IDs
+    custom_fields: Dict[str, Any] = {}        # Additional custom fields
+    notes: Optional[str] = None               # Notes for approvers
+
+
+@approvals_router.post("/request")
+async def create_approval_request_direct(
+    data: DirectApprovalRequest,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(get_current_user_dep())
+):
+    """
+    Create a new approval request directly (user-initiated).
+    The user selects which workflow to use.
+    """
+    db = get_db()
+    now = datetime.now(timezone.utc).isoformat()
+    requester_id = user.get("id")
+    
+    # Get the workflow
+    workflow = await db.approval_workflows.find_one({"id": data.workflow_id}, {"_id": 0})
+    if not workflow:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    
+    if not workflow.get("is_active"):
+        raise HTTPException(status_code=400, detail="This workflow is not active")
+    
+    # Check eligibility
+    if not await check_user_eligibility(user, workflow):
+        raise HTTPException(
+            status_code=403, 
+            detail="You are not eligible to use this workflow. Please contact your administrator."
+        )
+    
+    # Check amount constraints
+    if data.amount is not None:
+        min_amt = workflow.get("min_amount")
+        max_amt = workflow.get("max_amount")
+        if min_amt is not None and data.amount < min_amt:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Amount must be at least {min_amt} for this workflow"
+            )
+        if max_amt is not None and data.amount > max_amt:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Amount must not exceed {max_amt} for this workflow. Use a different workflow for higher amounts."
+            )
+    
+    # Build approval chain
+    approval_chain = await build_approval_chain(db, requester_id, workflow)
+    
+    if not approval_chain:
+        raise HTTPException(
+            status_code=400, 
+            detail="Could not build approval chain. Please ensure you have a reporting manager assigned."
+        )
+    
+    # Check for missing required approvers
+    missing = [lvl for lvl in approval_chain if lvl.get("error")]
+    if missing:
+        errors = [f"{lvl['level_name']}: {lvl.get('error')}" for lvl in missing]
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot create request - missing approvers: {', '.join(errors)}"
+        )
+    
+    # Get requester details
+    requester = await db.users.find_one(
+        {"id": requester_id},
+        {"_id": 0, "name": 1, "email": 1, "department_id": 1}
+    )
+    
+    # Create request document
+    request_id = str(uuid.uuid4())
+    request_doc = {
+        "id": request_id,
+        "approval_type": workflow.get("approval_type"),
+        "entity_type": "direct_request",
+        "entity_id": request_id,  # Self-referencing for direct requests
+        "entity_title": data.title,
+        "entity_details": {
+            "description": data.description,
+            "attachments": data.attachments,
+            **data.custom_fields
+        },
+        
+        # Requester
+        "requester_id": requester_id,
+        "requester_name": requester.get("name") if requester else None,
+        "requester_email": requester.get("email") if requester else None,
+        "requester_department_id": requester.get("department_id") if requester else None,
+        
+        # Status
+        "status": ApprovalStatus.PENDING.value,
+        "current_level": 1,
+        "total_levels": len(approval_chain),
+        
+        # Approval chain
+        "approval_chain": approval_chain,
+        
+        # Metadata
+        "amount": data.amount,
+        "notes": data.notes,
+        "workflow_id": workflow.get("id"),
+        "workflow_name": workflow.get("name"),
+        "is_direct_request": True,
+        
+        # History
+        "history": [{
+            "timestamp": now,
+            "action": "submitted",
+            "actor_id": requester_id,
+            "actor_name": requester.get("name") if requester else None,
+            "details": {"workflow": workflow.get("name")}
+        }],
+        
+        "submitted_at": now,
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.approval_requests.insert_one(request_doc)
+    del request_doc["_id"]
+    
+    # Send notification to first approver
+    if approval_chain:
+        background_tasks.add_task(
+            send_approval_notification,
+            db, request_doc, "submitted", user
+        )
+    
+    return {
+        "success": True,
+        "request": request_doc,
+        "message": f"Request submitted successfully. Pending approval from {approval_chain[0].get('approver_name', 'approver')}."
     }
 
 

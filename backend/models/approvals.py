@@ -81,7 +81,14 @@ class ApprovalWorkflowConfig(BaseModel):
     # Conditions for when this workflow applies
     min_amount: Optional[float] = None                # Apply when amount >= this
     max_amount: Optional[float] = None                # Apply when amount <= this
-    department_ids: List[str] = []                    # Apply to specific departments
+    department_ids: List[str] = []                    # Apply to specific departments (empty = all)
+    
+    # Eligibility restrictions (who can submit requests using this workflow)
+    eligible_department_ids: List[str] = []           # Limit to users in these departments (empty = all)
+    eligible_role_ids: List[str] = []                 # Limit to users with these roles (empty = all)
+    eligible_grade_ids: List[str] = []                # Limit to users with these grades (empty = all)
+    eligible_user_ids: List[str] = []                 # Limit to specific users (empty = all)
+    excluded_user_ids: List[str] = []                 # Explicitly exclude these users
     
     # Approval levels
     levels: List[ApprovalLevelConfig] = []

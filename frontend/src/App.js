@@ -152,6 +152,7 @@ const ApprovalsPage = lazy(() => import("./pages/tasks/ApprovalsPage"));
 // Approval Workflow Pages
 const ApprovalDashboard = lazy(() => import("./pages/approvals/ApprovalDashboard"));
 const ApprovalDetailPage = lazy(() => import("./pages/approvals/ApprovalDetail"));
+const NewApprovalRequest = lazy(() => import("./pages/approvals/NewApprovalRequest"));
 
 // Goals & Objectives Pages
 const GoalsDashboard = lazy(() => import("./pages/goals/GoalsDashboard"));
@@ -629,6 +630,7 @@ function AppRoutes() {
 
                 {/* Approval Workflows */}
                 <Route path="/approvals" element={<ProtectedRoute><ApprovalDashboard /></ProtectedRoute>} />
+                <Route path="/approvals/new" element={<ProtectedRoute><NewApprovalRequest /></ProtectedRoute>} />
                 <Route path="/approvals/:id" element={<ProtectedRoute><ApprovalDetailPage /></ProtectedRoute>} />
 
                 {/* Help & Support */}

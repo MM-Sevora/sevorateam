@@ -87,10 +87,11 @@ export default function ApprovalWorkflowsAdmin() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [workflowsRes, usersRes, rolesRes] = await Promise.all([
+      const [workflowsRes, usersRes, rolesRes, deptsRes] = await Promise.all([
         api.get('/approvals/workflows'),
         api.get('/admin/users'),
         api.get('/rbac/roles'),
+        api.get('/hr/departments'),
       ]);
 
       // Filter to only show new approval workflow system (has 'levels' field)
@@ -98,6 +99,7 @@ export default function ApprovalWorkflowsAdmin() {
       setWorkflows(approvalWorkflows);
       setUsers(usersRes.data || []);
       setRoles(rolesRes.data || []);
+      setDepartments(deptsRes.data || []);
     } catch (error) {
       console.error('Failed to fetch data:', error);
       toast.error('Failed to load workflows');
@@ -128,6 +130,10 @@ export default function ApprovalWorkflowsAdmin() {
       min_amount: null,
       max_amount: null,
       department_ids: [],
+      eligible_department_ids: [],
+      eligible_role_ids: [],
+      eligible_user_ids: [],
+      excluded_user_ids: [],
       levels: [{ ...DEFAULT_LEVEL }],
       require_all_levels: true,
       notify_on_action: true,
@@ -146,6 +152,10 @@ export default function ApprovalWorkflowsAdmin() {
       min_amount: workflow.min_amount || null,
       max_amount: workflow.max_amount || null,
       department_ids: workflow.department_ids || [],
+      eligible_department_ids: workflow.eligible_department_ids || [],
+      eligible_role_ids: workflow.eligible_role_ids || [],
+      eligible_user_ids: workflow.eligible_user_ids || [],
+      excluded_user_ids: workflow.excluded_user_ids || [],
       levels: workflow.levels?.length > 0 ? workflow.levels : [{ ...DEFAULT_LEVEL }],
       require_all_levels: workflow.require_all_levels !== false,
       notify_on_action: workflow.notify_on_action !== false,
@@ -730,6 +740,96 @@ export default function ApprovalWorkflowsAdmin() {
                   onCheckedChange={(checked) => setFormData(prev => ({ ...prev, notify_on_action: checked }))}
                 />
                 <Label>Send notifications on approval actions</Label>
+              </div>
+            </div>
+
+            {/* Eligibility Restrictions */}
+            <div className="space-y-4 border-t pt-4">
+              <div>
+                <Label className="text-base font-semibold">Eligibility Restrictions</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Leave empty to allow all users. Set restrictions to limit who can submit requests using this workflow.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Eligible Departments</Label>
+                  <Select
+                    value={formData.eligible_department_ids?.[0] || 'all'}
+                    onValueChange={(value) => setFormData(prev => ({
+                      ...prev,
+                      eligible_department_ids: value === 'all' ? [] : [value]
+                    }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="All departments" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Departments</SelectItem>
+                      {departments.map(dept => (
+                        <SelectItem key={dept.id} value={dept.id}>
+                          {dept.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Only users in selected departments can use this workflow
+                  </p>
+                </div>
+
+                <div>
+                  <Label>Eligible Roles</Label>
+                  <Select
+                    value={formData.eligible_role_ids?.[0] || 'all'}
+                    onValueChange={(value) => setFormData(prev => ({
+                      ...prev,
+                      eligible_role_ids: value === 'all' ? [] : [value]
+                    }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="All roles" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Roles</SelectItem>
+                      {roles.map(role => (
+                        <SelectItem key={role.code || role.id} value={role.code || role.id}>
+                          {role.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Only users with selected roles can use this workflow
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <Label>Specific Eligible Users (Optional)</Label>
+                <Select
+                  value={formData.eligible_user_ids?.[0] || 'all'}
+                  onValueChange={(value) => setFormData(prev => ({
+                    ...prev,
+                    eligible_user_ids: value === 'all' ? [] : [value]
+                  }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All users (no restriction)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Users (No Restriction)</SelectItem>
+                    {users.map(user => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.name} ({user.email})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Restrict to specific users only
+                </p>
               </div>
             </div>
 

@@ -104,10 +104,16 @@ const ApprovalDashboard = () => {
           <h1 className="text-2xl font-bold">Approvals</h1>
           <p className="text-muted-foreground">Manage approval requests and track status</p>
         </div>
-        <Button onClick={fetchData} variant="outline" size="sm">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button onClick={fetchData} variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+          <Button onClick={() => navigate('/approvals/new')} data-testid="new-request-btn">
+            <Send className="h-4 w-4 mr-2" />
+            New Request
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
