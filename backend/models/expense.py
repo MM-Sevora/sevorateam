@@ -70,8 +70,14 @@ class ExpenseClaimResponse(BaseModel):
     approved_amount: Optional[float] = None
     
     status: str
+    approval_status: Optional[str] = None
     rejection_reason: Optional[str] = None
     hr_notes: Optional[str] = None
+    
+    # Approval workflow integration
+    approval_request_id: Optional[str] = None
+    workflow_id: Optional[str] = None
+    workflow_name: Optional[str] = None
     
     reviewed_by: Optional[str] = None
     reviewed_at: Optional[str] = None

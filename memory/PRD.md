@@ -190,7 +190,7 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 
 ---
 
-*Last Updated: March 28, 2026 (Session 3 - Part 3)*
+*Last Updated: March 28, 2026 (Session 3 - Part 4)*
 
 ---
 
@@ -405,6 +405,23 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
     - Attachments section showing uploaded files with download links
 - **Backend Model Update** (`models/approvals.py`):
   - Added `allow_attachments`, `require_attachments`, `max_attachments` fields to workflow config
+
+**Expense Claims - Approval Workflow Integration (March 28, 2026 - Session 3 Part 4)**
+- **Integration Complete**: Expense Claims now use the Unified Approval Workflow Manager
+- **Backend Changes** (`routes/expense.py`):
+  - `submit_expense_claim()` now calls `submit_for_approval()` from `approval_integration.py`
+  - Creates approval request linked to expense claim via `approval_request_id`
+  - Falls back to legacy HR notification if no expense_claim workflow configured
+- **Approval Status Sync** (`routes/approvals.py`):
+  - Added `sync_source_entity_status()` to update expense claim status when approval action taken
+  - Added `ENTITY_COLLECTION_MAP` for entity type → collection mapping
+- **Model Update** (`models/expense.py`):
+  - Added `approval_request_id`, `workflow_id`, `workflow_name`, `approval_status` fields
+- **Frontend Update** (`MyExpenses.jsx`):
+  - Added "Approval" column with "Track" link to approval workflow detail
+  - View modal shows "Track Approval" button linking to `/approvals/{approval_request_id}`
+- **Workflow Configuration**: Admins configure expense approval hierarchy via Admin → Approval Workflows
+- **User Experience**: Users track claims from "My Expense Claims" and view approval progress via unified Approvals page
 
 **Approval Chain Display Fix (March 28, 2026 - Session 3 Part 3)**
 - **Issue 1**: Approval Chain showed "lvl1", "lvl2" instead of approver names

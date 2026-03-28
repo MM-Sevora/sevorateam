@@ -36,6 +36,50 @@ def get_current_user_dep():
 
 # ============== HELPER FUNCTIONS ==============
 
+# Entity type to collection mapping for status sync
+ENTITY_COLLECTION_MAP = {
+    "expense_claim": "expense_claims",
+    "leave_request": "leave_requests",
+    "purchase_request": "purchase_requests",
+    "travel_request": "travel_requests",
+    "direct_request": None,  # Direct requests don't have a source entity
+}
+
+
+async def sync_source_entity_status(db, entity_type: str, entity_id: str, approval_status: str):
+    """
+    Sync the source entity status based on approval workflow action.
+    
+    This is called when an approval action (approve/reject) is taken to update
+    the status in the source module (expense claims, leave requests, etc.)
+    """
+    collection_name = ENTITY_COLLECTION_MAP.get(entity_type)
+    
+    if not collection_name:
+        return  # No source collection to update
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Map approval status to entity status
+    status_map = {
+        "approved": "approved",
+        "rejected": "rejected",
+        "cancelled": "cancelled",
+        "pending": "pending"
+    }
+    
+    new_status = status_map.get(approval_status, approval_status)
+    
+    await db[collection_name].update_one(
+        {"id": entity_id},
+        {"$set": {
+            "status": new_status,
+            "approval_status": approval_status,
+            "updated_at": now
+        }}
+    )
+
+
 async def get_approver_for_level(db, requester_id: str, level_config: dict) -> Optional[dict]:
     """
     Determine the approver for a given level based on configuration.
@@ -1207,6 +1251,16 @@ async def take_approval_action(
     
     # Update the request
     await db.approval_requests.update_one({"id": request_id}, {"$set": update_data})
+    
+    # Sync source entity status if this is a linked entity (expense_claim, leave, etc.)
+    entity_type = request.get("entity_type")
+    entity_id = request.get("entity_id")
+    
+    if entity_type and entity_id and data.action in [ApprovalAction.APPROVE, ApprovalAction.REJECT]:
+        await sync_source_entity_status(
+            db, entity_type, entity_id, 
+            update_data.get("status", request.get("status"))
+        )
     
     # Log to history
     await log_approval_history(

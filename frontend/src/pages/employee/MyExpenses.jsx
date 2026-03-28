@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import api from '../../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -34,7 +35,7 @@ import { toast } from 'sonner';
 import { 
   Plus, Trash2, FileText, DollarSign, Clock, CheckCircle, 
   XCircle, Eye, RefreshCw, Send, Receipt,
-  TrendingUp, Calendar, User, Edit2, UserCircle
+  TrendingUp, Calendar, User, Edit2, UserCircle, ExternalLink
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -63,6 +64,7 @@ const STATUS_CONFIG = {
 
 const MyExpenses = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('submit');
   const [loading, setLoading] = useState(false);
   
@@ -608,6 +610,7 @@ const MyExpenses = () => {
                       <TableHead>Entries</TableHead>
                       <TableHead>Amount</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Approval</TableHead>
                       <TableHead>Action</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -626,6 +629,21 @@ const MyExpenses = () => {
                               <StatusIcon className="w-3 h-3 mr-1" />
                               {statusConfig.label}
                             </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {claim.approval_request_id ? (
+                              <Button 
+                                variant="link" 
+                                size="sm" 
+                                className="p-0 h-auto text-primary"
+                                onClick={() => navigate(`/approvals/${claim.approval_request_id}`)}
+                              >
+                                <ExternalLink className="w-3 h-3 mr-1" />
+                                Track
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1">
@@ -684,6 +702,30 @@ const MyExpenses = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Approval Workflow Info */}
+              {selectedClaim.approval_request_id && (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-blue-800">Approval Workflow</p>
+                      <p className="text-xs text-blue-600">{selectedClaim.workflow_name || 'Standard Workflow'}</p>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                      onClick={() => {
+                        setShowViewModal(false);
+                        navigate(`/approvals/${selectedClaim.approval_request_id}`);
+                      }}
+                    >
+                      <ExternalLink className="w-3 h-3 mr-1" />
+                      Track Approval
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               {/* Expense Entries */}
               <div>
