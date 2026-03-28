@@ -15,7 +15,7 @@ import {
     TrendingUp, PieChart, Activity, FileText, Package, Factory, FlaskConical, Search, Database,
     Server, Plug, Bell, ClipboardList, Bot, Cog, CheckCircle, MessageCircle, Key, Lock, Receipt,
     CreditCard, Megaphone, FileImage, LayoutGrid, Layers, BookOpen, Map, Code, Smartphone,
-    Eye, Bug, UserCircle, User
+    Eye, Bug, UserCircle, User, FileSearch
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -383,6 +383,7 @@ const DEPARTMENT_CONFIG = {
                 items: [
                     { path: '/admin/users-permissions', name: 'Users & Permissions', icon: Shield },
                     { path: '/admin/roles', name: 'Role Management', icon: Lock },
+                    { path: '/admin/audit-log', name: 'Audit Log', icon: FileSearch, requiredModule: 'audit_log' },
                     { path: '/admin/api-keys', name: 'API Keys & Tokens', icon: Key },
                 ]
             },
@@ -706,7 +707,15 @@ export const Layout = ({ children }) => {
                                                         </button>
                                                         {isGroupExpanded && (
                                                             <div className="ml-4 pl-3 border-l border-[#D4BBA6]/50 space-y-1">
-                                                                {route.items.map(item => {
+                                                                {route.items
+                                                                    .filter(item => {
+                                                                        // Check item-level module access
+                                                                        if (item.requiredModule && !hasModuleAccess(item.requiredModule)) {
+                                                                            return false;
+                                                                        }
+                                                                        return true;
+                                                                    })
+                                                                    .map(item => {
                                                                     const ItemIcon = item.icon;
                                                                     const isItemActive = location.pathname === item.path;
                                                                     return (

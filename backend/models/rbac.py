@@ -299,6 +299,16 @@ SYSTEM_MODULES: Dict[str, ModuleDefinition] = {
         description="Workflow automations and triggers",
         icon="Zap", category="admin", sort_order=62
     ),
+    "audit_log": ModuleDefinition(
+        code="audit_log", name="Audit Log",
+        description="Track user activities and system changes",
+        icon="FileSearch", category="admin", sort_order=63
+    ),
+    "knowledge_base": ModuleDefinition(
+        code="knowledge_base", name="Knowledge Base",
+        description="Internal wiki and documentation",
+        icon="BookOpen", category="collaboration", sort_order=13
+    ),
 }
 
 

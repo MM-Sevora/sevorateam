@@ -4919,6 +4919,14 @@ try:
 except Exception as e:
     logger.error(f"Failed to initialize Pulse Integration Service: {e}")
 
+# Load Audit Log routes (Activity Tracking)
+try:
+    from routes.audit_log import audit_router
+    api_router.include_router(audit_router)
+    logger.info("Audit Log routes loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to load Audit Log routes: {e}")
+
 # Load Admin V2 routes
 try:
     from routes.admin import router as admin_v2_router, set_database as set_admin_db, set_jwt_settings as set_admin_jwt

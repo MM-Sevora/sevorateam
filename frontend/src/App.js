@@ -93,6 +93,7 @@ const WebsiteSettings = lazy(() => import("./pages/admin/WebsiteSettings"));
 const SystemModulesPage = lazy(() => import("./pages/admin/SystemModulesPage"));
 const UsersPermissionsPage = lazy(() => import("./pages/admin/UsersPermissionsPage"));
 const RoleManagement = lazy(() => import("./pages/admin/RoleManagement"));
+const AuditLogPage = lazy(() => import("./pages/admin/AuditLogPage"));
 const DataImportPage = lazy(() => import("./pages/admin/DataImportPage"));
 const SharedMailboxesPage = lazy(() => import("./pages/admin/SharedMailboxesPage"));
 const MailSettingsPage = lazy(() => import("./pages/admin/MailSettingsPage"));
@@ -515,6 +516,7 @@ function AppRoutes() {
                 {/* Admin Routes */}
                 <Route path="/admin/users-permissions" element={<ProtectedRoute requiredModule="admin"><UsersPermissionsPage /></ProtectedRoute>} />
                 <Route path="/admin/roles" element={<ProtectedRoute requiredModule="admin"><RoleManagement /></ProtectedRoute>} />
+                <Route path="/admin/audit-log" element={<ProtectedRoute requiredModule="audit_log"><AuditLogPage /></ProtectedRoute>} />
                 <Route path="/admin/users" element={<Navigate to="/admin/users-permissions" replace />} />
                 <Route path="/admin/employees" element={<ProtectedRoute requiredModule="admin"><EmployeeDatabase /></ProtectedRoute>} />
                 <Route path="/admin/access-control" element={<Navigate to="/admin/users-permissions" replace />} />
