@@ -16,8 +16,6 @@ import {
 import api from '../../lib/api';
 import { toast } from 'sonner';
 
-const API = process.env.REACT_APP_BACKEND_URL;
-
 const ApprovalDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -38,7 +36,7 @@ const ApprovalDetail = () => {
   const fetchRequest = async () => {
     setLoading(true);
     try {
-      const response = await api.get(`${API}/api/approvals/requests/${id}`);
+      const response = await api.get(`/approvals/requests/${id}`);
       setRequest(response.data);
     } catch (error) {
       console.error('Failed to fetch approval request:', error);
@@ -50,7 +48,7 @@ const ApprovalDetail = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await api.get(`${API}/api/users`);
+      const response = await api.get('/users');
       setUsers(response.data.users || []);
     } catch (error) {
       console.error('Failed to fetch users:', error);
@@ -69,7 +67,7 @@ const ApprovalDetail = () => {
         payload.delegate_to = delegateTo;
       }
 
-      await api.post(`${API}/api/approvals/requests/${id}/action`, payload);
+      await api.post(`/approvals/requests/${id}/action`, payload);
       
       toast.success(`Request ${actionType === 'approve' ? 'approved' : actionType === 'reject' ? 'rejected' : 'updated'} successfully`);
       setShowActionDialog(false);
@@ -87,7 +85,7 @@ const ApprovalDetail = () => {
     if (!window.confirm('Are you sure you want to cancel this request?')) return;
     
     try {
-      await api.post(`${API}/api/approvals/requests/${id}/cancel`);
+      await api.post(`/approvals/requests/${id}/cancel`);
       toast.success('Request cancelled');
       navigate('/approvals');
     } catch (error) {

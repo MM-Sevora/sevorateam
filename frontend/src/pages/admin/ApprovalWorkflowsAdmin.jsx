@@ -24,8 +24,6 @@ import {
 import api from '../../lib/api';
 import { toast } from 'sonner';
 
-const API = process.env.REACT_APP_BACKEND_URL;
-
 const APPROVAL_TYPES = [
   { value: 'expense_claim', label: 'Expense Claim' },
   { value: 'leave_request', label: 'Leave Request' },
@@ -90,9 +88,9 @@ export default function ApprovalWorkflowsAdmin() {
     setLoading(true);
     try {
       const [workflowsRes, usersRes, rolesRes] = await Promise.all([
-        api.get(`${API}/api/approvals/workflows`),
-        api.get(`${API}/api/users`),
-        api.get(`${API}/api/rbac/roles`),
+        api.get('/approvals/workflows'),
+        api.get('/users'),
+        api.get('/rbac/roles'),
       ]);
 
       // Filter to only show new approval workflow system (has 'levels' field)
@@ -110,7 +108,7 @@ export default function ApprovalWorkflowsAdmin() {
 
   const seedDefaults = async () => {
     try {
-      const res = await api.post(`${API}/api/approvals/workflows/seed-defaults`);
+      const res = await api.post('/approvals/workflows/seed-defaults');
       toast.success(res.data.message);
       fetchData();
     } catch (error) {
@@ -187,10 +185,10 @@ export default function ApprovalWorkflowsAdmin() {
       };
 
       if (editingWorkflow) {
-        await api.put(`${API}/api/approvals/workflows/${editingWorkflow.id}`, payload);
+        await api.put(`/approvals/workflows/${editingWorkflow.id}`, payload);
         toast.success('Workflow updated successfully');
       } else {
-        await api.post(`${API}/api/approvals/workflows`, payload);
+        await api.post('/approvals/workflows', payload);
         toast.success('Workflow created successfully');
       }
       
@@ -208,7 +206,7 @@ export default function ApprovalWorkflowsAdmin() {
     if (!deleteDialog.workflow) return;
     
     try {
-      await api.delete(`${API}/api/approvals/workflows/${deleteDialog.workflow.id}`);
+      await api.delete(`/approvals/workflows/${deleteDialog.workflow.id}`);
       toast.success('Workflow deleted');
       setDeleteDialog({ open: false, workflow: null });
       fetchData();

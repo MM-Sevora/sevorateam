@@ -11,8 +11,6 @@ import {
 import api from '../../lib/api';
 import { toast } from 'sonner';
 
-const API = process.env.REACT_APP_BACKEND_URL;
-
 const ApprovalDashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -29,9 +27,9 @@ const ApprovalDashboard = () => {
     setLoading(true);
     try {
       const [dashboardRes, pendingRes, myRequestsRes] = await Promise.all([
-        api.get(`${API}/api/approvals/dashboard`),
-        api.get(`${API}/api/approvals/pending-my-approval`),
-        api.get(`${API}/api/approvals/my-requests`)
+        api.get('/approvals/dashboard'),
+        api.get('/approvals/pending-my-approval'),
+        api.get('/approvals/my-requests')
       ]);
 
       setDashboard(dashboardRes.data);
