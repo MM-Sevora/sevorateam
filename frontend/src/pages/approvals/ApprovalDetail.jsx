@@ -149,19 +149,20 @@ const ApprovalDetail = () => {
   const isCurrentApprover = () => {
     if (!request || !currentUser?.id) return false;
     
+    // Requester cannot approve their own request
+    if (request.requester_id === currentUser.id) return false;
+    
     const currentLevel = request.current_level;
     const chain = request.approval_chain || [];
     
-    // Check if user is an admin (can approve any level)
-    const isAdmin = currentUser.role === 'super_admin' || currentUser.role === 'admin' || currentUser.can_manage_users;
-    
+    // Check if user is the designated approver for current level
     const isApprover = chain.some(level => 
       level.level === currentLevel && 
       level.approver_id === currentUser.id &&
       level.status === 'pending'
     );
     
-    return isApprover || (isAdmin && request.status === 'pending');
+    return isApprover;
   };
 
   const isRequester = () => {
@@ -345,8 +346,13 @@ const ApprovalDetail = () => {
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium">{level.level_name}</p>
-                          <p className="text-sm text-muted-foreground">{level.approver_name}</p>
+                          <p className="font-medium">{level.approver_name || 'Not Assigned'}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {level.level_name || `Level ${level.level}`}
+                            {level.approver_email && (
+                              <span className="ml-2 text-xs">({level.approver_email})</span>
+                            )}
+                          </p>
                         </div>
                         {getStatusBadge(level.status)}
                       </div>

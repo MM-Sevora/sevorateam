@@ -190,7 +190,7 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 
 ---
 
-*Last Updated: March 28, 2026 (Session 3 - Part 2)*
+*Last Updated: March 28, 2026 (Session 3 - Part 3)*
 
 ---
 
@@ -405,6 +405,12 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
     - Attachments section showing uploaded files with download links
 - **Backend Model Update** (`models/approvals.py`):
   - Added `allow_attachments`, `require_attachments`, `max_attachments` fields to workflow config
+
+**Approval Chain Display Fix (March 28, 2026 - Session 3 Part 3)**
+- **Issue 1**: Approval Chain showed "lvl1", "lvl2" instead of approver names
+- **Fix**: Updated `ApprovalDetail.jsx` to display `approver_name` prominently with `level_name` and email as secondary info
+- **Issue 2**: Requester (Sutanu) was seeing Approve/Reject buttons because he's a super_admin
+- **Fix**: Updated `isCurrentApprover()` to explicitly exclude the requester from seeing approval actions, regardless of their role
 
 **RBAC Fixes (March 28, 2026)**
 - **Duplicate Roles Fix** (`routes/rbac.py`):
