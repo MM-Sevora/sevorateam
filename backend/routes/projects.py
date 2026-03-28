@@ -1029,6 +1029,29 @@ async def get_my_tasks(
     }
     tasks_assigned = await db.pm_tasks.find(assigned_query, {"_id": 0}).sort("due_date", 1).to_list(100)
     
+    # Also include parent tasks of subtasks assigned to this user
+    subtask_parent_ids = []
+    user_subtasks = await db.pm_subtasks.find({
+        "$or": [
+            {"assigned_to": user_id},
+            {"assigned_to": user_email}
+        ],
+        "is_completed": {"$ne": True}
+    }, {"_id": 0, "parent_task_id": 1}).to_list(100)
+    subtask_parent_ids = list(set([s.get("parent_task_id") for s in user_subtasks if s.get("parent_task_id")]))
+    
+    # Get parent tasks that aren't already in the assigned list
+    existing_task_ids = {t.get("id") for t in tasks_assigned}
+    missing_parent_ids = [pid for pid in subtask_parent_ids if pid not in existing_task_ids]
+    if missing_parent_ids:
+        parent_tasks = await db.pm_tasks.find({
+            "id": {"$in": missing_parent_ids},
+            "status": {"$nin": [TaskStatus.COMPLETED.value, TaskStatus.APPROVED.value]}
+        }, {"_id": 0}).to_list(100)
+        for pt in parent_tasks:
+            pt["_from_subtask"] = True  # Mark that user is assigned to a subtask, not the parent
+            tasks_assigned.append(pt)
+    
     # Also get tasks from unified_tasks (sourcing, marketing, etc. modules)
     unified_assigned_query = {
         "$or": [
