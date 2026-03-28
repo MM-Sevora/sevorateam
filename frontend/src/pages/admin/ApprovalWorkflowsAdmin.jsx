@@ -89,14 +89,14 @@ export default function ApprovalWorkflowsAdmin() {
     try {
       const [workflowsRes, usersRes, rolesRes] = await Promise.all([
         api.get('/approvals/workflows'),
-        api.get('/users'),
+        api.get('/admin/users'),
         api.get('/rbac/roles'),
       ]);
 
       // Filter to only show new approval workflow system (has 'levels' field)
       const approvalWorkflows = (workflowsRes.data.workflows || []).filter(w => w.levels);
       setWorkflows(approvalWorkflows);
-      setUsers(usersRes.data.users || usersRes.data || []);
+      setUsers(usersRes.data || []);
       setRoles(rolesRes.data || []);
     } catch (error) {
       console.error('Failed to fetch data:', error);

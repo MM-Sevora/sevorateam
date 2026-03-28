@@ -48,8 +48,8 @@ const ApprovalDetail = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await api.get('/users');
-      setUsers(response.data.users || []);
+      const response = await api.get('/admin/users');
+      setUsers(response.data || []);
     } catch (error) {
       console.error('Failed to fetch users:', error);
     }
