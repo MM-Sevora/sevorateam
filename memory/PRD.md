@@ -196,6 +196,18 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 
 ## Recent Changes (March 28, 2026)
 
+### Role CRUD Permissions Fix & Role-Based Dashboard Widgets
+- **CRUD Checkboxes Fix**: Role Edit Sheet now properly shows CRUD checkboxes checked for each module:
+  - Super Admin/Administrator: All 4 checkboxes (Create, Read, Update, Delete) checked
+  - Updated `openCreateModal` to populate default permissions for modules
+  - Updated database with full CRUD permissions for admin roles
+- **Role-Based Dashboard Widgets**: Dashboard now shows different sections based on user role:
+  - **System Overview** (Admin only): Total Users, Active Users, Roles
+  - **Task Overview** (Managers/Admin): Total Tasks, In Progress, Completed
+  - **HR & People** (HR/Admin): Total Employees, Active Employees, On Leave
+  - **Finance & Expenses** (Finance/Admin): Pending Claims, Approved, Total Amount
+  - User's role badge displayed in header
+
 ### Bulk Role Assignment & CRUD Permissions Display
 - **Bulk Role Assignment**: Already implemented - select multiple users, click "Assign Roles" button to assign roles to all selected users at once
 - **CRUD Permissions Column**: Added "Permissions" column to Roles table showing C/R/U/D badges:
