@@ -27,6 +27,7 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 - [x] Unified Task Management system
 - [x] Activity logging across modules
 - [x] Notification system
+- [x] **RBAC Overhaul** - New Role Management UI with CRUD permissions, Data Scope, and Permissions Preview Panel (Mar 28, 2026)
 
 ### Sourcing Module
 - [x] Brand Database with pipeline stages
@@ -139,6 +140,15 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 
 ## Key API Endpoints
 
+### RBAC (Role-Based Access Control)
+- `GET /api/rbac/roles` - List all roles with user counts
+- `POST /api/rbac/roles` - Create new role with CRUD permissions
+- `PUT /api/rbac/roles/{id}` - Update role permissions
+- `DELETE /api/rbac/roles/{id}` - Soft delete role
+- `GET /api/rbac/modules` - List system modules (21 modules, 7 categories)
+- `GET /api/rbac/presets` - Permission presets (viewer, editor, manager, admin)
+- `GET /api/rbac/users/{user_id}/permissions` - Get effective permissions for user
+
 ### Tasks
 - `POST /api/tasks` - Create task (supports team & individual assignment)
 - `GET /api/tasks` - List tasks with filters
@@ -180,11 +190,31 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 
 ---
 
-*Last Updated: March 26, 2026*
+*Last Updated: March 28, 2026*
 
 ---
 
-## Recent Changes (March 26, 2026)
+## Recent Changes (March 28, 2026)
+
+### RBAC Overhaul Complete
+- Created new unified RBAC system replacing legacy merge/replace functionality
+- **New UI Components**:
+  - `RoleManagement.jsx` - Central role management page at `/admin/roles`
+  - Role table with stats (Total Roles, System Roles, Modules, Categories)
+  - Edit Role Sheet with CRUD checkboxes and Data Scope dropdowns
+  - Permissions Preview Panel to view effective user permissions
+- **New Backend Routes** (`/api/rbac/*`):
+  - `GET/POST/PUT/DELETE /api/rbac/roles` - Role CRUD
+  - `GET /api/rbac/modules` - System modules list (21 modules, 7 categories)
+  - `GET /api/rbac/presets` - Permission presets (viewer, editor, manager, admin)
+  - `GET /api/rbac/users/{user_id}/permissions` - Effective permissions for user
+- **Permission Utilities** (`utils/permissions.py`):
+  - `can_user_crud()` - Check CRUD permission for module
+  - `get_data_scope_query()` - Build MongoDB query with data scope filtering
+  - `apply_data_scope_to_query()` - Apply RBAC filtering to existing queries
+- **API Enforcement**: Updated expense routes to use RBAC-aware permission checking
+
+### Previous Changes (March 26, 2026)
 
 ### Employee Self-Service Module
 - Added new `employee_self_service` module to `SYSTEM_MODULES` with `is_default: true`
