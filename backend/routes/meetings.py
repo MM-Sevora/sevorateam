@@ -985,7 +985,17 @@ async def ms_calendar_oauth_callback(
             )
             
             if response.status_code != 200:
-                raise HTTPException(status_code=400, detail="Token exchange failed")
+                error_data = response.json()
+                error_desc = error_data.get("error_description", "Unknown error")
+                error_code = error_data.get("error", "")
+                
+                # Check for redirect URI mismatch
+                if "redirect_uri" in error_desc.lower() or error_code == "invalid_grant":
+                    error_msg = f"Redirect URI mismatch. Please add this exact URI to your Azure AD app registration: {redirect_uri}"
+                else:
+                    error_msg = f"Token exchange failed: {error_desc}"
+                
+                raise Exception(error_msg)
             
             token_data = response.json()
             
@@ -1017,10 +1027,80 @@ async def ms_calendar_oauth_callback(
                 }
             )
             
-            return {"status": "connected", "email": ms_user_info.get("mail")}
+            # Return HTML that closes the popup and notifies the parent window
+            html_response = """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Microsoft Calendar Connected</title>
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+                           display: flex; align-items: center; justify-content: center; 
+                           height: 100vh; margin: 0; background: #f5f5f5; }
+                    .container { text-align: center; padding: 40px; background: white; 
+                                 border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                    .success { color: #10b981; font-size: 48px; margin-bottom: 16px; }
+                    h2 { color: #1f2937; margin-bottom: 8px; }
+                    p { color: #6b7280; margin-bottom: 16px; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="success">✓</div>
+                    <h2>Connected Successfully!</h2>
+                    <p>Your Microsoft Calendar is now connected.</p>
+                    <p>This window will close automatically...</p>
+                </div>
+                <script>
+                    // Notify parent window and close popup
+                    if (window.opener) {
+                        window.opener.postMessage({ type: 'MS_CALENDAR_CONNECTED', success: true }, '*');
+                    }
+                    setTimeout(() => window.close(), 2000);
+                </script>
+            </body>
+            </html>
+            """
+            from fastapi.responses import HTMLResponse
+            return HTMLResponse(content=html_response)
             
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"OAuth error: {str(e)}")
+        # Return error HTML
+        error_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Connection Failed</title>
+            <style>
+                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+                       display: flex; align-items: center; justify-content: center; 
+                       height: 100vh; margin: 0; background: #f5f5f5; }}
+                .container {{ text-align: center; padding: 40px; background: white; 
+                             border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 400px; }}
+                .error {{ color: #ef4444; font-size: 48px; margin-bottom: 16px; }}
+                h2 {{ color: #1f2937; margin-bottom: 8px; }}
+                p {{ color: #6b7280; margin-bottom: 16px; }}
+                .detail {{ font-size: 12px; color: #9ca3af; word-break: break-word; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="error">✕</div>
+                <h2>Connection Failed</h2>
+                <p>Unable to connect your Microsoft Calendar.</p>
+                <p class="detail">Error: {str(e)}</p>
+                <p>Please close this window and try again.</p>
+            </div>
+            <script>
+                if (window.opener) {{
+                    window.opener.postMessage({{ type: 'MS_CALENDAR_CONNECTED', success: false, error: '{str(e)}' }}, '*');
+                }}
+            </script>
+        </body>
+        </html>
+        """
+        from fastapi.responses import HTMLResponse
+        return HTMLResponse(content=error_html, status_code=200)  # Return 200 to show HTML
 
 
 @router.post("/ms-calendar/disconnect")
