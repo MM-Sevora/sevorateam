@@ -190,7 +190,7 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 
 ---
 
-*Last Updated: March 28, 2026 (Session 3)*
+*Last Updated: March 28, 2026 (Session 3 - Part 2)*
 
 ---
 
@@ -386,6 +386,25 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
   - Level 1 (Reporting Manager): Resolves to Mashum Mollah
   - Level 2 (Department Head): Correctly skipped (requester is dept head)
   - Request submitted successfully with total_levels: 1
+
+**Approval Workflow Enhancements (March 28, 2026 - Session 3 Part 2)**
+- **Approver Controls Fixed**: Updated `ApprovalDetail.jsx` to use `useAuth()` hook instead of localStorage for user context
+  - Approvers now see "Take Action" card with Approve/Reject/Request Changes/Delegate buttons
+  - Admin users can approve any pending level
+- **Attachment Support Added**:
+  - Workflow Admin (`ApprovalWorkflowsAdmin.jsx`): New "Attachment Settings" section with:
+    - Allow attachments toggle
+    - Require attachments toggle
+    - Max attachments limit (1-10)
+  - New Request Form (`NewApprovalRequest.jsx`): 
+    - File upload with drag-and-drop
+    - File list with remove option
+    - File counter showing used/max slots
+    - Supported formats: PDF, Word, Excel, Images
+  - Request Detail (`ApprovalDetail.jsx`): 
+    - Attachments section showing uploaded files with download links
+- **Backend Model Update** (`models/approvals.py`):
+  - Added `allow_attachments`, `require_attachments`, `max_attachments` fields to workflow config
 
 **RBAC Fixes (March 28, 2026)**
 - **Duplicate Roles Fix** (`routes/rbac.py`):

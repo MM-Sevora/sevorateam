@@ -75,6 +75,9 @@ export default function ApprovalWorkflowsAdmin() {
     levels: [{ ...DEFAULT_LEVEL }],
     require_all_levels: true,
     notify_on_action: true,
+    allow_attachments: true,
+    require_attachments: false,
+    max_attachments: 5,
   });
   
   const [deleteDialog, setDeleteDialog] = useState({ open: false, workflow: null });
@@ -137,6 +140,9 @@ export default function ApprovalWorkflowsAdmin() {
       levels: [{ ...DEFAULT_LEVEL }],
       require_all_levels: true,
       notify_on_action: true,
+      allow_attachments: true,
+      require_attachments: false,
+      max_attachments: 5,
     });
     setShowSheet(true);
   };
@@ -159,6 +165,9 @@ export default function ApprovalWorkflowsAdmin() {
       levels: workflow.levels?.length > 0 ? workflow.levels : [{ ...DEFAULT_LEVEL }],
       require_all_levels: workflow.require_all_levels !== false,
       notify_on_action: workflow.notify_on_action !== false,
+      allow_attachments: workflow.allow_attachments !== false,
+      require_attachments: workflow.require_attachments || false,
+      max_attachments: workflow.max_attachments || 5,
     });
     setShowSheet(true);
   };
@@ -741,6 +750,39 @@ export default function ApprovalWorkflowsAdmin() {
                 />
                 <Label>Send notifications on approval actions</Label>
               </div>
+            </div>
+
+            {/* Attachment Settings */}
+            <div className="space-y-3 border-t pt-4">
+              <Label className="text-base font-semibold">Attachment Settings</Label>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={formData.allow_attachments}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, allow_attachments: checked }))}
+                />
+                <Label>Allow attachments on requests</Label>
+              </div>
+              {formData.allow_attachments && (
+                <>
+                  <div className="flex items-center gap-2 ml-6">
+                    <Switch
+                      checked={formData.require_attachments}
+                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, require_attachments: checked }))}
+                    />
+                    <Label>Require at least one attachment</Label>
+                  </div>
+                  <div className="ml-6 w-32">
+                    <Label>Max Attachments</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={formData.max_attachments || 5}
+                      onChange={(e) => setFormData(prev => ({ ...prev, max_attachments: parseInt(e.target.value) || 5 }))}
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Eligibility Restrictions */}

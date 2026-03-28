@@ -11,14 +11,16 @@ import {
 import { 
   CheckCircle2, XCircle, Clock, ArrowLeft, User, Building2,
   Calendar, FileText, MessageSquare, ChevronRight, AlertCircle,
-  RefreshCw, Send, UserPlus
+  RefreshCw, Send, UserPlus, Paperclip, Download
 } from 'lucide-react';
 import api from '../../lib/api';
 import { toast } from 'sonner';
+import { useAuth } from '../../context/AuthContext';
 
 const ApprovalDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [request, setRequest] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -145,22 +147,25 @@ const ApprovalDetail = () => {
   };
 
   const isCurrentApprover = () => {
-    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-    if (!request || !currentUser.id) return false;
+    if (!request || !currentUser?.id) return false;
     
     const currentLevel = request.current_level;
     const chain = request.approval_chain || [];
     
-    return chain.some(level => 
+    // Check if user is an admin (can approve any level)
+    const isAdmin = currentUser.role === 'super_admin' || currentUser.role === 'admin' || currentUser.can_manage_users;
+    
+    const isApprover = chain.some(level => 
       level.level === currentLevel && 
       level.approver_id === currentUser.id &&
       level.status === 'pending'
     );
+    
+    return isApprover || (isAdmin && request.status === 'pending');
   };
 
   const isRequester = () => {
-    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-    return request?.requester_id === currentUser.id;
+    return request?.requester_id === currentUser?.id;
   };
 
   if (loading) {
@@ -254,15 +259,48 @@ const ApprovalDetail = () => {
                 </div>
               )}
 
-              {request.entity_details && Object.keys(request.entity_details).length > 0 && (
+              {/* Attachments Section */}
+              {request.entity_details?.attachments && request.entity_details.attachments.length > 0 && (
+                <div className="pt-4 border-t">
+                  <p className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
+                    <Paperclip className="h-4 w-4" />
+                    Attachments ({request.entity_details.attachments.length})
+                  </p>
+                  <div className="space-y-2">
+                    {request.entity_details.attachments.map((attachment, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-muted rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm">{attachment.name || attachment.filename || `Attachment ${index + 1}`}</span>
+                        </div>
+                        {attachment.url && (
+                          <a 
+                            href={attachment.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline flex items-center gap-1 text-sm"
+                          >
+                            <Download className="h-3 w-3" />
+                            Download
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {request.entity_details && Object.keys(request.entity_details).filter(k => k !== 'attachments' && k !== 'description').length > 0 && (
                 <div className="pt-4 border-t">
                   <p className="text-sm text-muted-foreground mb-2">Additional Details</p>
                   <div className="bg-muted p-3 rounded-lg text-sm">
-                    {Object.entries(request.entity_details).map(([key, value]) => (
-                      <div key={key} className="flex justify-between py-1">
-                        <span className="text-muted-foreground">{key.replace(/_/g, ' ')}</span>
-                        <span className="font-medium">{String(value)}</span>
-                      </div>
+                    {Object.entries(request.entity_details)
+                      .filter(([key]) => key !== 'attachments' && key !== 'description')
+                      .map(([key, value]) => (
+                        <div key={key} className="flex justify-between py-1">
+                          <span className="text-muted-foreground">{key.replace(/_/g, ' ')}</span>
+                          <span className="font-medium">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
+                        </div>
                     ))}
                   </div>
                 </div>

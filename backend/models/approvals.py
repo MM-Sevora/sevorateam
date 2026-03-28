@@ -98,6 +98,11 @@ class ApprovalWorkflowConfig(BaseModel):
     require_all_levels: bool = True                   # All levels must approve (vs any one)
     notify_on_action: bool = True                     # Send notifications
     
+    # Attachment settings
+    allow_attachments: bool = True                    # Allow file attachments on requests
+    require_attachments: bool = False                 # Require at least one attachment
+    max_attachments: int = 5                          # Maximum number of attachments
+    
     # Metadata
     created_by: Optional[str] = None
     created_at: Optional[str] = None
