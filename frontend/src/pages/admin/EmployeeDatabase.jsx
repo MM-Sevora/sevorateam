@@ -1005,8 +1005,40 @@ const EmployeeDatabase = () => {
   );
 };
 
-// Overview Tab Component
+// Overview Tab Component - Enhanced with expandable departments
 const OverviewTab = ({ stats, loading, departments }) => {
+  const [expandedDepts, setExpandedDepts] = useState(new Set());
+  const [deptEmployees, setDeptEmployees] = useState({});
+  const [loadingDept, setLoadingDept] = useState(null);
+
+  const toggleDepartment = async (deptId, deptName) => {
+    const newExpanded = new Set(expandedDepts);
+    
+    if (newExpanded.has(deptId)) {
+      newExpanded.delete(deptId);
+    } else {
+      newExpanded.add(deptId);
+      
+      // Fetch employees if not already loaded
+      if (!deptEmployees[deptId]) {
+        setLoadingDept(deptId);
+        try {
+          const res = await api.get(`/hr/v2/employees?department_id=${deptId}&limit=100`);
+          setDeptEmployees(prev => ({
+            ...prev,
+            [deptId]: res.data || []
+          }));
+        } catch (err) {
+          console.error('Failed to fetch department employees:', err);
+          toast.error('Failed to load employees');
+        }
+        setLoadingDept(null);
+      }
+    }
+    
+    setExpandedDepts(newExpanded);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -1052,24 +1084,103 @@ const OverviewTab = ({ stats, loading, departments }) => {
         </Card>
       </div>
 
-      {/* Department Breakdown */}
+      {/* Department Breakdown - Expandable */}
       <Card className="border-[#E8D5C4]">
         <CardHeader>
-          <CardTitle className="text-lg text-[#4A3728]">Employees by Department</CardTitle>
+          <CardTitle className="text-lg text-[#4A3728] flex items-center justify-between">
+            <span>Employees by Department</span>
+            <span className="text-sm font-normal text-[#8B7355]">Click to expand</span>
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {byDepartment.map((dept, idx) => (
-              <div key={idx} className="flex items-center justify-between p-3 bg-[#F5EDE5] rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Building2 className="h-5 w-5 text-[#8B7355]" />
-                  <span className="font-medium text-[#4A3728]">{dept.department_name || 'Unknown'}</span>
+          <div className="space-y-2">
+            {byDepartment.map((dept, idx) => {
+              const deptId = dept.department_id || dept._id || `dept-${idx}`;
+              const isExpanded = expandedDepts.has(deptId);
+              const employees = deptEmployees[deptId] || [];
+              const isLoading = loadingDept === deptId;
+              
+              // Find department head info
+              const deptInfo = departments.find(d => d.id === deptId);
+              
+              return (
+                <div key={idx} className="border border-[#E8D5C4] rounded-lg overflow-hidden">
+                  {/* Department Header - Clickable */}
+                  <div 
+                    className="flex items-center justify-between p-3 bg-[#F5EDE5] cursor-pointer hover:bg-[#EDE3D9] transition-colors"
+                    onClick={() => toggleDepartment(deptId, dept.department_name)}
+                    data-testid={`dept-row-${deptId}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <ChevronRight 
+                        className={`h-5 w-5 text-[#8B7355] transition-transform ${isExpanded ? 'rotate-90' : ''}`} 
+                      />
+                      <Building2 className="h-5 w-5 text-[#8B7355]" />
+                      <div>
+                        <span className="font-medium text-[#4A3728]">{dept.department_name || 'Unknown'}</span>
+                        {deptInfo?.department_head_name && (
+                          <span className="ml-2 text-xs text-[#8B7355]">
+                            (Head: {deptInfo.department_head_name})
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <Badge variant="secondary" className="bg-[#8B7355]/10 text-[#4A3728]">
+                      {dept.count} employees
+                    </Badge>
+                  </div>
+                  
+                  {/* Expanded Employee List */}
+                  {isExpanded && (
+                    <div className="border-t border-[#E8D5C4] bg-white">
+                      {isLoading ? (
+                        <div className="flex items-center justify-center p-4">
+                          <Loader2 className="h-5 w-5 animate-spin text-[#8B7355]" />
+                          <span className="ml-2 text-sm text-[#8B7355]">Loading employees...</span>
+                        </div>
+                      ) : employees.length === 0 ? (
+                        <div className="p-4 text-center text-[#8B7355] text-sm">
+                          No employees found in this department
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-[#E8D5C4]">
+                          {employees.map((emp) => (
+                            <div 
+                              key={emp.id} 
+                              className="flex items-center justify-between p-3 hover:bg-[#FDFBF9]"
+                              data-testid={`emp-row-${emp.id}`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 rounded-full bg-[#8B7355]/20 flex items-center justify-center text-[#4A3728] font-medium text-sm">
+                                  {emp.name?.charAt(0).toUpperCase() || '?'}
+                                </div>
+                                <div>
+                                  <p className="font-medium text-[#4A3728] text-sm">{emp.name}</p>
+                                  <p className="text-xs text-[#8B7355]">{emp.designation || emp.email}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {emp.reports_to_name && (
+                                  <Badge variant="outline" className="text-xs">
+                                    Reports to: {emp.reports_to_name}
+                                  </Badge>
+                                )}
+                                <Badge 
+                                  variant={emp.status === 'active' ? 'default' : 'secondary'}
+                                  className={emp.status === 'active' ? 'bg-green-100 text-green-800' : ''}
+                                >
+                                  {emp.status || 'active'}
+                                </Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <Badge variant="secondary" className="bg-[#8B7355]/10 text-[#4A3728]">
-                  {dept.count} employees
-                </Badge>
-              </div>
-            ))}
+              );
+            })}
             {byDepartment.length === 0 && (
               <p className="text-center text-[#8B7355] py-4">No department data available</p>
             )}
