@@ -293,6 +293,96 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 
 ### Previous Changes (March 26, 2026)
 
+### Organization Hierarchy & Approval Workflow System (March 28, 2026)
+
+**Phase 1: Reporting Chain Enforcement**
+- **New Utility** (`utils/org_hierarchy.py`):
+  - `get_direct_reportees()` - Get all users who directly report to a manager
+  - `get_all_reportees()` - Get all direct and indirect reportees (entire reporting chain)
+  - `get_reporting_chain_up()` - Get upward reporting chain
+  - `is_user_reportee_of()` - Check if a user is in reporting chain of a manager
+  - `get_department_head()` - Get department head for a department
+  - `is_department_head()` - Check if user is a department head
+  - `get_user_org_context()` - Get complete organizational context for a user
+  - `get_approval_chain()` - Build approval chain based on reporting structure
+  - `sync_user_org_flags()` - Sync organizational flags on user records
+- **New Data Scope** (`models/rbac.py`):
+  - Added `REPORTEES` to `DataScope` enum - Manager sees data of all direct/indirect reports
+- **Updated Permission Utils** (`utils/permissions.py`):
+  - Updated `apply_data_scope_to_query()` to handle `reportees` scope
+  - Updated `get_data_scope_query()` with `reportee_ids` parameter
+- **New API Routes** (`routes/org_hierarchy.py`):
+  - `GET /api/org/my-context` - Get current user's organizational context
+  - `GET /api/org/context/{user_id}` - Get org context for specific user
+  - `GET /api/org/my-reportees` - Get list of reportees
+  - `GET /api/org/reporting-chain/{user_id}` - Get upward reporting chain
+  - `GET /api/org/approval-chain/{user_id}` - Get approval chain for a user
+  - `PUT /api/org/reporting/{user_id}` - Update user's reporting structure
+  - `PUT /api/org/department/{department_id}/head` - Update department head
+  - `POST /api/org/sync-flags` - Sync org flags for all users
+  - `GET /api/org/department-heads` - Get all department heads
+
+**Phase 2: Unified Approval Workflow Engine**
+- **New Models** (`models/approvals.py`):
+  - `ApprovalStatus` - draft, pending, approved, rejected, cancelled, expired
+  - `ApprovalAction` - approve, reject, request_changes, delegate, escalate
+  - `ApprovalType` - expense_claim, leave_request, purchase_requisition, travel_request, vendor_payment, etc.
+  - `ApproverType` - reporting_manager, department_head, specific_user, role, custom
+  - `ApprovalWorkflowConfig` - Configurable approval chains
+  - `ApprovalRequestCreate/Response` - Approval request models
+  - `DEFAULT_APPROVAL_WORKFLOWS` - 5 default workflows (Expense, High Value Expense, Leave, Purchase, Vendor Payment)
+- **New API Routes** (`routes/approvals.py`):
+  - `GET /api/approvals/workflows` - Get all approval workflow configurations
+  - `POST /api/approvals/workflows` - Create new workflow
+  - `PUT /api/approvals/workflows/{id}` - Update workflow
+  - `DELETE /api/approvals/workflows/{id}` - Delete workflow
+  - `POST /api/approvals/workflows/seed-defaults` - Seed default workflows
+  - `POST /api/approvals/submit` - Submit approval request
+  - `GET /api/approvals/requests` - Get all approval requests
+  - `GET /api/approvals/my-requests` - Get current user's requests
+  - `GET /api/approvals/pending-my-approval` - Get pending approvals for current user
+  - `GET /api/approvals/requests/{id}` - Get specific request
+  - `POST /api/approvals/requests/{id}/action` - Approve/Reject/Delegate
+  - `POST /api/approvals/requests/{id}/cancel` - Cancel request
+  - `GET /api/approvals/dashboard` - Get approval dashboard metrics
+- **Approval Integration Helper** (`utils/approval_integration.py`):
+  - `submit_for_approval()` - Helper to submit entities for approval from any module
+  - `get_entity_approval_status()` - Get approval status for an entity
+  - `cancel_entity_approval()` - Cancel approval for an entity
+  - `sync_entity_status_from_approval()` - Sync entity status from approval status
+  - `get_pending_approvals_for_user()` - Get all pending approvals for user
+  - `get_approval_count_for_user()` - Get count for dashboard badges
+
+**Phase 3: Frontend Enhancements**
+- **Approval Dashboard** (`pages/approvals/ApprovalDashboard.jsx`):
+  - Stats cards: Pending My Approval, My Pending Requests, My Approved, My Rejected
+  - Organization Overview section for admins
+  - Tabs: "Pending My Approval" and "My Requests"
+  - Click to view approval detail
+- **Approval Detail Page** (`pages/approvals/ApprovalDetail.jsx`):
+  - Request details with requester info, amount, notes
+  - Visual approval chain with status indicators
+  - Activity history timeline
+  - Action buttons: Approve, Reject, Request Changes, Delegate
+  - Cancel request option for requester
+- **Navigation** (`components/Layout.jsx`):
+  - Added "Approvals" link to Self Service sidebar section
+- **Routes** (`App.js`):
+  - `/approvals` - Approval Dashboard
+  - `/approvals/:id` - Approval Detail Page
+
+**RBAC Fixes (March 28, 2026)**
+- **Duplicate Roles Fix** (`routes/rbac.py`):
+  - Added `POST /api/rbac/cleanup-duplicates` endpoint to remove duplicate roles
+  - Ensures Super Admin has ALL modules (23 modules)
+  - Keeps role with most modules when duplicates exist
+- **Improved Startup Sync** (`server.py`):
+  - Auto-removes duplicate roles on server startup
+  - Always ensures Super Admin has all modules
+  - Logs cleanup actions
+
+### Previous Changes (March 26, 2026)
+
 ### Employee Self-Service Module
 - Added new `employee_self_service` module to `SYSTEM_MODULES` with `is_default: true`
 - Created sidebar entry for "Employee Self-Service" with routes:
