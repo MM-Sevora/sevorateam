@@ -196,6 +196,18 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 
 ## Recent Changes (March 28, 2026)
 
+### Role Templates & User Count Enhancement
+- **Role Templates**: Added 5 preset role templates for quick setup:
+  - Marketing Viewer (5 modules, read-only marketing access)
+  - Sales Manager (6 modules, full sales with team management)
+  - Project Contributor (5 modules, project and task access)
+  - HR Specialist (5 modules, HR ops with user management)
+  - Finance Approver (4 modules, expense approval)
+- **Clone Role**: Added ability to clone any existing role
+- **User Count Fix**: Roles table now shows accurate user counts by checking `role_ids`, `custom_role_ids`, and legacy `role` field
+- **Role Users Dialog**: Click user count to see list of users with that role
+- **User Permissions Panel**: Now fetches roles from RBAC endpoint with enriched module data
+
 ### RBAC Overhaul Complete
 - Created new unified RBAC system replacing legacy merge/replace functionality
 - **New UI Components**:
