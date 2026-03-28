@@ -194,7 +194,20 @@ export default function NewApprovalRequest() {
       navigate(`/approvals/${res.data.request.id}`);
     } catch (error) {
       console.error('Failed to submit request:', error);
-      toast.error(error.response?.data?.detail || 'Failed to submit request');
+      // Handle Pydantic validation errors (array of objects with msg property)
+      const detail = error.response?.data?.detail;
+      let errorMessage = 'Failed to submit request';
+      
+      if (typeof detail === 'string') {
+        errorMessage = detail;
+      } else if (Array.isArray(detail)) {
+        // Pydantic validation errors
+        errorMessage = detail.map(err => err.msg || err.message || JSON.stringify(err)).join(', ');
+      } else if (detail?.msg) {
+        errorMessage = detail.msg;
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setSubmitting(false);
     }

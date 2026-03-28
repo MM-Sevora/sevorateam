@@ -77,7 +77,16 @@ const ApprovalDetail = () => {
       fetchRequest();
     } catch (error) {
       console.error('Failed to perform action:', error);
-      toast.error(error.response?.data?.detail || 'Failed to perform action');
+      const detail = error.response?.data?.detail;
+      let errorMessage = 'Failed to perform action';
+      if (typeof detail === 'string') {
+        errorMessage = detail;
+      } else if (Array.isArray(detail)) {
+        errorMessage = detail.map(err => err.msg || err.message || JSON.stringify(err)).join(', ');
+      } else if (detail?.msg) {
+        errorMessage = detail.msg;
+      }
+      toast.error(errorMessage);
     } finally {
       setActionLoading(false);
     }
@@ -92,7 +101,16 @@ const ApprovalDetail = () => {
       navigate('/approvals');
     } catch (error) {
       console.error('Failed to cancel request:', error);
-      toast.error(error.response?.data?.detail || 'Failed to cancel request');
+      const detail = error.response?.data?.detail;
+      let errorMessage = 'Failed to cancel request';
+      if (typeof detail === 'string') {
+        errorMessage = detail;
+      } else if (Array.isArray(detail)) {
+        errorMessage = detail.map(err => err.msg || err.message || JSON.stringify(err)).join(', ');
+      } else if (detail?.msg) {
+        errorMessage = detail.msg;
+      }
+      toast.error(errorMessage);
     }
   };
 
