@@ -4,7 +4,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, ListTodo, ChevronRight,
   Calendar, User, Flag, Folder, LayoutGrid, PlayCircle, Eye,
   RefreshCw, Plus, ChevronDown, FolderKanban, Link as LinkIcon, ExternalLink,
-  Zap, Target, TrendingUp, ChevronUp, Check, Pencil, Clock3, Trash2
+  Zap, Target, TrendingUp, ChevronUp, Check, Pencil, Clock3, Trash2, ListChecks, CheckCircle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -606,6 +606,32 @@ const MyTasks = () => {
     }
   };
 
+  const handleSubtaskComplete = async (subtask) => {
+    try {
+      const token = localStorage.getItem('sevora_token');
+      const response = await fetch(`${API}/api/projects/subtasks/${subtask.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          is_completed: !subtask.is_completed
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update subtask');
+      }
+      
+      toast.success(subtask.is_completed ? 'Subtask reopened' : 'Subtask completed');
+      fetchMyTasks();
+    } catch (error) {
+      console.error('Error updating subtask:', error);
+      toast.error('Failed to update subtask');
+    }
+  };
+
   const [selectedTaskId, setSelectedTaskId] = useState(null);
 
   // Handle URL parameter to open task detail
@@ -888,6 +914,7 @@ const MyTasks = () => {
       <div className="flex gap-2 border-b border-[#E8D5C4] pb-4 flex-wrap">
         {[
           { id: 'all', label: 'All Tasks', count: stats.total_assigned },
+          { id: 'subtasks', label: 'My Subtasks', count: data?.subtasks_assigned?.length || 0 },
           { id: 'assigned_by_me', label: 'Assigned by Me', count: assignedByMe.length },
           { id: 'in_progress', label: 'In Progress', count: stats.in_progress },
           { id: 'review', label: 'Pending Review', count: stats.pending_review },
@@ -1014,6 +1041,91 @@ const MyTasks = () => {
                   <PlayCircle className="w-16 h-16 mx-auto text-purple-200 mb-4" />
                   <h3 className="text-lg font-semibold text-[#4A3728] mb-2">No tasks in progress</h3>
                   <p className="text-[#5D4A3A]">Start working on a task to see it here.</p>
+                </div>
+              )}
+            </>
+          )}
+
+          {activeTab === 'subtasks' && (
+            <>
+              {(data?.subtasks_assigned?.length > 0) ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <ListChecks className="w-5 h-5 text-amber-600" />
+                    <h3 className="font-semibold text-[#4A3728]">Subtasks Assigned to You</h3>
+                    <Badge className="bg-amber-100 text-amber-700">{data.subtasks_assigned.length}</Badge>
+                  </div>
+                  <div className="space-y-3">
+                    {data.subtasks_assigned.map(subtask => (
+                      <div 
+                        key={subtask.id}
+                        onClick={() => {
+                          // Navigate to parent task
+                          if (subtask.parent_task_id) {
+                            navigate(`/projects/tasks/${subtask.parent_task_id}`);
+                          }
+                        }}
+                        className="bg-white p-4 rounded-lg border border-[#E8D5C4] hover:shadow-md transition-all cursor-pointer"
+                        data-testid={`subtask-${subtask.id}`}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                              <Badge variant="outline" className={`text-xs ${priorityColors[subtask.priority] || 'bg-stone-100'}`}>
+                                <Flag className="w-3 h-3 mr-1" />
+                                {subtask.priority || 'Medium'}
+                              </Badge>
+                              {subtask.project_name && (
+                                <Badge variant="outline" className="text-xs bg-[#F5EBE0] text-[#5D4A3A]">
+                                  <Folder className="w-3 h-3 mr-1" />
+                                  {subtask.project_name}
+                                </Badge>
+                              )}
+                              <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700">
+                                Subtask
+                              </Badge>
+                            </div>
+                            <h4 className="font-medium text-[#4A3728]">{subtask.title || subtask.name}</h4>
+                            {subtask.parent_task_title && (
+                              <p className="text-sm text-[#6B5D52] mt-1">
+                                Parent: {subtask.parent_task_title}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-4 mt-2 text-sm text-[#6B5D52]">
+                              {subtask.due_date && (
+                                <span className={`flex items-center gap-1 ${
+                                  new Date(subtask.due_date) < new Date() ? 'text-red-600' : ''
+                                }`}>
+                                  <Calendar className="w-3.5 h-3.5" />
+                                  {new Date(subtask.due_date).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant={subtask.is_completed ? "secondary" : "outline"}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSubtaskComplete(subtask);
+                              }}
+                              className={subtask.is_completed ? "bg-green-100 text-green-700" : ""}
+                            >
+                              <CheckCircle className="w-4 h-4 mr-1" />
+                              {subtask.is_completed ? 'Done' : 'Complete'}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <ListChecks className="w-16 h-16 mx-auto text-amber-200 mb-4" />
+                  <h3 className="text-lg font-semibold text-[#4A3728] mb-2">No subtasks assigned</h3>
+                  <p className="text-[#5D4A3A]">Subtasks assigned to you will appear here.</p>
                 </div>
               )}
             </>

@@ -1176,6 +1176,48 @@ async def get_my_tasks(
         "total_completed": total_completed_ever
     }
     
+    # Get subtasks assigned to this user
+    subtasks_query = {
+        "$or": [
+            {"assigned_to": user_id},
+            {"assigned_to": user_email}
+        ],
+        "is_completed": {"$ne": True}
+    }
+    subtasks_assigned = await db.pm_subtasks.find(subtasks_query, {"_id": 0}).sort("due_date", 1).to_list(100)
+    
+    # Enrich subtasks with parent task info and assignee names
+    enriched_subtasks = []
+    for subtask in subtasks_assigned:
+        # Get parent task info
+        parent_task = await db.pm_tasks.find_one(
+            {"id": subtask.get("parent_task_id")}, 
+            {"_id": 0, "name": 1, "project_id": 1, "status": 1}
+        )
+        if parent_task:
+            # Get project info
+            project = await db.pm_projects.find_one(
+                {"id": parent_task.get("project_id")},
+                {"_id": 0, "name": 1}
+            )
+            subtask["parent_task_title"] = parent_task.get("name")  # Use 'name' not 'title'
+            subtask["parent_task_status"] = parent_task.get("status")
+            subtask["project_id"] = parent_task.get("project_id")
+            subtask["project_name"] = project.get("name") if project else None
+        
+        # Ensure subtask has a title field (alias for name)
+        if not subtask.get("title") and subtask.get("name"):
+            subtask["title"] = subtask.get("name")
+        
+        # Get assignee name
+        if subtask.get("assigned_to"):
+            subtask["assigned_to_name"] = await get_user_name(subtask["assigned_to"])
+        
+        enriched_subtasks.append(subtask)
+    
+    # Update stats to include subtasks
+    stats["subtasks_assigned"] = len(enriched_subtasks)
+    
     return MyTasksResponse(
         tasks_assigned=enriched_assigned,
         tasks_due_today=enriched_due_today,
@@ -1183,6 +1225,7 @@ async def get_my_tasks(
         tasks_in_progress=enriched_in_progress,
         tasks_pending_review=enriched_pending_review,
         recently_completed=enriched_completed,
+        subtasks_assigned=enriched_subtasks,
         stats=stats
     )
 

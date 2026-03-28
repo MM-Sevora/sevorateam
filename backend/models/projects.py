@@ -755,6 +755,7 @@ class MyTasksResponse(BaseModel):
     tasks_in_progress: List[TaskResponse] = []
     tasks_pending_review: List[TaskResponse] = []
     recently_completed: List[TaskResponse] = []
+    subtasks_assigned: List[Dict] = []  # Subtasks assigned to the user
     stats: Dict = {}
 
 
