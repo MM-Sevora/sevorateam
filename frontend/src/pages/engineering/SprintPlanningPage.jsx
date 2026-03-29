@@ -104,6 +104,36 @@ const EngineeringSprintPlanningPage = () => {
     low: 'bg-green-100 text-green-700 border-green-200'
   };
 
+  // Helper to calculate sprint end date based on configuration
+  const getSprintLengthDays = () => {
+    if (!sprintConfig) return 14; // default 2 weeks
+    switch (sprintConfig.sprint_length) {
+      case '1_week': return 7;
+      case '2_weeks': return 14;
+      case '3_weeks': return 21;
+      case '4_weeks': return 28;
+      case 'custom': return sprintConfig.custom_length_days || 14;
+      default: return 14;
+    }
+  };
+
+  const calculateEndDate = (startDate) => {
+    if (!startDate) return '';
+    const start = new Date(startDate);
+    const daysToAdd = getSprintLengthDays();
+    start.setDate(start.getDate() + daysToAdd - 1); // -1 because end date is inclusive
+    return start.toISOString().split('T')[0];
+  };
+
+  const handleStartDateChange = (newStartDate) => {
+    const calculatedEndDate = calculateEndDate(newStartDate);
+    setSprintForm(prev => ({
+      ...prev,
+      start_date: newStartDate,
+      end_date: calculatedEndDate
+    }));
+  };
+
   // Fetch functions
   const fetchProject = useCallback(async () => {
     try {
@@ -165,7 +195,8 @@ const EngineeringSprintPlanningPage = () => {
 
   const fetchTeamMembers = useCallback(async () => {
     try {
-      const response = await api.get('/users');
+      // Use workos/users endpoint which returns all users
+      const response = await api.get('/workos/users');
       const users = response.data || [];
       setTeamMembers(users);
       
@@ -993,8 +1024,15 @@ const EngineeringSprintPlanningPage = () => {
                 <Input
                   type="date"
                   value={sprintForm.start_date}
-                  onChange={(e) => setSprintForm({ ...sprintForm, start_date: e.target.value })}
+                  onChange={(e) => handleStartDateChange(e.target.value)}
                 />
+                {sprintConfig && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Sprint length: {sprintConfig.sprint_length === 'custom' 
+                      ? `${sprintConfig.custom_length_days} days` 
+                      : sprintConfig.sprint_length?.replace('_', ' ')}
+                  </p>
+                )}
               </div>
               <div>
                 <Label>End Date *</Label>
@@ -1003,6 +1041,9 @@ const EngineeringSprintPlanningPage = () => {
                   value={sprintForm.end_date}
                   onChange={(e) => setSprintForm({ ...sprintForm, end_date: e.target.value })}
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Auto-calculated from sprint config
+                </p>
               </div>
             </div>
           </div>

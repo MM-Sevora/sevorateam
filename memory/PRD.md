@@ -196,6 +196,15 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 
 ## Recent Changes (March 29, 2026)
 
+### Sprint Planning Fixes
+- **Sprint End Date Auto-Calculation**: End date now automatically calculates when start date is selected, based on sprint length configuration (1 week, 2 weeks, 3 weeks, 4 weeks, or custom days)
+- **Team Members Dropdown Fix**: Fixed API endpoint from `/api/users` (404) to `/api/workos/users` which returns all 35+ users
+
+### Sprint Review Phase 2 Fixes
+- **Task Status Change**: Status dropdown now works directly without entering edit mode in TaskDetailModal
+- **Sprint Review Detail View**: Clicking a review card now opens a detailed modal showing summary, demo items, stakeholder feedback, and action buttons
+- **Invite Stakeholders**: Removed role filter - now shows ALL users in both create modal and invite modal
+
 ### Engineering Module - Phase 2: Sprint Review & Retrospectives Enhancements
 - **Invite Stakeholders**: Added modal to invite additional stakeholders to sprint reviews with optional custom message and notification toggle
 - **Mark Sprint as Reviewed**: New status "Reviewed" added to SprintReviewStatus enum. Buttons to mark a review as "Reviewed" (indicates stakeholders have seen the demo)
