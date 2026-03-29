@@ -1694,11 +1694,14 @@ const InfluencersListPage = () => {
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="identified">Identified</SelectItem>
+              <SelectItem value="shortlisted">Shortlisted</SelectItem>
               <SelectItem value="contacted">Contacted</SelectItem>
-              <SelectItem value="interested">Interested</SelectItem>
-              <SelectItem value="negotiation">Negotiation</SelectItem>
-              <SelectItem value="confirmed">Confirmed</SelectItem>
+              <SelectItem value="replied">Replied</SelectItem>
+              <SelectItem value="negotiating">Negotiating</SelectItem>
+              <SelectItem value="agreed">Agreed</SelectItem>
+              <SelectItem value="delivering">Delivering</SelectItem>
               <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="lost">Lost</SelectItem>
             </SelectContent>
           </Select>
           <Select value={filterTier} onValueChange={setFilterTier}>

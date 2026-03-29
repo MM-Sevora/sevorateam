@@ -1125,6 +1125,14 @@ async def update_contact(contact_id: str, data: ContactUpdate, user: dict = Depe
     new_publication_id = update_data.get("publication_id", old_publication_id)
     new_status = update_data.get("status", old_status)
     
+    # SYNC: If status is changed, also update pipeline_stage to keep them in sync
+    if "status" in update_data and update_data["status"] != old_status:
+        update_data["pipeline_stage"] = update_data["status"]
+    
+    # SYNC: If pipeline_stage is changed, also update status
+    if "pipeline_stage" in update_data and update_data["pipeline_stage"] != existing.get("pipeline_stage"):
+        update_data["status"] = update_data["pipeline_stage"]
+    
     await db.contacts.update_one({"id": contact_id}, {"$set": update_data})
     
     # SYNC: Update publication journalist counts when publication_id changes
@@ -6107,18 +6115,9 @@ async def update_pipeline_stage(
     
     update_data = {
         "pipeline_stage": stage,
+        "status": stage,  # Keep status and pipeline_stage in sync
         "stage_entered_at": now,
     }
-    
-    # Also update the contact status to match certain stages
-    status_mapping = {
-        "contacted": "contacted",
-        "replied": "contacted",
-        "interested": "interested",
-        "confirmed": "confirmed",
-    }
-    if stage in status_mapping:
-        update_data["status"] = status_mapping[stage]
     
     result = await db.contacts.update_one({"id": contact_id}, {"$set": update_data})
     if result.matched_count == 0:

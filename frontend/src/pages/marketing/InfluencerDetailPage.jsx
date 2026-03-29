@@ -1223,9 +1223,9 @@ const InfluencerDetailPage = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-5 space-y-4">
-                {/* Status */}
+                {/* Pipeline Stage */}
                 <div>
-                  <Label className="text-xs uppercase tracking-wider text-gray-600">STATUS</Label>
+                  <Label className="text-xs uppercase tracking-wider text-gray-600">PIPELINE STAGE</Label>
                   <Select value={form.status} onValueChange={v => updateForm('status', v)}>
                     <SelectTrigger className="mt-2 bg-white" data-testid="status-select">
                       <SelectValue />
@@ -1236,29 +1236,44 @@ const InfluencerDetailPage = () => {
                           <span className="w-2 h-2 rounded-full bg-gray-400" /> Identified
                         </span>
                       </SelectItem>
+                      <SelectItem value="shortlisted">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-yellow-400" /> Shortlisted
+                        </span>
+                      </SelectItem>
                       <SelectItem value="contacted">
                         <span className="flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full bg-blue-400" /> Contacted
                         </span>
                       </SelectItem>
-                      <SelectItem value="interested">
+                      <SelectItem value="replied">
                         <span className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-green-400" /> Interested
+                          <span className="w-2 h-2 rounded-full bg-violet-400" /> Replied
                         </span>
                       </SelectItem>
-                      <SelectItem value="negotiation">
+                      <SelectItem value="negotiating">
                         <span className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-amber-400" /> Negotiation
+                          <span className="w-2 h-2 rounded-full bg-amber-400" /> Negotiating
                         </span>
                       </SelectItem>
-                      <SelectItem value="confirmed">
+                      <SelectItem value="agreed">
                         <span className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500" /> Confirmed
+                          <span className="w-2 h-2 rounded-full bg-emerald-500" /> Agreed
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="delivering">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-cyan-500" /> Delivering
                         </span>
                       </SelectItem>
                       <SelectItem value="completed">
                         <span className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-purple-500" /> Completed
+                          <span className="w-2 h-2 rounded-full bg-green-600" /> Completed
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="lost">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-red-500" /> Lost
                         </span>
                       </SelectItem>
                     </SelectContent>
