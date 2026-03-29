@@ -894,16 +894,21 @@ async def get_contacts_paginated(
     if added_by:
         filter_query["created_by"] = added_by
     if search:
+        # Normalize search - strip @ symbol if present
+        search_term = search.strip().lstrip('@')
         filter_query["$or"] = [
-            {"name": {"$regex": search, "$options": "i"}},
-            {"email": {"$regex": search, "$options": "i"}},
-            {"instagram_handle": {"$regex": search, "$options": "i"}},
-            {"username": {"$regex": search, "$options": "i"}},
-            {"handle": {"$regex": search, "$options": "i"}},
-            {"youtube_channel": {"$regex": search, "$options": "i"}},
-            {"publication": {"$regex": search, "$options": "i"}},
-            {"phone": {"$regex": search, "$options": "i"}},
-            {"city": {"$regex": search, "$options": "i"}},
+            {"name": {"$regex": search_term, "$options": "i"}},
+            {"email": {"$regex": search_term, "$options": "i"}},
+            {"instagram_handle": {"$regex": search_term, "$options": "i"}},
+            {"username": {"$regex": search_term, "$options": "i"}},
+            {"handle": {"$regex": search_term, "$options": "i"}},
+            {"youtube_handle": {"$regex": search_term, "$options": "i"}},
+            {"youtube_channel": {"$regex": search_term, "$options": "i"}},
+            {"twitter_handle": {"$regex": search_term, "$options": "i"}},
+            {"publication": {"$regex": search_term, "$options": "i"}},
+            {"phone": {"$regex": search_term, "$options": "i"}},
+            {"city": {"$regex": search_term, "$options": "i"}},
+            {"bio": {"$regex": search_term, "$options": "i"}},
         ]
     
     # Apply data scope filtering
@@ -973,6 +978,48 @@ async def get_contact(contact_id: str, user: dict = Depends(get_marketing_auth()
 async def create_contact(data: ContactCreate, user: dict = Depends(get_marketing_auth())):
     """Create a new contact - requires marketing auth"""
     db = get_db()
+    
+    # Check for duplicates based on name + contact_type OR instagram_handle/email
+    duplicate_conditions = []
+    
+    # Check by name + contact_type (case insensitive)
+    if data.name:
+        duplicate_conditions.append({
+            "name": {"$regex": f"^{data.name.strip()}$", "$options": "i"},
+            "contact_type": data.contact_type
+        })
+    
+    # Check by instagram handle if provided
+    if data.instagram_handle:
+        handle = data.instagram_handle.strip().lstrip('@')
+        duplicate_conditions.append({
+            "$or": [
+                {"instagram_handle": {"$regex": f"^@?{handle}$", "$options": "i"}},
+                {"username": {"$regex": f"^@?{handle}$", "$options": "i"}},
+                {"handle": {"$regex": f"^@?{handle}$", "$options": "i"}}
+            ]
+        })
+    
+    # Check by email if provided
+    if data.email:
+        duplicate_conditions.append({
+            "email": {"$regex": f"^{data.email.strip()}$", "$options": "i"}
+        })
+    
+    if duplicate_conditions:
+        existing = await db.contacts.find_one({"$or": duplicate_conditions})
+        if existing:
+            # Provide helpful message about which field matched
+            match_field = "name"
+            if data.instagram_handle and existing.get("instagram_handle", "").lower().replace("@", "") == data.instagram_handle.lower().replace("@", ""):
+                match_field = "Instagram handle"
+            elif data.email and existing.get("email", "").lower() == data.email.lower():
+                match_field = "email"
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Contact already exists with this {match_field}: {existing.get('name')} (ID: {existing.get('id')})"
+            )
+    
     contact_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     
