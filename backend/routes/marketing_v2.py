@@ -898,7 +898,12 @@ async def get_contacts_paginated(
             {"name": {"$regex": search, "$options": "i"}},
             {"email": {"$regex": search, "$options": "i"}},
             {"instagram_handle": {"$regex": search, "$options": "i"}},
+            {"username": {"$regex": search, "$options": "i"}},
+            {"handle": {"$regex": search, "$options": "i"}},
+            {"youtube_channel": {"$regex": search, "$options": "i"}},
             {"publication": {"$regex": search, "$options": "i"}},
+            {"phone": {"$regex": search, "$options": "i"}},
+            {"city": {"$regex": search, "$options": "i"}},
         ]
     
     # Apply data scope filtering
@@ -5985,7 +5990,7 @@ async def update_pipeline_stage(
     """Move contact to a different pipeline stage"""
     db = get_db()
     
-    valid_stages = ["prospect", "researching", "contacted", "replied", "interested", "negotiating", "confirmed", "published", "declined"]
+    valid_stages = ["prospect", "identified", "shortlisted", "researching", "contacted", "replied", "interested", "negotiating", "agreed", "delivering", "confirmed", "completed", "published", "declined", "lost"]
     if stage not in valid_stages:
         raise HTTPException(status_code=400, detail=f"Invalid stage. Must be one of: {valid_stages}")
     
@@ -6034,7 +6039,7 @@ async def bulk_move_pipeline(
     """Move multiple contacts to a pipeline stage"""
     db = get_db()
     
-    valid_stages = ["prospect", "researching", "contacted", "replied", "interested", "negotiating", "confirmed", "published", "declined"]
+    valid_stages = ["prospect", "identified", "shortlisted", "researching", "contacted", "replied", "interested", "negotiating", "agreed", "delivering", "confirmed", "completed", "published", "declined", "lost"]
     if stage not in valid_stages:
         raise HTTPException(status_code=400, detail="Invalid stage")
     
@@ -6855,4 +6860,68 @@ async def send_publication_email(
         import logging
         logging.error(f"Failed to send publication email: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@marketing_v2_router.post("/contacts/cleanup-duplicates")
+async def cleanup_duplicate_contacts(
+    dry_run: bool = True,
+    user: dict = Depends(get_marketing_auth())
+):
+    """
+    Find and remove duplicate contacts based on name + contact_type.
+    Keeps the oldest entry (first created).
+    
+    Args:
+        dry_run: If True, only returns what would be deleted without actually deleting
+    """
+    db = get_db()
+    
+    # Find duplicates using aggregation
+    pipeline = [
+        {
+            "$group": {
+                "_id": {
+                    "name": {"$toLower": "$name"},
+                    "contact_type": "$contact_type"
+                },
+                "count": {"$sum": 1},
+                "docs": {"$push": {"id": "$id", "created_at": "$created_at", "name": "$name"}},
+            }
+        },
+        {"$match": {"count": {"$gt": 1}}},
+    ]
+    
+    duplicates = await db.contacts.aggregate(pipeline).to_list(1000)
+    
+    duplicates_to_remove = []
+    for dup in duplicates:
+        docs = dup["docs"]
+        # Sort by created_at to keep the oldest
+        docs.sort(key=lambda x: x.get("created_at", ""))
+        # Keep the first one, mark rest for deletion
+        for doc in docs[1:]:
+            duplicates_to_remove.append({
+                "id": doc["id"],
+                "name": doc["name"],
+                "reason": f"Duplicate of {docs[0]['name']}"
+            })
+    
+    if dry_run:
+        return {
+            "dry_run": True,
+            "duplicates_found": len(duplicates_to_remove),
+            "would_remove": duplicates_to_remove[:50],  # Limit response
+            "message": "Set dry_run=false to actually remove duplicates"
+        }
+    
+    # Actually delete duplicates
+    ids_to_delete = [d["id"] for d in duplicates_to_remove]
+    result = await db.contacts.delete_many({"id": {"$in": ids_to_delete}})
+    
+    return {
+        "dry_run": False,
+        "deleted_count": result.deleted_count,
+        "removed": duplicates_to_remove
+    }
 

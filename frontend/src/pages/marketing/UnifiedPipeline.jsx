@@ -33,6 +33,15 @@ const PIPELINE_STAGES = [
     textColor: 'text-slate-700'
   },
   { 
+    id: 'shortlisted', 
+    label: 'Shortlisted', 
+    icon: Star,
+    gradient: 'from-yellow-500 to-amber-500',
+    cardAccent: 'border-l-yellow-500',
+    lightBg: 'bg-yellow-50',
+    textColor: 'text-yellow-700'
+  },
+  { 
     id: 'contacted', 
     label: 'Contacted', 
     icon: Send,
@@ -553,10 +562,7 @@ const UnifiedPipeline = () => {
   // Handle stage change
   const handleStageChange = async (contactId, newStage) => {
     try {
-      await api.put(`/marketing/v2/contacts/${contactId}`, { 
-        pipeline_stage: newStage,
-        status: newStage 
-      });
+      await api.put(`/marketing/v2/pipeline/contacts/${contactId}/stage?stage=${newStage}`);
       
       setContacts(prev => prev.map(c => 
         c.id === contactId ? { ...c, pipeline_stage: newStage } : c
@@ -565,7 +571,9 @@ const UnifiedPipeline = () => {
       const stageName = PIPELINE_STAGES.find(s => s.id === newStage)?.label;
       toast.success(`Moved to ${stageName}`);
     } catch (error) {
-      toast.error('Failed to update stage');
+      console.error('Stage update failed:', error);
+      const detail = error.response?.data?.detail;
+      toast.error(typeof detail === 'string' ? detail : 'Failed to update stage');
     }
   };
 
