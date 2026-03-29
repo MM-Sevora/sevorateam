@@ -1076,8 +1076,8 @@ async def create_contact(data: ContactCreate, user: dict = Depends(get_marketing
     contact_doc = {
         "id": contact_id,
         **data.model_dump(),
-        "status": data.status if data.status else "identified",
-        "pipeline_stage": data.status if data.status else "identified",  # Sync pipeline_stage with status
+        "status": getattr(data, 'status', None) or "identified",
+        "pipeline_stage": getattr(data, 'status', None) or "identified",  # Sync pipeline_stage with status
         "score": calculate_contact_score(data.model_dump()),
         "created_by": user.get("id"),  # Track who created the contact
         "created_by_name": user.get("name") or user.get("email"),

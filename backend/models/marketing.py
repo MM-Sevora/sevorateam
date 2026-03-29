@@ -77,6 +77,9 @@ class ContactCreate(BaseModel):
     
     notes: Optional[str] = None
     
+    # Status/Pipeline stage (optional on create, defaults to "identified")
+    status: Optional[str] = None
+    
     # Campaign assignment
     campaign_id: Optional[str] = None
 
