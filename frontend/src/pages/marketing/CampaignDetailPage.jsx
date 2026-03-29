@@ -114,11 +114,19 @@ const CampaignDetailPage = () => {
     }
   }, [api, campaignId, navigate]);
 
-  const fetchAvailableInfluencers = useCallback(async () => {
+  const fetchAvailableInfluencers = useCallback(async (searchTerm = '') => {
     try {
-      const response = await api.get('/marketing/v2/contacts?contact_type=influencer');
+      // Use paginated endpoint with search to get all matching influencers
+      const response = await api.get('/marketing/v2/contacts/paginated', {
+        params: {
+          contact_type: 'influencer',
+          page: 1,
+          page_size: 100,  // Get more results
+          ...(searchTerm && { search: searchTerm })
+        }
+      });
       // Filter out influencers already assigned to this campaign
-      const available = (response.data || []).filter(
+      const available = (response.data?.contacts || []).filter(
         i => !i.campaign_id || i.campaign_id !== campaignId
       );
       setAvailableInfluencers(available);
@@ -131,11 +139,18 @@ const CampaignDetailPage = () => {
     fetchCampaign();
   }, [fetchCampaign]);
 
+  // Debounced search for Add Influencer modal
   useEffect(() => {
-    if (showAddModal) {
-      fetchAvailableInfluencers();
-    }
-  }, [showAddModal, fetchAvailableInfluencers]);
+    if (!showAddModal) return;
+    
+    const timer = setTimeout(() => {
+      fetchAvailableInfluencers(searchQuery);
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [showAddModal, searchQuery, fetchAvailableInfluencers]);
+
+  // Initial fetch when modal opens (removed duplicate effect)
 
   const updateForm = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -380,10 +395,8 @@ const CampaignDetailPage = () => {
     }).format(amount || 0);
   };
 
-  const filteredAvailable = availableInfluencers.filter(i =>
-    i.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    i.instagram_handle?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Use API results directly - search is now server-side
+  const filteredAvailable = availableInfluencers;
 
   const statusConfig = STATUS_OPTIONS.find(s => s.value === form.status) || STATUS_OPTIONS[0];
   const StatusIcon = statusConfig.icon;

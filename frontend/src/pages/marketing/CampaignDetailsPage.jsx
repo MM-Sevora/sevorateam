@@ -266,6 +266,17 @@ export default function CampaignDetailsPage() {
     fetchUsers();
   }, [fetchCampaignData, fetchTasks, fetchUsers]);
 
+  // Debounced search for Add Influencer modal
+  useEffect(() => {
+    if (!showAddInfluencerModal) return;
+    
+    const timer = setTimeout(() => {
+      fetchAvailableInfluencers(linkSearchQuery);
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [showAddInfluencerModal, linkSearchQuery]);
+
   // Create task
   const handleCreateTask = async () => {
     if (!taskForm.title.trim()) {
@@ -494,13 +505,21 @@ export default function CampaignDetailsPage() {
   };
 
   // Influencer functions
-  const fetchAvailableInfluencers = async () => {
+  const fetchAvailableInfluencers = async (searchTerm = '') => {
     setLoadingLinkItems(true);
     try {
-      const response = await api.get('/marketing/v2/contacts?contact_type=influencer');
+      // Use paginated endpoint with search to get all matching influencers
+      const response = await api.get('/marketing/v2/contacts/paginated', {
+        params: {
+          contact_type: 'influencer',
+          page: 1,
+          page_size: 100,
+          ...(searchTerm && { search: searchTerm })
+        }
+      });
       // Filter out already assigned influencers
       const assignedIds = new Set(influencers.map(i => i.id || i.influencer_id || i.contact_id));
-      const availableList = (response.data || []).filter(inf => !assignedIds.has(inf.id));
+      const availableList = (response.data?.contacts || []).filter(inf => !assignedIds.has(inf.id));
       setAvailableInfluencers(availableList);
     } catch (error) {
       console.error('Failed to fetch influencers:', error);
@@ -2007,20 +2026,14 @@ export default function CampaignDetailsPage() {
                       <RefreshCw className="w-6 h-6 animate-spin mx-auto text-gray-400" />
                       <p className="text-sm text-gray-500 mt-2">Loading influencers...</p>
                     </div>
-                  ) : availableInfluencers.filter(inf => 
-                      !linkSearchQuery || 
-                      inf.name?.toLowerCase().includes(linkSearchQuery.toLowerCase()) ||
-                      inf.instagram_handle?.toLowerCase().includes(linkSearchQuery.toLowerCase())
-                    ).length === 0 ? (
+                  ) : availableInfluencers.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
                       <Users className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                      <p>No influencers available to add</p>
-                      <p className="text-sm mt-1">All influencers are already assigned to this campaign</p>
+                      <p>{linkSearchQuery ? 'No influencers found' : 'No influencers available to add'}</p>
+                      <p className="text-sm mt-1">{linkSearchQuery ? 'Try a different search term' : 'All influencers are already assigned to this campaign'}</p>
                     </div>
                   ) : (
-                    availableInfluencers
-                      .filter(inf => !linkSearchQuery || inf.name?.toLowerCase().includes(linkSearchQuery.toLowerCase()) || inf.instagram_handle?.toLowerCase().includes(linkSearchQuery.toLowerCase()))
-                      .map(influencer => (
+                    availableInfluencers.map(influencer => (
                         <div 
                           key={influencer.id} 
                           className="flex items-center justify-between p-3 border rounded-lg hover:bg-amber-50"
