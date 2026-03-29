@@ -1370,10 +1370,39 @@ async def add_influencer_to_campaign(
     if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
     
+    # Check if already assigned
+    assigned = campaign.get("assigned_influencers") or campaign.get("influencers") or []
+    if contact_id in [str(i.get("influencer_id") or i.get("contact_id") or i) for i in assigned]:
+        raise HTTPException(status_code=400, detail="Influencer already assigned to this campaign")
+    
     # Extract deliverable and fee info from request body
     deliverable_id = data.get("deliverable_id")
     deliverable_name = data.get("deliverable_name")
     agreed_fee = data.get("agreed_fee", 0)
+    
+    # Create influencer assignment for campaign
+    assignment = {
+        "influencer_id": contact_id,
+        "contact_id": contact_id,
+        "influencer_name": contact.get("name"),
+        "name": contact.get("name"),
+        "instagram_handle": contact.get("instagram_handle"),
+        "followers": contact.get("followers"),
+        "deliverable_id": deliverable_id,
+        "deliverable_name": deliverable_name,
+        "agreed_fee": agreed_fee or 0,
+        "status": "assigned",
+        "added_at": datetime.now(timezone.utc).isoformat(),
+        "added_by": user.get("id")
+    }
+    
+    # Update campaign - use the correct field name
+    field_name = "assigned_influencers" if "assigned_influencers" in campaign else "influencers"
+    
+    await db.marketing_campaigns.update_one(
+        {"id": campaign_id},
+        {"$push": {field_name: assignment}}
+    )
     
     # Update contact with campaign_id and campaign-specific info
     update_data = {
@@ -1394,7 +1423,8 @@ async def add_influencer_to_campaign(
         "campaign_id": campaign_id, 
         "contact_id": contact_id,
         "deliverable_name": deliverable_name,
-        "agreed_fee": agreed_fee
+        "agreed_fee": agreed_fee,
+        "assignment": assignment
     }
 
 @marketing_router.delete("/campaigns/{campaign_id}/influencers/{contact_id}")
