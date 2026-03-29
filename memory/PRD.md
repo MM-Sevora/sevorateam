@@ -196,6 +196,13 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 
 ## Recent Changes (March 29, 2026)
 
+### Team Capacity Visualization (March 29, 2026)
+- Added **Team Workload Card** in Sprint Planning showing per-member capacity utilization
+- Features: Avatar, name, role, assigned points vs capacity, progress bar with color-coded status
+- Status indicators: On track (green), Near capacity 80-100% (amber), Over capacity (red), Underutilized <50% (blue)
+- Shows task count, hours assigned, and first 3 tasks per member with status dots
+- Legend explaining capacity status colors
+
 ### Sprint Planning Fixes
 - **Sprint End Date Auto-Calculation**: End date now automatically calculates when start date is selected, based on sprint length configuration (1 week, 2 weeks, 3 weeks, 4 weeks, or custom days)
 - **Team Members Dropdown Fix**: Fixed API endpoint from `/api/users` (404) to `/api/workos/users` which returns all 35+ users

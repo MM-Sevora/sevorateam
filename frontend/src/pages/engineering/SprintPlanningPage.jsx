@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
@@ -499,6 +499,45 @@ const EngineeringSprintPlanningPage = () => {
   const capacityInPoints = Math.round(totalCapacity / 4); // 4 hours per story point
   const capacityUsed = capacityInPoints > 0 ? Math.min(100, Math.round((sprintPoints / capacityInPoints) * 100)) : 0;
   const backlogPoints = backlogItems.reduce((sum, t) => sum + (t.story_points || 0), 0);
+
+  // Calculate per-member workload
+  const memberWorkload = useMemo(() => {
+    const workload = {};
+    
+    // Initialize workload for all configured team members
+    if (sprintConfig?.team_members) {
+      sprintConfig.team_members.forEach(m => {
+        workload[m.user_id] = {
+          userId: m.user_id,
+          name: teamMembers.find(tm => tm.id === m.user_id)?.name || 'Unknown',
+          role: m.role,
+          assignedPoints: 0,
+          assignedHours: 0,
+          taskCount: 0,
+          capacityPoints: m.story_points_capacity || 10,
+          capacityHours: m.hours_capacity || 40,
+          tasks: []
+        };
+      });
+    }
+    
+    // Calculate assigned work from sprint tasks
+    sprintTasks.forEach(task => {
+      if (task.assigned_to && workload[task.assigned_to]) {
+        workload[task.assigned_to].assignedPoints += task.story_points || 0;
+        workload[task.assigned_to].assignedHours += task.estimated_hours || (task.story_points || 0) * 4;
+        workload[task.assigned_to].taskCount += 1;
+        workload[task.assigned_to].tasks.push({
+          id: task.id,
+          name: task.name,
+          points: task.story_points || 0,
+          status: task.status
+        });
+      }
+    });
+    
+    return Object.values(workload);
+  }, [sprintConfig, sprintTasks, teamMembers]);
   
   // Sprint review metrics
   const getSprintReviewData = () => {
@@ -681,6 +720,129 @@ const EngineeringSprintPlanningPage = () => {
                 <p className="text-sm font-medium text-violet-900">Sprint Goal</p>
                 <p className="text-sm text-violet-700">{selectedSprint.goal}</p>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Team Workload Visualization */}
+      {selectedSprint && memberWorkload.length > 0 && (
+        <Card data-testid="team-workload-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-violet-600" />
+                Team Workload
+              </span>
+              <Badge variant="outline" className="text-xs">
+                {memberWorkload.filter(m => m.assignedPoints > 0).length} / {memberWorkload.length} members with tasks
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4">
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {memberWorkload.map(member => {
+                const capacityPercent = member.capacityPoints > 0 
+                  ? Math.round((member.assignedPoints / member.capacityPoints) * 100) 
+                  : 0;
+                const isOverloaded = capacityPercent > 100;
+                const isNearCapacity = capacityPercent > 80 && capacityPercent <= 100;
+                const isUnderutilized = capacityPercent < 50 && capacityPercent > 0;
+                
+                return (
+                  <div 
+                    key={member.userId} 
+                    className={`p-3 rounded-lg border transition-all ${
+                      isOverloaded ? 'border-red-300 bg-red-50' :
+                      isNearCapacity ? 'border-amber-300 bg-amber-50' :
+                      isUnderutilized ? 'border-blue-300 bg-blue-50' :
+                      'border-gray-200 bg-gray-50'
+                    }`}
+                    data-testid={`member-workload-${member.userId}`}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center text-sm font-medium text-violet-600">
+                        {member.name?.charAt(0)?.toUpperCase() || '?'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{member.name}</p>
+                        <p className="text-xs text-gray-500 capitalize">{member.role?.replace('_', ' ')}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-500">{member.assignedPoints} / {member.capacityPoints} pts</span>
+                        <span className={`font-medium ${
+                          isOverloaded ? 'text-red-600' :
+                          isNearCapacity ? 'text-amber-600' :
+                          'text-gray-600'
+                        }`}>
+                          {capacityPercent}%
+                        </span>
+                      </div>
+                      <Progress 
+                        value={Math.min(capacityPercent, 100)} 
+                        className={`h-1.5 ${
+                          isOverloaded ? '[&>div]:bg-red-500' :
+                          isNearCapacity ? '[&>div]:bg-amber-500' :
+                          isUnderutilized ? '[&>div]:bg-blue-500' :
+                          '[&>div]:bg-green-500'
+                        }`}
+                      />
+                      {isOverloaded && (
+                        <div className="flex items-center gap-1 text-xs text-red-600">
+                          <AlertTriangle className="w-3 h-3" />
+                          Over capacity (+{capacityPercent - 100}%)
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                      <span>{member.taskCount} task{member.taskCount !== 1 ? 's' : ''}</span>
+                      <span>{member.assignedHours}h assigned</span>
+                    </div>
+                    
+                    {/* Task breakdown tooltip */}
+                    {member.tasks.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-gray-200">
+                        <div className="space-y-1 max-h-20 overflow-y-auto">
+                          {member.tasks.slice(0, 3).map(task => (
+                            <div key={task.id} className="flex items-center gap-1 text-xs">
+                              <span className={`w-1.5 h-1.5 rounded-full ${
+                                task.status === 'completed' ? 'bg-green-500' :
+                                task.status === 'in_progress' ? 'bg-blue-500' :
+                                'bg-gray-400'
+                              }`} />
+                              <span className="truncate flex-1">{task.name}</span>
+                              {task.points > 0 && <span className="text-gray-400">{task.points}pts</span>}
+                            </div>
+                          ))}
+                          {member.tasks.length > 3 && (
+                            <div className="text-xs text-gray-400">+{member.tasks.length - 3} more</div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            
+            {/* Legend */}
+            <div className="mt-4 pt-3 border-t border-gray-200 flex flex-wrap gap-4 text-xs text-gray-500">
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-3 rounded bg-green-500"></span> On track
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-3 rounded bg-amber-500"></span> Near capacity (80-100%)
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-3 rounded bg-red-500"></span> Over capacity (&gt;100%)
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-3 rounded bg-blue-500"></span> Underutilized (&lt;50%)
+              </span>
             </div>
           </CardContent>
         </Card>
