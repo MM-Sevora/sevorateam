@@ -79,7 +79,9 @@ async def get_influencers(
             {"instagram_handle": {"$regex": search, "$options": "i"}}
         ]
     
-    influencers = await db.influencers.find(query, {"_id": 0}).sort("score", -1).to_list(500)
+    # Add contact_type filter for unified collection
+    query["contact_type"] = "influencer"
+    influencers = await db.contacts.find(query, {"_id": 0}).sort("score", -1).to_list(500)
     return influencers
 
 
@@ -87,7 +89,7 @@ async def get_influencers(
 async def get_influencer(influencer_id: str, user: dict = Depends(get_current_user_dep())):
     """Get single influencer by ID"""
     db = get_db()
-    influencer = await db.influencers.find_one({"id": influencer_id}, {"_id": 0})
+    influencer = await db.contacts.find_one({"id": influencer_id, "contact_type": "influencer"}, {"_id": 0})
     if not influencer:
         raise HTTPException(status_code=404, detail="Influencer not found")
     return influencer
@@ -101,12 +103,14 @@ async def create_influencer(data: dict, user: dict = Depends(get_current_user_de
     influencer_doc = {
         "id": influencer_id,
         **data,
+        "contact_type": "influencer",
         "status": "identified",
+        "pipeline_stage": "identified",
         "score": 0.0,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     influencer_doc['score'] = calculate_influencer_score(influencer_doc)
-    await db.influencers.insert_one(influencer_doc)
+    await db.contacts.insert_one(influencer_doc)
     if '_id' in influencer_doc:
         del influencer_doc['_id']
     return influencer_doc
@@ -120,8 +124,8 @@ async def update_influencer(influencer_id: str, data: dict, user: dict = Depends
     if not update_data:
         raise HTTPException(status_code=400, detail="No data to update")
     
-    result = await db.influencers.find_one_and_update(
-        {"id": influencer_id},
+    result = await db.contacts.find_one_and_update(
+        {"id": influencer_id, "contact_type": "influencer"},
         {"$set": update_data},
         return_document=True
     )
@@ -129,7 +133,7 @@ async def update_influencer(influencer_id: str, data: dict, user: dict = Depends
         raise HTTPException(status_code=404, detail="Influencer not found")
     
     new_score = calculate_influencer_score(result)
-    await db.influencers.update_one({"id": influencer_id}, {"$set": {"score": new_score}})
+    await db.contacts.update_one({"id": influencer_id}, {"$set": {"score": new_score}})
     result['score'] = new_score
     del result['_id']
     return result
@@ -139,7 +143,7 @@ async def update_influencer(influencer_id: str, data: dict, user: dict = Depends
 async def delete_influencer(influencer_id: str, user: dict = Depends(get_current_user_dep())):
     """Delete influencer"""
     db = get_db()
-    result = await db.influencers.delete_one({"id": influencer_id})
+    result = await db.contacts.delete_one({"id": influencer_id, "contact_type": "influencer"})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Influencer not found")
     return {"message": "Influencer deleted"}
@@ -503,7 +507,7 @@ async def get_marketing_dashboard(user: dict = Depends(get_current_user_dep())):
     """Get marketing dashboard stats"""
     db = get_db()
     
-    total_influencers = await db.influencers.count_documents({})
+    total_influencers = await db.contacts.count_documents({"contact_type": "influencer"})
     active_campaigns = await db.marketing_campaigns.count_documents({"status": "active"})
     total_campaigns = await db.marketing_campaigns.count_documents({})
     total_outreach = await db.outreach.count_documents({})

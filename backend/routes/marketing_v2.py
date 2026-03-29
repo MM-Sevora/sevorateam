@@ -944,45 +944,8 @@ async def get_contacts_paginated(
         existing_ids = set(c.get("id") for c in contacts)
         existing_names = set(c.get("name", "").lower().strip() for c in contacts if c.get("name"))
         
-        # Fetch from influencers collection
-        inf_contacts = await db.influencers.find(inf_query, {"_id": 0}).to_list(page_size * 2)
-        
-        # Merge, normalizing field names and avoiding duplicates by ID or name
-        for inf in inf_contacts:
-            inf_name = (inf.get("name") or "").lower().strip()
-            # Skip if we already have this ID or exact name match
-            if inf.get("id") in existing_ids or (inf_name and inf_name in existing_names):
-                continue
-            
-            # Normalize to contacts format
-            normalized = {
-                "id": inf.get("id"),
-                "name": inf.get("name"),
-                "email": inf.get("email"),
-                "contact_type": "influencer",
-                "instagram_handle": inf.get("username") or inf.get("handle") or inf.get("instagram_handle"),
-                "followers": inf.get("followers"),
-                "engagement_rate": inf.get("engagement_rate"),
-                "category": inf.get("category") or inf.get("niche"),
-                "city": inf.get("city") or inf.get("location"),
-                "bio": inf.get("bio"),
-                "score": inf.get("score", 0),
-                "pipeline_stage": inf.get("pipeline_stage", "identified"),
-                "created_at": inf.get("created_at"),
-                "updated_at": inf.get("updated_at"),
-                "_source": "influencers"  # Mark source for debugging
-            }
-            contacts.append(normalized)
-            existing_ids.add(inf.get("id"))
-            if inf_name:
-                existing_names.add(inf_name)
-            
-            if len(contacts) >= page_size:
-                break
-        
-        # Re-count total including influencers collection (approximate, may include duplicates)
-        inf_total = await db.influencers.count_documents(inf_query) if search else await db.influencers.count_documents({})
-        total = total + inf_total
+        # Note: The 'influencers' collection has been migrated to 'contacts' with contact_type='influencer'
+        # No need to query the deprecated collection anymore
     
     # Populate creator names
     user_ids = list(set([c.get("created_by") for c in contacts if c.get("created_by")]))
@@ -1294,13 +1257,10 @@ async def add_influencer_to_campaign(
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
     
-    # Verify influencer exists - check both contacts and influencers collections
+    # Verify influencer exists in contacts collection (influencers collection has been migrated)
     influencer = await db.contacts.find_one({"id": influencer_id, "contact_type": "influencer"})
     if not influencer:
-        # Try the influencers collection as fallback
-        influencer = await db.influencers.find_one({"id": influencer_id})
-    if not influencer:
-        raise HTTPException(status_code=404, detail="Influencer not found in contacts or influencers collection")
+        raise HTTPException(status_code=404, detail="Influencer not found")
     
     # Check if already assigned
     assigned = campaign.get("assigned_influencers") or campaign.get("influencers") or []
@@ -6817,7 +6777,7 @@ async def get_influencer_inbox(influencer_id: str, user: dict = Depends(get_mark
     """Get all emails related to this influencer (sent and received)"""
     db = get_db()
     
-    influencer = await db.influencers.find_one({"id": influencer_id}, {"_id": 0})
+    influencer = await db.contacts.find_one({"id": influencer_id, "contact_type": "influencer"}, {"_id": 0})
     if not influencer:
         raise HTTPException(status_code=404, detail="Influencer not found")
     
@@ -6853,7 +6813,7 @@ async def send_influencer_email(
     """Send email to an influencer"""
     db = get_db()
     
-    influencer = await db.influencers.find_one({"id": influencer_id}, {"_id": 0})
+    influencer = await db.contacts.find_one({"id": influencer_id, "contact_type": "influencer"}, {"_id": 0})
     if not influencer:
         raise HTTPException(status_code=404, detail="Influencer not found")
     
@@ -7041,91 +7001,13 @@ async def migrate_influencers_to_contacts(
     user: dict = Depends(get_marketing_auth())
 ):
     """
-    Migrate influencers from 'influencers' collection to 'contacts' collection.
-    Skips duplicates (by name or Instagram handle).
-    
-    Args:
-        dry_run: If True, only returns what would be migrated without actually migrating
+    Migration endpoint - DEPRECATED
+    The 'influencers' collection has been fully migrated to 'contacts'.
+    This endpoint is kept for backwards compatibility but no longer performs any migration.
     """
-    db = get_db()
-    
-    # Get all influencers
-    influencers = await db.influencers.find({}, {"_id": 0}).to_list(1000)
-    
-    # Get existing contacts to check for duplicates
-    existing_contacts = await db.contacts.find(
-        {"contact_type": "influencer"},
-        {"_id": 0, "name": 1, "instagram_handle": 1, "username": 1, "email": 1}
-    ).to_list(1000)
-    
-    existing_names = set(c.get("name", "").lower().strip() for c in existing_contacts if c.get("name"))
-    existing_handles = set()
-    for c in existing_contacts:
-        handle = (c.get("instagram_handle") or c.get("username") or "").lower().replace("@", "").strip()
-        if handle:
-            existing_handles.add(handle)
-    
-    to_migrate = []
-    skipped = []
-    
-    for inf in influencers:
-        inf_name = (inf.get("name") or "").lower().strip()
-        inf_handle = (inf.get("username") or inf.get("handle") or inf.get("instagram_handle") or "").lower().replace("@", "").strip()
-        
-        # Check if duplicate
-        if inf_name in existing_names:
-            skipped.append({"name": inf.get("name"), "reason": "name already exists"})
-            continue
-        if inf_handle and inf_handle in existing_handles:
-            skipped.append({"name": inf.get("name"), "reason": f"handle @{inf_handle} already exists"})
-            continue
-        
-        # Prepare contact document
-        contact_doc = {
-            "id": inf.get("id") or str(uuid.uuid4()),
-            "name": inf.get("name"),
-            "email": inf.get("email"),
-            "phone": inf.get("phone"),
-            "contact_type": "influencer",
-            "instagram_handle": inf.get("username") or inf.get("handle") or inf.get("instagram_handle"),
-            "youtube_channel": inf.get("youtube_channel"),
-            "followers": inf.get("followers"),
-            "engagement_rate": inf.get("engagement_rate"),
-            "category": inf.get("category") or inf.get("niche"),
-            "city": inf.get("city") or inf.get("location"),
-            "bio": inf.get("bio"),
-            "profile_image_url": inf.get("profile_image_url") or inf.get("image_url"),
-            "score": inf.get("score", 0),
-            "pipeline_stage": inf.get("pipeline_stage", "identified"),
-            "status": inf.get("status", "identified"),
-            "created_at": inf.get("created_at") or datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-            "migrated_from": "influencers"
-        }
-        to_migrate.append(contact_doc)
-        existing_names.add(inf_name)
-        if inf_handle:
-            existing_handles.add(inf_handle)
-    
-    if dry_run:
-        return {
-            "dry_run": True,
-            "would_migrate": len(to_migrate),
-            "would_skip": len(skipped),
-            "sample_to_migrate": [{"name": m["name"], "handle": m.get("instagram_handle")} for m in to_migrate[:10]],
-            "sample_skipped": skipped[:10],
-            "message": "Set dry_run=false to actually migrate"
-        }
-    
-    # Actually migrate
-    if to_migrate:
-        await db.contacts.insert_many(to_migrate)
-    
     return {
-        "dry_run": False,
-        "migrated_count": len(to_migrate),
-        "skipped_count": len(skipped),
-        "migrated": [{"name": m["name"], "handle": m.get("instagram_handle")} for m in to_migrate],
-        "skipped": skipped
+        "status": "completed",
+        "message": "Migration already completed. All influencers are now stored in the 'contacts' collection with contact_type='influencer'.",
+        "note": "The original 'influencers' collection has been backed up and dropped."
     }
 

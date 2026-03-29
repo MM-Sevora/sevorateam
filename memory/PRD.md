@@ -190,7 +190,35 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 
 ---
 
-*Last Updated: March 28, 2026 (Session 3 - Part 4)*
+*Last Updated: March 29, 2026*
+
+---
+
+## Recent Changes (March 29, 2026)
+
+### P0: Status/Pipeline Stage Synchronization Fix
+- **Issue**: Changing status on Influencer Detail page did not reflect in Pipeline board
+- **Root Cause**: The dropdown only updated local form state; required manual save via Edit mode
+- **Fix Applied**:
+  - Added `handlePipelineStageChange()` function that auto-saves immediately on status change
+  - Backend already had sync logic in `update_contact()` and `update_pipeline_stage()` endpoints
+  - Both `status` and `pipeline_stage` fields now stay synchronized
+- **Verification**: Changing status from detail page immediately updates Pipeline board
+
+### Database Migration: Influencers Collection Consolidated
+- **Issue**: Marketing data was split between `contacts` and `influencers` collections causing fragmentation
+- **Migration Script**: `/app/backend/scripts/migrate_influencers_to_contacts.py`
+- **Actions Taken**:
+  1. Aggregated 25 documents from `influencers` into 9 unique records
+  2. Merged 2 records with existing contacts (filled missing `youtube_handle`)
+  3. Created 2 new contacts (Rahul Kapoor, Neha Patel)
+  4. Backed up `influencers` collection to `influencers_backup_20260329_044147`
+  5. Dropped original `influencers` collection
+- **Code Updates**: Updated all `db.influencers` references across:
+  - `routes/marketing_v2.py` - Unified search, pipeline endpoints
+  - `server.py` - Legacy marketing routes, dashboard stats
+  - `modules/marketing/routes.py` - Module routes
+- **Result**: All influencer data now lives in `contacts` collection with `contact_type='influencer'`
 
 ---
 

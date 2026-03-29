@@ -1242,10 +1242,8 @@ async def get_influencers(
 
 @marketing_router.get("/influencers/{influencer_id}", response_model=InfluencerResponse)
 async def get_influencer(influencer_id: str, user: dict = Depends(require_department(["marketing"]))):
-    # Try contacts first (unified), fallback to influencers
+    # Query from unified contacts collection
     influencer = await db.contacts.find_one({"id": influencer_id, "contact_type": "influencer"}, {"_id": 0})
-    if not influencer:
-        influencer = await db.influencers.find_one({"id": influencer_id}, {"_id": 0})
     if not influencer:
         raise HTTPException(status_code=404, detail="Influencer not found")
     return influencer
@@ -1274,39 +1272,25 @@ async def update_influencer(influencer_id: str, data: dict, user: dict = Depends
     if not update_data:
         raise HTTPException(status_code=400, detail="No data to update")
     
-    # Try contacts first (unified)
+    # Update in unified contacts collection
     result = await db.contacts.find_one_and_update(
         {"id": influencer_id, "contact_type": "influencer"},
         {"$set": update_data},
         return_document=True
     )
     if not result:
-        # Fallback to old influencers collection
-        result = await db.influencers.find_one_and_update(
-            {"id": influencer_id},
-            {"$set": update_data},
-            return_document=True
-        )
-    if not result:
         raise HTTPException(status_code=404, detail="Influencer not found")
     
     new_score = calculate_influencer_score(result)
-    # Update score in the appropriate collection
-    if result.get("contact_type") == "influencer":
-        await db.contacts.update_one({"id": influencer_id}, {"$set": {"score": new_score}})
-    else:
-        await db.influencers.update_one({"id": influencer_id}, {"$set": {"score": new_score}})
+    await db.contacts.update_one({"id": influencer_id}, {"$set": {"score": new_score}})
     result['score'] = new_score
     del result['_id']
     return result
 
 @marketing_router.delete("/influencers/{influencer_id}")
 async def delete_influencer(influencer_id: str, user: dict = Depends(require_department(["marketing"]))):
-    # Try contacts first (unified)
+    # Delete from unified contacts collection
     result = await db.contacts.delete_one({"id": influencer_id, "contact_type": "influencer"})
-    if result.deleted_count == 0:
-        # Fallback to old influencers collection
-        result = await db.influencers.delete_one({"id": influencer_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Influencer not found")
     return {"message": "Influencer deleted"}
@@ -1837,7 +1821,7 @@ async def get_outreach(influencer_id: Optional[str] = None, user: dict = Depends
 
 @marketing_router.post("/outreach", response_model=OutreachResponse)
 async def create_outreach(data: OutreachCreate, user: dict = Depends(require_department(["marketing"]))):
-    influencer = await db.influencers.find_one({"id": data.influencer_id}, {"_id": 0})
+    influencer = await db.contacts.find_one({"id": data.influencer_id, "contact_type": "influencer"}, {"_id": 0})
     if not influencer:
         raise HTTPException(status_code=404, detail="Influencer not found")
     
@@ -1856,7 +1840,7 @@ async def create_outreach(data: OutreachCreate, user: dict = Depends(require_dep
         "sent_by": user['id']
     }
     await db.outreach.insert_one(outreach_doc)
-    await db.influencers.update_one(
+    await db.contacts.update_one(
         {"id": data.influencer_id},
         {"$set": {"status": "contacted", "last_contacted": outreach_doc['sent_at']}}
     )
@@ -1882,7 +1866,7 @@ async def get_negotiations(
 
 @marketing_router.post("/negotiations")
 async def create_negotiation(data: NegotiationCreate, user: dict = Depends(require_department(["marketing"]))):
-    influencer = await db.influencers.find_one({"id": data.influencer_id}, {"_id": 0})
+    influencer = await db.contacts.find_one({"id": data.influencer_id, "contact_type": "influencer"}, {"_id": 0})
     if not influencer:
         raise HTTPException(status_code=404, detail="Influencer not found")
     
@@ -1902,7 +1886,7 @@ async def create_negotiation(data: NegotiationCreate, user: dict = Depends(requi
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.negotiations.insert_one(neg_doc)
-    await db.influencers.update_one({"id": data.influencer_id}, {"$set": {"status": "negotiation"}})
+    await db.contacts.update_one({"id": data.influencer_id}, {"$set": {"status": "negotiation"}})
     if '_id' in neg_doc:
         del neg_doc['_id']
     return neg_doc
@@ -1910,7 +1894,7 @@ async def create_negotiation(data: NegotiationCreate, user: dict = Depends(requi
 # Marketing Dashboard
 @marketing_router.get("/dashboard")
 async def get_marketing_dashboard(user: dict = Depends(require_department(["marketing"]))):
-    total_influencers = await db.influencers.count_documents({})
+    total_influencers = await db.contacts.count_documents({"contact_type": "influencer"})
     active_campaigns = await db.marketing_campaigns.count_documents({"status": "active"})
     pending_negotiations = await db.negotiations.count_documents({"status": "pending"})
     
@@ -1918,8 +1902,8 @@ async def get_marketing_dashboard(user: dict = Depends(require_department(["mark
     total_budget = sum(c.get('budget', 0) for c in campaigns)
     total_spent = sum(c.get('spent', 0) for c in campaigns)
     
-    status_pipeline = [{"$group": {"_id": "$status", "count": {"$sum": 1}}}]
-    status_dist = await db.influencers.aggregate(status_pipeline).to_list(10)
+    status_pipeline = [{"$match": {"contact_type": "influencer"}}, {"$group": {"_id": "$status", "count": {"$sum": 1}}}]
+    status_dist = await db.contacts.aggregate(status_pipeline).to_list(10)
     
     return {
         "total_influencers": total_influencers,
@@ -2414,7 +2398,7 @@ async def get_unified_dashboard(user: dict = Depends(get_current_user)):
     
     if 'admin' in departments or 'marketing' in departments:
         result['stats']['marketing'] = {
-            "influencers": await db.influencers.count_documents({}),
+            "influencers": await db.contacts.count_documents({"contact_type": "influencer"}),
             "campaigns": await db.marketing_campaigns.count_documents({"status": "active"}),
             "negotiations": await db.negotiations.count_documents({"status": "pending"})
         }
@@ -3977,7 +3961,7 @@ async def discover_influencers(data: dict, user: dict = Depends(require_departme
 
 @marketing_router.get("/ai/analyze/{influencer_id}")
 async def analyze_influencer(influencer_id: str, user: dict = Depends(require_department(["marketing"]))):
-    influencer = await db.influencers.find_one({"id": influencer_id}, {"_id": 0})
+    influencer = await db.contacts.find_one({"id": influencer_id, "contact_type": "influencer"}, {"_id": 0})
     if not influencer:
         raise HTTPException(status_code=404, detail="Influencer not found")
     return {

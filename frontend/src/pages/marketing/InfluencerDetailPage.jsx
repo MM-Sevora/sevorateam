@@ -421,6 +421,22 @@ const InfluencerDetailPage = () => {
     }
   };
 
+  // Auto-save pipeline stage changes immediately (no edit mode required)
+  const handlePipelineStageChange = async (newStatus) => {
+    const previousStatus = form.status;
+    // Update UI optimistically
+    setForm(prev => ({ ...prev, status: newStatus }));
+    
+    try {
+      await api.put(`/marketing/v2/contacts/${influencerId}`, { status: newStatus });
+      toast.success(`Pipeline stage updated to ${newStatus}`);
+    } catch (error) {
+      // Revert on error
+      setForm(prev => ({ ...prev, status: previousStatus }));
+      toast.error('Failed to update pipeline stage');
+    }
+  };
+
   const handleSendOutreach = async () => {
     if (!outreachForm.message) {
       toast.error('Message is required');
@@ -1226,7 +1242,7 @@ const InfluencerDetailPage = () => {
                 {/* Pipeline Stage */}
                 <div>
                   <Label className="text-xs uppercase tracking-wider text-gray-600">PIPELINE STAGE</Label>
-                  <Select value={form.status} onValueChange={v => updateForm('status', v)}>
+                  <Select value={form.status} onValueChange={handlePipelineStageChange}>
                     <SelectTrigger className="mt-2 bg-white" data-testid="status-select">
                       <SelectValue />
                     </SelectTrigger>
