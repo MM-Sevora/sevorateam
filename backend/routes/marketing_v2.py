@@ -897,18 +897,46 @@ async def get_contacts_paginated(
         # Normalize search - strip @ symbol if present
         search_term = search.strip().lstrip('@')
         filter_query["$or"] = [
+            # Name & Contact Info
             {"name": {"$regex": search_term, "$options": "i"}},
             {"email": {"$regex": search_term, "$options": "i"}},
+            {"phone": {"$regex": search_term, "$options": "i"}},
+            
+            # Social Handles
             {"instagram_handle": {"$regex": search_term, "$options": "i"}},
             {"username": {"$regex": search_term, "$options": "i"}},
             {"handle": {"$regex": search_term, "$options": "i"}},
             {"youtube_handle": {"$regex": search_term, "$options": "i"}},
             {"youtube_channel": {"$regex": search_term, "$options": "i"}},
             {"twitter_handle": {"$regex": search_term, "$options": "i"}},
-            {"publication": {"$regex": search_term, "$options": "i"}},
-            {"phone": {"$regex": search_term, "$options": "i"}},
+            {"linkedin_url": {"$regex": search_term, "$options": "i"}},
+            
+            # Location
             {"city": {"$regex": search_term, "$options": "i"}},
+            {"country": {"$regex": search_term, "$options": "i"}},
+            
+            # Category & Classification
+            {"industry": {"$regex": search_term, "$options": "i"}},
+            {"tier": {"$regex": search_term, "$options": "i"}},
+            
+            # Content & Bio
             {"bio": {"$regex": search_term, "$options": "i"}},
+            {"notes": {"$regex": search_term, "$options": "i"}},
+            
+            # Array fields - search within arrays
+            {"content_type": {"$regex": search_term, "$options": "i"}},
+            {"style_tags": {"$regex": search_term, "$options": "i"}},
+            {"languages": {"$regex": search_term, "$options": "i"}},
+            
+            # Publication (for journalists)
+            {"publication": {"$regex": search_term, "$options": "i"}},
+            
+            # Direct ID lookup (for support/debugging)
+            {"id": {"$regex": search_term, "$options": "i"}},
+            
+            # Status/Pipeline (search by status name)
+            {"status": {"$regex": search_term, "$options": "i"}},
+            {"pipeline_stage": {"$regex": search_term, "$options": "i"}},
         ]
     
     # Apply data scope filtering
