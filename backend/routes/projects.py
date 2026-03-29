@@ -41,7 +41,11 @@ from models.projects import (
     # Release/Version models
     ReleaseCreate, ReleaseUpdate, ReleaseResponse, ReleaseStatus,
     # Definition of Done models
-    DoDConfigCreate, DoDConfigUpdate, DoDConfigResponse, TaskDoDStatus, SYSTEM_DOD_ITEMS
+    DoDConfigCreate, DoDConfigUpdate, DoDConfigResponse, TaskDoDStatus, SYSTEM_DOD_ITEMS,
+    # Sprint Configuration models
+    SprintLengthOption, AutoAssignmentMode, TeamMemberRole, TeamMemberCapacity,
+    SprintConfigurationCreate, SprintConfigurationResponse,
+    BacklogItemStatus, MoveToSprintRequest, SprintCapacityCheck
 )
 
 # Import storage utilities
@@ -5605,6 +5609,581 @@ async def complete_sprint(
     await log_activity("sprint", sprint_id, sprint.get("name"), "completed", user["id"])
     
     return {"message": "Sprint completed"}
+
+
+# ============== SPRINT CONFIGURATION ==============
+
+@router.get("/{project_id}/sprint-config", response_model=SprintConfigurationResponse)
+async def get_sprint_configuration(
+    project_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get sprint configuration for a project"""
+    project = await db.pm_projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    config = await db.sprint_configurations.find_one({"project_id": project_id}, {"_id": 0})
+    
+    if not config:
+        # Return default configuration
+        now = datetime.now(timezone.utc).isoformat()
+        return SprintConfigurationResponse(
+            id=str(uuid.uuid4()),
+            project_id=project_id,
+            sprint_length=SprintLengthOption.TWO_WEEKS,
+            custom_length_days=None,
+            auto_assignment_mode=AutoAssignmentMode.ROLE_BASED,
+            role_weight=0.4,
+            skills_weight=0.3,
+            workload_weight=0.3,
+            track_story_points=True,
+            track_hours=True,
+            default_story_point_to_hours=4.0,
+            team_members=[],
+            created_at=now,
+            updated_at=now,
+            total_team_capacity_points=0,
+            total_team_capacity_hours=0
+        )
+    
+    # Calculate total capacity
+    total_points = sum(m.get("story_points_capacity", 0) for m in config.get("team_members", []))
+    total_hours = sum(m.get("hours_capacity", 0) for m in config.get("team_members", []))
+    config["total_team_capacity_points"] = total_points
+    config["total_team_capacity_hours"] = total_hours
+    
+    return config
+
+
+@router.post("/{project_id}/sprint-config", response_model=SprintConfigurationResponse)
+async def create_or_update_sprint_configuration(
+    project_id: str,
+    data: SprintConfigurationCreate,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Create or update sprint configuration for a project"""
+    project = await db.pm_projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Check if config exists
+    existing = await db.sprint_configurations.find_one({"project_id": project_id})
+    
+    config_doc = {
+        "project_id": project_id,
+        **data.model_dump(),
+        "updated_at": now
+    }
+    
+    if existing:
+        config_doc["id"] = existing["id"]
+        config_doc["created_at"] = existing.get("created_at", now)
+        await db.sprint_configurations.update_one(
+            {"project_id": project_id},
+            {"$set": config_doc}
+        )
+    else:
+        config_doc["id"] = str(uuid.uuid4())
+        config_doc["created_at"] = now
+        await db.sprint_configurations.insert_one(config_doc)
+    
+    # Calculate total capacity
+    total_points = sum(m.get("story_points_capacity", 0) for m in config_doc.get("team_members", []))
+    total_hours = sum(m.get("hours_capacity", 0) for m in config_doc.get("team_members", []))
+    config_doc["total_team_capacity_points"] = total_points
+    config_doc["total_team_capacity_hours"] = total_hours
+    
+    if "_id" in config_doc:
+        del config_doc["_id"]
+    
+    return config_doc
+
+
+@router.post("/{project_id}/sprint-config/team-member")
+async def add_team_member_capacity(
+    project_id: str,
+    member: TeamMemberCapacity,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Add or update a team member's capacity configuration"""
+    project = await db.pm_projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Get or create config
+    config = await db.sprint_configurations.find_one({"project_id": project_id})
+    
+    if not config:
+        # Create default config
+        config = {
+            "id": str(uuid.uuid4()),
+            "project_id": project_id,
+            "sprint_length": "2_weeks",
+            "auto_assignment_mode": "role_based",
+            "role_weight": 0.4,
+            "skills_weight": 0.3,
+            "workload_weight": 0.3,
+            "track_story_points": True,
+            "track_hours": True,
+            "default_story_point_to_hours": 4.0,
+            "team_members": [],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.sprint_configurations.insert_one(config)
+    
+    # Get user info
+    member_user = await db.users.find_one({"id": member.user_id}, {"name": 1, "email": 1})
+    member_data = member.model_dump()
+    member_data["user_name"] = member_user.get("name") if member_user else None
+    
+    # Check if member already exists
+    team_members = config.get("team_members", [])
+    existing_idx = next((i for i, m in enumerate(team_members) if m.get("user_id") == member.user_id), None)
+    
+    if existing_idx is not None:
+        team_members[existing_idx] = member_data
+    else:
+        team_members.append(member_data)
+    
+    await db.sprint_configurations.update_one(
+        {"project_id": project_id},
+        {"$set": {"team_members": team_members, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"message": "Team member capacity updated", "member": member_data}
+
+
+@router.delete("/{project_id}/sprint-config/team-member/{user_id}")
+async def remove_team_member_capacity(
+    project_id: str,
+    user_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Remove a team member from sprint configuration"""
+    config = await db.sprint_configurations.find_one({"project_id": project_id})
+    if not config:
+        raise HTTPException(status_code=404, detail="Sprint configuration not found")
+    
+    team_members = [m for m in config.get("team_members", []) if m.get("user_id") != user_id]
+    
+    await db.sprint_configurations.update_one(
+        {"project_id": project_id},
+        {"$set": {"team_members": team_members, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"message": "Team member removed"}
+
+
+# ============== BACKLOG MANAGEMENT ==============
+
+@router.get("/{project_id}/backlog")
+async def get_project_backlog(
+    project_id: str,
+    include_subtasks: bool = Query(default=False, description="Include subtasks in response"),
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get all backlog items (tasks without sprint_id) for a project"""
+    project = await db.pm_projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Query for backlog items (no sprint_id or sprint_id is null)
+    query = {
+        "project_id": project_id,
+        "$or": [
+            {"sprint_id": None},
+            {"sprint_id": {"$exists": False}}
+        ]
+    }
+    
+    if not include_subtasks:
+        # Only get top-level items (user stories, epics, tasks without parent)
+        query["$and"] = [
+            {"$or": [
+                {"parent_task_id": None},
+                {"parent_task_id": {"$exists": False}}
+            ]}
+        ]
+    
+    tasks = await db.pm_tasks.find(query, {"_id": 0}).sort([
+        ("priority", 1),  # Critical first
+        ("created_at", -1)
+    ]).to_list(500)
+    
+    # Enrich tasks
+    enriched_tasks = []
+    for task in tasks:
+        enriched = await enrich_task(task)
+        
+        # Count subtasks for this task
+        subtask_count = await db.pm_tasks.count_documents({
+            "parent_task_id": task["id"]
+        })
+        enriched["subtask_count"] = subtask_count
+        
+        # Get subtasks if this is a parent
+        if subtask_count > 0:
+            subtasks = await db.pm_tasks.find(
+                {"parent_task_id": task["id"]}, 
+                {"_id": 0}
+            ).to_list(100)
+            enriched["subtasks"] = subtasks
+        
+        enriched_tasks.append(enriched)
+    
+    # Calculate totals
+    total_story_points = sum(t.get("story_points") or 0 for t in enriched_tasks)
+    total_hours = sum(t.get("estimated_hours") or 0 for t in enriched_tasks)
+    
+    return {
+        "project_id": project_id,
+        "project_name": project.get("name"),
+        "backlog_items": enriched_tasks,
+        "total_items": len(enriched_tasks),
+        "total_story_points": total_story_points,
+        "total_estimated_hours": total_hours,
+        "items_by_type": {
+            "user_story": len([t for t in enriched_tasks if t.get("type") == "user_story"]),
+            "epic": len([t for t in enriched_tasks if t.get("type") == "epic"]),
+            "task": len([t for t in enriched_tasks if t.get("type") == "task"]),
+            "bug": len([t for t in enriched_tasks if t.get("type") == "bug"]),
+            "subtask": len([t for t in enriched_tasks if t.get("type") == "subtask"])
+        },
+        "items_by_priority": {
+            "critical": len([t for t in enriched_tasks if t.get("priority") == "critical"]),
+            "high": len([t for t in enriched_tasks if t.get("priority") == "high"]),
+            "medium": len([t for t in enriched_tasks if t.get("priority") == "medium"]),
+            "low": len([t for t in enriched_tasks if t.get("priority") == "low"])
+        }
+    }
+
+
+@router.post("/sprints/{sprint_id}/move-from-backlog")
+async def move_backlog_to_sprint(
+    sprint_id: str,
+    data: MoveToSprintRequest,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Move backlog items to a sprint with capacity validation"""
+    sprint = await db.pm_sprints.find_one({"id": sprint_id})
+    if not sprint:
+        raise HTTPException(status_code=404, detail="Sprint not found")
+    
+    project_id = sprint.get("project_id")
+    
+    # Get sprint configuration for capacity check
+    config = await db.sprint_configurations.find_one({"project_id": project_id})
+    
+    # Calculate current sprint load
+    current_tasks = await db.pm_tasks.find(
+        {"sprint_id": sprint_id},
+        {"story_points": 1, "estimated_hours": 1}
+    ).to_list(500)
+    
+    current_points = sum(t.get("story_points") or 0 for t in current_tasks)
+    current_hours = sum(t.get("estimated_hours") or 0 for t in current_tasks)
+    
+    # Get the tasks being moved
+    tasks_to_move = await db.pm_tasks.find(
+        {"id": {"$in": data.task_ids}},
+        {"_id": 0}
+    ).to_list(100)
+    
+    new_points = sum(t.get("story_points") or 0 for t in tasks_to_move)
+    new_hours = sum(t.get("estimated_hours") or 0 for t in tasks_to_move)
+    
+    # Calculate capacity
+    total_capacity_points = 0
+    total_capacity_hours = 0
+    if config:
+        total_capacity_points = sum(m.get("story_points_capacity", 0) for m in config.get("team_members", []))
+        total_capacity_hours = sum(m.get("hours_capacity", 0) for m in config.get("team_members", []))
+    
+    warnings = []
+    if total_capacity_points > 0 and (current_points + new_points) > total_capacity_points:
+        warnings.append(f"Sprint will be over capacity: {current_points + new_points}/{total_capacity_points} story points")
+    if total_capacity_hours > 0 and (current_hours + new_hours) > total_capacity_hours:
+        warnings.append(f"Sprint will exceed hours: {current_hours + new_hours}/{total_capacity_hours} hours")
+    
+    # Move tasks to sprint
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Update parent tasks
+    result = await db.pm_tasks.update_many(
+        {"id": {"$in": data.task_ids}},
+        {"$set": {
+            "sprint_id": sprint_id,
+            "status": "todo",  # Move from draft/backlog to todo
+            "updated_at": now
+        }}
+    )
+    
+    # Also move all subtasks of the selected parent tasks
+    subtask_result = await db.pm_tasks.update_many(
+        {"parent_task_id": {"$in": data.task_ids}},
+        {"$set": {
+            "sprint_id": sprint_id,
+            "status": "todo",
+            "updated_at": now
+        }}
+    )
+    
+    moved_count = result.modified_count
+    subtasks_moved = subtask_result.modified_count
+    
+    # Auto-assign if requested
+    assigned_tasks = []
+    if data.auto_assign and config:
+        assigned_tasks = await auto_assign_sprint_tasks(sprint_id, data.task_ids, config, user)
+    
+    # Log activity
+    await log_activity("sprint", sprint_id, sprint.get("name"), "tasks_added", user["id"], {
+        "task_count": moved_count,
+        "subtask_count": subtasks_moved
+    })
+    
+    return {
+        "message": f"Moved {moved_count} items to sprint (plus {subtasks_moved} subtasks)",
+        "moved_count": moved_count,
+        "subtasks_moved": subtasks_moved,
+        "warnings": warnings,
+        "auto_assigned": assigned_tasks,
+        "capacity": {
+            "total_points": total_capacity_points,
+            "total_hours": total_capacity_hours,
+            "committed_points": current_points + new_points,
+            "committed_hours": current_hours + new_hours,
+            "utilization_percent": round((current_points + new_points) / total_capacity_points * 100, 1) if total_capacity_points > 0 else 0
+        }
+    }
+
+
+@router.post("/sprints/{sprint_id}/remove-to-backlog")
+async def move_sprint_to_backlog(
+    sprint_id: str,
+    task_ids: List[str],
+    user: dict = Depends(get_current_user_dep)
+):
+    """Move tasks from sprint back to backlog"""
+    sprint = await db.pm_sprints.find_one({"id": sprint_id})
+    if not sprint:
+        raise HTTPException(status_code=404, detail="Sprint not found")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Remove sprint_id from tasks (moving them to backlog)
+    result = await db.pm_tasks.update_many(
+        {"id": {"$in": task_ids}, "sprint_id": sprint_id},
+        {"$set": {
+            "sprint_id": None,
+            "status": "backlog",
+            "assignee_id": None,  # Clear assignee when moving to backlog
+            "updated_at": now
+        }}
+    )
+    
+    # Also move subtasks
+    subtask_result = await db.pm_tasks.update_many(
+        {"parent_task_id": {"$in": task_ids}, "sprint_id": sprint_id},
+        {"$set": {
+            "sprint_id": None,
+            "status": "backlog",
+            "assignee_id": None,
+            "updated_at": now
+        }}
+    )
+    
+    return {
+        "message": f"Moved {result.modified_count} items to backlog (plus {subtask_result.modified_count} subtasks)",
+        "moved_count": result.modified_count,
+        "subtasks_moved": subtask_result.modified_count
+    }
+
+
+@router.get("/sprints/{sprint_id}/capacity-check")
+async def check_sprint_capacity(
+    sprint_id: str,
+    new_task_ids: str = Query(default="", description="Comma-separated task IDs to check"),
+    user: dict = Depends(get_current_user_dep)
+):
+    """Check if adding tasks would exceed sprint capacity"""
+    sprint = await db.pm_sprints.find_one({"id": sprint_id})
+    if not sprint:
+        raise HTTPException(status_code=404, detail="Sprint not found")
+    
+    project_id = sprint.get("project_id")
+    config = await db.sprint_configurations.find_one({"project_id": project_id})
+    
+    # Calculate team capacity
+    total_capacity_points = 0
+    total_capacity_hours = 0
+    if config:
+        total_capacity_points = sum(m.get("story_points_capacity", 0) for m in config.get("team_members", []))
+        total_capacity_hours = sum(m.get("hours_capacity", 0) for m in config.get("team_members", []))
+    
+    # Current committed
+    current_tasks = await db.pm_tasks.find(
+        {"sprint_id": sprint_id},
+        {"story_points": 1, "estimated_hours": 1}
+    ).to_list(500)
+    
+    current_points = sum(t.get("story_points") or 0 for t in current_tasks)
+    current_hours = sum(t.get("estimated_hours") or 0 for t in current_tasks)
+    
+    # New items
+    new_points = 0
+    new_hours = 0
+    if new_task_ids:
+        task_id_list = [tid.strip() for tid in new_task_ids.split(",") if tid.strip()]
+        new_tasks = await db.pm_tasks.find(
+            {"id": {"$in": task_id_list}},
+            {"story_points": 1, "estimated_hours": 1}
+        ).to_list(100)
+        new_points = sum(t.get("story_points") or 0 for t in new_tasks)
+        new_hours = sum(t.get("estimated_hours") or 0 for t in new_tasks)
+    
+    total_committed_points = current_points + new_points
+    total_committed_hours = current_hours + new_hours
+    
+    warnings = []
+    is_over_capacity = False
+    
+    if total_capacity_points > 0 and total_committed_points > total_capacity_points:
+        is_over_capacity = True
+        warnings.append(f"Over capacity by {total_committed_points - total_capacity_points} story points")
+    
+    if total_capacity_hours > 0 and total_committed_hours > total_capacity_hours:
+        is_over_capacity = True
+        warnings.append(f"Over capacity by {total_committed_hours - total_capacity_hours} hours")
+    
+    utilization = 0
+    if total_capacity_points > 0:
+        utilization = round(total_committed_points / total_capacity_points * 100, 1)
+    
+    return SprintCapacityCheck(
+        sprint_id=sprint_id,
+        total_capacity_points=total_capacity_points,
+        total_capacity_hours=total_capacity_hours,
+        current_committed_points=current_points,
+        current_committed_hours=current_hours,
+        new_items_points=new_points,
+        new_items_hours=new_hours,
+        remaining_capacity_points=max(0, total_capacity_points - total_committed_points),
+        remaining_capacity_hours=max(0, total_capacity_hours - total_committed_hours),
+        is_over_capacity=is_over_capacity,
+        capacity_utilization_percent=utilization,
+        warnings=warnings
+    )
+
+
+async def auto_assign_sprint_tasks(sprint_id: str, task_ids: List[str], config: dict, user: dict) -> List[dict]:
+    """Auto-assign tasks based on configuration"""
+    assigned = []
+    team_members = config.get("team_members", [])
+    
+    if not team_members:
+        return assigned
+    
+    mode = config.get("auto_assignment_mode", "role_based")
+    
+    # Get tasks to assign
+    tasks = await db.pm_tasks.find(
+        {"id": {"$in": task_ids}},
+        {"_id": 0}
+    ).to_list(100)
+    
+    # Build team member lookup by role
+    members_by_role = {}
+    for member in team_members:
+        role = member.get("role")
+        if role not in members_by_role:
+            members_by_role[role] = []
+        members_by_role[role].append(member)
+    
+    # Get current workload for workload balancing
+    workload = {}
+    for member in team_members:
+        user_id = member.get("user_id")
+        task_count = await db.pm_tasks.count_documents({
+            "sprint_id": sprint_id,
+            "assignee_id": user_id,
+            "status": {"$nin": ["completed", "cancelled"]}
+        })
+        workload[user_id] = task_count
+    
+    for task in tasks:
+        task_type = task.get("type", "task")
+        assignee_id = None
+        
+        # Determine role based on task type
+        role_mapping = {
+            "ui_ux": ["ui_ux", "frontend"],
+            "frontend": ["frontend", "fullstack"],
+            "backend": ["backend", "fullstack"],
+            "qa": ["qa"],
+            "devops": ["devops", "backend"],
+            "user_story": ["tech_lead", "pm"],
+            "epic": ["pm", "tech_lead"],
+            "bug": ["qa", "frontend", "backend"]
+        }
+        
+        target_roles = role_mapping.get(task_type, ["fullstack", "frontend", "backend"])
+        
+        if mode == "role_based" or mode == "combined":
+            # Find member with matching role
+            for role in target_roles:
+                if role in members_by_role and members_by_role[role]:
+                    # Pick the one with lowest workload
+                    candidates = members_by_role[role]
+                    candidates.sort(key=lambda m: workload.get(m.get("user_id"), 0))
+                    assignee_id = candidates[0].get("user_id")
+                    workload[assignee_id] = workload.get(assignee_id, 0) + 1
+                    break
+        
+        elif mode == "workload":
+            # Assign to person with lowest workload
+            sorted_members = sorted(team_members, key=lambda m: workload.get(m.get("user_id"), 0))
+            if sorted_members:
+                assignee_id = sorted_members[0].get("user_id")
+                workload[assignee_id] = workload.get(assignee_id, 0) + 1
+        
+        elif mode == "skills_based":
+            # Match task labels/tags to member skills
+            task_labels = task.get("labels", [])
+            best_match = None
+            best_score = 0
+            
+            for member in team_members:
+                skills = member.get("skills", [])
+                match_score = len(set(task_labels) & set(skills))
+                if match_score > best_score:
+                    best_score = match_score
+                    best_match = member
+            
+            if best_match:
+                assignee_id = best_match.get("user_id")
+                workload[assignee_id] = workload.get(assignee_id, 0) + 1
+        
+        if assignee_id:
+            await db.pm_tasks.update_one(
+                {"id": task["id"]},
+                {"$set": {
+                    "assignee_id": assignee_id,
+                    "status": "assigned",
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+            assigned.append({
+                "task_id": task["id"],
+                "task_title": task.get("title"),
+                "assignee_id": assignee_id
+            })
+    
+    return assigned
 
 
 # ============== TASK WATCHERS ==============

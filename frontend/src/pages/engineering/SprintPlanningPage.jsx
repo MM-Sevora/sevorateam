@@ -16,7 +16,7 @@ import {
   Calendar, ChevronRight, Users, Target, Plus, Play, CheckCircle2,
   ArrowRight, ArrowLeft, GripVertical, Layers, Bug, BookOpen, CheckSquare, Zap,
   Clock, TrendingUp, AlertTriangle, Edit3, User, Hash, X, Loader2,
-  AlertCircle, FileText, BarChart3
+  AlertCircle, FileText, BarChart3, Settings, UserCircle, Trash2
 } from 'lucide-react';
 
 const EngineeringSprintPlanningPage = () => {
@@ -60,6 +60,33 @@ const EngineeringSprintPlanningPage = () => {
   
   // Selected items for bulk actions
   const [selectedItems, setSelectedItems] = useState([]);
+  
+  // Sprint Configuration state
+  const [sprintConfig, setSprintConfig] = useState(null);
+  const [configModal, setConfigModal] = useState(false);
+  const [configForm, setConfigForm] = useState({
+    sprint_length: '2_weeks',
+    custom_length_days: 14,
+    auto_assignment_mode: 'role_based',
+    role_weight: 0.4,
+    skills_weight: 0.3,
+    workload_weight: 0.3,
+    track_story_points: true,
+    track_hours: true,
+    default_story_point_to_hours: 4.0
+  });
+  const [savingConfig, setSavingConfig] = useState(false);
+  
+  // Team member capacity modal
+  const [teamMemberModal, setTeamMemberModal] = useState(false);
+  const [teamMemberForm, setTeamMemberForm] = useState({
+    user_id: '',
+    role: 'frontend',
+    skills: [],
+    story_points_capacity: 10,
+    hours_capacity: 40,
+    story_point_to_hours_ratio: 4.0
+  });
 
   const issueTypeIcons = {
     epic: <Layers className="w-4 h-4 text-purple-600" />,
@@ -104,14 +131,21 @@ const EngineeringSprintPlanningPage = () => {
 
   const fetchBacklog = useCallback(async () => {
     try {
-      // Fetch tasks without sprint assignment (backlog)
-      const response = await api.get(`/projects/${projectId}/tasks`);
-      const allTasks = response.data || [];
-      // Filter to only show items without a sprint (backlog items)
-      const backlog = allTasks.filter(t => !t.sprint_id && t.status !== 'completed' && t.status !== 'approved');
-      setBacklogItems(backlog);
+      // Use the new backlog API that properly filters server-side
+      const response = await api.get(`/projects/${projectId}/backlog`);
+      const data = response.data || {};
+      setBacklogItems(data.backlog_items || []);
     } catch (error) {
       console.error('Failed to fetch backlog:', error);
+      // Fallback to old method
+      try {
+        const response = await api.get(`/projects/${projectId}/tasks`);
+        const allTasks = response.data || [];
+        const backlog = allTasks.filter(t => !t.sprint_id && t.status !== 'completed' && t.status !== 'approved');
+        setBacklogItems(backlog);
+      } catch (fallbackError) {
+        console.error('Fallback also failed:', fallbackError);
+      }
     }
   }, [api, projectId]);
 
@@ -146,14 +180,46 @@ const EngineeringSprintPlanningPage = () => {
     }
   }, [api]);
 
+  const fetchSprintConfig = useCallback(async () => {
+    try {
+      const response = await api.get(`/projects/${projectId}/sprint-config`);
+      const config = response.data;
+      setSprintConfig(config);
+      
+      // Update form with config values
+      setConfigForm({
+        sprint_length: config.sprint_length || '2_weeks',
+        custom_length_days: config.custom_length_days || 14,
+        auto_assignment_mode: config.auto_assignment_mode || 'role_based',
+        role_weight: config.role_weight || 0.4,
+        skills_weight: config.skills_weight || 0.3,
+        workload_weight: config.workload_weight || 0.3,
+        track_story_points: config.track_story_points !== false,
+        track_hours: config.track_hours !== false,
+        default_story_point_to_hours: config.default_story_point_to_hours || 4.0
+      });
+      
+      // Update team capacity from config
+      if (config.team_members && config.team_members.length > 0) {
+        const capacity = {};
+        config.team_members.forEach(m => {
+          capacity[m.user_id] = m.hours_capacity;
+        });
+        setTeamCapacity(prev => ({ ...prev, ...capacity }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch sprint config:', error);
+    }
+  }, [api, projectId]);
+
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([fetchProject(), fetchSprints(), fetchBacklog(), fetchTeamMembers()]);
+      await Promise.all([fetchProject(), fetchSprints(), fetchBacklog(), fetchTeamMembers(), fetchSprintConfig()]);
       setLoading(false);
     };
     loadData();
-  }, [fetchProject, fetchSprints, fetchBacklog, fetchTeamMembers]);
+  }, [fetchProject, fetchSprints, fetchBacklog, fetchTeamMembers, fetchSprintConfig]);
 
   useEffect(() => {
     fetchSprintTasks();
@@ -191,21 +257,104 @@ const EngineeringSprintPlanningPage = () => {
     
     try {
       if (targetArea === 'sprint' && selectedSprint) {
-        // Move to sprint
-        await api.put(`/projects/tasks/${draggedItem.id}`, { sprint_id: selectedSprint.id });
-        toast.success('Added to sprint');
+        // Use the new move-from-backlog API
+        const response = await api.post(`/projects/sprints/${selectedSprint.id}/move-from-backlog`, {
+          task_ids: [draggedItem.id],
+          auto_assign: false
+        });
+        
+        if (response.data.warnings && response.data.warnings.length > 0) {
+          toast.warning(response.data.warnings.join(', '));
+        } else {
+          toast.success(`Added to sprint (${response.data.moved_count} task, ${response.data.subtasks_moved} subtasks)`);
+        }
       } else if (targetArea === 'backlog') {
-        // Move to backlog (remove from sprint)
-        await api.put(`/projects/tasks/${draggedItem.id}`, { sprint_id: null });
+        // Use the new remove-to-backlog API
+        await api.post(`/projects/sprints/${draggedItem.sprint_id}/remove-to-backlog`, [draggedItem.id]);
         toast.success('Moved to backlog');
       }
       
       await Promise.all([fetchBacklog(), fetchSprintTasks()]);
     } catch (error) {
+      console.error('Move failed:', error);
       toast.error('Failed to move item');
     }
     
     setDraggedItem(null);
+  };
+
+  // Save Sprint Configuration
+  const handleSaveConfig = async () => {
+    setSavingConfig(true);
+    try {
+      await api.post(`/projects/${projectId}/sprint-config`, {
+        project_id: projectId,
+        ...configForm
+      });
+      toast.success('Sprint configuration saved');
+      setConfigModal(false);
+      fetchSprintConfig();
+    } catch (error) {
+      toast.error('Failed to save configuration');
+    } finally {
+      setSavingConfig(false);
+    }
+  };
+
+  // Add team member capacity
+  const handleAddTeamMember = async () => {
+    try {
+      await api.post(`/projects/${projectId}/sprint-config/team-member`, teamMemberForm);
+      toast.success('Team member added');
+      setTeamMemberModal(false);
+      setTeamMemberForm({
+        user_id: '',
+        role: 'frontend',
+        skills: [],
+        story_points_capacity: 10,
+        hours_capacity: 40,
+        story_point_to_hours_ratio: 4.0
+      });
+      fetchSprintConfig();
+    } catch (error) {
+      toast.error('Failed to add team member');
+    }
+  };
+
+  // Remove team member capacity
+  const handleRemoveTeamMember = async (userId) => {
+    try {
+      await api.delete(`/projects/${projectId}/sprint-config/team-member/${userId}`);
+      toast.success('Team member removed');
+      fetchSprintConfig();
+    } catch (error) {
+      toast.error('Failed to remove team member');
+    }
+  };
+
+  // Move selected items to sprint
+  const handleBulkMoveToSprint = async () => {
+    if (!selectedSprint || selectedItems.length === 0) {
+      toast.error('Select items and a sprint');
+      return;
+    }
+    
+    try {
+      const response = await api.post(`/projects/sprints/${selectedSprint.id}/move-from-backlog`, {
+        task_ids: selectedItems,
+        auto_assign: configForm.auto_assignment_mode !== 'manual'
+      });
+      
+      if (response.data.warnings && response.data.warnings.length > 0) {
+        toast.warning(response.data.warnings.join(', '));
+      }
+      
+      toast.success(`Moved ${response.data.moved_count} items to sprint`);
+      setSelectedItems([]);
+      await Promise.all([fetchBacklog(), fetchSprintTasks()]);
+    } catch (error) {
+      toast.error('Failed to move items');
+    }
   };
 
   // Click-based move handlers
@@ -231,23 +380,6 @@ const EngineeringSprintPlanningPage = () => {
       await Promise.all([fetchBacklog(), fetchSprintTasks()]);
     } catch (error) {
       toast.error('Failed to remove from sprint');
-    }
-  };
-
-  const handleBulkMoveToSprint = async () => {
-    if (!selectedSprint || selectedItems.length === 0) return;
-    
-    try {
-      await Promise.all(
-        selectedItems.map(taskId => 
-          api.put(`/projects/tasks/${taskId}`, { sprint_id: selectedSprint.id })
-        )
-      );
-      toast.success(`Added ${selectedItems.length} items to sprint`);
-      setSelectedItems([]);
-      await Promise.all([fetchBacklog(), fetchSprintTasks()]);
-    } catch (error) {
-      toast.error('Failed to add items');
     }
   };
 
@@ -419,6 +551,10 @@ const EngineeringSprintPlanningPage = () => {
           
           <Button variant="outline" onClick={() => setCapacityModal(true)} data-testid="team-capacity-btn">
             <Users className="w-4 h-4 mr-2" /> Capacity
+          </Button>
+          
+          <Button variant="outline" onClick={() => setConfigModal(true)} data-testid="sprint-config-btn">
+            <Target className="w-4 h-4 mr-2" /> Settings
           </Button>
           
           <Button variant="outline" onClick={() => setCreateSprintModal(true)} data-testid="create-sprint-btn">
@@ -989,6 +1125,319 @@ const EngineeringSprintPlanningPage = () => {
             >
               <Play className="w-4 h-4 mr-2" />
               Start Sprint
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sprint Configuration Modal */}
+      <Dialog open={configModal} onOpenChange={setConfigModal}>
+        <DialogContent className="max-w-2xl" data-testid="sprint-config-modal">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Target className="w-5 h-5 text-violet-600" />
+              Sprint Configuration
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            {/* Sprint Length */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Sprint Length</Label>
+              <div className="grid grid-cols-5 gap-2">
+                {[
+                  { value: '1_week', label: '1 Week' },
+                  { value: '2_weeks', label: '2 Weeks' },
+                  { value: '3_weeks', label: '3 Weeks' },
+                  { value: '4_weeks', label: '4 Weeks' },
+                  { value: 'custom', label: 'Custom' }
+                ].map(option => (
+                  <Button
+                    key={option.value}
+                    variant={configForm.sprint_length === option.value ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setConfigForm(prev => ({ ...prev, sprint_length: option.value }))}
+                    className={configForm.sprint_length === option.value ? 'bg-violet-600' : ''}
+                  >
+                    {option.label}
+                  </Button>
+                ))}
+              </div>
+              {configForm.sprint_length === 'custom' && (
+                <div className="flex items-center gap-2 mt-2">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={60}
+                    value={configForm.custom_length_days}
+                    onChange={(e) => setConfigForm(prev => ({ ...prev, custom_length_days: parseInt(e.target.value) || 14 }))}
+                    className="w-24"
+                  />
+                  <span className="text-sm text-gray-500">days</span>
+                </div>
+              )}
+            </div>
+
+            {/* Auto-Assignment Mode */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Task Auto-Assignment</Label>
+              <Select 
+                value={configForm.auto_assignment_mode}
+                onValueChange={(v) => setConfigForm(prev => ({ ...prev, auto_assignment_mode: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="role_based">
+                    <div className="flex items-center gap-2">
+                      <UserCircle className="w-4 h-4" />
+                      Role-Based (Match task type to member role)
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="skills_based">
+                    <div className="flex items-center gap-2">
+                      <Target className="w-4 h-4" />
+                      Skills-Based (Match task labels to member skills)
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="workload">
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4" />
+                      Workload-Balanced (Distribute evenly)
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="combined">
+                    <div className="flex items-center gap-2">
+                      <Settings className="w-4 h-4" />
+                      Combined (Use all factors with weights)
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              
+              {configForm.auto_assignment_mode === 'combined' && (
+                <div className="grid grid-cols-3 gap-4 mt-3 p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <Label className="text-xs text-gray-500">Role Weight</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={1}
+                      step={0.1}
+                      value={configForm.role_weight}
+                      onChange={(e) => setConfigForm(prev => ({ ...prev, role_weight: parseFloat(e.target.value) || 0 }))}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500">Skills Weight</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={1}
+                      step={0.1}
+                      value={configForm.skills_weight}
+                      onChange={(e) => setConfigForm(prev => ({ ...prev, skills_weight: parseFloat(e.target.value) || 0 }))}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500">Workload Weight</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={1}
+                      step={0.1}
+                      value={configForm.workload_weight}
+                      onChange={(e) => setConfigForm(prev => ({ ...prev, workload_weight: parseFloat(e.target.value) || 0 }))}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Velocity Tracking */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Velocity Tracking</Label>
+              <div className="flex items-center gap-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={configForm.track_story_points}
+                    onChange={(e) => setConfigForm(prev => ({ ...prev, track_story_points: e.target.checked }))}
+                    className="w-4 h-4 rounded border-gray-300"
+                  />
+                  <span className="text-sm">Story Points</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={configForm.track_hours}
+                    onChange={(e) => setConfigForm(prev => ({ ...prev, track_hours: e.target.checked }))}
+                    className="w-4 h-4 rounded border-gray-300"
+                  />
+                  <span className="text-sm">Hours</span>
+                </label>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Label className="text-sm text-gray-500">Conversion Ratio: 1 Story Point =</Label>
+                <Input
+                  type="number"
+                  min={0.5}
+                  max={16}
+                  step={0.5}
+                  value={configForm.default_story_point_to_hours}
+                  onChange={(e) => setConfigForm(prev => ({ ...prev, default_story_point_to_hours: parseFloat(e.target.value) || 4 }))}
+                  className="w-20"
+                />
+                <span className="text-sm text-gray-500">hours</span>
+              </div>
+            </div>
+
+            {/* Team Members */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Team Capacity</Label>
+                <Button size="sm" variant="outline" onClick={() => setTeamMemberModal(true)}>
+                  <Plus className="w-4 h-4 mr-1" /> Add Member
+                </Button>
+              </div>
+              
+              {sprintConfig?.team_members?.length > 0 ? (
+                <div className="space-y-2">
+                  {sprintConfig.team_members.map(member => (
+                    <div key={member.user_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center">
+                          <UserCircle className="w-5 h-5 text-violet-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">{member.user_name || 'Unknown'}</p>
+                          <p className="text-xs text-gray-500 capitalize">{member.role?.replace('_', '/')}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <p className="text-sm font-medium">{member.story_points_capacity} pts</p>
+                          <p className="text-xs text-gray-500">{member.hours_capacity} hrs</p>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="text-red-500 hover:text-red-700"
+                          onClick={() => handleRemoveTeamMember(member.user_id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  <div className="p-3 bg-violet-50 rounded-lg">
+                    <p className="text-sm font-medium text-violet-700">
+                      Total Team Capacity: {sprintConfig.total_team_capacity_points} Story Points / {sprintConfig.total_team_capacity_hours} Hours
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-6 bg-gray-50 rounded-lg">
+                  <Users className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">No team members configured</p>
+                  <p className="text-xs text-gray-400 mt-1">Add team members to track capacity</p>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfigModal(false)}>Cancel</Button>
+            <Button onClick={handleSaveConfig} disabled={savingConfig} className="bg-violet-600 hover:bg-violet-700">
+              {savingConfig ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+              Save Configuration
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Team Member Modal */}
+      <Dialog open={teamMemberModal} onOpenChange={setTeamMemberModal}>
+        <DialogContent data-testid="team-member-modal">
+          <DialogHeader>
+            <DialogTitle>Add Team Member</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Select User</Label>
+              <Select 
+                value={teamMemberForm.user_id}
+                onValueChange={(v) => setTeamMemberForm(prev => ({ ...prev, user_id: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a team member" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teamMembers
+                    .filter(u => !sprintConfig?.team_members?.some(m => m.user_id === u.id))
+                    .map(user => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.name || user.email}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Primary Role</Label>
+              <Select 
+                value={teamMemberForm.role}
+                onValueChange={(v) => setTeamMemberForm(prev => ({ ...prev, role: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ui_ux">UI/UX Designer</SelectItem>
+                  <SelectItem value="frontend">Frontend Developer</SelectItem>
+                  <SelectItem value="backend">Backend Developer</SelectItem>
+                  <SelectItem value="fullstack">Full Stack Developer</SelectItem>
+                  <SelectItem value="qa">QA Engineer</SelectItem>
+                  <SelectItem value="devops">DevOps Engineer</SelectItem>
+                  <SelectItem value="tech_lead">Tech Lead</SelectItem>
+                  <SelectItem value="pm">Project Manager</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Story Points Capacity</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={teamMemberForm.story_points_capacity}
+                  onChange={(e) => setTeamMemberForm(prev => ({ ...prev, story_points_capacity: parseInt(e.target.value) || 10 }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Hours Capacity</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={80}
+                  value={teamMemberForm.hours_capacity}
+                  onChange={(e) => setTeamMemberForm(prev => ({ ...prev, hours_capacity: parseInt(e.target.value) || 40 }))}
+                />
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTeamMemberModal(false)}>Cancel</Button>
+            <Button onClick={handleAddTeamMember} disabled={!teamMemberForm.user_id}>
+              Add Member
             </Button>
           </DialogFooter>
         </DialogContent>

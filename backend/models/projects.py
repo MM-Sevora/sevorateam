@@ -1081,6 +1081,117 @@ class SprintResponse(BaseModel):
     updated_at: str
 
 
+# ============== SPRINT CONFIGURATION MODELS ==============
+
+class SprintLengthOption(str, Enum):
+    """Sprint length options"""
+    ONE_WEEK = "1_week"
+    TWO_WEEKS = "2_weeks"
+    THREE_WEEKS = "3_weeks"
+    FOUR_WEEKS = "4_weeks"
+    CUSTOM = "custom"
+
+
+class AutoAssignmentMode(str, Enum):
+    """Task auto-assignment modes"""
+    ROLE_BASED = "role_based"           # Assign based on user's primary role
+    SKILLS_BASED = "skills_based"       # Assign based on user's skills/tags
+    WORKLOAD_BALANCED = "workload"      # Balance based on current workload
+    COMBINED = "combined"               # Use all factors with weights
+
+
+class TeamMemberRole(str, Enum):
+    """Engineering team member roles"""
+    UI_UX = "ui_ux"
+    FRONTEND = "frontend"
+    BACKEND = "backend"
+    QA = "qa"
+    DEVOPS = "devops"
+    FULLSTACK = "fullstack"
+    TECH_LEAD = "tech_lead"
+    PROJECT_MANAGER = "pm"
+
+
+class TeamMemberCapacity(BaseModel):
+    """Team member capacity/velocity configuration"""
+    user_id: str
+    user_name: Optional[str] = None
+    role: TeamMemberRole
+    skills: List[str] = []
+    # Velocity per sprint (based on sprint length)
+    story_points_capacity: int = 10  # Story points they can handle per sprint
+    hours_capacity: int = 40  # Hours available per sprint
+    # Conversion ratio: 1 story point = X hours
+    story_point_to_hours_ratio: float = 4.0
+
+
+class SprintConfigurationCreate(BaseModel):
+    """Create/Update sprint configuration for a project"""
+    project_id: str
+    sprint_length: SprintLengthOption = SprintLengthOption.TWO_WEEKS
+    custom_length_days: Optional[int] = None  # Used when sprint_length is CUSTOM
+    auto_assignment_mode: AutoAssignmentMode = AutoAssignmentMode.ROLE_BASED
+    # Weights for combined mode (must sum to 1.0)
+    role_weight: float = 0.4
+    skills_weight: float = 0.3
+    workload_weight: float = 0.3
+    # Velocity tracking settings
+    track_story_points: bool = True
+    track_hours: bool = True
+    default_story_point_to_hours: float = 4.0  # Default conversion ratio
+    # Team capacity
+    team_members: List[TeamMemberCapacity] = []
+
+
+class SprintConfigurationResponse(SprintConfigurationCreate):
+    """Sprint configuration response"""
+    id: str
+    created_at: str
+    updated_at: str
+    # Computed fields
+    total_team_capacity_points: int = 0
+    total_team_capacity_hours: int = 0
+
+
+class BacklogItemStatus(str, Enum):
+    """Status for backlog items"""
+    BACKLOG = "backlog"
+    READY = "ready"           # Refined and ready for sprint
+    IN_SPRINT = "in_sprint"   # Moved to a sprint
+    BLOCKED = "blocked"
+
+
+class BacklogPriority(str, Enum):
+    """Priority for backlog items"""
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
+class MoveToSprintRequest(BaseModel):
+    """Request to move backlog items to a sprint"""
+    task_ids: List[str]
+    sprint_id: str
+    auto_assign: bool = False  # Whether to auto-assign tasks
+
+
+class SprintCapacityCheck(BaseModel):
+    """Response for sprint capacity validation"""
+    sprint_id: str
+    total_capacity_points: int
+    total_capacity_hours: int
+    current_committed_points: int
+    current_committed_hours: int
+    new_items_points: int
+    new_items_hours: int
+    remaining_capacity_points: int
+    remaining_capacity_hours: int
+    is_over_capacity: bool
+    capacity_utilization_percent: float
+    warnings: List[str] = []
+
+
 # ============== TASK WATCHER MODELS ==============
 
 class TaskWatcherCreate(BaseModel):

@@ -196,6 +196,44 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 
 ## Recent Changes (March 29, 2026)
 
+### Engineering Module - Phase 1: Sprint & Backlog Foundation
+- **Task 40 vs 8 Mismatch Resolved**: Investigated and documented that 8 user stories each have 4 subtasks (32 total) = 40 tasks. The Sprint Board was showing user stories only while imported tasks include subtasks.
+- **New Backlog API** (`GET /api/projects/{project_id}/backlog`):
+  - Returns all tasks without sprint assignment
+  - Includes subtask counts per item
+  - Aggregates story points and hours
+  - Groups by type (user_story, epic, task, bug) and priority
+- **Sprint Configuration System**:
+  - Sprint length options: 1 week, 2 weeks, 3 weeks, 4 weeks, custom
+  - Auto-assignment modes: role_based, skills_based, workload_balanced, combined
+  - Velocity tracking: story points + hours with conversion ratio
+  - Team member capacity configuration per sprint
+- **Move to Sprint API** (`POST /api/projects/sprints/{sprint_id}/move-from-backlog`):
+  - Moves selected backlog items to sprint
+  - Automatically includes subtasks
+  - Validates against team capacity
+  - Returns capacity utilization warnings
+  - Optional auto-assignment based on configuration
+- **Frontend Updates**:
+  - Sprint Planning page now uses new backlog API
+  - Added Sprint Configuration modal (Settings button)
+  - Added Team Member Capacity management
+  - Drag-and-drop uses new move-from-backlog API
+
+### Phase 1 APIs Added:
+- `GET /api/projects/{project_id}/sprint-config` - Get sprint configuration
+- `POST /api/projects/{project_id}/sprint-config` - Create/update sprint configuration
+- `POST /api/projects/{project_id}/sprint-config/team-member` - Add team member capacity
+- `DELETE /api/projects/{project_id}/sprint-config/team-member/{user_id}` - Remove team member
+- `GET /api/projects/{project_id}/backlog` - Get backlog items
+- `POST /api/projects/sprints/{sprint_id}/move-from-backlog` - Move items to sprint
+- `POST /api/projects/sprints/{sprint_id}/remove-to-backlog` - Move items back to backlog
+- `GET /api/projects/sprints/{sprint_id}/capacity-check` - Check capacity before adding items
+
+---
+
+## Recent Changes (March 29, 2026) - Marketing Fixes
+
 ### P0: Status/Pipeline Stage Synchronization Fix
 - **Issue**: Changing status on Influencer Detail page did not reflect in Pipeline board
 - **Root Cause**: The dropdown only updated local form state; required manual save via Edit mode
