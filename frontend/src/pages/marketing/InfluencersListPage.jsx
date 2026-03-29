@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent } from '../../components/ui/card';
@@ -28,6 +28,7 @@ const InfluencersListPage = () => {
   const [influencers, setInfluencers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterPlatform, setFilterPlatform] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterTier, setFilterTier] = useState('all');
@@ -121,13 +122,29 @@ const InfluencersListPage = () => {
   const fetchInfluencers = useCallback(async (page = currentPage) => {
     try {
       setLoading(true);
+      
+      // Map frontend sort fields to API sort fields
+      const apiSortMap = {
+        'score': 'score',
+        'followers': 'followers',
+        'engagement': 'engagement_rate',
+        'name': 'name',
+        'updated': 'updated_at',
+        'industry': 'industry',
+        'tier': 'tier',
+        'status': 'status'
+      };
+      
       const response = await api.get('/marketing/v2/contacts/paginated', {
         params: { 
           contact_type: 'influencer', 
           page: page,
           page_size: pageSize,
+          sort_by: apiSortMap[sortBy] || 'score',
+          sort_order: sortOrder,
           ...(filterCity !== 'all' && { city: filterCity }),
-          ...(filterAddedBy !== 'all' && { added_by: filterAddedBy })
+          ...(filterAddedBy !== 'all' && { added_by: filterAddedBy }),
+          ...(debouncedSearch && { search: debouncedSearch })
         }
       });
       const data = response.data.contacts || [];
@@ -155,7 +172,7 @@ const InfluencersListPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [api, filterCity, filterAddedBy, currentPage, pageSize]);
+  }, [api, filterCity, filterAddedBy, currentPage, pageSize, sortBy, sortOrder, debouncedSearch]);
 
   const fetchCampaigns = useCallback(async () => {
     try {
@@ -167,9 +184,18 @@ const InfluencersListPage = () => {
   }, [api]);
 
   useEffect(() => {
-    fetchInfluencers(1); // Reset to page 1 when filters change
+    fetchInfluencers(1); // Reset to page 1 when filters or sort change
     fetchCampaigns();
-  }, [filterCity, filterAddedBy]);
+  }, [filterCity, filterAddedBy, sortBy, sortOrder, debouncedSearch]);
+  
+  // Debounce search query to avoid too many API calls
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300); // 300ms debounce
+    
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
   
   // Page change handler
   const handlePageChange = (newPage) => {
