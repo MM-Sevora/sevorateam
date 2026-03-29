@@ -45,7 +45,9 @@ from models.projects import (
     # Sprint Configuration models
     SprintLengthOption, AutoAssignmentMode, TeamMemberRole, TeamMemberCapacity,
     SprintConfigurationCreate, SprintConfigurationResponse,
-    BacklogItemStatus, MoveToSprintRequest, SprintCapacityCheck
+    BacklogItemStatus, MoveToSprintRequest, SprintCapacityCheck,
+    # Sprint close models
+    PendingTaskAction, CloseSprintRequest
 )
 
 # Import storage utilities
@@ -5609,6 +5611,200 @@ async def complete_sprint(
     await log_activity("sprint", sprint_id, sprint.get("name"), "completed", user["id"])
     
     return {"message": "Sprint completed"}
+
+
+@router.post("/sprints/{sprint_id}/close")
+async def close_sprint_with_options(
+    sprint_id: str,
+    data: CloseSprintRequest,
+    user: dict = Depends(get_current_user_dep)
+):
+    """
+    Close a sprint with options for handling pending tasks.
+    
+    - pending_task_action: What to do with incomplete tasks
+      - 'backlog': Move to project backlog (sprint_id = null)
+      - 'next_sprint': Move to specified target sprint
+      - 'keep': Leave tasks in this sprint (carry over)
+    - target_sprint_id: Required if action is 'next_sprint'
+    - mark_as_reviewed: Also marks the sprint review as 'reviewed'
+    """
+    sprint = await db.pm_sprints.find_one({"id": sprint_id})
+    if not sprint:
+        raise HTTPException(status_code=404, detail="Sprint not found")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Get incomplete tasks in this sprint
+    incomplete_tasks = await db.pm_tasks.find({
+        "sprint_id": sprint_id,
+        "status": {"$nin": ["completed", "approved"]}
+    }, {"_id": 0, "id": 1, "name": 1, "status": 1}).to_list(500)
+    
+    incomplete_task_ids = [t["id"] for t in incomplete_tasks]
+    moved_count = 0
+    target_location = "sprint"
+    
+    # Handle pending tasks based on selected action
+    if data.pending_task_action == PendingTaskAction.MOVE_TO_BACKLOG and incomplete_task_ids:
+        # Move tasks to backlog (sprint_id = null)
+        await db.pm_tasks.update_many(
+            {"id": {"$in": incomplete_task_ids}},
+            {"$set": {"sprint_id": None, "updated_at": now}}
+        )
+        # Also move subtasks
+        await db.pm_tasks.update_many(
+            {"parent_task_id": {"$in": incomplete_task_ids}},
+            {"$set": {"sprint_id": None, "updated_at": now}}
+        )
+        moved_count = len(incomplete_task_ids)
+        target_location = "backlog"
+        
+    elif data.pending_task_action == PendingTaskAction.MOVE_TO_NEXT_SPRINT and incomplete_task_ids:
+        # Validate target sprint
+        if not data.target_sprint_id:
+            raise HTTPException(status_code=400, detail="target_sprint_id required when moving to next sprint")
+        
+        target_sprint = await db.pm_sprints.find_one({"id": data.target_sprint_id})
+        if not target_sprint:
+            raise HTTPException(status_code=404, detail="Target sprint not found")
+        
+        if target_sprint.get("status") == "completed":
+            raise HTTPException(status_code=400, detail="Cannot move tasks to a completed sprint")
+        
+        # Move tasks to target sprint
+        await db.pm_tasks.update_many(
+            {"id": {"$in": incomplete_task_ids}},
+            {"$set": {"sprint_id": data.target_sprint_id, "updated_at": now}}
+        )
+        # Also move subtasks
+        await db.pm_tasks.update_many(
+            {"parent_task_id": {"$in": incomplete_task_ids}},
+            {"$set": {"sprint_id": data.target_sprint_id, "updated_at": now}}
+        )
+        moved_count = len(incomplete_task_ids)
+        target_location = target_sprint.get("name", data.target_sprint_id)
+    
+    # Mark sprint as completed
+    await db.pm_sprints.update_one(
+        {"id": sprint_id},
+        {"$set": {
+            "status": "completed",
+            "completed_at": now,
+            "updated_at": now,
+            "pending_tasks_action": data.pending_task_action.value,
+            "pending_tasks_moved_to": target_location if moved_count > 0 else None,
+            "pending_tasks_count": moved_count
+        }}
+    )
+    
+    # Mark sprint review as reviewed if requested
+    review_updated = False
+    if data.mark_as_reviewed:
+        review = await db.sprint_reviews.find_one({"sprint_id": sprint_id})
+        if review:
+            await db.sprint_reviews.update_one(
+                {"id": review["id"]},
+                {"$set": {
+                    "status": "reviewed",
+                    "reviewed_at": now,
+                    "reviewed_by": user["id"],
+                    "updated_at": now
+                }}
+            )
+            review_updated = True
+    
+    await log_activity("sprint", sprint_id, sprint.get("name"), "closed", user["id"], {
+        "pending_tasks_action": data.pending_task_action.value,
+        "pending_tasks_moved": moved_count,
+        "target_location": target_location
+    })
+    
+    return {
+        "message": "Sprint closed successfully",
+        "sprint_id": sprint_id,
+        "pending_tasks_count": len(incomplete_tasks),
+        "tasks_moved": moved_count,
+        "moved_to": target_location if moved_count > 0 else None,
+        "review_marked_as_reviewed": review_updated
+    }
+
+
+@router.get("/sprints/{sprint_id}/pending-tasks")
+async def get_sprint_pending_tasks(
+    sprint_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Get all incomplete tasks in a sprint (for close sprint UI)"""
+    sprint = await db.pm_sprints.find_one({"id": sprint_id})
+    if not sprint:
+        raise HTTPException(status_code=404, detail="Sprint not found")
+    
+    incomplete_tasks = await db.pm_tasks.find({
+        "sprint_id": sprint_id,
+        "status": {"$nin": ["completed", "approved"]}
+    }, {"_id": 0}).to_list(500)
+    
+    # Get available target sprints (not completed, not the current one)
+    available_sprints = await db.pm_sprints.find({
+        "project_id": sprint.get("project_id"),
+        "id": {"$ne": sprint_id},
+        "status": {"$nin": ["completed"]}
+    }, {"_id": 0, "id": 1, "name": 1, "status": 1, "start_date": 1, "end_date": 1}).to_list(20)
+    
+    return {
+        "sprint_id": sprint_id,
+        "sprint_name": sprint.get("name"),
+        "pending_tasks": incomplete_tasks,
+        "pending_count": len(incomplete_tasks),
+        "available_target_sprints": available_sprints
+    }
+
+
+@router.post("/sprints/{sprint_id}/mark-reviewed")
+async def mark_sprint_reviewed(
+    sprint_id: str,
+    user: dict = Depends(get_current_user_dep)
+):
+    """Specifically mark a sprint as reviewed (separate from completion)"""
+    sprint = await db.pm_sprints.find_one({"id": sprint_id})
+    if not sprint:
+        raise HTTPException(status_code=404, detail="Sprint not found")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    # Update sprint with reviewed flag
+    await db.pm_sprints.update_one(
+        {"id": sprint_id},
+        {"$set": {
+            "is_reviewed": True,
+            "reviewed_at": now,
+            "reviewed_by": user["id"],
+            "updated_at": now
+        }}
+    )
+    
+    # Also update the sprint review if it exists
+    review = await db.sprint_reviews.find_one({"sprint_id": sprint_id})
+    if review:
+        await db.sprint_reviews.update_one(
+            {"id": review["id"]},
+            {"$set": {
+                "status": "reviewed",
+                "reviewed_at": now,
+                "reviewed_by": user["id"],
+                "updated_at": now
+            }}
+        )
+    
+    await log_activity("sprint", sprint_id, sprint.get("name"), "marked_reviewed", user["id"])
+    
+    return {
+        "message": "Sprint marked as reviewed",
+        "sprint_id": sprint_id,
+        "reviewed_at": now,
+        "reviewed_by": user.get("name")
+    }
 
 
 # ============== SPRINT CONFIGURATION ==============

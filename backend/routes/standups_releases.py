@@ -4,6 +4,7 @@ Daily Standup, App Releases & Sprint Retrospective Routes
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 import uuid
@@ -1021,6 +1022,129 @@ async def delete_sprint_review(
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Sprint review not found")
     return {"message": "Sprint review deleted"}
+
+
+class InviteStakeholdersRequest(BaseModel):
+    """Request to invite stakeholders to a sprint review"""
+    stakeholder_ids: List[str]
+    send_notification: bool = True
+    custom_message: Optional[str] = None
+
+
+@router.post("/sprint-reviews/{review_id}/invite-stakeholders")
+async def invite_stakeholders_to_review(
+    review_id: str,
+    data: InviteStakeholdersRequest,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Invite additional stakeholders to a sprint review.
+    Optionally sends notifications to the newly invited stakeholders.
+    """
+    review = await db.sprint_reviews.find_one({"id": review_id})
+    if not review:
+        raise HTTPException(status_code=404, detail="Sprint review not found")
+    
+    # Get current stakeholders
+    current_stakeholders = set(review.get("stakeholder_ids", []))
+    new_stakeholders = set(data.stakeholder_ids) - current_stakeholders
+    
+    if not new_stakeholders:
+        return {"message": "No new stakeholders to invite", "invited_count": 0}
+    
+    # Update stakeholder list
+    all_stakeholders = list(current_stakeholders | new_stakeholders)
+    now = datetime.now(timezone.utc).isoformat()
+    
+    await db.sprint_reviews.update_one(
+        {"id": review_id},
+        {"$set": {
+            "stakeholder_ids": all_stakeholders,
+            "pending_count": review.get("pending_count", 0) + len(new_stakeholders),
+            "updated_at": now
+        }}
+    )
+    
+    invited_names = []
+    # Send notifications if requested
+    if data.send_notification:
+        for stakeholder_id in new_stakeholders:
+            stakeholder = await db.users.find_one({"id": stakeholder_id}, {"name": 1, "email": 1})
+            if stakeholder:
+                invited_names.append(stakeholder.get("name", stakeholder.get("email", "Unknown")))
+                # Create notification
+                from routes.notifications import create_notification
+                await create_notification(
+                    user_id=stakeholder_id,
+                    notification_type="sprint_review_invite",
+                    title="Sprint Review Invitation",
+                    message=f"You've been invited to review {review.get('title') or review.get('sprint_name')}. {data.custom_message or ''}",
+                    reference_id=review_id,
+                    reference_type="sprint_review",
+                    action_url=f"/engineering/sprint-review?id={review_id}",
+                    metadata={
+                        "review_id": review_id,
+                        "sprint_id": review.get("sprint_id"),
+                        "project_id": review.get("project_id"),
+                        "invited_by": user.get("name"),
+                        "custom_message": data.custom_message
+                    }
+                )
+    
+    return {
+        "message": f"Invited {len(new_stakeholders)} stakeholder(s)",
+        "invited_count": len(new_stakeholders),
+        "invited_names": invited_names,
+        "total_stakeholders": len(all_stakeholders)
+    }
+
+
+@router.post("/sprint-reviews/{review_id}/mark-reviewed")
+async def mark_review_as_reviewed(
+    review_id: str,
+    notes: Optional[str] = None,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Mark a sprint review as 'reviewed' - indicates stakeholders have seen the demo
+    and the review meeting is complete.
+    """
+    review = await db.sprint_reviews.find_one({"id": review_id})
+    if not review:
+        raise HTTPException(status_code=404, detail="Sprint review not found")
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    update_data = {
+        "status": "reviewed",
+        "reviewed_at": now,
+        "reviewed_by": user["id"],
+        "reviewed_by_name": user.get("name"),
+        "updated_at": now
+    }
+    
+    if notes:
+        update_data["review_notes"] = notes
+    
+    await db.sprint_reviews.update_one({"id": review_id}, {"$set": update_data})
+    
+    # Also update the sprint's reviewed flag
+    await db.pm_sprints.update_one(
+        {"id": review.get("sprint_id")},
+        {"$set": {
+            "is_reviewed": True,
+            "reviewed_at": now,
+            "reviewed_by": user["id"],
+            "updated_at": now
+        }}
+    )
+    
+    return {
+        "message": "Sprint review marked as reviewed",
+        "review_id": review_id,
+        "reviewed_at": now,
+        "reviewed_by": user.get("name")
+    }
 
 
 # ============== BUG + RELEASE INTEGRATION ROUTES ==============

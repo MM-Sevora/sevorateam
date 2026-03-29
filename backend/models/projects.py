@@ -1605,9 +1605,24 @@ class SprintReviewStatus(str, Enum):
     """Sprint review status"""
     DRAFT = "draft"
     IN_REVIEW = "in_review"
+    REVIEWED = "reviewed"  # Stakeholders have reviewed, sprint demo complete
     APPROVED = "approved"
     REJECTED = "rejected"
     NEEDS_CHANGES = "needs_changes"
+
+
+class PendingTaskAction(str, Enum):
+    """What to do with pending tasks when closing sprint"""
+    MOVE_TO_BACKLOG = "backlog"
+    MOVE_TO_NEXT_SPRINT = "next_sprint"
+    KEEP_IN_SPRINT = "keep"  # Carry over to next sprint (same sprint extends)
+
+
+class CloseSprintRequest(BaseModel):
+    """Request to close a sprint with pending task handling"""
+    pending_task_action: PendingTaskAction = PendingTaskAction.MOVE_TO_BACKLOG
+    target_sprint_id: Optional[str] = None  # Required if action is MOVE_TO_NEXT_SPRINT
+    mark_as_reviewed: bool = False  # Also marks the sprint review as "reviewed"
 
 
 class DemoItem(BaseModel):
@@ -1673,6 +1688,12 @@ class SprintReviewResponse(BaseModel):
     rejection_count: int = 0
     pending_count: int = 0
     overall_rating: Optional[float] = None  # Average rating
+    # New reviewed fields
+    reviewed_at: Optional[str] = None
+    reviewed_by: Optional[str] = None
+    reviewed_by_name: Optional[str] = None
+    review_notes: Optional[str] = None
+    # Standard fields
     created_by: Optional[str] = None
     created_by_name: Optional[str] = None
     created_at: Optional[str] = None

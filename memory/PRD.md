@@ -190,11 +190,41 @@ Build a comprehensive enterprise operations platform (Sevora Hub) that integrate
 
 ---
 
-*Last Updated: March 29, 2026*
+*Last Updated: March 29, 2026 (Phase 2 Complete)*
 
 ---
 
 ## Recent Changes (March 29, 2026)
+
+### Engineering Module - Phase 2: Sprint Review & Retrospectives Enhancements
+- **Invite Stakeholders**: Added modal to invite additional stakeholders to sprint reviews with optional custom message and notification toggle
+- **Mark Sprint as Reviewed**: New status "Reviewed" added to SprintReviewStatus enum. Buttons to mark a review as "Reviewed" (indicates stakeholders have seen the demo)
+- **Close Sprint with Pending Task Handling**: New comprehensive "Close Sprint" modal that:
+  - Shows list of pending (incomplete) tasks in the sprint
+  - Provides 3 options for pending tasks: Move to Backlog, Move to Another Sprint, or Keep in Sprint
+  - Option to mark sprint review as "reviewed" during close
+  - Properly moves tasks and subtasks to selected destination
+
+### Phase 2 APIs Added:
+- `POST /api/projects/sprints/{sprint_id}/close` - Close sprint with options for pending task handling
+- `GET /api/projects/sprints/{sprint_id}/pending-tasks` - Get pending tasks and available target sprints
+- `POST /api/projects/sprints/{sprint_id}/mark-reviewed` - Mark sprint as reviewed
+- `POST /api/engineering/sprint-reviews/{review_id}/invite-stakeholders` - Invite additional stakeholders
+- `POST /api/engineering/sprint-reviews/{review_id}/mark-reviewed` - Mark review as reviewed
+
+### Phase 2 Model Updates:
+- Added `SprintReviewStatus.REVIEWED` enum value
+- Added `PendingTaskAction` enum (MOVE_TO_BACKLOG, MOVE_TO_NEXT_SPRINT, KEEP)
+- Added `CloseSprintRequest` model
+- Added `reviewed_at`, `reviewed_by`, `reviewed_by_name`, `review_notes` fields to SprintReviewResponse
+
+### Phase 2 Frontend Updates:
+- Updated SprintReviewPage.jsx with new action buttons: Invite, Mark Reviewed, Close Sprint
+- Added Invite Stakeholders modal with stakeholder selection and notification toggle
+- Added Close Sprint modal with pending task handling options
+- Added "Reviewed" status badge to STATUS_CONFIG
+
+---
 
 ### Engineering Module - Phase 1: Sprint & Backlog Foundation
 - **Task 40 vs 8 Mismatch Resolved**: Investigated and documented that 8 user stories each have 4 subtasks (32 total) = 40 tasks. The Sprint Board was showing user stories only while imported tasks include subtasks.
