@@ -144,6 +144,9 @@ const InfluencersListPage = () => {
           sort_order: sortOrder,
           ...(filterCity !== 'all' && { city: filterCity }),
           ...(filterAddedBy !== 'all' && { added_by: filterAddedBy }),
+          ...(filterStatus !== 'all' && { status: filterStatus }),
+          ...(filterTier !== 'all' && { tier: filterTier }),
+          ...(filterIndustry !== 'all' && { industry: filterIndustry }),
           ...(debouncedSearch && { search: debouncedSearch })
         }
       });
@@ -172,7 +175,7 @@ const InfluencersListPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [api, filterCity, filterAddedBy, currentPage, pageSize, sortBy, sortOrder, debouncedSearch]);
+  }, [api, filterCity, filterAddedBy, filterStatus, filterTier, filterIndustry, currentPage, pageSize, sortBy, sortOrder, debouncedSearch]);
 
   const fetchCampaigns = useCallback(async () => {
     try {
@@ -186,7 +189,7 @@ const InfluencersListPage = () => {
   useEffect(() => {
     fetchInfluencers(1); // Reset to page 1 when filters or sort change
     fetchCampaigns();
-  }, [filterCity, filterAddedBy, sortBy, sortOrder, debouncedSearch]);
+  }, [filterCity, filterAddedBy, filterStatus, filterTier, filterIndustry, sortBy, sortOrder, debouncedSearch]);
   
   // Debounce search query to avoid too many API calls
   useEffect(() => {
@@ -647,84 +650,50 @@ const InfluencersListPage = () => {
     return colors[status?.toLowerCase()] || colors.identified;
   };
 
-  const filteredInfluencers = influencers.filter(inf => {
-    // Search filter
-    const matchesSearch = !searchQuery || 
-      inf.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      inf.instagram_handle?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      inf.youtube_handle?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      inf.email?.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    // Platform filter
-    const matchesPlatform = filterPlatform === 'all' || inf.primary_platform === filterPlatform;
-    
-    // Status filter
-    const matchesStatus = filterStatus === 'all' || (inf.status?.toLowerCase() || 'identified') === filterStatus;
-    
-    // Tier filter
-    const matchesTier = filterTier === 'all' || inf.tier === filterTier;
-    
-    // Industry filter
-    const matchesIndustry = filterIndustry === 'all' || inf.industry?.toLowerCase() === filterIndustry;
-    
-    // Campaign filter
-    const matchesCampaign = filterCampaign === 'all' || 
-      (filterCampaign === 'unassigned' ? !inf.campaign_id : inf.campaign_id === filterCampaign);
-    
-    // Engagement filter
-    let matchesEngagement = true;
-    if (filterEngagement !== 'all') {
-      const rate = inf.engagement_rate || 0;
-      if (filterEngagement === 'high') matchesEngagement = rate > 5;
-      else if (filterEngagement === 'medium') matchesEngagement = rate >= 2 && rate <= 5;
-      else if (filterEngagement === 'low') matchesEngagement = rate < 2;
-    }
-    
-    // Score filter
-    let matchesScore = true;
-    if (filterScore !== 'all') {
-      const score = inf.score || 0;
-      if (filterScore === 'excellent') matchesScore = score >= 80;
-      else if (filterScore === 'good') matchesScore = score >= 60 && score < 80;
-      else if (filterScore === 'average') matchesScore = score >= 40 && score < 60;
-      else if (filterScore === 'below') matchesScore = score < 40;
-    }
-    
-    // City filter (done server-side via API, but also filter client-side for consistency)
-    const matchesCity = filterCity === 'all' || inf.city?.toLowerCase() === filterCity.toLowerCase();
-    
-    // Added by filter (done server-side via API, but also filter client-side for consistency)
-    const matchesAddedBy = filterAddedBy === 'all' || inf.created_by === filterAddedBy;
-    
-    return matchesSearch && matchesPlatform && matchesStatus && matchesTier && 
-           matchesIndustry && matchesCampaign && matchesEngagement && matchesScore &&
-           matchesCity && matchesAddedBy;
-  }).sort((a, b) => {
-    const multiplier = sortOrder === 'desc' ? -1 : 1;
-    if (sortBy === 'score') return multiplier * ((a.score || 0) - (b.score || 0));
-    if (sortBy === 'followers') return multiplier * ((a.followers || 0) - (b.followers || 0));
-    if (sortBy === 'engagement') return multiplier * ((a.engagement_rate || 0) - (b.engagement_rate || 0));
-    if (sortBy === 'name') {
-      return multiplier * (a.name || '').localeCompare(b.name || '');
-    }
-    if (sortBy === 'industry') {
-      return multiplier * (a.industry || '').localeCompare(b.industry || '');
-    }
-    if (sortBy === 'tier') {
-      const tierOrder = { nano: 1, micro: 2, mid: 3, macro: 4, mega: 5, celebrity: 6 };
-      return multiplier * ((tierOrder[a.tier] || 0) - (tierOrder[b.tier] || 0));
-    }
-    if (sortBy === 'status') {
-      const statusOrder = { identified: 1, contacted: 2, interested: 3, negotiation: 4, confirmed: 5, completed: 6 };
-      return multiplier * ((statusOrder[a.pipeline_status] || 0) - (statusOrder[b.pipeline_status] || 0));
-    }
-    if (sortBy === 'updated') {
-      const dateA = new Date(a.updated_at || 0);
-      const dateB = new Date(b.updated_at || 0);
-      return multiplier * (dateA - dateB);
-    }
-    return 0;
-  });
+  // Since search and sort are now handled server-side, we only apply client-side filters
+  // that aren't sent to the API (platform, status, tier, industry, campaign, engagement, score)
+  const filteredInfluencers = useMemo(() => {
+    return influencers.filter(inf => {
+      // Platform filter (client-side only)
+      const matchesPlatform = filterPlatform === 'all' || inf.primary_platform === filterPlatform;
+      
+      // Status filter (client-side only)
+      const matchesStatus = filterStatus === 'all' || (inf.status?.toLowerCase() || 'identified') === filterStatus;
+      
+      // Tier filter (client-side only)
+      const matchesTier = filterTier === 'all' || inf.tier === filterTier;
+      
+      // Industry filter (client-side only)
+      const matchesIndustry = filterIndustry === 'all' || inf.industry?.toLowerCase() === filterIndustry;
+      
+      // Campaign filter (client-side only)
+      const matchesCampaign = filterCampaign === 'all' || 
+        (filterCampaign === 'unassigned' ? !inf.campaign_id : inf.campaign_id === filterCampaign);
+      
+      // Engagement filter (client-side only)
+      let matchesEngagement = true;
+      if (filterEngagement !== 'all') {
+        const rate = inf.engagement_rate || 0;
+        if (filterEngagement === 'high') matchesEngagement = rate > 5;
+        else if (filterEngagement === 'medium') matchesEngagement = rate >= 2 && rate <= 5;
+        else if (filterEngagement === 'low') matchesEngagement = rate < 2;
+      }
+      
+      // Score filter (client-side only)
+      let matchesScore = true;
+      if (filterScore !== 'all') {
+        const score = inf.score || 0;
+        if (filterScore === 'excellent') matchesScore = score >= 80;
+        else if (filterScore === 'good') matchesScore = score >= 60 && score < 80;
+        else if (filterScore === 'average') matchesScore = score >= 40 && score < 60;
+        else if (filterScore === 'below') matchesScore = score < 40;
+      }
+      
+      return matchesPlatform && matchesStatus && matchesTier && 
+             matchesIndustry && matchesCampaign && matchesEngagement && matchesScore;
+    });
+    // No client-side sorting - API handles it
+  }, [influencers, filterPlatform, filterStatus, filterTier, filterIndustry, filterCampaign, filterEngagement, filterScore]);
 
   const toggleSort = (field) => {
     if (sortBy === field) {
