@@ -208,13 +208,18 @@ const TaskCalendarView = ({ tasks, onTaskClick }) => {
                     {dayTasks.slice(0, 3).map((task, i) => (
                       <div
                         key={task.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onTaskClick?.(task);
+                        }}
                         className={`
-                          text-xs px-1.5 py-0.5 rounded truncate
+                          text-xs px-1.5 py-0.5 rounded truncate cursor-pointer hover:ring-1 hover:ring-[#6B5D52]
                           ${priorityConfig[task.priority]?.bgLight}
                           ${priorityConfig[task.priority]?.textColor}
                           ${task.status === 'completed' ? 'line-through opacity-60' : ''}
                         `}
-                        title={task.name}
+                        title={`Click to view: ${task.name}`}
+                        data-testid={`calendar-task-${task.id}`}
                       >
                         {task.name}
                       </div>
@@ -272,6 +277,7 @@ const TaskCalendarView = ({ tasks, onTaskClick }) => {
                     ${task.priority === 'medium' ? 'border-l-amber-500' : ''}
                     ${task.priority === 'low' ? 'border-l-emerald-500' : ''}
                   `}
+                  data-testid={`calendar-panel-task-${task.id}`}
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <h5 className={`font-medium text-sm text-[#4A3728] ${task.status === 'completed' ? 'line-through opacity-60' : ''}`}>

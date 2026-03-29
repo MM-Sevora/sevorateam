@@ -502,24 +502,45 @@ const TaskDetailModal = ({ open, onClose, taskId, onUpdate, users = [], projectI
               <div className="flex-1 overflow-y-auto">
                 {/* Quick Info Bar */}
                 <div className="flex flex-wrap items-center gap-3 p-4 bg-white border-b border-[#E8D5C4]">
-                  {/* Status */}
-                  {editing ? (
-                    <Select value={editData.status} onValueChange={(v) => setEditData({ ...editData, status: v })}>
-                      <SelectTrigger className="w-[130px] border-[#D4BBA6] bg-[#FDF8F3] h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white border-[#D4BBA6]">
-                        {Object.entries(statusConfig).map(([k, v]) => (
-                          <SelectItem key={k} value={k}>{v.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-[#F5EBE0] rounded-full">
-                      <div className={`w-2 h-2 rounded-full ${statusConfig[task.status]?.color}`}></div>
-                      <span className="text-sm font-medium text-[#4A3728]">{statusConfig[task.status]?.label}</span>
-                    </div>
-                  )}
+                  {/* Status - Always editable with quick action */}
+                  <Select 
+                    value={task.status} 
+                    onValueChange={async (v) => {
+                      try {
+                        const res = await fetch(`${API}/api/projects/tasks/${taskId}`, {
+                          method: 'PUT',
+                          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ status: v })
+                        });
+                        if (res.ok) {
+                          toast.success('Status updated');
+                          fetchTask();
+                          onUpdate?.();
+                        } else {
+                          toast.error('Failed to update status');
+                        }
+                      } catch (e) {
+                        toast.error('Failed to update status');
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-[140px] border-[#D4BBA6] bg-[#FDF8F3] h-8" data-testid="task-status-select">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${statusConfig[task.status]?.color}`}></div>
+                        <SelectValue>{statusConfig[task.status]?.label}</SelectValue>
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border-[#D4BBA6]">
+                      {Object.entries(statusConfig).map(([k, v]) => (
+                        <SelectItem key={k} value={k}>
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${v.color}`}></div>
+                            {v.label}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
                   {/* Priority */}
                   {editing ? (

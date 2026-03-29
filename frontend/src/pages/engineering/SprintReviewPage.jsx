@@ -471,7 +471,175 @@ const SprintReviewPage = () => {
         </div>
       )}
 
-      {/* Create Sprint Review Modal */}
+      {/* Review Detail Panel */}
+      <Dialog open={!!selectedReview && !showFeedbackModal && !showInviteModal && !showCloseSprintModal} onOpenChange={(open) => !open && setSelectedReview(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          {selectedReview && (
+            <>
+              <DialogHeader>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <DialogTitle className="text-xl">
+                      {selectedReview.title || `Sprint Review: ${selectedReview.sprint_name}`}
+                    </DialogTitle>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {selectedReview.project_name} / {selectedReview.sprint_name}
+                    </p>
+                  </div>
+                  <Badge className={`${STATUS_CONFIG[selectedReview.status]?.color || 'bg-gray-100'}`}>
+                    {STATUS_CONFIG[selectedReview.status]?.label || selectedReview.status}
+                  </Badge>
+                </div>
+              </DialogHeader>
+
+              <div className="space-y-6 py-4">
+                {/* Summary */}
+                {selectedReview.summary && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">Summary</h4>
+                    <p className="text-gray-600 whitespace-pre-wrap">{selectedReview.summary}</p>
+                  </div>
+                )}
+
+                {/* Meeting Details */}
+                <div className="grid grid-cols-2 gap-4">
+                  {selectedReview.scheduled_date && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Calendar className="w-4 h-4 text-gray-400" />
+                      <span>Scheduled: {new Date(selectedReview.scheduled_date).toLocaleString()}</span>
+                    </div>
+                  )}
+                  {selectedReview.meeting_link && (
+                    <a 
+                      href={selectedReview.meeting_link} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm text-blue-600 hover:underline"
+                    >
+                      <Video className="w-4 h-4" />
+                      Join Meeting
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+
+                {/* Demo Items */}
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                    Demo Items ({selectedReview.demo_items?.length || 0})
+                  </h4>
+                  {selectedReview.demo_items?.length > 0 ? (
+                    <div className="space-y-2">
+                      {selectedReview.demo_items.map((item, idx) => (
+                        <div key={idx} className="p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">{item.title || item.task_name || `Demo ${idx + 1}`}</span>
+                            {item.presenter && (
+                              <span className="text-sm text-gray-500">{item.presenter}</span>
+                            )}
+                          </div>
+                          {item.description && (
+                            <p className="text-sm text-gray-600 mt-1">{item.description}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">No demo items added yet</p>
+                  )}
+                </div>
+
+                {/* Stakeholders & Feedback */}
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                    Stakeholder Feedback
+                  </h4>
+                  <div className="flex items-center gap-4 mb-3">
+                    <span className="flex items-center gap-1 text-green-600">
+                      <ThumbsUp className="w-4 h-4" /> {selectedReview.approval_count || 0}
+                    </span>
+                    <span className="flex items-center gap-1 text-red-600">
+                      <ThumbsDown className="w-4 h-4" /> {selectedReview.rejection_count || 0}
+                    </span>
+                    <span className="flex items-center gap-1 text-gray-500">
+                      <Clock className="w-4 h-4" /> {selectedReview.pending_count || 0} pending
+                    </span>
+                    {selectedReview.overall_rating && (
+                      <span className="flex items-center gap-1 text-amber-500">
+                        <Star className="w-4 h-4 fill-current" /> {selectedReview.overall_rating.toFixed(1)}
+                      </span>
+                    )}
+                  </div>
+                  
+                  {selectedReview.stakeholder_feedback?.length > 0 ? (
+                    <div className="space-y-2">
+                      {selectedReview.stakeholder_feedback.map((fb, idx) => (
+                        <div key={idx} className="p-3 bg-gray-50 rounded-lg border-l-4 border-gray-300">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-medium text-sm">{fb.stakeholder_name || 'Stakeholder'}</span>
+                            <div className="flex items-center gap-2">
+                              {fb.rating && (
+                                <span className="flex items-center gap-1 text-amber-500 text-sm">
+                                  <Star className="w-3 h-3 fill-current" /> {fb.rating}
+                                </span>
+                              )}
+                              <Badge variant="outline" className={
+                                fb.approval_status === 'approved' ? 'text-green-600 border-green-300' :
+                                fb.approval_status === 'rejected' ? 'text-red-600 border-red-300' :
+                                'text-amber-600 border-amber-300'
+                              }>
+                                {fb.approval_status || 'pending'}
+                              </Badge>
+                            </div>
+                          </div>
+                          {fb.feedback && <p className="text-sm text-gray-600">{fb.feedback}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">No feedback received yet</p>
+                  )}
+                </div>
+
+                {/* Review Info */}
+                {selectedReview.reviewed_at && (
+                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center gap-2 text-green-700">
+                      <ClipboardCheck className="w-4 h-4" />
+                      <span className="font-medium">Reviewed</span>
+                    </div>
+                    <p className="text-sm text-green-600 mt-1">
+                      by {selectedReview.reviewed_by_name || 'Unknown'} on {new Date(selectedReview.reviewed_at).toLocaleString()}
+                    </p>
+                    {selectedReview.review_notes && (
+                      <p className="text-sm text-gray-600 mt-2">{selectedReview.review_notes}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter className="flex-wrap gap-2">
+                <Button variant="outline" onClick={() => { setSelectedReview(selectedReview); setShowFeedbackModal(true); }}>
+                  <MessageSquare className="w-4 h-4 mr-1" /> Add Feedback
+                </Button>
+                <Button variant="outline" onClick={() => { setSelectedReview(selectedReview); setShowInviteModal(true); }}>
+                  <UserPlus className="w-4 h-4 mr-1" /> Invite Stakeholders
+                </Button>
+                {selectedReview.status !== 'reviewed' && (
+                  <Button variant="outline" onClick={() => handleMarkAsReviewed(selectedReview.id)} className="text-green-600">
+                    <ClipboardCheck className="w-4 h-4 mr-1" /> Mark Reviewed
+                  </Button>
+                )}
+                <Button onClick={() => openCloseSprintModal(selectedReview)} className="bg-orange-600 hover:bg-orange-700">
+                  <Archive className="w-4 h-4 mr-1" /> Close Sprint
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Sprint Review Modal Form */}
       <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -557,8 +725,8 @@ const SprintReviewPage = () => {
             {/* Stakeholders */}
             <div>
               <label className="text-sm font-medium text-gray-700 mb-2 block">Invite Stakeholders</label>
-              <div className="flex flex-wrap gap-2">
-                {users.filter(u => u.role === 'stakeholder' || u.role === 'admin').map(user => (
+              <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 border rounded-lg">
+                {users.map(user => (
                   <button
                     key={user.id}
                     onClick={() => toggleStakeholder(user.id)}
@@ -567,10 +735,14 @@ const SprintReviewPage = () => {
                         ? 'bg-violet-100 text-violet-700 ring-2 ring-violet-300'
                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
+                    data-testid={`create-stakeholder-${user.id}`}
                   >
                     {user.name || user.email}
                   </button>
                 ))}
+                {users.length === 0 && (
+                  <p className="text-sm text-gray-500 p-2">No users available</p>
+                )}
               </div>
             </div>
           </div>
@@ -679,8 +851,7 @@ const SprintReviewPage = () => {
               <label className="text-sm font-medium text-gray-700 mb-2 block">Select Stakeholders</label>
               <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-2 border rounded-lg">
                 {users.filter(u => 
-                  !selectedReview?.stakeholder_ids?.includes(u.id) &&
-                  (u.role === 'stakeholder' || u.role === 'admin' || u.role === 'manager')
+                  !selectedReview?.stakeholder_ids?.includes(u.id)
                 ).map(user => (
                   <button
                     key={user.id}
