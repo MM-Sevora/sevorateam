@@ -104,7 +104,7 @@ export default function BrandDetailPage() {
     try {
       const [brandRes, contactsRes, notesRes, logsRes] = await Promise.all([
         api.get(`/sourcing/brands/${id}`),
-        api.get(`/sourcing/contacts/brand/${id}`).catch(() => ({ data: [] })),
+        api.get(`/sourcing/brands/${id}/contacts`).catch(() => ({ data: [] })),
         api.get(`/sourcing/brands/${id}/notes`).catch(() => ({ data: [] })),
         api.get(`/sourcing/campaigns/logs/brand/${id}`).catch(() => ({ data: [] }))
       ]);
@@ -282,14 +282,20 @@ export default function BrandDetailPage() {
 
   const handleAddContact = async () => {
     try {
-      const contactData = { ...newContact, brand_id: id };
-      await api.post('/sourcing/contacts', contactData);
-      setContacts(prev => [...prev, { ...contactData, id: Date.now().toString() }]);
+      const contactData = {
+        name: newContact.name,
+        designation: newContact.role,
+        email: newContact.business_email,
+        phone: newContact.phone,
+        is_primary: false
+      };
+      const response = await api.post(`/sourcing/brands/${id}/contacts`, contactData);
+      setContacts(prev => [...prev, response.data]);
       setShowContactModal(false);
       setNewContact({ name: '', role: '', business_email: '', phone: '' });
       toast.success('Contact added');
-      fetchBrandDetails();
     } catch (error) {
+      console.error('Failed to add contact:', error);
       toast.error('Failed to add contact');
     }
   };
@@ -549,7 +555,7 @@ export default function BrandDetailPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-[#111111] truncate">{contact.name}</p>
-                      <p className="text-xs text-[#555555] truncate">{contact.role || contact.business_email}</p>
+                      <p className="text-xs text-[#555555] truncate">{contact.designation || contact.role || contact.email || contact.business_email}</p>
                     </div>
                     <button
                       onClick={() => { setSelectedContact(contact); setShowEmailComposer(true); }}
