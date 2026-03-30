@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -72,13 +72,27 @@ const CITIES = [
 const BrandsPage = () => {
   const { api } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Initialize state from URL params
+  const initialPage = parseInt(searchParams.get('page')) || 1;
+  const initialSearch = searchParams.get('search') || '';
+  const initialSegment = searchParams.get('segment') || '';
+  const initialStage = searchParams.get('stage') || '';
+  const initialCity = searchParams.get('city') || '';
+  
   const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState({ segment: '', pipeline_stage: '', city: '', added_by: '' });
+  const [search, setSearch] = useState(initialSearch);
+  const [filters, setFilters] = useState({ 
+    segment: initialSegment, 
+    pipeline_stage: initialStage, 
+    city: initialCity, 
+    added_by: '' 
+  });
   const [sorting, setSorting] = useState({ sort_by: 'created_at', sort_order: 'desc' });
   const [filtersMeta, setFiltersMeta] = useState({ creators: [], cities: [] });
-  const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
+  const [pagination, setPagination] = useState({ page: initialPage, pageSize: 20, total: 0, totalPages: 0 });
   const [showAddModal, setShowAddModal] = useState(false);
   const [showIntegrationCheck, setShowIntegrationCheck] = useState(false);
   const [createdEntity, setCreatedEntity] = useState(null);
@@ -100,6 +114,18 @@ const BrandsPage = () => {
     linkedin: '',
     description: ''
   });
+
+  // Update URL params when pagination/filters change
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (pagination.page > 1) params.set('page', pagination.page);
+    if (search) params.set('search', search);
+    if (filters.segment) params.set('segment', filters.segment);
+    if (filters.pipeline_stage) params.set('stage', filters.pipeline_stage);
+    if (filters.city) params.set('city', filters.city);
+    
+    setSearchParams(params, { replace: true });
+  }, [pagination.page, search, filters]);
 
   useEffect(() => {
     fetchBrands();
@@ -419,7 +445,12 @@ const BrandsPage = () => {
                 </TableRow>
               ) : (
                 brands.map((brand) => (
-                  <TableRow key={brand.id} className="hover:bg-gray-50">
+                  <TableRow 
+                    key={brand.id} 
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={() => navigate(`/sourcing/brands/${brand.id}`)}
+                    data-testid={`brand-row-${brand.id}`}
+                  >
                     <TableCell>
                       <div className="font-medium">{brand.name}</div>
                       {brand.website && (
@@ -457,10 +488,13 @@ const BrandsPage = () => {
                     <TableCell>
                       <Badge variant="outline">{brand.segment}</Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <button className="cursor-pointer hover:ring-2 hover:ring-[#4A3728] rounded-full transition-all">
+                          <button 
+                            className="cursor-pointer hover:ring-2 hover:ring-[#4A3728] rounded-full transition-all"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <Badge className={getStageColor(brand.pipeline_stage)} data-testid={`stage-badge-${brand.id}`}>
                               {brand.pipeline_stage || 'Discovery'}
                             </Badge>
@@ -518,24 +552,24 @@ const BrandsPage = () => {
                         {brand.created_at ? new Date(brand.created_at).toLocaleDateString() : ''}
                       </div>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" onClick={(e) => e.stopPropagation()}>
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => navigate(`/sourcing/brands/${brand.id}`)}>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/sourcing/brands/${brand.id}`); }}>
                             <Eye className="h-4 w-4 mr-2" /> View Details
                           </DropdownMenuItem>
                           {brand._permissions?.can_edit !== false && (
-                            <DropdownMenuItem onClick={() => navigate(`/sourcing/brands/${brand.id}/edit`)}>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/sourcing/brands/${brand.id}/edit`); }}>
                               <Edit2 className="h-4 w-4 mr-2" /> Edit
                             </DropdownMenuItem>
                           )}
                           {brand._permissions?.can_delete !== false ? (
-                            <DropdownMenuItem onClick={() => handleDeleteBrand(brand.id)} className="text-red-600">
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDeleteBrand(brand.id); }} className="text-red-600">
                               <Trash2 className="h-4 w-4 mr-2" /> Delete
                             </DropdownMenuItem>
                           ) : (
