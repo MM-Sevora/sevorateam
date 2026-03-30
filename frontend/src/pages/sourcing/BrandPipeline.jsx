@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
+import { Input } from '../../components/ui/input';
 import { toast } from 'sonner';
-import { Building2, ChevronLeft, ChevronRight, GripVertical, Mail, Phone, ExternalLink } from 'lucide-react';
+import { Building2, ChevronLeft, ChevronRight, GripVertical, Mail, Phone, ExternalLink, Search, X } from 'lucide-react';
 
 const PIPELINE_STAGES = [
   { id: 'Discovery', color: 'bg-gray-500', label: 'Discovery' },
@@ -21,6 +22,7 @@ const BrandPipeline = () => {
   const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
   const [analytics, setAnalytics] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => { fetchData(); }, []);
 
@@ -39,6 +41,18 @@ const BrandPipeline = () => {
     }
   };
 
+  // Filter brands by search query
+  const filteredBrands = useMemo(() => {
+    if (!searchQuery.trim()) return brands;
+    const query = searchQuery.toLowerCase();
+    return brands.filter(brand => 
+      brand.name?.toLowerCase().includes(query) ||
+      brand.city?.toLowerCase().includes(query) ||
+      brand.segment?.toLowerCase().includes(query) ||
+      brand.division?.toLowerCase().includes(query)
+    );
+  }, [brands, searchQuery]);
+
   const moveBrand = async (brandId, newStage) => {
     try {
       await api.put(`/sourcing/brands/${brandId}/stage`, { pipeline_stage: newStage });
@@ -49,7 +63,7 @@ const BrandPipeline = () => {
     }
   };
 
-  const getBrandsByStage = (stage) => brands.filter(b => b.pipeline_stage === stage);
+  const getBrandsByStage = (stage) => filteredBrands.filter(b => b.pipeline_stage === stage);
 
   if (loading) {
     return (
@@ -68,12 +82,34 @@ const BrandPipeline = () => {
             <Building2 className="h-8 w-8" /> Brand Pipeline
           </h1>
         </div>
-        {analytics && (
-          <div className="flex items-center gap-4 text-sm">
-            <span className="text-gray-500">Total: <strong>{analytics.total}</strong></span>
-            <span className="text-green-600">Conversion: <strong>{analytics.conversion_rates?.qualified_to_onboarded}%</strong></span>
+        <div className="flex items-center gap-4">
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              type="text"
+              placeholder="Search brands..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 pr-8 w-64"
+              data-testid="pipeline-search"
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
-        )}
+          {analytics && (
+            <div className="flex items-center gap-4 text-sm">
+              <span className="text-gray-500">Total: <strong>{filteredBrands.length}</strong>{searchQuery && ` of ${brands.length}`}</span>
+              <span className="text-green-600">Conversion: <strong>{analytics.conversion_rates?.qualified_to_onboarded}%</strong></span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Kanban Board */}
