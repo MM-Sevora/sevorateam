@@ -14,6 +14,7 @@ class ContactType(str, Enum):
     JOURNALIST = "journalist"
     BLOGGER = "blogger"
     HYBRID = "hybrid"  # Both influencer and journalist/blogger
+    BRAND = "brand"  # Brand/Company contact
 
 class ContactStatus(str, Enum):
     IDENTIFIED = "identified"
