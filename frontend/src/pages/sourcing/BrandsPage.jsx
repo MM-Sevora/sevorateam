@@ -228,6 +228,17 @@ const BrandsPage = () => {
     }
   };
 
+  const handleStageUpdate = async (brandId, newStage) => {
+    try {
+      await api.put(`/sourcing/brands/${brandId}`, { pipeline_stage: newStage });
+      setBrands(prev => prev.map(b => b.id === brandId ? { ...b, pipeline_stage: newStage } : b));
+      toast.success(`Stage updated to ${newStage}`);
+    } catch (error) {
+      console.error('Failed to update stage:', error);
+      toast.error('Failed to update stage');
+    }
+  };
+
   const getStageColor = (stage) => {
     const colors = {
       'Discovery': 'bg-gray-100 text-gray-800',
@@ -447,9 +458,31 @@ const BrandsPage = () => {
                       <Badge variant="outline">{brand.segment}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge className={getStageColor(brand.pipeline_stage)}>
-                        {brand.pipeline_stage}
-                      </Badge>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="cursor-pointer hover:ring-2 hover:ring-[#4A3728] rounded-full transition-all">
+                            <Badge className={getStageColor(brand.pipeline_stage)} data-testid={`stage-badge-${brand.id}`}>
+                              {brand.pipeline_stage || 'Discovery'}
+                            </Badge>
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="bg-white">
+                          {PIPELINE_STAGES.map(stage => (
+                            <DropdownMenuItem 
+                              key={stage}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStageUpdate(brand.id, stage);
+                              }}
+                              className={`cursor-pointer ${brand.pipeline_stage === stage ? 'bg-gray-100' : ''}`}
+                              data-testid={`stage-option-${stage}`}
+                            >
+                              <Badge className={`${getStageColor(stage)} mr-2`}>{stage}</Badge>
+                              {brand.pipeline_stage === stage && <span className="ml-auto">✓</span>}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                     <TableCell>
                       <Button 
