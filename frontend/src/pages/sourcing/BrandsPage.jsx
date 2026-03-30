@@ -15,7 +15,8 @@ import { toast } from 'sonner';
 import { 
   Building2, Plus, Search, Filter, ExternalLink, Mail, Phone,
   MoreVertical, Edit2, Trash2, Eye, ChevronLeft, ChevronRight,
-  Instagram, Linkedin, MapPin, Sparkles, Globe, ArrowUpDown, ArrowUp, ArrowDown
+  Instagram, Linkedin, MapPin, Sparkles, Globe, ArrowUpDown, ArrowUp, ArrowDown,
+  RefreshCw, Download
 } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
@@ -286,9 +287,49 @@ const BrandsPage = () => {
           <p className="text-sm text-[#9C8C74] uppercase tracking-wider font-medium">Buying & Sourcing</p>
           <h1 className="text-3xl font-bold text-[#4A3728]">Brand Database</h1>
         </div>
-        <Button onClick={() => setShowAddModal(true)} className="bg-[#4A3728] hover:bg-[#3A2A1E]">
-          <Plus className="h-4 w-4 mr-2" /> Add Brand
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" onClick={fetchBrands} className="border-[#D4BBA6] text-[#4A3728]">
+            <RefreshCw className="h-4 w-4 mr-2" /> Refresh
+          </Button>
+          <Button variant="outline" className="border-[#D4BBA6] text-[#4A3728]">
+            <Download className="h-4 w-4 mr-2" /> Export
+          </Button>
+          <Button onClick={() => setShowAddModal(true)} className="bg-[#4A3728] hover:bg-[#3A2A1E]">
+            <Plus className="h-4 w-4 mr-2" /> Add Brand
+          </Button>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-4 gap-4">
+        <Card className="border-[#E8D5C4] bg-white">
+          <CardContent className="p-4">
+            <p className="text-xs text-[#9C8C74] uppercase tracking-wider font-medium">Total Brands</p>
+            <p className="text-3xl font-bold text-[#4A3728]">{pagination.total}</p>
+            <p className="text-xs text-[#9C8C74]">In database</p>
+          </CardContent>
+        </Card>
+        <Card className="border-[#E8D5C4] bg-white">
+          <CardContent className="p-4">
+            <p className="text-xs text-[#9C8C74] uppercase tracking-wider font-medium">Discovery</p>
+            <p className="text-3xl font-bold text-gray-600">{brands.filter(b => b.pipeline_stage === 'Discovery').length}</p>
+            <p className="text-xs text-[#9C8C74]">New leads</p>
+          </CardContent>
+        </Card>
+        <Card className="border-[#E8D5C4] bg-white">
+          <CardContent className="p-4">
+            <p className="text-xs text-[#9C8C74] uppercase tracking-wider font-medium">In Progress</p>
+            <p className="text-3xl font-bold text-blue-600">{brands.filter(b => ['Contacted', 'Qualified', 'Interested', 'Negotiation'].includes(b.pipeline_stage)).length}</p>
+            <p className="text-xs text-[#9C8C74]">Active negotiations</p>
+          </CardContent>
+        </Card>
+        <Card className="border-[#E8D5C4] bg-white">
+          <CardContent className="p-4">
+            <p className="text-xs text-[#9C8C74] uppercase tracking-wider font-medium">Onboarded</p>
+            <p className="text-3xl font-bold text-green-600">{brands.filter(b => b.pipeline_stage === 'Onboarded').length}</p>
+            <p className="text-xs text-[#9C8C74]">Active partners</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Search & Filters */}
@@ -452,12 +493,39 @@ const BrandsPage = () => {
                     data-testid={`brand-row-${brand.id}`}
                   >
                     <TableCell>
-                      <div className="font-medium">{brand.name}</div>
-                      {brand.website && (
-                        <a href={brand.website} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 flex items-center gap-1">
-                          <ExternalLink className="h-3 w-3" /> Website
-                        </a>
-                      )}
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#4A3728] to-[#8B7355] flex items-center justify-center text-white font-bold text-sm">
+                          {brand.name?.charAt(0)?.toUpperCase() || 'B'}
+                        </div>
+                        <div>
+                          <div className="font-medium text-[#4A3728]">{brand.name}</div>
+                          <div className="text-xs text-[#9C8C74] flex items-center gap-2">
+                            {brand.city && <span>{brand.city}</span>}
+                            {brand.website && (
+                              <a 
+                                href={brand.website} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="text-blue-600 hover:underline flex items-center gap-0.5"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Globe className="h-3 w-3" />
+                              </a>
+                            )}
+                            {brand.instagram && (
+                              <a 
+                                href={`https://instagram.com/${brand.instagram.replace('@', '')}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="text-pink-600 hover:underline flex items-center gap-0.5"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Instagram className="h-3 w-3" />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="bg-gray-50">
@@ -590,32 +658,77 @@ const BrandsPage = () => {
       </Card>
 
       {/* Pagination */}
-      {pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-500">
-            Showing {((pagination.page - 1) * pagination.pageSize) + 1} to {Math.min(pagination.page * pagination.pageSize, pagination.total)} of {pagination.total} brands
+      <Card className="border-[#E8D5C4]">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-[#9C8C74]">
+              Showing <span className="font-medium text-[#4A3728]">{((pagination.page - 1) * pagination.pageSize) + 1}</span> to <span className="font-medium text-[#4A3728]">{Math.min(pagination.page * pagination.pageSize, pagination.total)}</span> of <span className="font-medium text-[#4A3728]">{pagination.total}</span> brands
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPagination(prev => ({ ...prev, page: 1 }))}
+                disabled={pagination.page === 1}
+                className="border-[#D4BBA6] text-[#4A3728]"
+              >
+                First
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                disabled={pagination.page === 1}
+                className="border-[#D4BBA6] text-[#4A3728]"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              
+              {/* Page numbers */}
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                  const startPage = Math.max(1, Math.min(pagination.page - 2, pagination.totalPages - 4));
+                  const pageNum = startPage + i;
+                  if (pageNum > pagination.totalPages) return null;
+                  return (
+                    <Button
+                      key={pageNum}
+                      variant={pageNum === pagination.page ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setPagination(prev => ({ ...prev, page: pageNum }))}
+                      className={pageNum === pagination.page 
+                        ? "bg-[#4A3728] text-white" 
+                        : "border-[#D4BBA6] text-[#4A3728]"
+                      }
+                    >
+                      {pageNum}
+                    </Button>
+                  );
+                })}
+              </div>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                disabled={pagination.page === pagination.totalPages}
+                className="border-[#D4BBA6] text-[#4A3728]"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPagination(prev => ({ ...prev, page: pagination.totalPages }))}
+                disabled={pagination.page === pagination.totalPages}
+                className="border-[#D4BBA6] text-[#4A3728]"
+              >
+                Last
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-              disabled={pagination.page === 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm">Page {pagination.page} of {pagination.totalPages}</span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-              disabled={pagination.page === pagination.totalPages}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
+        </CardContent>
+      </Card>
 
       {/* Add Brand Modal - Enhanced to match screenshot */}
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
