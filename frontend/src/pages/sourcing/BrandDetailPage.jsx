@@ -17,7 +17,7 @@ import {
   Calendar, Clock, Users, Plus, ExternalLink, MessageSquare, History,
   Building2, User, Send, ClipboardList, Save, X, FileText, DollarSign, 
   CheckCircle2, Upload, CheckSquare, Circle, AlertCircle, Loader2,
-  MoreVertical, ChevronRight
+  MoreVertical, ChevronRight, Instagram, Linkedin
 } from 'lucide-react';
 import EmailComposer from '../../components/sourcing/EmailComposer';
 import CreateTaskDialog from '../../components/shared/CreateTaskDialog';
@@ -34,6 +34,8 @@ const ONBOARDING_STAGES = [
 
 const DIVISIONS = ['Apparel', 'Accessories', 'Footwear', 'Home & Living', 'Beauty'];
 const SEGMENTS = ['Mass', 'Mass Premium', 'Bridge to Luxury', 'Affordable Luxury', 'Premium', 'Luxury'];
+const GENDERS = ['Women', 'Men', 'Unisex'];
+const CITIES = ['Mumbai', 'Delhi', 'Bangalore', 'Chennai', 'Kolkata', 'Hyderabad', 'Pune', 'Ahmedabad', 'Jaipur', 'Lucknow', 'Chandigarh', 'Gurgaon', 'Noida', 'Kochi', 'Goa', 'Other'];
 
 const CATEGORIES_BY_DIVISION = {
   'Apparel': ['Indian / Ethnic Wear', 'Western', 'Indo-Western', 'Festive Wear', 'Party Wear', 'Casual Wear', 'Formal Wear', 'Bridal Wear', 'Sarees', 'Kurta Sets', 'Dresses', 'Suits', 'Loungewear', 'Activewear'],
@@ -940,47 +942,248 @@ export default function BrandDetailPage() {
       
       {/* Edit Brand Modal */}
       <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Brand</DialogTitle>
+            <DialogTitle className="text-xl font-semibold">Edit Brand</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <Label>Name</Label>
-              <Input value={editForm.name || ''} onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))} />
-            </div>
+          
+          <div className="space-y-6 py-4">
+            {/* Basic Information */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Division</Label>
-                <Select value={editForm.division || ''} onValueChange={(v) => setEditForm(prev => ({ ...prev, division: v, category: '' }))}>
-                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                <Label className="text-xs text-gray-500 uppercase tracking-wider">Brand Name *</Label>
+                <Input
+                  value={editForm.name || ''}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Enter brand name"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500 uppercase tracking-wider">Website</Label>
+                <Input
+                  value={editForm.website || ''}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, website: e.target.value }))}
+                  placeholder="https://example.com"
+                  className="mt-1"
+                />
+              </div>
+            </div>
+
+            {/* Division & Segment */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs text-gray-500 uppercase tracking-wider">Division *</Label>
+                <Select 
+                  value={editForm.division || ''} 
+                  onValueChange={(v) => setEditForm(prev => ({ ...prev, division: v, categories: [] }))}
+                >
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select division" /></SelectTrigger>
                   <SelectContent>
                     {DIVISIONS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label>Category</Label>
-                <Select value={editForm.category || ''} onValueChange={(v) => setEditForm(prev => ({ ...prev, category: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                <Label className="text-xs text-gray-500 uppercase tracking-wider">Segment</Label>
+                <Select 
+                  value={editForm.segment || ''} 
+                  onValueChange={(v) => setEditForm(prev => ({ ...prev, segment: v }))}
+                >
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select segment" /></SelectTrigger>
                   <SelectContent>
-                    {(CATEGORIES_BY_DIVISION[editForm.division] || []).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    {SEGMENTS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
             </div>
+
+            {/* Categories */}
             <div>
-              <Label>Website</Label>
-              <Input value={editForm.website || ''} onChange={(e) => setEditForm(prev => ({ ...prev, website: e.target.value }))} />
+              <Label className="text-xs text-gray-500 uppercase tracking-wider mb-2 block">Categories (Select Multiple)</Label>
+              <div className="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto p-2 border rounded-lg">
+                {(CATEGORIES_BY_DIVISION[editForm.division] || []).map(cat => (
+                  <div key={cat} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`edit-cat-${cat}`}
+                      checked={(editForm.categories || []).includes(cat)}
+                      onCheckedChange={() => {
+                        const cats = editForm.categories || [];
+                        setEditForm(prev => ({
+                          ...prev,
+                          categories: cats.includes(cat) ? cats.filter(c => c !== cat) : [...cats, cat]
+                        }));
+                      }}
+                    />
+                    <label htmlFor={`edit-cat-${cat}`} className="text-sm cursor-pointer">{cat}</label>
+                  </div>
+                ))}
+              </div>
             </div>
+
+            {/* Gender */}
             <div>
-              <Label>City</Label>
-              <Input value={editForm.city || ''} onChange={(e) => setEditForm(prev => ({ ...prev, city: e.target.value }))} />
+              <Label className="text-xs text-gray-500 uppercase tracking-wider mb-2 block">Gender (Select Multiple)</Label>
+              <div className="flex gap-4">
+                {GENDERS.map(g => (
+                  <div key={g} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`edit-gender-${g}`}
+                      checked={(editForm.genders || editForm.gender || []).includes(g)}
+                      onCheckedChange={() => {
+                        const genders = editForm.genders || editForm.gender || [];
+                        setEditForm(prev => ({
+                          ...prev,
+                          genders: genders.includes(g) ? genders.filter(x => x !== g) : [...genders, g]
+                        }));
+                      }}
+                    />
+                    <label htmlFor={`edit-gender-${g}`} className="text-sm cursor-pointer">{g}</label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Price Range */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs text-gray-500 uppercase tracking-wider">Min Price (₹)</Label>
+                <Input
+                  type="number"
+                  value={editForm.min_price || ''}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, min_price: e.target.value }))}
+                  placeholder="5000"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500 uppercase tracking-wider">Max Price (₹)</Label>
+                <Input
+                  type="number"
+                  value={editForm.max_price || ''}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, max_price: e.target.value }))}
+                  placeholder="60000"
+                  className="mt-1"
+                />
+              </div>
+            </div>
+
+            {/* City */}
+            <div>
+              <Label className="text-xs text-gray-500 uppercase tracking-wider">City *</Label>
+              <Select 
+                value={editForm.city || ''} 
+                onValueChange={(v) => setEditForm(prev => ({ ...prev, city: v }))}
+              >
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select city" /></SelectTrigger>
+                <SelectContent>
+                  {CITIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Contact Information */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs text-gray-500 uppercase tracking-wider">Brand Email</Label>
+                <div className="relative mt-1">
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    type="email"
+                    value={editForm.email || ''}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="info@brand.com"
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500 uppercase tracking-wider">Phone Number</Label>
+                <div className="relative mt-1">
+                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    value={editForm.phone_number || ''}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, phone_number: e.target.value }))}
+                    placeholder="+91 98765 43210"
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Address */}
+            <div>
+              <Label className="text-xs text-gray-500 uppercase tracking-wider">Full Address</Label>
+              <div className="relative mt-1">
+                <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Textarea
+                  value={editForm.address || ''}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, address: e.target.value }))}
+                  placeholder="Enter complete address..."
+                  className="pl-10 min-h-[80px]"
+                />
+              </div>
+            </div>
+
+            {/* Social Links */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs text-gray-500 uppercase tracking-wider">Instagram</Label>
+                <div className="relative mt-1">
+                  <Instagram className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    value={editForm.instagram || ''}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, instagram: e.target.value }))}
+                    placeholder="@brandname"
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500 uppercase tracking-wider">LinkedIn</Label>
+                <div className="relative mt-1">
+                  <Linkedin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    value={editForm.linkedin || ''}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, linkedin: e.target.value }))}
+                    placeholder="linkedin.com/company/brand"
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Description */}
+            <div>
+              <Label className="text-xs text-gray-500 uppercase tracking-wider">Brand Description</Label>
+              <Textarea
+                value={editForm.description || ''}
+                onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Brief description of the brand..."
+                className="mt-1 min-h-[100px]"
+              />
+            </div>
+
+            {/* Pipeline Stage */}
+            <div>
+              <Label className="text-xs text-gray-500 uppercase tracking-wider">Pipeline Stage</Label>
+              <Select 
+                value={editForm.pipeline_stage || ''} 
+                onValueChange={(v) => setEditForm(prev => ({ ...prev, pipeline_stage: v }))}
+              >
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select stage" /></SelectTrigger>
+                <SelectContent>
+                  {PIPELINE_STAGES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           </div>
-          <DialogFooter>
+
+          <DialogFooter className="border-t pt-4">
             <Button variant="outline" onClick={() => setShowEditModal(false)}>Cancel</Button>
-            <Button onClick={handleSaveEdit} className="bg-[#002FA7] hover:bg-[#001f7a]">Save</Button>
+            <Button onClick={handleSaveEdit} className="bg-[#002FA7] hover:bg-[#001f7a]">
+              <Save className="h-4 w-4 mr-2" /> Save Changes
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
