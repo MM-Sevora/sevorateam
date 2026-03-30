@@ -45,6 +45,22 @@ const CATEGORIES_BY_DIVISION = {
   'Beauty': ['Skincare', 'Makeup', 'Haircare', 'Fragrances', 'Nail Care', 'Bath & Body', 'Men\'s Grooming', 'Tools & Accessories', 'Organic & Natural', 'Luxury Beauty']
 };
 
+// Brand color scheme (matching BrandsPage)
+const BRAND_COLORS = {
+  primary: '#4A3728',
+  primaryHover: '#3A2A1E',
+  secondary: '#8B7355',
+  background: '#F5EBE0',
+  card: '#FFFFFF',
+  border: '#E8D5C4',
+  text: '#4A3728',
+  textMuted: '#9C8C74',
+  accent: '#D4BBA6',
+  success: '#00B050',
+  warning: '#FFCC00',
+  danger: '#FF3B30'
+};
+
 export default function BrandDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -334,17 +350,26 @@ export default function BrandDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#F5F5F5]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#002FA7]" />
+      <div className="flex items-center justify-center min-h-screen bg-[#F5EBE0]">
+        <div className="text-center">
+          <Loader2 className="h-10 w-10 animate-spin text-[#4A3728] mx-auto" />
+          <p className="text-sm text-[#9C8C74] mt-3">Loading brand details...</p>
+        </div>
       </div>
     );
   }
 
   if (!brand) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F5F5]">
-        <p className="text-[#555555]">Brand not found</p>
-        <Button onClick={() => navigate('/sourcing/brands')} className="mt-4">Go Back</Button>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5EBE0]">
+        <div className="w-16 h-16 rounded-full bg-[#E8D5C4] flex items-center justify-center mb-4">
+          <Building2 className="h-8 w-8 text-[#9C8C74]" />
+        </div>
+        <p className="text-[#4A3728] font-medium mb-2">Brand not found</p>
+        <p className="text-sm text-[#9C8C74] mb-4">The brand you're looking for doesn't exist or has been removed.</p>
+        <Button onClick={() => navigate('/sourcing/brands')} className="bg-[#4A3728] hover:bg-[#3A2A1E] rounded-lg">
+          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Brands
+        </Button>
       </div>
     );
   }
@@ -352,95 +377,149 @@ export default function BrandDetailPage() {
   const currentStageIndex = getCurrentStageIndex();
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5] p-6" data-testid="brand-detail-page">
+    <div className="min-h-screen bg-[#F5EBE0] p-6" data-testid="brand-detail-page">
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.15em] text-[#555555] mb-6">
-        <Link to="/sourcing" className="hover:text-[#002FA7]">Sourcing</Link>
+      <nav className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.15em] text-[#9C8C74] mb-6">
+        <Link to="/sourcing" className="hover:text-[#4A3728] transition-colors">Sourcing</Link>
         <ChevronRight className="h-3 w-3" />
-        <Link to="/sourcing/brands" className="hover:text-[#002FA7]">Brands</Link>
+        <Link to="/sourcing/brands" className="hover:text-[#4A3728] transition-colors">Brands</Link>
         <ChevronRight className="h-3 w-3" />
-        <span className="text-[#111111]">{brand.name}</span>
+        <span className="text-[#4A3728]">{brand.name}</span>
       </nav>
 
-      {/* Header Card */}
-      <div className="bg-white border border-[#E5E5E5] rounded-sm p-6 mb-6">
+      {/* Hero Header Card */}
+      <div className="bg-white border border-[#E8D5C4] rounded-lg shadow-sm p-6 mb-6">
         <div className="flex items-start justify-between">
-          <div className="flex items-center gap-6">
+          <div className="flex items-start gap-6">
             {/* Brand Logo */}
-            <div className="w-20 h-20 bg-[#F5F5F5] border border-[#E5E5E5] rounded-sm flex items-center justify-center overflow-hidden">
+            <div className="w-24 h-24 bg-gradient-to-br from-[#4A3728] to-[#8B7355] rounded-xl flex items-center justify-center overflow-hidden shadow-md">
               {brand.logo_url ? (
                 <img src={brand.logo_url} alt={brand.name} className="w-full h-full object-cover" />
               ) : (
-                <Building2 className="h-10 w-10 text-[#555555]" />
+                <span className="text-4xl font-bold text-white">{brand.name?.charAt(0)?.toUpperCase() || 'B'}</span>
               )}
             </div>
             {/* Brand Info */}
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-2xl font-medium tracking-tight text-[#111111]">{brand.name}</h1>
-                <Badge className={`rounded-sm text-xs ${
-                  brand.status === 'active' ? 'bg-[#00B050] text-white' : 
-                  brand.status === 'pending' ? 'bg-[#FFCC00] text-[#111111]' : 'bg-[#E5E5E5] text-[#111111]'
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-3">
+                <h1 className="text-3xl font-bold text-[#4A3728]">{brand.name}</h1>
+                <Badge className={`rounded-full px-3 py-1 text-xs font-medium ${
+                  brand.status === 'active' ? 'bg-green-100 text-green-800' : 
+                  brand.status === 'pending' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-800'
                 }`}>
                   {brand.status || 'Pending'}
                 </Badge>
                 {brand.inventory_model && (
-                  <Badge className="rounded-sm text-xs bg-[#002FA7] text-white">
-                    {brand.inventory_model === 'sor' ? 'SOR' : 'Outright'}
+                  <Badge className="rounded-full px-3 py-1 text-xs font-medium bg-[#4A3728] text-white">
+                    {brand.inventory_model === 'sor' ? 'SOR Model' : 'Outright Purchase'}
                   </Badge>
                 )}
               </div>
-              <div className="flex items-center gap-4 text-sm text-[#555555]">
-                {brand.category && (
-                  <span className="flex items-center gap-1">
-                    <span className="text-[#111111] font-medium">{brand.division}</span>
-                    <span>/</span>
-                    <span>{brand.category}</span>
-                  </span>
+              
+              {/* Division, Segment, Categories */}
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                {brand.division && (
+                  <Badge variant="outline" className="rounded-full text-xs border-[#D4BBA6] text-[#4A3728] bg-[#F5EBE0]">
+                    {brand.division}
+                  </Badge>
                 )}
                 {brand.segment && (
-                  <Badge variant="outline" className="rounded-sm text-xs border-[#E5E5E5]">{brand.segment}</Badge>
+                  <Badge variant="outline" className="rounded-full text-xs border-[#D4BBA6] text-[#4A3728]">
+                    {brand.segment}
+                  </Badge>
+                )}
+                {brand.categories?.slice(0, 3).map((cat, idx) => (
+                  <Badge key={idx} className="rounded-full text-xs bg-[#F5EBE0] text-[#8B7355]">
+                    {cat}
+                  </Badge>
+                ))}
+                {brand.categories?.length > 3 && (
+                  <Badge className="rounded-full text-xs bg-gray-100 text-gray-600">
+                    +{brand.categories.length - 3} more
+                  </Badge>
                 )}
               </div>
-              <div className="flex items-center gap-4 mt-2 text-sm text-[#555555]">
+
+              {/* Quick Info Row */}
+              <div className="flex items-center gap-6 text-sm text-[#9C8C74]">
+                {brand.city && (
+                  <span className="flex items-center gap-1.5">
+                    <MapPin className="h-4 w-4" /> {brand.city}
+                  </span>
+                )}
+                {brand.founded_year && (
+                  <span className="flex items-center gap-1.5">
+                    <Calendar className="h-4 w-4" /> Est. {brand.founded_year}
+                  </span>
+                )}
+                {brand.price_range && (
+                  <span className="flex items-center gap-1.5">
+                    <DollarSign className="h-4 w-4" /> {brand.price_range}
+                  </span>
+                )}
+              </div>
+
+              {/* Social Links */}
+              <div className="flex items-center gap-3 mt-4">
                 {brand.website && (
-                  <a href={brand.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-[#002FA7]">
-                    <Globe className="h-3.5 w-3.5" /> Website
+                  <a 
+                    href={brand.website} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F5EBE0] text-[#4A3728] hover:bg-[#E8D5C4] transition-colors text-sm font-medium"
+                  >
+                    <Globe className="h-4 w-4" /> Website
                   </a>
                 )}
-                {brand.city && (
-                  <span className="flex items-center gap-1">
-                    <MapPin className="h-3.5 w-3.5" /> {brand.city}
-                  </span>
+                {brand.instagram && (
+                  <a 
+                    href={`https://instagram.com/${brand.instagram.replace('@', '')}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:opacity-90 transition-opacity text-sm font-medium"
+                  >
+                    <Instagram className="h-4 w-4" /> Instagram
+                  </a>
+                )}
+                {brand.linkedin && (
+                  <a 
+                    href={brand.linkedin.startsWith('http') ? brand.linkedin : `https://linkedin.com/company/${brand.linkedin}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#0077B5] text-white hover:opacity-90 transition-opacity text-sm font-medium"
+                  >
+                    <Linkedin className="h-4 w-4" /> LinkedIn
+                  </a>
                 )}
               </div>
             </div>
           </div>
+          
           {/* Actions */}
           <div className="flex items-center gap-2">
             <Button 
               variant="outline" 
               size="sm" 
               onClick={() => setShowCreateTask(true)}
-              className="rounded-sm border-[#111111] text-[#111111] hover:bg-[#E5E5E5]"
+              className="rounded-lg border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0]"
               data-testid="create-task-btn"
             >
-              <Plus className="h-4 w-4 mr-1" /> Task
+              <Plus className="h-4 w-4 mr-1.5" /> Task
             </Button>
             <Button 
               variant="outline" 
               size="sm" 
               onClick={() => { setEditForm(brand); setShowEditModal(true); }}
-              className="rounded-sm border-[#111111] text-[#111111] hover:bg-[#E5E5E5]"
+              className="rounded-lg border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0]"
               data-testid="edit-brand-btn"
             >
-              <Edit2 className="h-4 w-4 mr-1" /> Edit
+              <Edit2 className="h-4 w-4 mr-1.5" /> Edit
             </Button>
             <Button 
               variant="outline" 
               size="sm" 
               onClick={() => setShowDeleteConfirm(true)}
-              className="rounded-sm border-[#FF3B30] text-[#FF3B30] hover:bg-red-50"
+              className="rounded-lg border-red-300 text-red-600 hover:bg-red-50"
               data-testid="delete-brand-btn"
             >
               <Trash2 className="h-4 w-4" />
@@ -449,10 +528,60 @@ export default function BrandDetailPage() {
         </div>
       </div>
 
+      {/* Stats Cards Row */}
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="bg-white border border-[#E8D5C4] rounded-lg p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-[#9C8C74] uppercase tracking-wider font-medium">Contacts</p>
+              <p className="text-2xl font-bold text-[#4A3728] mt-1">{contacts.length}</p>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+              <Users className="h-5 w-5 text-blue-600" />
+            </div>
+          </div>
+        </div>
+        <div className="bg-white border border-[#E8D5C4] rounded-lg p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-[#9C8C74] uppercase tracking-wider font-medium">Tasks</p>
+              <p className="text-2xl font-bold text-[#4A3728] mt-1">{brandTasks.length}</p>
+              <p className="text-xs text-[#9C8C74]">{brandTasks.filter(t => t.status === 'completed').length} completed</p>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+              <ClipboardList className="h-5 w-5 text-purple-600" />
+            </div>
+          </div>
+        </div>
+        <div className="bg-white border border-[#E8D5C4] rounded-lg p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-[#9C8C74] uppercase tracking-wider font-medium">Emails Sent</p>
+              <p className="text-2xl font-bold text-[#4A3728] mt-1">{activityLogs.filter(l => l.event_type === 'email_sent').length}</p>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+              <Mail className="h-5 w-5 text-green-600" />
+            </div>
+          </div>
+        </div>
+        <div className="bg-white border border-[#E8D5C4] rounded-lg p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-[#9C8C74] uppercase tracking-wider font-medium">Notes</p>
+              <p className="text-2xl font-bold text-[#4A3728] mt-1">{notes.length}</p>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+              <MessageSquare className="h-5 w-5 text-amber-600" />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Pipeline Stepper */}
-      <div className="bg-white border border-[#E5E5E5] rounded-sm p-6 mb-6">
-        <div className="flex items-center gap-1 text-xs font-medium uppercase tracking-[0.15em] text-[#555555] mb-4">
+      <div className="bg-white border border-[#E8D5C4] rounded-lg shadow-sm p-6 mb-6">
+        <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.15em] text-[#9C8C74] mb-5">
           <span>Onboarding Pipeline</span>
+          {updatingStage && <Loader2 className="h-3 w-3 animate-spin" />}
         </div>
         <div className="flex items-center justify-between">
           {ONBOARDING_STAGES.map((stage, index) => (
@@ -460,29 +589,29 @@ export default function BrandDetailPage() {
               <button
                 onClick={() => !updatingStage && handleUpdateOnboardingStage(stage.id)}
                 disabled={updatingStage}
-                className={`flex flex-col items-center gap-2 flex-1 group ${updatingStage ? 'cursor-wait' : 'cursor-pointer'}`}
+                className={`flex flex-col items-center gap-2.5 flex-1 group ${updatingStage ? 'cursor-wait' : 'cursor-pointer'}`}
                 data-testid={`stage-${stage.id}`}
               >
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all shadow-sm ${
                   index <= currentStageIndex 
-                    ? 'bg-[#002FA7] text-white' 
-                    : 'bg-[#E5E5E5] text-[#555555] group-hover:bg-[#002FA7] group-hover:text-white'
+                    ? 'bg-[#4A3728] text-white' 
+                    : 'bg-[#F5EBE0] text-[#9C8C74] group-hover:bg-[#4A3728] group-hover:text-white'
                 }`}>
                   {index < currentStageIndex ? (
-                    <CheckCircle2 className="h-4 w-4" />
+                    <CheckCircle2 className="h-5 w-5" />
                   ) : (
                     index + 1
                   )}
                 </div>
-                <span className={`text-xs font-medium ${
-                  index <= currentStageIndex ? 'text-[#111111]' : 'text-[#555555]'
+                <span className={`text-xs font-medium transition-colors ${
+                  index <= currentStageIndex ? 'text-[#4A3728]' : 'text-[#9C8C74] group-hover:text-[#4A3728]'
                 }`}>
                   {stage.label}
                 </span>
               </button>
               {index < ONBOARDING_STAGES.length - 1 && (
-                <div className={`h-0.5 flex-1 mx-2 ${
-                  index < currentStageIndex ? 'bg-[#002FA7]' : 'bg-[#E5E5E5]'
+                <div className={`h-1 flex-1 mx-3 rounded-full transition-colors ${
+                  index < currentStageIndex ? 'bg-[#4A3728]' : 'bg-[#E8D5C4]'
                 }`} />
               )}
             </div>
@@ -491,56 +620,94 @@ export default function BrandDetailPage() {
       </div>
 
       {/* Main Grid: 4 columns */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Left Column: Company Details + Contacts */}
         <div className="col-span-1 space-y-6">
           {/* Company Details */}
-          <div className="bg-white border border-[#E5E5E5] rounded-sm p-6">
-            <h3 className="text-xs font-medium uppercase tracking-[0.15em] text-[#555555] mb-4">Company Details</h3>
-            <div className="space-y-3">
+          <div className="bg-white border border-[#E8D5C4] rounded-lg shadow-sm p-5">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.15em] text-[#9C8C74] mb-4 flex items-center gap-2">
+              <Building2 className="h-4 w-4" /> Company Details
+            </h3>
+            <div className="space-y-4">
               {brand.website && (
-                <div className="flex items-center gap-3">
-                  <Globe className="h-4 w-4 text-[#555555]" />
-                  <a href={brand.website} target="_blank" rel="noopener noreferrer" className="text-sm text-[#002FA7] hover:underline truncate">
-                    {brand.website.replace(/https?:\/\//, '')}
-                  </a>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#F5EBE0] flex items-center justify-center flex-shrink-0">
+                    <Globe className="h-4 w-4 text-[#4A3728]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-[#9C8C74] uppercase tracking-wider">Website</p>
+                    <a href={brand.website} target="_blank" rel="noopener noreferrer" className="text-sm text-[#4A3728] hover:underline truncate block">
+                      {brand.website.replace(/https?:\/\//, '')}
+                    </a>
+                  </div>
                 </div>
               )}
               {brand.city && (
-                <div className="flex items-center gap-3">
-                  <MapPin className="h-4 w-4 text-[#555555]" />
-                  <span className="text-sm text-[#111111]">{brand.city}</span>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#F5EBE0] flex items-center justify-center flex-shrink-0">
+                    <MapPin className="h-4 w-4 text-[#4A3728]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-[#9C8C74] uppercase tracking-wider">Location</p>
+                    <p className="text-sm text-[#4A3728]">{brand.city}</p>
+                  </div>
                 </div>
               )}
               {brand.founded_year && (
-                <div className="flex items-center gap-3">
-                  <Calendar className="h-4 w-4 text-[#555555]" />
-                  <span className="text-sm text-[#111111]">Founded {brand.founded_year}</span>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#F5EBE0] flex items-center justify-center flex-shrink-0">
+                    <Calendar className="h-4 w-4 text-[#4A3728]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-[#9C8C74] uppercase tracking-wider">Founded</p>
+                    <p className="text-sm text-[#4A3728]">{brand.founded_year}</p>
+                  </div>
                 </div>
               )}
               {brand.price_range && (
-                <div className="flex items-center gap-3">
-                  <DollarSign className="h-4 w-4 text-[#555555]" />
-                  <span className="text-sm text-[#111111]">{brand.price_range}</span>
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#F5EBE0] flex items-center justify-center flex-shrink-0">
+                    <DollarSign className="h-4 w-4 text-[#4A3728]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-[#9C8C74] uppercase tracking-wider">Price Range</p>
+                    <p className="text-sm text-[#4A3728]">{brand.price_range}</p>
+                  </div>
+                </div>
+              )}
+              {(brand.min_price || brand.max_price) && (
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#F5EBE0] flex items-center justify-center flex-shrink-0">
+                    <DollarSign className="h-4 w-4 text-[#4A3728]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-[#9C8C74] uppercase tracking-wider">Price Range</p>
+                    <p className="text-sm text-[#4A3728]">
+                      ₹{brand.min_price?.toLocaleString() || '0'} - ₹{brand.max_price?.toLocaleString() || '∞'}
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
             {brand.description && (
-              <div className="mt-4 pt-4 border-t border-[#E5E5E5]">
-                <p className="text-sm text-[#555555] leading-relaxed">{brand.description}</p>
+              <div className="mt-5 pt-5 border-t border-[#E8D5C4]">
+                <p className="text-xs text-[#9C8C74] uppercase tracking-wider mb-2">About</p>
+                <p className="text-sm text-[#4A3728] leading-relaxed">{brand.description}</p>
               </div>
             )}
           </div>
 
           {/* Contacts */}
-          <div className="bg-white border border-[#E5E5E5] rounded-sm p-6">
+          <div className="bg-white border border-[#E8D5C4] rounded-lg shadow-sm p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xs font-medium uppercase tracking-[0.15em] text-[#555555]">Contacts ({contacts.length})</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-[0.15em] text-[#9C8C74] flex items-center gap-2">
+                <Users className="h-4 w-4" /> Contacts ({contacts.length})
+              </h3>
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={() => setShowContactModal(true)}
-                className="h-7 px-2 text-[#002FA7] hover:bg-[#E5E5E5]"
+                className="h-8 px-2.5 text-[#4A3728] hover:bg-[#F5EBE0] rounded-lg"
                 data-testid="add-contact-btn"
               >
                 <Plus className="h-4 w-4" />
@@ -548,29 +715,42 @@ export default function BrandDetailPage() {
             </div>
             <div className="space-y-3">
               {contacts.length === 0 ? (
-                <p className="text-sm text-[#555555] text-center py-4">No contacts yet</p>
+                <div className="text-center py-6">
+                  <div className="w-12 h-12 rounded-full bg-[#F5EBE0] flex items-center justify-center mx-auto mb-3">
+                    <Users className="h-6 w-6 text-[#9C8C74]" />
+                  </div>
+                  <p className="text-sm text-[#9C8C74]">No contacts yet</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setShowContactModal(true)}
+                    className="mt-3 rounded-lg border-[#D4BBA6] text-[#4A3728] text-xs"
+                  >
+                    Add First Contact
+                  </Button>
+                </div>
               ) : (
-                contacts.slice(0, 4).map((contact, idx) => (
-                  <div key={contact.id || idx} className="flex items-center gap-3 p-2 hover:bg-[#F5F5F5] rounded-sm transition-colors">
-                    <div className="w-8 h-8 bg-[#002FA7] rounded-full flex items-center justify-center text-white text-xs font-medium">
+                contacts.slice(0, 5).map((contact, idx) => (
+                  <div key={contact.id || idx} className="flex items-center gap-3 p-3 hover:bg-[#F5EBE0] rounded-lg transition-colors group">
+                    <div className="w-10 h-10 bg-gradient-to-br from-[#4A3728] to-[#8B7355] rounded-full flex items-center justify-center text-white text-sm font-semibold shadow-sm">
                       {contact.name?.charAt(0)?.toUpperCase() || 'C'}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-[#111111] truncate">{contact.name}</p>
-                      <p className="text-xs text-[#555555] truncate">{contact.designation || contact.role || contact.email || contact.business_email}</p>
+                      <p className="text-sm font-medium text-[#4A3728] truncate">{contact.name}</p>
+                      <p className="text-xs text-[#9C8C74] truncate">{contact.designation || contact.role || contact.email || contact.business_email}</p>
                     </div>
                     <button
                       onClick={() => { setSelectedContact(contact); setShowEmailComposer(true); }}
-                      className="p-1.5 hover:bg-[#E5E5E5] rounded-sm"
+                      className="p-2 hover:bg-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
                       data-testid={`email-contact-${idx}`}
                     >
-                      <Mail className="h-4 w-4 text-[#555555]" />
+                      <Mail className="h-4 w-4 text-[#4A3728]" />
                     </button>
                   </div>
                 ))
               )}
-              {contacts.length > 4 && (
-                <Button variant="ghost" size="sm" className="w-full text-xs text-[#002FA7]">
+              {contacts.length > 5 && (
+                <Button variant="ghost" size="sm" className="w-full text-xs text-[#4A3728] hover:bg-[#F5EBE0] rounded-lg">
                   View all {contacts.length} contacts
                 </Button>
               )}
@@ -581,118 +761,122 @@ export default function BrandDetailPage() {
         {/* Middle Column: Agreement + Tabbed Content */}
         <div className="col-span-2 space-y-6">
           {/* Agreement & Financial Terms */}
-          <div className="bg-white border border-[#E5E5E5] rounded-sm p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xs font-medium uppercase tracking-[0.15em] text-[#555555]">Agreement & Financial Terms</h3>
+          <div className="bg-white border border-[#E8D5C4] rounded-lg shadow-sm p-5">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.15em] text-[#9C8C74] flex items-center gap-2">
+                <FileText className="h-4 w-4" /> Agreement & Financial Terms
+              </h3>
               <div className="flex items-center gap-2">
                 {brand.inventory_model && (brand.agreement_status !== 'sent' && brand.agreement_status !== 'signed') && (
                   <Button 
                     size="sm" 
                     onClick={handleSendAgreement}
-                    className="h-7 rounded-sm bg-[#002FA7] hover:bg-[#001f7a] text-white"
+                    className="h-8 rounded-lg bg-[#4A3728] hover:bg-[#3A2A1E] text-white text-xs"
                     data-testid="send-agreement-btn"
                   >
-                    <Send className="h-3.5 w-3.5 mr-1" /> Send Agreement
+                    <Send className="h-3.5 w-3.5 mr-1.5" /> Send Agreement
                   </Button>
                 )}
                 <Button 
                   variant="outline" 
                   size="sm" 
                   onClick={() => setShowAgreementModal(true)}
-                  className="h-7 rounded-sm border-[#E5E5E5] hover:bg-[#F5F5F5]"
+                  className="h-8 rounded-lg border-[#D4BBA6] text-[#4A3728] hover:bg-[#F5EBE0] text-xs"
                   data-testid="edit-agreement-btn"
                 >
-                  <Edit2 className="h-3.5 w-3.5 mr-1" /> Edit
+                  <Edit2 className="h-3.5 w-3.5 mr-1.5" /> Edit
                 </Button>
               </div>
             </div>
             
             {!brand.inventory_model ? (
-              <div className="text-center py-8">
-                <FileText className="h-10 w-10 text-[#E5E5E5] mx-auto mb-3" />
-                <p className="text-sm text-[#555555] mb-3">No agreement configured</p>
+              <div className="text-center py-10 bg-[#F5EBE0] rounded-lg">
+                <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center mx-auto mb-4 shadow-sm">
+                  <FileText className="h-7 w-7 text-[#9C8C74]" />
+                </div>
+                <p className="text-sm text-[#9C8C74] mb-4">No agreement configured yet</p>
                 <Button 
                   onClick={() => setShowAgreementModal(true)} 
-                  className="rounded-sm bg-[#002FA7] hover:bg-[#001f7a]"
+                  className="rounded-lg bg-[#4A3728] hover:bg-[#3A2A1E]"
                   data-testid="add-agreement-btn"
                 >
-                  Add Agreement Details
+                  <Plus className="h-4 w-4 mr-1.5" /> Add Agreement Details
                 </Button>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <span className="text-xs text-[#555555] uppercase tracking-wider">Model</span>
-                    <p className="text-sm font-medium text-[#111111] mt-1">
+                <div className="space-y-5">
+                  <div className="p-4 bg-[#F5EBE0] rounded-lg">
+                    <span className="text-xs text-[#9C8C74] uppercase tracking-wider font-medium">Inventory Model</span>
+                    <p className="text-lg font-semibold text-[#4A3728] mt-1">
                       {brand.inventory_model === 'sor' ? 'Sale or Return (SOR)' : 'Outright Purchase'}
                     </p>
                   </div>
                   {brand.inventory_model === 'sor' ? (
                     <>
                       {brand.commission_rate && (
-                        <div>
-                          <span className="text-xs text-[#555555] uppercase tracking-wider">Commission</span>
-                          <p className="text-sm font-medium text-[#111111] mt-1">{brand.commission_rate}%</p>
+                        <div className="flex items-center justify-between p-3 border border-[#E8D5C4] rounded-lg">
+                          <span className="text-xs text-[#9C8C74] uppercase tracking-wider">Commission</span>
+                          <span className="text-lg font-semibold text-[#4A3728]">{brand.commission_rate}%</span>
                         </div>
                       )}
                       {brand.payout_terms && (
-                        <div>
-                          <span className="text-xs text-[#555555] uppercase tracking-wider">Payout Terms</span>
-                          <p className="text-sm font-medium text-[#111111] mt-1">{brand.payout_terms}</p>
+                        <div className="flex items-center justify-between p-3 border border-[#E8D5C4] rounded-lg">
+                          <span className="text-xs text-[#9C8C74] uppercase tracking-wider">Payout Terms</span>
+                          <span className="text-sm font-medium text-[#4A3728]">{brand.payout_terms}</span>
                         </div>
                       )}
                     </>
                   ) : (
                     <>
                       {brand.margin && (
-                        <div>
-                          <span className="text-xs text-[#555555] uppercase tracking-wider">Margin</span>
-                          <p className="text-sm font-medium text-[#111111] mt-1">{brand.margin}%</p>
+                        <div className="flex items-center justify-between p-3 border border-[#E8D5C4] rounded-lg">
+                          <span className="text-xs text-[#9C8C74] uppercase tracking-wider">Margin</span>
+                          <span className="text-lg font-semibold text-[#4A3728]">{brand.margin}%</span>
                         </div>
                       )}
                       {brand.payment_terms && (
-                        <div>
-                          <span className="text-xs text-[#555555] uppercase tracking-wider">Payment Terms</span>
-                          <p className="text-sm font-medium text-[#111111] mt-1">{brand.payment_terms}</p>
+                        <div className="flex items-center justify-between p-3 border border-[#E8D5C4] rounded-lg">
+                          <span className="text-xs text-[#9C8C74] uppercase tracking-wider">Payment Terms</span>
+                          <span className="text-sm font-medium text-[#4A3728]">{brand.payment_terms}</span>
                         </div>
                       )}
                       {brand.credit_limit && (
-                        <div>
-                          <span className="text-xs text-[#555555] uppercase tracking-wider">Credit Limit</span>
-                          <p className="text-sm font-medium text-[#111111] mt-1">₹{brand.credit_limit.toLocaleString()}</p>
+                        <div className="flex items-center justify-between p-3 border border-[#E8D5C4] rounded-lg">
+                          <span className="text-xs text-[#9C8C74] uppercase tracking-wider">Credit Limit</span>
+                          <span className="text-lg font-semibold text-[#4A3728]">₹{brand.credit_limit.toLocaleString()}</span>
                         </div>
                       )}
                     </>
                   )}
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-5">
                   {brand.contract_start_date && (
-                    <div>
-                      <span className="text-xs text-[#555555] uppercase tracking-wider">Contract Period</span>
-                      <p className="text-sm font-medium text-[#111111] mt-1">
+                    <div className="p-4 bg-[#F5EBE0] rounded-lg">
+                      <span className="text-xs text-[#9C8C74] uppercase tracking-wider font-medium">Contract Period</span>
+                      <p className="text-sm font-medium text-[#4A3728] mt-1">
                         {new Date(brand.contract_start_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                         {brand.contract_end_date && (
-                          <> - {new Date(brand.contract_end_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</>
+                          <> → {new Date(brand.contract_end_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</>
                         )}
                       </p>
                     </div>
                   )}
                   {brand.stock_correction && (
-                    <div>
-                      <span className="text-xs text-[#555555] uppercase tracking-wider">Stock Correction</span>
-                      <p className="text-sm text-[#111111] mt-1">{brand.stock_correction}</p>
+                    <div className="flex items-center justify-between p-3 border border-[#E8D5C4] rounded-lg">
+                      <span className="text-xs text-[#9C8C74] uppercase tracking-wider">Stock Correction</span>
+                      <span className="text-sm text-[#4A3728]">{brand.stock_correction}</span>
                     </div>
                   )}
                   {brand.agreement_status && (
-                    <div>
-                      <span className="text-xs text-[#555555] uppercase tracking-wider">Agreement Status</span>
-                      <Badge className={`mt-1 rounded-sm text-xs ${
-                        brand.agreement_status === 'signed' ? 'bg-[#00B050] text-white' :
-                        brand.agreement_status === 'sent' ? 'bg-[#FFCC00] text-[#111111]' :
-                        'bg-[#E5E5E5] text-[#555555]'
+                    <div className="flex items-center justify-between p-3 border border-[#E8D5C4] rounded-lg">
+                      <span className="text-xs text-[#9C8C74] uppercase tracking-wider">Agreement Status</span>
+                      <Badge className={`rounded-full px-3 py-1 text-xs font-medium ${
+                        brand.agreement_status === 'signed' ? 'bg-green-100 text-green-800' :
+                        brand.agreement_status === 'sent' ? 'bg-amber-100 text-amber-800' :
+                        'bg-gray-100 text-gray-600'
                       }`}>
-                        {brand.agreement_status}
+                        {brand.agreement_status.charAt(0).toUpperCase() + brand.agreement_status.slice(1)}
                       </Badge>
                     </div>
                   )}
@@ -702,45 +886,50 @@ export default function BrandDetailPage() {
           </div>
 
           {/* Tabbed Content: Activity, Emails, Notes */}
-          <div className="bg-white border border-[#E5E5E5] rounded-sm">
+          <div className="bg-white border border-[#E8D5C4] rounded-lg shadow-sm overflow-hidden">
             <Tabs value={contentTab} onValueChange={setContentTab}>
-              <div className="border-b border-[#E5E5E5] px-6">
-                <TabsList className="h-12 bg-transparent gap-6">
+              <div className="border-b border-[#E8D5C4] px-5 bg-[#F5EBE0]/50">
+                <TabsList className="h-12 bg-transparent gap-8">
                   <TabsTrigger 
                     value="activity" 
-                    className="data-[state=active]:border-b-2 data-[state=active]:border-[#111111] data-[state=active]:text-[#111111] rounded-none text-xs uppercase tracking-wider font-medium text-[#555555] px-0 pb-3"
+                    className="data-[state=active]:border-b-2 data-[state=active]:border-[#4A3728] data-[state=active]:text-[#4A3728] rounded-none text-xs uppercase tracking-wider font-semibold text-[#9C8C74] px-0 pb-3 hover:text-[#4A3728]"
                   >
-                    Activity
+                    <History className="h-4 w-4 mr-1.5" /> Activity
                   </TabsTrigger>
                   <TabsTrigger 
                     value="emails" 
-                    className="data-[state=active]:border-b-2 data-[state=active]:border-[#111111] data-[state=active]:text-[#111111] rounded-none text-xs uppercase tracking-wider font-medium text-[#555555] px-0 pb-3"
+                    className="data-[state=active]:border-b-2 data-[state=active]:border-[#4A3728] data-[state=active]:text-[#4A3728] rounded-none text-xs uppercase tracking-wider font-semibold text-[#9C8C74] px-0 pb-3 hover:text-[#4A3728]"
                   >
-                    Emails
+                    <Mail className="h-4 w-4 mr-1.5" /> Emails
                   </TabsTrigger>
                   <TabsTrigger 
                     value="notes" 
-                    className="data-[state=active]:border-b-2 data-[state=active]:border-[#111111] data-[state=active]:text-[#111111] rounded-none text-xs uppercase tracking-wider font-medium text-[#555555] px-0 pb-3"
+                    className="data-[state=active]:border-b-2 data-[state=active]:border-[#4A3728] data-[state=active]:text-[#4A3728] rounded-none text-xs uppercase tracking-wider font-semibold text-[#9C8C74] px-0 pb-3 hover:text-[#4A3728]"
                   >
-                    Notes
+                    <MessageSquare className="h-4 w-4 mr-1.5" /> Notes
                   </TabsTrigger>
                 </TabsList>
               </div>
               
               {/* Activity Tab */}
-              <TabsContent value="activity" className="p-6 pt-4">
+              <TabsContent value="activity" className="p-5">
                 <div className="space-y-4 max-h-[400px] overflow-y-auto">
                   {activityLogs.length === 0 ? (
-                    <p className="text-sm text-[#555555] text-center py-8">No activity yet</p>
+                    <div className="text-center py-10">
+                      <div className="w-12 h-12 rounded-full bg-[#F5EBE0] flex items-center justify-center mx-auto mb-3">
+                        <History className="h-6 w-6 text-[#9C8C74]" />
+                      </div>
+                      <p className="text-sm text-[#9C8C74]">No activity recorded yet</p>
+                    </div>
                   ) : (
                     activityLogs.map((log, idx) => (
-                      <div key={idx} className="flex gap-3 pb-4 border-b border-[#E5E5E5] last:border-0">
-                        <div className="w-8 h-8 bg-[#F5F5F5] rounded-full flex items-center justify-center flex-shrink-0">
-                          <History className="h-4 w-4 text-[#555555]" />
+                      <div key={idx} className="flex gap-3 pb-4 border-b border-[#E8D5C4] last:border-0">
+                        <div className="w-9 h-9 bg-[#F5EBE0] rounded-full flex items-center justify-center flex-shrink-0">
+                          <History className="h-4 w-4 text-[#4A3728]" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-[#111111]">{log.action || log.event_type}</p>
-                          <p className="text-xs text-[#555555] mt-1">
+                          <p className="text-sm text-[#4A3728]">{log.action || log.event_type}</p>
+                          <p className="text-xs text-[#9C8C74] mt-1">
                             {new Date(log.created_at || log.timestamp).toLocaleDateString('en-IN', { 
                               day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
                             })}
@@ -753,14 +942,14 @@ export default function BrandDetailPage() {
               </TabsContent>
 
               {/* Emails Tab */}
-              <TabsContent value="emails" className="p-6 pt-4">
+              <TabsContent value="emails" className="p-5">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex gap-2">
                     <Button 
                       variant={mailboxTab === 'sent' ? 'default' : 'outline'} 
                       size="sm"
                       onClick={() => setMailboxTab('sent')}
-                      className={`rounded-sm text-xs ${mailboxTab === 'sent' ? 'bg-[#111111] text-white' : 'border-[#E5E5E5]'}`}
+                      className={`rounded-lg text-xs ${mailboxTab === 'sent' ? 'bg-[#4A3728] text-white' : 'border-[#D4BBA6] text-[#4A3728]'}`}
                     >
                       Sent
                     </Button>
@@ -768,7 +957,7 @@ export default function BrandDetailPage() {
                       variant={mailboxTab === 'inbox' ? 'default' : 'outline'} 
                       size="sm"
                       onClick={() => { setMailboxTab('inbox'); if (inboxEmails.length === 0) fetchInboxEmails(); }}
-                      className={`rounded-sm text-xs ${mailboxTab === 'inbox' ? 'bg-[#111111] text-white' : 'border-[#E5E5E5]'}`}
+                      className={`rounded-lg text-xs ${mailboxTab === 'inbox' ? 'bg-[#4A3728] text-white' : 'border-[#D4BBA6] text-[#4A3728]'}`}
                     >
                       Inbox
                     </Button>
@@ -776,44 +965,54 @@ export default function BrandDetailPage() {
                   <Button 
                     size="sm" 
                     onClick={() => setShowEmailComposer(true)}
-                    className="rounded-sm bg-[#002FA7] hover:bg-[#001f7a] text-xs"
+                    className="rounded-lg bg-[#4A3728] hover:bg-[#3A2A1E] text-xs"
                     data-testid="compose-email-btn"
                   >
-                    <Mail className="h-3.5 w-3.5 mr-1" /> Compose
+                    <Mail className="h-3.5 w-3.5 mr-1.5" /> Compose
                   </Button>
                 </div>
                 <div className="space-y-3 max-h-[350px] overflow-y-auto">
                   {mailboxTab === 'sent' ? (
                     activityLogs.filter(l => l.event_type === 'email_sent').length === 0 ? (
-                      <p className="text-sm text-[#555555] text-center py-8">No emails sent yet</p>
+                      <div className="text-center py-10">
+                        <div className="w-12 h-12 rounded-full bg-[#F5EBE0] flex items-center justify-center mx-auto mb-3">
+                          <Send className="h-6 w-6 text-[#9C8C74]" />
+                        </div>
+                        <p className="text-sm text-[#9C8C74]">No emails sent yet</p>
+                      </div>
                     ) : (
                       activityLogs.filter(l => l.event_type === 'email_sent').map((email, idx) => (
-                        <div key={idx} className="p-3 border border-[#E5E5E5] rounded-sm hover:bg-[#F5F5F5]">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-medium text-[#111111]">{email.subject || 'No subject'}</span>
-                            <span className="text-xs text-[#555555]">
+                        <div key={idx} className="p-4 border border-[#E8D5C4] rounded-lg hover:bg-[#F5EBE0] transition-colors">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-[#4A3728]">{email.subject || 'No subject'}</span>
+                            <span className="text-xs text-[#9C8C74]">
                               {new Date(email.timestamp).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                             </span>
                           </div>
-                          <p className="text-xs text-[#555555]">To: {email.recipient_email}</p>
+                          <p className="text-xs text-[#9C8C74]">To: {email.recipient_email}</p>
                         </div>
                       ))
                     )
                   ) : (
                     loadingInbox ? (
-                      <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-[#555555]" /></div>
+                      <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-[#9C8C74]" /></div>
                     ) : inboxEmails.length === 0 ? (
-                      <p className="text-sm text-[#555555] text-center py-8">No emails received</p>
+                      <div className="text-center py-10">
+                        <div className="w-12 h-12 rounded-full bg-[#F5EBE0] flex items-center justify-center mx-auto mb-3">
+                          <Mail className="h-6 w-6 text-[#9C8C74]" />
+                        </div>
+                        <p className="text-sm text-[#9C8C74]">No emails received</p>
+                      </div>
                     ) : (
                       inboxEmails.map((email, idx) => (
-                        <div key={idx} className="p-3 border border-[#E5E5E5] rounded-sm hover:bg-[#F5F5F5]">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-medium text-[#111111]">{email.subject}</span>
-                            <span className="text-xs text-[#555555]">
+                        <div key={idx} className="p-4 border border-[#E8D5C4] rounded-lg hover:bg-[#F5EBE0] transition-colors">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-[#4A3728]">{email.subject}</span>
+                            <span className="text-xs text-[#9C8C74]">
                               {new Date(email.received_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                             </span>
                           </div>
-                          <p className="text-xs text-[#555555]">From: {email.from_email}</p>
+                          <p className="text-xs text-[#9C8C74]">From: {email.from_email}</p>
                         </div>
                       ))
                     )
@@ -822,26 +1021,31 @@ export default function BrandDetailPage() {
               </TabsContent>
 
               {/* Notes Tab */}
-              <TabsContent value="notes" className="p-6 pt-4">
+              <TabsContent value="notes" className="p-5">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-xs text-[#555555]">{notes.length} notes</span>
+                  <span className="text-xs text-[#9C8C74] font-medium">{notes.length} notes</span>
                   <Button 
                     size="sm" 
                     onClick={() => setShowNoteModal(true)}
-                    className="rounded-sm bg-[#002FA7] hover:bg-[#001f7a] text-xs"
+                    className="rounded-lg bg-[#4A3728] hover:bg-[#3A2A1E] text-xs"
                     data-testid="add-note-btn"
                   >
-                    <Plus className="h-3.5 w-3.5 mr-1" /> Add Note
+                    <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Note
                   </Button>
                 </div>
                 <div className="space-y-3 max-h-[350px] overflow-y-auto">
                   {notes.length === 0 ? (
-                    <p className="text-sm text-[#555555] text-center py-8">No notes yet</p>
+                    <div className="text-center py-10">
+                      <div className="w-12 h-12 rounded-full bg-[#F5EBE0] flex items-center justify-center mx-auto mb-3">
+                        <MessageSquare className="h-6 w-6 text-[#9C8C74]" />
+                      </div>
+                      <p className="text-sm text-[#9C8C74]">No notes yet</p>
+                    </div>
                   ) : (
                     notes.map((note, idx) => (
-                      <div key={idx} className="p-3 border border-[#E5E5E5] rounded-sm">
-                        <p className="text-sm text-[#111111] whitespace-pre-wrap">{note.content}</p>
-                        <p className="text-xs text-[#555555] mt-2">
+                      <div key={idx} className="p-4 border border-[#E8D5C4] rounded-lg bg-[#F5EBE0]/30">
+                        <p className="text-sm text-[#4A3728] whitespace-pre-wrap">{note.content}</p>
+                        <p className="text-xs text-[#9C8C74] mt-3 pt-2 border-t border-[#E8D5C4]">
                           {new Date(note.created_at).toLocaleDateString('en-IN', { 
                             day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
                           })}
@@ -857,14 +1061,16 @@ export default function BrandDetailPage() {
 
         {/* Right Column: Tasks */}
         <div className="col-span-1">
-          <div className="bg-white border border-[#E5E5E5] rounded-sm p-6">
+          <div className="bg-white border border-[#E8D5C4] rounded-lg shadow-sm p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xs font-medium uppercase tracking-[0.15em] text-[#555555]">Tasks ({brandTasks.length})</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-[0.15em] text-[#9C8C74] flex items-center gap-2">
+                <ClipboardList className="h-4 w-4" /> Tasks ({brandTasks.length})
+              </h3>
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={() => setShowCreateTask(true)}
-                className="h-7 px-2 text-[#002FA7] hover:bg-[#E5E5E5]"
+                className="h-8 px-2.5 text-[#4A3728] hover:bg-[#F5EBE0] rounded-lg"
                 data-testid="add-task-btn"
               >
                 <Plus className="h-4 w-4" />
@@ -872,16 +1078,18 @@ export default function BrandDetailPage() {
             </div>
             <div className="space-y-3 max-h-[500px] overflow-y-auto">
               {loadingTasks ? (
-                <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-[#555555]" /></div>
+                <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-[#9C8C74]" /></div>
               ) : brandTasks.length === 0 ? (
-                <div className="text-center py-8">
-                  <ClipboardList className="h-8 w-8 text-[#E5E5E5] mx-auto mb-2" />
-                  <p className="text-sm text-[#555555]">No tasks yet</p>
+                <div className="text-center py-10">
+                  <div className="w-14 h-14 rounded-full bg-[#F5EBE0] flex items-center justify-center mx-auto mb-4">
+                    <ClipboardList className="h-7 w-7 text-[#9C8C74]" />
+                  </div>
+                  <p className="text-sm text-[#9C8C74] mb-4">No tasks yet</p>
                   <Button 
                     onClick={() => setShowCreateTask(true)} 
                     variant="outline"
                     size="sm"
-                    className="mt-3 rounded-sm border-[#E5E5E5] text-xs"
+                    className="rounded-lg border-[#D4BBA6] text-[#4A3728] text-xs"
                   >
                     Create First Task
                   </Button>
@@ -890,38 +1098,40 @@ export default function BrandDetailPage() {
                 brandTasks.map((task) => (
                   <div 
                     key={task.id} 
-                    className={`p-3 border rounded-sm transition-colors ${
-                      task.status === 'completed' ? 'bg-[#F5F5F5] border-[#E5E5E5]' : 'border-[#E5E5E5] hover:border-[#002FA7]'
+                    className={`p-4 border rounded-lg transition-all ${
+                      task.status === 'completed' 
+                        ? 'bg-[#F5EBE0]/50 border-[#E8D5C4]' 
+                        : 'border-[#E8D5C4] hover:border-[#4A3728] hover:shadow-sm'
                     }`}
                   >
-                    <div className="flex items-start gap-2">
+                    <div className="flex items-start gap-3">
                       <button
                         onClick={() => handleUpdateTaskStatus(task.id, task.status === 'completed' ? 'pending' : 'completed')}
                         className="mt-0.5 flex-shrink-0"
                         data-testid={`toggle-task-${task.id}`}
                       >
                         {task.status === 'completed' ? (
-                          <CheckSquare className="h-4 w-4 text-[#00B050]" />
+                          <CheckSquare className="h-5 w-5 text-green-600" />
                         ) : (
-                          <Circle className="h-4 w-4 text-[#555555] hover:text-[#002FA7]" />
+                          <Circle className="h-5 w-5 text-[#9C8C74] hover:text-[#4A3728] transition-colors" />
                         )}
                       </button>
                       <div className="flex-1 min-w-0">
-                        <p className={`text-sm ${task.status === 'completed' ? 'line-through text-[#555555]' : 'text-[#111111]'}`}>
+                        <p className={`text-sm font-medium ${task.status === 'completed' ? 'line-through text-[#9C8C74]' : 'text-[#4A3728]'}`}>
                           {task.title}
                         </p>
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <Badge className={`rounded-sm text-[10px] ${
-                            task.priority === 'urgent' ? 'bg-[#FF3B30] text-white' :
-                            task.priority === 'high' ? 'bg-[#FFCC00] text-[#111111]' :
-                            'bg-[#E5E5E5] text-[#555555]'
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          <Badge className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                            task.priority === 'urgent' ? 'bg-red-100 text-red-800' :
+                            task.priority === 'high' ? 'bg-amber-100 text-amber-800' :
+                            'bg-gray-100 text-gray-600'
                           }`}>
                             {task.priority}
                           </Badge>
                           {task.due_date && (
-                            <span className={`text-[10px] flex items-center gap-1 ${
+                            <span className={`text-[10px] flex items-center gap-1 px-2 py-0.5 rounded-full ${
                               new Date(task.due_date) < new Date() && task.status !== 'completed'
-                                ? 'text-[#FF3B30]' : 'text-[#555555]'
+                                ? 'bg-red-100 text-red-700' : 'bg-[#F5EBE0] text-[#9C8C74]'
                             }`}>
                               <Calendar className="h-3 w-3" />
                               {new Date(task.due_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
